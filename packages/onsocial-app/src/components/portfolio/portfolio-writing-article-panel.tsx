@@ -9,6 +9,7 @@ import {
   BookmarkFillIcon,
   BookmarkIcon,
   CheckIcon,
+  CopyIcon,
   Divider,
   HeartFillIcon,
   HeartIcon,
@@ -262,6 +263,9 @@ export function PortfolioWritingArticleActions({
             {
               id: 'copy',
               label: shareCopied ? 'Link copied' : 'Copy link',
+              leading: (
+                <CopyIcon className="os-action-drawer-icon" aria-hidden />
+              ),
               onSelect: () => {
                 setShareOpen(false);
                 shareArticle();

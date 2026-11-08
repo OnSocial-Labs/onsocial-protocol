@@ -1,7 +1,18 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { replaceSheet } from '@onsocial/ui';
+import {
+  Box3dIcon,
+  EditPenIcon,
+  FireIcon,
+  GiftIcon,
+  GlobeIcon,
+  InformationCircleIcon,
+  NoteTextIcon,
+  replaceSheet,
+  SettingsIcon,
+  StarMovingIcon,
+} from '@onsocial/ui';
 import {
   ActionDrawer,
   type ActionDrawerItem,
@@ -124,6 +135,9 @@ export function DaoManageSheet({
             id: 'propose',
             label: 'Propose',
             description: 'Create a governance proposal',
+            leading: (
+              <NoteTextIcon className="os-action-drawer-icon" aria-hidden />
+            ),
             onSelect: () => run('propose'),
           } satisfies ActionDrawerItem,
         ]
@@ -134,6 +148,9 @@ export function DaoManageSheet({
             id: 'stake',
             label: 'Stake',
             description: 'Deposit and delegate SOCIAL',
+            leading: (
+              <Box3dIcon className="os-action-drawer-icon" aria-hidden />
+            ),
             onSelect: () => run('stake'),
           } satisfies ActionDrawerItem,
         ]
@@ -142,12 +159,21 @@ export function DaoManageSheet({
       id: 'settings',
       label: 'Settings',
       description: 'Change policy via proposal',
+      leading: (
+        <SettingsIcon className="os-action-drawer-icon" aria-hidden />
+      ),
       onSelect: () => run('settings'),
     },
     {
       id: 'info',
       label: 'Info',
       description: 'Policy, bond, and treasury snapshot',
+      leading: (
+        <InformationCircleIcon
+          className="os-action-drawer-icon"
+          aria-hidden
+        />
+      ),
       onSelect: () => run('info'),
     },
     ...(canEdit
@@ -156,6 +182,9 @@ export function DaoManageSheet({
             id: 'edit',
             label: 'Edit profile',
             description: 'Cover, crest, name, and purpose (config)',
+            leading: (
+              <EditPenIcon className="os-action-drawer-icon" aria-hidden />
+            ),
             onSelect: () => run('edit'),
           } satisfies ActionDrawerItem,
         ]
@@ -166,18 +195,27 @@ export function DaoManageSheet({
             id: 'publish-social',
             label: 'Publish OnSocial profile',
             description: 'Face, About page, and profile keys',
+            leading: (
+              <GlobeIcon className="os-action-drawer-icon" aria-hidden />
+            ),
             onSelect: () => run('publish-social'),
           },
           {
             id: 'propose-mood',
             label: 'Propose mood',
             description: 'Council Call to set the page look',
+            leading: (
+              <StarMovingIcon className="os-action-drawer-icon" aria-hidden />
+            ),
             onSelect: () => run('propose-mood'),
           },
           {
             id: 'boost',
             label: 'Boost',
             description: 'Lock treasury SOCIAL into Boost',
+            leading: (
+              <FireIcon className="os-action-drawer-icon" aria-hidden />
+            ),
             onSelect: () => run('boost'),
           },
         ]
@@ -188,6 +226,9 @@ export function DaoManageSheet({
             id: 'claim-support',
             label: 'Claim support',
             description: `Propose collecting ${claimSupportLabel} to the DAO wallet`,
+            leading: (
+              <GiftIcon className="os-action-drawer-icon" aria-hidden />
+            ),
             onSelect: () => run('claim-support'),
           } satisfies ActionDrawerItem,
         ]

@@ -16,6 +16,7 @@ Product UI icons come from `@onsocial/ui` Mage wrappers only.
 - Prefer existing exports from `@onsocial/ui` (`MultiplyIcon`, `PlusIcon`, `SearchIcon`, brand fills, etc.). Add new Mage wrappers in `mage-stroke-icons.tsx` / `mage-fill-icons.tsx` / `mage-brand-fill-icons.tsx` when a glyph is missing.
 - Size with CSS classes (`width` / `height`), not Lucide `size` props.
 - Avoid CSS `stroke-width` overrides unless matching the 2px default.
+- **Mute stroke glyphs** with opaque `color` + SVG `opacity` (class `mage-stroke-icon` / `mage-stroke-icons.css`). Never `color: rgb(fg / α)` on multi-path strokes — joins stack brighter. Destructive / brand inks stay opaque at `opacity: 1`. Text may still use color alpha.
 
 ## Exceptions
 

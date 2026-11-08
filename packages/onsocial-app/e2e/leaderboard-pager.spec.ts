@@ -96,11 +96,10 @@ test.describe('leaderboard pager', () => {
       };
     });
     if (!chipSpan) throw new Error('leaderboard chips are not on screen');
-    // Standing rows keep a 0.35rem negative margin, so the line wash sits
-    // just outside the shared content inset the chips use.
+    // Standing-row hover bleed past the shared content inset.
     const rowOutset = await page.evaluate(
       () =>
-        0.35 * parseFloat(getComputedStyle(document.documentElement).fontSize)
+        0.25 * parseFloat(getComputedStyle(document.documentElement).fontSize)
     );
     expect(
       Math.abs(chipSpan.chipLeft - rowOutset - chipSpan.lineLeft)

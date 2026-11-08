@@ -35,8 +35,7 @@ test.describe('page drawer feed inset', () => {
       return {
         bodyPadX: bodyStyle.paddingLeft,
         headerPadX: headerStyle.paddingLeft,
-        // Drawers use --os-sheet-pad-inline, which tracks the 0.5rem gutter.
-        expectedPadX: `${rootFont * 0.5}px`,
+        expectedPadX: `${rootFont * 0.75}px`,
         gutter: getComputedStyle(body).getPropertyValue('--os-gutter').trim(),
         hasPanelBody: Boolean(body.querySelector('.panel-body')),
         hasPlaceholder: Boolean(document.querySelector('.panel-placeholder')),
@@ -49,7 +48,7 @@ test.describe('page drawer feed inset', () => {
     });
 
     expect(metrics).not.toBeNull();
-    expect(['0.5rem', '.5rem']).toContain(metrics?.gutter);
+    expect(['0.75rem', '.75rem']).toContain(metrics?.gutter);
     expect(metrics?.bodyPadX).toBe(metrics?.expectedPadX);
     expect(metrics?.headerPadX).toBe(metrics?.expectedPadX);
     expect(metrics?.hasPanelBody).toBe(false);

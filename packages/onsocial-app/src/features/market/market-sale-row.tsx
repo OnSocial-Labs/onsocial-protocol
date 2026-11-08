@@ -6,7 +6,7 @@ import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import { MarketListingRowMenu } from '@/features/market/market-listing-row-menu';
 import {
   collectionIdFromTokenId,
-  formatMarketRelativeTime,
+  formatMarketVerbStamp,
   type MarketSaleItem,
 } from '@/features/market/market-listings';
 import {
@@ -86,7 +86,7 @@ export function MarketSaleRow({
 }) {
   const openMarketPost = useMarketPostLayer();
   const partyId = salePartyAccountId(sale);
-  const saleTime = formatMarketRelativeTime(sale.blockTimestamp);
+  const saleTime = formatMarketVerbStamp('Sold', sale.blockTimestamp);
   const detail = marketSaleDetailHref(sale);
   const postHandlers = detail
     ? marketPostLayerLinkHandlers(detail.href, openMarketPost)

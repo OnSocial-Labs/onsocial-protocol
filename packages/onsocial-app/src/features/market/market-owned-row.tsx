@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import {
@@ -16,7 +15,7 @@ import {
 } from '@onsocial/ui';
 import {
   auctionExpiresAtMs,
-  formatMarketRelativeTime,
+  formatMarketVerbStamp,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
 import { marketAuctionClockLabel } from '@/features/scarces/scarce-auction';
@@ -32,7 +31,6 @@ import {
   holdingsHrefForOwned,
 } from '@/lib/portfolio-holdings';
 import { OsRowAction } from '@/lib/os-row-action';
-import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
 
 interface MarketOwnedRowProps {
   item: OwnedScarceItem;
@@ -53,7 +51,7 @@ interface MarketOwnedRowProps {
   authorAvatarUrl?: string | null;
 }
 
-/** Corner clock. Listed rows say Listed / Ended / Ends in. The rest say when it arrived. */
+/** Corner clock. Listed rows say Listed / Ended / Ends in. The rest say Minted. */
 export function ownedListingClock(
   item: Pick<
     OwnedScarceItem,
@@ -66,14 +64,14 @@ export function ownedListingClock(
     if (label) return { label, atMs: auctionExpiresAtMs(item.expiresAtNs) };
   } else if (item.listingKind === 'fixed') {
     const atMs = normalizeSocialTimestamp(item.listedAtMs);
-    const rel = atMs ? formatMarketRelativeTime(atMs, nowMs) : '';
-    if (atMs && rel) return { label: `Listed ${rel}`, atMs };
+    const label = atMs ? formatMarketVerbStamp('Listed', atMs, nowMs) : '';
+    if (atMs && label) return { label, atMs };
   }
   const mintedAtMs = normalizeSocialTimestamp(item.mintedAtMs);
   if (!mintedAtMs) return null;
-  const rel = formatMarketRelativeTime(mintedAtMs, nowMs);
-  if (!rel) return null;
-  return { label: rel, atMs: mintedAtMs };
+  const label = formatMarketVerbStamp('Minted', mintedAtMs, nowMs);
+  if (!label) return null;
+  return { label, atMs: mintedAtMs };
 }
 
 /** Line under the title. The corner already says Listed / Ended / Ends in. */
@@ -122,7 +120,6 @@ export function MarketOwnedRow({
   authorDisplayName = null,
   authorAvatarUrl = null,
 }: MarketOwnedRowProps) {
-  const router = useRouter();
   const openMarketPost = useMarketPostLayer();
   const listed = item.listingKind != null;
   const auction = item.listingKind === 'auction';
@@ -157,12 +154,6 @@ export function MarketOwnedRow({
     mediumKind: item.mediumKind,
   });
   const useAction = holdingsActionLabel(item.mediumKind);
-  // Posted scarce → open the source post (mint/buy lives there) when not listed.
-  const sourcePostHref =
-    item.postHref?.trim() ||
-    postHrefFromSourcePath(item.sourcePostPath) ||
-    null;
-  const showViewSourcePost = Boolean(sourcePostHref);
   // Listed Drop edition or post-minted scarce → Post announce (Resale in feed).
   const showPostCompose =
     listed && Boolean(item.collectionId?.trim() || item.tokenId?.trim());
@@ -372,26 +363,6 @@ export function MarketOwnedRow({
               }}
             >
               Post
-            </OsSheetAction>
-          </OsSheetActions>
-        ) : !listed && showViewSourcePost && sourcePostHref ? (
-          <OsSheetActions
-            layout="row-compact"
-            tone="frosted-primary"
-            size="sm"
-            borderless
-            className="market-listing-action"
-          >
-            <OsSheetAction
-              type="button"
-              variant="ghost"
-              ready
-              onClick={() => {
-                if (openMarketPost(sourcePostHref)) return;
-                router.push(sourcePostHref);
-              }}
-            >
-              View post
             </OsSheetAction>
           </OsSheetActions>
         ) : null}

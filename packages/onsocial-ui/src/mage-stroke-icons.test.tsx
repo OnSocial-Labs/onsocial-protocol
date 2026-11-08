@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import {
   ArrowLeftIcon,
+  mageStrokeIconClassName,
   ArrowUpRightIcon,
+  DirectionUpRightIcon,
   AlignCenterIcon,
   AlignJustifyIcon,
   AlignLeftIcon,
@@ -63,6 +67,7 @@ import {
   ShieldCheckIcon,
   SecurityShieldIcon,
   ShopIcon,
+  TagIcon,
   StarMovingIcon,
   StarsCIcon,
   StopIcon,
@@ -80,9 +85,19 @@ import {
 } from './mage-stroke-icons.js';
 
 describe('mage stroke icons', () => {
+  it('stamps every stroke glyph with mage-stroke-icon', () => {
+    expect(mageStrokeIconClassName).toBe('mage-stroke-icon');
+    const html = renderToStaticMarkup(
+      createElement(GiftIcon, { className: 'os-action-drawer-icon' })
+    );
+    expect(html).toContain('mage-stroke-icon');
+    expect(html).toContain('os-action-drawer-icon');
+  });
+
   it('exports icon components', () => {
     expect(typeof ArrowLeftIcon).toBe('function');
     expect(typeof ArrowUpRightIcon).toBe('function');
+    expect(typeof DirectionUpRightIcon).toBe('function');
     expect(typeof AlignCenterIcon).toBe('function');
     expect(typeof AlignJustifyIcon).toBe('function');
     expect(typeof AlignLeftIcon).toBe('function');
@@ -147,6 +162,7 @@ describe('mage stroke icons', () => {
     expect(typeof ShieldCheckIcon).toBe('function');
     expect(typeof SecurityShieldIcon).toBe('function');
     expect(typeof ShopIcon).toBe('function');
+    expect(typeof TagIcon).toBe('function');
     expect(typeof StarMovingIcon).toBe('function');
     expect(typeof StarsCIcon).toBe('function');
     expect(typeof StopIcon).toBe('function');

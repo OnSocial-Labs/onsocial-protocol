@@ -259,6 +259,26 @@ export function heldEditionHref(
 }
 
 /**
+ * Drop page for a chosen copy — never the pass / play / read deep link.
+ * Edition picker face uses this; the use pill still follows
+ * {@link heldEditionDestination}.
+ */
+export function heldEditionBrowseHref(
+  item: Parameters<typeof holdingsHrefForOwned>[0]
+): string | null {
+  const collectionId =
+    item.collectionId?.trim() || collectionIdFromTokenId(item.tokenId);
+  if (collectionId) {
+    return collectionPath(collectionId, { tokenId: item.tokenId });
+  }
+  return (
+    item.postHref?.trim() ||
+    postHrefFromSourcePath(item.sourcePostPath) ||
+    null
+  );
+}
+
+/**
  * Book reader share. A known copy includes `t` so the drop shows that image.
  * Without a copy, the link is the drop page.
  */
@@ -352,10 +372,23 @@ export type PortfolioHoldingRailCard = PortfolioHoldingPeek & {
   editions: PortfolioHoldingPeek[];
 };
 
+/** Oldest mint among folded copies — the collapsed corner stamp. */
+function oldestHeldMintedAtMs(
+  editions: ReadonlyArray<Pick<PortfolioHoldingPeek, 'mintedAtMs'>>
+): number | undefined {
+  let oldest: number | undefined;
+  for (const edition of editions) {
+    const ms = edition.mintedAtMs;
+    if (ms == null || !Number.isFinite(ms) || ms <= 0) continue;
+    if (oldest == null || ms < oldest) oldest = ms;
+  }
+  return oldest;
+}
+
 /**
  * Collapse duplicate editions — two copies of the same collection rendered as
  * identical rows read as a bug, not a collection. Listed state folds in from
- * any edition in the group.
+ * any edition in the group. Corner mint time is the oldest copy.
  */
 export function groupHoldingsForRail(
   holdings: PortfolioHoldingPeek[]
@@ -370,6 +403,9 @@ export function groupHoldingsForRail(
       existing.editions.sort((a, b) =>
         compareHeldEditionTokenIds(a.tokenId, b.tokenId)
       );
+      const oldestMint = oldestHeldMintedAtMs(existing.editions);
+      if (oldestMint != null) existing.mintedAtMs = oldestMint;
+      else delete existing.mintedAtMs;
       if (!existing.listedPriceNear?.trim() && item.listedPriceNear?.trim()) {
         existing.listingKind = item.listingKind ?? null;
         existing.listedPriceNear = item.listedPriceNear;

@@ -7,7 +7,9 @@ import {
   OsHugSheet,
   OsIconAction,
   ProtocolMotionArrow,
+  ShieldCheckIcon,
   UserPlusFillIcon,
+  UserPlusIcon,
 } from '@onsocial/ui';
 import {
   SheetFactCopy,
@@ -340,6 +342,9 @@ export function HubCreatorsSheet({
         id: 'creator',
         label: 'Add creator',
         description: 'Can publish drops here',
+        leading: (
+          <UserPlusIcon className="os-action-drawer-icon" aria-hidden />
+        ),
         onSelect: () => openAdd('creator'),
       });
     }
@@ -348,6 +353,9 @@ export function HubCreatorsSheet({
         id: 'moderator',
         label: 'Add moderator',
         description: 'Hub management and publish',
+        leading: (
+          <ShieldCheckIcon className="os-action-drawer-icon" aria-hidden />
+        ),
         onSelect: () => openAdd('moderator'),
       });
     }

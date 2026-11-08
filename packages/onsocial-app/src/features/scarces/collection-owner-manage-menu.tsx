@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Box3dIcon,
   CancelIcon,
   DotsVerticalIcon,
-  DownloadIcon,
   InformationCircleIcon,
   PauseFillIcon,
   PlayFillIcon,
@@ -499,7 +499,7 @@ export function CollectionOwnerManageMenu({
         label: 'Withdraw unclaimed',
         description: 'Reclaim leftover refund pool NEAR',
         disabled: ownerPending,
-        leading: <DownloadIcon className="os-action-drawer-icon" aria-hidden />,
+        leading: <Box3dIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           setPanel('withdraw');
         },

@@ -133,6 +133,7 @@ export {
 export {
   ArrowLeftIcon,
   ArrowUpRightIcon,
+  DirectionUpRightIcon,
   AlignCenterIcon,
   AlignJustifyIcon,
   AlignLeftIcon,
@@ -198,6 +199,7 @@ export {
   StarsCIcon,
   StopIcon,
   SlidersHorizontalIcon,
+  TagIcon,
   TrashIcon,
   UserCheckIcon,
   UserCrossIcon,
@@ -209,6 +211,7 @@ export {
   VideoPlayerIcon,
   VolumeMuteIcon,
   VolumeUpIcon,
+  mageStrokeIconClassName,
   type MageStrokeIconProps,
 } from './mage-stroke-icons.js';
 export {

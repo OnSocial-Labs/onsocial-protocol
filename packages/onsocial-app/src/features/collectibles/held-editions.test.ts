@@ -86,8 +86,8 @@ describe('held editions', () => {
     );
     expect(html).toContain('#5');
     expect(html).toContain('#4');
-    expect(html).toContain('aria-label="Open #5"');
-    expect(html).toContain('aria-label="Open #4"');
+    expect(html).toContain('aria-label="Open drop for #5"');
+    expect(html).toContain('aria-label="Open drop for #4"');
     expect(html).toContain('aria-label="More for #5"');
     expect(html).toContain('aria-label="More for #4"');
     expect(html).not.toContain('Edition #');
@@ -145,48 +145,42 @@ describe('held editions', () => {
     );
     expect(varied).toContain('src="https://cdn.example/1.png"');
     expect(varied).toContain('src="https://cdn.example/3.png"');
-    expect(varied).toContain('aria-label="Open #1"');
-    expect(varied).toContain('aria-label="Open #3"');
+    expect(varied).toContain('aria-label="Open drop for #1"');
+    expect(varied).toContain('aria-label="Open drop for #3"');
     expect(varied).toContain('aria-label="More for #1"');
     expect(varied).not.toContain('night-drive:');
   });
 
-  it('shows a trail time only when the stamps do not read the same', () => {
+  it('keeps Minted on every copy and Show pass on the use pill', () => {
     expect(heldEditionTrailTimesDiffer(['2d', '1y'])).toBe(true);
     expect(heldEditionTrailTimesDiffer(['2d', '2d'])).toBe(false);
-    expect(heldEditionTrailTimesDiffer(['2d', null])).toBe(true);
-    expect(heldEditionTrailTimesDiffer([null, ''])).toBe(false);
-    expect(heldEditionTrailTimesDiffer(["Jan 1 '70", "Jan 1 '70"])).toBe(false);
 
     const now = Date.now();
     const shared = renderToStaticMarkup(
       createElement(HeldEditionList, {
         editions: [
-          { ...edition('night-drive:1'), mintedAtMs: now },
-          { ...edition('night-drive:3'), mintedAtMs: now },
-        ],
-        choose: 'open',
-        onChoose: () => {},
-      })
-    );
-    expect(shared).not.toContain('<time');
-    expect(shared).not.toContain('night-drive:');
-
-    const split = renderToStaticMarkup(
-      createElement(HeldEditionList, {
-        editions: [
-          { ...edition('night-drive:1'), mintedAtMs: now },
           {
-            ...edition('night-drive:3'),
-            mintedAtMs: now - 400 * 86_400_000,
+            ...edition('gate:1'),
+            mediumKind: 'ticket',
+            mintedAtMs: now,
+          },
+          {
+            ...edition('gate:3'),
+            mediumKind: 'ticket',
+            mintedAtMs: now,
           },
         ],
         choose: 'open',
         onChoose: () => {},
+        onUse: () => {},
       })
     );
-    expect(split).toContain('<time');
-    expect(split).not.toContain('night-drive:');
+    expect(shared.match(/<time/g)?.length).toBe(2);
+    expect(shared).toContain('Minted');
+    expect(shared).toContain('Show pass');
+    expect(shared).toContain('aria-label="Open drop for #1"');
+    expect(shared).toContain('aria-label="Show pass #1"');
+    expect(shared).not.toContain('gate:');
 
     const partial = renderToStaticMarkup(
       createElement(HeldEditionList, {
@@ -291,8 +285,8 @@ describe('held editions', () => {
     expect(html).toContain('held-edition-listed-badge');
     expect(html).toContain('>Listed</span>');
     expect(html).toContain('held-edition-listed">$1</span>');
-    expect(html).toContain('aria-label="Open #2, listed at $1"');
-    expect(html).toContain('aria-label="Open #3"');
+    expect(html).toContain('aria-label="Open drop for #2, listed at $1"');
+    expect(html).toContain('aria-label="Open drop for #3"');
     expect(html).toContain('OWNER-MENU');
     // The unlisted copy keeps the sheet menu; only the listed one swaps.
     expect(html.match(/aria-label="More for #/g)).toHaveLength(1);

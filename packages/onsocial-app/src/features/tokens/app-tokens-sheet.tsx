@@ -11,6 +11,7 @@ import {
   OsSheetFooter,
   OsSheetAction,
   OsSheetActions,
+  PlusIcon,
   TokenIcon,
   standingIdentityAccountCopy,
 } from '@onsocial/ui';
@@ -132,6 +133,7 @@ export function AppTokensSheet({
         id: 'add-existing',
         label: 'Add existing',
         description: 'A token you already have',
+        leading: <PlusIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => setAddOpen(true),
       },
     ];

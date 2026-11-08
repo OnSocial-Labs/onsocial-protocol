@@ -19,6 +19,18 @@
   border-radius: var(--os-field-radius, 0.85rem);
 }
 
+/* Keep shell pad so the unit (SOCIAL / NEAR) clears the border edge. */
+.os-amount-field.os-field-bordered,
+.app-storage-amount-field.os-field-bordered,
+.os-suffix-field.os-field-bordered,
+.suffix-field.os-field-bordered,
+.os-amount-field.os-field-soft,
+.app-storage-amount-field.os-field-soft,
+.os-suffix-field.os-field-soft,
+.suffix-field.os-field-soft {
+  padding: var(--os-field-pad-y, 0.65rem) var(--os-field-pad-x, 0.75rem);
+}
+
 .os-suffix-field-input,
 .suffix-field-input {
   flex: 1;

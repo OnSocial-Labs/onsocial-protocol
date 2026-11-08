@@ -18,7 +18,7 @@ import { collectionPath } from '@/lib/app-routes';
 import { socialTimeProps } from '@/lib/post-display';
 import { OsRowAction } from '@/lib/os-row-action';
 
-/** Unheld series drop — same list row as the vault, shop CTA to the drop. */
+/** Unheld series drop — Collect when live; otherwise the row opens the drop. */
 export function SeriesShopRow({
   view,
   nowMs,
@@ -67,7 +67,9 @@ export function SeriesShopRow({
         href={href}
         scroll={false}
         className="collectibles-holding-row-main"
-        title={`${view.title} · ${action}`}
+        title={
+          action === 'Collect' ? `Collect ${view.title}` : view.title
+        }
       >
         <div
           className={`market-listing-thumb${showThumb ? ' has-media' : ''}`}
@@ -98,13 +100,15 @@ export function SeriesShopRow({
             {clock.label}
           </time>
         ) : null}
-        <OsRowAction
-          href={href}
-          className="collectibles-holding-action"
-          aria-label={`${action} ${view.title}`}
-        >
-          {action}
-        </OsRowAction>
+        {action === 'Collect' ? (
+          <OsRowAction
+            href={href}
+            className="collectibles-holding-action"
+            aria-label={`Collect ${view.title}`}
+          >
+            Collect
+          </OsRowAction>
+        ) : null}
       </div>
     </div>
   );

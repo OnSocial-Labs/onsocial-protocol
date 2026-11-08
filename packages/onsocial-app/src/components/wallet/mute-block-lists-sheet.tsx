@@ -5,6 +5,9 @@ import {
   OsHugSheet,
   OsSurfaceRow,
   OsSurfaceRowList,
+  UserCheckIcon,
+  UserIcon,
+  VolumeUpIcon,
 } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import {
@@ -95,6 +98,9 @@ export function MuteBlockListsSheet({
             ? 'Unmuting…'
             : 'Unmute',
           disabled: isMutePendingForTarget(rowMenuAccountId),
+          leading: (
+            <VolumeUpIcon className="os-action-drawer-icon" aria-hidden />
+          ),
           onSelect: () => {
             void (async () => {
               try {
@@ -121,6 +127,7 @@ export function MuteBlockListsSheet({
         {
           id: 'view',
           label: 'View profile',
+          leading: <UserIcon className="os-action-drawer-icon" aria-hidden />,
           href: portfolioPath(rowMenuAccountId),
           onSelect: () => setRowMenuAccountId(null),
         },
@@ -133,6 +140,9 @@ export function MuteBlockListsSheet({
           ? 'Unblocking…'
           : 'Unblock',
         disabled: isBlockPendingForTarget(rowMenuAccountId),
+        leading: (
+          <UserCheckIcon className="os-action-drawer-icon" aria-hidden />
+        ),
         onSelect: () => {
           void (async () => {
             try {
@@ -155,6 +165,7 @@ export function MuteBlockListsSheet({
       {
         id: 'view',
         label: 'View profile',
+        leading: <UserIcon className="os-action-drawer-icon" aria-hidden />,
         href: portfolioPath(rowMenuAccountId),
         onSelect: () => setRowMenuAccountId(null),
       },

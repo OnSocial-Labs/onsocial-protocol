@@ -6,6 +6,7 @@ import {
   sortHoldingsLibrary,
   holdingsActionLabel,
   bookReaderSharePath,
+  heldEditionBrowseHref,
   heldEditionDestination,
   heldEditionHref,
   holdingsHrefForOwned,
@@ -204,6 +205,29 @@ describe('toPortfolioHoldingPeek', () => {
     ).toBe('/@alice.near/posts/42');
   });
 
+  it('browses the drop for a chosen copy without pass or play', () => {
+    expect(
+      heldEditionBrowseHref({
+        tokenId: 'gate:2',
+        collectionId: 'gate',
+        mediumKind: 'ticket',
+      })
+    ).toBe('/collection/gate?t=gate%3A2');
+    expect(
+      heldEditionBrowseHref({
+        tokenId: 'night-drive:2',
+        collectionId: 'night-drive',
+        mediumKind: 'audio',
+      })
+    ).toBe('/collection/night-drive?t=night-drive%3A2');
+    expect(
+      heldEditionBrowseHref({
+        tokenId: 's:abc',
+        sourcePostPath: 'alice.near/post/42',
+      })
+    ).toBe('/@alice.near/posts/42');
+  });
+
   it('shares the book page, and the copy when one is known', () => {
     expect(bookReaderSharePath('novel', 'novel:2')).toBe(
       '/collection/novel?t=novel%3A2'
@@ -395,6 +419,30 @@ describe('groupHoldingsForRail', () => {
     expect(grouped).toHaveLength(1);
     expect(grouped[0]?.editionCount).toBe(2);
     expect(grouped[0]?.listedPriceNear).toBe('1');
+  });
+
+  it('keeps the oldest mint on a collapsed card', () => {
+    const newer = toPortfolioHoldingPeek({
+      tokenId: 'album:1',
+      title: 'Album',
+      ownerId: 'alice.near',
+      collectionId: 'album',
+      mediumKind: 'audio',
+      listingKind: null,
+      mintedAtMs: 2_000,
+    });
+    const older = toPortfolioHoldingPeek({
+      tokenId: 'album:2',
+      title: 'Album',
+      ownerId: 'alice.near',
+      collectionId: 'album',
+      mediumKind: 'audio',
+      listingKind: null,
+      mintedAtMs: 1_000,
+    });
+    const grouped = groupHoldingsForRail([newer, older]);
+    expect(grouped).toHaveLength(1);
+    expect(grouped[0]?.mintedAtMs).toBe(1_000);
   });
 
   it('never merges collectionless tokens', () => {

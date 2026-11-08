@@ -8,6 +8,8 @@ alwaysApply: true
 ## Preview (always local)
 
 - Live UI: detached `pnpm --filter @onsocial/app run dev` → `http://localhost:3060`
+- Run that rebuild / kill-port / `next dev` **outside the Cursor sandbox** (`required_permissions: ["all"]`). A sandboxed bind looks Ready but is unreachable from the browser — never leave the user to ask twice.
+- Confirm with `curl` to `http://127.0.0.1:3060` (also unrestricted) before saying the app is up.
 - Do **not** rely on Vercel for day-to-day preview until the user asks to deploy
 - While iterating: prefer quick typecheck/lint on touched files — **never** full `@onsocial/app` check on the laptop for minor edits
 

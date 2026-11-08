@@ -12,11 +12,14 @@ import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-dat
 import { listedArticleReaderHref } from '@/features/scarces/drop-writing';
 import { OwnedShowPassSheet } from '@/features/scarces/owned-show-pass-sheet';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
-import { heldEditionDestination } from '@/lib/portfolio-holdings';
+import {
+  heldEditionBrowseHref,
+  heldEditionDestination,
+} from '@/lib/portfolio-holdings';
 
 /**
- * Edition list plus the same next step one copy already takes.
- * A pass stays on this page. Read opens the reader. Play and Open follow the link.
+ * Edition list: face opens the drop; the use pill does Show pass / Play / Read.
+ * A pass stays on this page. Read opens the reader. Play follows the link.
  */
 export function HeldEditionFollow({
   open,
@@ -43,7 +46,12 @@ export function HeldEditionFollow({
   const [pass, setPass] = useState<OwnedScarceItem | null>(null);
   const [reader, setReader] = useState<OwnedScarceItem | null>(null);
 
-  const followOpen = (item: OwnedScarceItem) => {
+  const followBrowse = (item: OwnedScarceItem) => {
+    const href = heldEditionBrowseHref(item);
+    if (href) router.push(href);
+  };
+
+  const followUse = (item: OwnedScarceItem) => {
     const destination = heldEditionDestination(item);
     if (destination.type === 'pass') {
       setPass(item);
@@ -96,8 +104,9 @@ export function HeldEditionFollow({
             onTransfer?.(item);
             return;
           }
-          followOpen(item);
+          followBrowse(item);
         }}
+        onUse={choose === 'open' ? followUse : undefined}
         onTransfer={onTransfer}
         onSell={onSell}
       />

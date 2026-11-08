@@ -6,7 +6,7 @@ import { useState, type ReactNode } from 'react';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { formatMarketRelativeTime } from '@/features/market/market-listings';
+import { formatMarketVerbStamp } from '@/features/market/market-listings';
 import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-data';
 import { listedArticleReaderHref } from '@/features/scarces/drop-writing';
 import { OwnedShowPassSheet } from '@/features/scarces/owned-show-pass-sheet';
@@ -131,7 +131,7 @@ export function CollectiblesHoldingRow({
   const creatorId = item.creatorId?.trim() || null;
   const mintedRel =
     item.mintedAtMs != null && item.mintedAtMs > 0
-      ? formatMarketRelativeTime(item.mintedAtMs)
+      ? formatMarketVerbStamp('Minted', item.mintedAtMs)
       : '';
   const [brokenMediaUrl, setBrokenMediaUrl] = useState<string | null>(null);
   const [passOpen, setPassOpen] = useState(false);

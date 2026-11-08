@@ -1,0 +1,16 @@
+/*
+ * Mage stroke glyphs (`mage-stroke-icon` on every MageStrokeSvg).
+ *
+ * Multi-path strokes painted with translucent currentColor stack brighter
+ * where edges join. Mute with opaque ink + element opacity instead.
+ *
+ * Universal: when a host still mutes via color alpha, re-apply that alpha
+ * as opacity. Hosts that set opacity on the glyph (higher specificity)
+ * keep their ladder — e.g. drawer 0.72, search 0.48→0.72, header 0.72→0.92.
+ */
+@supports (color: rgb(from red r g b)) {
+  .mage-stroke-icon {
+    color: rgb(from currentColor r g b);
+    opacity: max(0.001, alpha(from currentColor));
+  }
+}

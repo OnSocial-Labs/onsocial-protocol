@@ -4,6 +4,7 @@ import {
   formatFutureRelativeTime,
   formatMarketRelativePhrase,
   formatMarketRelativeTime,
+  formatMarketVerbStamp,
   hasUnresolvedTitleTemplate,
   isPrimaryThoughtListing,
   mergeOwnedYoursItems,
@@ -49,6 +50,23 @@ describe('formatMarketRelativeTime', () => {
     expect(formatFutureRelativeTime(now + 4 * 86_400_000, now)).toBe('in 4d');
     expect(formatFutureRelativeTime(now + 40 * 86_400_000, now)).toBe('Aug 4');
     expect(formatFutureRelativeTime(0)).toBe('');
+  });
+});
+
+describe('formatMarketVerbStamp', () => {
+  it('prefixes the short age so listing clocks stay distinct', () => {
+    const now = Date.parse('2026-06-25T12:00:00.000Z');
+    expect(formatMarketVerbStamp('Dropped', now - 2 * 86_400_000, now)).toBe(
+      'Dropped 2d'
+    );
+    expect(formatMarketVerbStamp('Listed', now - 5 * 60_000, now)).toBe(
+      'Listed 5m'
+    );
+    expect(formatMarketVerbStamp('Minted', now - 3 * 3_600_000, now)).toBe(
+      'Minted 3h'
+    );
+    expect(formatMarketVerbStamp('Sold', now - 30_000, now)).toBe('Sold now');
+    expect(formatMarketVerbStamp('Minted', 0, now)).toBe('');
   });
 });
 

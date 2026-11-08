@@ -6,13 +6,12 @@ import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import {
   marketCreatorDropMetaBits,
   marketCreatorDropMintable,
-  marketCreatorShopActionLabel,
 } from '@/features/market/market-creator-view';
 import { collectionPath } from '@/lib/app-routes';
 import { OsRowAction } from '@/lib/os-row-action';
 import type { ProfileStoreDrop } from '@/lib/profile-store-types';
 
-/** Unlisted creator drop — same list row and action pill as Market listings. */
+/** Unlisted creator drop — Mint when live; otherwise the row opens the drop. */
 export function MarketCreatorDropRow({
   drop,
   onMint,
@@ -24,7 +23,6 @@ export function MarketCreatorDropRow({
 }) {
   const [brokenMediaUrl, setBrokenMediaUrl] = useState<string | null>(null);
   const showThumb = Boolean(drop.mediaUrl) && brokenMediaUrl !== drop.mediaUrl;
-  const action = marketCreatorShopActionLabel(drop);
   const mintable = Boolean(onMint) && marketCreatorDropMintable(drop);
   const href = collectionPath(drop.collectionId);
   const meta = marketCreatorDropMetaBits(drop, { includeStatus: showStatus });
@@ -39,7 +37,7 @@ export function MarketCreatorDropRow({
         href={href}
         scroll={false}
         className="collectibles-holding-row-main"
-        title={`${drop.title} · ${action}`}
+        title={mintable ? `Mint ${drop.title}` : drop.title}
       >
         <div
           className={`market-listing-thumb${showThumb ? ' has-media' : ''}`}
@@ -67,20 +65,12 @@ export function MarketCreatorDropRow({
         {mintable ? (
           <OsRowAction
             className="collectibles-holding-action"
-            aria-label={`${action} ${drop.title}`}
+            aria-label={`Mint ${drop.title}`}
             onClick={() => onMint?.(drop)}
           >
-            {action}
+            Mint
           </OsRowAction>
-        ) : (
-          <OsRowAction
-            className="collectibles-holding-action"
-            href={href}
-            aria-label={`${action} ${drop.title}`}
-          >
-            {action}
-          </OsRowAction>
-        )}
+        ) : null}
       </div>
     </div>
   );

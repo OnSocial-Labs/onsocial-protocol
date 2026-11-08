@@ -518,6 +518,19 @@ export function formatMarketRelativeTime(
   return formatSocialRelativeTime(ms, nowMs);
 }
 
+/**
+ * Corner stamp with a verb so identical ages don't mean three things
+ * (`Dropped 2d` / `Listed 2d` / `Minted 2d` / `Sold 2d`).
+ */
+export function formatMarketVerbStamp(
+  verb: 'Dropped' | 'Listed' | 'Minted' | 'Sold',
+  timestamp: number,
+  nowMs: number = Date.now()
+): string {
+  const rel = formatMarketRelativeTime(timestamp, nowMs);
+  return rel ? `${verb} ${rel}` : '';
+}
+
 /** Sentence form (`5m ago`, `Mar 12, 2026`) for Listed / Ended / Closed. */
 export function formatMarketRelativePhrase(
   timestamp: number,

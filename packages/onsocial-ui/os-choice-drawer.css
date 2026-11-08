@@ -73,9 +73,8 @@
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
-  /* Same bleed as .standing-row: the hover pill stays inside the sheet
-     rim, and option padding puts the label back on the gutter. */
-  margin-inline: -0.35rem;
+  /* Match .standing-row hover bleed. */
+  margin-inline: -0.25rem;
 }
 
 .os-choice-sheet-section {
@@ -86,7 +85,7 @@
 
 .os-choice-sheet-section-title {
   margin: 0 0 0.15rem;
-  padding-inline: 0.35rem;
+  padding-inline: 0.25rem;
   font-size: var(--os-stamp-size, 0.75rem);
   font-weight: 650;
   letter-spacing: 0.08em;
@@ -99,11 +98,10 @@
   align-items: center;
   gap: 0.7rem;
   width: 100%;
-  /* 2.75rem touch target — matches .glass-sheet-icon-action. Rows with no
-     swatch or count badge would otherwise land near 37px. */
+  /* Touch target matches .glass-sheet-icon-action. */
   min-height: var(--os-icon-hit, 3.25rem);
   margin: 0;
-  padding: 0.5rem 0.35rem;
+  padding: 0.5rem 0.25rem;
   border: 0;
   border-radius: 0.7rem;
   background: transparent;
@@ -148,8 +146,8 @@
 
 /*
  * Mage icon in an action-drawer leading slot — same visible weight as
- * header × / Hot / Recent. Padding used to live on this box and shrank
- * the glyph to ~1.15rem; glyph owns the chrome size now.
+ * header × / Hot / Recent. Opaque ink + opacity (beats universal
+ * mage-stroke-icons.css when the host already resolved mute).
  */
 .os-choice-sheet-leading .os-action-drawer-icon {
   display: block;
@@ -157,7 +155,8 @@
   width: var(--os-chrome-glyph-size, 1.5rem);
   height: var(--os-chrome-glyph-size, 1.5rem);
   padding: 0;
-  color: rgb(var(--fg-rgb) / 0.72);
+  color: rgb(var(--fg-rgb));
+  opacity: 0.72;
   box-sizing: border-box;
 }
 
@@ -165,6 +164,7 @@
   .os-choice-sheet-leading
   .os-action-drawer-icon {
   color: var(--protocol-red);
+  opacity: 1;
 }
 
 .os-choice-sheet-trailing {

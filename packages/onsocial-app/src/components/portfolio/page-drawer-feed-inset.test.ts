@@ -166,7 +166,7 @@ describe('page drawer feed inset', () => {
   });
 
   it('shares the gutter and derives dock clearance from the control box', () => {
-    expect(globalsCss).toMatch(/--os-gutter:\s*0\.5rem;/);
+    expect(globalsCss).toMatch(/--os-gutter:\s*0\.75rem;/);
     expect(globalsCss).toMatch(/--os-dock-height:\s*3\.25rem;/);
     expect(globalsCss).toMatch(
       /--portfolio-dock-clearance:\s*calc\(\s*var\(--os-dock-height\) \+ var\(--os-dock-bottom-offset\) \+\s*var\(--os-dock-clearance-gap\) \+ env\(safe-area-inset-bottom, 0px\)/
@@ -178,16 +178,16 @@ describe('page drawer feed inset', () => {
 
   it('uses the shared gutter on the page drawer', () => {
     expect(globalsCss).toMatch(
-      /\.glass-sheet-root \.glass-sheet-panel\.page-drawer-panel \{[\s\S]*?height: 100%;[\s\S]*?max-height: none;[\s\S]*?--os-screen-body-pad-x: var\(--os-sheet-pad-inline, 0\.5rem\);/
+      /\.glass-sheet-root \.glass-sheet-panel\.page-drawer-panel \{[\s\S]*?height: 100%;[\s\S]*?max-height: none;[\s\S]*?--os-screen-body-pad-x: var\(--os-sheet-pad-inline, 0\.75rem\);/
     );
     expect(globalsCss).not.toMatch(
       /\.glass-sheet-root \.glass-sheet-panel\.page-drawer-panel \{[^}]*54rem/
     );
     expect(globalsCss).toMatch(
-      /\.page-drawer-body \{[\s\S]*?padding: 0\.1rem var\(--os-screen-body-pad-x, 0\.5rem\) 0;/
+      /\.page-drawer-body \{[\s\S]*?padding: 0\.1rem var\(--os-screen-body-pad-x, 0\.75rem\) 0;/
     );
     expect(globalsCss).toMatch(
-      /\.page-drawer-header \{[\s\S]*?padding: 0\.05rem var\(--os-screen-body-pad-x, 0\.5rem\) 0\.4rem;/
+      /\.page-drawer-header \{[\s\S]*?padding: 0\.05rem var\(--os-screen-body-pad-x, 0\.75rem\) 0\.4rem;/
     );
   });
 

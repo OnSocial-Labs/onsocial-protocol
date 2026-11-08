@@ -6,7 +6,7 @@ import { DropFansButton } from '@/components/drops/drop-row-fans';
 import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import { DropsDiscoveryRowMenu } from '@/features/drops/drops-discovery-row-menu';
-import { formatMarketRelativeTime } from '@/features/market/market-listings';
+import { formatMarketVerbStamp } from '@/features/market/market-listings';
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { collectionPath } from '@/lib/app-routes';
 import { socialTimeProps } from '@/lib/post-display';
@@ -91,7 +91,7 @@ export function PortfolioDropRow({
     drop.fanCount != null && drop.fanCount > 0 ? drop.fanCount : null;
   const droppedLabel =
     drop.createdAtMs != null && drop.createdAtMs > 0
-      ? formatMarketRelativeTime(drop.createdAtMs)
+      ? formatMarketVerbStamp('Dropped', drop.createdAtMs)
       : null;
   const menuItem = profileStoreDropToDiscoveryItem(drop, pageAccountId, {
     displayName,

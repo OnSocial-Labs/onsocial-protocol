@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import '@onsocial/ui/protocol.css';
 @import '@onsocial/ui/dividers.css';
+@import '@onsocial/ui/mage-stroke-icons.css';
 @import '@onsocial/ui/glass-sheet.css';
 @import '@onsocial/ui/pulsing-dots.css';
 @import '@onsocial/ui/os-confirm-icon.css';
@@ -142,8 +143,8 @@
 .collection-door-log-slide .os-slide-over-content.collection-door-log,
 .event-guests-slide .os-slide-over-content.event-guests {
   padding: 0.45rem
-    max(var(--os-gutter, 0.5rem), env(safe-area-inset-right, 0px)) 1.5rem
-    max(var(--os-gutter, 0.5rem), env(safe-area-inset-left, 0px));
+    max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px)) 1.5rem
+    max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
   gap: 0.7rem;
 }
 
@@ -642,12 +643,12 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   max-height: none;
   --glass-header-scrim-height: min(6.5rem, 24%);
   /* Drawer chrome uses the sheet pad, which tracks the page gutter. */
-  --os-screen-body-pad-x: var(--os-sheet-pad-inline, 0.5rem);
+  --os-screen-body-pad-x: var(--os-sheet-pad-inline, 0.75rem);
 }
 
 /* Single scroller = sheet body. Content scrolls under the floating pill. */
 .glass-sheet-panel.page-drawer-panel > .glass-sheet-body.page-drawer-body {
-  padding: 0.1rem var(--os-screen-body-pad-x, 0.5rem) 0;
+  padding: 0.1rem var(--os-screen-body-pad-x, 0.75rem) 0;
 }
 
 /*
@@ -983,7 +984,7 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   overflow-anchor: none;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
-  padding: 0.1rem var(--os-screen-body-pad-x, 0.5rem)
+  padding: 0.1rem var(--os-screen-body-pad-x, 0.75rem)
     calc(1.25rem + env(safe-area-inset-bottom, 0px));
 }
 
@@ -1364,7 +1365,7 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
 
 .portfolio-writing-article-screen .os-app-screen-footer {
   bottom: env(safe-area-inset-bottom, 0px);
-  padding: 0.45rem var(--os-screen-body-pad-x, 0.5rem) 0.55rem;
+  padding: 0.45rem var(--os-screen-body-pad-x, 0.75rem) 0.55rem;
 }
 
 /*
@@ -1533,7 +1534,7 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   min-width: 0;
   flex: 1 1 auto;
   align-items: flex-start;
-  gap: 0.9rem;
+  gap: var(--os-media-copy-gap, 0.55rem);
   margin: 0;
   padding: 0;
   border: 0;
@@ -2166,16 +2167,21 @@ button.market-listing-title-link {
 
 /*
  * Market row Buy / Listed — compact borderless pills (same family as guild
- * Join). Dimensions come from OsSheetActions size="sm"; slot owns width.
+ * Join). Hug the label like Standing; guild Join still fills its slot.
  */
 .market-listing-action.os-sheet-actions--row-compact {
   flex-shrink: 0;
   width: auto;
-  min-width: 4.5rem;
+  min-width: 0;
   gap: 0;
 }
 
-.market-listing-action.os-sheet-actions--row-compact .os-sheet-action,
+.market-listing-action.os-sheet-actions--row-compact .os-sheet-action {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+}
+
 .endorsements-endorse-action.os-sheet-actions--row-compact .os-sheet-action,
 .guild-hero
   .guild-hero-membership-slot
@@ -3305,7 +3311,7 @@ a.os-surface-row,
     --portfolio-shelf-pull: 0.44rem;
     --portfolio-shelf-meta-gap: 0.22rem;
     /* One horizontal text gutter for screens and drawers. html stays font-size: 100%. */
-    --os-gutter: 0.5rem;
+    --os-gutter: 0.75rem;
     --os-screen-body-pad-x: var(--os-gutter);
     /* Large face — same as .profile-avatar--lg, phone and desktop.
        Shared type / glyph ladder lives in @onsocial/ui os-surface-interactive. */
@@ -3789,7 +3795,7 @@ a.os-surface-row,
 
 /*
  * Phone chrome. Feed type lives on the shared :root block above.
- * Root font stays 100%; gutter is `--os-gutter` (0.5rem). A taller dock
+ * Root font stays 100%; gutter is `--os-gutter` (0.75rem). A taller dock
  * grows upward; clearance follows --os-dock-height.
  */
 @media (max-width: 639px) {
@@ -4666,8 +4672,8 @@ a.os-surface-row,
     z-index: 30;
     display: flex;
     justify-content: center;
-    padding: 0 var(--os-gutter, 0.5rem)
-      calc(var(--os-gutter, 0.5rem) + env(safe-area-inset-bottom, 0px));
+    padding: 0 var(--os-gutter, 0.75rem)
+      calc(var(--os-gutter, 0.75rem) + env(safe-area-inset-bottom, 0px));
     pointer-events: none;
   }
 
@@ -7392,9 +7398,9 @@ a.os-surface-row,
     justify-content: flex-start;
     gap: var(--portfolio-hero-gap);
     padding: var(--portfolio-content-start)
-      max(var(--os-gutter, 0.5rem), env(safe-area-inset-right, 0px))
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px))
       var(--portfolio-dock-clearance)
-      max(var(--os-gutter, 0.5rem), env(safe-area-inset-left, 0px));
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
     text-align: center;
     transition: padding-top var(--mood-transition-duration)
       var(--mood-transition-ease);
@@ -7422,9 +7428,9 @@ a.os-surface-row,
     z-index: 1;
     width: 100%;
     padding: calc(env(safe-area-inset-top, 0px) + 3.25rem)
-      max(var(--os-gutter, 0.5rem), env(safe-area-inset-right, 0px))
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px))
       calc(env(safe-area-inset-bottom, 0px) + 2rem)
-      max(var(--os-gutter, 0.5rem), env(safe-area-inset-left, 0px));
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
   }
 
   .portfolio-identity {
@@ -8504,13 +8510,13 @@ a.os-surface-row,
 
   .portfolio-listing-action-row {
     align-items: center;
-    gap: 0.75rem;
+    gap: var(--os-media-copy-gap, 0.55rem);
   }
 
   .portfolio-listing-action-hit {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: var(--os-media-copy-gap, 0.55rem);
     min-width: 0;
     flex: 1 1 auto;
     margin: 0;
@@ -9752,13 +9758,13 @@ a.os-surface-row,
 
   .portfolio-hiring-row {
     appearance: none;
-    width: calc(100% + 0.7rem);
+    width: calc(100% + 0.5rem);
     min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 0.2rem;
-    margin: 0 -0.35rem;
-    padding: 0.7rem 0.35rem;
+    margin: 0 -0.25rem;
+    padding: 0.7rem 0.25rem;
     border: 0;
     border-radius: 0.85rem;
     background: none;
@@ -9936,13 +9942,13 @@ a.os-surface-row,
 
   .account-editor-hiring-row {
     appearance: none;
-    width: calc(100% + 0.7rem);
+    width: calc(100% + 0.5rem);
     min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 0.28rem;
-    margin: 0 -0.35rem;
-    padding: 0.55rem 0.35rem;
+    margin: 0 -0.25rem;
+    padding: 0.55rem 0.25rem;
     border: 0;
     border-radius: 0.85rem;
     background: none;
@@ -10325,11 +10331,11 @@ a.os-surface-row,
   .portfolio-about {
     /* Match OS screen body pad (--os-screen-body-pad-x, from --os-gutter). */
     --portfolio-about-inset: max(
-      var(--os-screen-body-pad-x, 0.5rem),
+      var(--os-screen-body-pad-x, 0.75rem),
       env(safe-area-inset-left, 0px)
     );
     --portfolio-about-pad-right: max(
-      var(--os-screen-body-pad-x, 0.5rem),
+      var(--os-screen-body-pad-x, 0.75rem),
       env(safe-area-inset-right, 0px)
     );
     --portfolio-about-ink: rgb(var(--fg-rgb) / 0.9);
@@ -10996,7 +11002,7 @@ a.os-surface-row,
   .portfolio-writing {
     /* Same OS screen inset as About — one left edge for kicker, title, essay. */
     --portfolio-writing-inset: max(
-      var(--os-screen-body-pad-x, 0.5rem),
+      var(--os-screen-body-pad-x, 0.75rem),
       env(safe-area-inset-left, 0px)
     );
     box-sizing: border-box;
@@ -11009,7 +11015,7 @@ a.os-surface-row,
           env(safe-area-inset-top, 0px) + var(--os-screen-body-pad-top, 0.15rem)
         )
       )
-      max(var(--os-screen-body-pad-x, 0.5rem), env(safe-area-inset-right, 0px))
+      max(var(--os-screen-body-pad-x, 0.75rem), env(safe-area-inset-right, 0px))
       calc(
         var(--os-screen-body-pad-bottom, 1.5rem) + 2rem +
           env(safe-area-inset-bottom, 0px)
@@ -11125,10 +11131,10 @@ a.os-surface-row,
   .portfolio-writing-card {
     display: grid;
     grid-template-columns: 7.2rem minmax(0, 1fr);
-    gap: 0.9rem;
+    gap: var(--os-media-copy-gap, 0.55rem);
     align-items: start;
-    margin: 0 -0.45rem;
-    padding: 0.45rem;
+    margin: 0 -0.25rem;
+    padding: 0.45rem 0.25rem;
     border-radius: 0.85rem;
     color: inherit;
     text-decoration: none;
@@ -11408,7 +11414,6 @@ a.os-surface-row,
     max-width: 100%;
     min-width: 0;
     align-items: flex-start;
-    gap: 0.75rem;
   }
 
   /* Same face as a standing row / feed lg. */
@@ -12410,7 +12415,7 @@ a.os-surface-row,
     width: 100%;
     max-width: 36rem;
     margin-inline: auto;
-    padding: 0 var(--os-screen-body-pad-x, 0.5rem)
+    padding: 0 var(--os-screen-body-pad-x, 0.75rem)
       calc(0.45rem + env(safe-area-inset-bottom, 0px));
   }
 
@@ -12430,8 +12435,8 @@ a.os-surface-row,
     position: relative;
     z-index: 2;
     flex-shrink: 0;
-    width: calc(100% + (2 * var(--os-screen-body-pad-x, 0.5rem)));
-    margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.5rem));
+    width: calc(100% + (2 * var(--os-screen-body-pad-x, 0.75rem)));
+    margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.75rem));
   }
 
   .leaderboard-page-footer > .leaderboard-viewer-footer {
@@ -12931,7 +12936,7 @@ a.os-surface-row,
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    padding: 0 var(--os-sheet-pad-inline, 0.5rem)
+    padding: 0 var(--os-sheet-pad-inline, 0.75rem)
       var(--os-screen-body-pad-bottom, 1.5rem);
   }
 
@@ -13473,8 +13478,8 @@ a.os-surface-row,
   }
 
   .customize-sheet-divider {
-    width: calc(100% - (2 * var(--os-sheet-pad-inline, 0.5rem)));
-    margin-inline: var(--os-sheet-pad-inline, 0.5rem);
+    width: calc(100% - (2 * var(--os-sheet-pad-inline, 0.75rem)));
+    margin-inline: var(--os-sheet-pad-inline, 0.75rem);
     background-image: linear-gradient(
       to right,
       transparent,
@@ -13797,9 +13802,9 @@ a.os-surface-row,
     padding: calc(
         env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y, 0.3rem)
       )
-      max(var(--os-gutter, 0.5rem), env(safe-area-inset-right, 0px))
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px))
       var(--os-app-chrome-pad-y, 0.3rem)
-      max(var(--os-gutter, 0.5rem), env(safe-area-inset-left, 0px));
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
   }
 
   /* Immersive screens place the bar over top media, then harden on scroll. */
@@ -13980,9 +13985,9 @@ a.os-surface-row,
     > .os-app-screen-column
     > .os-app-screen-header {
     padding: calc(env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y))
-      max(var(--os-gutter, 0.5rem), env(safe-area-inset-right, 0px))
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px))
       var(--os-app-chrome-pad-y)
-      max(var(--os-gutter, 0.5rem), env(safe-area-inset-left, 0px));
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
   }
 
   /*
@@ -15058,10 +15063,10 @@ a.os-surface-row,
   .discover-cover-peek {
     display: flex;
     align-items: center;
-    gap: 0.7rem;
+    gap: var(--os-media-copy-gap, 0.55rem);
     min-width: 0;
-    padding: 0.35rem 0.35rem;
-    margin: 0 -0.35rem;
+    padding: 0.35rem 0.25rem;
+    margin: 0 -0.25rem;
     border-radius: 0.85rem;
     color: inherit;
     text-decoration: none;
@@ -16574,7 +16579,7 @@ a.os-surface-row,
     flex-shrink: 0;
     flex-direction: column;
     gap: 0.28rem;
-    padding: 0.05rem var(--os-screen-body-pad-x, 0.5rem) 0.4rem;
+    padding: 0.05rem var(--os-screen-body-pad-x, 0.75rem) 0.4rem;
   }
 
   .page-drawer-chrome-row {
@@ -16856,12 +16861,15 @@ a.os-surface-row,
     margin-top: 0.6rem;
   }
 
+  /* Hug the label like Standing — don’t reserve a Buy-width column. */
   .market-listing-action-col .os-row-action {
-    min-width: 4.5rem;
+    min-width: 0;
+    width: max-content;
+    max-width: 100%;
   }
 
   .market-listing-action-col .os-row-action .os-sheet-action {
-    width: 100%;
+    width: auto;
   }
 
   /* Directional cue: arrow = navigates away. */
@@ -17109,16 +17117,16 @@ a.os-surface-row,
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
-    gap: 0.7rem;
+    gap: var(--os-media-copy-gap, 0.55rem);
     min-width: 0;
     overflow: hidden;
     border: 0;
     border-radius: 0.85rem;
-    margin: 0 -0.35rem;
+    margin: 0 -0.25rem;
     background: transparent;
     box-shadow: none;
     color: inherit;
-    padding: 0.5rem 0.35rem;
+    padding: 0.5rem 0.25rem;
     text-decoration: none;
     transform: none;
     transition: background 160ms ease;
@@ -17446,9 +17454,9 @@ a.os-surface-row,
     flex-direction: column;
     gap: 0.5rem;
     padding: 0
-      max(var(--os-sheet-pad-inline, 0.5rem), env(safe-area-inset-right, 0px))
+      max(var(--os-sheet-pad-inline, 0.75rem), env(safe-area-inset-right, 0px))
       0.65rem
-      max(var(--os-sheet-pad-inline, 0.5rem), env(safe-area-inset-left, 0px));
+      max(var(--os-sheet-pad-inline, 0.75rem), env(safe-area-inset-left, 0px));
   }
 
   .discover-sheet-title-row {
@@ -17828,7 +17836,7 @@ a.os-surface-row,
     flex-direction: column;
     gap: 0.65rem;
     /* Denser vertical rhythm; same side inset as every other screen. */
-    padding: 0.35rem var(--os-screen-body-pad-x, 0.5rem) 1.25rem;
+    padding: 0.35rem var(--os-screen-body-pad-x, 0.75rem) 1.25rem;
   }
 
   .os-app-chrome-page.discover-panel {
@@ -18367,7 +18375,7 @@ a.os-surface-row,
     z-index: 1;
     gap: 0;
     /* Same column as `.glass-sheet-header` / sheet pad. */
-    padding: 0 var(--os-sheet-pad-inline, 0.5rem) 0.75rem;
+    padding: 0 var(--os-sheet-pad-inline, 0.75rem) 0.75rem;
   }
 
   .account-drawer-subject-row {
@@ -19873,9 +19881,9 @@ a.os-surface-row,
     align-items: center;
     justify-content: center;
     padding: 1.25rem
-      max(var(--os-gutter, 0.5rem), env(safe-area-inset-right, 0px))
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px))
       calc(1rem + env(safe-area-inset-bottom, 0px))
-      max(var(--os-gutter, 0.5rem), env(safe-area-inset-left, 0px));
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
   }
 
   .account-editor-load-error-card {
@@ -19894,8 +19902,8 @@ a.os-surface-row,
     flex-direction: column;
     gap: 0.48rem;
     padding: 0.05rem
-      max(var(--os-gutter, 0.5rem), env(safe-area-inset-right, 0px)) 0.35rem
-      max(var(--os-gutter, 0.5rem), env(safe-area-inset-left, 0px));
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px)) 0.35rem
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
   }
 
   @media (min-width: 768px) {
@@ -20193,10 +20201,10 @@ a.os-surface-row,
         )
     );
     padding-inline: max(
-        var(--os-gutter, 0.5rem),
+        var(--os-gutter, 0.75rem),
         env(safe-area-inset-left, 0px)
       )
-      max(var(--os-gutter, 0.5rem), env(safe-area-inset-right, 0px));
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px));
     pointer-events: none;
   }
 
@@ -21979,12 +21987,20 @@ a.os-surface-row,
   }
 
   .home-feed-sort-btn {
-    color: rgb(var(--fg-rgb) / 0.5);
+    color: rgb(var(--fg-rgb));
   }
 
-  .home-feed-sort-btn:hover,
-  .home-feed-sort-btn:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.72);
+  .home-feed-sort-btn > .mage-stroke-icon,
+  .home-feed-sort-btn > svg {
+    opacity: 0.5;
+    transition: opacity 160ms ease;
+  }
+
+  .home-feed-sort-btn:hover > .mage-stroke-icon,
+  .home-feed-sort-btn:hover > svg,
+  .home-feed-sort-btn:focus-visible > .mage-stroke-icon,
+  .home-feed-sort-btn:focus-visible > svg {
+    opacity: 0.72;
   }
 
   /* Selected sort — soft protocol tint (not amplify-button loud). */
@@ -21994,6 +22010,13 @@ a.os-surface-row,
       var(--protocol-amber-ink, var(--protocol-amber)) 82%,
       rgb(var(--fg-rgb))
     );
+  }
+
+  .home-feed-sort-btn--hot.is-active > .mage-stroke-icon,
+  .home-feed-sort-btn--hot.is-active > svg,
+  .home-feed-sort-btn--recent.is-active > .mage-stroke-icon,
+  .home-feed-sort-btn--recent.is-active > svg {
+    opacity: 1;
   }
 
   .home-feed-sort-btn--hot.is-active:hover,
@@ -22263,8 +22286,8 @@ a.os-surface-row,
     flex-direction: column;
     gap: 0.12rem;
     min-height: 0;
-    margin: 0 -0.35rem;
-    padding: 0 0.35rem;
+    margin: 0 -0.25rem;
+    padding: 0 0.25rem;
     overflow-x: clip;
     overflow-y: auto;
     overscroll-behavior: contain;
@@ -22345,14 +22368,14 @@ a.os-surface-row,
    * Skip layout/paint for offscreen feed blocks. Cards are heavy subtrees
    * (media, observers, overlay sheets) and the list is unbounded; `auto`
    * remembers each block's rendered height so the scrollbar stays stable.
-   * Paint containment clips anything past this box. The 0.35rem pad is the
-   * same bleed standing rows use, so the post hover reaches that width.
+   * Paint containment clips anything past this box. Inline pad matches
+   * the standing-row hover bleed.
    */
   .home-feed-block {
     content-visibility: auto;
     contain-intrinsic-size: auto 20rem;
-    margin-inline: -0.35rem;
-    padding-inline: 0.35rem;
+    margin-inline: -0.25rem;
+    padding-inline: 0.25rem;
   }
 
   /*
@@ -22583,7 +22606,10 @@ a.os-surface-row,
   .post-row-skeleton-divider {
     width: auto;
     height: 1px;
-    margin-left: calc(0.35rem + var(--os-avatar-feed, 2.5rem) + 0.75rem);
+    margin-left: calc(
+      0.35rem + var(--os-avatar-feed, 2.5rem) +
+        var(--os-media-copy-gap, 0.55rem)
+    );
     margin-right: 0.35rem;
     background: rgb(var(--fg-rgb) / 0.08);
   }
@@ -22765,9 +22791,9 @@ a.os-surface-row,
     position: relative;
     display: flex;
     align-items: flex-start;
-    gap: 0.75rem;
-    margin: 0 -0.35rem;
-    padding: 0.68rem 0.35rem;
+    gap: var(--os-media-copy-gap, 0.55rem);
+    margin: 0 -0.25rem;
+    padding: 0.68rem 0.25rem;
     border: 1px solid transparent;
     border-radius: 0.9rem;
     background: transparent;
@@ -22790,8 +22816,10 @@ a.os-surface-row,
     z-index: 1;
     display: block;
     flex-basis: 100%;
-    /* Align with the copy column (lg face + 0.75rem gap). */
-    padding-left: calc(var(--os-avatar-feed, 2.5rem) + 0.75rem);
+    /* Align with the copy column (lg face + media→copy gap). */
+    padding-left: calc(
+      var(--os-avatar-feed, 2.5rem) + var(--os-media-copy-gap, 0.55rem)
+    );
     margin-bottom: 0.05rem;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -23037,7 +23065,9 @@ a.os-surface-row,
   /* Avatar gutter. Padding keeps width:100% rows inside the card. */
   .post-card:not(.post-card--skeleton) > .post-card-copy {
     position: relative;
-    padding-left: calc(var(--os-avatar-feed, 2.5rem) + 0.75rem);
+    padding-left: calc(
+      var(--os-avatar-feed, 2.5rem) + var(--os-media-copy-gap, 0.55rem)
+    );
   }
 
   .post-card-link {
@@ -23046,7 +23076,10 @@ a.os-surface-row,
 
   .post-row-divider {
     width: auto;
-    margin-left: calc(0.35rem + var(--os-avatar-feed, 2.5rem) + 0.75rem);
+    margin-left: calc(
+      0.35rem + var(--os-avatar-feed, 2.5rem) +
+        var(--os-media-copy-gap, 0.55rem)
+    );
     margin-right: 0.35rem;
   }
 
@@ -23530,7 +23563,7 @@ a.os-surface-row,
     border: 0;
     border-radius: 0.25rem;
     background: transparent;
-    color: rgb(var(--fg-rgb) / 0.42);
+    color: rgb(var(--fg-rgb));
     cursor: pointer;
   }
 
@@ -23538,12 +23571,19 @@ a.os-surface-row,
     display: block;
     width: var(--os-menu-glyph-size, 1.125rem);
     height: var(--os-menu-glyph-size, 1.125rem);
+    opacity: 0.42;
+    transition: opacity 160ms ease;
+  }
+
+  .post-card-menu-trigger:hover .post-card-menu-icon,
+  .post-card-menu-trigger:focus-visible .post-card-menu-icon,
+  .post-card-menu-trigger.is-open .post-card-menu-icon {
+    opacity: 0.62;
   }
 
   .post-card-menu-trigger:hover,
   .post-card-menu-trigger:focus-visible,
   .post-card-menu-trigger.is-open {
-    color: rgb(var(--fg-rgb) / 0.62);
     outline: none;
   }
 
@@ -24488,8 +24528,8 @@ a.os-surface-row,
   .post-card-quote-inset--link {
     cursor: pointer;
     border-radius: 0.6rem;
-    padding: 0.3rem 0.45rem;
-    margin: -0.1rem -0.45rem -0.3rem;
+    padding: 0.3rem 0.25rem;
+    margin: -0.1rem -0.25rem -0.3rem;
     transition: background 160ms ease;
   }
 
@@ -24744,6 +24784,51 @@ a.os-surface-row,
     /* Public Sans tnum is a no-op; rolling/1ch slots own width stability. */
     font-variant-numeric: normal;
     line-height: 1;
+  }
+
+  /* Mage strokes: opaque ink + opacity so joins don’t stack on color alpha. */
+  .post-card-stat > .mage-stroke-icon,
+  .post-card-amplify > .mage-stroke-icon,
+  .post-card-share > .mage-stroke-icon,
+  .post-card-save > .mage-stroke-icon,
+  .post-card-react-heart > .mage-stroke-icon,
+  .post-card-stat > svg,
+  .post-card-amplify > svg,
+  .post-card-share > svg,
+  .post-card-save > svg,
+  .post-card-react-heart > svg {
+    color: rgb(var(--fg-rgb));
+    opacity: 0.5;
+  }
+
+  .post-card-amplify:hover > .mage-stroke-icon,
+  .post-card-amplify:focus-visible > .mage-stroke-icon,
+  .post-card-amplify.is-active > .mage-stroke-icon,
+  .post-card-share:hover > .mage-stroke-icon,
+  .post-card-share:focus-visible > .mage-stroke-icon,
+  .post-card-save:hover > .mage-stroke-icon,
+  .post-card-save:focus-visible > .mage-stroke-icon,
+  .post-card-save.is-active > .mage-stroke-icon,
+  .post-card-react:hover .post-card-react-heart > .mage-stroke-icon,
+  .post-card-react:focus-visible .post-card-react-heart > .mage-stroke-icon,
+  .post-card-react.is-active .post-card-react-heart > .mage-stroke-icon,
+  .post-card-react-heart:hover > .mage-stroke-icon,
+  .post-card-react-heart:focus-visible > .mage-stroke-icon,
+  .post-card-amplify:hover > svg,
+  .post-card-amplify:focus-visible > svg,
+  .post-card-amplify.is-active > svg,
+  .post-card-share:hover > svg,
+  .post-card-share:focus-visible > svg,
+  .post-card-save:hover > svg,
+  .post-card-save:focus-visible > svg,
+  .post-card-save.is-active > svg,
+  .post-card-react:hover .post-card-react-heart > svg,
+  .post-card-react:focus-visible .post-card-react-heart > svg,
+  .post-card-react.is-active .post-card-react-heart > svg,
+  .post-card-react-heart:hover > svg,
+  .post-card-react-heart:focus-visible > svg {
+    color: inherit;
+    opacity: 1;
   }
 
   .post-card-stat,
@@ -25408,7 +25493,7 @@ a.os-surface-row,
       env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y, 0.3rem)
     );
     right: max(
-      var(--os-screen-body-pad-x, 0.5rem),
+      var(--os-screen-body-pad-x, 0.75rem),
       env(safe-area-inset-right, 0px)
     );
     z-index: 3;
@@ -25449,7 +25534,7 @@ a.os-surface-row,
         --os-screen-chrome-height,
         var(--os-app-screen-chrome-height, var(--os-app-chrome-compact-height))
       )
-      var(--os-screen-body-pad-x, 0.5rem)
+      var(--os-screen-body-pad-x, 0.75rem)
       calc(var(--portfolio-dock-clearance, 5.25rem) + 0.4rem);
     cursor: zoom-out;
   }
@@ -27697,9 +27782,9 @@ a.os-surface-row,
   }
 
   .collectibles-play-page.is-immersive .scarce-clip-player {
-    width: calc(100% + (2 * var(--os-screen-body-pad-x, 0.5rem)));
+    width: calc(100% + (2 * var(--os-screen-body-pad-x, 0.75rem)));
     max-width: none;
-    margin: 0 calc(-1 * var(--os-screen-body-pad-x, 0.5rem));
+    margin: 0 calc(-1 * var(--os-screen-body-pad-x, 0.75rem));
     height: calc(env(safe-area-inset-top, 0px) + var(--scarce-play-cover-band));
   }
 
@@ -27950,6 +28035,28 @@ a.os-surface-row,
     padding: 0.8rem 0;
   }
 
+  .held-edition-aside {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.35rem;
+    min-width: 0;
+    width: max-content;
+    max-width: 100%;
+  }
+
+  .held-edition-use {
+    flex-shrink: 0;
+    min-width: 0;
+    width: max-content;
+    max-width: 100%;
+  }
+
+  .held-edition-use .os-sheet-action {
+    width: auto;
+  }
+
   .held-edition-choose {
     display: flex;
     align-items: center;
@@ -28025,7 +28132,7 @@ a.os-surface-row,
     min-width: 0;
     flex: 1;
     align-items: flex-start;
-    gap: 0.9rem;
+    gap: var(--os-media-copy-gap, 0.55rem);
     margin: 0;
     padding: 0;
     border: 0;
@@ -28186,10 +28293,10 @@ a.os-surface-row,
        so docking / arriving never pops through the blur. */
     z-index: var(--os-chrome-rail-z);
     box-sizing: border-box;
-    width: calc(100% + (2 * var(--os-screen-body-pad-x, 0.5rem)));
+    width: calc(100% + (2 * var(--os-screen-body-pad-x, 0.75rem)));
     max-width: none;
-    margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.5rem));
-    padding-inline: var(--os-screen-body-pad-x, 0.5rem);
+    margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.75rem));
+    padding-inline: var(--os-screen-body-pad-x, 0.75rem);
     transition: top var(--os-motion-chrome, 220ms) ease;
   }
 
@@ -28234,7 +28341,7 @@ a.os-surface-row,
     top: calc(
       -1 * var(--os-screen-chrome-height, var(--os-app-screen-chrome-height))
     );
-    inset-inline: calc(-1 * var(--os-screen-body-pad-x, 0.5rem));
+    inset-inline: calc(-1 * var(--os-screen-body-pad-x, 0.75rem));
     /*
      * Untucked, the sheet always reaches one strip slot below the rail, so a
      * docking account glides into frost that is already there — no grow/snap
@@ -28357,11 +28464,13 @@ a.os-surface-row,
 
   .collectibles-holding-action {
     flex-shrink: 0;
-    min-width: 4.5rem;
+    min-width: 0;
+    width: max-content;
+    max-width: 100%;
   }
 
   .collectibles-holding-action .os-sheet-action {
-    width: 100%;
+    width: auto;
   }
 
   .market-creator-shop {
@@ -28640,9 +28749,9 @@ a.os-surface-row,
 
   /* Edge-bleed cover under immersive nav — guild / hub recipe. */
   .collection-cover.is-immersive {
-    width: calc(100% + (2 * var(--os-screen-body-pad-x, 0.5rem)));
+    width: calc(100% + (2 * var(--os-screen-body-pad-x, 0.75rem)));
     max-width: none;
-    margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.5rem));
+    margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.75rem));
     border-radius: 0;
     aspect-ratio: auto;
     height: calc(
@@ -28661,7 +28770,7 @@ a.os-surface-row,
   .collection-cover.is-immersive.is-square {
     aspect-ratio: auto;
     max-width: none;
-    margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.5rem));
+    margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.75rem));
     height: calc(env(safe-area-inset-top, 0px) + var(--scarce-play-cover-band));
   }
 
@@ -28989,7 +29098,7 @@ a.os-surface-row,
    */
   .os-app-screen-footer .collection-action-band {
     position: relative;
-    padding: 0.5rem var(--os-screen-body-pad-x, 0.5rem) 0.45rem;
+    padding: 0.5rem var(--os-screen-body-pad-x, 0.75rem) 0.45rem;
     border-top: 0;
     background: transparent;
     overflow: visible;
@@ -29739,10 +29848,9 @@ a.os-surface-row,
     min-width: 0;
   }
 
-  /* Same face as a standing row. */
+  /* Same face as a standing row — gap from .os-media-face-identity. */
   .collection-writing-byline .os-media-face-identity {
     align-items: flex-start;
-    gap: 0.75rem;
   }
 
   .collection-writing-byline .os-media-face-identity .profile-avatar {
@@ -29913,8 +30021,8 @@ a.os-surface-row,
     height: var(--os-app-screen-nav-row-height, 2.35rem);
     min-height: var(--os-app-screen-nav-row-height, 2.35rem);
     max-height: var(--os-app-screen-nav-row-height, 2.35rem);
-    margin: 0 calc(-1 * var(--os-screen-body-pad-x, 0.5rem));
-    padding: 0 var(--os-screen-body-pad-x, 0.5rem);
+    margin: 0 calc(-1 * var(--os-screen-body-pad-x, 0.75rem));
+    padding: 0 var(--os-screen-body-pad-x, 0.75rem);
     /* Fill/blur from osChromeFrostStyle() — match .os-chrome-glass / elevated headers. */
     background: transparent;
     transition:
@@ -29937,13 +30045,13 @@ a.os-surface-row,
   @media (min-width: 640px) {
     .os-media-face-hero {
       /* Pull flush past body pad, then re-inset with Post header gutter. */
-      margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.5rem));
+      margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.75rem));
       padding-left: max(
-        var(--os-gutter, 0.5rem),
+        var(--os-gutter, 0.75rem),
         env(safe-area-inset-left, 0px)
       );
       padding-right: max(
-        var(--os-gutter, 0.5rem),
+        var(--os-gutter, 0.75rem),
         env(safe-area-inset-right, 0px)
       );
     }
@@ -30119,7 +30227,7 @@ a.os-surface-row,
   .os-media-face-identity {
     display: flex;
     align-items: flex-start;
-    gap: 0.75rem;
+    gap: var(--os-media-copy-gap, 0.55rem);
     min-width: 0;
     max-width: 100%;
     text-decoration: none;
@@ -30735,7 +30843,7 @@ a.os-surface-row,
   .ticket-door-preview-holder {
     display: flex;
     align-items: flex-start;
-    gap: 0.7rem;
+    gap: var(--os-media-copy-gap, 0.55rem);
     min-width: 0;
   }
 
@@ -31258,7 +31366,7 @@ a.os-surface-row,
   .collection-allowlist-edit-sheet-body {
     flex: 0 1 auto;
     min-height: 0;
-    padding: 0.35rem var(--os-screen-body-pad-x, 0.5rem) 0.55rem;
+    padding: 0.35rem var(--os-screen-body-pad-x, 0.75rem) 0.55rem;
   }
 
   /* Height hug is unlayered on the panel; body inset from OsHugSheet. */
@@ -32149,7 +32257,7 @@ a.os-surface-row,
     width: 100%;
     max-width: 36rem;
     margin-inline: auto;
-    padding: 0.55rem var(--os-screen-body-pad-x, 0.5rem)
+    padding: 0.55rem var(--os-screen-body-pad-x, 0.75rem)
       calc(0.55rem + env(safe-area-inset-bottom, 0px));
     box-sizing: border-box;
   }
@@ -32401,7 +32509,7 @@ a.os-surface-row,
     left: 0;
     right: 0;
     width: auto;
-    margin-inline: var(--os-screen-body-pad-x, 0.5rem);
+    margin-inline: var(--os-screen-body-pad-x, 0.75rem);
     padding-block: 0.1rem 0.2rem;
   }
 
@@ -32412,14 +32520,14 @@ a.os-surface-row,
     max-width: none;
     margin-inline: 0;
     /* Same horizontal pad as the feed screen body. */
-    padding: 0.45rem var(--os-screen-body-pad-x, 0.5rem) 0.35rem;
+    padding: 0.45rem var(--os-screen-body-pad-x, 0.75rem) 0.35rem;
     pointer-events: auto;
     box-sizing: border-box;
   }
 
   @media (min-width: 640px) {
     .scarce-read-slide .os-media-face-footer {
-      padding-inline: var(--os-screen-body-pad-x, 0.5rem);
+      padding-inline: var(--os-screen-body-pad-x, 0.75rem);
     }
   }
 
@@ -32487,7 +32595,7 @@ a.os-surface-row,
   .glass-sheet-panel.hub-manage-sheet-panel
     .hub-manage-slide
     .os-app-screen-body {
-    padding: 0.35rem var(--os-screen-body-pad-x, 0.5rem) 1.35rem;
+    padding: 0.35rem var(--os-screen-body-pad-x, 0.75rem) 1.35rem;
   }
 
   /*
@@ -32594,7 +32702,7 @@ a.os-surface-row,
     height: 100%;
     overflow: hidden;
     box-sizing: border-box;
-    padding: 0.15rem var(--os-screen-body-pad-x, 0.5rem) 0.35rem;
+    padding: 0.15rem var(--os-screen-body-pad-x, 0.75rem) 0.35rem;
   }
 
   .scarce-thought-stage {
@@ -32652,7 +32760,7 @@ a.os-surface-row,
     height: 100%;
     overflow: hidden;
     box-sizing: border-box;
-    padding: 0.15rem var(--os-screen-body-pad-x, 0.5rem) 0.35rem;
+    padding: 0.15rem var(--os-screen-body-pad-x, 0.75rem) 0.35rem;
   }
 
   .feed-photo-stage {
@@ -33085,11 +33193,11 @@ a.os-surface-row,
    * token twice). Caption pulls out by both so name/date share the column.
    */
   .feed-photo-slide {
-    --os-media-caption-outset: calc(2 * var(--os-screen-body-pad-x, 0.5rem));
+    --os-media-caption-outset: calc(2 * var(--os-screen-body-pad-x, 0.75rem));
   }
 
   .feed-photo-slide--cinema {
-    --os-media-caption-outset: var(--os-screen-body-pad-x, 0.5rem);
+    --os-media-caption-outset: var(--os-screen-body-pad-x, 0.75rem);
   }
 
   .feed-photo-slide .feed-photo-listen {
@@ -33137,7 +33245,7 @@ a.os-surface-row,
     display: block;
     width: 100%;
     margin: 0;
-    padding: 0.55rem var(--os-screen-body-pad-x, 0.5rem) 0.65rem;
+    padding: 0.55rem var(--os-screen-body-pad-x, 0.75rem) 0.65rem;
     border: 0;
     background: transparent;
     text-align: left;
@@ -33173,7 +33281,7 @@ a.os-surface-row,
 
   .feed-photo-caption-more {
     position: absolute;
-    left: var(--os-screen-body-pad-x, 0.5rem);
+    left: var(--os-screen-body-pad-x, 0.75rem);
     bottom: 0.5rem;
     margin: 0;
     font-size: var(--os-post-body-size, 1rem);
@@ -33215,7 +33323,7 @@ a.os-surface-row,
     flex-shrink: 0;
     contain: layout;
     pointer-events: auto;
-    padding: 0.45rem var(--os-screen-body-pad-x, 0.5rem) 0.15rem;
+    padding: 0.45rem var(--os-screen-body-pad-x, 0.75rem) 0.15rem;
   }
 
   .feed-photo-caption-identity-row {
@@ -33232,7 +33340,6 @@ a.os-surface-row,
     min-width: 0;
     max-width: none;
     align-items: flex-start;
-    gap: 0.75rem;
   }
 
   .feed-photo-caption-identity .os-media-face-identity .profile-avatar {
@@ -33450,7 +33557,7 @@ a.os-surface-row,
     max-width: none;
     height: var(--feed-thread-band, 58%);
     max-height: var(--feed-thread-band, 58%);
-    margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.5rem));
+    margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.75rem));
     margin-bottom: -0.55rem;
     z-index: 8;
     overflow: hidden;
@@ -33536,7 +33643,7 @@ a.os-surface-row,
 
   @media (min-width: 640px) {
     .feed-photo-thread-host {
-      margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.5rem));
+      margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.75rem));
       margin-bottom: -0.75rem;
     }
   }
@@ -33672,7 +33779,7 @@ a.os-surface-row,
     min-height: 100%;
     margin: 0 auto;
     /* No top pad — progress + jacket own the rim (kills the scroll-top gap). */
-    padding: 0 var(--os-screen-body-pad-x, 0.5rem) 0.55rem;
+    padding: 0 var(--os-screen-body-pad-x, 0.75rem) 0.55rem;
     box-sizing: border-box;
   }
 
@@ -33720,17 +33827,17 @@ a.os-surface-row,
 
   @media (min-width: 640px) {
     .feed-photo-slide {
-      --os-media-caption-outset: calc(2 * var(--os-screen-body-pad-x, 0.5rem));
+      --os-media-caption-outset: calc(2 * var(--os-screen-body-pad-x, 0.75rem));
     }
 
     .feed-photo-slide--cinema {
-      --os-media-caption-outset: var(--os-screen-body-pad-x, 0.5rem);
+      --os-media-caption-outset: var(--os-screen-body-pad-x, 0.75rem);
     }
 
     .scarce-read-slide .scarce-writing-read,
     .scarce-read-slide .os-media-face-body {
       width: min(100%, 42rem);
-      padding: 0 var(--os-screen-body-pad-x, 0.5rem) 0.75rem;
+      padding: 0 var(--os-screen-body-pad-x, 0.75rem) 0.75rem;
     }
 
     .ticket-pass-slide .os-media-face-body {
@@ -33823,7 +33930,7 @@ a.os-surface-row,
     gap: 0.65rem;
     min-width: 0;
     padding: var(--os-screen-body-pad-top, 0.15rem)
-      var(--os-screen-body-pad-x, 0.5rem)
+      var(--os-screen-body-pad-x, 0.75rem)
       var(--os-screen-body-pad-bottom, 1.5rem);
   }
 
@@ -33928,9 +34035,9 @@ a.os-surface-row,
 
   .profile-edit-sheet-footer {
     padding: 0.5rem
-      max(var(--os-gutter, 0.5rem), env(safe-area-inset-right, 0px))
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px))
       calc(0.35rem + env(safe-area-inset-bottom, 0px))
-      max(var(--os-gutter, 0.5rem), env(safe-area-inset-left, 0px));
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
   }
 
   .drop-variation-set-slide-grid {
@@ -34486,7 +34593,7 @@ a.os-surface-row,
 
   /* Schedule picker — tall tier cap; height via sizing="hug". */
   .drop-schedule-sheet-body {
-    padding: 0.1rem var(--os-sheet-pad-inline, 0.5rem) 0.55rem;
+    padding: 0.1rem var(--os-sheet-pad-inline, 0.75rem) 0.55rem;
   }
 
   .drop-schedule-sheet {
@@ -34496,7 +34603,7 @@ a.os-surface-row,
   }
 
   .drop-schedule-sheet-footer {
-    padding: 0.4rem var(--os-sheet-pad-inline, 0.5rem)
+    padding: 0.4rem var(--os-sheet-pad-inline, 0.75rem)
       calc(0.55rem + env(safe-area-inset-bottom, 0px));
   }
 
@@ -34798,7 +34905,7 @@ a.os-surface-row,
   }
 
   .drop-time-sheet-body {
-    padding: 0.15rem var(--os-screen-body-pad-x, 0.5rem) 0.35rem;
+    padding: 0.15rem var(--os-screen-body-pad-x, 0.75rem) 0.35rem;
   }
 
   .drop-time-sheet {
@@ -35335,9 +35442,9 @@ a.os-surface-row,
   .app-hub-cover {
     position: relative;
     z-index: 0;
-    width: calc(100% + (2 * var(--os-screen-body-pad-x, 0.5rem)));
+    width: calc(100% + (2 * var(--os-screen-body-pad-x, 0.75rem)));
     max-width: none;
-    margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.5rem));
+    margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.75rem));
     /* Safe-area share so the cover runs under the immersive nav bar. */
     height: calc(env(safe-area-inset-top, 0px) + clamp(6.75rem, 24vw, 9.25rem));
     overflow: hidden;
@@ -35620,9 +35727,9 @@ a.os-surface-row,
 
   .hub-manage-sheet-footer {
     padding: 0.5rem
-      max(var(--os-gutter, 0.5rem), env(safe-area-inset-right, 0px))
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px))
       calc(0.35rem + env(safe-area-inset-bottom, 0px))
-      max(var(--os-gutter, 0.5rem), env(safe-area-inset-left, 0px));
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
   }
 
   .hub-manage-hint {
@@ -35861,9 +35968,9 @@ a.os-surface-row,
 
   .market-filter-sheet-footer {
     padding: 0.5rem
-      max(var(--os-gutter, 0.5rem), env(safe-area-inset-right, 0px))
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px))
       calc(0.35rem + env(safe-area-inset-bottom, 0px))
-      max(var(--os-gutter, 0.5rem), env(safe-area-inset-left, 0px));
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
   }
 
   /* Drop template pills under the create-drop header. */
@@ -36408,8 +36515,8 @@ a.os-surface-row,
     align-items: flex-start;
     text-decoration: none;
     color: inherit;
-    gap: 0.9rem;
-    padding: 0.85rem 0.45rem;
+    gap: var(--os-media-copy-gap, 0.55rem);
+    padding: 0.85rem 0.25rem;
   }
 
   /* Inherit Market cover scale; reset border/shadow for Drops chrome. */
@@ -36443,7 +36550,6 @@ a.os-surface-row,
 
   .drops-discovery-action-col.market-listing-action-col {
     gap: 0.35rem;
-    min-width: 4.75rem;
   }
 
   .drops-discovery-head-trail {
@@ -36474,7 +36580,7 @@ a.os-surface-row,
   }
 
   .drops-discovery-action.market-listing-action {
-    width: 100%;
+    width: auto;
   }
 
   .drops-discovery-row .market-listing-meta,
@@ -36795,9 +36901,9 @@ a.os-surface-row,
     position: relative;
     display: flex;
     align-items: flex-start;
-    gap: 0.9rem;
-    margin: 0 -0.45rem;
-    padding: 0.85rem 0.45rem;
+    gap: var(--os-media-copy-gap, 0.55rem);
+    margin: 0 -0.25rem;
+    padding: 0.85rem 0.25rem;
     border-radius: 0.85rem;
     transition: background 160ms ease;
   }
@@ -36870,8 +36976,8 @@ a.os-surface-row,
   button.customize-pin-none {
     display: flex;
     align-items: center;
-    margin: 0 -0.45rem;
-    padding: 0.55rem 0.45rem;
+    margin: 0 -0.25rem;
+    padding: 0.55rem 0.25rem;
     border-radius: 0.85rem;
   }
 
@@ -37001,22 +37107,31 @@ a.os-surface-row,
     flex-shrink: 0;
   }
 
+  /* Right-edge hug like `.standing-row-aside` — no reserved empty column. */
   .market-listing-action-col {
     position: relative;
     z-index: 1;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    align-items: stretch;
+    align-items: flex-end;
     justify-content: flex-start;
     gap: 0.24rem;
-    min-width: 4.5rem;
+    min-width: 0;
+    width: max-content;
+    max-width: 100%;
     padding-top: 0.05rem;
   }
 
   .market-listing-action-col
     .market-listing-action.os-sheet-actions--row-compact {
-    width: 100%;
+    width: auto;
+  }
+
+  .market-listing-action-col
+    .market-listing-action.os-sheet-actions--row-compact
+    .os-sheet-action {
+    width: auto;
   }
 
   .market-listing-action-col > .drops-discovery-head-trail {
@@ -37263,7 +37378,7 @@ a.os-surface-row,
   /* Guild detail hero — full-bleed banner (no crest). */
   .guild-hero {
     /* Page pad-x + hero 0.1rem — cover bleeds both so content stays put. */
-    --guild-hero-bleed: calc(var(--os-screen-body-pad-x, 0.5rem) + 0.1rem);
+    --guild-hero-bleed: calc(var(--os-screen-body-pad-x, 0.75rem) + 0.1rem);
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
@@ -37546,7 +37661,7 @@ a.os-surface-row,
   }
 
   .guild-members-sheet-body {
-    padding: 0.2rem var(--os-sheet-pad-inline, 0.5rem)
+    padding: 0.2rem var(--os-sheet-pad-inline, 0.75rem)
       var(--os-sheet-footer-pad-bottom);
   }
 
@@ -37610,9 +37725,9 @@ a.os-surface-row,
 
   .guild-edit-sheet-footer {
     padding: 0.5rem
-      max(var(--os-gutter, 0.5rem), env(safe-area-inset-right, 0px))
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px))
       calc(0.35rem + env(safe-area-inset-bottom, 0px))
-      max(var(--os-gutter, 0.5rem), env(safe-area-inset-left, 0px));
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
   }
 
   .guild-edit-form-main {
@@ -37625,9 +37740,9 @@ a.os-surface-row,
     flex-direction: column;
     gap: 0.35rem;
     padding: 0.15rem
-      max(var(--os-screen-body-pad-x, 0.5rem), env(safe-area-inset-right, 0px))
+      max(var(--os-screen-body-pad-x, 0.75rem), env(safe-area-inset-right, 0px))
       1rem
-      max(var(--os-screen-body-pad-x, 0.5rem), env(safe-area-inset-left, 0px));
+      max(var(--os-screen-body-pad-x, 0.75rem), env(safe-area-inset-left, 0px));
   }
 
   .guild-edit-title-row {
@@ -38471,7 +38586,7 @@ a.os-surface-row,
     display: flex;
     flex-direction: column;
     gap: 0.55rem;
-    padding: 0.35rem var(--os-screen-body-pad-x, 0.5rem)
+    padding: 0.35rem var(--os-screen-body-pad-x, 0.75rem)
       calc(0.85rem + env(safe-area-inset-bottom, 0px));
   }
 
@@ -38758,7 +38873,8 @@ a.os-surface-row,
   }
 
   .post-thread-more--coil-tail {
-    padding: 0 0 0.35rem calc(var(--os-avatar-feed, 2.5rem) + 0.75rem);
+    padding: 0 0 0.35rem
+      calc(var(--os-avatar-feed, 2.5rem) + var(--os-media-copy-gap, 0.55rem));
     min-height: 1.1rem;
   }
 
@@ -38809,7 +38925,8 @@ a.os-surface-row,
     background: transparent;
     cursor: pointer;
     text-align: left;
-    padding: 0 0.35rem 0.32rem calc(var(--os-avatar-feed, 2.5rem) + 0.75rem);
+    padding: 0 0.35rem 0.32rem
+      calc(var(--os-avatar-feed, 2.5rem) + var(--os-media-copy-gap, 0.55rem));
     /* Size/weight/color: feed-meta.css (same as Show more / #$@). */
     text-decoration: none;
     -webkit-tap-highlight-color: transparent;
@@ -38955,7 +39072,7 @@ a.os-surface-row,
     flex-direction: column;
     gap: 0.75rem;
     padding: var(--os-screen-body-pad-top, 0.15rem)
-      var(--os-screen-body-pad-x, 0.5rem) 0.85rem;
+      var(--os-screen-body-pad-x, 0.75rem) 0.85rem;
   }
 
   .guild-composer-sheet-form .post-card-quote-inset {
@@ -39002,7 +39119,7 @@ a.os-surface-row,
 
   /* Compose dock — tools left, compact Post right (above keyboard). */
   .guild-composer-sheet-footer {
-    padding: 0.4rem var(--os-screen-body-pad-x, 0.5rem)
+    padding: 0.4rem var(--os-screen-body-pad-x, 0.75rem)
       calc(0.5rem + env(safe-area-inset-bottom, 0px));
   }
 
@@ -39343,7 +39460,7 @@ a.os-surface-row,
   .guild-composer-self {
     position: relative;
     display: flex;
-    gap: 0.75rem;
+    gap: var(--os-media-copy-gap, 0.55rem);
     align-items: flex-start;
   }
 
@@ -40274,8 +40391,8 @@ a.os-surface-row,
 
   .guild-feed-filter-pin-inner {
     position: relative;
-    margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.5rem));
-    padding-inline: var(--os-screen-body-pad-x, 0.5rem);
+    margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.75rem));
+    padding-inline: var(--os-screen-body-pad-x, 0.75rem);
     background: transparent;
     box-shadow: none;
     opacity: 1;
@@ -40803,7 +40920,7 @@ a.os-surface-row,
     flex-direction: column;
     /* Same denser rhythm as `.standing-panel` — social list overlays share inset. */
     gap: 0.65rem;
-    padding: 0.35rem var(--os-screen-body-pad-x, 0.5rem) 1.25rem;
+    padding: 0.35rem var(--os-screen-body-pad-x, 0.75rem) 1.25rem;
   }
 
   .endorsement-list {
@@ -44256,7 +44373,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 .launcher-peek-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--os-media-copy-gap, 0.55rem);
   padding: 0.72rem 0.15rem;
   border-radius: 0.55rem;
   text-decoration: none;
@@ -46078,10 +46195,10 @@ button.messages-bubble-quote:focus-visible {
 .customize-song-list > .customize-pin-album > button.customize-pin-row,
 .customize-pin-tracks > button.customize-pin-track {
   box-sizing: border-box;
-  width: calc(100% + 0.9rem);
+  width: calc(100% + 0.5rem);
   max-width: none;
-  margin-right: -0.45rem;
-  margin-left: -0.45rem;
+  margin-right: -0.25rem;
+  margin-left: -0.25rem;
   border-radius: 0.85rem;
   transition: background var(--os-motion-chip, 160ms)
     var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1));
@@ -46191,7 +46308,7 @@ button.messages-bubble-quote:focus-visible {
     flex: 1;
     min-height: 0;
     gap: 0.35rem;
-    padding: 0.35rem var(--os-screen-body-pad-x, 0.5rem) 1rem;
+    padding: 0.35rem var(--os-screen-body-pad-x, 0.75rem) 1rem;
   }
 
   .network-orbit-caption-row {

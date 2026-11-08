@@ -1,6 +1,9 @@
 import { formatSocialFutureStamp } from '@onsocial/ui';
 import type { DropsSort } from '@/features/drops/drops-data';
-import { formatMarketRelativeTime } from '@/features/market/market-listings';
+import {
+  formatMarketRelativeTime,
+  formatMarketVerbStamp,
+} from '@/features/market/market-listings';
 
 export type DropListClock = {
   label: string;
@@ -35,7 +38,7 @@ function createdClock(
   ) {
     return null;
   }
-  const label = formatMarketRelativeTime(createdAtMs, nowMs);
+  const label = formatMarketVerbStamp('Dropped', createdAtMs, nowMs);
   return label ? { label, atMs: createdAtMs } : null;
 }
 
@@ -52,7 +55,7 @@ function windowClock(
 /**
  * The one clock in the drop row corner.
  * Upcoming, live, closing, and finished use the window.
- * Loved, traded, new, and saved use when it appeared.
+ * Loved, traded, new, and saved say Dropped.
  */
 export function dropListClock(input: {
   sort: DropsSort;

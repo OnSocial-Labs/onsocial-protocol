@@ -40,7 +40,7 @@ describe('dropListClock', () => {
     expect(finished?.atMs).toBe(NOW - 10 * DAY);
   });
 
-  it('keeps when it appeared when the list is not about a window', () => {
+  it('says Dropped when the list is not about a window', () => {
     const createdAtMs = NOW - 2 * DAY;
     expect(
       dropListClock({
@@ -49,7 +49,7 @@ describe('dropListClock', () => {
         createdAtMs,
         endTimeMs: NOW + DAY,
       })
-    ).toEqual({ label: '2d', atMs: createdAtMs });
+    ).toEqual({ label: 'Dropped 2d', atMs: createdAtMs });
     expect(
       dropListClock({
         sort: 'new',
@@ -57,10 +57,10 @@ describe('dropListClock', () => {
         createdAtMs,
         startTimeMs: NOW + DAY,
       })?.label
-    ).toBe('2d');
+    ).toBe('Dropped 2d');
   });
 
-  it('falls back to when it appeared when the window is missing', () => {
+  it('falls back to Dropped when the window is missing', () => {
     expect(
       dropListClock({
         sort: 'upcoming',
@@ -68,6 +68,6 @@ describe('dropListClock', () => {
         createdAtMs: NOW - 2 * DAY,
         startTimeMs: null,
       })?.label
-    ).toBe('2d');
+    ).toBe('Dropped 2d');
   });
 });

@@ -7,7 +7,7 @@ import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stac
 import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import {
   marketListingRowKey,
-  formatMarketRelativeTime,
+  formatMarketVerbStamp,
   type MarketListingItem,
 } from '@/features/market/market-listings';
 import { marketListingRowTarget } from '@/features/market/market-row-targets';
@@ -114,7 +114,7 @@ export function MarketListingRow({
     item.kind === 'auction' && typeof nowMs === 'number'
       ? marketAuctionClockLabel(item.expiresAtNs, nowMs)
       : null;
-  const listedTime = formatMarketRelativeTime(item.blockTimestamp);
+  const listedTime = formatMarketVerbStamp('Listed', item.blockTimestamp);
   const timeLabel = auctionClockLabel
     ? auctionClockLabel
     : item.kind !== 'auction' && listedTime

@@ -228,7 +228,7 @@
 
 .os-app-chrome-scroller-inset {
   padding-top: var(--os-screen-body-pad-top, 0.15rem);
-  padding-inline: var(--os-screen-body-pad-x, 0.5rem);
+  padding-inline: var(--os-screen-body-pad-x, 0.75rem);
   padding-bottom: var(--os-screen-body-pad-bottom, 1.5rem);
 }
 

@@ -3,16 +3,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AmountField,
-  ArrowUpRightIcon,
+  DirectionUpRightIcon,
   DotsVerticalIcon,
-  EditIcon,
+  EditPenIcon,
   FireIcon,
-  GiftIcon,
   OsActionDrawerConfirm,
   OsSheetAction,
   OsSheetActions,
   replaceSheet,
   ShopIcon,
+  TagIcon,
   TimeIcon,
   TrashIcon,
   osActionDrawerConfirmBodyClassName,
@@ -379,7 +379,12 @@ export function CollectiblesHoldingRowMenu({
           : listed
             ? 'Send it on. This comes off sale.'
             : 'Send this scarce to another account',
-        leading: <GiftIcon className="os-action-drawer-icon" aria-hidden />,
+        leading: (
+          <DirectionUpRightIcon
+            className="os-action-drawer-icon"
+            aria-hidden
+          />
+        ),
         onSelect: () => {
           replaceSheet();
           close();
@@ -397,7 +402,7 @@ export function CollectiblesHoldingRowMenu({
         section: 'Manage',
         label: 'Change price',
         description: 'New asking price, same listing',
-        leading: <EditIcon className="os-action-drawer-icon" aria-hidden />,
+        leading: <EditPenIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: openPriceConfirm,
       });
     }
@@ -408,7 +413,7 @@ export function CollectiblesHoldingRowMenu({
         section: 'Manage',
         label: 'List for sale',
         description: 'Secondary listing on Market',
-        leading: <ShopIcon className="os-action-drawer-icon" aria-hidden />,
+        leading: <TagIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           replaceSheet();
           close();
@@ -451,9 +456,7 @@ export function CollectiblesHoldingRowMenu({
         section: 'Manage',
         label: 'Open in Market',
         description: 'Yours — sell, delist, offers',
-        leading: (
-          <ArrowUpRightIcon className="os-action-drawer-icon" aria-hidden />
-        ),
+        leading: <ShopIcon className="os-action-drawer-icon" aria-hidden />,
         href: APP_MARKET_PATH,
         onSelect: close,
       });

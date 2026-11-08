@@ -238,11 +238,11 @@
   padding-top: 0;
   padding-bottom: 0.65rem;
   padding-left: max(
-    var(--os-sheet-pad-inline, 0.5rem),
+    var(--os-sheet-pad-inline, 0.75rem),
     env(safe-area-inset-left, 0px)
   );
   padding-right: max(
-    var(--os-sheet-pad-inline, 0.5rem),
+    var(--os-sheet-pad-inline, 0.75rem),
     env(safe-area-inset-right, 0px)
   );
 }
@@ -258,7 +258,8 @@
   width: 2rem;
   height: 2rem;
   flex-shrink: 0;
-  color: rgb(var(--fg-rgb) / 0.88);
+  color: rgb(var(--fg-rgb));
+  opacity: 0.88;
 }
 
 .os-launcher-grid {
@@ -268,8 +269,8 @@
   list-style: none;
   margin: 0;
   padding: 0.35rem
-    max(var(--os-sheet-pad-inline, 0.5rem), env(safe-area-inset-right, 0px)) 0
-    max(var(--os-sheet-pad-inline, 0.5rem), env(safe-area-inset-left, 0px));
+    max(var(--os-sheet-pad-inline, 0.75rem), env(safe-area-inset-right, 0px)) 0
+    max(var(--os-sheet-pad-inline, 0.75rem), env(safe-area-inset-left, 0px));
   width: 100%;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -379,8 +380,9 @@
   width: var(--os-launcher-glyph-size, 1.6rem);
   height: var(--os-launcher-glyph-size, 1.6rem);
   flex-shrink: 0;
-  color: rgb(var(--fg-rgb) / 0.62);
-  transition: color 160ms ease;
+  color: rgb(var(--fg-rgb));
+  opacity: 0.62;
+  transition: opacity 160ms ease;
 }
 
 .os-launcher-item-icon--remote {
@@ -452,7 +454,7 @@
 
 .os-launcher-item:not(.is-soon):not(.is-current):is(:hover, :focus-visible)
   .os-launcher-item-icon {
-  color: rgb(var(--fg-rgb) / 0.84);
+  opacity: 0.84;
 }
 
 .os-launcher-item:focus-visible {
@@ -478,7 +480,7 @@
 }
 
 .os-launcher-item.is-current .os-launcher-item-icon {
-  color: rgb(var(--fg-rgb) / 0.96);
+  opacity: 0.96;
 }
 
 .os-launcher-item.is-current .os-launcher-item-label {
@@ -501,7 +503,7 @@
 .os-launcher-item.is-soon:hover .os-launcher-item-icon,
 .os-launcher-item.is-soon:focus-visible .os-launcher-item-icon,
 .os-launcher-item.is-soon:active .os-launcher-item-icon {
-  color: rgb(var(--fg-rgb) / 0.42);
+  opacity: 0.42;
 }
 
 .os-launcher-item-soon {
@@ -524,8 +526,8 @@
   display: flex;
   justify-content: center;
   padding: 1rem
-    max(var(--os-sheet-pad-inline, 0.5rem), env(safe-area-inset-right, 0px)) 0
-    max(var(--os-sheet-pad-inline, 0.5rem), env(safe-area-inset-left, 0px));
+    max(var(--os-sheet-pad-inline, 0.75rem), env(safe-area-inset-right, 0px)) 0
+    max(var(--os-sheet-pad-inline, 0.75rem), env(safe-area-inset-left, 0px));
 }
 
 .os-launcher-theme-toggle {

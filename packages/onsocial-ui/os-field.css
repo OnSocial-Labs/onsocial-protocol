@@ -200,14 +200,23 @@
   outline: none;
 }
 
-/* Shell owns the border. The inner control is the type-in only. */
-.os-field-bordered:not(.os-account-field):not(.near-account-field):has(
+/*
+ * Shell owns the border. The inner control is the type-in only.
+ * Affix shells (account / amount / suffix) keep shell pad and zero child pad —
+ * see os-account-field.css / os-amount-field.css. Do not zero those here.
+ */
+.os-field-bordered:not(.os-account-field):not(.near-account-field):not(
+    .os-amount-field
+  ):not(.app-storage-amount-field):not(.os-suffix-field):not(.suffix-field):has(
     > input
   ) {
   padding: 0;
 }
 
-.os-field-bordered:not(.os-account-field):not(.near-account-field) > input {
+.os-field-bordered:not(.os-account-field):not(.near-account-field):not(
+    .os-amount-field
+  ):not(.app-storage-amount-field):not(.os-suffix-field):not(.suffix-field)
+  > input {
   display: block;
   width: 100%;
   min-width: 0;
@@ -224,7 +233,9 @@
   outline: none;
 }
 
-.os-field-bordered:not(.os-account-field):not(.near-account-field)
+.os-field-bordered:not(.os-account-field):not(.near-account-field):not(
+    .os-amount-field
+  ):not(.app-storage-amount-field):not(.os-suffix-field):not(.suffix-field)
   > input::placeholder {
   color: var(--os-field-placeholder);
 }

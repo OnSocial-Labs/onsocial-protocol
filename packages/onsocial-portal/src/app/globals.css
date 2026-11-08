@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import '@onsocial/ui/protocol.css';
 @import '@onsocial/ui/dividers.css';
+@import '@onsocial/ui/mage-stroke-icons.css';
 @import '@onsocial/ui/pulsing-dots.css';
 @import '@onsocial/ui/os-sheet-action.css';
 @import '@onsocial/ui/profile-editor-media.css';

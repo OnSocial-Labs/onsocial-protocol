@@ -79,7 +79,7 @@ describe('owned listing clock', () => {
         { listingKind: null, mintedAtMs: NOW - 4 * 86_400_000 },
         NOW
       )?.label
-    ).toBe('4d');
+    ).toBe('Minted 4d');
     expect(
       ownedListingStatusBit({ listingKind: null, bidCount: 0 }, null)
     ).toBe('Ready to sell');

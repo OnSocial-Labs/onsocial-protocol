@@ -31,11 +31,19 @@ import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { hubRosterTransactionToastForAction } from '@/features/scarces/hub-roster-transaction-toast';
 
 function actionIcon(id: HubRosterRowActionId) {
-  if (id === 'copy-handle') return <CopyIcon aria-hidden />;
-  if (id === 'transfer-ownership') return <KeyIcon aria-hidden />;
-  if (id === 'make-moderator') return <ShieldCheckIcon aria-hidden />;
-  if (id === 'make-creator') return <UserPlusIcon aria-hidden />;
-  return <UserMinusIcon aria-hidden />;
+  if (id === 'copy-handle') {
+    return <CopyIcon className="os-action-drawer-icon" aria-hidden />;
+  }
+  if (id === 'transfer-ownership') {
+    return <KeyIcon className="os-action-drawer-icon" aria-hidden />;
+  }
+  if (id === 'make-moderator') {
+    return <ShieldCheckIcon className="os-action-drawer-icon" aria-hidden />;
+  }
+  if (id === 'make-creator') {
+    return <UserPlusIcon className="os-action-drawer-icon" aria-hidden />;
+  }
+  return <UserMinusIcon className="os-action-drawer-icon" aria-hidden />;
 }
 
 interface HubRosterRowMenuProps {

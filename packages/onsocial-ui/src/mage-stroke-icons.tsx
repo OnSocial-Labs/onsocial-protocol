@@ -1,4 +1,8 @@
 import type { ReactNode, SVGProps } from 'react';
+import { cn } from './cn.js';
+
+/** Shared class for every Mage stroke glyph — see `mage-stroke-icons.css`. */
+export const mageStrokeIconClassName = 'mage-stroke-icon';
 
 export type MageStrokeIconProps = Pick<
   SVGProps<SVGSVGElement>,
@@ -17,7 +21,7 @@ function MageStrokeSvg({
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={className}
+      className={cn(mageStrokeIconClassName, className)}
       {...props}
     >
       {children}
@@ -1329,7 +1333,50 @@ export function StarsCIcon({
   );
 }
 
-/** Mage `shop` — market / list-for-sale affordance. */
+/** Mage `tag` — list / price for sale. */
+export function TagIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="m17.524 17.524l-2.722 2.723a2.567 2.567 0 0 1-3.634 0L4.13 13.209A3.85 3.85 0 0 1 3 10.487V5.568A2.57 2.57 0 0 1 5.568 3h4.919c1.021 0 2 .407 2.722 1.13l7.038 7.038a2.567 2.567 0 0 1 0 3.634z"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path
+        d="M9.126 11.694a2.568 2.568 0 1 0 0-5.137a2.568 2.568 0 0 0 0 5.137"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
+/**
+ * Mage `direction-up-right` — paper-plane send / transfer.
+ * Distinct from {@link ArrowUpRightIcon} (corner ↗ leave / open elsewhere).
+ */
+export function DirectionUpRightIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="m9.697 12.695l-5.271-.91a2.074 2.074 0 0 1-.167-3.941l14.045-4.968a2.075 2.075 0 0 1 2.66 2.66l-4.968 14.318a2.075 2.075 0 0 1-3.981-.205l-.91-5.546a2.08 2.08 0 0 0-1.408-1.408"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
+/** Mage `shop` — open Market / marketplace destination. */
 export function ShopIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
