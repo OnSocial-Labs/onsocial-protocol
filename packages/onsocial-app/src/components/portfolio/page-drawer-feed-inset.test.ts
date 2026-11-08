@@ -176,9 +176,9 @@ describe('page drawer feed inset', () => {
     expect(globalsCss).toMatch(/--os-dock-clearance-gap:\s*0\.85rem;/);
   });
 
-  it('uses the 1rem sheet pad on the page drawer, not the page gutter', () => {
+  it('uses the shared gutter on the page drawer', () => {
     expect(globalsCss).toMatch(
-      /\.glass-sheet-root \.glass-sheet-panel\.page-drawer-panel \{[\s\S]*?height: 100%;[\s\S]*?max-height: none;[\s\S]*?--os-screen-body-pad-x: var\(--os-sheet-pad-inline, 1rem\);/
+      /\.glass-sheet-root \.glass-sheet-panel\.page-drawer-panel \{[\s\S]*?height: 100%;[\s\S]*?max-height: none;[\s\S]*?--os-screen-body-pad-x: var\(--os-sheet-pad-inline, 0\.5rem\);/
     );
     expect(globalsCss).not.toMatch(
       /\.glass-sheet-root \.glass-sheet-panel\.page-drawer-panel \{[^}]*54rem/

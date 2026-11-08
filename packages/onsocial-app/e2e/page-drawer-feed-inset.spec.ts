@@ -9,7 +9,7 @@ const accountId = e2ePortfolioAccountId();
 const portfolioPath = `/@${accountId}`;
 
 test.describe('page drawer feed inset', () => {
-  test('drawer column uses the 1rem sheet pad and Home empty chrome', async ({
+  test('drawer column uses the page gutter and Home empty chrome', async ({
     page,
   }) => {
     await gotoApp(page, `${portfolioPath}?tab=posts`);
@@ -35,8 +35,8 @@ test.describe('page drawer feed inset', () => {
       return {
         bodyPadX: bodyStyle.paddingLeft,
         headerPadX: headerStyle.paddingLeft,
-        // Drawers use --os-sheet-pad-inline (1rem), not the page gutter.
-        expectedPadX: `${rootFont}px`,
+        // Drawers use --os-sheet-pad-inline, which tracks the 0.5rem gutter.
+        expectedPadX: `${rootFont * 0.5}px`,
         gutter: getComputedStyle(body).getPropertyValue('--os-gutter').trim(),
         hasPanelBody: Boolean(body.querySelector('.panel-body')),
         hasPlaceholder: Boolean(document.querySelector('.panel-placeholder')),

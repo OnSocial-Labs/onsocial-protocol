@@ -641,8 +641,8 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   height: 100%;
   max-height: none;
   --glass-header-scrim-height: min(6.5rem, 24%);
-  /* Drawer chrome uses the 1rem sheet pad, not the page gutter. */
-  --os-screen-body-pad-x: var(--os-sheet-pad-inline, 1rem);
+  /* Drawer chrome uses the sheet pad, which tracks the page gutter. */
+  --os-screen-body-pad-x: var(--os-sheet-pad-inline, 0.5rem);
 }
 
 /* Single scroller = sheet body. Content scrolls under the floating pill. */
@@ -3304,8 +3304,7 @@ a.os-surface-row,
     /* Pull tier-2 meta (caption · tags) into one band below signal numbers. */
     --portfolio-shelf-pull: 0.44rem;
     --portfolio-shelf-meta-gap: 0.22rem;
-    /* One horizontal text gutter. html stays font-size: 100%.
-       Screen body pad follows it everywhere; drawers override the pad. */
+    /* One horizontal text gutter for screens and drawers. html stays font-size: 100%. */
     --os-gutter: 0.5rem;
     --os-screen-body-pad-x: var(--os-gutter);
     /* Large face — same as .profile-avatar--lg, phone and desktop.
@@ -12932,7 +12931,7 @@ a.os-surface-row,
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    padding: 0 var(--os-sheet-pad-inline, 1rem)
+    padding: 0 var(--os-sheet-pad-inline, 0.5rem)
       var(--os-screen-body-pad-bottom, 1.5rem);
   }
 
@@ -13474,8 +13473,8 @@ a.os-surface-row,
   }
 
   .customize-sheet-divider {
-    width: calc(100% - (2 * var(--os-sheet-pad-inline, 1rem)));
-    margin-inline: var(--os-sheet-pad-inline, 1rem);
+    width: calc(100% - (2 * var(--os-sheet-pad-inline, 0.5rem)));
+    margin-inline: var(--os-sheet-pad-inline, 0.5rem);
     background-image: linear-gradient(
       to right,
       transparent,
@@ -17447,9 +17446,9 @@ a.os-surface-row,
     flex-direction: column;
     gap: 0.5rem;
     padding: 0
-      max(var(--os-sheet-pad-inline, 1rem), env(safe-area-inset-right, 0px))
+      max(var(--os-sheet-pad-inline, 0.5rem), env(safe-area-inset-right, 0px))
       0.65rem
-      max(var(--os-sheet-pad-inline, 1rem), env(safe-area-inset-left, 0px));
+      max(var(--os-sheet-pad-inline, 0.5rem), env(safe-area-inset-left, 0px));
   }
 
   .discover-sheet-title-row {
@@ -18368,7 +18367,7 @@ a.os-surface-row,
     z-index: 1;
     gap: 0;
     /* Same column as `.glass-sheet-header` / sheet pad. */
-    padding: 0 var(--os-sheet-pad-inline, 1rem) 0.75rem;
+    padding: 0 var(--os-sheet-pad-inline, 0.5rem) 0.75rem;
   }
 
   .account-drawer-subject-row {
@@ -34523,7 +34522,7 @@ a.os-surface-row,
 
   /* Schedule picker — tall tier cap; height via sizing="hug". */
   .drop-schedule-sheet-body {
-    padding: 0.1rem var(--os-sheet-pad-inline, 1rem) 0.55rem;
+    padding: 0.1rem var(--os-sheet-pad-inline, 0.5rem) 0.55rem;
   }
 
   .drop-schedule-sheet {
@@ -34533,7 +34532,7 @@ a.os-surface-row,
   }
 
   .drop-schedule-sheet-footer {
-    padding: 0.4rem var(--os-sheet-pad-inline, 1rem)
+    padding: 0.4rem var(--os-sheet-pad-inline, 0.5rem)
       calc(0.55rem + env(safe-area-inset-bottom, 0px));
   }
 
@@ -37583,7 +37582,7 @@ a.os-surface-row,
   }
 
   .guild-members-sheet-body {
-    padding: 0.2rem var(--os-sheet-pad-inline, 1rem)
+    padding: 0.2rem var(--os-sheet-pad-inline, 0.5rem)
       var(--os-sheet-footer-pad-bottom);
   }
 
