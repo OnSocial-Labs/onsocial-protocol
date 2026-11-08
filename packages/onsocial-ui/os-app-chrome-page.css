@@ -4,10 +4,7 @@
  */
 
 .os-app-chrome-page {
-  padding: var(
-    --os-screen-body-inset,
-    0.15rem var(--os-gutter, 0.5rem) 1.5rem
-  );
+  padding: var(--os-screen-body-inset, 0.15rem var(--os-gutter, 0.5rem) 1.5rem);
 }
 
 /* Discover / standing lists — flush top under compact search + tab rail. */
@@ -16,10 +13,7 @@
   flex-direction: column;
   gap: 0.65rem;
   min-width: 0;
-  padding: var(
-    --os-screen-body-inset,
-    0.15rem var(--os-gutter, 0.5rem) 1.5rem
-  );
+  padding: var(--os-screen-body-inset, 0.15rem var(--os-gutter, 0.5rem) 1.5rem);
   padding-top: 0;
 }
 
