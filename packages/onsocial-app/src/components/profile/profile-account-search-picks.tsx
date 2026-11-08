@@ -57,20 +57,23 @@ export function ProfileAccountSearchPicks({
   listAriaLabel?: string;
 }) {
   const [profiles, setProfiles] = useState<DiscoverProfileSummary[]>([]);
-  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resultKey, setResultKey] = useState<string | null>(null);
   const normalizedQuery = normalizeProfileSearchQuery(query);
   const searchActive =
     enabled &&
     !disabled &&
     normalizedQuery.length >= PROFILE_SEARCH_MIN_QUERY_LENGTH;
+  const requestKey = searchActive
+    ? `${normalizedQuery}\0${viewerAccountId ?? ''}`
+    : '';
+  const pending = searchActive && resultKey !== requestKey;
 
   useEffect(() => {
     if (!searchActive) return;
+    const key = `${normalizedQuery}\0${viewerAccountId ?? ''}`;
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      setPending(true);
-      setError(null);
       void fetchDiscoverProfiles(
         normalizedQuery,
         viewerAccountId,
@@ -80,13 +83,14 @@ export function ProfileAccountSearchPicks({
         .then((response) => {
           if (controller.signal.aborted) return;
           setProfiles(response.profiles);
-          setPending(false);
+          setError(null);
+          setResultKey(key);
         })
         .catch((cause) => {
           if (controller.signal.aborted) return;
           setProfiles([]);
-          setPending(false);
           setError(cause instanceof Error ? cause.message : 'Search failed.');
+          setResultKey(key);
         });
     }, SEARCH_DEBOUNCE_MS);
     return () => {
@@ -100,9 +104,7 @@ export function ProfileAccountSearchPicks({
     return profiles
       .filter((profile) => {
         if (
-          excludeAccountIds.some((id) =>
-            accountIdsEqual(profile.accountId, id)
-          )
+          excludeAccountIds.some((id) => accountIdsEqual(profile.accountId, id))
         ) {
           return false;
         }
@@ -136,9 +138,12 @@ export function ProfileAccountSearchPicks({
       ) : null}
       {visibleProfiles.length > 0 ? (
         <div
-          className="standing-list guild-add-member-results"
+          className={`standing-list guild-add-member-results${
+            pending ? ' is-refreshing' : ''
+          }`}
           role="listbox"
           aria-label={listAriaLabel}
+          aria-busy={pending || undefined}
         >
           {visibleProfiles.map((profile, index) => (
             <div key={profile.accountId}>

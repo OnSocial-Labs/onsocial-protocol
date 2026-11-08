@@ -38447,6 +38447,12 @@ a.os-surface-row,
     margin: 0.15rem 0 0;
   }
 
+  .guild-add-member-results.is-refreshing {
+    opacity: 0.72;
+    transition: opacity 160ms ease;
+    pointer-events: none;
+  }
+
   button.guild-add-member-result {
     display: flex;
     width: 100%;
@@ -45504,6 +45510,12 @@ button.messages-bubble-quote:focus-visible {
 
 .messages-search-people {
   margin-top: 0.55rem;
+}
+
+.messages-search-people.is-refreshing {
+  opacity: 0.72;
+  transition: opacity 160ms ease;
+  pointer-events: none;
 }
 
 .messages-search-section {

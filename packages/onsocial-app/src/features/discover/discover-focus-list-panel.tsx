@@ -39,13 +39,15 @@ export function DiscoverFocusListPanel({
   const [rows, setRows] = useState<Array<HashtagCount | TickerCount>>(() =>
     !filterPrefix && initialRows ? initialRows : []
   );
-  const [loading, setLoading] = useState(
-    () => !(!filterPrefix && initialRows != null)
-  );
   const [error, setError] = useState<string | null>(null);
+  const requestKey = `${kind}\0${filterPrefix}`;
+  const [settledKey, setSettledKey] = useState<string | null>(() =>
+    !filterPrefix && initialRows != null ? `${kind}\0${filterPrefix}` : null
+  );
   const hasPaintedRef = useRef(
     Boolean(!filterPrefix && initialRows && initialRows.length > 0)
   );
+  const loading = settledKey !== requestKey;
 
   useEffect(() => {
     let cancelled = false;
@@ -53,10 +55,6 @@ export function DiscoverFocusListPanel({
     const timer = window.setTimeout(
       () => {
         void (async () => {
-          if (!soft) {
-            setLoading(true);
-          }
-          setError(null);
           try {
             const client = createReadOnlyOnSocialClient();
             const next =
@@ -73,6 +71,8 @@ export function DiscoverFocusListPanel({
                   : await client.query.hashtags.trending({ limit: LIST_LIMIT });
             if (!cancelled) {
               setRows(next);
+              setError(null);
+              setSettledKey(`${kind}\0${filterPrefix}`);
               hasPaintedRef.current = next.length > 0 && !filterPrefix;
             }
           } catch (cause) {
@@ -86,9 +86,8 @@ export function DiscoverFocusListPanel({
                     ? 'Could not load tickers.'
                     : 'Could not load topics.'
               );
+              setSettledKey(`${kind}\0${filterPrefix}`);
             }
-          } finally {
-            if (!cancelled) setLoading(false);
           }
         })();
       },

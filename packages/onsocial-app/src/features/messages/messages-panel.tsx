@@ -1885,9 +1885,15 @@ export function MessagesPanel() {
                     peoplePending,
                     peopleFailed: Boolean(peopleError),
                   }) ? (
-                    <div className="messages-search-people">
+                    <div
+                      className={`messages-search-people${
+                        peoplePending && peopleResults.length > 0
+                          ? ' is-refreshing'
+                          : ''
+                      }`}
+                    >
                       <p className="messages-search-section">Start a chat</p>
-                      {peoplePending ? (
+                      {peoplePending && peopleResults.length === 0 ? (
                         <p className="messages-muted">Searching…</p>
                       ) : peopleError ? (
                         <p className="messages-muted">{peopleError}</p>

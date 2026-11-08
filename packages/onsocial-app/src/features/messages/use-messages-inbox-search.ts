@@ -26,12 +26,17 @@ export function useMessagesInboxSearch(opts: {
 }) {
   const [query, setQuery] = useState('');
   const [people, setPeople] = useState<DiscoverProfileSummary[]>([]);
-  const [peoplePending, setPeoplePending] = useState(false);
   const [peopleError, setPeopleError] = useState<string | null>(null);
+  const [peopleResultKey, setPeopleResultKey] = useState<string | null>(null);
 
   const normalized = normalizeMessagesSearchQuery(query);
   const isSearching = normalized.length > 0;
   const peopleActive = isMessagesPeopleSearchActive(normalized);
+  const peopleRequestKey = peopleActive
+    ? `${normalized}\0${opts.viewerAccountId ?? ''}`
+    : '';
+  const peopleInFlight =
+    peopleActive && opts.enabled && peopleResultKey !== peopleRequestKey;
 
   const searchableThreads = useMemo(() => {
     const inbox = opts.inboxThreads ?? [];
@@ -59,10 +64,9 @@ export function useMessagesInboxSearch(opts: {
   useEffect(() => {
     if (!opts.enabled || !peopleActive) return;
 
+    const key = `${normalized}\0${opts.viewerAccountId ?? ''}`;
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      setPeoplePending(true);
-      setPeopleError(null);
       void fetchDiscoverProfiles(
         normalized,
         opts.viewerAccountId,
@@ -72,6 +76,8 @@ export function useMessagesInboxSearch(opts: {
         .then((response) => {
           if (controller.signal.aborted) return;
           setPeople(response.profiles);
+          setPeopleError(null);
+          setPeopleResultKey(key);
         })
         .catch((cause: unknown) => {
           if (controller.signal.aborted) return;
@@ -82,9 +88,7 @@ export function useMessagesInboxSearch(opts: {
             cause instanceof Error ? cause.message : 'Search failed.'
           );
           setPeople([]);
-        })
-        .finally(() => {
-          if (!controller.signal.aborted) setPeoplePending(false);
+          setPeopleResultKey(key);
         });
     }, PEOPLE_SEARCH_DEBOUNCE_MS);
 
@@ -111,7 +115,7 @@ export function useMessagesInboxSearch(opts: {
     peopleActive,
     filteredThreads,
     peopleResults,
-    peoplePending: peopleActive && peoplePending,
-    peopleError: peopleActive ? peopleError : null,
+    peoplePending: peopleInFlight,
+    peopleError: peopleActive && !peopleInFlight ? peopleError : null,
   };
 }
