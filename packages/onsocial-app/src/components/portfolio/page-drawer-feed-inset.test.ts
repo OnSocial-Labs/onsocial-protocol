@@ -184,10 +184,10 @@ describe('page drawer feed inset', () => {
       /\.glass-sheet-root \.glass-sheet-panel\.page-drawer-panel \{[^}]*54rem/
     );
     expect(globalsCss).toMatch(
-      /\.page-drawer-body \{[\s\S]*?padding: 0\.1rem var\(--os-screen-body-pad-x, 1rem\) 0;/
+      /\.page-drawer-body \{[\s\S]*?padding: 0\.1rem var\(--os-screen-body-pad-x, 0\.5rem\) 0;/
     );
     expect(globalsCss).toMatch(
-      /\.page-drawer-header \{[\s\S]*?padding: 0\.05rem var\(--os-screen-body-pad-x, 1rem\) 0\.4rem;/
+      /\.page-drawer-header \{[\s\S]*?padding: 0\.05rem var\(--os-screen-body-pad-x, 0\.5rem\) 0\.4rem;/
     );
   });
 

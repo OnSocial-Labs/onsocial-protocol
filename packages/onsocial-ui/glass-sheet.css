@@ -291,7 +291,7 @@
  * bottom matches `.os-sheet-footer` resting clearance.
  */
 .os-hug-sheet-body {
-  padding: 0.2rem var(--os-sheet-pad-inline, 0.75rem)
+  padding: 0.2rem var(--os-sheet-pad-inline, 1rem)
     var(--os-sheet-footer-pad-bottom);
 }
 
@@ -603,7 +603,7 @@
   flex-direction: column;
   align-items: stretch;
   gap: 0;
-  padding: 0 var(--os-sheet-pad-inline, 0.75rem) 0.75rem;
+  padding: 0 var(--os-sheet-pad-inline, 1rem) 0.75rem;
 }
 
 .glass-sheet-header-copy {

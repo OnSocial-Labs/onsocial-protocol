@@ -58,7 +58,7 @@ describe('drop cover expand wiring', () => {
   it('locks the writing reader column to the screen body pad', () => {
     const css = readFileSync(join(here, '../../app/globals.css'), 'utf8');
     expect(css).toMatch(
-      /\.scarce-read-slide \.scarce-writing-read,[\s\S]*?padding: 0 var\(--os-screen-body-pad-x, 1rem\) 0\.55rem;/
+      /\.scarce-read-slide \.scarce-writing-read,[\s\S]*?padding: 0 var\(--os-screen-body-pad-x, 0\.5rem\) 0\.55rem;/
     );
   });
 });
