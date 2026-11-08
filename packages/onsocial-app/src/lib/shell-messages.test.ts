@@ -4,7 +4,11 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { APP_LOCALES } from './locale';
-import { SHELL_HOME_FALLBACKS } from './shell-label';
+import {
+  SHELL_CREATE_ERRORS,
+  SHELL_HOME_FALLBACKS,
+  shellCreateError,
+} from './shell-label';
 
 const require = createRequire(
   realpathSync(
@@ -72,6 +76,12 @@ describe('shell catalogs', () => {
     );
     expect(en.look.addBanner).toBe('Add banner');
     expect(en.look.photoOrVideo).toBe('Photo or video');
+    expect(en.topics.music).toBe('Music');
+    expect(en.topicEditor.typeYourOwn).toBe('Or type your own…');
+    expect(en.topicEditor.primary).toBe('Primary');
+    expect(en.help.guildTitle).toBe('Your guild');
+    expect(en.help.hubTitle).toBe('Your hub');
+    expect(en.help.tokenTitle).toBe('Creator token');
   });
 
   it('renders escaped apostrophes as the field placeholder', () => {
@@ -89,6 +99,25 @@ describe('shell catalogs', () => {
     expect(t('daoWhisper', { near: '0.1' })).toBe(
       'You start as council · ~0.1 NEAR'
     );
+  });
+
+  it('maps each create-form error onto its English sentence', () => {
+    for (const [sentence, key] of Object.entries(SHELL_CREATE_ERRORS)) {
+      const [group, name] = key.split('.');
+      expect(en[group][name]).toBe(sentence);
+      expect(shellCreateError(sentence)?.key).toBe(key);
+    }
+    expect(
+      shellCreateError('Guild name must be 48 characters or fewer.')
+    ).toEqual({
+      key: 'createError.guildNameLength',
+      values: { max: 48 },
+    });
+    expect(shellCreateError('Hub ID must be at least 3 characters.')).toEqual({
+      key: 'createError.hubIdLength',
+      values: { min: 3 },
+    });
+    expect(shellCreateError('Wallet rejected the transaction.')).toBeNull();
   });
 
   it('maps each launcher error fallback onto its English sentence', () => {

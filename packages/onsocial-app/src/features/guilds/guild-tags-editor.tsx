@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState, type KeyboardEvent } from 'react';
+import { useTranslations } from 'next-intl';
 import { MultiplyIcon } from '@onsocial/ui';
 import { TopicSuggestionSlider } from '@/components/topic-suggestion-slider';
 import {
@@ -14,7 +15,8 @@ import {
   tryAddGuildEditorTag,
   type GuildEditorTagCommitHint,
 } from '@/features/guilds/guild-tag-editor';
-import { formatTopicDraftInput, topicLabel } from '@/lib/topic-slug';
+import { formatTopicDraftInput } from '@/lib/topic-slug';
+import { useCommunityTopicLabel } from '@/lib/use-shell';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 
 interface GuildTagsEditorProps {
@@ -30,6 +32,8 @@ export function GuildTagsEditor({
   id,
   disabled = false,
 }: GuildTagsEditorProps) {
+  const t = useTranslations('shell');
+  const topicName = useCommunityTopicLabel();
   const [draft, setDraft] = useState('');
   const [hint, setHint] = useState<GuildEditorTagCommitHint | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -100,8 +104,11 @@ export function GuildTagsEditor({
   return (
     <div className="guild-tags-editor">
       <TopicSuggestionSlider
-        ariaLabel="Suggested topics"
-        suggestions={GUILD_TOPIC_SUGGESTIONS}
+        ariaLabel={t('topicEditor.suggestedTopics')}
+        suggestions={GUILD_TOPIC_SUGGESTIONS.map((option) => ({
+          id: option.id,
+          label: topicName(option.id),
+        }))}
         selected={tags}
         atMax={atMax}
         disabled={disabled}
@@ -128,14 +135,16 @@ export function GuildTagsEditor({
               index === 0 ? ' guild-tags-editor-tag--primary' : ''
             }`}
           >
-            {topicLabel(tag, GUILD_TOPIC_SUGGESTIONS) ?? tag}
+            {topicName(tag)}
             {index === 0 ? (
-              <span className="guild-tags-editor-primary-label">Primary</span>
+              <span className="guild-tags-editor-primary-label">
+                {t('topicEditor.primary')}
+              </span>
             ) : null}
             <button
               type="button"
               className="account-editor-tag-remove"
-              aria-label={`Remove ${tag}`}
+              aria-label={t('topicEditor.remove', { name: topicName(tag) })}
               disabled={disabled}
               onClick={(event) => {
                 event.stopPropagation();
@@ -158,8 +167,8 @@ export function GuildTagsEditor({
               className="account-editor-tags-input"
               value={draft}
               disabled={disabled}
-              placeholder="Or type your own…"
-              aria-label="Add guild topic"
+              placeholder={t('topicEditor.typeYourOwn')}
+              aria-label={t('topicEditor.addGuildTopic')}
               maxLength={GUILD_EDITOR_MAX_TAG_LENGTH}
               onFocus={scrollFieldIntoView}
               onChange={(event) => {
@@ -183,12 +192,17 @@ export function GuildTagsEditor({
       <small className="guild-tags-editor-meta">
         {hint ? (
           <span className="guild-tags-editor-hint" role="alert">
-            {hint}
+            {hint === 'Already added'
+              ? t('topicEditor.alreadyAdded')
+              : t('topicEditor.maxTopics')}
           </span>
         ) : (
           <span>
-            {tags.length}/{GUILD_MAX_TOPICS} · up to {GUILD_EDITOR_MAX_TAG_LENGTH}{' '}
-            characters
+            {t('topicEditor.count', {
+              count: tags.length,
+              max: GUILD_MAX_TOPICS,
+              length: GUILD_EDITOR_MAX_TAG_LENGTH,
+            })}
           </span>
         )}
       </small>

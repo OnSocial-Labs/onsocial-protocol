@@ -12,6 +12,7 @@ import {
   type FormEvent,
 } from 'react';
 import { useTranslations } from 'next-intl';
+import { useShellCreateError } from '@/lib/use-shell';
 import {
   AmountField,
   InfoDrawer,
@@ -65,11 +66,6 @@ function fieldId(name: string) {
   return `token-create-${name}`;
 }
 
-const TOKEN_CREATE_INFO_TITLE = 'Creator token';
-const TOKEN_CREATE_INFO_SUMMARY = `${FT_CREATE_FUND_NEAR} NEAR · your own token under your wallet.`;
-const TOKEN_CREATE_INFO_DETAIL =
-  'Name, symbol, and supply are permanent. Contract id comes from the name — e.g. cool.you.testnet. One batch: create account, fund, deploy contract, mint to you. You can change the icon later until you lock admin — that ends all admin control.';
-
 export function AppCreateTokenSheet({
   open,
   panelStyle,
@@ -97,6 +93,7 @@ export function AppCreateTokenSheet({
   const iconInputRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<TokenCreatePhase>('idle');
   const [error, setError] = useState<string | null>(null);
+  const shownError = useShellCreateError(error);
   const [templateReady, setTemplateReady] = useState<boolean | null>(null);
   const [templateDetail, setTemplateDetail] = useState<string | null>(null);
 
@@ -549,9 +546,9 @@ export function AppCreateTokenSheet({
             <TokenCreateStepThread phase={phase} includeLock={renounceOwner} />
           ) : null}
 
-          {error ? (
+          {shownError ? (
             <p className="token-create-note is-warn" role="alert">
-              {error}
+              {shownError}
             </p>
           ) : null}
         </form>
@@ -559,9 +556,10 @@ export function AppCreateTokenSheet({
       <InfoDrawer
         open={infoOpen}
         onClose={() => setInfoOpen(false)}
-        title={TOKEN_CREATE_INFO_TITLE}
-        summary={TOKEN_CREATE_INFO_SUMMARY}
-        detail={TOKEN_CREATE_INFO_DETAIL}
+        title={t('help.tokenTitle')}
+        summary={t('help.tokenSummary', { near: FT_CREATE_FUND_NEAR })}
+        detail={t('help.tokenDetail')}
+        gotItLabel={t('help.gotIt')}
         zIndex={SHEET_Z.nestedConfirm}
       />
     </>

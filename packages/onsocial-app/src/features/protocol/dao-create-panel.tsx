@@ -54,7 +54,7 @@ import {
   entityIdAvailabilityClass,
   type EntityIdAvailability,
 } from '@/hooks/use-entity-id-availability';
-import { useEntityIdLead } from '@/lib/use-shell';
+import { useEntityIdLead, useShellCreateError } from '@/lib/use-shell';
 import { SPUTNIK_DAO_FACTORY } from '@/lib/app-config';
 import { yoctoToNear } from '@/lib/app-near-rpc';
 import { APP_DAOS_PATH, daoPath } from '@/lib/app-routes';
@@ -263,6 +263,7 @@ export function DaoCreatePanel() {
   const idAvailabilityClass = entityIdAvailabilityClass(idAvailability);
   const idLead = useEntityIdLead(idAvailability);
   const t = useTranslations('shell');
+  const shownError = useShellCreateError(error);
 
   const formReady =
     isValidDaoFactorySlug(resolvedSlug) &&
@@ -699,9 +700,9 @@ export function DaoCreatePanel() {
           </>
         ) : null}
 
-        {error ? (
+        {shownError ? (
           <p className="dao-create-error" role="alert">
-            {error}
+            {shownError}
           </p>
         ) : !isConnected ? (
           <p className="profile-support-hint">{t('create.daoConnectHint')}</p>

@@ -29,15 +29,12 @@ import {
   entityIdAvailabilityClass,
   useEntityIdAvailability,
 } from '@/hooks/use-entity-id-availability';
-import { useEntityIdLead } from '@/lib/use-shell';
+import { useEntityIdLead, useShellCreateError } from '@/lib/use-shell';
 import {
   CommerceSheetFooter,
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
-import {
-  GUILD_CREATE_FORM_ID,
-  GUILD_CREATE_HELP_TITLE,
-} from '@/features/guilds/guild-create-voice';
+import { GUILD_CREATE_FORM_ID } from '@/features/guilds/guild-create-voice';
 import { APP_GROUPS_PATH } from '@/lib/app-routes';
 import { GUILD_CREATE_FORM_CLASS } from '@/lib/os-create-page';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
@@ -79,12 +76,6 @@ function isFormFieldTarget(target: EventTarget | null): boolean {
     target instanceof HTMLSelectElement
   );
 }
-
-const GUILD_CREATE_HELP_SUMMARY =
-  'A room with a purpose — feeds, members, roles.';
-
-const GUILD_CREATE_HELP_DETAIL =
-  'Everyone can read. Invite only gates joining and posting. Guild ID sticks. Collaborative governance routes changes through proposals.';
 
 const GUILD_MIN_ID = 3;
 
@@ -248,6 +239,7 @@ export function GuildCreatePanel() {
   const idAvailabilityClass = entityIdAvailabilityClass(idAvailability);
   const idLead = useEntityIdLead(idAvailability);
   const t = useTranslations('shell');
+  const shownError = useShellCreateError(error);
   const canSubmit =
     groupId.length >= GUILD_MIN_ID &&
     name.trim().length >= 2 &&
@@ -393,7 +385,7 @@ export function GuildCreatePanel() {
       style={screenStyle}
       actions={
         <OsIconAction
-          ariaLabel={GUILD_CREATE_HELP_TITLE}
+          ariaLabel={t('help.guildTitle')}
           aria-expanded={helpOpen}
           aria-haspopup="dialog"
           onClick={() => setHelpOpen(true)}
@@ -593,7 +585,7 @@ export function GuildCreatePanel() {
           </small>
         </div>
 
-        {error ? <p className="guild-form-error">{error}</p> : null}
+        {shownError ? <p className="guild-form-error">{shownError}</p> : null}
       </form>
       <DiscardConfirmSheet
         open={discardConfirmOpen}
@@ -605,9 +597,10 @@ export function GuildCreatePanel() {
       <InfoDrawer
         open={helpOpen}
         onClose={() => setHelpOpen(false)}
-        title={GUILD_CREATE_HELP_TITLE}
-        summary={GUILD_CREATE_HELP_SUMMARY}
-        detail={GUILD_CREATE_HELP_DETAIL}
+        title={t('help.guildTitle')}
+        summary={t('help.guildSummary')}
+        detail={t('help.guildDetail')}
+        gotItLabel={t('help.gotIt')}
       />
     </OsAppScreen>
   );

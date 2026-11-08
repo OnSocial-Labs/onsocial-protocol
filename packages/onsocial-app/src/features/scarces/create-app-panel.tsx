@@ -28,15 +28,12 @@ import {
   entityIdAvailabilityClass,
   useEntityIdAvailability,
 } from '@/hooks/use-entity-id-availability';
-import { useEntityIdLead } from '@/lib/use-shell';
+import { useEntityIdLead, useShellCreateError } from '@/lib/use-shell';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import type { CreatorAccess } from '@/features/scarces/apps-data';
 import { hubCategoriesMetadataFields } from '@/features/scarces/hub-categories';
-import {
-  HubCreateHelpDrawer,
-  HUB_CREATE_HELP_TITLE,
-} from '@/features/scarces/hub-create-help-drawer';
+import { HubCreateHelpDrawer } from '@/features/scarces/hub-create-help-drawer';
 import { HubCategoriesEditor } from '@/features/scarces/hub-categories-editor';
 import {
   CommerceSheetFooter,
@@ -247,6 +244,7 @@ export function CreateAppPanel() {
   const idAvailabilityClass = entityIdAvailabilityClass(idAvailability);
   const idLead = useEntityIdLead(idAvailability);
   const t = useTranslations('shell');
+  const shownError = useShellCreateError(error);
   const accessShort: Record<CreatorAccess, string> = {
     open: t('create.open'),
     approval: t('create.approval'),
@@ -402,7 +400,7 @@ export function CreateAppPanel() {
       style={screenStyle}
       actions={
         <OsIconAction
-          ariaLabel={HUB_CREATE_HELP_TITLE}
+          ariaLabel={t('help.hubTitle')}
           aria-expanded={helpOpen}
           aria-haspopup="dialog"
           onClick={() => setHelpOpen(true)}
@@ -600,7 +598,7 @@ export function CreateAppPanel() {
           <small>{accessDetail[creatorAccess]}</small>
         </div>
 
-        {error ? <p className="guild-form-error">{error}</p> : null}
+        {shownError ? <p className="guild-form-error">{shownError}</p> : null}
       </form>
       <DiscardConfirmSheet
         open={discardConfirmOpen}

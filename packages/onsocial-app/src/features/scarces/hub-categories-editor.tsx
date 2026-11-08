@@ -1,13 +1,14 @@
 'use client';
 
 import { useRef, useState, type KeyboardEvent } from 'react';
+import { useTranslations } from 'next-intl';
 import { MultiplyIcon } from '@onsocial/ui';
 import { TopicSuggestionSlider } from '@/components/topic-suggestion-slider';
 import {
   HUB_CATEGORY_SUGGESTIONS,
   HUB_MAX_CATEGORIES,
-  hubCategoryLabel,
 } from '@/features/scarces/hub-categories';
+import { useCommunityTopicLabel } from '@/lib/use-shell';
 import {
   formatTopicDraftInput,
   normalizeTopicList,
@@ -62,6 +63,8 @@ export function HubCategoriesEditor({
   id,
   disabled = false,
 }: HubCategoriesEditorProps) {
+  const t = useTranslations('shell');
+  const topicName = useCommunityTopicLabel();
   const [draft, setDraft] = useState('');
   const [hint, setHint] = useState<CommitHint | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -128,8 +131,11 @@ export function HubCategoriesEditor({
   return (
     <div className="guild-tags-editor hub-categories-editor">
       <TopicSuggestionSlider
-        ariaLabel="Suggested categories"
-        suggestions={HUB_CATEGORY_SUGGESTIONS}
+        ariaLabel={t('topicEditor.suggestedCategories')}
+        suggestions={HUB_CATEGORY_SUGGESTIONS.map((option) => ({
+          id: option.id,
+          label: topicName(option.id),
+        }))}
         selected={categories}
         atMax={atMax}
         disabled={disabled}
@@ -156,14 +162,18 @@ export function HubCategoriesEditor({
               index === 0 ? ' guild-tags-editor-tag--primary' : ''
             }`}
           >
-            {hubCategoryLabel(category) ?? category}
+            {topicName(category)}
             {index === 0 ? (
-              <span className="guild-tags-editor-primary-label">Primary</span>
+              <span className="guild-tags-editor-primary-label">
+                {t('topicEditor.primary')}
+              </span>
             ) : null}
             <button
               type="button"
               className="account-editor-tag-remove"
-              aria-label={`Remove ${category}`}
+              aria-label={t('topicEditor.remove', {
+                name: topicName(category),
+              })}
               disabled={disabled}
               onClick={(event) => {
                 event.stopPropagation();
@@ -186,11 +196,11 @@ export function HubCategoriesEditor({
               className="account-editor-tags-input"
               value={draft}
               disabled={disabled}
-              placeholder="Or type your own…"
+              placeholder={t('topicEditor.typeYourOwn')}
               aria-label={
                 categories.length === 0
-                  ? 'Primary hub category'
-                  : 'Secondary hub category'
+                  ? t('topicEditor.primaryCategory')
+                  : t('topicEditor.secondaryCategory')
               }
               maxLength={TOPIC_MAX_LENGTH}
               onFocus={scrollFieldIntoView}
@@ -216,12 +226,17 @@ export function HubCategoriesEditor({
       <small className="guild-tags-editor-meta">
         {hint ? (
           <span className="guild-tags-editor-hint" role="alert">
-            {hint}
+            {hint === 'Already added'
+              ? t('topicEditor.alreadyAdded')
+              : t('topicEditor.maxCategories')}
           </span>
         ) : (
           <span>
-            {categories.length}/{HUB_MAX_CATEGORIES} · up to {TOPIC_MAX_LENGTH}{' '}
-            characters
+            {t('topicEditor.count', {
+              count: categories.length,
+              max: HUB_MAX_CATEGORIES,
+              length: TOPIC_MAX_LENGTH,
+            })}
           </span>
         )}
       </small>
