@@ -31558,43 +31558,7 @@ a.os-surface-row,
     opacity: 0.48;
   }
 
-  /*
-   * Account shell chrome: @onsocial/ui/os-account-field.css
-   * Status lip on plain create-form inputs (not OsAccountField):
-   */
-  .drop-create-form .guild-field > input.is-available,
-  .guild-create-form .guild-field > input.is-available,
-  .hub-manage-form .guild-field > input.is-available,
-  .dao-create-form .guild-field > input.is-available,
-  .token-create-form .guild-field > input.is-available,
-  .drop-create-form .guild-field > input.is-available:focus,
-  .guild-create-form .guild-field > input.is-available:focus,
-  .hub-manage-form .guild-field > input.is-available:focus,
-  .dao-create-form .guild-field > input.is-available:focus,
-  .token-create-form .guild-field > input.is-available:focus {
-    background: transparent;
-    box-shadow: inset 0 1px 0 var(--protocol-green);
-  }
-
-  .token-create-form .guild-field > input.is-found,
-  .token-create-form .guild-field > input.is-found:focus {
-    background: transparent;
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.28);
-  }
-
-  .drop-create-form .guild-field > input.is-taken,
-  .guild-create-form .guild-field > input.is-taken,
-  .hub-manage-form .guild-field > input.is-taken,
-  .dao-create-form .guild-field > input.is-taken,
-  .token-create-form .guild-field > input.is-taken,
-  .drop-create-form .guild-field > input.is-taken:focus,
-  .guild-create-form .guild-field > input.is-taken:focus,
-  .hub-manage-form .guild-field > input.is-taken:focus,
-  .dao-create-form .guild-field > input.is-taken:focus,
-  .token-create-form .guild-field > input.is-taken:focus {
-    background: transparent;
-    box-shadow: inset 0 1px 0 var(--protocol-red);
-  }
+  /* Status lip: @onsocial/ui/os-field.css on the bordered shell, not the input. */
 
   .guild-field .os-account-field > input,
   .guild-field .os-account-field > input:focus,
@@ -45927,14 +45891,6 @@ button.messages-bubble-quote:focus-visible {
   background: rgb(var(--fg-rgb) / 0.04);
   box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
   word-break: break-all;
-}
-
-.token-create-contract-id.is-available {
-  box-shadow: inset 0 1px 0 var(--protocol-green);
-}
-
-.token-create-contract-id.is-taken {
-  box-shadow: inset 0 1px 0 var(--protocol-red);
 }
 
 .token-create-contract-id.is-checking {

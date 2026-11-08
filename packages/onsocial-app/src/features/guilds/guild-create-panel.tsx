@@ -131,17 +131,13 @@ export function GuildCreatePanel() {
     accessGated ||
     memberDriven;
 
-  const {
-    discardConfirmOpen,
-    requestCloseOrConfirm,
-    keepEditing,
-    discard,
-  } = useDiscardConfirm({
-    open: true,
-    dirty,
-    pending,
-    onClose: leaveToGuilds,
-  });
+  const { discardConfirmOpen, requestCloseOrConfirm, keepEditing, discard } =
+    useDiscardConfirm({
+      open: true,
+      dirty,
+      pending,
+      onClose: leaveToGuilds,
+    });
 
   const handleDockBack = useCallback(() => {
     if (requestCloseOrConfirm()) {
@@ -465,23 +461,30 @@ export function GuildCreatePanel() {
 
         <label className="guild-field" htmlFor={fieldId('id')}>
           <span>Guild ID</span>
-          <input
-            id={fieldId('id')}
-            value={slugTouched ? slug : groupId}
-            onChange={(event) => {
-              setSlugTouched(true);
-              setSlug(event.target.value);
-            }}
-            placeholder="builder-room"
-            maxLength={40}
-            disabled={pending}
-            onFocus={scrollFieldIntoView}
-            spellCheck={false}
-            autoCapitalize="none"
-            autoCorrect="off"
-            aria-invalid={idAvailability === 'taken'}
-            className={`${osFieldBorderedClassName} ${idAvailabilityClass}`}
-          />
+          <div
+            className={
+              idAvailabilityClass
+                ? `${osFieldBorderedClassName} ${idAvailabilityClass}`
+                : osFieldBorderedClassName
+            }
+          >
+            <input
+              id={fieldId('id')}
+              value={slugTouched ? slug : groupId}
+              onChange={(event) => {
+                setSlugTouched(true);
+                setSlug(event.target.value);
+              }}
+              placeholder="builder-room"
+              maxLength={40}
+              disabled={pending}
+              onFocus={scrollFieldIntoView}
+              spellCheck={false}
+              autoCapitalize="none"
+              autoCorrect="off"
+              aria-invalid={idAvailability === 'taken'}
+            />
+          </div>
           <small className={idAvailabilityClass}>
             {entityIdAvailabilityLead(idAvailability)} · public link /groups/
             {groupId || 'builder-room'}

@@ -196,8 +196,10 @@ export function DaoCreatePanel() {
 
   useEffect(() => {
     return () => {
-      if (avatarPreviewRef.current) URL.revokeObjectURL(avatarPreviewRef.current);
-      if (bannerPreviewRef.current) URL.revokeObjectURL(bannerPreviewRef.current);
+      if (avatarPreviewRef.current)
+        URL.revokeObjectURL(avatarPreviewRef.current);
+      if (bannerPreviewRef.current)
+        URL.revokeObjectURL(bannerPreviewRef.current);
     };
   }, []);
 
@@ -214,17 +216,13 @@ export function DaoCreatePanel() {
     (slugTouched && slug.trim().length > 0) ||
     Object.values(links).some((value) => value.trim().length > 0);
 
-  const {
-    discardConfirmOpen,
-    requestCloseOrConfirm,
-    keepEditing,
-    discard,
-  } = useDiscardConfirm({
-    open: true,
-    dirty,
-    pending,
-    onClose: leaveToDaos,
-  });
+  const { discardConfirmOpen, requestCloseOrConfirm, keepEditing, discard } =
+    useDiscardConfirm({
+      open: true,
+      dirty,
+      pending,
+      onClose: leaveToDaos,
+    });
 
   const handleDockBack = useCallback(() => {
     if (requestCloseOrConfirm()) {
@@ -560,27 +558,32 @@ export function DaoCreatePanel() {
 
         <label className="guild-field" htmlFor={fieldId('slug')}>
           <span>Account id</span>
-          <input
-            id={fieldId('slug')}
-            value={slugTouched ? slug : resolvedSlug}
-            onChange={(event) => {
-              setSlugTouched(true);
-              setSlug(event.target.value);
-              setError(null);
-            }}
-            placeholder="builder-guild"
-            maxLength={48}
-            disabled={pending || discardConfirmOpen}
-            onFocus={scrollFieldIntoView}
-            spellCheck={false}
-            autoCapitalize="none"
-            autoCorrect="off"
-            autoComplete="off"
-            aria-invalid={idAvailability === 'taken'}
-            className={`${osFieldBorderedClassName}${
-              idAvailabilityClass ? ` ${idAvailabilityClass}` : ''
-            }`}
-          />
+          <div
+            className={
+              idAvailabilityClass
+                ? `${osFieldBorderedClassName} ${idAvailabilityClass}`
+                : osFieldBorderedClassName
+            }
+          >
+            <input
+              id={fieldId('slug')}
+              value={slugTouched ? slug : resolvedSlug}
+              onChange={(event) => {
+                setSlugTouched(true);
+                setSlug(event.target.value);
+                setError(null);
+              }}
+              placeholder="builder-guild"
+              maxLength={48}
+              disabled={pending || discardConfirmOpen}
+              onFocus={scrollFieldIntoView}
+              spellCheck={false}
+              autoCapitalize="none"
+              autoCorrect="off"
+              autoComplete="off"
+              aria-invalid={idAvailability === 'taken'}
+            />
+          </div>
           <small className={idAvailabilityClass}>
             {daoAccountIdLead(idAvailability)} ·{' '}
             <span className="dao-create-mono">

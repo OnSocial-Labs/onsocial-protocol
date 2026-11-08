@@ -3,7 +3,8 @@
  *
  * Canonical: `.os-account-field`
  * Legacy alias: `.near-account-field`
- * Status lip tint only — never wash the fill (mood/glass shows through).
+ * Status lip lives on the shell in os-field.css: one radius-clipped stroke.
+ * Sides stay the field border. Never wash the fill.
  * Pair with {@link OsAccountField}.
  */
 
@@ -36,36 +37,6 @@
   outline: none;
   padding: var(--os-field-pad-y, 0.65rem) var(--os-field-pad-x, 0.75rem)
     var(--os-field-pad-y, 0.65rem) 0;
-}
-
-.os-account-field.is-available,
-.near-account-field.is-available,
-.os-account-field.is-available:hover,
-.near-account-field.is-available:hover,
-.os-account-field.is-available:focus-within,
-.near-account-field.is-available:focus-within {
-  background: transparent;
-  box-shadow: inset 0 1px 0 var(--protocol-green);
-}
-
-.os-account-field.is-taken,
-.near-account-field.is-taken,
-.os-account-field.is-taken:hover,
-.near-account-field.is-taken:hover,
-.os-account-field.is-taken:focus-within,
-.near-account-field.is-taken:focus-within {
-  background: transparent;
-  box-shadow: inset 0 1px 0 var(--protocol-red);
-}
-
-.os-account-field.is-warn,
-.near-account-field.is-warn,
-.os-account-field.is-warn:hover,
-.near-account-field.is-warn:hover,
-.os-account-field.is-warn:focus-within,
-.near-account-field.is-warn:focus-within {
-  background: transparent;
-  box-shadow: inset 0 1px 0 var(--protocol-amber, #d97706);
 }
 
 .os-account-field-leading,

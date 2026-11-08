@@ -11,7 +11,7 @@ import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 
 /**
  * NEAR account type-in — {@link OsAccountField} plus sanitize + on-chain probe
- * avatar. Status is lip tint only — fill stays transparent for mood/glass.
+ * avatar. Status paints the top lip. Fill stays transparent for mood/glass.
  */
 export function NearAccountField({
   id,
@@ -31,7 +31,7 @@ export function NearAccountField({
   placeholder: string;
   /** On-chain lookup state — drives the leading avatar slot. */
   status?: NearAccountStatus;
-  /** `is-available` / `is-taken` — tints the field top lip. */
+  /** `is-available` / `is-taken` — paints the field's top lip. */
   statusClass?: string;
   readOnly?: boolean;
   'aria-invalid'?: boolean;

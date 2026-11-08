@@ -104,8 +104,7 @@
   box-shadow: var(--os-field-bordered-lip);
 }
 
-/* Status lips (`is-available` / `is-taken` / `is-warn`) own the inset —
- * don't swap them for the default grey hover lip. */
+/* Status owns the top stroke — don't swap it for the grey hover lip. */
 .os-field-bordered:hover:not(:disabled):not(:focus):not(:focus-within):not(
     :has(:disabled)
   ):not(.is-available):not(.is-taken):not(.is-warn) {
@@ -117,6 +116,73 @@
 .os-field-bordered:focus-within {
   border-color: var(--os-field-bordered-border-focus);
   box-shadow: var(--os-field-bordered-lip-focus);
+}
+
+/*
+ * Status is one 2px stroke on the outer radius (same clip as a launcher lip).
+ * It covers the top border, thins along the corner, and leaves the side border.
+ * A replaced control cannot paint this, so the status class sits on the shell.
+ */
+:is(.os-field-bordered, .os-field-soft, .os-field-status-lip):is(
+  .is-available,
+  .is-taken,
+  .is-warn,
+  .is-found
+),
+:is(.os-field-bordered, .os-field-soft, .os-field-status-lip):is(
+    .is-available,
+    .is-taken,
+    .is-warn,
+    .is-found
+  ):is(:hover, :focus, :focus-within) {
+  position: relative;
+  box-shadow: none;
+}
+
+:is(.os-field-bordered, .os-field-soft, .os-field-status-lip).is-available {
+  --os-field-lip: var(--protocol-green);
+}
+
+:is(.os-field-bordered, .os-field-soft, .os-field-status-lip).is-taken {
+  --os-field-lip: var(--protocol-red);
+}
+
+:is(.os-field-bordered, .os-field-soft, .os-field-status-lip).is-warn {
+  --os-field-lip: var(--protocol-amber, #d97706);
+}
+
+:is(.os-field-bordered, .os-field-status-lip).is-found {
+  --os-field-lip: rgb(var(--fg-rgb) / 0.28);
+}
+
+:is(.os-field-bordered, .os-field-status-lip):is(
+    .is-available,
+    .is-taken,
+    .is-warn,
+    .is-found
+  )::after,
+.os-field-soft:is(.is-available, .is-taken, .is-warn)::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: var(--os-field-radius);
+  padding: 2px 0 0;
+  background: var(--os-field-lip);
+  pointer-events: none;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+/* Soft chrome has no border, so the stroke sits on the shell edge. */
+.os-field-soft:is(.is-available, .is-taken, .is-warn)::after {
+  inset: 0;
+  border-radius: inherit;
 }
 
 /* Soft — quiet wash, no border. */
@@ -132,6 +198,35 @@
   background: var(--os-field-soft-bg-focus);
   box-shadow: var(--os-field-soft-lip-focus);
   outline: none;
+}
+
+/* Shell owns the border. The inner control is the type-in only. */
+.os-field-bordered:not(.os-account-field):not(.near-account-field):has(
+    > input
+  ) {
+  padding: 0;
+}
+
+.os-field-bordered:not(.os-account-field):not(.near-account-field) > input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  padding: var(--os-field-pad-y) var(--os-field-pad-x);
+  outline: none;
+}
+
+.os-field-bordered:not(.os-account-field):not(.near-account-field)
+  > input::placeholder {
+  color: var(--os-field-placeholder);
 }
 
 /*
