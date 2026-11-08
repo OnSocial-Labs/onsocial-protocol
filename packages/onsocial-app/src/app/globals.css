@@ -31560,7 +31560,7 @@ a.os-surface-row,
 
   /*
    * Account shell chrome: @onsocial/ui/os-account-field.css
-   * Plain create-form inputs (not OsAccountField) color their own border.
+   * Plain create-form inputs (not OsAccountField) paint the same top lip.
    */
   .drop-create-form .guild-field > input.is-available,
   .guild-create-form .guild-field > input.is-available,
@@ -31573,13 +31573,15 @@ a.os-surface-row,
   .dao-create-form .guild-field > input.is-available:focus,
   .token-create-form .guild-field > input.is-available:focus {
     background: transparent;
-    border-color: var(--protocol-green);
+    border-top-color: var(--protocol-green);
+    box-shadow: inset 0 1px 0 var(--protocol-green);
   }
 
   .token-create-form .guild-field > input.is-found,
   .token-create-form .guild-field > input.is-found:focus {
     background: transparent;
-    border-color: rgb(var(--fg-rgb) / 0.28);
+    border-top-color: rgb(var(--fg-rgb) / 0.28);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.28);
   }
 
   .drop-create-form .guild-field > input.is-taken,
@@ -31593,7 +31595,8 @@ a.os-surface-row,
   .dao-create-form .guild-field > input.is-taken:focus,
   .token-create-form .guild-field > input.is-taken:focus {
     background: transparent;
-    border-color: var(--protocol-red);
+    border-top-color: var(--protocol-red);
+    box-shadow: inset 0 1px 0 var(--protocol-red);
   }
 
   .guild-field .os-account-field > input,
@@ -45930,11 +45933,13 @@ button.messages-bubble-quote:focus-visible {
 }
 
 .token-create-contract-id.is-available {
-  border-color: var(--protocol-green);
+  border-top-color: var(--protocol-green);
+  box-shadow: inset 0 1px 0 var(--protocol-green);
 }
 
 .token-create-contract-id.is-taken {
-  border-color: var(--protocol-red);
+  border-top-color: var(--protocol-red);
+  box-shadow: inset 0 1px 0 var(--protocol-red);
 }
 
 .token-create-contract-id.is-checking {

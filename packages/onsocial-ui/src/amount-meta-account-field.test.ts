@@ -22,19 +22,15 @@ describe('OsAccountField', () => {
     expect(osAccountFieldClassName).toBe('os-account-field');
   });
 
-  it('colors the field border instead of a second inset line', () => {
-    expect(accountFieldCss).toMatch(
-      /\.os-account-field\.is-available:focus-within[\s\S]*?border-color:\s*var\(--protocol-green\);/
-    );
-    expect(accountFieldCss).toMatch(
-      /\.os-account-field\.is-taken:focus-within[\s\S]*?border-color:\s*var\(--protocol-red\);/
-    );
-    expect(accountFieldCss).toMatch(
-      /\.os-account-field\.is-warn:focus-within[\s\S]*?border-color:\s*var\(--protocol-amber,\s*#d97706\);/
-    );
+  it('paints status as a top lip, not the whole border', () => {
     const bordered = accountFieldCss.split('Soft chrome has no border')[0];
-    expect(bordered).not.toMatch(
-      /box-shadow:\s*inset 0 1px 0 var\(--protocol-/
+    expect(bordered).toMatch(
+      /\.os-account-field\.is-available:focus-within[\s\S]*?border-top-color:\s*var\(--protocol-green\);[\s\S]*?box-shadow:\s*inset 0 1px 0 var\(--protocol-green\);/
     );
+    expect(bordered).toMatch(/border-top-color:\s*var\(--protocol-red\);/);
+    expect(bordered).toMatch(
+      /border-top-color:\s*var\(--protocol-amber,\s*#d97706\);/
+    );
+    expect(bordered).not.toMatch(/border-color:\s*var\(--protocol-/);
   });
 });

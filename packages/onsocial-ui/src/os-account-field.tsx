@@ -35,7 +35,7 @@ export function OsAccountField({
   disabled?: boolean;
   placeholder: string;
   chrome?: OsAccountFieldChrome;
-  /** e.g. `is-available` / `is-taken` — tints the field border. */
+  /** e.g. `is-available` / `is-taken` — paints the field's top lip. */
   statusClass?: string;
   /** Permanent leading slot (avatar / shimmer). */
   leading?: ReactNode;
