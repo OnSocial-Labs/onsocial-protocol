@@ -29,8 +29,9 @@ test.describe('hub page', () => {
     await expect(
       page.getByRole('link', { name: 'Collect Night Drive' })
     ).toBeVisible();
+    // Ended drops open via the row itself — no separate Open CTA.
     await expect(
-      page.getByRole('link', { name: 'Open Quiet Print' })
+      page.locator('.series-shop-row').filter({ hasText: 'Quiet Print' })
     ).toBeVisible();
     await expect(
       page.locator('.series-shop-row').filter({ hasText: 'Night Drive' })
@@ -84,7 +85,7 @@ test.describe('hub page', () => {
       page.getByRole('link', { name: 'Collect Night Drive' })
     ).toBeVisible();
     await expect(
-      page.getByRole('link', { name: 'Open Quiet Print' })
+      page.locator('.series-shop-row').filter({ hasText: 'Quiet Print' })
     ).toBeVisible();
   });
 
@@ -131,7 +132,7 @@ test.describe('hub page', () => {
       page.getByRole('link', { name: 'Play Dusk Run' })
     ).toBeVisible();
     await expect(
-      page.getByRole('link', { name: 'Open Quiet Print' })
+      page.locator('.series-shop-row').filter({ hasText: 'Quiet Print' })
     ).toBeVisible();
     await expect(page.getByText('No drops in this hub yet.')).toHaveCount(0);
     await expect(

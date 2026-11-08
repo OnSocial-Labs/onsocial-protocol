@@ -100,7 +100,7 @@ test.describe('series page', () => {
       page.getByRole('link', { name: 'Collect Night Drive' })
     ).toBeVisible();
     await expect(
-      page.getByRole('link', { name: 'Open Quiet Print' })
+      page.locator('.series-shop-row').filter({ hasText: 'Quiet Print' })
     ).toBeVisible();
   });
 
@@ -123,7 +123,7 @@ test.describe('series page', () => {
     });
     await expect(page.locator('[data-series-page-skeleton]')).toHaveCount(0);
     await expect(
-      page.getByRole('link', { name: 'Open Quiet Print' })
+      page.locator('.series-shop-row').filter({ hasText: 'Quiet Print' })
     ).toBeVisible();
     await expect(page.locator('.app-drop-card')).toHaveCount(0);
   });

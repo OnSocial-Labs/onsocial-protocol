@@ -70,7 +70,9 @@ test.describe('market creator shop', () => {
       page.getByRole('button', { name: 'Mint Night Drive' })
     ).toBeVisible();
     await expect(
-      page.getByRole('link', { name: 'Open Quiet Print' })
+      page.locator('.series-shop-row, .market-listing-row').filter({
+        hasText: 'Quiet Print',
+      })
     ).toBeVisible();
     await expect(
       page.locator('[data-market-creator-group="live"]')
@@ -108,7 +110,9 @@ test.describe('market creator shop', () => {
     ).toBeVisible({ timeout: 12_000 });
     await expect(page.locator('[data-market-creator-skeleton]')).toHaveCount(0);
     await expect(
-      page.getByRole('link', { name: 'Open Quiet Print' })
+      page.locator('.series-shop-row, .market-listing-row').filter({
+        hasText: 'Quiet Print',
+      })
     ).toBeVisible();
     await expect(
       page.locator('[data-market-creator-group="live"]')
@@ -141,7 +145,9 @@ test.describe('market creator shop', () => {
       page.getByRole('button', { name: 'Mint Night Drive' })
     ).toBeVisible();
     await expect(
-      page.getByRole('link', { name: 'Open Quiet Print' })
+      page.locator('.series-shop-row, .market-listing-row').filter({
+        hasText: 'Quiet Print',
+      })
     ).toHaveCount(0);
   });
 });

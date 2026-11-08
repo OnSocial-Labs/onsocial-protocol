@@ -22,12 +22,15 @@ test.describe('launcher icon press', () => {
       const style = getComputedStyle(el);
       return { transform: style.transform, width: style.width };
     });
-    const restInk = await icon.evaluate((el) => getComputedStyle(el).color);
+    const restOpacity = await icon.evaluate(
+      (el) => getComputedStyle(el).opacity
+    );
 
     await item.hover();
+    // Mage stroke mute is opacity, not color (see os-launcher.css).
     await expect
-      .poll(() => icon.evaluate((el) => getComputedStyle(el).color))
-      .not.toBe(restInk);
+      .poll(() => icon.evaluate((el) => getComputedStyle(el).opacity))
+      .not.toBe(restOpacity);
 
     const box = await shell.boundingBox();
     expect(box).not.toBeNull();
