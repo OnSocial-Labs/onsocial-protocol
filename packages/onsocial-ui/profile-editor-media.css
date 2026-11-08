@@ -250,7 +250,7 @@
 .profile-editor-media-size-hint {
   margin: 0;
   font-size: var(--os-stamp-size, 0.75rem);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: normal;
   letter-spacing: 0.03em;
   line-height: 1.2;
   color: rgb(var(--fg-rgb) / 0.45);

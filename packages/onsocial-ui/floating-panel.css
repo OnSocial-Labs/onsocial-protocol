@@ -386,7 +386,7 @@
   background: var(--os-fp-count-bg);
   font-size: var(--os-stamp-size, 0.75rem);
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: normal;
   line-height: 1;
   color: var(--os-fp-count-fg);
 }
@@ -450,7 +450,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
-  padding: 0.85rem var(--os-sheet-pad-inline, 1rem);
+  padding: 0.85rem var(--os-sheet-pad-inline, 0.75rem);
   border-radius: 1rem;
 }
 

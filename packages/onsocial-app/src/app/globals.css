@@ -88,7 +88,7 @@
   -webkit-text-fill-color: rgb(var(--fg-rgb) / 0.94);
   font-size: 0.88rem;
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: normal;
   opacity: 1;
 }
 
@@ -524,7 +524,7 @@
 
 .os-launcher-rally-mark-label {
   white-space: nowrap;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: normal;
 }
 
 .standing-sheet-header--compact .standing-sheet-subject-name {
@@ -638,8 +638,8 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   height: 100%;
   max-height: none;
   --glass-header-scrim-height: min(6.5rem, 24%);
-  /* Drawer chrome uses sheet pad (1rem), not the tighter page gutter. */
-  --os-screen-body-pad-x: var(--os-sheet-pad-inline, 1rem);
+  /* Drawer chrome uses the same sheet pad as the page gutter. */
+  --os-screen-body-pad-x: var(--os-sheet-pad-inline, 0.75rem);
 }
 
 /* Single scroller = sheet body. Content scrolls under the floating pill. */
@@ -3343,7 +3343,9 @@ a.os-surface-row,
 
     /* OS chrome — Public Sans. The next/font variable already includes one
        metric-adjusted stand-in. Generic names apply only if that stand-in
-       cannot load. Portfolio moods override locally. */
+       cannot load. Portfolio moods override locally.
+       Sans digits stay proportional: Public Sans has no tabular figures,
+       and asking for them paints the next face that does. */
     --app-font-sans: var(--font-public-sans), ui-sans-serif, system-ui,
       sans-serif;
 
@@ -7630,7 +7632,7 @@ a.os-surface-row,
     font-weight: 700;
     letter-spacing: -0.03em;
     line-height: 1.15;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     color: rgb(var(--fg-rgb) / 0.96);
   }
 
@@ -7649,7 +7651,7 @@ a.os-surface-row,
   }
 
   .portfolio-boost-sheet-title-amount {
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
   }
 
   /* ── Portfolio boost sheet (commit / manage) ─────────────── */
@@ -7892,7 +7894,7 @@ a.os-surface-row,
     font-weight: 600;
     line-height: 1;
     opacity: 0.85;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
   }
 
   .portfolio-boost-collect-digit {
@@ -7900,13 +7902,13 @@ a.os-surface-row,
     width: 1ch;
     flex-shrink: 0;
     text-align: center;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
   }
 
   .portfolio-boost-collect-rate {
     margin: 0;
     font-size: var(--os-stamp-size, 0.75rem);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     color: rgb(var(--fg-rgb) / 0.5);
   }
 
@@ -8025,7 +8027,7 @@ a.os-surface-row,
 
   .portfolio-boost-period-bonus {
     font-size: var(--os-stamp-size, 0.75rem);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     opacity: 0.7;
   }
 
@@ -8051,7 +8053,7 @@ a.os-surface-row,
 
   .portfolio-boost-summary-value {
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     text-align: right;
   }
 
@@ -8086,7 +8088,7 @@ a.os-surface-row,
   .portfolio-boost-network-value {
     font-size: var(--os-control-label-compact-size, 0.8125rem);
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     letter-spacing: -0.02em;
   }
 
@@ -8184,7 +8186,7 @@ a.os-surface-row,
     border: 0;
     background: transparent;
     font: inherit;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     color: inherit;
     cursor: pointer;
     transition: color 140ms ease;
@@ -8322,7 +8324,7 @@ a.os-surface-row,
     align-items: center;
     justify-content: center;
     min-height: 1.35rem;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
   }
 
   .portfolio-rally-strip-rank {
@@ -8475,7 +8477,7 @@ a.os-surface-row,
     flex-shrink: 0;
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     letter-spacing: -0.01em;
     color: rgb(var(--fg-rgb) / 0.46);
   }
@@ -8607,7 +8609,7 @@ a.os-surface-row,
   .portfolio-payout-mark-amount {
     min-width: 0;
     font: inherit;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     letter-spacing: -0.01em;
     color: inherit;
   }
@@ -8673,7 +8675,7 @@ a.os-surface-row,
   }
 
   .portfolio-support-collect-earlier-meta {
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     color: inherit;
   }
 
@@ -8726,7 +8728,7 @@ a.os-surface-row,
   .portfolio-support-collect-info-amount {
     font-size: 0.74rem;
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     line-height: 1.2;
     color: var(--signal-reputation, var(--protocol-green));
     text-align: right;
@@ -11493,7 +11495,7 @@ a.os-surface-row,
     gap: 0;
     height: 2.15rem;
     color: rgb(var(--fg-rgb) / 0.48);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
   }
 
   .portfolio-writing-article-like-count {
@@ -11506,7 +11508,7 @@ a.os-surface-row,
     font-family: inherit;
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     line-height: 1;
     cursor: pointer;
   }
@@ -12018,7 +12020,7 @@ a.os-surface-row,
     overflow: hidden;
     font-size: var(--signals-value-size);
     font-weight: 700;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     letter-spacing: -0.01em;
     line-height: 1;
     color: inherit;
@@ -12036,7 +12038,7 @@ a.os-surface-row,
     padding: 0;
     line-height: 1;
     letter-spacing: 0;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
   }
 
   .portfolio-signals .portfolio-signals-metrics,
@@ -12099,7 +12101,7 @@ a.os-surface-row,
   }
 
   .portfolio-signals-rank {
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     letter-spacing: 0.06em;
     color: var(--portfolio-meta-color);
   }
@@ -12119,7 +12121,7 @@ a.os-surface-row,
     font-weight: 700;
     letter-spacing: -0.04em;
     color: color-mix(in srgb, var(--signal-reputation) 96%, transparent);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     line-height: 1;
   }
 
@@ -12168,7 +12170,7 @@ a.os-surface-row,
   .reputation-score-value {
     font-size: var(--os-identity-meta-size, 0.875rem);
     text-align: right;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     color: rgb(var(--fg-rgb) / 0.78);
   }
 
@@ -12190,7 +12192,7 @@ a.os-surface-row,
     font-weight: 700;
     letter-spacing: -0.04em;
     color: color-mix(in srgb, var(--signal-reputation) 96%, transparent);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     line-height: 1;
   }
 
@@ -12207,13 +12209,13 @@ a.os-surface-row,
 
   .reputation-facts-activity .os-sheet-facts-value {
     text-align: end;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     font-weight: 650;
   }
 
   .reputation-facts-factor-row .os-sheet-facts-value {
     text-align: end;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     font-weight: 650;
     line-height: 1.2;
   }
@@ -12272,7 +12274,7 @@ a.os-surface-row,
 
   .leaderboard-sheet-subline-you {
     display: inline;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     letter-spacing: -0.01em;
     color: rgb(var(--fg-rgb) / 0.55);
   }
@@ -12464,7 +12466,7 @@ a.os-surface-row,
     min-height: 1.12rem;
     font-size: 1.06rem;
     font-weight: 700;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     color: rgb(var(--fg-rgb) / 0.62);
     letter-spacing: -0.02em;
   }
@@ -12477,7 +12479,7 @@ a.os-surface-row,
   .leaderboard-row-rank-dense {
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 500;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     color: rgb(var(--fg-rgb) / 0.38);
     letter-spacing: 0;
     line-height: 1.1;
@@ -12509,7 +12511,7 @@ a.os-surface-row,
   .leaderboard-row-primary {
     font-size: var(--os-identity-name-size, 0.9375rem);
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     letter-spacing: -0.02em;
   }
 
@@ -12519,7 +12521,7 @@ a.os-surface-row,
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: rgb(var(--fg-rgb) / 0.46);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
   }
 
   .leaderboard-sheet-empty {
@@ -12922,7 +12924,7 @@ a.os-surface-row,
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    padding: 0 var(--os-sheet-pad-inline, 1rem)
+    padding: 0 var(--os-sheet-pad-inline, 0.75rem)
       var(--os-screen-body-pad-bottom, 1.5rem);
   }
 
@@ -13464,8 +13466,8 @@ a.os-surface-row,
   }
 
   .customize-sheet-divider {
-    width: calc(100% - (2 * var(--os-sheet-pad-inline, 1rem)));
-    margin-inline: var(--os-sheet-pad-inline, 1rem);
+    width: calc(100% - (2 * var(--os-sheet-pad-inline, 0.75rem)));
+    margin-inline: var(--os-sheet-pad-inline, 0.75rem);
     background-image: linear-gradient(
       to right,
       transparent,
@@ -13604,7 +13606,7 @@ a.os-surface-row,
   .customize-hue-value {
     min-width: 2.75rem;
     font-size: var(--os-stamp-size, 0.75rem);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     letter-spacing: 0.04em;
     color: rgb(var(--fg-rgb) / 0.55);
     text-align: right;
@@ -16493,7 +16495,7 @@ a.os-surface-row,
     padding: 0 0.15rem;
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     letter-spacing: 0.02em;
     line-height: 1;
     color: rgb(var(--fg-rgb) / 0.35);
@@ -17437,9 +17439,9 @@ a.os-surface-row,
     flex-direction: column;
     gap: 0.5rem;
     padding: 0
-      max(var(--os-sheet-pad-inline, 1rem), env(safe-area-inset-right, 0px))
+      max(var(--os-sheet-pad-inline, 0.75rem), env(safe-area-inset-right, 0px))
       0.65rem
-      max(var(--os-sheet-pad-inline, 1rem), env(safe-area-inset-left, 0px));
+      max(var(--os-sheet-pad-inline, 0.75rem), env(safe-area-inset-left, 0px));
   }
 
   .discover-sheet-title-row {
@@ -17903,7 +17905,7 @@ a.os-surface-row,
 
   .standing-row-time {
     font-size: var(--os-stamp-size, 0.75rem);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     line-height: 1.2;
     color: rgb(var(--fg-rgb) / 0.5);
     text-align: right;
@@ -17972,7 +17974,7 @@ a.os-surface-row,
     margin-top: 0.45rem;
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     color: rgb(var(--fg-rgb) / 0.65);
   }
 
@@ -18358,7 +18360,7 @@ a.os-surface-row,
     z-index: 1;
     gap: 0;
     /* Same column as `.glass-sheet-header` / sheet pad. */
-    padding: 0 var(--os-sheet-pad-inline, 1rem) 0.75rem;
+    padding: 0 var(--os-sheet-pad-inline, 0.75rem) 0.75rem;
   }
 
   .account-drawer-subject-row {
@@ -19207,7 +19209,7 @@ a.os-surface-row,
   }
 
   .app-storage-mode-count {
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     font-weight: 650;
     color: rgb(var(--fg-rgb) / 0.45);
   }
@@ -19409,7 +19411,7 @@ a.os-surface-row,
     font: inherit;
     font-size: var(--os-field-font-size, 0.9rem);
     line-height: var(--os-field-line-height, 1.35);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     outline: none;
   }
 
@@ -19574,7 +19576,7 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.52);
     font-size: var(--os-stamp-size, 0.75rem);
     line-height: 1;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
   }
 
   .app-storage-byte {
@@ -21502,7 +21504,7 @@ a.os-surface-row,
   .account-editor-limits {
     margin: 0.1rem 0 0;
     font-size: var(--os-stamp-size, 0.75rem);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     letter-spacing: 0.04em;
     color: rgb(var(--fg-rgb) / 0.32);
   }
@@ -22453,7 +22455,7 @@ a.os-surface-row,
   .home-feed-new-posts-count {
     min-width: 0.75rem;
     text-align: center;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     font-weight: 550;
     color: rgb(var(--fg-rgb) / 0.78);
   }
@@ -22609,7 +22611,7 @@ a.os-surface-row,
 
   /* Room row under identity — match .post-identity-channel. */
   .post-row-skeleton-channel {
-    height: 0.92rem;
+    height: 0.72rem;
     width: 22%;
     margin-top: 0.06rem;
   }
@@ -22782,7 +22784,8 @@ a.os-surface-row,
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: var(--os-stamp-size, 0.75rem);
+    /* Quiet attribution — below identity meta, same as pre-scale chrome. */
+    font-size: 0.72rem;
     font-weight: 600;
     line-height: 1.3;
     color: rgb(var(--fg-rgb) / 0.42);
@@ -22971,11 +22974,10 @@ a.os-surface-row,
    */
   .post-card-identity {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     min-width: 0;
-    /* Share free space with the trailing spacer so the cluster is bounded
-       before the time seat — enlarged text ellipsizes inside this box. */
-    flex: 1 1 0;
+    /* Hug Name @id. · time is the next row sibling; spacer runs to ⋮. */
+    flex: 0 1 auto;
     max-width: 100%;
     overflow: hidden;
     color: inherit;
@@ -22997,7 +22999,7 @@ a.os-surface-row,
   .post-card-identity .post-identity-inline-cluster,
   .post-card-identity .post-identity-main {
     min-width: 0;
-    flex: 1 1 auto;
+    flex: 0 1 auto;
   }
 
   .post-identity-time-slot {
@@ -23011,9 +23013,13 @@ a.os-surface-row,
     line-height: 1.5;
   }
 
+  /*
+   * Grows between · time and ⋮. min-width keeps the seat when the byline is
+   * long; short names leave empty row after the stamp — time stays on @id.
+   */
   .post-identity-spacer {
     flex: 1 1 auto;
-    min-width: 0.35rem;
+    min-width: 0.5rem;
   }
 
   /* Avatar gutter. Padding keeps width:100% rows inside the card. */
@@ -23090,7 +23096,8 @@ a.os-surface-row,
     flex-direction: row;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 0.35rem;
+    /* Tight Name @id · time; spacer owns the run to ⋮. */
+    gap: 0.28rem;
     width: 100%;
     min-width: 0;
   }
@@ -23109,7 +23116,8 @@ a.os-surface-row,
     align-items: center;
     gap: 0.3em;
     min-width: 0;
-    flex: 1 1 auto;
+    /* Same hug as .post-card-identity — time inside the cluster stays on @id. */
+    flex: 0 1 auto;
     overflow: hidden;
   }
 
@@ -23143,9 +23151,10 @@ a.os-surface-row,
     max-width: 100%;
     overflow-wrap: anywhere;
     margin: 0.5rem 0 0.1rem;
+    font-family: var(--app-font-sans);
     font-size: var(--os-identity-meta-size, 0.875rem);
     font-weight: 400;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     line-height: 1.3;
     color: rgb(var(--fg-rgb) / 0.34);
   }
@@ -23234,9 +23243,12 @@ a.os-surface-row,
   .post-identity-time-slot .post-identity-time {
     flex: 0 0 auto;
     overflow: visible;
+    font-family: var(--app-font-sans);
     font-size: var(--os-identity-meta-size, 0.875rem);
     font-weight: 400;
-    font-variant-numeric: tabular-nums;
+    /* Public Sans has no tnum. tabular-nums makes the stamp borrow a
+       system figure face — the date looked like a different font. */
+    font-variant-numeric: normal;
     line-height: inherit;
     color: rgb(var(--fg-rgb) / 0.42);
     text-decoration: none;
@@ -23366,8 +23378,8 @@ a.os-surface-row,
   .post-identity-channel-icon {
     display: block;
     flex: 0 0 auto;
-    width: 0.7rem;
-    height: 0.7rem;
+    width: 0.58rem;
+    height: 0.58rem;
   }
 
   .post-identity-channel-label {
@@ -23375,7 +23387,7 @@ a.os-surface-row,
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: var(--os-meta-size, 0.875rem);
+    font-size: 0.68rem;
     font-weight: 550;
     line-height: 1.35;
   }
@@ -23385,7 +23397,7 @@ a.os-surface-row,
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: var(--os-meta-size, 0.875rem);
+    font-size: 0.72rem;
     line-height: 1.45;
     color: rgb(var(--fg-rgb) / 0.42);
   }
@@ -23393,8 +23405,8 @@ a.os-surface-row,
   /* Inline so the ellipsis truncation on the relation line keeps working. */
   .post-card-relation-icon {
     display: inline-block;
-    width: 0.9rem;
-    height: 0.9rem;
+    width: 0.78rem;
+    height: 0.78rem;
     margin-right: 0.28rem;
     vertical-align: -0.14em;
   }
@@ -23448,8 +23460,8 @@ a.os-surface-row,
 
   .post-card-guild-icon {
     flex: 0 0 auto;
-    width: 0.9rem;
-    height: 0.9rem;
+    width: 0.78rem;
+    height: 0.78rem;
   }
 
   .post-card-guild-name {
@@ -23457,7 +23469,7 @@ a.os-surface-row,
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: var(--os-meta-size, 0.875rem);
+    font-size: 0.68rem;
     font-weight: 550;
     line-height: 1.2;
   }
@@ -24190,7 +24202,7 @@ a.os-surface-row,
   .post-audio-time {
     flex: 0 0 auto;
     font-size: var(--os-stamp-size, 0.75rem);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     opacity: 0.68;
   }
 
@@ -24430,7 +24442,7 @@ a.os-surface-row,
     font-weight: 650;
     letter-spacing: 0.01em;
     color: rgb(var(--fg-rgb) / 0.62);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
   }
 
   .post-poll-option.is-selected .post-poll-option-pct {
@@ -24631,7 +24643,7 @@ a.os-surface-row,
     font-weight: 650;
     letter-spacing: 0.01em;
     line-height: 1.2;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
   }
 
   .post-card-quote-inset-body {
@@ -24732,7 +24744,7 @@ a.os-surface-row,
 
   .post-card-react-cluster {
     min-width: 0;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
   }
 
   /* Same icon-to-figure gap as reply and share. Padding lives on the two
@@ -24845,7 +24857,7 @@ a.os-surface-row,
   .portfolio-signals .signal-group-reputation .signal-value {
     display: inline;
     height: auto;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     letter-spacing: 0;
   }
 
@@ -24858,7 +24870,7 @@ a.os-surface-row,
     align-items: center;
     height: 1em;
     letter-spacing: 0;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     line-height: 1;
   }
 
@@ -25758,7 +25770,7 @@ a.os-surface-row,
     font-size: 0.68rem;
     line-height: 1.2;
     color: rgb(var(--fg-rgb) / 0.45);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
   }
 
   .scarce-frame-picker-track {
@@ -26477,7 +26489,7 @@ a.os-surface-row,
     margin: 0 auto 0 0;
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 550;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     letter-spacing: 0.01em;
     color: var(--os-surface-muted);
     line-height: 1.2;
@@ -26546,7 +26558,7 @@ a.os-surface-row,
     min-width: 1.75rem;
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     text-align: start;
     line-height: 1;
   }
@@ -27134,7 +27146,7 @@ a.os-surface-row,
   .scarce-clip-listen-love-count {
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 550;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
   }
 
   .scarce-clip-listen-save {
@@ -27371,7 +27383,7 @@ a.os-surface-row,
   }
 
   .scarce-offer-amount-chip {
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
   }
 
   .scarce-buy-summary {
@@ -27497,7 +27509,7 @@ a.os-surface-row,
     margin: 0;
     font-size: 0.88rem;
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     color: rgb(var(--fg-rgb) / 0.78);
   }
 
@@ -27763,7 +27775,7 @@ a.os-surface-row,
     margin: 0.2rem 0 0;
     font-size: var(--os-identity-meta-size, 0.875rem);
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     color: rgb(var(--fg-rgb) / 0.62);
   }
 
@@ -27910,7 +27922,7 @@ a.os-surface-row,
   }
 
   .os-quantity-count {
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
   }
 
   .held-edition-list {
@@ -27969,7 +27981,7 @@ a.os-surface-row,
   .held-edition-label {
     min-width: 0;
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
   }
 
   .held-edition-listed-badge {
@@ -27982,7 +27994,7 @@ a.os-surface-row,
 
   .held-edition-listed {
     font-size: var(--os-identity-meta-size, 0.875rem);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     color: rgb(var(--fg-rgb) / 0.62);
   }
 
@@ -28039,7 +28051,7 @@ a.os-surface-row,
     margin: 0.08rem 0 0;
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     letter-spacing: 0.01em;
     color: rgb(var(--fg-rgb) / 0.62);
   }
@@ -28279,7 +28291,7 @@ a.os-surface-row,
     flex-shrink: 0;
     font-size: var(--os-identity-meta-size, 0.875rem);
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     color: rgb(var(--fg-rgb) / 0.46);
   }
 
@@ -28872,7 +28884,7 @@ a.os-surface-row,
 
   .collection-meta-time {
     color: var(--os-surface-muted);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
   }
 
   .collection-meta-creator-name:hover,
@@ -29066,7 +29078,7 @@ a.os-surface-row,
     flex: 1;
     margin: 0;
     font-size: var(--os-stamp-size, 0.75rem);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     line-height: 1.25;
     color: rgb(var(--fg-rgb) / 0.62);
   }
@@ -29113,7 +29125,7 @@ a.os-surface-row,
   .collection-activity-price {
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     line-height: 1.2;
     color: var(--protocol-green);
     text-align: right;
@@ -29545,7 +29557,7 @@ a.os-surface-row,
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 650;
     letter-spacing: 0.04em;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     color: rgb(var(--fg-rgb) / 0.5);
   }
 
@@ -29604,7 +29616,7 @@ a.os-surface-row,
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 600;
     color: rgb(var(--fg-rgb) / 0.42);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
   }
 
   .collection-writing-toc-title {
@@ -29683,7 +29695,7 @@ a.os-surface-row,
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 650;
     letter-spacing: 0.04em;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     color: rgb(var(--fg-rgb) / 0.42);
   }
 
@@ -30515,7 +30527,7 @@ a.os-surface-row,
     white-space: nowrap;
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 500;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     letter-spacing: -0.01em;
     line-height: 1.3;
   }
@@ -31056,7 +31068,7 @@ a.os-surface-row,
     background: rgb(var(--fg-rgb) / 0.08);
     color: rgb(var(--fg-rgb) / 0.72);
     font: inherit;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
   }
 
   .collection-allowlist-chip.is-remove {
@@ -31421,7 +31433,7 @@ a.os-surface-row,
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 650;
     color: rgb(var(--fg-rgb) / 0.72);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
   }
 
   .collection-activity-standing {
@@ -31434,13 +31446,13 @@ a.os-surface-row,
     font-weight: 550;
     line-height: 1.3;
     letter-spacing: 0;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     color: var(--os-surface-muted);
   }
 
   .collection-guest-tally {
     letter-spacing: 0;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
   }
 
   .scarce-fans-empty {
@@ -34497,7 +34509,7 @@ a.os-surface-row,
 
   /* Schedule picker — tall tier cap; height via sizing="hug". */
   .drop-schedule-sheet-body {
-    padding: 0.1rem var(--os-sheet-pad-inline, 1rem) 0.55rem;
+    padding: 0.1rem var(--os-sheet-pad-inline, 0.75rem) 0.55rem;
   }
 
   .drop-schedule-sheet {
@@ -34507,7 +34519,7 @@ a.os-surface-row,
   }
 
   .drop-schedule-sheet-footer {
-    padding: 0.4rem var(--os-sheet-pad-inline, 1rem)
+    padding: 0.4rem var(--os-sheet-pad-inline, 0.75rem)
       calc(0.55rem + env(safe-area-inset-bottom, 0px));
   }
 
@@ -34647,7 +34659,7 @@ a.os-surface-row,
     font: inherit;
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     cursor: pointer;
     padding: 0.2rem 0.15rem;
   }
@@ -34692,7 +34704,7 @@ a.os-surface-row,
     color: inherit;
     font: inherit;
     font-size: var(--os-identity-meta-size, 0.875rem);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     cursor: pointer;
   }
 
@@ -34791,7 +34803,7 @@ a.os-surface-row,
     min-width: 0;
     font-size: var(--os-identity-name-size, 0.9375rem);
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     line-height: 1.2;
   }
 
@@ -34893,7 +34905,7 @@ a.os-surface-row,
     font: inherit;
     font-size: var(--os-identity-name-size, 0.9375rem);
     font-weight: 500;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     line-height: 1;
     cursor: pointer;
     scroll-snap-align: center;
@@ -35104,7 +35116,7 @@ a.os-surface-row,
     color: rgb(255 255 255 / 0.92);
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 700;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     pointer-events: none;
   }
 
@@ -35156,7 +35168,7 @@ a.os-surface-row,
     box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
     font-size: var(--os-stamp-size, 0.75rem);
     line-height: 1.4;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     color: var(--os-surface-muted-strong);
   }
 
@@ -35932,7 +35944,7 @@ a.os-surface-row,
     display: inline-flex;
     align-items: baseline;
     gap: 0.35rem;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
   }
 
   .drop-create-deal-count-value {
@@ -36387,7 +36399,7 @@ a.os-surface-row,
     max-width: 100%;
     color: var(--os-surface-muted);
     font-size: var(--os-stamp-size, 0.75rem);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     line-height: 1;
   }
 
@@ -36631,7 +36643,7 @@ a.os-surface-row,
     min-width: 0;
     margin-top: 0.12rem;
     overflow: visible;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 500;
     line-height: 1.25;
@@ -37003,7 +37015,7 @@ a.os-surface-row,
     margin: 0;
     font-size: var(--os-identity-meta-size, 0.875rem);
     font-weight: 650;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     color: rgb(var(--fg-rgb) / 0.78);
   }
 
@@ -37052,7 +37064,7 @@ a.os-surface-row,
     flex-shrink: 0;
     font-size: var(--os-stamp-size, 0.75rem);
     color: var(--os-surface-muted);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     text-align: right;
     white-space: nowrap;
   }
@@ -37556,7 +37568,7 @@ a.os-surface-row,
   }
 
   .guild-members-sheet-body {
-    padding: 0.2rem var(--os-sheet-pad-inline, 1rem)
+    padding: 0.2rem var(--os-sheet-pad-inline, 0.75rem)
       var(--os-sheet-footer-pad-bottom);
   }
 
@@ -37774,7 +37786,7 @@ a.os-surface-row,
   .guild-edit-limits {
     margin: 0;
     font-size: var(--os-stamp-size, 0.75rem);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     letter-spacing: 0.04em;
     color: rgb(var(--fg-rgb) / 0.32);
   }
@@ -39308,7 +39320,7 @@ a.os-surface-row,
     height: 2.15rem;
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     letter-spacing: 0.02em;
     line-height: 1;
     color: rgb(var(--fg-rgb) / 0.4);
@@ -40206,7 +40218,7 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.55);
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 700;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     line-height: 1;
     padding: 0.18rem 0.32rem;
     text-align: center;
@@ -40779,7 +40791,7 @@ a.os-surface-row,
   .guild-tags-editor-meta {
     margin: 0;
     font-size: var(--os-stamp-size, 0.75rem);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     letter-spacing: 0.04em;
     color: rgb(var(--fg-rgb) / 0.32);
     text-align: center;
@@ -40851,7 +40863,7 @@ a.os-surface-row,
     display: block;
     margin-top: 0.2rem;
     font-size: var(--os-stamp-size, 0.75rem);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
@@ -40902,7 +40914,7 @@ a.os-surface-row,
   .endorsement-focus-meta {
     margin: 0;
     font-size: var(--os-stamp-size, 0.75rem);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
@@ -40965,7 +40977,7 @@ a.os-surface-row,
   .endorsement-supporters-amount {
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     line-height: 1.2;
     color: var(--signal-reputation, var(--protocol-green));
     text-align: right;
@@ -41056,7 +41068,7 @@ a.os-surface-row,
   }
 
   .endorse-compose-counter {
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     text-transform: none;
     letter-spacing: 0;
     font-weight: 500;
@@ -41203,7 +41215,7 @@ a.os-surface-row,
     margin: 0;
     font-size: var(--os-stamp-size, 0.75rem);
     line-height: 1.35;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: normal;
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
@@ -42151,13 +42163,13 @@ button.scarce-clip-cover-expand {
   max-width: 100%;
   overflow: hidden;
   font: inherit;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: normal;
 }
 
 .scarce-clip-time-elapsed {
   width: 5ch;
   text-align: right;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: normal;
 }
 
 .scarce-clip-time-sep {
@@ -42378,7 +42390,7 @@ a.protocol-board-chip {
 .protocol-status-count {
   margin-left: 0.28rem;
   opacity: 0.72;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: normal;
 }
 
 .protocol-policy-summary {
@@ -42522,7 +42534,7 @@ a.protocol-board-chip {
 }
 
 .protocol-card-strip-main {
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: normal;
   gap: 0.24rem;
 }
 
@@ -43747,7 +43759,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   font-weight: 600;
   letter-spacing: 0.02em;
   color: rgb(var(--fg-rgb) / 0.42);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: normal;
 }
 
 .protocol-compose-description-counter.is-under-min,
@@ -43959,7 +43971,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   font-size: var(--os-identity-meta-size, 0.875rem);
   line-height: 1.45;
   color: rgb(var(--fg-rgb) / 0.62);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: normal;
 }
 
 .dao-members-stake-metric {
@@ -43969,7 +43981,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   gap: 0.75rem;
   font-size: var(--os-identity-meta-size, 0.875rem);
   line-height: 1.35;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: normal;
 }
 
 .dao-members-stake-metric-label {
@@ -43997,7 +44009,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 }
 
 .dao-treasury-balance {
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: normal;
   font-size: 0.88rem;
   font-weight: 650;
   color: rgb(var(--fg-rgb) / 0.86);
@@ -46125,7 +46137,7 @@ button.messages-bubble-quote:focus-visible {
   display: block;
   width: 1.75rem;
   overflow: hidden;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: normal;
   font-size: var(--os-identity-handle-size, 0.875rem);
   font-weight: var(--os-identity-handle-weight, 400);
   line-height: 1.2;

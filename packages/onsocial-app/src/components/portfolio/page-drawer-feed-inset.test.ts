@@ -78,10 +78,10 @@ describe('page drawer feed inset', () => {
       /\.post-card-stat svg,[\s\S]*?width:\s*var\(--os-engagement-glyph-size/
     );
     expect(globalsCss).toMatch(
-      /\.post-card-relation \{[^}]*font-size:\s*var\(--os-meta-size/
+      /\.post-card-relation \{[^}]*font-size:\s*0\.72rem/
     );
     expect(globalsCss).toMatch(
-      /\.post-card-guild-name \{[^}]*font-size:\s*var\(--os-meta-size,\s*0\.875rem/
+      /\.post-card-guild-name \{[^}]*font-size:\s*0\.68rem/
     );
     expect(globalsCss).toMatch(
       /\.collection-product-line \{[^}]*font-size:\s*var\(--os-stamp-size/
@@ -176,9 +176,9 @@ describe('page drawer feed inset', () => {
     expect(globalsCss).toMatch(/--os-dock-clearance-gap:\s*0\.85rem;/);
   });
 
-  it('uses sheet pad on the page drawer, not the tighter page gutter', () => {
+  it('uses the page gutter on the page drawer', () => {
     expect(globalsCss).toMatch(
-      /\.glass-sheet-root \.glass-sheet-panel\.page-drawer-panel \{[\s\S]*?height: 100%;[\s\S]*?max-height: none;[\s\S]*?--os-screen-body-pad-x: var\(--os-sheet-pad-inline, 1rem\);/
+      /\.glass-sheet-root \.glass-sheet-panel\.page-drawer-panel \{[\s\S]*?height: 100%;[\s\S]*?max-height: none;[\s\S]*?--os-screen-body-pad-x: var\(--os-sheet-pad-inline, 0\.75rem\);/
     );
     expect(globalsCss).not.toMatch(
       /\.glass-sheet-root \.glass-sheet-panel\.page-drawer-panel \{[^}]*54rem/

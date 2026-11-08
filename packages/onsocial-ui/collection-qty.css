@@ -60,7 +60,7 @@
   font: inherit;
   font-size: 0.86rem;
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: normal;
   color: var(--os-surface-emphasis);
   outline: none;
   -moz-appearance: textfield;
@@ -75,7 +75,7 @@
 .collection-qty-max {
   font-size: 0.86rem;
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: normal;
   color: var(--os-surface-emphasis);
   opacity: 0.5;
   line-height: 1;
@@ -84,7 +84,7 @@
 .collection-qty-suffix {
   font-size: 0.86rem;
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: normal;
   color: var(--os-surface-emphasis);
   line-height: 1;
 }

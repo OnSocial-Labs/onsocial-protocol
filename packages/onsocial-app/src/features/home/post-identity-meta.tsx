@@ -178,7 +178,7 @@ export function PostIdentityMeta({
         {sharedProfileHref && timeWithSep ? (
           <span className="post-identity-time-slot">{timeWithSep}</span>
         ) : null}
-        {sharedProfileHref ? (
+        {trailing ? (
           <span className="post-identity-spacer" aria-hidden />
         ) : null}
         {trailing}

@@ -13,19 +13,19 @@ import { AppProviders } from '@/components/providers/app-providers';
 import { ThemeInitScript } from '@/components/theme-init-script';
 import './globals.css';
 
-// The woff2 is served by us. It is not installed on the device, so each
-// --font-* variable still carries one metric-adjusted stand-in. `optional`
-// never replaces a line that has already painted: the file is used when it is
-// ready for first paint (preload + cache), otherwise the stand-in stays for
-// Other faces stay `optional` (no late reflow). Public Sans is the OS chrome
-// face — `swap` so engagement digits / chrome don't stick on the metric
-// fallback forever when the optional window is missed.
+// The woff2 is served by us (next/font downloads it at build and hosts the
+// file). Devices do not need the face installed — same path DM Sans used.
+// `optional` uses the file on first paint when the preload is ready, and
+// never swaps a line onto the metric stand-in after paint. `swap` paints
+// that stand-in (adjusted Arial) and then replaces it, which is the random
+// date face.
 const publicSans = Public_Sans({
   subsets: ['latin'],
   variable: '--font-public-sans',
-  display: 'swap',
+  display: 'optional',
   adjustFontFallback: true,
   weight: 'variable',
+  preload: true,
 });
 
 const ibmPlexSans = IBM_Plex_Sans({
@@ -133,7 +133,7 @@ export default function RootLayout({
       data-theme="dark"
       suppressHydrationWarning
     >
-      <body suppressHydrationWarning>
+      <body className={publicSans.className} suppressHydrationWarning>
         <ThemeInitScript />
         <AppProviders>{children}</AppProviders>
       </body>
