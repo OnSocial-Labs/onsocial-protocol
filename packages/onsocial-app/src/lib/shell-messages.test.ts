@@ -81,6 +81,15 @@ describe('shell catalogs', () => {
     expect(en.discover.creatorHubs).toBe('Creator hubs');
     expect(en.discover.publicGuilds).toBe('Public guilds');
     expect(en.discover.guildsIn).toBe('Guilds · {topic}');
+    expect(en.discover.moving).toBe('Moving');
+    expect(en.discover.profiles).toBe('Profiles');
+    expect(en.discover.topics).toBe('Topics');
+    expect(en.discover.tickers).toBe('Tickers');
+    expect(en.apps.groups).toBe('Guilds');
+    expect(en.apps.hubs).toBe('Hubs');
+    expect(en.apps.daos).toBe('DAOs');
+    expect(en.guildCard.memberLed).toBe('Member-led');
+    expect(en.guildCard.owner).toBe('Owner');
     expect(en.topicEditor.typeYourOwn).toBe('Or type your own…');
     expect(en.topicEditor.primary).toBe('Primary');
     expect(en.help.guildTitle).toBe('Your guild');
@@ -103,6 +112,21 @@ describe('shell catalogs', () => {
     expect(t('daoWhisper', { near: '0.1' })).toBe(
       'You start as council · ~0.1 NEAR'
     );
+    const card = createTranslator({
+      locale: 'en',
+      messages: en,
+      namespace: 'guildCard',
+    });
+    expect(card('members', { count: 1 })).toBe('member');
+    expect(card('members', { count: 12 })).toBe('members');
+    const cardPl = createTranslator({
+      locale: 'pl',
+      messages: pl,
+      namespace: 'guildCard',
+    });
+    expect(cardPl('members', { count: 1 })).toBe('członek');
+    expect(cardPl('members', { count: 4 })).toBe('członków');
+    expect(cardPl('members', { count: 12 })).toBe('członków');
   });
 
   it('maps each create-form error onto its English sentence', () => {

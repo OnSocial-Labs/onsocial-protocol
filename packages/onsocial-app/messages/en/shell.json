@@ -301,7 +301,18 @@
     "loadMoreGuilds": "Could not load more guilds.",
     "searchGuilds": "Could not search guilds.",
     "loadMoreHubs": "Could not load more hubs.",
-    "fee": "fee"
+    "fee": "fee",
+    "moving": "Moving",
+    "profiles": "Profiles",
+    "topics": "Topics",
+    "tickers": "Tickers"
+  },
+  "guildCard": {
+    "members": "{count, plural, one {member} other {members}}",
+    "memberLed": "Member-led",
+    "owner": "Owner",
+    "admin": "Admin",
+    "moderator": "Moderator"
   },
   "peekOverflow": "{count, plural, other {# more in {place}}}"
 }

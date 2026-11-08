@@ -14,6 +14,7 @@ import {
   guildCoverStyle,
 } from '@/features/guilds/guild-visual';
 import { guildPath } from '@/features/guilds/guilds-data';
+import { useTranslations } from 'next-intl';
 import { topicLabel } from '@/lib/topic-slug';
 import { useCommunityTopicLabel } from '@/lib/use-shell';
 
@@ -33,6 +34,28 @@ export interface GuildSummaryCardModel {
   role?: GuildCardRole | null;
 }
 
+function guildCardTagLabel(
+  t: ReturnType<typeof useTranslations>,
+  label: string
+): string {
+  switch (label) {
+    case 'Open':
+      return t('create.open');
+    case 'Invite only':
+      return t('create.inviteOnly');
+    case 'Member-led':
+      return t('guildCard.memberLed');
+    case 'Owner':
+      return t('guildCard.owner');
+    case 'Admin':
+      return t('guildCard.admin');
+    case 'Moderator':
+      return t('guildCard.moderator');
+    default:
+      return label;
+  }
+}
+
 function GuildCardPills({
   role,
   accessGated,
@@ -42,6 +65,7 @@ function GuildCardPills({
   accessGated: boolean;
   memberDriven: boolean;
 }) {
+  const t = useTranslations('shell');
   const tags = guildCardMetaTags({
     role,
     accessGated,
@@ -59,7 +83,7 @@ function GuildCardPills({
             tag.tone ? ` guild-card-pill--${tag.tone}` : ''
           }`}
         >
-          {tag.label}
+          {guildCardTagLabel(t, tag.label)}
         </span>
       ))}
     </span>
@@ -67,12 +91,16 @@ function GuildCardPills({
 }
 
 function GuildMemberStat({ count }: { count: number }) {
-  const { value, label } = formatGuildMemberCountParts(count);
+  const t = useTranslations('shell');
+  const { value } = formatGuildMemberCountParts(count);
+  const safe = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
 
   return (
     <span className="guild-summary-card-stat">
       <span className="guild-summary-card-stat-count">{value}</span>
-      <span className="guild-summary-card-stat-label">{label}</span>
+      <span className="guild-summary-card-stat-label">
+        {t('guildCard.members', { count: safe })}
+      </span>
     </span>
   );
 }

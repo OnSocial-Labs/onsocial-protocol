@@ -301,7 +301,18 @@
     "loadMoreGuilds": "Nie udało się wczytać kolejnych gildii.",
     "searchGuilds": "Nie udało się wyszukać gildii.",
     "loadMoreHubs": "Nie udało się wczytać kolejnych hubów.",
-    "fee": "prowizja"
+    "fee": "prowizja",
+    "moving": "Na czasie",
+    "profiles": "Profile",
+    "topics": "Tematy",
+    "tickers": "Tickery"
+  },
+  "guildCard": {
+    "members": "{count, plural, one {członek} few {członków} many {członków} other {członków}}",
+    "memberLed": "Przez członków",
+    "owner": "Właściciel",
+    "admin": "Admin",
+    "moderator": "Moderator"
   },
   "peekOverflow": "{count, plural, one {# więcej w aplikacji {place}} few {# więcej w aplikacji {place}} many {# więcej w aplikacji {place}} other {# więcej w aplikacji {place}}}"
 }
