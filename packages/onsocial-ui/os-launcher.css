@@ -215,6 +215,16 @@
   will-change: transform;
 }
 
+.os-launcher-sheet.is-dragging,
+.os-launcher-sheet.is-dragging *,
+.os-launcher-sheet.is-body-pull,
+.os-launcher-sheet.is-body-pull * {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+}
+
 .os-launcher-drag {
   display: flex;
   align-items: center;

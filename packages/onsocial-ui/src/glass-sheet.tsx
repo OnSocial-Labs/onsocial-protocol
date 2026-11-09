@@ -18,6 +18,8 @@ import {
 import { createPortal } from 'react-dom';
 import { cn } from './cn.js';
 import { useKeyboardDrawerFrame } from './keyboard-drawer-frame.js';
+import { SHEET_DRAG_ACTIVATION_PX } from './sheet-body-pull.js';
+import { useSheetSurfacePull } from './use-sheet-surface-pull.js';
 import { useOverlayStackZ } from './overlay-stack.js';
 import { MultiplyIcon } from './mage-stroke-icons.js';
 import { resolveSheetMood, useMoodTheme } from './mood-theme.js';
@@ -115,7 +117,6 @@ export const GLASS_SHEET_PEEK_RATIO = 0.62;
 const DISMISS_GAP_PX = 96;
 const MOBILE_MAX_WIDTH_PX = 767;
 const SHEET_TRANSITION_MS = 320;
-const DRAG_ACTIVATION_PX = 4;
 /** Consecutive equal hug height samples before arming enter (avoids open→shrink). */
 const HUG_ENTER_STABLE_MATCHES = 2;
 /**
@@ -717,8 +718,12 @@ function useSheetGesture(
     [peekRatio]
   );
 
-  const handlePointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
+  const beginPointerDrag = useCallback(
+    (
+      startY: number,
+      capture: { setPointerCapture?: (pointerId: number) => void } | null,
+      pointerId: number
+    ) => {
       const panel = panelRef.current;
       if (!panel) {
         return;
@@ -726,37 +731,46 @@ function useSheetGesture(
       const panelH = panel.offsetHeight;
       const baseY = dragPx ?? (detent === 'full' ? 0 : peekPxFor(panelH));
       dragState.current = {
-        startY: event.clientY,
+        startY,
         baseY,
         panelH,
         currentY: baseY,
         active: false,
       };
-      event.currentTarget.setPointerCapture?.(event.pointerId);
+      try {
+        capture?.setPointerCapture?.(pointerId);
+      } catch {
+        // A synthetic or already-ended pointer cannot be captured. The drag
+        // still follows move events that reach the panel.
+      }
     },
     [detent, dragPx, panelRef, peekPxFor]
   );
 
-  const handlePointerMove = useCallback(
+  const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
-      const state = dragState.current;
-      if (!state) {
-        return;
-      }
-      const deltaY = event.clientY - state.startY;
-      if (!state.active && Math.abs(deltaY) < DRAG_ACTIVATION_PX) {
-        return;
-      }
-      if (!state.active) {
-        state.active = true;
-        setDragging(true);
-      }
-      const next = Math.min(state.panelH, Math.max(0, state.baseY + deltaY));
-      state.currentY = next;
-      setDragPx(next);
+      beginPointerDrag(event.clientY, event.currentTarget, event.pointerId);
     },
-    []
+    [beginPointerDrag]
   );
+
+  const handlePointerMove = useCallback((event: { clientY: number }) => {
+    const state = dragState.current;
+    if (!state) {
+      return;
+    }
+    const deltaY = event.clientY - state.startY;
+    if (!state.active && Math.abs(deltaY) < SHEET_DRAG_ACTIVATION_PX) {
+      return;
+    }
+    if (!state.active) {
+      state.active = true;
+      setDragging(true);
+    }
+    const next = Math.min(state.panelH, Math.max(0, state.baseY + deltaY));
+    state.currentY = next;
+    setDragPx(next);
+  }, []);
 
   const handlePointerEnd = useCallback(() => {
     const state = dragState.current;
@@ -814,6 +828,7 @@ function useSheetGesture(
     dragging,
     dragPx,
     sheetY,
+    beginPointerDrag,
     handlePointerDown,
     handlePointerMove,
     handlePointerEnd,
@@ -1234,13 +1249,34 @@ export function GlassSheet({
   );
   const panelRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const [sheetBodyNode, setSheetBodyNode] = useState<HTMLDivElement | null>(
+    null
+  );
   const setSheetBodyRef = useCallback(
     (node: HTMLDivElement | null) => {
+      setSheetBodyNode((current) => (current === node ? current : node));
       if (typeof bodyRef === 'function') bodyRef(node);
       else if (bodyRef) bodyRef.current = node;
     },
     [bodyRef]
   );
+  const bodyPullApi = useRef({
+    keyboardOpen: false,
+    beginPointerDrag: (
+      _startY: number,
+      _capture: { setPointerCapture?: (pointerId: number) => void } | null,
+      _pointerId: number
+    ) => {},
+    handlePointerMove: (_event: { clientY: number }) => {},
+    handlePointerEnd: () => {},
+  });
+
+  useSheetSurfacePull({
+    enabled: Boolean(dragDismiss && !band && sheetBodyNode),
+    panel: sheetBodyNode?.parentElement ?? null,
+    scrollBody: sheetBodyNode,
+    apiRef: bodyPullApi,
+  });
   const portalTarget = useGlassSheetPortalTarget(portalContainer);
   const hostedInClipHost =
     portalTarget != null &&
@@ -1273,6 +1309,7 @@ export function GlassSheet({
     dragging,
     dragPx,
     sheetY,
+    beginPointerDrag,
     handlePointerDown,
     handlePointerMove,
     handlePointerEnd,
@@ -1284,6 +1321,12 @@ export function GlassSheet({
     panelRef,
     panelHeightPx
   );
+  bodyPullApi.current = {
+    keyboardOpen: keyboard.keyboardOpen,
+    beginPointerDrag,
+    handlePointerMove,
+    handlePointerEnd,
+  };
 
   // Post-card and guild feed ⋯ menus are overlay hugs — skip height settle.
   const skipHugEnterSettle =

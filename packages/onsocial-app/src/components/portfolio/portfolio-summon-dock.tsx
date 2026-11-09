@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useRouter } from 'next/navigation';
@@ -41,9 +42,7 @@ import { OsDockBackZone } from '@/components/wallet/os-dock-back-zone';
 import { OsDockPill } from '@/components/wallet/os-dock-pill';
 
 const DOCK_HINT_KEY = 'onpage-portfolio-dock-hint-seen';
-const LONG_PRESS_MS = 480;
 const SWIPE_UP_PX = 28;
-const TAP_SLOP_PX = 12;
 
 export interface PortfolioSummonDockProps {
   pageAccountId: string;
@@ -137,12 +136,8 @@ export function PortfolioSummonDock({
   const scrollHidden =
     !osOpen && (immersiveChromeQuiet || (autoHide && !write));
 
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pointerStart = useRef<{
-    x: number;
-    y: number;
-    longPress: boolean;
-  } | null>(null);
+  const pointerStart = useRef<{ x: number; y: number } | null>(null);
+  const suppressGripClickRef = useRef(false);
 
   const isOwner =
     isConnected &&
@@ -169,13 +164,6 @@ export function PortfolioSummonDock({
     }
   }, []);
 
-  const clearLongPress = useCallback(() => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-  }, []);
-
   const openLauncher = useCallback(() => {
     dismissHint();
     setOsOpen(true);
@@ -186,62 +174,38 @@ export function PortfolioSummonDock({
       pointerStart.current = {
         x: event.clientX,
         y: event.clientY,
-        longPress: false,
       };
-      clearLongPress();
-      longPressTimer.current = setTimeout(() => {
-        if (!pointerStart.current) return;
-        pointerStart.current.longPress = true;
-        openLauncher();
-      }, LONG_PRESS_MS);
     },
-    [clearLongPress, openLauncher]
-  );
-
-  const handlePointerMove = useCallback(
-    (event: ReactPointerEvent<HTMLButtonElement>) => {
-      const start = pointerStart.current;
-      if (!start) return;
-      if (
-        Math.abs(event.clientX - start.x) > TAP_SLOP_PX ||
-        Math.abs(event.clientY - start.y) > TAP_SLOP_PX
-      ) {
-        clearLongPress();
-      }
-    },
-    [clearLongPress]
+    []
   );
 
   const finishPointer = useCallback(
     (event: ReactPointerEvent<HTMLButtonElement>) => {
       const start = pointerStart.current;
-      clearLongPress();
       pointerStart.current = null;
-
-      if (!start || start.longPress) return;
+      if (!start || pageDrawerOpen) return;
 
       const dx = Math.abs(event.clientX - start.x);
       const dy = start.y - event.clientY;
-
-      if (pageDrawerOpen) {
-        if (dx < TAP_SLOP_PX && Math.abs(dy) < TAP_SLOP_PX) {
-          openLauncher();
-        }
-        return;
-      }
-
       if (dy > SWIPE_UP_PX && dx < 48) {
-        dismissHint();
-        openPageDrawer();
-        return;
-      }
-
-      if (dx < TAP_SLOP_PX && Math.abs(dy) < TAP_SLOP_PX) {
+        suppressGripClickRef.current = true;
         dismissHint();
         openPageDrawer();
       }
     },
-    [clearLongPress, dismissHint, openLauncher, openPageDrawer, pageDrawerOpen]
+    [dismissHint, openPageDrawer, pageDrawerOpen]
+  );
+
+  const handleGripClick = useCallback(
+    (event: ReactMouseEvent<HTMLButtonElement>) => {
+      if (suppressGripClickRef.current) {
+        suppressGripClickRef.current = false;
+        event.preventDefault();
+        return;
+      }
+      openLauncher();
+    },
+    [openLauncher]
   );
 
   return (
@@ -258,7 +222,7 @@ export function PortfolioSummonDock({
       >
         {showHint && !pageDrawerOpen && !write ? (
           <p className="portfolio-summon-hint" aria-hidden="true">
-            Swipe up · hold for apps
+            Swipe up
           </p>
         ) : null}
         <div className="portfolio-summon-line">
@@ -280,15 +244,11 @@ export function PortfolioSummonDock({
                 className="portfolio-summon-grip-zone is-interactive is-gesture-host"
                 aria-haspopup="dialog"
                 aria-expanded={osOpen}
-                aria-label={
-                  pageDrawerOpen
-                    ? 'Open launcher'
-                    : 'Swipe up for page content. Hold for apps.'
-                }
+                aria-label="Open launcher"
                 onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
                 onPointerUp={finishPointer}
                 onPointerCancel={finishPointer}
+                onClick={handleGripClick}
                 onContextMenu={(event) => event.preventDefault()}
               >
                 <span className="portfolio-summon-grip" aria-hidden />

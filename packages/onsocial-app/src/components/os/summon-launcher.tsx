@@ -41,6 +41,7 @@ import {
   useOverlayStackZ,
   usePrefersReducedTransparency,
   useScrollLock,
+  useSheetSurfacePull,
   useSheetStackEntry,
 } from '@onsocial/ui';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -316,6 +317,11 @@ export function SummonLauncher({
     !hideTrigger && (!dockHidden || writing)
   );
   const sheetRef = useRef<HTMLElement>(null);
+  const [sheetNode, setSheetNode] = useState<HTMLElement | null>(null);
+  const setSheetRef = useCallback((node: HTMLElement | null) => {
+    sheetRef.current = node;
+    setSheetNode(node);
+  }, []);
   const dragStateRef = useRef<{
     startY: number;
     baseY: number;
@@ -418,42 +424,54 @@ export function SummonLauncher({
     void launchCommunityApp({ appId, href, token, popup });
   }
 
-  const handleDragPointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLButtonElement>) => {
+  const beginLauncherDrag = useCallback(
+    (
+      startY: number,
+      capture: { setPointerCapture?: (pointerId: number) => void } | null,
+      pointerId: number
+    ) => {
       const panelH = sheetRef.current?.offsetHeight ?? 480;
       dragStateRef.current = {
-        startY: event.clientY,
+        startY,
         baseY: dragYRef.current,
         panelH,
         active: false,
       };
-      event.currentTarget.setPointerCapture(event.pointerId);
+      try {
+        capture?.setPointerCapture?.(pointerId);
+      } catch {
+        // A pointer that already ended cannot be captured. Moves still apply.
+      }
     },
     []
   );
 
-  const handleDragPointerMove = useCallback(
+  const handleDragPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLButtonElement>) => {
-      const state = dragStateRef.current;
-      if (!state) {
-        return;
-      }
-      const deltaY = event.clientY - state.startY;
-      if (!state.active && Math.abs(deltaY) < LAUNCHER_DRAG_ACTIVATION_PX) {
-        return;
-      }
-      if (!state.active) {
-        state.active = true;
-        setDragging(true);
-        setEnterAnimationDone(true);
-      }
-      const next = Math.min(state.panelH, Math.max(0, state.baseY + deltaY));
-      const rounded = Math.round(next);
-      setDragY(rounded);
-      dragYRef.current = rounded;
+      beginLauncherDrag(event.clientY, event.currentTarget, event.pointerId);
     },
-    []
+    [beginLauncherDrag]
   );
+
+  const handleDragPointerMove = useCallback((event: { clientY: number }) => {
+    const state = dragStateRef.current;
+    if (!state) {
+      return;
+    }
+    const deltaY = event.clientY - state.startY;
+    if (!state.active && Math.abs(deltaY) < LAUNCHER_DRAG_ACTIVATION_PX) {
+      return;
+    }
+    if (!state.active) {
+      state.active = true;
+      setDragging(true);
+      setEnterAnimationDone(true);
+    }
+    const next = Math.min(state.panelH, Math.max(0, state.baseY + deltaY));
+    const rounded = Math.round(next);
+    setDragY(rounded);
+    dragYRef.current = rounded;
+  }, []);
 
   const handleDragPointerEnd = useCallback(() => {
     const state = dragStateRef.current;
@@ -471,6 +489,30 @@ export function SummonLauncher({
     dragYRef.current = 0;
     setDragY(0);
   }, [closeLauncher]);
+
+  const launcherPullApi = useRef({
+    keyboardOpen: false,
+    beginPointerDrag: (
+      _startY: number,
+      _capture: { setPointerCapture?: (pointerId: number) => void } | null,
+      _pointerId: number
+    ) => {},
+    handlePointerMove: (_event: { clientY: number }) => {},
+    handlePointerEnd: () => {},
+  });
+  launcherPullApi.current = {
+    keyboardOpen: false,
+    beginPointerDrag: beginLauncherDrag,
+    handlePointerMove: handleDragPointerMove,
+    handlePointerEnd: handleDragPointerEnd,
+  };
+  useSheetSurfacePull({
+    enabled: !rallyHandoff,
+    panel: sheetNode,
+    scrollBody: null,
+    apiRef: launcherPullApi,
+    gripSelector: `.${osLauncherDragClassName}`,
+  });
 
   const handleSheetAnimationEnd = useCallback(
     (event: React.AnimationEvent<HTMLElement>) => {
@@ -631,7 +673,7 @@ export function SummonLauncher({
                 onClick={closeLauncher}
               />
               <section
-                ref={sheetRef}
+                ref={setSheetRef}
                 role={rallyHandoff ? 'presentation' : 'dialog'}
                 aria-modal={rallyHandoff ? undefined : true}
                 aria-label="OnSocial launcher"

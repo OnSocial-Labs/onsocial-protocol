@@ -472,6 +472,16 @@
   }
 }
 
+.glass-sheet-panel.is-dragging,
+.glass-sheet-panel.is-dragging *,
+.glass-sheet-panel.is-body-pull,
+.glass-sheet-panel.is-body-pull * {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+}
+
 .glass-sheet-panel.is-dragging {
   transition: none;
   transform: translateY(var(--sheet-y, 0px));
