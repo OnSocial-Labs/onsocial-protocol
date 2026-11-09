@@ -28,6 +28,8 @@ import {
   type SeriesBranding,
 } from '@/features/scarces/series-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
+import { usePageKeyboardLift } from '@/hooks/use-page-keyboard-lift';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
@@ -64,9 +66,11 @@ export function SeriesEditSheet({
   onSaved,
 }: SeriesEditSheetProps) {
   const fieldIdBase = useId();
+  const scrollFieldIntoView = useMobileFieldFocusScroll();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [sheetOpen, setSheetOpen] = useState(open);
+  const { keyboardOpen, panelStyle } = usePageKeyboardLift(sheetOpen);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -249,7 +253,10 @@ export function SeriesEditSheet({
         closeAriaLabel="Back from edit series"
         closeDisabled={pending}
         zIndex={SHEET_Z.overShell}
-        className="hub-manage-slide"
+        className={`hub-manage-slide${
+          keyboardOpen ? ' is-keyboard-open is-page-keyboard' : ''
+        }`}
+        style={panelStyle}
         contentClassName="hub-manage-slide-body"
         footer={
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
@@ -314,6 +321,7 @@ export function SeriesEditSheet({
               value={title}
               maxLength={MAX_TITLE}
               disabled={pending}
+              onFocus={scrollFieldIntoView}
               onChange={(event) => setTitle(event.target.value)}
               className={osFieldBorderedClassName}
             />
@@ -331,6 +339,7 @@ export function SeriesEditSheet({
               maxLength={MAX_DESCRIPTION}
               disabled={pending}
               placeholder="What ties these drops together?"
+              onFocus={scrollFieldIntoView}
               onChange={(event) => setDescription(event.target.value)}
               className={osFieldBorderedClassName}
             />

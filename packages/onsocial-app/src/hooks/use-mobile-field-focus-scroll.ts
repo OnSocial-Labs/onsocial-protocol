@@ -186,7 +186,7 @@ function keyboardChromeTop(element: HTMLElement): number | null {
   const host = element.closest('.is-keyboard-open');
   if (!host || typeof host.querySelector !== 'function') return null;
   const footer = host.querySelector(
-    '.profile-edit-sheet-footer, .os-app-screen-footer'
+    '.profile-edit-sheet-footer, .guild-edit-sheet-footer, .hub-manage-sheet-footer, .os-app-screen-footer, .os-sheet-footer'
   );
   if (!footer || !('getBoundingClientRect' in footer)) return null;
   const rect = (footer as HTMLElement).getBoundingClientRect();

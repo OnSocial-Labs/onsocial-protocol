@@ -677,6 +677,12 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   overflow: hidden;
 }
 
+/* Transfer hub pins its action in the footer, so the body drops that pad. */
+.glass-sheet-panel.hub-transfer-sheet-panel:has(.os-sheet-footer)
+  > .glass-sheet-body {
+  padding-bottom: 0.35rem;
+}
+
 .glass-sheet-root.post-thread-sheet-parked,
 .protocol-face-page:not(.is-active) .portfolio-os-layer,
 .protocol-face-page .portfolio-entity-kind-switch {
@@ -33999,22 +34005,57 @@ a.os-surface-row,
   }
 
   /*
-   * Edit profile is a full page (100dvh). The keyboard covers the layout
-   * bottom, so Save rides the lift and the body keeps the band above it.
-   * The page itself stays full-bleed — a max-height frame would squash it.
+   * Full pages (Edit profile, Edit guild, Hub manage) stay 100dvh.
+   * Only the bottom action lifts. A pad inside the footer sits under
+   * the keys, so the lift includes the keyboard pad and the page stays
+   * full-bleed — a max-height frame would squash it.
    */
-  .glass-sheet-panel.profile-edit-sheet-panel.is-keyboard-open
-    > .glass-sheet-footer {
-    /* Lift includes the keyboard pad so Save itself clears the keys.
-       A pad inside the footer sits under the keyboard. */
+  .glass-sheet-panel.is-page-keyboard > .glass-sheet-footer {
     margin-bottom: calc(
       var(--os-keyboard-lift, 0px) +
         var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem)
     );
   }
 
-  .profile-edit-sheet-footer.is-keyboard-open {
+  .glass-sheet-panel.is-page-keyboard
+    > .glass-sheet-footer
+    :is(
+      .profile-edit-sheet-footer,
+      .guild-edit-sheet-footer,
+      .hub-manage-sheet-footer
+    ) {
     padding-bottom: 0.35rem;
+  }
+
+  /*
+   * Slide-over pages (DAO edit, series edit) keep the full page too.
+   * The action is absolute, so it rises with bottom rather than margin.
+   */
+  .os-slide-over.is-page-keyboard[data-os-slide-over='true']
+    .os-app-screen-footer {
+    bottom: calc(
+      var(--os-keyboard-lift, 0px) +
+        var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem)
+    );
+    transition: none;
+  }
+
+  .os-slide-over.is-page-keyboard .os-slide-over-footer-inner {
+    padding-bottom: 0.35rem;
+  }
+
+  .os-slide-over.is-page-keyboard .hub-manage-sheet-footer {
+    padding-bottom: 0;
+  }
+
+  .os-slide-over.is-page-keyboard[data-os-slide-over='true'][data-screen-footer='true']
+    .os-app-screen-body {
+    padding-bottom: calc(
+      var(--os-keyboard-lift, 0px) +
+        var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem) +
+        var(--os-screen-footer-band, 4.25rem)
+    );
+    scroll-padding-bottom: var(--os-screen-footer-band, 4.25rem);
   }
 
   /*

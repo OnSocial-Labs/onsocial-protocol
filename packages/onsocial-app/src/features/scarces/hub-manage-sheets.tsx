@@ -17,6 +17,7 @@ import {
   OsPageSheet,
   OsSheetAction,
   OsSheetActions,
+  OsSheetFooter,
   SuffixField,
   osFieldBorderedClassName,
   useDiscardConfirm,
@@ -43,12 +44,15 @@ import {
 import { hubCategoriesMetadataFields } from '@/features/scarces/hub-categories';
 import { HubCategoriesEditor } from '@/features/scarces/hub-categories-editor';
 import { HubLookPreview } from '@/features/scarces/hub-look-preview';
+import { commerceSheetKeyboardPanelStyle } from '@/features/scarces/commerce-sheet-keyboard';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import {
   nearAccountStatusClass,
   useNearAccountStatus,
 } from '@/hooks/use-near-account-status';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
+import { usePageKeyboardLift } from '@/hooks/use-page-keyboard-lift';
+import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
@@ -136,6 +140,7 @@ function HubManageSheetChrome({
   dirty?: boolean;
 }) {
   const titleId = useId();
+  const { keyboardOpen, panelStyle } = usePageKeyboardLift(open);
   const {
     discardConfirmOpen,
     requestCloseOrConfirm,
@@ -163,7 +168,10 @@ function HubManageSheetChrome({
         zIndex={HUB_MANAGE_Z}
         ariaLabelledBy={titleId}
         backdropLabel="Close"
-        panelClassName="hub-manage-sheet-panel"
+        panelClassName={`hub-manage-sheet-panel${
+          keyboardOpen ? ' is-keyboard-open is-page-keyboard' : ''
+        }`}
+        panelStyle={panelStyle}
         bodyClassName="hub-manage-sheet-body"
         header={null}
         footer={
@@ -653,6 +661,12 @@ export function HubTransferSheet({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sheetOpen = open && !closing;
+  const viewport = useVisualViewportSheetMetrics(sheetOpen);
+  const panelStyle = useMemo(
+    () => commerceSheetKeyboardPanelStyle(viewport),
+    [viewport]
+  );
+  const keyboardOpen = viewport.isMobile && viewport.lift > 0;
 
   const normalizedTo = normalizeNearAccountId(transferTo);
   const prefillNormalized = normalizeNearAccountId(initialRecipient.trim());
@@ -768,8 +782,28 @@ export function HubTransferSheet({
       backdropLabel="Close transfer hub"
       showClose={!pending}
       zIndex={SHEET_Z.list}
-      panelClassName="hub-manage-sheet-panel hub-manage-sheet-panel--hug hub-transfer-sheet-panel os-sheet-cap-short"
+      panelClassName={`hub-manage-sheet-panel hub-manage-sheet-panel--hug hub-transfer-sheet-panel os-sheet-cap-short${
+        keyboardOpen ? ' is-keyboard-open' : ''
+      }`}
+      panelStyle={panelStyle}
       bodyClassName="hub-manage-sheet-body"
+      footer={
+        <OsSheetFooter keyboardOpen={keyboardOpen}>
+          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+            <OsSheetAction
+              type="button"
+              variant="danger"
+              ready={canTransfer}
+              pending={pending}
+              pendingLabel="Transferring…"
+              disabled={!canTransfer}
+              onClick={() => void transfer()}
+            >
+              {canTransfer ? `Transfer to ${recipientLabel}` : 'Transfer hub'}
+            </OsSheetAction>
+          </OsSheetActions>
+        </OsSheetFooter>
+      }
     >
       <div className="hub-manage-form">
         <label className="guild-field" htmlFor="hub-transfer-owner">
@@ -882,19 +916,6 @@ export function HubTransferSheet({
           ) : null}
           {error ? <p className="guild-form-error">{error}</p> : null}
         </div>
-        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          <OsSheetAction
-            type="button"
-            variant="danger"
-            ready={canTransfer}
-            pending={pending}
-            pendingLabel="Transferring…"
-            disabled={!canTransfer}
-            onClick={() => void transfer()}
-          >
-            {canTransfer ? `Transfer to ${recipientLabel}` : 'Transfer hub'}
-          </OsSheetAction>
-        </OsSheetActions>
       </div>
     </OsHugSheet>
   );

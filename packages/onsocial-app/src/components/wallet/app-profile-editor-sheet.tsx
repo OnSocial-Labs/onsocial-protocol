@@ -12,7 +12,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
   type FormEvent,
 } from 'react';
 import {
@@ -50,7 +49,7 @@ import {
   scrollMobileFieldIntoView,
   useMobileFieldFocusScroll,
 } from '@/hooks/use-mobile-field-focus-scroll';
-import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
+import { usePageKeyboardLift } from '@/hooks/use-page-keyboard-lift';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import {
   useAppProfileEditor,
@@ -222,8 +221,7 @@ export function AppProfileEditorSheet({
   const titleId = useId();
   const { setTxResult } = useAppTransactionFeedback();
   const scrollFieldIntoView = useMobileFieldFocusScroll();
-  const viewport = useVisualViewportSheetMetrics(open);
-  const keyboardOpen = viewport.isMobile && viewport.lift > 0;
+  const { keyboardOpen, panelStyle } = usePageKeyboardLift(open);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
@@ -678,26 +676,6 @@ export function AppProfileEditorSheet({
 
   const formReady = Boolean(snapshot && seedKey === loadKey);
 
-  useEffect(() => {
-    if (!keyboardOpen) return;
-    const active = document.activeElement;
-    if (
-      active instanceof HTMLElement &&
-      (active instanceof HTMLInputElement ||
-        active instanceof HTMLTextAreaElement ||
-        active.isContentEditable)
-    ) {
-      scrollMobileFieldIntoView(active);
-    }
-  }, [keyboardOpen, viewport.lift]);
-
-  const keyboardPanelStyle = useMemo((): CSSProperties | undefined => {
-    if (!keyboardOpen) return undefined;
-    return {
-      ['--os-keyboard-lift' as string]: `${viewport.lift}px`,
-    } as CSSProperties;
-  }, [keyboardOpen, viewport.lift]);
-
   const footer = (
     <div
       className={`profile-edit-sheet-footer${
@@ -733,9 +711,9 @@ export function AppProfileEditorSheet({
         moodId={viewerMoodId ?? undefined}
         moodStyle={viewerMoodStyle}
         panelClassName={`profile-edit-sheet-panel${
-          keyboardOpen ? ' is-keyboard-open' : ''
+          keyboardOpen ? ' is-keyboard-open is-page-keyboard' : ''
         }`}
-        panelStyle={keyboardPanelStyle}
+        panelStyle={panelStyle}
         bodyClassName="profile-edit-sheet-body"
         header={null}
         footer={footer}

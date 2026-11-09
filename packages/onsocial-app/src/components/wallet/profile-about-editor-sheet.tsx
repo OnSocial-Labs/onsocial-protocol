@@ -35,7 +35,7 @@ import {
   scrollMobileFieldIntoView,
   useMobileFieldFocusScroll,
 } from '@/hooks/use-mobile-field-focus-scroll';
-import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
+import { usePageKeyboardLift } from '@/hooks/use-page-keyboard-lift';
 import {
   PROFILE_BIO_LIMIT_WARN,
   PROFILE_BIO_MAX,
@@ -109,8 +109,7 @@ export function ProfileAboutEditorSheet({
   const [leadOpen, setLeadOpen] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<number | null>(null);
   const scrollFieldIntoView = useMobileFieldFocusScroll();
-  const viewport = useVisualViewportSheetMetrics(open);
-  const keyboardOpen = viewport.isMobile && viewport.lift > 0;
+  const { keyboardOpen, panelStyle } = usePageKeyboardLift(open);
 
   const aboutLen = aboutBio.replace(/\r\n/g, '\n').length;
   const leadLen = lead.replace(/\r\n/g, '\n').length;
@@ -134,19 +133,6 @@ export function ProfileAboutEditorSheet({
   useEffect(() => {
     photosRef.current = photos;
   }, [photos]);
-
-  useEffect(() => {
-    if (!keyboardOpen) return;
-    const active = document.activeElement;
-    if (
-      active instanceof HTMLElement &&
-      (active instanceof HTMLInputElement ||
-        active instanceof HTMLTextAreaElement ||
-        active.isContentEditable)
-    ) {
-      scrollMobileFieldIntoView(active);
-    }
-  }, [keyboardOpen, viewport.lift]);
 
   const prevLeadOpenRef = useRef(false);
   useEffect(() => {
@@ -374,13 +360,7 @@ export function ProfileAboutEditorSheet({
       className={`profile-edit-slide profile-about-edit-slide${
         keyboardOpen ? ' is-keyboard-open' : ''
       }`}
-      style={
-        keyboardOpen
-          ? ({
-              ['--os-keyboard-lift' as string]: `${viewport.lift}px`,
-            } as CSSProperties)
-          : undefined
-      }
+      style={panelStyle}
       contentClassName="profile-edit-slide-body"
       toolbar={formatOnKeys ? null : formatToolbar}
       footer={formatOnKeys ? formatToolbar : null}

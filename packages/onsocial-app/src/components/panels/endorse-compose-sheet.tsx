@@ -22,6 +22,7 @@ import {
   OsGestureSheet,
   OsSheetAction,
   OsSheetActions,
+  OsSheetFooter,
   osFieldBorderedClassName,
   useDiscardConfirm,
 } from '@onsocial/ui';
@@ -30,7 +31,9 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerProfileShellContext } from '@/contexts/viewer-profile-shell-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
+import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
+import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import { accountIdsEqual } from '@/lib/account-match';
 import { creditAppPlatformSocialReward } from '@/lib/app-platform-rewards';
 import { OsChipAction } from '@/lib/os-chip-action';
@@ -51,6 +54,7 @@ import {
 } from '@/lib/hero-img-variants';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
+import { commerceSheetKeyboardPanelStyle } from '@/features/scarces/commerce-sheet-keyboard';
 import { commercePartyLines } from '@/features/scarces/collection-creator-face';
 import { ScarcePartyLine } from '@/features/scarces/scarce-party-line';
 import {
@@ -123,6 +127,7 @@ export function EndorseComposeSheet({
 }: EndorseComposeSheetProps) {
   const titleId = useId();
   const mediaInputId = useId();
+  const scrollFieldIntoView = useMobileFieldFocusScroll();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { accountId, isConnected, connect } = useAppWallet();
   const viewerShell = useViewerProfileShellContext();
@@ -160,13 +165,19 @@ export function EndorseComposeSheet({
     Boolean(accountId) && accountIdsEqual(accountId!, pageAccountId);
   const fetchedMood = usePageOwnerMood(pageAccountId, open || closing);
   const effectiveMood = mood ?? fetchedMood;
-  const panelStyle = useMemo(
-    () =>
-      effectiveMood
-        ? (supportSheetPanelStyle(effectiveMood.cssVars) as CSSProperties)
-        : undefined,
-    [effectiveMood]
+  const viewport = useVisualViewportSheetMetrics(sheetOpen);
+  const keyboardStyle = useMemo(
+    () => commerceSheetKeyboardPanelStyle(viewport),
+    [viewport]
   );
+  const keyboardOpen = viewport.isMobile && viewport.lift > 0;
+  const panelStyle = useMemo(() => {
+    const moodStyle = effectiveMood
+      ? (supportSheetPanelStyle(effectiveMood.cssVars) as CSSProperties)
+      : undefined;
+    if (!moodStyle && !keyboardStyle) return undefined;
+    return { ...moodStyle, ...keyboardStyle };
+  }, [effectiveMood, keyboardStyle]);
 
   const hasMediaAttachment =
     Boolean(mediaFile) || (!mediaRemoved && Boolean(existingMedia));
@@ -563,10 +574,41 @@ export function EndorseComposeSheet({
         backdropLabel="Close endorse"
         moodId={effectiveMood?.id}
         panelStyle={panelStyle}
+        keyboardOpen={keyboardOpen}
         size="compact"
         bodyClassName="profile-support-sheet-body"
         titleId={titleId}
         zIndex={zIndex}
+        footer={
+          <OsSheetFooter keyboardOpen={keyboardOpen}>
+            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+              <OsSheetAction
+                type="button"
+                variant="primary"
+                ready={canSubmit || !isConnected}
+                pending={pending}
+                pendingLabel={isEditing ? 'Saving…' : 'Endorsing…'}
+                disabled={primaryDisabled}
+                onClick={() => void handleSubmit()}
+              >
+                {primaryLabel}
+              </OsSheetAction>
+              {isEditing ? (
+                <OsSheetAction
+                  type="button"
+                  variant="ghost"
+                  ready={!busy}
+                  pending={removing}
+                  pendingLabel="Removing…"
+                  disabled={busy || removeConfirmOpen}
+                  onClick={() => setRemoveConfirmOpen(true)}
+                >
+                  Remove endorsement
+                </OsSheetAction>
+              ) : null}
+            </OsSheetActions>
+          </OsSheetFooter>
+        }
       >
         <div className="endorse-compose-form">
           <ScarcePartyLine
@@ -584,6 +626,7 @@ export function EndorseComposeSheet({
               placeholder="e.g. Design"
               className={`${osFieldBorderedClassName} endorse-compose-input`}
               disabled={busy || isSelf || discardConfirmOpen}
+              onFocus={scrollFieldIntoView}
               onChange={(event) => setTopic(event.target.value)}
             />
           </label>
@@ -630,6 +673,7 @@ export function EndorseComposeSheet({
                 placeholder="Optional — what you’re vouching for"
                 className={`${osFieldBorderedClassName} endorse-compose-textarea`}
                 disabled={busy || isSelf || discardConfirmOpen}
+                onFocus={scrollFieldIntoView}
                 onChange={(event) => setNote(event.target.value)}
               />
             ) : (
@@ -712,33 +756,6 @@ export function EndorseComposeSheet({
           ) : (
             <p className="endorse-compose-hint">{ENDORSE_CONNECTED_HINT}</p>
           )}
-
-          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-            <OsSheetAction
-              type="button"
-              variant="primary"
-              ready={canSubmit || !isConnected}
-              pending={pending}
-              pendingLabel={isEditing ? 'Saving…' : 'Endorsing…'}
-              disabled={primaryDisabled}
-              onClick={() => void handleSubmit()}
-            >
-              {primaryLabel}
-            </OsSheetAction>
-            {isEditing ? (
-              <OsSheetAction
-                type="button"
-                variant="ghost"
-                ready={!busy}
-                pending={removing}
-                pendingLabel="Removing…"
-                disabled={busy || removeConfirmOpen}
-                onClick={() => setRemoveConfirmOpen(true)}
-              >
-                Remove endorsement
-              </OsSheetAction>
-            ) : null}
-          </OsSheetActions>
         </div>
       </OsGestureSheet>
       <DiscardConfirmSheet
