@@ -15252,6 +15252,8 @@ a.os-surface-row,
   .portfolio-summon-dock[data-keyboard='open'] {
     bottom: var(--os-write-keyboard-lift, 0px);
     z-index: 85;
+    /* Home-indicator pad would float the icons above the keys. */
+    padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem);
     transition:
       transform var(--os-motion-dock, 260ms) ease,
       opacity 200ms ease;
@@ -39193,8 +39195,36 @@ a.os-surface-row,
       calc(0.5rem + env(safe-area-inset-bottom, 0px));
   }
 
+  /*
+   * Full composer stays a full page. Only this row lifts, and it uses the
+   * launcher's hit and glyph so photo lines up with the pill.
+   */
+  .glass-sheet-panel.guild-composer-sheet-panel.is-keyboard-open
+    > .glass-sheet-footer {
+    margin-bottom: var(--os-keyboard-lift, 0px);
+    transition: none;
+  }
+
   .guild-composer-sheet-footer.is-keyboard-open {
-    padding-bottom: 0.4rem;
+    padding: 0 max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px))
+      var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem)
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
+  }
+
+  .guild-composer-toolbar .guild-composer-tool {
+    flex-basis: var(--os-dock-height, 3.25rem);
+    width: var(--os-dock-height, 3.25rem);
+    height: var(--os-dock-height, 3.25rem);
+  }
+
+  .guild-composer-toolbar .guild-composer-tool-icon {
+    width: 1.36rem;
+    height: 1.36rem;
+  }
+
+  .guild-composer-toolbar .guild-composer-tool-slot-gap {
+    flex-basis: 0;
+    width: 0;
   }
 
   .guild-composer-toolbar {
@@ -45524,6 +45554,7 @@ button.messages-bubble-quote:focus-visible {
   > .portfolio-summon-dock {
   bottom: var(--messages-keyboard-lift, 0px);
   z-index: 85;
+  padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem);
   /* Track the keyboard. A bottom ease lags the visual viewport. */
   transition:
     transform var(--os-motion-dock, 260ms) ease,
@@ -45599,6 +45630,7 @@ button.messages-bubble-quote:focus-visible {
   > .portfolio-summon-dock {
   bottom: var(--drop-create-keyboard-lift, 0px);
   z-index: 85;
+  padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem);
   /* Track the keyboard. A bottom ease lags the visual viewport. */
   transition:
     transform var(--os-motion-dock, 260ms) ease,
