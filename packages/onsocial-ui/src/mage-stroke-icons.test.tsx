@@ -92,6 +92,7 @@ describe('mage stroke icons', () => {
       UserCircleIcon,
       DashboardIcon,
       CalendarIcon,
+      NotificationBellIcon,
     ]) {
       const html = renderToStaticMarkup(createElement(Icon));
       expect(html).toContain('stroke-width="2"');
@@ -102,6 +103,10 @@ describe('mage stroke icons', () => {
     expect(users).not.toContain('M21.987');
     expect(page).toContain('M12 21.5');
     expect(page).not.toContain('M11.9667 1.75195');
+    const bell = renderToStaticMarkup(createElement(NotificationBellIcon));
+    expect(bell).toContain('viewBox="0 0 24 24"');
+    expect(bell).toContain('mage-stroke-icon');
+    expect(bell).not.toContain('448');
   });
 
   it('stamps every stroke glyph with mage-stroke-icon', () => {
