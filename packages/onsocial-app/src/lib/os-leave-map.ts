@@ -155,7 +155,7 @@ export const OS_LEAVE_MAP = [
     dockBack: true,
     parent: APP_GROUPS_PATH,
     verdict: 'matches',
-    note: 'Dirty dock Back asks first.',
+    note: 'Header Back. Dirty leave asks first.',
   },
   {
     id: 'hub',

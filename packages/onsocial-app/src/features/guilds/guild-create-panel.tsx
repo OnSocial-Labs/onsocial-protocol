@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  ChevronLeftIcon,
   DiscardConfirmSheet,
   OsIconAction,
   QuestionMarkCircleFillIcon,
@@ -383,12 +384,14 @@ export function GuildCreatePanel() {
   return (
     <OsAppScreen
       title={GUILD_CREATE_TITLE}
-      dockBack
-      headerOwnsConnect
-      backFallbackHref={APP_GROUPS_PATH}
-      onDockBack={handleDockBack}
+      launcher={false}
       glassChrome
       style={screenStyle}
+      leading={
+        <OsIconAction ariaLabel="Back" onClick={handleDockBack}>
+          <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
+        </OsIconAction>
+      }
       actions={
         <OsIconAction
           ariaLabel={GUILD_CREATE_HELP_TITLE}

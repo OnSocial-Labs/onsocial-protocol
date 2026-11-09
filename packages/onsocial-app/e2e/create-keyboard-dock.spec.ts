@@ -49,7 +49,7 @@ async function expectActionOnKeys(page: Page) {
 test.describe('create keyboard dock', () => {
   test.describe.configure({ mode: 'serial' });
 
-  test('hub, guild, and DAO tuck the launcher and sit the action on the keys', async ({
+  test('hub and DAO tuck the launcher; Create guild keeps the action on the keys', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -91,9 +91,20 @@ test.describe('create keyboard dock', () => {
     await expect(
       page.getByRole('heading', { name: 'Create guild' })
     ).toBeVisible();
-    await expectLauncherResting(page);
+    await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeVisible();
+    await expect(page.locator('.os-app-screen > .portfolio-summon-dock')).toHaveCount(
+      0
+    );
+    const guildFooter = page.locator('.os-app-screen-footer');
+    await expect(guildFooter.locator('.os-sheet-action').first()).toBeVisible();
+    const restingBottom = await guildFooter.evaluate((el) =>
+      parseFloat(getComputedStyle(el).bottom)
+    );
+    expect(restingBottom).toBe(0);
     await publishKeyboard(page, '.guild-create-form');
-    await expectActionOnKeys(page);
+    await expect
+      .poll(() => guildFooter.evaluate((el) => getComputedStyle(el).bottom))
+      .toBe(`${KEYBOARD_LIFT_PX}px`);
 
     await gotoApp(page, '/daos/create');
     await expect(

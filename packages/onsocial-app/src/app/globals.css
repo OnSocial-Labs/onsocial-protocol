@@ -45457,8 +45457,9 @@ button.messages-bubble-quote:focus-visible {
 }
 
 /*
- * Open a hub / Create guild / Create DAO — tuck the launcher while a field
- * is focused so the action sits on the keys. An open launcher stays put.
+ * Open a hub / Create DAO — tuck the launcher while a field is focused
+ * so the action sits on the keys. An open launcher stays put.
+ * Create guild has no launcher; its rules below own the action edge.
  */
 .os-app-screen:has(
     :is(
@@ -45467,6 +45468,18 @@ button.messages-bubble-quote:focus-visible {
       .dao-create-form
     )[data-keyboard='open']
   )
+  .os-app-screen-footer {
+  bottom: var(--os-keyboard-lift, 0px);
+}
+
+/* Create guild has no launcher. The action owns the bottom edge, and the
+   same lift puts it on the keys. */
+.os-app-screen[data-launcher='off']:has(.guild-create-form)
+  .os-app-screen-footer {
+  bottom: 0;
+}
+
+.os-app-screen[data-launcher='off']:has(.guild-create-form[data-keyboard='open'])
   .os-app-screen-footer {
   bottom: var(--os-keyboard-lift, 0px);
 }
