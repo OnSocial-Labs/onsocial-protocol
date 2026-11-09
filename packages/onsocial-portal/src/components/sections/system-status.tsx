@@ -99,9 +99,7 @@ function StatusRow({
           ) : null}
         </div>
       </div>
-      <span
-        className={`shrink-0 text-xs font-medium ${wordColor(status)}`}
-      >
+      <span className={`shrink-0 text-xs font-medium ${wordColor(status)}`}>
         {label}
       </span>
     </div>
