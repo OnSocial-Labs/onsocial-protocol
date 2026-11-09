@@ -24786,50 +24786,7 @@ a.os-surface-row,
     line-height: 1;
   }
 
-  /* Mage strokes: opaque ink + opacity so joins don’t stack on color alpha. */
-  .post-card-stat > .mage-stroke-icon,
-  .post-card-amplify > .mage-stroke-icon,
-  .post-card-share > .mage-stroke-icon,
-  .post-card-save > .mage-stroke-icon,
-  .post-card-react-heart > .mage-stroke-icon,
-  .post-card-stat > svg,
-  .post-card-amplify > svg,
-  .post-card-share > svg,
-  .post-card-save > svg,
-  .post-card-react-heart > svg {
-    color: rgb(var(--fg-rgb));
-    opacity: 0.5;
-  }
-
-  .post-card-amplify:hover > .mage-stroke-icon,
-  .post-card-amplify:focus-visible > .mage-stroke-icon,
-  .post-card-amplify.is-active > .mage-stroke-icon,
-  .post-card-share:hover > .mage-stroke-icon,
-  .post-card-share:focus-visible > .mage-stroke-icon,
-  .post-card-save:hover > .mage-stroke-icon,
-  .post-card-save:focus-visible > .mage-stroke-icon,
-  .post-card-save.is-active > .mage-stroke-icon,
-  .post-card-react:hover .post-card-react-heart > .mage-stroke-icon,
-  .post-card-react:focus-visible .post-card-react-heart > .mage-stroke-icon,
-  .post-card-react.is-active .post-card-react-heart > .mage-stroke-icon,
-  .post-card-react-heart:hover > .mage-stroke-icon,
-  .post-card-react-heart:focus-visible > .mage-stroke-icon,
-  .post-card-amplify:hover > svg,
-  .post-card-amplify:focus-visible > svg,
-  .post-card-amplify.is-active > svg,
-  .post-card-share:hover > svg,
-  .post-card-share:focus-visible > svg,
-  .post-card-save:hover > svg,
-  .post-card-save:focus-visible > svg,
-  .post-card-save.is-active > svg,
-  .post-card-react:hover .post-card-react-heart > svg,
-  .post-card-react:focus-visible .post-card-react-heart > svg,
-  .post-card-react.is-active .post-card-react-heart > svg,
-  .post-card-react-heart:hover > svg,
-  .post-card-react-heart:focus-visible > svg {
-    color: inherit;
-    opacity: 1;
-  }
+  /* Glyph opacity is unlayered. A fade here loses to mage-stroke-icons.css. */
 
   .post-card-stat,
   .post-card-react,
@@ -24858,7 +24815,8 @@ a.os-surface-row,
     padding: 0.35rem 0.2rem;
     border: 0;
     background: transparent;
-    color: color-mix(in srgb, rgb(var(--fg-rgb)) 50%, var(--bg));
+    /* Same 0.5 ink as reply / repost counts. The glyph fades with opacity. */
+    color: rgb(var(--fg-rgb) / 0.5);
     cursor: pointer;
   }
 
@@ -24876,8 +24834,8 @@ a.os-surface-row,
     padding: 0.35rem 0.2rem 0.35rem 0.16rem;
     border: 0;
     background: transparent;
-    /* Same solid gray as the heart. Hover only recolors the pair. */
-    color: color-mix(in srgb, rgb(var(--fg-rgb)) 50%, var(--bg));
+    /* Same 0.5 ink as the heart. Hover only recolors the pair. */
+    color: rgb(var(--fg-rgb) / 0.5);
     font-family: var(--app-font-sans);
     font-size: inherit;
     font-weight: inherit;
@@ -46141,6 +46099,86 @@ button.messages-bubble-quote:focus-visible {
   gap: 0.45rem;
   flex-shrink: 0;
   justify-self: end;
+}
+
+/*
+ * Engagement glyphs. Unlayered so this beats mage-stroke-icons.css.
+ * At rest the stroke is the same ink as the count beside it (fg at 0.5),
+ * painted opaque and faded so joins do not stack. Hover and yours keep
+ * the existing accent (reply blue, repost green, heart red, amplify amber).
+ */
+.post-card-stat > .mage-stroke-icon,
+.post-card-stat > svg,
+.post-card-amplify > .mage-stroke-icon,
+.post-card-amplify > svg,
+.post-card-share > .mage-stroke-icon,
+.post-card-share > svg,
+.post-card-save > .mage-stroke-icon,
+.post-card-save > svg,
+.post-card-react-heart > .mage-stroke-icon,
+.post-card-react-heart > svg {
+  color: rgb(var(--fg-rgb));
+  opacity: 0.5;
+}
+
+.post-card-share:hover > .mage-stroke-icon,
+.post-card-share:focus-visible > .mage-stroke-icon,
+.post-card-save:hover:not(.is-active) > .mage-stroke-icon,
+.post-card-save:focus-visible:not(.is-active) > .mage-stroke-icon,
+.post-card-share:hover > svg,
+.post-card-share:focus-visible > svg,
+.post-card-save:hover:not(.is-active) > svg,
+.post-card-save:focus-visible:not(.is-active) > svg {
+  color: rgb(var(--fg-rgb));
+  opacity: 0.72;
+}
+
+.post-card-stat--reply:hover > .mage-stroke-icon,
+.post-card-stat--reply:focus-visible > .mage-stroke-icon,
+.post-card-stat--quote:hover > .mage-stroke-icon,
+.post-card-stat--quote:focus-visible > .mage-stroke-icon,
+.post-card-stat--quote.is-active > .mage-stroke-icon,
+.post-card-amplify:hover > .mage-stroke-icon,
+.post-card-amplify:focus-visible > .mage-stroke-icon,
+.post-card-amplify.is-active > .mage-stroke-icon,
+.post-card-react:hover .post-card-react-heart > .mage-stroke-icon,
+.post-card-react:focus-visible .post-card-react-heart > .mage-stroke-icon,
+.post-card-react.is-active .post-card-react-heart > .mage-stroke-icon,
+.post-card-react-heart:hover > .mage-stroke-icon,
+.post-card-react-heart:focus-visible > .mage-stroke-icon,
+.post-card-save.is-active > .mage-stroke-icon,
+.post-card-save.is-active:hover > .mage-stroke-icon,
+.post-card-save.is-active:focus-visible > .mage-stroke-icon,
+.post-card-share.is-copied > .mage-stroke-icon,
+.post-card-share.is-copied:hover > .mage-stroke-icon,
+.post-card-share.is-copied:focus-visible > .mage-stroke-icon,
+.post-card-stat--reply:hover > svg,
+.post-card-stat--reply:focus-visible > svg,
+.post-card-stat--quote:hover > svg,
+.post-card-stat--quote:focus-visible > svg,
+.post-card-stat--quote.is-active > svg,
+.post-card-amplify:hover > svg,
+.post-card-amplify:focus-visible > svg,
+.post-card-amplify.is-active > svg,
+.post-card-react:hover .post-card-react-heart > svg,
+.post-card-react:focus-visible .post-card-react-heart > svg,
+.post-card-react.is-active .post-card-react-heart > svg,
+.post-card-react-heart:hover > svg,
+.post-card-react-heart:focus-visible > svg,
+.post-card-save.is-active > svg,
+.post-card-save.is-active:hover > svg,
+.post-card-save.is-active:focus-visible > svg,
+.post-card-share.is-copied > svg,
+.post-card-share.is-copied:hover > svg,
+.post-card-share.is-copied:focus-visible > svg {
+  color: inherit;
+  opacity: 1;
+}
+
+.post-card-save:disabled:not(.is-pending) > .mage-stroke-icon,
+.post-card-save:disabled:not(.is-pending) > svg {
+  color: rgb(var(--fg-rgb));
+  opacity: 0.26;
 }
 
 /*
