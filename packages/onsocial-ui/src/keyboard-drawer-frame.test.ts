@@ -13,7 +13,7 @@ describe('keyboardDrawerFrameStyle', () => {
       keyboardDrawerFrameStyle({ isMobile: true, height: 380, lift: 320 })
     ).toEqual({
       maxHeight: '380px',
-      marginBottom: 'calc(320px - env(safe-area-inset-bottom, 0px))',
+      marginBottom: '320px',
     });
   });
 

@@ -4,7 +4,6 @@ import {
   useCallback,
   useMemo,
   useState,
-  type CSSProperties,
   type ChangeEvent,
   type FocusEvent,
   type FormEvent,
@@ -23,7 +22,10 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
-import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
+import {
+  keyboardLiftCssVars,
+  useVisualViewportSheetMetrics,
+} from '@/hooks/use-visual-viewport-sheet';
 import {
   entityIdAvailabilityClass,
   entityIdAvailabilityLead,
@@ -230,12 +232,7 @@ export function GuildCreatePanel() {
   );
 
   const screenStyle = useMemo(
-    () =>
-      ({
-        ['--drop-create-keyboard-lift' as string]: formKeyboardOpen
-          ? `${formViewport.lift}px`
-          : '0px',
-      }) as CSSProperties,
+    () => keyboardLiftCssVars(formKeyboardOpen, formViewport.lift),
     [formKeyboardOpen, formViewport.lift]
   );
 

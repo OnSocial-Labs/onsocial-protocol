@@ -23,7 +23,10 @@ import {
 } from '@/contexts/compose-launcher-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
-import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
+import {
+  OS_KEYBOARD_LIFT_VAR,
+  useVisualViewportSheetMetrics,
+} from '@/hooks/use-visual-viewport-sheet';
 import {
   WRITE_DOCK_MEDIA_ACCEPT,
   writeDockCanSend,
@@ -56,7 +59,7 @@ import {
   writeWriteDockDraft,
 } from '@/lib/os-write-dock-draft';
 
-const WRITE_KEYBOARD_LIFT_VAR = '--os-write-keyboard-lift';
+const WRITE_KEYBOARD_LIFT_VAR = OS_KEYBOARD_LIFT_VAR;
 
 function syncWriteKeyboardChrome(
   dock: HTMLElement | null,

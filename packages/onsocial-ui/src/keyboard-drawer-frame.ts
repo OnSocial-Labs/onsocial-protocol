@@ -46,8 +46,18 @@ export function keyboardDrawerFrameStyle(
   const cap = Math.min(metrics.height, maxHeightPx);
   return {
     maxHeight: `${cap}px`,
-    marginBottom: `calc(${metrics.lift}px - env(safe-area-inset-bottom, 0px))`,
+    marginBottom: keyboardSheetMargin(metrics.lift),
   };
+}
+
+/**
+ * Raw keyboard overlap, in pixels. The sheet root drops its home-indicator
+ * padding while this is set (`.glass-sheet-panel.is-keyboard-open`), so the
+ * drawer bottom lands on the keys. Layout-pinned bars use the same overlap
+ * as `--os-keyboard-lift`.
+ */
+export function keyboardSheetMargin(liftPx: number): string {
+  return `${liftPx}px`;
 }
 
 /** Tracks the keyboard while `active` (the drawer is open). */

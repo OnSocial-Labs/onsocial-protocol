@@ -86,6 +86,12 @@
     max(0px, env(safe-area-inset-left, 0px));
 }
 
+/* Keyboard frame uses the raw overlap. Drop the home-indicator pad so the
+   panel bottom sits on the keys (hosted roots already have no pad). */
+.glass-sheet-root:has(.glass-sheet-panel.is-keyboard-open) {
+  padding-bottom: 0;
+}
+
 /* Off-screen while enter arms, or leaving on a handoff — must not block taps.
    The top open sheet stays clickable so a hit does not fall through to the page. */
 .glass-sheet-root:not(.is-visible):not([data-sheet-top='true']),
@@ -121,7 +127,8 @@
     var(--os-sheet-footer-pad-bottom);
 }
 
-.os-sheet-footer.is-keyboard-open {
+.os-sheet-footer.is-keyboard-open,
+.glass-sheet-panel.is-keyboard-open .os-sheet-footer {
   padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard);
 }
 

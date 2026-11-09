@@ -299,6 +299,7 @@ export {
 export { OsSheetFooter, osSheetFooterClassName } from './os-sheet-footer.js';
 export {
   keyboardDrawerFrameStyle,
+  keyboardSheetMargin,
   useKeyboardDrawerFrame,
   type KeyboardDrawerMetrics,
 } from './keyboard-drawer-frame.js';

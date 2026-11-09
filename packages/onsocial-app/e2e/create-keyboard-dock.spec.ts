@@ -11,7 +11,7 @@ async function publishKeyboard(page: Page, formSelector: string) {
     form.setAttribute('data-keyboard', 'open');
     const screen = form.closest('.os-app-screen');
     if (screen instanceof HTMLElement) {
-      screen.style.setProperty('--drop-create-keyboard-lift', `${lift}px`);
+      screen.style.setProperty('--os-keyboard-lift', `${lift}px`);
     }
   }, KEYBOARD_LIFT_PX);
 }

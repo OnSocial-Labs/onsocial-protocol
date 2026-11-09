@@ -6,7 +6,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
   type ChangeEvent,
   type FocusEvent,
   type FormEvent,
@@ -58,7 +57,10 @@ import {
 } from '@/features/scarces/commerce-sheet-footer';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
-import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
+import {
+  keyboardLiftCssVars,
+  useVisualViewportSheetMetrics,
+} from '@/hooks/use-visual-viewport-sheet';
 import { useWalletNearBalance } from '@/hooks/use-wallet-near-balance';
 import {
   entityIdAvailabilityClass,
@@ -254,12 +256,7 @@ export function DaoCreatePanel() {
   );
 
   const screenStyle = useMemo(
-    () =>
-      ({
-        ['--drop-create-keyboard-lift' as string]: formKeyboardOpen
-          ? `${formViewport.lift}px`
-          : '0px',
-      }) as CSSProperties,
+    () => keyboardLiftCssVars(formKeyboardOpen, formViewport.lift),
     [formKeyboardOpen, formViewport.lift]
   );
 

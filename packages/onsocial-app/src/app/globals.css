@@ -15237,9 +15237,11 @@ a.os-surface-row,
       bottom 280ms var(--os-motion-ease-slide, cubic-bezier(0.32, 0.72, 0, 1));
   }
 
-  /* Soft keyboard — ride the keys with the same lift published by OsWriteDock. */
+  /* Soft keyboard — ride the keys. Drop the home-indicator pad so the
+     button gap matches a drawer footer. */
   .portfolio-summon-dock[data-keyboard='open'] {
-    bottom: var(--os-write-keyboard-lift, 0px);
+    bottom: var(--os-keyboard-lift, 0px);
+    padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem);
     z-index: 85;
   }
 
@@ -32369,7 +32371,7 @@ a.os-surface-row,
           var(--os-summon-dock-occupied, 0px),
           var(--portfolio-dock-clearance, 5.25rem)
         ) +
-        var(--os-write-keyboard-lift, 0px)
+        var(--os-keyboard-lift, 0px)
     );
   }
 
@@ -39010,6 +39012,15 @@ a.os-surface-row,
     scroll-padding-bottom: calc(4.85rem + env(safe-area-inset-bottom, 0px));
   }
 
+  /* Keyboard open — the Post bar is already above the keys. Drop the
+     home-indicator hole so the writing area meets that bar. */
+  .guild-composer-sheet-panel:has(.guild-composer-sheet-footer.is-keyboard-open)
+    .os-app-screen--embedded
+    .os-app-screen-body {
+    padding-bottom: 0.85rem;
+    scroll-padding-bottom: 0.85rem;
+  }
+
   .guild-composer-sheet-panel
     .os-app-screen--embedded
     .os-app-screen-heading
@@ -39103,8 +39114,9 @@ a.os-surface-row,
       calc(0.5rem + env(safe-area-inset-bottom, 0px));
   }
 
-  .guild-composer-sheet-footer.is-keyboard-open {
-    padding-bottom: 0.4rem;
+  .guild-composer-sheet-footer.is-keyboard-open,
+  .glass-sheet-panel.is-keyboard-open .guild-composer-sheet-footer {
+    padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem);
   }
 
   .guild-composer-toolbar {
@@ -44911,7 +44923,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   .messages-layout[data-messages-pane='thread'] {
   min-height: calc(
     100dvh - var(--portfolio-dock-clearance, 5.25rem) -
-      var(--messages-keyboard-lift, 0px)
+      var(--os-keyboard-lift, 0px)
   );
 }
 
@@ -45427,18 +45439,19 @@ button.messages-bubble-quote:focus-visible {
 
 .os-app-screen:has(.messages-panel[data-keyboard='open'])
   .os-app-screen-footer {
-  bottom: var(--messages-keyboard-lift, 0px);
+  bottom: var(--os-keyboard-lift, 0px);
 }
 
 .os-app-screen:has(.messages-panel[data-keyboard='open'])
   > .portfolio-summon-dock {
-  bottom: var(--messages-keyboard-lift, 0px);
+  bottom: var(--os-keyboard-lift, 0px);
+  padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem);
   z-index: 85;
 }
 
 .os-app-screen:has(.messages-panel[data-keyboard='open']) .os-app-screen-body {
   padding-bottom: calc(
-    var(--messages-keyboard-lift, 0px) +
+    var(--os-keyboard-lift, 0px) +
       var(--portfolio-dock-clearance, 5.25rem)
   );
 }
@@ -45455,7 +45468,7 @@ button.messages-bubble-quote:focus-visible {
     )[data-keyboard='open']
   )
   .os-app-screen-footer {
-  bottom: var(--drop-create-keyboard-lift, 0px);
+  bottom: var(--os-keyboard-lift, 0px);
 }
 
 .os-app-screen[data-screen-footer='true']:has(
@@ -45467,7 +45480,7 @@ button.messages-bubble-quote:focus-visible {
   )
   .os-app-screen-body {
   padding-bottom: calc(
-    var(--drop-create-keyboard-lift, 0px) + var(--os-screen-footer-band)
+    var(--os-keyboard-lift, 0px) + var(--os-screen-footer-band)
   );
 }
 
@@ -45503,7 +45516,8 @@ button.messages-bubble-quote:focus-visible {
     .drop-create-form[data-keyboard='open']:not(.hub-create-form)
   )
   > .portfolio-summon-dock {
-  bottom: var(--drop-create-keyboard-lift, 0px);
+  bottom: var(--os-keyboard-lift, 0px);
+  padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem);
   z-index: 85;
 }
 
@@ -45512,7 +45526,7 @@ button.messages-bubble-quote:focus-visible {
   )
   .os-app-screen-body {
   padding-bottom: calc(
-    var(--drop-create-keyboard-lift, 0px) + env(safe-area-inset-bottom, 0px)
+    var(--os-keyboard-lift, 0px) + env(safe-area-inset-bottom, 0px)
   );
 }
 

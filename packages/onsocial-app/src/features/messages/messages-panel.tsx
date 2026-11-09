@@ -30,7 +30,10 @@ import { useFocusWriteDock } from '@/contexts/compose-launcher-context';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { useListScrollRestore } from '@/hooks/use-list-scroll-restore';
-import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
+import {
+  keyboardLiftCssVars,
+  useVisualViewportSheetMetrics,
+} from '@/hooks/use-visual-viewport-sheet';
 import {
   ensureAppGatewayAuth,
   getCachedAppGatewayAuth,
@@ -1722,11 +1725,7 @@ export function MessagesPanel() {
       />
     ) : null;
 
-  const screenStyle = {
-    ['--messages-keyboard-lift' as string]: keyboardOpen
-      ? `${viewport.lift}px`
-      : '0px',
-  } as CSSProperties;
+  const screenStyle = keyboardLiftCssVars(keyboardOpen, viewport.lift);
 
   const screenTitle = threadOpen
     ? messagesThreadChromeTitle(peerName, peerHandle)
