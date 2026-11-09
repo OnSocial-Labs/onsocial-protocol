@@ -46241,6 +46241,234 @@ button.messages-bubble-quote:focus-visible {
 }
 
 /*
+ * Same ink as the post bar for the other multi-stroke glyphs that were
+ * still muting with a translucent color. Chrome keeps that alpha on the
+ * stroke, so joins paint brighter. Solid foreground plus element opacity
+ * keeps the same weight and paints the joins evenly.
+ * Weights stay the ones each seat already used.
+ */
+.collection-commerce-share > .collection-commerce-share-icon,
+.collection-commerce-share > .mage-stroke-icon {
+  color: rgb(var(--fg-rgb));
+  opacity: 0.5;
+}
+
+.collection-commerce-share:hover > .collection-commerce-share-icon,
+.collection-commerce-share:focus-visible > .collection-commerce-share-icon,
+.collection-commerce-share:hover > .mage-stroke-icon,
+.collection-commerce-share:focus-visible > .mage-stroke-icon {
+  opacity: 0.92;
+}
+
+.media-download-control > .media-download-glyph,
+.media-download-control > .mage-stroke-icon {
+  color: rgb(var(--fg-rgb));
+  opacity: 0.55;
+}
+
+.media-download-control:hover > .media-download-glyph,
+.media-download-control:focus-visible > .media-download-glyph,
+.media-download-control:hover > .mage-stroke-icon,
+.media-download-control:focus-visible > .mage-stroke-icon {
+  opacity: 0.88;
+}
+
+.media-download-control:disabled:not(.is-busy):not(.is-done)
+  > .media-download-glyph,
+.media-download-control:disabled:not(.is-busy):not(.is-done)
+  > .mage-stroke-icon {
+  opacity: 0.26;
+}
+
+.media-download-control.is-busy > .media-download-glyph,
+.media-download-control.is-done > .media-download-glyph,
+.media-download-control.is-busy > .mage-stroke-icon,
+.media-download-control.is-done > .mage-stroke-icon {
+  color: inherit;
+  opacity: 1;
+}
+
+/* Listen share keeps its muted ink when the link is copied. */
+.scarce-clip-listen-share.media-download-control > .media-download-glyph,
+.scarce-clip-listen-share.media-download-control > .mage-stroke-icon {
+  color: rgb(var(--fg-rgb));
+  opacity: 0.55;
+}
+
+.scarce-clip-listen-share.media-download-control:hover > .media-download-glyph,
+.scarce-clip-listen-share.media-download-control:focus-visible
+  > .media-download-glyph,
+.scarce-clip-listen-share.media-download-control:hover > .mage-stroke-icon,
+.scarce-clip-listen-share.media-download-control:focus-visible
+  > .mage-stroke-icon {
+  color: rgb(var(--fg-rgb));
+  opacity: 0.88;
+}
+
+.guild-composer-tool > .guild-composer-tool-icon {
+  color: rgb(var(--fg-rgb));
+  opacity: 0.52;
+}
+
+.guild-composer-tool:hover:not(:disabled) > .guild-composer-tool-icon,
+.guild-composer-tool:focus-visible:not(:disabled) > .guild-composer-tool-icon {
+  opacity: 0.88;
+}
+
+.guild-composer-tool.is-active > .guild-composer-tool-icon {
+  opacity: 0.96;
+}
+
+.guild-composer-tool:disabled > .guild-composer-tool-icon {
+  opacity: 0.26;
+}
+
+.os-write-dock-tool > .os-write-dock-media-icon,
+.os-write-dock-tool > .os-write-dock-expand-icon {
+  color: rgb(var(--fg-rgb));
+  opacity: 0.58;
+}
+
+.os-write-dock-tool.is-quiet > .os-write-dock-media-icon,
+.os-write-dock-tool.is-quiet > .os-write-dock-expand-icon {
+  opacity: 0.5;
+}
+
+.os-write-dock-tool:not(:disabled):hover > .os-write-dock-media-icon,
+.os-write-dock-tool:not(:disabled):focus-visible > .os-write-dock-media-icon,
+.os-write-dock-tool:not(:disabled):hover > .os-write-dock-expand-icon,
+.os-write-dock-tool:not(:disabled):focus-visible > .os-write-dock-expand-icon,
+.os-write-dock-tool.is-active > .os-write-dock-media-icon,
+.os-write-dock-tool.is-active > .os-write-dock-expand-icon {
+  opacity: 0.92;
+}
+
+.os-write-dock-tool:disabled > .os-write-dock-media-icon,
+.os-write-dock-tool:disabled > .os-write-dock-expand-icon {
+  opacity: 0.26;
+}
+
+.account-drawer-handle-copy-icon:not(.account-drawer-handle-copy-tick) {
+  color: rgb(var(--fg-rgb));
+  opacity: 0.72;
+}
+
+.account-drawer-handle:hover
+  .account-drawer-handle-copy-icon:not(.account-drawer-handle-copy-tick),
+.account-drawer-handle:focus-visible
+  .account-drawer-handle-copy-icon:not(.account-drawer-handle-copy-tick) {
+  opacity: 0.92;
+}
+
+.account-drawer-handle-copy-tick {
+  color: var(--protocol-green-ink, var(--protocol-green));
+  opacity: 1;
+}
+
+.os-choice-swatch--icon > .os-choice-swatch-mage,
+.os-choice-swatch--icon > .mage-stroke-icon {
+  color: rgb(var(--fg-rgb));
+  opacity: 0.72;
+}
+
+.os-choice-sheet-option.is-selected
+  .os-choice-swatch--icon
+  > .os-choice-swatch-mage,
+.os-choice-sheet-option.is-selected
+  .os-choice-swatch--icon
+  > .mage-stroke-icon {
+  opacity: 0.92;
+}
+
+/* Article actions, proposal share, portfolio links, the network fallback,
+   and the live-pass copy mark. Same solid ink, at the weight of that line. */
+.portfolio-writing-article-action > .portfolio-writing-article-action-icon {
+  color: rgb(var(--fg-rgb));
+  opacity: 0.48;
+}
+
+.portfolio-writing-article-action:hover:not(:disabled)
+  > .portfolio-writing-article-action-icon,
+.portfolio-writing-article-action:focus-visible:not(:disabled)
+  > .portfolio-writing-article-action-icon,
+.portfolio-writing-article-like:hover
+  .portfolio-writing-article-action-icon,
+.portfolio-writing-article-like:focus-within
+  .portfolio-writing-article-action-icon {
+  opacity: 0.88;
+}
+
+.portfolio-writing-article-action.is-active
+  > .portfolio-writing-article-action-icon,
+.portfolio-writing-article-action.is-copied
+  > .portfolio-writing-article-action-icon,
+.portfolio-writing-article-like.is-active
+  .portfolio-writing-article-action-icon {
+  opacity: 0.92;
+}
+
+.guild-proposal-card-share > svg,
+.protocol-card-share > svg {
+  color: rgb(var(--fg-rgb));
+  opacity: 0.48;
+}
+
+.guild-proposal-card-share:hover > svg,
+.guild-proposal-card-share:focus-visible > svg,
+.protocol-card-share:hover > svg,
+.protocol-card-share:focus-visible > svg {
+  opacity: 0.82;
+}
+
+.guild-proposal-card-share.is-done > svg,
+.protocol-card-share.is-done > svg {
+  color: inherit;
+  opacity: 1;
+}
+
+.portfolio-link > .portfolio-link-icon {
+  color: rgb(var(--fg-rgb));
+  opacity: 0.55;
+}
+
+.portfolio-link:hover > .portfolio-link-icon,
+.portfolio-link:focus-visible > .portfolio-link-icon {
+  opacity: 0.92;
+}
+
+.portfolio-frame[data-mood] .portfolio-link > .portfolio-link-icon {
+  color: rgb(
+    from color-mix(in srgb, var(--mood-accent) 52%, var(--mood-muted)) r g b /
+      1
+  );
+  opacity: 1;
+}
+
+.portfolio-frame[data-mood] .portfolio-link:hover > .portfolio-link-icon,
+.portfolio-frame[data-mood]
+  .portfolio-link:focus-visible
+  > .portfolio-link-icon {
+  color: var(--mood-accent);
+  opacity: 1;
+}
+
+.network-orbit-node-fallback-icon,
+.network-orbit-center-fallback-icon > .network-orbit-center-fallback-glyph {
+  color: rgb(var(--fg-rgb));
+  opacity: 0.55;
+}
+
+.ticket-show-pass-code > .ticket-show-pass-code-icon {
+  color: rgb(var(--fg-rgb));
+  opacity: 0.48;
+}
+
+.ticket-show-pass-code:hover > .ticket-show-pass-code-icon,
+.ticket-show-pass-code:focus-visible > .ticket-show-pass-code-icon {
+  opacity: 0.72;
+}
+
+/*
  * Wallet drawer money controls — unlayered so type beats `.os-surface-chip`
  * (that rule lives outside @layer and would otherwise stay ~10px).
  */
