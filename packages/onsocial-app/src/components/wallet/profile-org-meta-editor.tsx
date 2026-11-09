@@ -9,10 +9,6 @@ import { useEffect, useId, useRef, useState } from 'react';
 import {
   PROFILE_INDUSTRY_MAX,
   PROFILE_LOCATION_MAX,
-  hiringLineAriaLabel,
-  hiringLineLabel,
-  offerLineAriaLabel,
-  offerLineLabel,
   isProfileIndustryWriteIn,
   matchProfileIndustryOption,
   normalizeProfileIndustryInput,
@@ -39,6 +35,19 @@ import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll
 import { JOBS_CHANGED_EVENT, fetchOpenJobs } from '@/lib/profile-jobs';
 import { OFFERS_CHANGED_EVENT, fetchAccountOffers } from '@/lib/profile-offers';
 import { SHEET_Z } from '@/lib/sheet-z';
+import { useTranslations } from 'next-intl';
+import {
+  useIndustryFallbackLabel,
+  useIndustryHint,
+  useIndustryLabel,
+  useTaxonomyChoices,
+} from '@/lib/use-profile-taxonomy';
+import {
+  useHiringFaceLabel,
+  useHiringViewAria,
+  useOfferFaceLabel,
+  useOfferViewAria,
+} from '@/lib/use-profile-face';
 
 const PROFILE_INDUSTRY_CHOICES: ChoiceOption<string>[] =
   profileIndustryChoiceOptions();
@@ -64,6 +73,11 @@ export function ProfileOrgMetaEditor({
   emptyIndustryLabel?: string;
   industryHint?: string;
 }) {
+  const t = useTranslations('shell');
+  const industryName = useIndustryLabel();
+  const emptyLabel = useIndustryFallbackLabel(emptyIndustryLabel);
+  const industryHintCopy = useIndustryHint(industryHint);
+  const industryChoices = useTaxonomyChoices(PROFILE_INDUSTRY_CHOICES);
   const locationFormId = useId();
   const industryFormId = useId();
   const industryInputRef = useRef<HTMLInputElement>(null);
@@ -129,10 +143,15 @@ export function ProfileOrgMetaEditor({
     window.setTimeout(() => industryInputRef.current?.focus(), 0);
   }, [industryWriteOpen]);
 
-  const industryLabel = industry.trim() || emptyIndustryLabel;
-  const locationLabel = location.trim() || 'Location';
-  const hiringLabel = hiringLineLabel(jobCount);
-  const offerLabel = offerLineLabel(offerCount);
+  const storedIndustry = industry.trim();
+  const industryLabel = storedIndustry
+    ? industryName(storedIndustry)
+    : emptyLabel;
+  const locationLabel = location.trim() || t('taxonomy.location');
+  const hiringLabel = useHiringFaceLabel(jobCount);
+  const offerLabel = useOfferFaceLabel(offerCount);
+  const hiringAria = useHiringViewAria(jobCount);
+  const offerAria = useOfferViewAria(offerCount);
 
   const handleIndustryChoice = (next: string) => {
     if (isProfileIndustryWriteIn(next)) {
@@ -171,7 +190,7 @@ export function ProfileOrgMetaEditor({
           disabled={disabled}
           aria-haspopup="dialog"
           aria-expanded={industryOpen || industryWriteOpen}
-          aria-label={`Industry, ${industryLabel}`}
+          aria-label={t('taxonomy.industryNamed', { name: industryLabel })}
           onClick={() => setIndustryOpen(true)}
         >
           {showHiring ? <PortfolioOrgKindMark /> : null}
@@ -194,7 +213,7 @@ export function ProfileOrgMetaEditor({
           disabled={disabled}
           aria-haspopup="dialog"
           aria-expanded={locationOpen}
-          aria-label={`Location, ${locationLabel}`}
+          aria-label={t('taxonomy.locationNamed', { name: locationLabel })}
           onClick={openLocation}
         >
           <PortfolioLocationMark />
@@ -220,9 +239,7 @@ export function ProfileOrgMetaEditor({
               aria-haspopup="dialog"
               aria-expanded={offerOpen}
               aria-label={
-                offerCount > 0
-                  ? offerLineAriaLabel(offerCount)
-                  : 'Manage offers'
+                offerCount > 0 ? offerAria : t('profileFace.manageOffers')
               }
               onClick={() => setOfferOpen(true)}
             >
@@ -238,7 +255,7 @@ export function ProfileOrgMetaEditor({
               aria-haspopup="dialog"
               aria-expanded={hiringOpen}
               aria-label={
-                jobCount > 0 ? hiringLineAriaLabel(jobCount) : 'Manage hiring'
+                jobCount > 0 ? hiringAria : t('profileFace.manageHiring')
               }
               onClick={() => setHiringOpen(true)}
             >
@@ -251,10 +268,10 @@ export function ProfileOrgMetaEditor({
       <ChoiceDrawer
         open={industryOpen}
         onClose={() => setIndustryOpen(false)}
-        label="Industry"
-        copy={industryHint}
+        label={t('discover.industry')}
+        copy={industryHintCopy}
         value={profileIndustryDrawerValue(industry)}
-        options={PROFILE_INDUSTRY_CHOICES}
+        options={industryChoices}
         onChange={handleIndustryChoice}
         zIndex={SHEET_Z.confirm}
       />
@@ -262,9 +279,9 @@ export function ProfileOrgMetaEditor({
       <OsHugSheet
         open={industryWriteOpen}
         onClose={() => setIndustryWriteOpen(false)}
-        label="Industry"
-        closeAriaLabel="Close industry"
-        backdropLabel="Close industry"
+        label={t('discover.industry')}
+        closeAriaLabel={t('taxonomy.closeIndustry')}
+        backdropLabel={t('taxonomy.closeIndustry')}
         zIndex={SHEET_Z.confirm}
         footer={
           <OsSheetFooter>
@@ -276,7 +293,7 @@ export function ProfileOrgMetaEditor({
                 disabled={disabled || industryDraft.trim().length === 0}
                 onClick={commitIndustryWriteIn}
               >
-                Done
+                {t('taxonomy.done')}
               </OsSheetAction>
             </OsSheetActions>
           </OsSheetFooter>
@@ -284,7 +301,7 @@ export function ProfileOrgMetaEditor({
       >
         <div className="account-editor-org-meta-field">
           <label className="guild-field" htmlFor={`${industryFormId}-input`}>
-            <span>Industry</span>
+            <span>{t('discover.industry')}</span>
             <input
               ref={industryInputRef}
               id={`${industryFormId}-input`}
@@ -292,7 +309,7 @@ export function ProfileOrgMetaEditor({
               value={industryDraft}
               maxLength={PROFILE_INDUSTRY_MAX}
               autoComplete="organization-title"
-              placeholder="Industry"
+              placeholder={t('discover.industry')}
               disabled={disabled}
               onFocus={scrollFieldIntoView}
               onChange={(event) =>
@@ -313,9 +330,9 @@ export function ProfileOrgMetaEditor({
       <OsHugSheet
         open={locationOpen}
         onClose={() => setLocationOpen(false)}
-        label="Location"
-        closeAriaLabel="Close location"
-        backdropLabel="Close location"
+        label={t('taxonomy.location')}
+        closeAriaLabel={t('taxonomy.closeLocation')}
+        backdropLabel={t('taxonomy.closeLocation')}
         zIndex={SHEET_Z.confirm}
         footer={
           <OsSheetFooter>
@@ -327,7 +344,7 @@ export function ProfileOrgMetaEditor({
                 disabled={disabled}
                 onClick={commitLocation}
               >
-                Done
+                {t('taxonomy.done')}
               </OsSheetAction>
             </OsSheetActions>
           </OsSheetFooter>
@@ -335,7 +352,7 @@ export function ProfileOrgMetaEditor({
       >
         <div className="account-editor-org-meta-field">
           <label className="guild-field" htmlFor={`${locationFormId}-input`}>
-            <span>Based in</span>
+            <span>{t('taxonomy.basedIn')}</span>
             <input
               ref={locationInputRef}
               id={`${locationFormId}-input`}
@@ -343,7 +360,7 @@ export function ProfileOrgMetaEditor({
               value={locationDraft}
               maxLength={PROFILE_LOCATION_MAX}
               autoComplete="address-level2"
-              placeholder="Based in"
+              placeholder={t('taxonomy.basedIn')}
               disabled={disabled}
               onFocus={scrollFieldIntoView}
               onChange={(event) =>

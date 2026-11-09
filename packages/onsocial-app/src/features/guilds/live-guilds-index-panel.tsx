@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Divider, OsIconAction, PlusIcon, SearchIcon } from '@onsocial/ui';
 import {
   LauncherHomeMineStatus,
@@ -12,6 +13,7 @@ import {
 } from '@/components/launcher-home';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { LAUNCHER_HOME_PAGE_CLASS } from '@/lib/os-chrome-page';
+import { useShellHomeMessage } from '@/lib/use-shell';
 import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
@@ -32,10 +34,12 @@ import {
  */
 export function LiveGuildsIndexPanel() {
   const { accountId } = useAppWallet();
+  const t = useTranslations('shell');
   const [myGuilds, setMyGuilds] = useState<GuildSummaryCardModel[] | null>(() =>
     readLauncherMineSession('guilds', accountId)
   );
   const [loadError, setLoadError] = useState<string | null>(null);
+  const shownError = useShellHomeMessage(loadError ?? '');
   const [retryKey, setRetryKey] = useState(0);
   const accountIdRef = useRef(accountId);
   const myGuildsRef = useRef(myGuilds);
@@ -110,12 +114,12 @@ export function LiveGuildsIndexPanel() {
 
   const headerActions = (
     <>
-      <OsIconAction asChild ariaLabel="Discover Guilds">
+      <OsIconAction asChild ariaLabel={t('homeChrome.discoverGuilds')}>
         <Link href={discoverGuildsHref} scroll={false}>
           <SearchIcon aria-hidden className="glass-sheet-close-icon" />
         </Link>
       </OsIconAction>
-      <OsIconAction asChild ariaLabel="Create guild">
+      <OsIconAction asChild ariaLabel={t('homeChrome.createGuild')}>
         <Link href="/groups/create" scroll={false}>
           <PlusIcon aria-hidden className="glass-sheet-close-icon" />
         </Link>
@@ -125,22 +129,22 @@ export function LiveGuildsIndexPanel() {
 
   return (
     <OsAppScreen
-      title="Guilds"
+      title={t('apps.groups')}
       dockBack
       backFallbackHref={OS_INDEX_LEAVE_HREF}
       glassChrome
       actions={headerActions}
     >
       <div className={LAUNCHER_HOME_PAGE_CLASS}>
-        <LauncherHomeSection aria-label="My guilds">
+        <LauncherHomeSection aria-label={t('homeChrome.myGuilds')}>
           <LauncherHomeMineStatus
             connected={Boolean(accountId)}
             loading={!myGuildsReady}
-            error={loadError}
+            error={loadError ? shownError : null}
             onRetry={() => setRetryKey((value) => value + 1)}
-            emptyLoggedOut="Connect to see guilds you’ve joined — or tap search to explore."
-            emptyNone="You haven’t joined a guild yet. Tap Search to explore, or + to start one."
-            loadingLabel="Loading your guilds…"
+            emptyLoggedOut={t('homeEmpty.guildsLoggedOut')}
+            emptyNone={t('homeEmpty.guildsNone')}
+            loadingLabel={t('homeEmpty.guildsLoading')}
             loadingSkeleton={<LauncherMineRailSkeleton count={4} />}
             hasItems={(myGuilds?.length ?? 0) > 0}
           >
@@ -166,7 +170,7 @@ export function LiveGuildsIndexPanel() {
         {showPosts ? (
           <>
             <Divider className="launcher-home-divider" />
-            <LauncherHomeSection title="Latest">
+            <LauncherHomeSection title={t('homeChrome.latest')}>
               <GuildsLatestPostsPanel
                 accountId={accountId}
                 myGuilds={myGuilds}

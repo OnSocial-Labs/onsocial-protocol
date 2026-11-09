@@ -108,3 +108,45 @@ export function buildDiscoverEmptyState(
     showClearSearch: false,
   };
 }
+
+const DISCOVER_EMPTY_LINES: Record<string, string> = {
+  'Press Enter or pick a suggestion to open this in Home.':
+    'discover.pressEnter',
+  'Topics and tickers live in the Home feed.': 'discover.topicsLiveInHome',
+  'Crafts come from About on profiles.': 'discover.craftsFromAbout',
+  'No matching offers.': 'discover.noMatchingOffers',
+  'No matching roles.': 'discover.noMatchingRoles',
+  'No matches.': 'discover.noMatches',
+  'No offers yet.': 'discover.noOffersYet',
+  'No orgs hiring yet.': 'discover.noOrgsHiring',
+  'No organizations found.': 'discover.noOrganizations',
+  'No DAOs found.': 'discover.noDaosFound',
+  'No people found.': 'discover.noPeopleFound',
+  'No profiles found yet.': 'discover.noProfilesYet',
+};
+
+const DISCOVER_EMPTY_PATTERNS: Array<{
+  re: RegExp;
+  key: string;
+}> = [
+  { re: /^No people tagged (.+) yet\.$/, key: 'discover.taggedPeople' },
+  { re: /^No roles matching in (.+)\.$/, key: 'discover.rolesIn' },
+  { re: /^No orgs hiring in (.+) yet\.$/, key: 'discover.hiringInIndustry' },
+  { re: /^No organizations in (.+) yet\.$/, key: 'discover.orgsInIndustry' },
+  { re: /^No DAOs in (.+) yet\.$/, key: 'discover.daosInIndustry' },
+  { re: /^No profiles in (.+) yet\.$/, key: 'discover.profilesInIndustry' },
+];
+
+/** Known empty lines. The captured name stays stored; display translates known ones. */
+export function discoverEmptyLine(message: string): {
+  key: string;
+  values?: { name: string };
+} | null {
+  const fixed = DISCOVER_EMPTY_LINES[message];
+  if (fixed) return { key: fixed };
+  for (const pattern of DISCOVER_EMPTY_PATTERNS) {
+    const match = pattern.re.exec(message);
+    if (match?.[1]) return { key: pattern.key, values: { name: match[1] } };
+  }
+  return null;
+}

@@ -10,6 +10,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   useComposeLauncher,
@@ -73,6 +74,7 @@ export function PortfolioSummonDock({
     isOpen: pageDrawerOpen,
     scrollNode,
   } = usePageContentDrawer();
+  const t = useTranslations('shell');
   const { accountId, isConnected } = useAppWallet();
   const compose = useComposeLauncher();
   const dockRef = useRef<HTMLDivElement>(null);
@@ -258,7 +260,7 @@ export function PortfolioSummonDock({
       >
         {showHint && !pageDrawerOpen && !write ? (
           <p className="portfolio-summon-hint" aria-hidden="true">
-            Swipe up · hold for apps
+            {t('dock.swipeHint')}
           </p>
         ) : null}
         <div className="portfolio-summon-line">
@@ -281,9 +283,7 @@ export function PortfolioSummonDock({
                 aria-haspopup="dialog"
                 aria-expanded={osOpen}
                 aria-label={
-                  pageDrawerOpen
-                    ? 'Open launcher'
-                    : 'Swipe up for page content. Hold for apps.'
+                  pageDrawerOpen ? t('launcher.open') : t('dock.swipeHold')
                 }
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}

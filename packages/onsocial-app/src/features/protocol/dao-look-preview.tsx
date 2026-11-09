@@ -1,19 +1,12 @@
 'use client';
 
 import { useRef, type ChangeEvent } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   IpfsImg,
   ipfsImgSrcSet,
   ProfileEditorMediaToolbar,
 } from '@onsocial/ui';
-import {
-  DAO_CREATE_ADD_COVER,
-  DAO_CREATE_ADD_CREST,
-  DAO_CREATE_CHANGE_COVER,
-  DAO_CREATE_CHANGE_CREST,
-  DAO_CREATE_REMOVE_COVER,
-  DAO_CREATE_REMOVE_CREST,
-} from '@/features/protocol/dao-create-voice';
 import {
   APP_COLUMN_HERO_SIZES,
   EDITOR_MARK_SIZES,
@@ -46,6 +39,7 @@ export function DaoLookPreview({
   onRemoveCover?: () => void;
   onRemoveCrest?: () => void;
 }) {
+  const t = useTranslations('shell');
   const coverInputRef = useRef<HTMLInputElement>(null);
   const crestInputRef = useRef<HTMLInputElement>(null);
   // Blob picks bypass; only the existing CDN cover/crest variant.
@@ -53,7 +47,7 @@ export function DaoLookPreview({
   const crestSrcSet = ipfsImgSrcSet(crestUrl, EDITOR_MARK_WIDTHS);
 
   return (
-    <section className="dao-look-preview" aria-label="DAO look">
+    <section className="dao-look-preview" aria-label={t('look.dao')}>
       <div
         className={`dao-look-preview-cover profile-editor-media-host${
           coverUrl ? ' has-media' : ''
@@ -62,7 +56,7 @@ export function DaoLookPreview({
         <button
           type="button"
           className="profile-editor-media-backdrop account-editor-banner-backdrop dao-look-preview-cover-hit"
-          aria-label={coverUrl ? DAO_CREATE_CHANGE_COVER : DAO_CREATE_ADD_COVER}
+          aria-label={coverUrl ? t('look.changeCover') : t('look.addCover')}
           disabled={disabled}
           onClick={() => coverInputRef.current?.click()}
         >
@@ -86,7 +80,7 @@ export function DaoLookPreview({
         </button>
         <ProfileEditorMediaToolbar
           layout="banner"
-          removeLabel={coverUrl ? DAO_CREATE_REMOVE_COVER : undefined}
+          removeLabel={coverUrl ? t('look.removeCover') : undefined}
           onRemove={coverUrl ? onRemoveCover : undefined}
         />
         {coverUrl ? null : (
@@ -94,7 +88,7 @@ export function DaoLookPreview({
             className="profile-editor-media-size-hint profile-editor-media-size-hint--dock"
             aria-hidden
           >
-            Photo or video
+            {t('look.photoOrVideo')}
           </p>
         )}
       </div>
@@ -107,9 +101,7 @@ export function DaoLookPreview({
           <button
             type="button"
             className="profile-editor-media-backdrop dao-look-preview-crest-hit"
-            aria-label={
-              crestUrl ? DAO_CREATE_CHANGE_CREST : DAO_CREATE_ADD_CREST
-            }
+            aria-label={crestUrl ? t('look.changeCrest') : t('look.addCrest')}
             disabled={disabled}
             onClick={() => crestInputRef.current?.click()}
           >
@@ -129,7 +121,7 @@ export function DaoLookPreview({
           </button>
           <ProfileEditorMediaToolbar
             layout="avatar"
-            removeLabel={crestUrl ? DAO_CREATE_REMOVE_CREST : undefined}
+            removeLabel={crestUrl ? t('look.removeCrest') : undefined}
             onRemove={crestUrl ? onRemoveCrest : undefined}
           />
         </div>

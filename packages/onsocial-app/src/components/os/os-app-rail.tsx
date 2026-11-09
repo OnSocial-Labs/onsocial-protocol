@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useOsAppNavigate } from '@/hooks/use-os-app-navigate';
 import {
@@ -10,6 +11,7 @@ import {
   visitorPortfolioOsApps,
   type OsAppLink,
 } from '@/lib/os-apps';
+import { shellAppLabel } from '@/lib/shell-label';
 
 function nearestIndex(container: HTMLElement): number {
   const items = container.querySelectorAll<HTMLElement>('[data-os-app-item]');
@@ -46,6 +48,9 @@ export function OsAppRail({
   ariaLabel = 'OnSocial apps',
   className,
 }: OsAppRailProps) {
+  const t = useTranslations('shell');
+  const navLabel =
+    ariaLabel === 'OnSocial apps' ? t('launcher.apps') : ariaLabel;
   const { navigate, openingPage } = useOsAppNavigate(accountId);
   const listRef = useRef<HTMLUListElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -80,7 +85,7 @@ export function OsAppRail({
   const rootClassName = ['gate-dapp-rail', className].filter(Boolean).join(' ');
 
   return (
-    <nav className={rootClassName} aria-label={ariaLabel}>
+    <nav className={rootClassName} aria-label={navLabel}>
       <ul ref={listRef} className="gate-dapp-list os-scrollbar-none">
         {apps.map((app, index) => {
           const distance = Math.abs(index - activeIndex);
@@ -108,7 +113,7 @@ export function OsAppRail({
                   style={{ opacity }}
                   aria-current={index === activeIndex ? 'true' : undefined}
                 >
-                  {app.label}
+                  {shellAppLabel(t, app, false)}
                 </a>
               </li>
             );
@@ -133,11 +138,7 @@ export function OsAppRail({
                 }
                 onClick={() => navigate(app)}
               >
-                {osAppOpensWithWallet(app) &&
-                openingPage &&
-                index === activeIndex
-                  ? 'Opening…'
-                  : app.label}
+                {shellAppLabel(t, app, openingPage && index === activeIndex)}
               </button>
             </li>
           );

@@ -7,6 +7,7 @@ import {
   type CSSProperties,
   type FormEvent,
 } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   OsSheetFooter,
   OsHugSheet,
@@ -57,6 +58,7 @@ export function AppAddTokenSheet({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const formId = useId();
+  const t = useTranslations('shell');
 
   const sheetOpen = open && !closing;
   if (open !== wasOpen) {
@@ -82,12 +84,12 @@ export function AppAddTokenSheet({
         ? 'is-taken'
         : undefined;
   const accountLead = accountFound
-    ? 'Found'
+    ? t('account.found')
     : accountChecking
-      ? 'Checking'
+      ? t('account.checking')
       : accountStatus === 'missing'
-        ? 'Not found'
-        : accountError || 'Token account';
+        ? t('account.missing')
+        : accountError || t('account.tokenAccount');
 
   const canSubmit =
     isAddTokenAccountReady(contractId) &&
@@ -162,10 +164,10 @@ export function AppAddTokenSheet({
       onClose={requestClose}
       onClosed={handleClosed}
       chrome="choice"
-      label="Add"
-      copy="Token you already have"
-      closeAriaLabel="Close"
-      backdropLabel="Close add token"
+      label={t('create.tokenAdd')}
+      copy={t('create.tokenAddCopy')}
+      closeAriaLabel={t('create.close')}
+      backdropLabel={t('create.closeAddToken')}
       zIndex={SHEET_Z.nested}
       panelClassName="account-storage-panel os-sheet-cap-standard"
       {...(panelStyle ? { panelStyle } : {})}
@@ -177,10 +179,10 @@ export function AppAddTokenSheet({
               form={formId}
               ready={canSubmit}
               pending={pending}
-              pendingLabel="Checking…"
+              pendingLabel={t('create.checking')}
               disabled={!canSubmit}
             >
-              Add
+              {t('create.tokenAdd')}
             </OsSheetAction>
           </OsSheetActions>
         </OsSheetFooter>
@@ -192,7 +194,7 @@ export function AppAddTokenSheet({
         onSubmit={(event) => void handleSubmit(event)}
       >
         <label className="guild-field" htmlFor={fieldId('id')}>
-          <span>Account</span>
+          <span>{t('create.account')}</span>
           <div
             className={
               accountFieldClass

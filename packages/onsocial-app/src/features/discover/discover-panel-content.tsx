@@ -19,9 +19,13 @@ import { DiscoverTrendingPanel } from '@/features/discover/discover-trending-pan
 import { DiscoverFaceFilterRail } from '@/features/discover/discover-face-filter-rail';
 import type { DiscoverTab } from '@/features/discover/discover-tabs';
 import { excludeRecommendedFromList } from '@/lib/discover-recommended';
-import { discoverProfilesLead } from '@/lib/discover-tab-lead';
+import {
+  useDiscoverEmptyLine,
+  useDiscoverProfilesLead,
+} from '@/features/discover/use-discover-leads';
 import { fetchOfferCounts } from '@/lib/profile-offers';
 import { OsEmptyAction } from '@/lib/os-empty-action';
+import { useTranslations } from 'next-intl';
 import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
 
 export function DiscoverPanelContent() {
@@ -68,6 +72,15 @@ export function DiscoverPanelContent() {
     handleUpdateStanding,
     initialTrending,
   } = useDiscoverPanel();
+  const profilesLead = useDiscoverProfilesLead(
+    discoverableTotal,
+    face,
+    industry,
+    craft
+  );
+  const t = useTranslations('shell');
+  const emptyPrimary = useDiscoverEmptyLine(emptyState.primary);
+  const emptySecondary = useDiscoverEmptyLine(emptyState.secondary);
   const [visitedTabs, setVisitedTabs] = useState(
     () => new Set<DiscoverTab>([tab])
   );
@@ -136,15 +149,7 @@ export function DiscoverPanelContent() {
 
       {visitedTabs.has('profiles') ? (
         <div hidden={tab !== 'profiles'}>
-          <DiscoverTabLead>
-            {discoverProfilesLead(
-              discoverableTotal,
-              query,
-              face,
-              industry,
-              craft
-            )}
-          </DiscoverTabLead>
+          <DiscoverTabLead>{profilesLead}</DiscoverTabLead>
           <DiscoverFaceFilterRail />
 
           {loadError ? (
@@ -181,17 +186,17 @@ export function DiscoverPanelContent() {
                   >
                     <div className="standing-panel-empty-state">
                       <p className="standing-panel-empty-primary">
-                        {emptyState.primary}
+                        {emptyPrimary}
                       </p>
                       {emptyState.secondary ? (
                         <p className="standing-panel-empty-secondary">
-                          {emptyState.secondary}
+                          {emptySecondary}
                         </p>
                       ) : null}
                       {emptyState.showClearSearch ? (
                         <div className="standing-panel-empty-actions">
                           <OsEmptyAction onClick={clearSearch}>
-                            Clear search
+                            {t('discover.clearSearch')}
                           </OsEmptyAction>
                         </div>
                       ) : null}

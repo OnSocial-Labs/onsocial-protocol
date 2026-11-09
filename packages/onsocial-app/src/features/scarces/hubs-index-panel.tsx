@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Divider, OsIconAction, PlusIcon, SearchIcon } from '@onsocial/ui';
 import {
   LauncherHomeMineStatus,
@@ -12,6 +13,7 @@ import {
 } from '@/components/launcher-home';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { LAUNCHER_HOME_PAGE_CLASS } from '@/lib/os-chrome-page';
+import { useShellHomeMessage } from '@/lib/use-shell';
 import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -32,10 +34,12 @@ import {
  */
 export function HubsIndexPanel() {
   const { accountId } = useAppWallet();
+  const t = useTranslations('shell');
   const [myHubs, setMyHubs] = useState<AppView[] | null>(() =>
     readLauncherMineSession('hubs', accountId)
   );
   const [loadError, setLoadError] = useState<string | null>(null);
+  const shownError = useShellHomeMessage(loadError ?? '');
   const [retryKey, setRetryKey] = useState(0);
   const accountIdRef = useRef(accountId);
   const myHubsRef = useRef(myHubs);
@@ -100,12 +104,12 @@ export function HubsIndexPanel() {
 
   const headerActions = (
     <>
-      <OsIconAction asChild ariaLabel="Discover Hubs">
+      <OsIconAction asChild ariaLabel={t('homeChrome.discoverHubs')}>
         <Link href={discoverHubsHref} scroll={false}>
           <SearchIcon aria-hidden className="glass-sheet-close-icon" />
         </Link>
       </OsIconAction>
-      <OsIconAction asChild ariaLabel="Open a hub">
+      <OsIconAction asChild ariaLabel={t('homeChrome.openHub')}>
         <Link href={APP_APP_CREATE_PATH} scroll={false}>
           <PlusIcon aria-hidden className="glass-sheet-close-icon" />
         </Link>
@@ -115,22 +119,22 @@ export function HubsIndexPanel() {
 
   return (
     <OsAppScreen
-      title="Hubs"
+      title={t('apps.hubs')}
       dockBack
       backFallbackHref={OS_INDEX_LEAVE_HREF}
       glassChrome
       actions={headerActions}
     >
       <div className={LAUNCHER_HOME_PAGE_CLASS}>
-        <LauncherHomeSection aria-label="My hubs">
+        <LauncherHomeSection aria-label={t('homeChrome.myHubs')}>
           <LauncherHomeMineStatus
             connected={Boolean(accountId)}
             loading={!myHubsReady}
-            error={loadError}
+            error={loadError ? shownError : null}
             onRetry={() => setRetryKey((value) => value + 1)}
-            emptyLoggedOut="Connect to see hubs you’ve joined — or tap search to explore."
-            emptyNone="You haven’t joined a hub yet. Tap Search to explore, or + to start one."
-            loadingLabel="Loading your hubs…"
+            emptyLoggedOut={t('homeEmpty.hubsLoggedOut')}
+            emptyNone={t('homeEmpty.hubsNone')}
+            loadingLabel={t('homeEmpty.hubsLoading')}
             loadingSkeleton={<LauncherMineRailSkeleton count={4} />}
             hasItems={(myHubs?.length ?? 0) > 0}
           >
@@ -153,7 +157,7 @@ export function HubsIndexPanel() {
         {showDrops ? (
           <>
             <Divider className="launcher-home-divider" />
-            <LauncherHomeSection title="Latest">
+            <LauncherHomeSection title={t('homeChrome.latest')}>
               <HubsLatestDropsPanel accountId={accountId} myHubs={myHubs} />
             </LauncherHomeSection>
           </>

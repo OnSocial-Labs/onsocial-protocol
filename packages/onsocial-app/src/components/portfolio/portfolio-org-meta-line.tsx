@@ -8,6 +8,10 @@ import { PortfolioOffersLine } from '@/components/portfolio/portfolio-offers-lin
 import { PortfolioOrgKindMark } from '@/components/portfolio/portfolio-org-kind-mark';
 import { discoverIndustryPath } from '@/lib/discover-profiles';
 import type { ResolvedMood } from '@/lib/moods/types';
+import {
+  useIndustryFallbackLabel,
+  useIndustryLabel,
+} from '@/lib/use-profile-taxonomy';
 
 /** One quiet house meta row: industry · location · Offers · Hiring. */
 export function PortfolioOrgMetaLine({
@@ -34,9 +38,15 @@ export function PortfolioOrgMetaLine({
   kindLine?: 'org' | 'dao';
   mood?: ResolvedMood | null;
 }) {
+  const industryName = useIndustryLabel();
+  const emptyLabel = useIndustryFallbackLabel(emptyIndustryLabel ?? '');
   const locationLabel = location?.trim() || null;
   const setIndustry = industry?.trim() || null;
-  const industryLabel = setIndustry || emptyIndustryLabel || null;
+  const industryLabel = setIndustry
+    ? industryName(setIndustry)
+    : emptyIndustryLabel
+      ? emptyLabel
+      : null;
   const industryHref = setIndustry
     ? discoverIndustryPath(setIndustry, kindLine)
     : null;

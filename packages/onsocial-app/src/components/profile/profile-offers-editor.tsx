@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useId, useState } from 'react';
+import { useTranslations } from 'next-intl';
+import { useOfferFaceLabel } from '@/lib/use-profile-face';
 import {
-  offerLineLabel,
   offerMaxForKind,
   OFFER_DESCRIPTION_MAX,
   OFFER_TITLE_MAX,
@@ -70,10 +71,12 @@ export function ProfileOffersEditor({
   onPreviewVisitors?: () => void;
   triggerClassName?: string;
 }) {
+  const t = useTranslations('shell');
   const formId = useId();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [offers, setOffers] = useState<OfferRecord[]>([]);
+  const offerFace = useOfferFaceLabel(offers.length);
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -312,11 +315,11 @@ export function ProfileOffersEditor({
       aria-haspopup="dialog"
       aria-expanded={sheetOpen}
       aria-label={
-        offers.length === 0 ? 'Manage offers' : offerLineLabel(offers.length)
+        offers.length === 0 ? t('profileFace.manageOffers') : offerFace
       }
       onClick={() => setSheetOpen(true)}
     >
-      {offerLineLabel(offers.length)}
+      {offerFace}
     </button>
   );
 

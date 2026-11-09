@@ -11,6 +11,8 @@ import {
   type CSSProperties,
   type FormEvent,
 } from 'react';
+import { useTranslations } from 'next-intl';
+import { useShellCreateError } from '@/lib/use-shell';
 import {
   AmountField,
   InfoDrawer,
@@ -64,11 +66,6 @@ function fieldId(name: string) {
   return `token-create-${name}`;
 }
 
-const TOKEN_CREATE_INFO_TITLE = 'Creator token';
-const TOKEN_CREATE_INFO_SUMMARY = `${FT_CREATE_FUND_NEAR} NEAR · your own token under your wallet.`;
-const TOKEN_CREATE_INFO_DETAIL =
-  'Name, symbol, and supply are permanent. Contract id comes from the name — e.g. cool.you.testnet. One batch: create account, fund, deploy contract, mint to you. You can change the icon later until you lock admin — that ends all admin control.';
-
 export function AppCreateTokenSheet({
   open,
   panelStyle,
@@ -83,6 +80,7 @@ export function AppCreateTokenSheet({
   const { isConnected, connect, getSigningWallet, accountId } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const formId = useId();
+  const t = useTranslations('shell');
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
   const [name, setName] = useState('');
@@ -95,6 +93,7 @@ export function AppCreateTokenSheet({
   const iconInputRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<TokenCreatePhase>('idle');
   const [error, setError] = useState<string | null>(null);
+  const shownError = useShellCreateError(error);
   const [templateReady, setTemplateReady] = useState<boolean | null>(null);
   const [templateDetail, setTemplateDetail] = useState<string | null>(null);
 
@@ -139,14 +138,14 @@ export function AppCreateTokenSheet({
         ? 'is-checking'
         : undefined;
   const accountLead = accountTaken
-    ? 'Taken'
+    ? t('account.taken')
     : accountAvailable
-      ? 'Available'
+      ? t('account.available')
       : accountError && !parentError
         ? accountError
         : accountChecking
-          ? 'Checking'
-          : 'Under your wallet';
+          ? t('account.checking')
+          : t('account.underWallet');
 
   const formReady =
     isConnected &&
@@ -375,16 +374,16 @@ export function AppCreateTokenSheet({
         onClose={requestClose}
         onClosed={handleClosed}
         chrome="choice"
-        label="Create token"
-        copy={`Your creator token · ${FT_CREATE_FUND_NEAR} NEAR`}
-        closeAriaLabel="Close"
-        backdropLabel="Close create token"
+        label={t('create.tokenTitle')}
+        copy={t('create.tokenCopy', { near: FT_CREATE_FUND_NEAR })}
+        closeAriaLabel={t('create.close')}
+        backdropLabel={t('create.closeCreateToken')}
         zIndex={SHEET_Z.nested}
         panelClassName="account-storage-panel os-sheet-cap-tall"
         headerActions={
           <div className="standing-sheet-actions">
             <OsIconAction
-              ariaLabel="About creator tokens"
+              ariaLabel={t('create.aboutTokens')}
               onClick={() => setInfoOpen(true)}
               disabled={pending}
             >
@@ -393,7 +392,10 @@ export function AppCreateTokenSheet({
                 aria-hidden
               />
             </OsIconAction>
-            <SheetCloseButton onClick={requestClose} ariaLabel="Close" />
+            <SheetCloseButton
+              onClick={requestClose}
+              ariaLabel={t('create.close')}
+            />
           </div>
         }
         {...(panelStyle ? { panelStyle } : {})}
@@ -407,14 +409,14 @@ export function AppCreateTokenSheet({
                 pending={pending || waitingTemplate}
                 pendingLabel={
                   waitingTemplate
-                    ? 'Checking…'
+                    ? t('create.checking')
                     : phase === 'confirming'
-                      ? 'Confirming…'
-                      : 'Signing…'
+                      ? t('create.confirming')
+                      : t('create.signing')
                 }
                 disabled={pending || waitingTemplate || !canSubmit}
               >
-                Create
+                {t('create.tokenCreate')}
               </OsSheetAction>
             </OsSheetActions>
           </OsSheetFooter>
@@ -441,7 +443,7 @@ export function AppCreateTokenSheet({
               type="button"
               className="token-create-icon-pick"
               disabled={pending}
-              aria-label="Choose icon"
+              aria-label={t('create.chooseIcon')}
               onClick={() => iconInputRef.current?.click()}
             >
               <TokenIcon src={icon} label={symbol || name || 'FT'} size="md" />
@@ -457,7 +459,7 @@ export function AppCreateTokenSheet({
               onChange={(event) => void handleIconChange(event)}
             />
             <label className="guild-field" htmlFor={fieldId('name')}>
-              <span>Name</span>
+              <span>{t('create.name')}</span>
               <input
                 id={fieldId('name')}
                 value={name}
@@ -474,7 +476,7 @@ export function AppCreateTokenSheet({
           </div>
 
           <label className="guild-field" htmlFor={fieldId('symbol')}>
-            <span>Symbol</span>
+            <span>{t('create.symbol')}</span>
             <input
               id={fieldId('symbol')}
               value={symbol}
@@ -493,14 +495,14 @@ export function AppCreateTokenSheet({
           </label>
 
           <div className="guild-field">
-            <span id={fieldId('supply-label')}>Supply</span>
+            <span id={fieldId('supply-label')}>{t('create.supply')}</span>
             <AmountField
               id={fieldId('supply')}
-              aria-label="Total supply"
+              aria-label={t('create.totalSupply')}
               value={supply}
               onValueChange={(raw) => setSupply(normalizeFtSupplyInput(raw))}
               maxDecimals={0}
-              unit={symbol.trim() || 'tokens'}
+              unit={symbol.trim() || t('create.tokens')}
               placeholder="1000000"
               disabled={pending}
               invalid={Boolean(supply.trim() && supplyError)}
@@ -509,13 +511,13 @@ export function AppCreateTokenSheet({
               {supplyError
                 ? supplyError
                 : supply.trim()
-                  ? 'Minted to you'
-                  : 'Enter total supply'}
+                  ? t('create.mintedToYou')
+                  : t('create.enterSupply')}
             </small>
           </div>
 
           <div className="guild-field" role="status">
-            <span>Contract</span>
+            <span>{t('create.contract')}</span>
             <p
               className={`token-create-contract-id dao-create-mono os-field-status-lip${
                 accountFieldClass ? ` ${accountFieldClass}` : ''
@@ -535,8 +537,8 @@ export function AppCreateTokenSheet({
               disabled={pending}
             />
             <span>
-              Lock admin
-              <small>Freeze icon, ownership, and reference.</small>
+              {t('create.lockAdmin')}
+              <small>{t('create.lockAdminHint')}</small>
             </span>
           </label>
 
@@ -544,9 +546,9 @@ export function AppCreateTokenSheet({
             <TokenCreateStepThread phase={phase} includeLock={renounceOwner} />
           ) : null}
 
-          {error ? (
+          {shownError ? (
             <p className="token-create-note is-warn" role="alert">
-              {error}
+              {shownError}
             </p>
           ) : null}
         </form>
@@ -554,9 +556,10 @@ export function AppCreateTokenSheet({
       <InfoDrawer
         open={infoOpen}
         onClose={() => setInfoOpen(false)}
-        title={TOKEN_CREATE_INFO_TITLE}
-        summary={TOKEN_CREATE_INFO_SUMMARY}
-        detail={TOKEN_CREATE_INFO_DETAIL}
+        title={t('help.tokenTitle')}
+        summary={t('help.tokenSummary', { near: FT_CREATE_FUND_NEAR })}
+        detail={t('help.tokenDetail')}
+        gotItLabel={t('help.gotIt')}
         zIndex={SHEET_Z.nestedConfirm}
       />
     </>

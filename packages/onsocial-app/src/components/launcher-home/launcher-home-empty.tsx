@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { useTranslations } from 'next-intl';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 
 /** Quiet one-line status under a launcher Home section. */
@@ -16,10 +17,11 @@ export function LauncherHomeError({
   message: string;
   onRetry: () => void;
 }) {
+  const t = useTranslations('shell');
   return (
     <div className="launcher-home-empty-block">
       <p className="launcher-home-empty">{message}</p>
-      <OsEmptyAction onClick={onRetry}>Retry</OsEmptyAction>
+      <OsEmptyAction onClick={onRetry}>{t('account.retry')}</OsEmptyAction>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildDiscoverEmptyState,
   buildDiscoverSearchEmptyPrimary,
+  discoverEmptyLine,
 } from './discover-empty-state';
 
 describe('buildDiscoverSearchEmptyPrimary', () => {
@@ -51,6 +52,24 @@ describe('buildDiscoverEmptyState', () => {
       primary: 'No matching roles.',
       showClearSearch: false,
     });
+  });
+
+  it('maps known empty lines and keeps the industry name', () => {
+    expect(discoverEmptyLine('No profiles found yet.')).toEqual({
+      key: 'discover.noProfilesYet',
+    });
+    expect(discoverEmptyLine('No matches.')).toEqual({
+      key: 'discover.noMatches',
+    });
+    expect(discoverEmptyLine('No DAOs in Film yet.')).toEqual({
+      key: 'discover.daosInIndustry',
+      values: { name: 'Film' },
+    });
+    expect(discoverEmptyLine('No people tagged Writer yet.')).toEqual({
+      key: 'discover.taggedPeople',
+      values: { name: 'Writer' },
+    });
+    expect(discoverEmptyLine('Wallet rejected the request.')).toBeNull();
   });
 
   it('guides topic drafts to Home instead of people search misses', () => {

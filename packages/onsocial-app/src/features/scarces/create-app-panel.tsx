@@ -10,6 +10,7 @@ import {
   type FormEvent,
 } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   DiscardConfirmSheet,
   OsIconAction,
@@ -25,32 +26,20 @@ import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import {
   entityIdAvailabilityClass,
-  entityIdAvailabilityLead,
   useEntityIdAvailability,
 } from '@/hooks/use-entity-id-availability';
+import { useEntityIdLead, useShellCreateError } from '@/lib/use-shell';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import type { CreatorAccess } from '@/features/scarces/apps-data';
-import {
-  creatorAccessLabel,
-  creatorAccessShort,
-} from '@/features/scarces/apps-data';
 import { hubCategoriesMetadataFields } from '@/features/scarces/hub-categories';
-import {
-  HubCreateHelpDrawer,
-  HUB_CREATE_HELP_TITLE,
-} from '@/features/scarces/hub-create-help-drawer';
+import { HubCreateHelpDrawer } from '@/features/scarces/hub-create-help-drawer';
 import { HubCategoriesEditor } from '@/features/scarces/hub-categories-editor';
 import {
   CommerceSheetFooter,
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
-import {
-  HUB_CREATE_CONNECT,
-  HUB_CREATE_FORM_ID,
-  HUB_CREATE_SUBMIT,
-  hubCreateAboutToggle,
-} from '@/features/scarces/hub-create-voice';
+import { HUB_CREATE_FORM_ID } from '@/features/scarces/hub-create-voice';
 import { HubLookPreview } from '@/features/scarces/hub-look-preview';
 import { APP_APPS_PATH, appPath } from '@/lib/app-routes';
 import { HUB_CREATE_FORM_CLASS } from '@/lib/os-create-page';
@@ -253,6 +242,19 @@ export function CreateAppPanel() {
   );
   const idAvailability = useEntityIdAvailability('hub', derivedSlug, MIN_SLUG);
   const idAvailabilityClass = entityIdAvailabilityClass(idAvailability);
+  const idLead = useEntityIdLead(idAvailability);
+  const t = useTranslations('shell');
+  const shownError = useShellCreateError(error);
+  const accessShort: Record<CreatorAccess, string> = {
+    open: t('create.open'),
+    approval: t('create.approval'),
+    invite_only: t('create.invite'),
+  };
+  const accessDetail: Record<CreatorAccess, string> = {
+    open: t('create.anyoneCanDrop'),
+    approval: t('create.approvalDetail'),
+    invite_only: t('create.inviteDetail'),
+  };
   const commission = Number.parseFloat(commissionInput);
   const commissionValid =
     Number.isFinite(commission) &&
@@ -273,8 +275,8 @@ export function CreateAppPanel() {
     if (!isConnected) {
       return {
         visible: true,
-        primaryLabel: HUB_CREATE_CONNECT,
-        primaryPendingLabel: 'Opening…',
+        primaryLabel: t('dock.connect'),
+        primaryPendingLabel: t('account.opening'),
         canSubmit: true,
         pending: false,
         primaryType: 'button',
@@ -285,14 +287,14 @@ export function CreateAppPanel() {
     }
     return {
       visible: true,
-      primaryLabel: HUB_CREATE_SUBMIT,
-      primaryPendingLabel: 'Opening…',
+      primaryLabel: t('create.hubSubmit'),
+      primaryPendingLabel: t('account.opening'),
       canSubmit,
       pending,
       disabled: !canSubmit,
       primaryType: 'submit',
     };
-  }, [isConnected, connect, canSubmit, pending]);
+  }, [isConnected, connect, canSubmit, pending, t]);
 
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -389,7 +391,7 @@ export function CreateAppPanel() {
 
   return (
     <OsAppScreen
-      title="Open a hub"
+      title={t('homeChrome.openHub')}
       dockBack
       headerOwnsConnect
       backFallbackHref={APP_APPS_PATH}
@@ -398,7 +400,7 @@ export function CreateAppPanel() {
       style={screenStyle}
       actions={
         <OsIconAction
-          ariaLabel={HUB_CREATE_HELP_TITLE}
+          ariaLabel={t('help.hubTitle')}
           aria-expanded={helpOpen}
           aria-haspopup="dialog"
           onClick={() => setHelpOpen(true)}
@@ -440,7 +442,7 @@ export function CreateAppPanel() {
         />
 
         <label className="guild-field" htmlFor={fieldId('name')}>
-          <span>Name</span>
+          <span>{t('create.name')}</span>
           <input
             id={fieldId('name')}
             value={name}
@@ -458,7 +460,7 @@ export function CreateAppPanel() {
         </label>
 
         <label className="guild-field" htmlFor={fieldId('id')}>
-          <span>Hub ID</span>
+          <span>{t('create.hubId')}</span>
           <div
             className={
               idAvailabilityClass
@@ -484,8 +486,7 @@ export function CreateAppPanel() {
             />
           </div>
           <small className={idAvailabilityClass}>
-            {entityIdAvailabilityLead(idAvailability)} ·{' '}
-            {appPath(derivedSlug || 'your-hub')}
+            {idLead} · {appPath(derivedSlug || 'your-hub')}
           </small>
         </label>
 
@@ -496,20 +497,21 @@ export function CreateAppPanel() {
           disabled={pending}
           onClick={() => setAboutOpen((open) => !open)}
         >
-          {hubCreateAboutToggle({
-            open: aboutOpen,
-            hasText: description.trim().length > 0,
-          })}
+          {aboutOpen
+            ? t('create.hideAbout')
+            : description.trim()
+              ? t('create.editAbout')
+              : t('create.addAbout')}
         </button>
         {aboutOpen ? (
           <label className="guild-field" htmlFor={fieldId('description')}>
-            <span>About</span>
+            <span>{t('create.about')}</span>
             <textarea
               id={fieldId('description')}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               onFocus={scrollFieldIntoView}
-              placeholder="What this hub publishes and who it's for."
+              placeholder={t('create.hubAboutPlaceholder')}
               maxLength={MAX_DESCRIPTION}
               disabled={pending}
               aria-describedby={fieldId('description-count')}
@@ -522,11 +524,11 @@ export function CreateAppPanel() {
         ) : null}
 
         <label className="guild-field" htmlFor={fieldId('commission')}>
-          <span>Your commission</span>
+          <span>{t('create.commission')}</span>
           <div
             className="app-storage-presets"
             role="group"
-            aria-label="Commission presets"
+            aria-label={t('create.commissionPresets')}
           >
             {COMMISSION_PRESETS.map((preset) => (
               <button
@@ -551,15 +553,17 @@ export function CreateAppPanel() {
             }
             onFocus={scrollFieldIntoView}
             placeholder="2.5"
-            aria-label="Commission percentage"
-            suffix="% per sale"
+            aria-label={t('create.commissionPercent')}
+            suffix={t('create.perSale')}
             disabled={pending}
           />
-          <small>Locked on each new drop · max {MAX_COMMISSION_PCT}%.</small>
+          <small>
+            {t('create.commissionNote', { max: MAX_COMMISSION_PCT })}
+          </small>
         </label>
 
         <div className="guild-field">
-          <span>Category</span>
+          <span>{t('create.category')}</span>
           <HubCategoriesEditor
             categories={categories}
             onChange={setCategories}
@@ -569,11 +573,11 @@ export function CreateAppPanel() {
         </div>
 
         <div className="guild-field">
-          <span>Who can create drops</span>
+          <span>{t('create.whoCanCreate')}</span>
           <div
             className="app-storage-presets"
             role="radiogroup"
-            aria-label="Who can create drops"
+            aria-label={t('create.whoCanCreate')}
           >
             {ACCESS_MODES.map((mode) => (
               <button
@@ -587,21 +591,21 @@ export function CreateAppPanel() {
                 disabled={pending}
                 onClick={() => setCreatorAccess(mode)}
               >
-                {creatorAccessShort(mode)}
+                {accessShort[mode]}
               </button>
             ))}
           </div>
-          <small>{creatorAccessLabel(creatorAccess)}</small>
+          <small>{accessDetail[creatorAccess]}</small>
         </div>
 
-        {error ? <p className="guild-form-error">{error}</p> : null}
+        {shownError ? <p className="guild-form-error">{shownError}</p> : null}
       </form>
       <DiscardConfirmSheet
         open={discardConfirmOpen}
         onDiscard={discard}
         onKeepEditing={keepEditing}
-        title="Discard hub?"
-        body="Name, ID, look, and about won’t be saved."
+        title={t('create.discardHub')}
+        body={t('create.discardLookBody')}
       />
       <HubCreateHelpDrawer open={helpOpen} onClose={() => setHelpOpen(false)} />
     </OsAppScreen>

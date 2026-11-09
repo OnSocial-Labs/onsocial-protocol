@@ -8,8 +8,8 @@ import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { DaoDirectoryList } from '@/features/protocol/dao-directory-row';
 import { discoverPeopleSearchQuery } from '@/features/discover/discover-omni-search';
 import { useDaoCatalogBrowse } from '@/hooks/use-dao-catalog-browse';
-import { discoverDaosLead } from '@/lib/discover-tab-lead';
 import { APP_DAOS_PATH, daosCreateHref } from '@/lib/app-routes';
+import { useTranslations } from 'next-intl';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 
 /**
@@ -23,17 +23,17 @@ export function DiscoverDaosPanel() {
     rows,
     pending,
     error,
-    syncing,
-    total,
     hasMore,
     loadMoreRef,
     retry,
+    statusLine,
   } = useDaoCatalogBrowse({
     enabled: true,
     query: catalogQuery,
     scrollRootRef,
   });
 
+  const t = useTranslations('shell');
   const showSkeleton = rows == null && pending;
   const isSearchEmpty =
     catalogQuery.length > 0 && entries.length === 0 && !pending && rows != null;
@@ -47,11 +47,11 @@ export function DiscoverDaosPanel() {
     >
       <DiscoverTabLead
         links={[
-          { href: APP_DAOS_PATH, label: 'My DAOs' },
-          { href: daosCreateHref(), label: 'Create' },
+          { href: APP_DAOS_PATH, label: t('homeChrome.myDaos') },
+          { href: daosCreateHref(), label: t('discover.create') },
         ]}
       >
-        {discoverDaosLead(total, catalogQuery, syncing)}
+        {statusLine}
       </DiscoverTabLead>
 
       {error ? (
@@ -63,19 +63,21 @@ export function DiscoverDaosPanel() {
       ) : null}
 
       {showSkeleton ? (
-        <DiscoverCommunityListSkeleton label="Loading DAOs…" />
+        <DiscoverCommunityListSkeleton label={t('discover.loadingDaos')} />
       ) : entries.length > 0 ? (
         <DaoDirectoryList entries={entries} />
       ) : !error && (isSearchEmpty || catalogQuery.length === 0) ? (
         <div className="standing-panel-empty-block">
           <div className="standing-panel-empty-state">
             <p className="standing-panel-empty-primary">
-              {isSearchEmpty ? 'No matches.' : 'No DAOs listed yet.'}
+              {isSearchEmpty ? t('discover.noMatches') : t('discover.noDaos')}
             </p>
           </div>
           {isSearchEmpty ? (
             <div className="standing-panel-empty-actions">
-              <OsEmptyAction href={APP_DAOS_PATH}>My DAOs</OsEmptyAction>
+              <OsEmptyAction href={APP_DAOS_PATH}>
+                {t('homeChrome.myDaos')}
+              </OsEmptyAction>
             </div>
           ) : null}
         </div>
@@ -90,7 +92,7 @@ export function DiscoverDaosPanel() {
           />
           {pending && rows != null ? (
             <DiscoverCommunityListSkeleton
-              label="Loading more DAOs…"
+              label={t('discover.loadingMoreDaos')}
               count={2}
             />
           ) : null}

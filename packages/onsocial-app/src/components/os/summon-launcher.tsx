@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   OnSocialMark,
   glassSheetBackdropFilterStyle,
@@ -67,7 +68,9 @@ import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useOsAppNavigate } from '@/hooks/use-os-app-navigate';
 import { useSummonDockOccupiedHeight } from '@/hooks/use-summon-dock-occupied-height';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
+import { LocaleToggle } from '@/components/os/locale-toggle';
 import { ThemeToggle } from '@/components/os/theme-toggle';
+import { shellAppLabel } from '@/lib/shell-label';
 import { CollectiblesNowPlayingDockChip } from '@/components/os/collectibles-now-playing-dock-chip';
 import { PortfolioSummonComposeButton } from '@/components/portfolio/portfolio-summon-compose-button';
 import { OsDockPill } from '@/components/wallet/os-dock-pill';
@@ -108,14 +111,6 @@ const clientMountedSubscribe = () => () => {};
 const getClientMountedSnapshot = () => true;
 const getServerMountedSnapshot = () => false;
 
-function launcherAppLabel(app: OsAppLink, openingPage: boolean) {
-  if (osAppOpensWithWallet(app) && openingPage) {
-    return 'Opening…';
-  }
-
-  return app.label;
-}
-
 function formatLauncherUnread(count: number): string {
   return count > 9 ? '9+' : String(count);
 }
@@ -143,7 +138,8 @@ function LauncherAppTile({
   unread?: number;
   onActivate: () => void;
 }) {
-  const label = launcherAppLabel(app, openingPage);
+  const t = useTranslations('shell');
+  const label = shellAppLabel(t, app, openingPage);
   const accent = osAppAccent(app.id);
   const tileClassName = `${osLauncherItemClassName}${
     active ? ' is-current' : ''
@@ -228,6 +224,7 @@ export function SummonLauncher({
   onOpenChange,
   hideTrigger = false,
 }: SummonLauncherProps) {
+  const t = useTranslations('shell');
   const router = useRouter();
   const pathname = usePathname();
   const { accountId, isConnected, connect } = useAppWallet();
@@ -254,6 +251,7 @@ export function SummonLauncher({
     [communityListings]
   );
   const [launcherPage, setLauncherPage] = useState(0);
+  const [languageOpen, setLanguageOpen] = useState(false);
   const pagesRef = useRef<HTMLDivElement>(null);
 
   const setOpen = useCallback(
@@ -387,7 +385,7 @@ export function SummonLauncher({
   }, [open]);
 
   useEffect(() => {
-    if (!open || rallyHandoff) {
+    if (!open || rallyHandoff || languageOpen) {
       return;
     }
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -397,7 +395,7 @@ export function SummonLauncher({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [closeLauncher, open, rallyHandoff]);
+  }, [closeLauncher, languageOpen, open, rallyHandoff]);
 
   function handleNavigate(app: OsAppLink) {
     if (navigate(app)) {
@@ -542,7 +540,7 @@ export function SummonLauncher({
               className="portfolio-summon-hint portfolio-summon-hint--connect"
               onClick={() => void connect()}
             >
-              Connect
+              {t('dock.connect')}
             </button>
           ) : null}
           <OsDockPill
@@ -564,7 +562,7 @@ export function SummonLauncher({
                 onClick={() => setOpen(true)}
                 aria-haspopup="dialog"
                 aria-expanded={open}
-                aria-label="Open launcher"
+                aria-label={t('launcher.open')}
               >
                 <span className="portfolio-summon-grip" aria-hidden />
               </button>
@@ -626,7 +624,7 @@ export function SummonLauncher({
               <button
                 type="button"
                 className={osLauncherBackdropClassName}
-                aria-label="Close launcher"
+                aria-label={t('launcher.close')}
                 style={backdropStyle}
                 onClick={closeLauncher}
               />
@@ -634,7 +632,7 @@ export function SummonLauncher({
                 ref={sheetRef}
                 role={rallyHandoff ? 'presentation' : 'dialog'}
                 aria-modal={rallyHandoff ? undefined : true}
-                aria-label="OnSocial launcher"
+                aria-label={t('launcher.dialog')}
                 className={`${osLauncherSheetClassName}${
                   showEnterAnimation ? ' is-enter' : ''
                 }${dragging ? ' is-dragging' : ''}`}
@@ -649,7 +647,7 @@ export function SummonLauncher({
                 <button
                   type="button"
                   className={osLauncherDragClassName}
-                  aria-label="Drag down to close"
+                  aria-label={t('launcher.dragClose')}
                   onPointerDown={handleDragPointerDown}
                   onPointerMove={handleDragPointerMove}
                   onPointerUp={handleDragPointerEnd}
@@ -754,14 +752,14 @@ export function SummonLauncher({
                   >
                     {!communityReady ? null : communityApps.length === 0 ? (
                       <li className={osLauncherCommunityEmptyClassName}>
-                        <p>No community dapps yet.</p>
+                        <p>{t('launcher.communityEmpty')}</p>
                         <p>
                           <a
                             href={portalHref('/onapi/apps')}
                             target="_blank"
                             rel="noreferrer"
                           >
-                            List yours on Portal
+                            {t('launcher.listYours')}
                           </a>
                         </p>
                       </li>
@@ -783,12 +781,12 @@ export function SummonLauncher({
                 </div>
                 <div
                   className={osLauncherDotsClassName}
-                  aria-label="Launcher pages"
+                  aria-label={t('launcher.pages')}
                 >
                   <button
                     type="button"
                     className={`${osLauncherDotClassName}${launcherPage === 0 ? ' is-current' : ''}`}
-                    aria-label="OnSocial apps"
+                    aria-label={t('launcher.apps')}
                     onClick={() => {
                       pagesRef.current?.scrollTo({
                         left: 0,
@@ -800,7 +798,7 @@ export function SummonLauncher({
                   <button
                     type="button"
                     className={`${osLauncherDotClassName}${launcherPage === 1 ? ' is-current' : ''}`}
-                    aria-label="Community dapps"
+                    aria-label={t('launcher.community')}
                     onClick={() => {
                       const width = pagesRef.current?.clientWidth ?? 0;
                       pagesRef.current?.scrollTo({
@@ -813,6 +811,7 @@ export function SummonLauncher({
                 </div>
 
                 <div className={osLauncherFooterClassName}>
+                  <LocaleToggle onOpenChange={setLanguageOpen} />
                   <ThemeToggle />
                 </div>
               </section>

@@ -8,9 +8,10 @@ import {
   LauncherSocialPeekList,
   LauncherSocialPeekRow,
   LauncherSocialPeekSkeleton,
-  launcherPeekOverflowLabel,
   LAUNCHER_PEEK_DISPLAY_LIMIT,
 } from '@/components/launcher-home';
+import { usePeekOverflowLabel, useShellHomeMessage } from '@/lib/use-shell';
+import { useTranslations } from 'next-intl';
 import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
 import {
   fetchProtocolProposalPeeks,
@@ -210,11 +211,9 @@ export function DaosExplorePanel({
   );
   const proposerProfiles = usePostAuthorProfiles(proposerIds);
   const discoverDaosHref = appDiscoverTabHref('daos');
-  const overflowLabel = launcherPeekOverflowLabel(
-    peeks?.length ?? 0,
-    'discover',
-    LAUNCHER_PEEK_DISPLAY_LIMIT
-  );
+  const t = useTranslations('shell');
+  const overflowLabel = usePeekOverflowLabel(peeks?.length ?? 0, 'discover');
+  const shownError = useShellHomeMessage(error ?? '');
 
   if (!accountId) {
     return null;
@@ -223,7 +222,7 @@ export function DaosExplorePanel({
   if (error && peeks == null) {
     return (
       <LauncherHomeError
-        message={error}
+        message={shownError}
         onRetry={() => setRetryKey((value) => value + 1)}
       />
     );
@@ -238,7 +237,7 @@ export function DaosExplorePanel({
   }
 
   if (!peeks || peeks.length === 0) {
-    return <LauncherHomeEmpty>Nothing open right now.</LauncherHomeEmpty>;
+    return <LauncherHomeEmpty>{t('homeEmpty.nothingOpen')}</LauncherHomeEmpty>;
   }
 
   return (

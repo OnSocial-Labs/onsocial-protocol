@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { ProtocolMotionArrow } from '@onsocial/ui';
 import { EndorseToggle } from '@/components/ui/endorse-toggle';
 import { StandingToggle } from '@/components/ui/standing-toggle';
@@ -122,6 +123,7 @@ function PortfolioIdentityGesturesVisitor({
     useViewerStanding(pageAccountId);
   const { isEndorsePendingForTarget } = useViewerEndorsement(pageAccountId);
   const { isMuting } = useViewerMute();
+  const t = useTranslations('shell');
   const [supportOpen, setSupportOpen] = useState(false);
   const [endorseOpen, setEndorseOpen] = useState(false);
   const [messageOpen, setMessageOpen] = useState(false);
@@ -277,13 +279,13 @@ function PortfolioIdentityGesturesVisitor({
                 }}
                 aria-label={
                   viewerMuted
-                    ? `Unmute to message ${label}`
+                    ? t('face.unmuteToMessage', { name: label })
                     : blockEitherWay
-                      ? `Messaging unavailable for ${label}`
-                      : `Message ${label}`
+                      ? t('face.messageUnavailable', { name: label })
+                      : t('face.messageNamed', { name: label })
                 }
               >
-                Message
+                {t('face.message')}
               </button>
             </>
           ) : null}
@@ -329,6 +331,7 @@ function PortfolioIdentityLoggedOutMessage({
   PortfolioIdentityGesturesProps,
   'pageAccountId' | 'profileName' | 'mood'
 >) {
+  const t = useTranslations('shell');
   const [messageOpen, setMessageOpen] = useState(false);
 
   return (
@@ -337,9 +340,9 @@ function PortfolioIdentityLoggedOutMessage({
         type="button"
         className="portfolio-identity-gesture os-disabled-ink portfolio-identity-gesture--message group"
         onClick={() => setMessageOpen(true)}
-        aria-label="Message"
+        aria-label={t('face.message')}
       >
-        Message
+        {t('face.message')}
       </button>
       <DmComposeSheet
         open={messageOpen}

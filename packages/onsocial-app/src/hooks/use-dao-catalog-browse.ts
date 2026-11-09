@@ -14,7 +14,7 @@ import {
   type DaoCatalogEntry,
 } from '@/features/protocol/dao-catalog-client';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
-import { discoverDaosLead } from '@/lib/discover-tab-lead';
+import { useDiscoverDaosLead } from '@/features/discover/use-discover-leads';
 
 const PAGE_SIZE = 24;
 const SOFT_POLL_MS = 2800;
@@ -162,7 +162,7 @@ export function useDaoCatalogBrowse(opts: {
     onIntersect: loadMore,
   });
 
-  const statusLine = discoverDaosLead(total, activeQuery, syncing);
+  const statusLine = useDiscoverDaosLead(total, syncing);
 
   const retry = useCallback(() => {
     setError(null);

@@ -21,7 +21,8 @@ import {
   PROFILE_CRAFT_WRITE_IN,
   profileCraftDrawerValue,
 } from '@/lib/profile-craft-suggestions';
-import { profileIdentityTopicLabel } from '@/lib/profile-identity-topics';
+import { useTranslations } from 'next-intl';
+import { useCraftLabel, useTaxonomyChoices } from '@/lib/use-profile-taxonomy';
 import {
   PROFILE_EDITOR_MAX_TAG_LENGTH,
   PROFILE_EDITOR_MAX_TAGS,
@@ -46,6 +47,8 @@ export function ProfileTopicsEditor({
   disabled = false,
   variant = 'default',
 }: ProfileTopicsEditorProps) {
+  const t = useTranslations('shell');
+  const craftName = useCraftLabel();
   const writeFormId = useId();
   const writeInputRef = useRef<HTMLInputElement>(null);
   const scrollFieldIntoView = useMobileFieldFocusScroll();
@@ -54,9 +57,8 @@ export function ProfileTopicsEditor({
   const [writeDraft, setWriteDraft] = useState('');
   const [hint, setHint] = useState<ProfileEditorTagCommitHint | null>(null);
   const atMax = tags.length >= PROFILE_EDITOR_MAX_TAGS;
-  const options = useMemo(
-    () => buildProfileCraftEditorOptions(tags),
-    [tags]
+  const options = useTaxonomyChoices(
+    useMemo(() => buildProfileCraftEditorOptions(tags), [tags])
   );
   const masthead = variant === 'masthead';
 
@@ -102,10 +104,17 @@ export function ProfileTopicsEditor({
     }
   };
 
-  const triggerLabel =
+  const craftNames = tags.map(craftName).join(' · ');
+  const craftsAria =
     tags.length === 0
-      ? 'Choose crafts'
-      : tags.map(profileIdentityTopicLabel).join(' · ');
+      ? t('taxonomy.chooseCrafts')
+      : t('taxonomy.changeCrafts', { names: craftNames });
+  const hintText =
+    hint === 'Already added'
+      ? t('topicEditor.alreadyAdded')
+      : hint === 'Max 3 crafts'
+        ? t('taxonomy.maxCrafts')
+        : null;
 
   return (
     <div
@@ -121,15 +130,11 @@ export function ProfileTopicsEditor({
             disabled={disabled}
             aria-haspopup="dialog"
             aria-expanded={pickerOpen || writeOpen}
-            aria-label={
-              tags.length === 0
-                ? 'Choose crafts'
-                : `Crafts, ${triggerLabel}. Change crafts`
-            }
+            aria-label={craftsAria}
             onClick={openPicker}
           >
             {tags.length === 0 ? (
-              'Writer, designer…'
+              t('taxonomy.craftExamples')
             ) : (
               <span className="portfolio-topics account-editor-topics-list">
                 {tags.map((slug, index) => (
@@ -140,7 +145,7 @@ export function ProfileTopicsEditor({
                       </span>
                     ) : null}
                     <span className="portfolio-topics-label">
-                      {profileIdentityTopicLabel(slug)}
+                      {craftName(slug)}
                     </span>
                   </span>
                 ))}
@@ -159,12 +164,14 @@ export function ProfileTopicsEditor({
                       </span>
                     ) : null}
                     <span className="portfolio-topics-label">
-                      {profileIdentityTopicLabel(slug)}
+                      {craftName(slug)}
                     </span>
                     <button
                       type="button"
                       className="account-editor-topic-remove"
-                      aria-label={`Remove ${profileIdentityTopicLabel(slug)}`}
+                      aria-label={t('topicEditor.remove', {
+                        name: craftName(slug),
+                      })}
                       disabled={disabled}
                       onClick={() => {
                         onChange(removeProfileEditorTag(tags, slug));
@@ -188,29 +195,29 @@ export function ProfileTopicsEditor({
               disabled={disabled}
               aria-haspopup="dialog"
               aria-expanded={pickerOpen || writeOpen}
-              aria-label={
-                tags.length === 0
-                  ? 'Choose crafts'
-                  : `Crafts, ${triggerLabel}. Change crafts`
-              }
+              aria-label={craftsAria}
               onClick={openPicker}
             >
-              {tags.length === 0 ? 'Writer, designer…' : atMax ? 'Change' : 'Add'}
+              {tags.length === 0
+                ? t('taxonomy.craftExamples')
+                : atMax
+                  ? t('taxonomy.change')
+                  : t('taxonomy.add')}
             </button>
           </>
         )}
       </div>
-      {hint && !masthead ? (
+      {hintText && !masthead ? (
         <p className="account-editor-topics-hint" role="alert">
-          {hint}
+          {hintText}
         </p>
       ) : null}
 
       <ChoiceDrawer
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        label="Crafts"
-        copy="Up to 3. Tap again to remove."
+        label={t('taxonomy.sectionCrafts')}
+        copy={t('taxonomy.craftLimit')}
         value={profileCraftDrawerValue(tags)}
         options={options}
         onChange={handleChoice}
@@ -221,9 +228,9 @@ export function ProfileTopicsEditor({
       <OsHugSheet
         open={writeOpen}
         onClose={() => setWriteOpen(false)}
-        label="Your craft"
-        closeAriaLabel="Close craft"
-        backdropLabel="Close craft"
+        label={t('taxonomy.yourCraft')}
+        closeAriaLabel={t('taxonomy.closeCraft')}
+        backdropLabel={t('taxonomy.closeCraft')}
         zIndex={SHEET_Z.confirm}
         footer={
           <OsSheetFooter>
@@ -235,7 +242,7 @@ export function ProfileTopicsEditor({
                 disabled={disabled || writeDraft.trim().length === 0}
                 onClick={commitWriteIn}
               >
-                Add craft
+                {t('taxonomy.addCraft')}
               </OsSheetAction>
             </OsSheetActions>
           </OsSheetFooter>
@@ -243,7 +250,7 @@ export function ProfileTopicsEditor({
       >
         <div className="account-editor-org-meta-field">
           <label className="guild-field" htmlFor={`${writeFormId}-input`}>
-            <span>Craft</span>
+            <span>{t('discover.craft')}</span>
             <input
               ref={writeInputRef}
               id={`${writeFormId}-input`}
@@ -251,7 +258,7 @@ export function ProfileTopicsEditor({
               value={writeDraft}
               maxLength={PROFILE_EDITOR_MAX_TAG_LENGTH}
               autoComplete="organization-title"
-              placeholder="Photographer"
+              placeholder={t('taxonomy.craftPlaceholder')}
               disabled={disabled}
               onFocus={scrollFieldIntoView}
               onChange={(event) =>

@@ -10,6 +10,7 @@ import {
 } from 'next/font/google';
 import { ONSOCIAL_BRAND_TAGLINE } from '@onsocial/ui';
 import { AppProviders } from '@/components/providers/app-providers';
+import { LocaleInitScript } from '@/components/locale-init-script';
 import { ThemeInitScript } from '@/components/theme-init-script';
 import './globals.css';
 
@@ -28,6 +29,15 @@ const publicSans = Public_Sans({
   preload: true,
 });
 
+const publicSansPl = Public_Sans({
+  subsets: ['latin-ext'],
+  variable: '--font-public-sans-pl',
+  display: 'optional',
+  adjustFontFallback: true,
+  weight: 'variable',
+  preload: false,
+});
+
 const ibmPlexSans = IBM_Plex_Sans({
   subsets: ['latin'],
   variable: '--font-ibm-plex-sans',
@@ -36,11 +46,28 @@ const ibmPlexSans = IBM_Plex_Sans({
   weight: ['400', '500', '600', '700'],
 });
 
+const ibmPlexSansPl = IBM_Plex_Sans({
+  subsets: ['latin-ext'],
+  variable: '--font-ibm-plex-sans-pl',
+  display: 'optional',
+  adjustFontFallback: true,
+  weight: ['400', '500', '600', '700'],
+  preload: false,
+});
+
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
   variable: '--font-space-grotesk',
   display: 'optional',
   adjustFontFallback: true,
+});
+
+const spaceGroteskPl = Space_Grotesk({
+  subsets: ['latin-ext'],
+  variable: '--font-space-grotesk-pl',
+  display: 'optional',
+  adjustFontFallback: true,
+  preload: false,
 });
 
 const jetbrainsMono = JetBrains_Mono({
@@ -129,11 +156,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${publicSans.variable} ${ibmPlexSans.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} ${newsreader.variable} ${caveat.variable} ${ericaType.variable}`}
+      className={`${publicSans.variable} ${publicSansPl.variable} ${ibmPlexSans.variable} ${ibmPlexSansPl.variable} ${spaceGrotesk.variable} ${spaceGroteskPl.variable} ${jetbrainsMono.variable} ${newsreader.variable} ${caveat.variable} ${ericaType.variable}`}
       data-theme="dark"
       suppressHydrationWarning
     >
       <body className={publicSans.className} suppressHydrationWarning>
+        <LocaleInitScript />
         <ThemeInitScript />
         <AppProviders>{children}</AppProviders>
       </body>

@@ -10,6 +10,7 @@ import {
   MovingProposalPeekSection,
 } from '@/features/discover/discover-moving-peeks';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
+import { useTranslations } from 'next-intl';
 import type { DiscoverTab } from '@/features/discover/discover-tabs';
 import { homeHashtagPath } from '@/features/home/home-hashtag-search';
 import { homePlacePath, placeLabel } from '@/lib/post-place';
@@ -76,6 +77,7 @@ export function DiscoverTrendingPanel({
   initial?: DiscoverTrendingSeed | null;
 }) {
   const { query, viewerAccountId } = useDiscoverPanel();
+  const t = useTranslations('shell');
   const paintedSeed = isMovingLandingPainted(initial);
   const [board, setBoard] = useState<MovingBoard | null>(() =>
     paintedSeed ? movingBoardFromSeed(initial) : null
@@ -282,46 +284,54 @@ export function DiscoverTrendingPanel({
       aria-busy={anyLoading || undefined}
     >
       {anyLoading ? (
-        <p className="sr-only">Loading what&apos;s moving…</p>
+        <p className="sr-only">{t('discover.loadingMoving')}</p>
       ) : null}
 
       {empty ? (
         <div className="standing-panel-empty-state">
           <p className="standing-panel-empty-primary">
-            {filterNeedle ? 'No matches.' : 'Nothing moving yet.'}
+            {filterNeedle
+              ? t('discover.noMatches')
+              : t('discover.nothingMoving')}
           </p>
         </div>
       ) : null}
 
       <MovingPostPeekSection
-        heading="Hot posts"
+        heading={t('discover.hotPosts')}
         why="hot"
         rows={visiblePosts}
       />
       <MovingPostPeekSection
-        heading="Talked about"
+        heading={t('discover.talkedAbout')}
         why="talk"
         rows={visibleTalkedAbout}
       />
-      <MovingCoverPeekSection heading="Just sold" rows={visibleJustSold} />
+      <MovingCoverPeekSection
+        heading={t('discover.justSold')}
+        rows={visibleJustSold}
+      />
 
-      <MovingChipPeekSection heading="Mentioned" rows={visibleMentions} />
+      <MovingChipPeekSection
+        heading={t('discover.mentioned')}
+        rows={visibleMentions}
+      />
 
       <MovingFacePeekSection
-        heading="Active"
+        heading={t('discover.active')}
         rows={visibleProfiles}
         meta={postedMeta}
         onSeeAll={() => onOpenTab('profiles')}
       />
 
       <MovingHubPeekSection
-        heading="Hot hubs"
+        heading={t('discover.hotHubs')}
         rows={visibleHubs}
         onSeeAll={() => onOpenTab('hubs')}
       />
 
       <MovingProposalPeekSection
-        heading="New proposals"
+        heading={t('discover.newProposals')}
         rows={
           visibleProposals == null
             ? null
