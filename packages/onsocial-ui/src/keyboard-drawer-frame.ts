@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 
 const MOBILE_MAX_WIDTH_PX = 767;
