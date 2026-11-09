@@ -54,6 +54,7 @@ import {
 } from '@/features/protocol/dao-create-voice';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
+import { usePageKeyboardLift } from '@/hooks/use-page-keyboard-lift';
 import { useDaoPageCapability } from '@/hooks/use-dao-page-capability';
 import { bumpDaoWorkspacePrefetch } from '@/lib/dao-workspace-prefetch';
 import { prepareSquareOpaqueJpeg } from '@/lib/prepare-square-opaque-jpeg';
@@ -121,6 +122,7 @@ export function DaoEditSheet({
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const scrollFieldIntoView = useMobileFieldFocusScroll();
+  const { keyboardOpen, panelStyle } = usePageKeyboardLift(open);
   const { eligibility, isLoading: eligibilityLoading } = useDaoPageCapability(
     daoAccountId,
     true
@@ -619,7 +621,10 @@ export function DaoEditSheet({
         }
         closeDisabled={pending}
         zIndex={SHEET_Z.overShell}
-        className="hub-manage-slide"
+        className={`hub-manage-slide${
+          keyboardOpen ? ' is-keyboard-open is-page-keyboard' : ''
+        }`}
+        style={panelStyle}
         contentClassName="hub-manage-slide-body"
         footer={
           <div className="hub-manage-sheet-footer">

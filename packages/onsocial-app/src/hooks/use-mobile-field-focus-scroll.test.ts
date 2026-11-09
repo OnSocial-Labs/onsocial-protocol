@@ -286,6 +286,117 @@ describe('scrollMobileFieldIntoView', () => {
     });
   });
 
+  it('scrolls the page body so the field clears the keyboard chrome', () => {
+    const scrollIntoView = vi.fn();
+    let scrollTop = 0;
+    const scroller = {
+      get scrollTop() {
+        return scrollTop;
+      },
+      set scrollTop(value: number) {
+        scrollTop = value;
+      },
+      scrollHeight: 1400,
+      clientHeight: 500,
+      parentElement: null,
+      getBoundingClientRect: () => ({
+        top: 56,
+        bottom: 844,
+        left: 0,
+        right: 390,
+        width: 390,
+        height: 788,
+      }),
+    };
+    const field = {
+      tagName: 'INPUT',
+      isContentEditable: false,
+      parentElement: scroller,
+      closest: () => null,
+      getBoundingClientRect: () => ({
+        top: 700 - scrollTop,
+        bottom: 744 - scrollTop,
+      }),
+      scrollIntoView,
+    } as unknown as HTMLElement;
+
+    vi.stubGlobal('window', {
+      matchMedia: () => ({ matches: true }),
+      visualViewport: { offsetTop: 0, height: 524 },
+      getComputedStyle: () => ({ overflowY: 'auto' }),
+      requestAnimationFrame: (cb: FrameRequestCallback) => {
+        cb(0);
+        return 1;
+      },
+      setTimeout: (cb: () => void) => {
+        cb();
+        return 1 as unknown as ReturnType<typeof setTimeout>;
+      },
+    });
+
+    scrollMobileFieldIntoView(field);
+    // Visible bottom is the keyboard (524) minus 12, not the layout bottom.
+    expect(scrollTop).toBe(744 - (524 - 12));
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it('clears a lifted format bar that sits above the keyboard', () => {
+    let scrollTop = 0;
+    const footer = {
+      getBoundingClientRect: () => ({ top: 470, height: 54, bottom: 524 }),
+    };
+    const host = {
+      querySelector: () => footer,
+    };
+    const scroller = {
+      get scrollTop() {
+        return scrollTop;
+      },
+      set scrollTop(value: number) {
+        scrollTop = value;
+      },
+      scrollHeight: 1400,
+      clientHeight: 500,
+      parentElement: null,
+      getBoundingClientRect: () => ({
+        top: 56,
+        bottom: 844,
+        left: 0,
+        right: 390,
+        width: 390,
+        height: 788,
+      }),
+    };
+    const field = {
+      tagName: 'INPUT',
+      isContentEditable: false,
+      parentElement: scroller,
+      closest: () => host,
+      getBoundingClientRect: () => ({
+        top: 700 - scrollTop,
+        bottom: 744 - scrollTop,
+      }),
+      scrollIntoView: vi.fn(),
+    } as unknown as HTMLElement;
+
+    vi.stubGlobal('window', {
+      matchMedia: () => ({ matches: true }),
+      visualViewport: { offsetTop: 0, height: 524 },
+      getComputedStyle: () => ({ overflowY: 'auto' }),
+      requestAnimationFrame: (cb: FrameRequestCallback) => {
+        cb(0);
+        return 1;
+      },
+      setTimeout: (cb: () => void) => {
+        cb();
+        return 1 as unknown as ReturnType<typeof setTimeout>;
+      },
+    });
+
+    scrollMobileFieldIntoView(field);
+    expect(scrollTop).toBe(744 - (470 - 12));
+  });
+
   it('scrolls the drawer body and leaves the page still', () => {
     const scrollIntoView = vi.fn();
     const state = { scrollTop: 20 };
@@ -296,20 +407,27 @@ describe('scrollMobileFieldIntoView', () => {
       set scrollTop(value: number) {
         state.scrollTop = value;
       },
+      scrollHeight: 800,
+      clientHeight: 220,
+      parentElement: null,
       getBoundingClientRect: () => ({ top: 80, bottom: 300 }),
     };
     const field = {
+      tagName: 'INPUT',
+      isContentEditable: false,
+      parentElement: body,
+      closest: () => null,
       getBoundingClientRect: () => {
         const delta = state.scrollTop - 20;
         return { top: 340 - delta, bottom: 390 - delta };
       },
       scrollIntoView,
-      closest: (selector: string) =>
-        selector === '.glass-sheet-body' ? body : null,
     } as unknown as HTMLElement;
 
     vi.stubGlobal('window', {
       matchMedia: () => ({ matches: true }),
+      visualViewport: { offsetTop: 0, height: 800 },
+      getComputedStyle: () => ({ overflowY: 'auto' }),
       requestAnimationFrame: (cb: FrameRequestCallback) => {
         cb(0);
         return 1;

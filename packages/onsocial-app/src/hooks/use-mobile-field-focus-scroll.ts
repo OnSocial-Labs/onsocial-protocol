@@ -138,6 +138,62 @@ export function keepComposerCaretVisible(
   window.requestAnimationFrame(run);
 }
 
+/** Caret box when the focused node is a textarea or contenteditable. */
+function focusClientRect(element: HTMLElement): {
+  top: number;
+  bottom: number;
+} {
+  if (element.tagName === 'TEXTAREA') {
+    const fieldRect = element.getBoundingClientRect();
+    const caretTop = estimateTextareaCaretOffsetTop(
+      element as HTMLTextAreaElement
+    );
+    if (caretTop != null) {
+      const lineHeight =
+        parseFloat(window.getComputedStyle(element).lineHeight) || 22;
+      const top = fieldRect.top + (caretTop - element.scrollTop);
+      return { top, bottom: top + lineHeight };
+    }
+  }
+
+  if (element.isContentEditable && typeof window.getSelection === 'function') {
+    const selection = window.getSelection();
+    const node = selection?.anchorNode;
+    if (
+      selection &&
+      selection.rangeCount > 0 &&
+      node &&
+      element.contains(node)
+    ) {
+      const range = selection.getRangeAt(0);
+      const caret = range.getClientRects()[0] ?? range.getBoundingClientRect();
+      if (caret && caret.height > 0) {
+        return { top: caret.top, bottom: caret.bottom };
+      }
+    }
+  }
+
+  const rect = element.getBoundingClientRect();
+  return { top: rect.top, bottom: rect.bottom };
+}
+
+/**
+ * Top of the lifted Save / format bar, so the caret clears that chrome
+ * instead of the layout bottom sitting under the keyboard.
+ */
+function keyboardChromeTop(element: HTMLElement): number | null {
+  if (typeof element.closest !== 'function') return null;
+  const host = element.closest('.is-keyboard-open');
+  if (!host || typeof host.querySelector !== 'function') return null;
+  const footer = host.querySelector(
+    '.profile-edit-sheet-footer, .guild-edit-sheet-footer, .hub-manage-sheet-footer, .os-app-screen-footer, .os-sheet-footer'
+  );
+  if (!footer || !('getBoundingClientRect' in footer)) return null;
+  const rect = (footer as HTMLElement).getBoundingClientRect();
+  if (rect.height < 1) return null;
+  return rect.top;
+}
+
 export function scrollMobileFieldIntoView(element: HTMLElement | null) {
   if (!element || typeof window === 'undefined') {
     return;
@@ -148,23 +204,27 @@ export function scrollMobileFieldIntoView(element: HTMLElement | null) {
   }
 
   const run = () => {
-    const body =
-      typeof element.closest === 'function'
-        ? element.closest('.glass-sheet-body')
-        : null;
-    if (
-      body != null &&
-      'scrollTop' in body &&
-      typeof body.getBoundingClientRect === 'function'
-    ) {
-      const sheetBody = body as HTMLElement;
-      const bodyRect = sheetBody.getBoundingClientRect();
-      const fieldRect = element.getBoundingClientRect();
-      const pad = 12;
-      if (fieldRect.bottom > bodyRect.bottom - pad) {
-        sheetBody.scrollTop += fieldRect.bottom - (bodyRect.bottom - pad);
-      } else if (fieldRect.top < bodyRect.top + pad) {
-        sheetBody.scrollTop -= bodyRect.top + pad - fieldRect.top;
+    const rect = focusClientRect(element);
+    const scroller = nearestScrollContainer(element);
+    if (scroller) {
+      const scrollerRect = scroller.getBoundingClientRect();
+      const viewport = window.visualViewport;
+      const viewTop = viewport?.offsetTop ?? 0;
+      const viewBottom = viewport
+        ? viewport.offsetTop + viewport.height
+        : window.innerHeight;
+      const chromeTop = keyboardChromeTop(element);
+      const topLimit = Math.max(scrollerRect.top, viewTop) + 12;
+      let bottomLimit = Math.min(scrollerRect.bottom, viewBottom) - 12;
+      if (chromeTop != null) {
+        bottomLimit = Math.min(bottomLimit, chromeTop - 12);
+      }
+      if (rect.bottom > bottomLimit) {
+        scroller.scrollTop += rect.bottom - bottomLimit;
+        return;
+      }
+      if (rect.top < topLimit) {
+        scroller.scrollTop -= topLimit - rect.top;
       }
       return;
     }
@@ -175,7 +235,6 @@ export function scrollMobileFieldIntoView(element: HTMLElement | null) {
       return;
     }
 
-    const rect = element.getBoundingClientRect();
     const topInset = viewport.offsetTop + 72;
     const bottomInset = viewport.offsetTop + viewport.height - 96;
 

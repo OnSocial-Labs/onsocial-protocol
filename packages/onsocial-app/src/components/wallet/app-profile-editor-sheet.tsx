@@ -45,7 +45,11 @@ import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
 import { ProfileOrgMetaEditor } from '@/components/wallet/profile-org-meta-editor';
 import { ProfileOffersEditor } from '@/components/profile/profile-offers-editor';
 import type { ProfileAboutPhotoDraft } from '@/components/wallet/profile-about-photos-editor';
-import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
+import {
+  scrollMobileFieldIntoView,
+  useMobileFieldFocusScroll,
+} from '@/hooks/use-mobile-field-focus-scroll';
+import { usePageKeyboardLift } from '@/hooks/use-page-keyboard-lift';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import {
   useAppProfileEditor,
@@ -217,6 +221,7 @@ export function AppProfileEditorSheet({
   const titleId = useId();
   const { setTxResult } = useAppTransactionFeedback();
   const scrollFieldIntoView = useMobileFieldFocusScroll();
+  const { keyboardOpen, panelStyle } = usePageKeyboardLift(open);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
@@ -672,7 +677,11 @@ export function AppProfileEditorSheet({
   const formReady = Boolean(snapshot && seedKey === loadKey);
 
   const footer = (
-    <div className="profile-edit-sheet-footer">
+    <div
+      className={`profile-edit-sheet-footer${
+        keyboardOpen ? ' is-keyboard-open' : ''
+      }`}
+    >
       <OsSheetActions layout="stack" tone="frosted-primary" borderless>
         <OsSheetAction
           type={formReady ? 'submit' : 'button'}
@@ -701,7 +710,10 @@ export function AppProfileEditorSheet({
         backdropLabel="Close"
         moodId={viewerMoodId ?? undefined}
         moodStyle={viewerMoodStyle}
-        panelClassName="profile-edit-sheet-panel"
+        panelClassName={`profile-edit-sheet-panel${
+          keyboardOpen ? ' is-keyboard-open is-page-keyboard' : ''
+        }`}
+        panelStyle={panelStyle}
         bodyClassName="profile-edit-sheet-body"
         header={null}
         footer={footer}
@@ -722,407 +734,424 @@ export function AppProfileEditorSheet({
           }
           className="profile-edit-slide"
         >
-        <span id={titleId} className="sr-only">
-          Edit profile
-        </span>
-        {formReady ? (
-          <form
-            id={formId}
-            className="account-editor-form profile-edit-form"
-            onSubmit={(event) => void handleSubmit(event)}
-          >
-            <div className="account-editor-form-main profile-edit-form-main">
-              <section
-                className="account-editor-hero profile-edit-hero"
-                aria-label="Profile"
-              >
-                <div
-                  className={`account-editor-cover-stage${
-                    displayBannerMedia ? ' has-media' : ''
-                  }`}
+          <span id={titleId} className="sr-only">
+            Edit profile
+          </span>
+          {formReady ? (
+            <form
+              id={formId}
+              className="account-editor-form profile-edit-form"
+              onSubmit={(event) => void handleSubmit(event)}
+              onFocusCapture={(event) => {
+                const field = event.target;
+                if (
+                  field instanceof HTMLInputElement ||
+                  field instanceof HTMLTextAreaElement ||
+                  (field instanceof HTMLElement && field.isContentEditable)
+                ) {
+                  scrollMobileFieldIntoView(field);
+                }
+              }}
+            >
+              <div className="account-editor-form-main profile-edit-form-main">
+                <section
+                  className="account-editor-hero profile-edit-hero"
+                  aria-label="Profile"
                 >
-                  <div className="account-editor-banner-wrap">
-                    <div
-                      className={`account-editor-banner-button profile-editor-media-host${
-                        displayBannerMedia ? ' has-media' : ''
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        className="profile-editor-media-backdrop account-editor-banner-backdrop"
-                        onClick={openBannerPicker}
-                        aria-label={
-                          displayBannerMedia ? 'Change banner' : 'Add banner'
-                        }
+                  <div
+                    className={`account-editor-cover-stage${
+                      displayBannerMedia ? ' has-media' : ''
+                    }`}
+                  >
+                    <div className="account-editor-banner-wrap">
+                      <div
+                        className={`account-editor-banner-button profile-editor-media-host${
+                          displayBannerMedia ? ' has-media' : ''
+                        }`}
                       >
-                        {displayBannerMedia?.kind === 'video' ? (
-                          <video
-                            src={displayBannerMedia.url}
-                            poster={displayBannerMedia.poster}
-                            className="account-editor-banner-video"
-                            muted
-                            loop
-                            playsInline
-                            autoPlay
-                            aria-hidden
-                          />
-                        ) : displayBannerMedia ? (
-                          <IpfsImg
-                            src={displayBannerMedia.url}
-                            srcSet={bannerSrcSet}
-                            sizes={
-                              bannerSrcSet ? APP_COLUMN_HERO_SIZES : undefined
-                            }
-                            alt=""
-                            className="account-editor-banner-image"
-                          />
-                        ) : (
-                          <span
-                            className="account-editor-banner-empty"
-                            aria-hidden
-                          />
-                        )}
-                        <span
-                          className={`account-editor-banner-overlay${
-                            displayBannerMedia ? ' has-media' : ''
-                          }`}
-                          aria-hidden
-                        />
-                      </button>
-                      <ProfileEditorMediaToolbar
-                        layout="banner"
-                        removeLabel={
-                          displayBannerMedia ? 'Remove banner' : undefined
-                        }
-                        onRemove={
-                          displayBannerMedia ? handleRemoveBanner : undefined
-                        }
-                      />
-                      {displayBannerMedia ? null : (
-                        <p
-                          className="profile-editor-media-size-hint profile-editor-media-size-hint--dock"
-                          aria-hidden
+                        <button
+                          type="button"
+                          className="profile-editor-media-backdrop account-editor-banner-backdrop"
+                          onClick={openBannerPicker}
+                          aria-label={
+                            displayBannerMedia ? 'Change banner' : 'Add banner'
+                          }
                         >
-                          Photo or video
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="account-editor-hero-overlap">
-                    <div className="account-editor-identity">
-                      <div className="account-editor-avatar-wrap">
-                        <div
-                          className={`account-editor-avatar profile-editor-media-host profile-editor-media-host--avatar${
-                            displayAvatarUrl ? ' has-media' : ''
-                          }`}
-                          data-profile-kind={isDaoAccount ? 'dao' : kind}
-                          data-avatar-shape={profileAvatarShapeForFace(
-                            kind,
-                            isDaoAccount
-                          )}
-                        >
-                          <button
-                            type="button"
-                            className="profile-editor-media-backdrop account-editor-avatar-backdrop"
-                            onClick={() => avatarInputRef.current?.click()}
-                            aria-label={
-                              displayAvatarUrl ? 'Change photo' : 'Add photo'
-                            }
-                          >
-                            {displayAvatarUrl ? (
-                              <IpfsImg
-                                src={displayAvatarUrl}
-                                srcSet={avatarSrcSet}
-                                sizes={
-                                  avatarSrcSet ? EDITOR_MARK_SIZES : undefined
-                                }
-                                alt=""
-                                className="account-editor-avatar-image"
-                              />
-                            ) : (
-                              <span
-                                className="account-editor-avatar-fallback"
-                                aria-hidden
-                              >
-                                {avatarInitial}
-                              </span>
-                            )}
-                            <span
-                              className={`profile-editor-media-overlay account-editor-avatar-overlay${
-                                displayAvatarUrl ? ' has-media' : ''
-                              }`}
+                          {displayBannerMedia?.kind === 'video' ? (
+                            <video
+                              src={displayBannerMedia.url}
+                              poster={displayBannerMedia.poster}
+                              className="account-editor-banner-video"
+                              muted
+                              loop
+                              playsInline
+                              autoPlay
                               aria-hidden
                             />
-                          </button>
-                          <ProfileEditorMediaToolbar
-                            layout="avatar"
-                            removeLabel={
-                              displayAvatarUrl ? 'Remove photo' : undefined
-                            }
-                            onRemove={
-                              displayAvatarUrl ? handleRemoveAvatar : undefined
-                            }
+                          ) : displayBannerMedia ? (
+                            <IpfsImg
+                              src={displayBannerMedia.url}
+                              srcSet={bannerSrcSet}
+                              sizes={
+                                bannerSrcSet ? APP_COLUMN_HERO_SIZES : undefined
+                              }
+                              alt=""
+                              className="account-editor-banner-image"
+                            />
+                          ) : (
+                            <span
+                              className="account-editor-banner-empty"
+                              aria-hidden
+                            />
+                          )}
+                          <span
+                            className={`account-editor-banner-overlay${
+                              displayBannerMedia ? ' has-media' : ''
+                            }`}
+                            aria-hidden
                           />
-                        </div>
+                        </button>
+                        <ProfileEditorMediaToolbar
+                          layout="banner"
+                          removeLabel={
+                            displayBannerMedia ? 'Remove banner' : undefined
+                          }
+                          onRemove={
+                            displayBannerMedia ? handleRemoveBanner : undefined
+                          }
+                        />
+                        {displayBannerMedia ? null : (
+                          <p
+                            className="profile-editor-media-size-hint profile-editor-media-size-hint--dock"
+                            aria-hidden
+                          >
+                            Photo or video
+                          </p>
+                        )}
                       </div>
+                    </div>
 
-                      <div className="account-editor-identity-copy">
-                        <div className="account-editor-name-wrap">
+                    <div className="account-editor-hero-overlap">
+                      <div className="account-editor-identity">
+                        <div className="account-editor-avatar-wrap">
+                          <div
+                            className={`account-editor-avatar profile-editor-media-host profile-editor-media-host--avatar${
+                              displayAvatarUrl ? ' has-media' : ''
+                            }`}
+                            data-profile-kind={isDaoAccount ? 'dao' : kind}
+                            data-avatar-shape={profileAvatarShapeForFace(
+                              kind,
+                              isDaoAccount
+                            )}
+                          >
+                            <button
+                              type="button"
+                              className="profile-editor-media-backdrop account-editor-avatar-backdrop"
+                              onClick={() => avatarInputRef.current?.click()}
+                              aria-label={
+                                displayAvatarUrl ? 'Change photo' : 'Add photo'
+                              }
+                            >
+                              {displayAvatarUrl ? (
+                                <IpfsImg
+                                  src={displayAvatarUrl}
+                                  srcSet={avatarSrcSet}
+                                  sizes={
+                                    avatarSrcSet ? EDITOR_MARK_SIZES : undefined
+                                  }
+                                  alt=""
+                                  className="account-editor-avatar-image"
+                                />
+                              ) : (
+                                <span
+                                  className="account-editor-avatar-fallback"
+                                  aria-hidden
+                                >
+                                  {avatarInitial}
+                                </span>
+                              )}
+                              <span
+                                className={`profile-editor-media-overlay account-editor-avatar-overlay${
+                                  displayAvatarUrl ? ' has-media' : ''
+                                }`}
+                                aria-hidden
+                              />
+                            </button>
+                            <ProfileEditorMediaToolbar
+                              layout="avatar"
+                              removeLabel={
+                                displayAvatarUrl ? 'Remove photo' : undefined
+                              }
+                              onRemove={
+                                displayAvatarUrl
+                                  ? handleRemoveAvatar
+                                  : undefined
+                              }
+                            />
+                          </div>
+                        </div>
+
+                        <div className="account-editor-identity-copy">
+                          <div className="account-editor-name-wrap">
+                            <label
+                              htmlFor="profile-editor-name"
+                              className="sr-only"
+                            >
+                              Display name
+                            </label>
+                            <input
+                              ref={nameInputRef}
+                              id="profile-editor-name"
+                              className="account-editor-name"
+                              value={name}
+                              maxLength={PROFILE_NAME_MAX}
+                              autoComplete="name"
+                              placeholder={handleLabel}
+                              aria-required="true"
+                              disabled={saving}
+                              onFocus={scrollFieldIntoView}
+                              onChange={(event) => setName(event.target.value)}
+                              onBlur={() => {
+                                const next = normalizeProfileEditorName(name);
+                                if (next !== name) setName(next);
+                              }}
+                            />
+                          </div>
+                          <p className="profile-handle account-editor-handle">
+                            @{handleLabel}
+                          </p>
+                          {isDaoAccount ? null : (
+                            <div
+                              className="account-editor-kind"
+                              role="radiogroup"
+                              aria-label="Account type"
+                            >
+                              {PROFILE_FACE_KIND_OPTIONS.map((option) => (
+                                <button
+                                  key={option.value}
+                                  type="button"
+                                  role="radio"
+                                  aria-checked={kind === option.value}
+                                  className={`os-surface-chip${
+                                    kind === option.value ? ' is-selected' : ''
+                                  }`}
+                                  disabled={saving}
+                                  onClick={() => {
+                                    setKind(option.value);
+                                  }}
+                                >
+                                  {option.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {(isDaoAccount || kind === 'org') &&
+                          snapshot?.accountId ? (
+                            <ProfileOrgMetaEditor
+                              accountId={snapshot.accountId}
+                              industry={industry}
+                              onIndustryChange={setIndustry}
+                              location={location}
+                              onLocationChange={setLocation}
+                              disabled={saving}
+                              showHiring={!isDaoAccount}
+                              emptyIndustryLabel={
+                                isDaoAccount ? 'Industry' : 'Organization'
+                              }
+                              industryHint={
+                                isDaoAccount
+                                  ? 'Optional. Shown on the face, not in Orgs.'
+                                  : 'Optional. Skip to stay Organization.'
+                              }
+                            />
+                          ) : (
+                            <div className="account-editor-location-row">
+                              <label
+                                className="account-editor-location-field"
+                                htmlFor="profile-editor-location"
+                              >
+                                <span className="sr-only">Location</span>
+                                <PortfolioLocationMark />
+                                <input
+                                  id="profile-editor-location"
+                                  className="account-editor-location"
+                                  value={location}
+                                  maxLength={PROFILE_LOCATION_MAX}
+                                  autoComplete="address-level2"
+                                  placeholder="Based in"
+                                  disabled={saving}
+                                  onFocus={scrollFieldIntoView}
+                                  onChange={(event) =>
+                                    setLocation(
+                                      sanitizeProfileLocationDraft(
+                                        event.target.value
+                                      )
+                                    )
+                                  }
+                                  onBlur={() => {
+                                    const next =
+                                      normalizeProfileLocationInput(location);
+                                    if (next !== location) setLocation(next);
+                                  }}
+                                />
+                              </label>
+                              {!isDaoAccount &&
+                              kind === 'person' &&
+                              snapshot?.accountId ? (
+                                <ProfileOffersEditor
+                                  accountId={snapshot.accountId}
+                                  kind="person"
+                                  disabled={saving}
+                                  inline
+                                />
+                              ) : null}
+                            </div>
+                          )}
                           <label
-                            htmlFor="profile-editor-name"
+                            htmlFor="profile-editor-bio"
                             className="sr-only"
                           >
-                            Display name
+                            Bio
                           </label>
-                          <input
-                            ref={nameInputRef}
-                            id="profile-editor-name"
-                            className="account-editor-name"
-                            value={name}
-                            maxLength={PROFILE_NAME_MAX}
-                            autoComplete="name"
-                            placeholder={handleLabel}
-                            aria-required="true"
-                            disabled={saving}
+                          <ProfileFaceBioField
+                            textareaRef={bioRef}
+                            id="profile-editor-bio"
+                            value={faceBio}
+                            maxLength={FACE_BIO_WRAP_CHARS}
+                            placeholder="Bio"
                             onFocus={scrollFieldIntoView}
-                            onChange={(event) => setName(event.target.value)}
+                            onChange={handleFaceBioChange}
                             onBlur={() => {
-                              const next = normalizeProfileEditorName(name);
-                              if (next !== name) setName(next);
+                              const cleaned = faceBio.replace(/[ \t]+$/gm, '');
+                              if (cleaned !== faceBio) setFaceBio(cleaned);
                             }}
                           />
-                        </div>
-                        <p className="profile-handle account-editor-handle">
-                          @{handleLabel}
-                        </p>
-                        {isDaoAccount ? null : (
-                          <div
-                            className="account-editor-kind"
-                            role="radiogroup"
-                            aria-label="Account type"
-                          >
-                            {PROFILE_FACE_KIND_OPTIONS.map((option) => (
-                              <button
-                                key={option.value}
-                                type="button"
-                                role="radio"
-                                aria-checked={kind === option.value}
-                                className={`os-surface-chip${
-                                  kind === option.value ? ' is-selected' : ''
-                                }`}
-                                disabled={saving}
-                                onClick={() => {
-                                  setKind(option.value);
-                                }}
-                              >
-                                {option.label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                        {(isDaoAccount || kind === 'org') &&
-                        snapshot?.accountId ? (
-                          <ProfileOrgMetaEditor
-                            accountId={snapshot.accountId}
-                            industry={industry}
-                            onIndustryChange={setIndustry}
-                            location={location}
-                            onLocationChange={setLocation}
-                            disabled={saving}
-                            showHiring={!isDaoAccount}
-                            emptyIndustryLabel={
-                              isDaoAccount ? 'Industry' : 'Organization'
-                            }
-                            industryHint={
-                              isDaoAccount
-                                ? 'Optional. Shown on the face, not in Orgs.'
-                                : 'Optional. Skip to stay Organization.'
-                            }
-                          />
-                        ) : (
-                          <div className="account-editor-location-row">
-                            <label
-                              className="account-editor-location-field"
-                              htmlFor="profile-editor-location"
+                          {nameNearLimit || faceNearLimit ? (
+                            <p
+                              className="account-editor-limits is-near-limit"
+                              aria-live="polite"
                             >
-                              <span className="sr-only">Location</span>
-                              <PortfolioLocationMark />
-                              <input
-                                id="profile-editor-location"
-                                className="account-editor-location"
-                                value={location}
-                                maxLength={PROFILE_LOCATION_MAX}
-                                autoComplete="address-level2"
-                                placeholder="Based in"
-                                disabled={saving}
-                                onFocus={scrollFieldIntoView}
-                                onChange={(event) =>
-                                  setLocation(
-                                    sanitizeProfileLocationDraft(
-                                      event.target.value
-                                    )
-                                  )
-                                }
-                                onBlur={() => {
-                                  const next =
-                                    normalizeProfileLocationInput(location);
-                                  if (next !== location) setLocation(next);
-                                }}
-                              />
-                            </label>
-                            {!isDaoAccount &&
-                            kind === 'person' &&
-                            snapshot?.accountId ? (
-                              <ProfileOffersEditor
-                                accountId={snapshot.accountId}
-                                kind="person"
-                                disabled={saving}
-                                inline
-                              />
-                            ) : null}
-                          </div>
-                        )}
-                        <label htmlFor="profile-editor-bio" className="sr-only">
-                          Bio
-                        </label>
-                        <ProfileFaceBioField
-                          textareaRef={bioRef}
-                          id="profile-editor-bio"
-                          value={faceBio}
-                          maxLength={FACE_BIO_WRAP_CHARS}
-                          placeholder="Bio"
-                          onFocus={scrollFieldIntoView}
-                          onChange={handleFaceBioChange}
-                          onBlur={() => {
-                            const cleaned = faceBio.replace(/[ \t]+$/gm, '');
-                            if (cleaned !== faceBio) setFaceBio(cleaned);
-                          }}
-                        />
-                        {nameNearLimit || faceNearLimit ? (
-                          <p
-                            className="account-editor-limits is-near-limit"
-                            aria-live="polite"
-                          >
-                            {nameNearLimit ? (
-                              <span>
-                                {name.length}/{PROFILE_NAME_MAX}
-                              </span>
-                            ) : null}
-                            {nameNearLimit && faceNearLimit ? (
-                              <span
-                                className="account-editor-limits-sep"
-                                aria-hidden
-                              >
-                                ·
-                              </span>
-                            ) : null}
-                            {faceNearLimit ? (
-                              <span>
-                                {faceBioLen}/{FACE_BIO_WRAP_CHARS}
-                              </span>
-                            ) : null}
-                          </p>
-                        ) : null}
+                              {nameNearLimit ? (
+                                <span>
+                                  {name.length}/{PROFILE_NAME_MAX}
+                                </span>
+                              ) : null}
+                              {nameNearLimit && faceNearLimit ? (
+                                <span
+                                  className="account-editor-limits-sep"
+                                  aria-hidden
+                                >
+                                  ·
+                                </span>
+                              ) : null}
+                              {faceNearLimit ? (
+                                <span>
+                                  {faceBioLen}/{FACE_BIO_WRAP_CHARS}
+                                </span>
+                              ) : null}
+                            </p>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </section>
+                </section>
 
-              <div className="account-editor-form-body">
-                <ProfileLinksEditor
-                  links={links}
-                  notes={linkNotes}
-                  fieldErrors={linkFieldErrors}
-                  omitWebsite={!isDaoAccount}
-                  websites={isDaoAccount ? undefined : websites}
-                  websiteErrors={websiteErrors}
-                  canAddWebsite={
-                    !isDaoAccount && websites.length < PORTFOLIO_WEBSITE_LIMIT
-                  }
-                  onSaveWebsite={isDaoAccount ? undefined : saveWebsite}
-                  onRemoveWebsite={isDaoAccount ? undefined : removeWebsite}
-                  onUpdateLink={updateLink}
-                  onUpdateNote={updateNote}
-                  onClearFieldError={clearLinkFieldError}
-                  onSetFieldError={setLinkFieldError}
-                />
-                <button
-                  type="button"
-                  className="account-editor-about-trigger"
-                  disabled={saving}
-                  aria-haspopup="dialog"
-                  aria-expanded={aboutOpen}
-                  onClick={() => setAboutOpen(true)}
-                >
-                  <span className="account-editor-about-trigger-label">
-                    About
-                  </span>
-                  <span className="account-editor-about-trigger-meta">
-                    {profileAboutHasMoreThanFace({
-                      aboutText: aboutBio,
-                      leadText: lead,
-                      photoCount: photos.length,
-                      tagCount:
-                        !isDaoAccount && kind === 'person' ? tags.length : 0,
-                    })
-                      ? [
-                          lead.trim() ? 'Lead' : null,
-                          !isDaoAccount && kind === 'person' && tags.length > 0
-                            ? `${tags.length} craft${tags.length === 1 ? '' : 's'}`
-                            : null,
-                          photos.length > 0
-                            ? `${photos.length} photo${photos.length === 1 ? '' : 's'}`
-                            : null,
-                          aboutBio.trim() ? 'More bio' : null,
-                        ]
-                          .filter(Boolean)
-                          .join(' · ') ||
-                        (!isDaoAccount && kind === 'person'
+                <div className="account-editor-form-body">
+                  <ProfileLinksEditor
+                    links={links}
+                    notes={linkNotes}
+                    fieldErrors={linkFieldErrors}
+                    omitWebsite={!isDaoAccount}
+                    websites={isDaoAccount ? undefined : websites}
+                    websiteErrors={websiteErrors}
+                    canAddWebsite={
+                      !isDaoAccount && websites.length < PORTFOLIO_WEBSITE_LIMIT
+                    }
+                    onSaveWebsite={isDaoAccount ? undefined : saveWebsite}
+                    onRemoveWebsite={isDaoAccount ? undefined : removeWebsite}
+                    onUpdateLink={updateLink}
+                    onUpdateNote={updateNote}
+                    onClearFieldError={clearLinkFieldError}
+                    onSetFieldError={setLinkFieldError}
+                  />
+                  <button
+                    type="button"
+                    className="account-editor-about-trigger"
+                    disabled={saving}
+                    aria-haspopup="dialog"
+                    aria-expanded={aboutOpen}
+                    onClick={() => setAboutOpen(true)}
+                  >
+                    <span className="account-editor-about-trigger-label">
+                      About
+                    </span>
+                    <span className="account-editor-about-trigger-meta">
+                      {profileAboutHasMoreThanFace({
+                        aboutText: aboutBio,
+                        leadText: lead,
+                        photoCount: photos.length,
+                        tagCount:
+                          !isDaoAccount && kind === 'person' ? tags.length : 0,
+                      })
+                        ? [
+                            lead.trim() ? 'Lead' : null,
+                            !isDaoAccount &&
+                            kind === 'person' &&
+                            tags.length > 0
+                              ? `${tags.length} craft${tags.length === 1 ? '' : 's'}`
+                              : null,
+                            photos.length > 0
+                              ? `${photos.length} photo${photos.length === 1 ? '' : 's'}`
+                              : null,
+                            aboutBio.trim() ? 'More bio' : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ') ||
+                          (!isDaoAccount && kind === 'person'
+                            ? 'Lead, crafts, photos, more'
+                            : 'Lead, photos, more')
+                        : !isDaoAccount && kind === 'person'
                           ? 'Lead, crafts, photos, more'
-                          : 'Lead, photos, more')
-                      : !isDaoAccount && kind === 'person'
-                        ? 'Lead, crafts, photos, more'
-                        : 'Lead, photos, more'}
-                  </span>
-                </button>
+                          : 'Lead, photos, more'}
+                    </span>
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <input
-              ref={avatarInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
-              className="account-editor-file-input"
-              onChange={(event) => {
-                const file = event.target.files?.[0] ?? null;
-                setAvatarFile(file);
-                if (file) setAvatarRemoved(false);
-                event.target.value = '';
-              }}
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                className="account-editor-file-input"
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  setAvatarFile(file);
+                  if (file) setAvatarRemoved(false);
+                  event.target.value = '';
+                }}
+              />
+              <input
+                ref={bannerInputRef}
+                type="file"
+                accept={PROFILE_BANNER_ACCEPT}
+                className="account-editor-file-input"
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  setBannerFile(file);
+                  if (file) setBannerRemoved(false);
+                  event.target.value = '';
+                }}
+              />
+            </form>
+          ) : loading || !loadError ? (
+            <ProfileEditorLoadingSkeleton />
+          ) : (
+            <ProfileEditorLoadError
+              message={loadError}
+              onRetry={() => void loadProfile()}
             />
-            <input
-              ref={bannerInputRef}
-              type="file"
-              accept={PROFILE_BANNER_ACCEPT}
-              className="account-editor-file-input"
-              onChange={(event) => {
-                const file = event.target.files?.[0] ?? null;
-                setBannerFile(file);
-                if (file) setBannerRemoved(false);
-                event.target.value = '';
-              }}
-            />
-          </form>
-        ) : loading || !loadError ? (
-          <ProfileEditorLoadingSkeleton />
-        ) : (
-          <ProfileEditorLoadError
-            message={loadError}
-            onRetry={() => void loadProfile()}
-          />
-        )}
+          )}
         </OsAppScreen>
       </OsPageSheet>
       <DiscardConfirmSheet

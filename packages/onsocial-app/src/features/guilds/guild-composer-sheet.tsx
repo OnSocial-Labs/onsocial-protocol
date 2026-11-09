@@ -35,7 +35,6 @@ import {
   PlusCircleIcon,
   StarsCFillIcon,
   StarsCIcon,
-  keyboardSheetMargin,
   osFieldBorderedClassName,
 } from '@onsocial/ui';
 import { ChoiceDrawerMenu, type ChoiceOption } from '@onsocial/ui';
@@ -522,9 +521,11 @@ export function ComposerSheet({
     useState<HTMLDivElement | null>(null);
   const viewport = useVisualViewportSheetMetrics(open);
   const keyboardOpen = viewport.isMobile && viewport.lift > 0;
-  const footerStyle = useMemo((): CSSProperties | undefined => {
+  const keyboardStyle = useMemo((): CSSProperties | undefined => {
     if (!keyboardOpen) return undefined;
-    return { marginBottom: keyboardSheetMargin(viewport.lift) };
+    return {
+      ['--os-keyboard-lift' as string]: `${viewport.lift}px`,
+    } as CSSProperties;
   }, [keyboardOpen, viewport.lift]);
   const postingAsDao = authorTargets?.mode === 'dao';
   const threadBeats = composerBeatsForThread(beats);
@@ -1324,7 +1325,6 @@ export function ComposerSheet({
       className={`guild-composer-sheet-footer${
         keyboardOpen ? ' is-keyboard-open' : ''
       }`}
-      style={footerStyle}
     >
       <div className="guild-composer-toolbar">
         <div
@@ -1553,7 +1553,10 @@ export function ComposerSheet({
         backdropLabel="Close composer"
         moodId={viewerMoodId ?? undefined}
         moodStyle={viewerMoodStyle}
-        panelClassName="guild-composer-sheet-panel"
+        panelStyle={keyboardStyle}
+        panelClassName={`guild-composer-sheet-panel${
+          keyboardOpen ? ' is-keyboard-open' : ''
+        }`}
         bodyClassName="guild-composer-sheet-body"
         header={null}
         footer={composerFooter}
