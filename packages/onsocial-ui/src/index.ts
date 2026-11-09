@@ -298,6 +298,11 @@ export {
 } from './choice-drawer.js';
 export { OsSheetFooter, osSheetFooterClassName } from './os-sheet-footer.js';
 export {
+  keyboardDrawerFrameStyle,
+  useKeyboardDrawerFrame,
+  type KeyboardDrawerMetrics,
+} from './keyboard-drawer-frame.js';
+export {
   ActionDrawer,
   osActionDrawerConfirmBodyClassName,
   osActionDrawerConfirmCancelClassName,

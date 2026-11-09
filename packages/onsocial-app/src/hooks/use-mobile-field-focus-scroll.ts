@@ -15,7 +15,9 @@ export function nearestScrollContainer(
     const style = window.getComputedStyle(node);
     const overflowY = style.overflowY;
     if (
-      (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') &&
+      (overflowY === 'auto' ||
+        overflowY === 'scroll' ||
+        overflowY === 'overlay') &&
       node.scrollHeight > node.clientHeight + 1
     ) {
       return node;
@@ -146,6 +148,27 @@ export function scrollMobileFieldIntoView(element: HTMLElement | null) {
   }
 
   const run = () => {
+    const body =
+      typeof element.closest === 'function'
+        ? element.closest('.glass-sheet-body')
+        : null;
+    if (
+      body != null &&
+      'scrollTop' in body &&
+      typeof body.getBoundingClientRect === 'function'
+    ) {
+      const sheetBody = body as HTMLElement;
+      const bodyRect = sheetBody.getBoundingClientRect();
+      const fieldRect = element.getBoundingClientRect();
+      const pad = 12;
+      if (fieldRect.bottom > bodyRect.bottom - pad) {
+        sheetBody.scrollTop += fieldRect.bottom - (bodyRect.bottom - pad);
+      } else if (fieldRect.top < bodyRect.top + pad) {
+        sheetBody.scrollTop -= bodyRect.top + pad - fieldRect.top;
+      }
+      return;
+    }
+
     const viewport = window.visualViewport;
     if (!viewport) {
       element.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -185,9 +208,9 @@ export function focusComposerField(
  * focus — that steals from article body, poll options, and place. Only muted
  * beat clicks (no focused child) should force the primary field.
  */
-export function shouldForceComposerPrimaryFocus(
-  options?: { focusPrimary?: boolean }
-): boolean {
+export function shouldForceComposerPrimaryFocus(options?: {
+  focusPrimary?: boolean;
+}): boolean {
   return Boolean(options?.focusPrimary);
 }
 

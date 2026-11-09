@@ -286,6 +286,45 @@ describe('scrollMobileFieldIntoView', () => {
     });
   });
 
+  it('scrolls the drawer body and leaves the page still', () => {
+    const scrollIntoView = vi.fn();
+    const state = { scrollTop: 20 };
+    const body = {
+      get scrollTop() {
+        return state.scrollTop;
+      },
+      set scrollTop(value: number) {
+        state.scrollTop = value;
+      },
+      getBoundingClientRect: () => ({ top: 80, bottom: 300 }),
+    };
+    const field = {
+      getBoundingClientRect: () => {
+        const delta = state.scrollTop - 20;
+        return { top: 340 - delta, bottom: 390 - delta };
+      },
+      scrollIntoView,
+      closest: (selector: string) =>
+        selector === '.glass-sheet-body' ? body : null,
+    } as unknown as HTMLElement;
+
+    vi.stubGlobal('window', {
+      matchMedia: () => ({ matches: true }),
+      requestAnimationFrame: (cb: FrameRequestCallback) => {
+        cb(0);
+        return 1;
+      },
+      setTimeout: (cb: () => void) => {
+        cb();
+        return 1 as unknown as ReturnType<typeof setTimeout>;
+      },
+    });
+
+    scrollMobileFieldIntoView(field);
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    expect(state.scrollTop).toBe(20 + (390 - (300 - 12)));
+  });
+
   it('does not scroll on desktop', () => {
     const scrollIntoView = vi.fn();
     const field = {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, type CSSProperties } from 'react';
+import { keyboardDrawerFrameStyle } from '@onsocial/ui';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import {
   useVisualViewportSheetMetrics,
@@ -11,25 +12,15 @@ import {
 export const COMMERCE_SHEET_MAX_HEIGHT_PX = 736;
 
 /**
- * Lift/clamp GlassSheet panels above the mobile keyboard (composer pattern),
- * while keeping content-sized height when the keyboard is closed.
- * Open height is the visual viewport, so the sheet top sits on the screen
- * edge and does not climb past it. Header and footer stay put; the body
- * between them is the only scroller.
+ * Same frame as every other phone drawer (`keyboardDrawerFrameStyle`).
+ * Bottom sits on the keys. Top stops at the screen edge. A short drawer
+ * stays short; a tall one hugs the edge and scrolls the body.
  */
 export function commerceSheetKeyboardPanelStyle(
   viewport: VisualViewportSheetMetrics,
   maxHeightPx: number = COMMERCE_SHEET_MAX_HEIGHT_PX
 ): CSSProperties | undefined {
-  if (!viewport.isMobile || viewport.height <= 0 || viewport.lift <= 0) {
-    return undefined;
-  }
-  const height = Math.min(viewport.height, maxHeightPx);
-  return {
-    height: `${height}px`,
-    maxHeight: `${height}px`,
-    marginBottom: `calc(${viewport.lift}px - env(safe-area-inset-bottom, 0px))`,
-  };
+  return keyboardDrawerFrameStyle(viewport, maxHeightPx);
 }
 
 /**

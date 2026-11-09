@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, type CSSProperties, type ReactNode } from 'react';
+import { useId, useMemo, type CSSProperties, type ReactNode } from 'react';
 import {
   GlassSheet,
   SheetHeader,
@@ -8,6 +8,7 @@ import {
   type GlassSheetPresentation,
   type GlassSheetSizing,
 } from './glass-sheet.js';
+import { useKeyboardDrawerFrame } from './keyboard-drawer-frame.js';
 import type { SheetStackRole } from './sheet-motion.js';
 import {
   osChoiceSheetBodyClassName,
@@ -156,6 +157,11 @@ export function OsHugSheet({
   const closeLabel = closeAriaLabel ?? `Close ${label.toLowerCase()}`;
   const heading = resolveHugSheetHeader({ chrome, label, title, copy });
   const stack = stackProp ?? (chrome === 'choice' ? 'overlay' : 'auto');
+  const keyboard = useKeyboardDrawerFrame(open);
+  const mergedPanelStyle = useMemo(() => {
+    if (!panelStyle && !keyboard.style) return undefined;
+    return { ...panelStyle, ...keyboard.style };
+  }, [keyboard.style, panelStyle]);
 
   useScrollLock(open);
 
@@ -182,6 +188,7 @@ export function OsHugSheet({
         : { presentation })}
       panelClassName={cn(
         chrome === 'choice' && osChoiceSheetPanelClassName,
+        keyboard.keyboardOpen && 'is-keyboard-open',
         panelClassName
       )}
       bodyClassName={cn(
@@ -189,7 +196,7 @@ export function OsHugSheet({
         chrome === 'choice' && osChoiceSheetBodyClassName,
         bodyClassName
       )}
-      {...(panelStyle ? { panelStyle } : {})}
+      {...(mergedPanelStyle ? { panelStyle: mergedPanelStyle } : {})}
       header={
         <>
           <SheetHeader
