@@ -46103,9 +46103,9 @@ button.messages-bubble-quote:focus-visible {
 
 /*
  * Engagement glyphs. Unlayered so this beats mage-stroke-icons.css.
- * At rest the stroke is the same ink as the count beside it (fg at 0.5),
- * painted opaque and faded so joins do not stack. Hover and yours keep
- * the existing accent (reply blue, repost green, heart red, amplify amber).
+ * A count uses fg at 0.5. With no one on that action yet, the glyph steps
+ * toward the thread rail (0.12) and stops at the quiet glyph weight 0.28.
+ * Hover and yours keep reply blue, repost green, heart red, amplify amber.
  */
 .post-card-stat > .mage-stroke-icon,
 .post-card-stat > svg,
@@ -46119,6 +46119,28 @@ button.messages-bubble-quote:focus-visible {
 .post-card-react-heart > svg {
   color: rgb(var(--fg-rgb));
   opacity: 0.5;
+}
+
+/* Empty reply / repost / heart / amplify — quieter than the count ink. */
+.post-card-stat:not(:hover):not(:focus-visible):not(.is-active):has(
+    > .post-card-count-slot:not(.is-visible)
+  )
+  > .mage-stroke-icon,
+.post-card-stat:not(:hover):not(:focus-visible):not(.is-active):has(
+    > .post-card-count-slot:not(.is-visible)
+  )
+  > svg,
+.post-card-react:not(:hover):not(:focus-visible):not(.is-active):has(
+    .post-card-like-count.is-idle
+  )
+  .post-card-react-heart:not(:hover):not(:focus-visible)
+  > .mage-stroke-icon,
+.post-card-react:not(:hover):not(:focus-visible):not(.is-active):has(
+    .post-card-like-count.is-idle
+  )
+  .post-card-react-heart:not(:hover):not(:focus-visible)
+  > svg {
+  opacity: 0.28;
 }
 
 .post-card-share:hover > .mage-stroke-icon,
