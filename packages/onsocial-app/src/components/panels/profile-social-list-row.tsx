@@ -291,7 +291,10 @@ export function ProfileSocialListRow({
   isPending?: boolean;
   viewerRelationshipLoading?: boolean;
   onUpdateStanding?: (shouldStand: boolean) => void;
-  /** Offers and Hiring replace the bio with the offer or role. */
+  /**
+   * Offers / Hiring directory faces: face line replaces bio, and the aside
+   * is See offers / See hiring only — no Standing toggle or standing-age chip.
+   */
   directoryLine?: 'offers' | 'hiring';
   /**
    * Stamp in the shared aside. When set, it replaces the standing-since time
@@ -300,6 +303,7 @@ export function ProfileSocialListRow({
   asideTime?: { label: string; description: string } | null;
 }) {
   const ledger = density === 'ledger';
+  const isDirectoryFace = Boolean(directoryLine);
 
   if (!isProfileListAccountDisplayReady(account)) {
     return (
@@ -347,9 +351,15 @@ export function ProfileSocialListRow({
   const timeMeta =
     asideTime !== undefined
       ? asideTime
-      : isResolvingViewerRelationship
+      : isDirectoryFace || isResolvingViewerRelationship
         ? null
         : resolveStandingTimeMeta(account, standingTimeMode);
+  const showStandingAction =
+    !isDirectoryFace &&
+    !isResolvingViewerRelationship &&
+    Boolean(canUpdateStanding && onUpdateStanding);
+  const showStandingAsideShimmer =
+    !isDirectoryFace && isResolvingViewerRelationship;
   const showRelationshipSignals =
     ledger &&
     (sharedSolidarity ||
@@ -467,7 +477,8 @@ export function ProfileSocialListRow({
       <div
         className={`standing-row-aside${
           !timeMeta &&
-          !(canUpdateStanding && onUpdateStanding) &&
+          !showStandingAction &&
+          !showStandingAsideShimmer &&
           !showDirectoryActions
             ? ' is-empty'
             : ''
@@ -481,12 +492,12 @@ export function ProfileSocialListRow({
             {timeMeta.label}
           </span>
         ) : null}
-        {isResolvingViewerRelationship ? (
+        {showStandingAsideShimmer ? (
           <span
             className="standing-row-shimmer standing-row-shimmer-pill"
             aria-hidden
           />
-        ) : canUpdateStanding && onUpdateStanding ? (
+        ) : showStandingAction && onUpdateStanding ? (
           <button
             type="button"
             className={`standing-action os-disabled-ink group${viewerStandsWithAccount ? ' is-standing' : ''}`}

@@ -100,7 +100,7 @@ function StatusRow({
         </div>
       </div>
       <span
-        className={`shrink-0 text-xs font-medium tabular-nums ${wordColor(status)}`}
+        className={`shrink-0 text-xs font-medium ${wordColor(status)}`}
       >
         {label}
       </span>
@@ -261,7 +261,7 @@ export function SystemStatus() {
                     </div>
                     <span
                       key={live.rpc.ms ?? live.rpc.status}
-                      className={`portal-live-ms shrink-0 text-xs font-medium tabular-nums ${
+                      className={`portal-live-ms shrink-0 text-xs font-medium font-mono tabular-nums ${}}
                         live.rpc.status === 'up' && live.rpc.ms != null
                           ? rpcMsColor(live.rpc.ms)
                           : wordColor(live.rpc.status)

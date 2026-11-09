@@ -445,6 +445,7 @@ export type {
   ProfileDiscoverPageResult,
   ProfileDiscoverStandingRow,
   ProfileDiscoverViewerContext,
+  DiscoverFaceCounts,
   DiscoverFaceFilter,
   DiscoverFaceKind,
   ProfileSearchOptions,
@@ -453,7 +454,10 @@ export type {
   ProfileSocialPreviewResult,
 } from './query/profiles.js';
 export {
+  DISCOVER_FACE_COUNT_FACES,
+  discoverFaceAggregateAlias,
   discoverFaceSearchOptions,
+  emptyDiscoverFaceCounts,
   parseDiscoverFaceFilter,
 } from './query/profiles.js';
 export type { JobSearchOptions, JobSearchRow } from './query/jobs.js';

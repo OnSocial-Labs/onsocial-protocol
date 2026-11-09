@@ -36,7 +36,7 @@ describe('buildDiscoverListSummary', () => {
     ).toBe('3 matching orgs');
   });
 
-  it('formats discoverable totals when browsing the graph', () => {
+  it('omits browse footer — face chips own the census', () => {
     expect(
       buildDiscoverListSummary({
         shownCount: 48,
@@ -45,6 +45,6 @@ describe('buildDiscoverListSummary', () => {
         discoverableTotal: 12_000,
         indexedProfileTotal: 15_000,
       })
-    ).toBe('Showing 48 of 12K discoverable · 15K indexed');
+    ).toBeNull();
   });
 });

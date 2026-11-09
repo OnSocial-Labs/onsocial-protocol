@@ -722,7 +722,7 @@ export function PolicyProposalDescription({
         />
         <span
           className={cn(
-            'pointer-events-none absolute right-3 bottom-2 portal-type-caption tabular-nums tracking-wide',
+            'pointer-events-none absolute right-3 bottom-2 portal-type-caption tracking-wide',
             counter.className
           )}
         >

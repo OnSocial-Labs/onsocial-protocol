@@ -113,7 +113,7 @@ export function RallyStandingsHeader({
               aria-hidden
             />
           ) : (
-            <p className="truncate text-[11px] tabular-nums text-muted-foreground/65">
+            <p className="truncate text-[11px] text-muted-foreground/65">
               {meta}
             </p>
           )}

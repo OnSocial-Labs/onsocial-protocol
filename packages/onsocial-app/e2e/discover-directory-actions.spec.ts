@@ -199,6 +199,12 @@ test.describe('discover directory actions', () => {
     await expect(page.getByRole('button', { name: /See hiring/ })).toHaveCount(
       0
     );
+    await expect(page.getByRole('button', { name: /^Stand with / })).toHaveCount(
+      0
+    );
+    await expect(
+      page.getByRole('button', { name: /^Step back from / })
+    ).toHaveCount(0);
 
     await expect(
       page.getByRole('link', { name: "View Studio's profile" })
@@ -230,6 +236,9 @@ test.describe('discover directory actions', () => {
       page.getByRole('button', { name: 'See hiring at Clinic' })
     ).toBeVisible();
     await expect(page.getByRole('button', { name: /See offers/ })).toHaveCount(
+      0
+    );
+    await expect(page.getByRole('button', { name: /^Stand with / })).toHaveCount(
       0
     );
 

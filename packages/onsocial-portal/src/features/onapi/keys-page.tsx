@@ -1138,7 +1138,7 @@ export default function OnApiKeysPage() {
                 </div>
                 {subscription?.status === 'active' &&
                   subscription.currentPeriodEnd && (
-                    <span className="portal-type-caption tabular-nums text-muted-foreground/50 md:ml-auto">
+                    <span className="portal-type-caption text-muted-foreground/50 md:ml-auto">
                       Renews{' '}
                       {new Date(
                         subscription.currentPeriodEnd

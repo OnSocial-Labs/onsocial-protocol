@@ -53,7 +53,7 @@ export function DiscoverPanelContent() {
     face,
     industry,
     craft,
-    discoverableTotal,
+    faceCounts,
     showListSkeleton,
     isListRefreshing,
     isLoadingMore,
@@ -137,13 +137,7 @@ export function DiscoverPanelContent() {
       {visitedTabs.has('profiles') ? (
         <div hidden={tab !== 'profiles'}>
           <DiscoverTabLead>
-            {discoverProfilesLead(
-              discoverableTotal,
-              query,
-              face,
-              industry,
-              craft
-            )}
+            {discoverProfilesLead(faceCounts, face, industry, craft)}
           </DiscoverTabLead>
           <DiscoverFaceFilterRail />
 

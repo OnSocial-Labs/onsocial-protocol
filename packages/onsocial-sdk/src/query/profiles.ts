@@ -48,6 +48,44 @@ export type DiscoverFaceFilter =
   | 'offers'
   | 'hiring';
 
+/** Census counts for Discover face chips (All / People / Orgs / …). */
+export type DiscoverFaceCounts = Record<DiscoverFaceFilter, number>;
+
+export const DISCOVER_FACE_COUNT_FACES: readonly DiscoverFaceFilter[] = [
+  'all',
+  'people',
+  'orgs',
+  'daos',
+  'offers',
+  'hiring',
+] as const;
+
+export function emptyDiscoverFaceCounts(): DiscoverFaceCounts {
+  return {
+    all: 0,
+    people: 0,
+    orgs: 0,
+    daos: 0,
+    offers: 0,
+    hiring: 0,
+  };
+}
+
+/**
+ * One `profileSearchAggregate` alias for a Discover face chip.
+ * Reuses {@link buildDiscoverWhere} so chip totals match the list filter.
+ */
+export function discoverFaceAggregateAlias(
+  alias: string,
+  face: DiscoverFaceFilter
+): string {
+  const { filter } = buildDiscoverWhere(discoverFaceSearchOptions(face));
+  const args = filter.replace(/,\s*$/, '').trim();
+  return args
+    ? `${alias}: profileSearchAggregate(${args}) { aggregate { count } }`
+    : `${alias}: profileSearchAggregate { aggregate { count } }`;
+}
+
 export function parseDiscoverFaceFilter(
   raw: string | null | undefined
 ): DiscoverFaceFilter {
@@ -589,6 +627,49 @@ export class ProfilesQuery {
     return [
       ...new Set((res.data?.profileTags ?? []).map((row) => row.accountId)),
     ];
+  }
+
+  /**
+   * Discover face chip census — one round-trip of aliased aggregates.
+   *
+   * ```ts
+   * const counts = await os.query.profiles.faceCounts();
+   * ```
+   */
+  async faceCounts(): Promise<DiscoverFaceCounts> {
+    type Agg = { aggregate?: { count?: number | null } | null };
+    const read = (node: Agg | null | undefined): number => {
+      const count = node?.aggregate?.count;
+      return typeof count === 'number' && Number.isFinite(count) ? count : 0;
+    };
+
+    const load = async (includeOffers: boolean) => {
+      const faces = DISCOVER_FACE_COUNT_FACES.filter(
+        (face) => includeOffers || face !== 'offers'
+      );
+      const selection = faces
+        .map((face) => discoverFaceAggregateAlias(face, face))
+        .join('\n          ');
+      const res = await this._q.graphql<Record<string, Agg>>({
+        query: `query DiscoverFaceCounts {
+          ${selection}
+        }`,
+      });
+      const out = emptyDiscoverFaceCounts();
+      for (const face of faces) {
+        out[face] = read(res.data?.[face]);
+      }
+      return out;
+    };
+
+    try {
+      return await load(true);
+    } catch (error) {
+      if (!missingOfferCountField(error)) throw error;
+      const out = await load(false);
+      out.offers = 0;
+      return out;
+    }
   }
 
   /**

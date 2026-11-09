@@ -179,8 +179,8 @@
 .os-suffix-field.os-field-plain,
 .suffix-field.os-field-plain {
   align-items: baseline;
-  /* Clears the rule's equal overhang so the unit starts after the fade. */
-  gap: 0.975rem;
+  /* Residual after the value's inline pad (half overhang each side). */
+  gap: 0.35rem;
   width: auto;
   flex: 0 0 auto;
   min-width: 0;
@@ -198,7 +198,10 @@
   flex-direction: column;
   align-items: center;
   min-width: 1ch;
+  /* Equal fade tails live in the box so they cannot paint past the host. */
+  padding-inline: calc(var(--os-field-plain-rule-overhang, 1.25rem) / 2);
   vertical-align: baseline;
+  box-sizing: content-box;
 }
 
 .os-field-plain .os-amount-field-input,
@@ -218,6 +221,8 @@
   background: transparent;
   color: inherit;
   font-family: inherit;
+  /* Public Sans has no tnum — tabular-nums borrows another figure face. */
+  font-variant-numeric: normal;
   font-size: inherit;
   font-weight: 650;
   letter-spacing: -0.02em;
@@ -232,14 +237,14 @@
   font-weight: 650;
 }
 
-/* Same fade as the title, centered on the digits, with an equal tail each side. */
+/* Same fade as the title, centered on the digits — width is the padded value. */
 .divider-detail.os-field-plain-rule {
   position: absolute;
-  left: 50%;
+  left: 0;
+  right: 0;
   bottom: 0;
-  width: calc(100% + 1.25rem);
+  width: auto;
   margin: 0;
-  transform: translateX(-50%);
   background-color: transparent;
   background-image: linear-gradient(
     to right,

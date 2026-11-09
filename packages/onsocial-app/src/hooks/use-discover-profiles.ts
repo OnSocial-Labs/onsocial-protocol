@@ -54,7 +54,11 @@ import {
   resetListScrollMemory,
   scrollTopToPersist,
 } from '@/lib/list-scroll-restore';
-import type { DiscoverFaceFilter } from '@onsocial/sdk';
+import {
+  emptyDiscoverFaceCounts,
+  type DiscoverFaceCounts,
+  type DiscoverFaceFilter,
+} from '@onsocial/sdk';
 import {
   applyDiscoverFilterParams,
   discoverProfileToProfileListAccount,
@@ -251,6 +255,7 @@ export function useDiscoverProfiles(
   const [actionError, setActionError] = useState<string | null>(null);
   const [protocolPulseTotals, setProtocolPulseTotals] =
     useState<ProtocolPulseTotals | null>(null);
+  const [faceCounts, setFaceCounts] = useState<DiscoverFaceCounts | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [relationshipSynced, setRelationshipSynced] = useState(
     () => restoredSession != null
@@ -432,6 +437,27 @@ export function useDiscoverProfiles(
         // Discover still works without graph-wide totals.
       });
 
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/api/discover/faces', {
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) return { counts: emptyDiscoverFaceCounts() };
+        return (await response.json()) as { counts?: DiscoverFaceCounts };
+      })
+      .then((body) => {
+        if (controller.signal.aborted) return;
+        setFaceCounts(body.counts ?? emptyDiscoverFaceCounts());
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setFaceCounts(emptyDiscoverFaceCounts());
+        }
+      });
     return () => controller.abort();
   }, []);
 
@@ -865,6 +891,7 @@ export function useDiscoverProfiles(
     setCraft,
     topicFilterPrefix,
     discoverableTotal,
+    faceCounts,
     listAccounts,
     viewerAccountId: viewerAccountId ?? null,
     isConnected,

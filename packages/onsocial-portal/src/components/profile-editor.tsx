@@ -538,7 +538,7 @@ export function ProfileEditor({
                           }
                         />
                       </div>
-                      <span className="portal-type-micro tabular-nums leading-none text-muted-foreground/45">
+                      <span className="portal-type-micro leading-none text-muted-foreground/45">
                         512&times;512
                       </span>
                     </div>
@@ -728,7 +728,7 @@ export function ProfileEditor({
                       placeholder="Based in"
                       className="w-full bg-transparent portal-type-body-sm text-muted-foreground/70 outline-none placeholder:text-muted-foreground/35"
                     />
-                    <p className="portal-type-caption tabular-nums text-muted-foreground/45">
+                    <p className="portal-type-caption text-muted-foreground/45">
                       {name.length}/50
                     </p>
                   </div>
@@ -750,7 +750,7 @@ export function ProfileEditor({
                     placeholder="Bio — use #topics, $tickers, @accounts…"
                     className="w-full resize-none bg-transparent portal-type-body leading-relaxed text-muted-foreground outline-none placeholder:text-muted-foreground/40"
                   />
-                  <p className="mt-0.5 portal-type-caption tabular-nums text-muted-foreground/45">
+                  <p className="mt-0.5 portal-type-caption text-muted-foreground/45">
                     {characterCount}/160
                   </p>
                 </div>

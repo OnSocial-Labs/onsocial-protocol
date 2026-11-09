@@ -34,10 +34,12 @@
     --os-field-soft-lip-focus: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
 
     /* Foreground ink, so the rule reads on black and on white.
-       Quiet at rest, solid while focused. */
+       Quiet at rest, solid while focused.
+       Overhang is the equal fade past the digits (half each side). */
     --os-field-plain-rule-ink: rgb(var(--fg-rgb) / 0.55);
     --os-field-plain-rule-rest: 0.4;
     --os-field-plain-rule-focus: 1;
+    --os-field-plain-rule-overhang: 1.25rem;
   }
 
   /* 16px — iOS zooms the page when a focused field is under 16px. */

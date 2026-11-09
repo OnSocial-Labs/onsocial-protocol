@@ -335,7 +335,7 @@ function GovernanceRailStatusMenuContent({
             >
               <span>{option.label}</span>
               <span
-                className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border portal-type-caption font-medium tabular-nums leading-none transition-colors ${
+                className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border portal-type-caption font-medium leading-none transition-colors ${
                   selected
                     ? 'border-border/45 bg-background/70 text-foreground/80'
                     : 'border-border/35 bg-background/40 text-muted-foreground/90 group-hover:border-border/45 group-hover:bg-background/60 group-hover:text-foreground/80'
@@ -551,7 +551,7 @@ function GovernanceRailStatusMenu({
           {activeStatusOption?.label ?? 'Status'}
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full border border-border/35 bg-background/55 px-1 portal-type-caption font-medium tabular-nums leading-none text-muted-foreground/90">
+          <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full border border-border/35 bg-background/55 px-1 portal-type-caption font-medium leading-none text-muted-foreground/90">
             {statusCounts[statusFilter]}
           </span>
           <ChevronDown
@@ -637,7 +637,7 @@ function GovernanceRailCompactSummary({
               : 'Open proposal status filter menu'
           }
         >
-          <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full border border-border/35 bg-background/55 px-1 portal-type-caption font-medium tabular-nums leading-none text-muted-foreground/90">
+          <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full border border-border/35 bg-background/55 px-1 portal-type-caption font-medium leading-none text-muted-foreground/90">
             {statusCounts[statusFilter]}
           </span>
           <ChevronDown

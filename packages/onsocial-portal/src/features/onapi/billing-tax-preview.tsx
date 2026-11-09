@@ -180,13 +180,13 @@ export function BillingTaxPreviewPanel({
           {showTaxLine(preview) ? (
             <>
               <span className="text-muted-foreground">Subtotal</span>
-              <span className="text-right font-medium tabular-nums">
+              <span className="text-right font-mono font-medium tabular-nums">
                 {preview.netFormatted}
               </span>
               <span className="text-muted-foreground">
                 {vatLineLabel(preview)}
               </span>
-              <span className="text-right font-medium tabular-nums">
+              <span className="text-right font-mono font-medium tabular-nums">
                 {preview.taxFormatted}
               </span>
             </>
@@ -203,8 +203,8 @@ export function BillingTaxPreviewPanel({
           <span
             className={
               showTaxLine(preview)
-                ? 'border-t border-border/40 pt-1.5 text-right text-base font-semibold tabular-nums tracking-[-0.02em]'
-                : 'text-right text-base font-semibold tabular-nums tracking-[-0.02em]'
+                ? 'border-t border-border/40 pt-1.5 text-right font-mono text-base font-semibold tabular-nums tracking-[-0.02em]'
+                : 'text-right font-mono text-base font-semibold tabular-nums tracking-[-0.02em]'
             }
           >
             {preview.totalFormatted}

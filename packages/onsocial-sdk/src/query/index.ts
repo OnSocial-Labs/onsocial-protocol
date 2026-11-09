@@ -111,6 +111,7 @@ export type {
   GraphEdgeRow,
 } from './graph.js';
 export type {
+  DiscoverFaceCounts,
   DiscoverFaceFilter,
   DiscoverFaceKind,
   ProfileDiscoverPageOptions,
@@ -121,7 +122,10 @@ export type {
   ProfileSearchRow,
 } from './profiles.js';
 export {
+  DISCOVER_FACE_COUNT_FACES,
+  discoverFaceAggregateAlias,
   discoverFaceSearchOptions,
+  emptyDiscoverFaceCounts,
   parseDiscoverFaceFilter,
 } from './profiles.js';
 export type {

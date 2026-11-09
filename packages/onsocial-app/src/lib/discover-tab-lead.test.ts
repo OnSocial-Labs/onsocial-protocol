@@ -8,28 +8,41 @@ import {
   discoverTrendingProfilesHeading,
 } from './discover-tab-lead';
 
+const COUNTS = {
+  all: 12_500,
+  people: 12,
+  orgs: 4,
+  daos: 4,
+  offers: 2,
+  hiring: 3,
+};
+
 describe('discoverProfilesLead', () => {
-  it('shows count when browsing', () => {
-    expect(discoverProfilesLead(12_500, '')).toBe('12.5K profiles');
+  it('shows compact count for All', () => {
+    expect(discoverProfilesLead(COUNTS, 'all')).toBe('12.5K profiles');
   });
 
-  it('keeps the count while filtering (query stays in the field)', () => {
-    expect(discoverProfilesLead(12_500, 'alex')).toBe('12.5K profiles');
+  it('shows the active face count', () => {
+    expect(discoverProfilesLead(COUNTS, 'people')).toBe('12 people');
+    expect(discoverProfilesLead(COUNTS, 'orgs')).toBe('4 orgs');
+    expect(discoverProfilesLead(COUNTS, 'daos')).toBe('4 DAOs');
+    expect(discoverProfilesLead(COUNTS, 'offers')).toBe('2 offers');
+    expect(discoverProfilesLead(COUNTS, 'hiring')).toBe('3 hiring');
   });
 
-  it('falls back without total', () => {
-    expect(discoverProfilesLead(null, '')).toBe('Profiles');
+  it('falls back without totals', () => {
+    expect(discoverProfilesLead(null, 'all')).toBe('Profiles');
+    expect(discoverProfilesLead(null, 'people')).toBe('People');
   });
 
-  it('names face and industry filters', () => {
-    expect(discoverProfilesLead(12_500, '', 'hiring', 'Healthcare')).toBe(
-      'Hiring · Healthcare'
+  it('keeps craft and industry on the lead', () => {
+    expect(discoverProfilesLead(COUNTS, 'hiring', 'Healthcare')).toBe(
+      '3 hiring · Healthcare'
     );
-    expect(discoverProfilesLead(12_500, '', 'orgs')).toBe('Orgs');
-    expect(discoverProfilesLead(12_500, '', 'daos', 'Film')).toBe('DAOs · Film');
-    expect(discoverProfilesLead(12_500, '', 'people')).toBe('People');
-    expect(discoverProfilesLead(12_500, '', 'people', '', 'writer')).toBe(
-      'People · Writer'
+    expect(discoverProfilesLead(COUNTS, 'orgs', 'Film')).toBe('4 orgs · Film');
+    expect(discoverProfilesLead(COUNTS, 'daos', 'Film')).toBe('4 DAOs · Film');
+    expect(discoverProfilesLead(COUNTS, 'people', '', 'writer')).toBe(
+      '12 people · Writer'
     );
   });
 });

@@ -74,7 +74,7 @@ function ChartTimeLabel({
 }) {
   return (
     <span
-      className={cn('inline-flex items-center gap-1 tabular-nums', className)}
+      className={cn('inline-flex items-center gap-1', className)}
     >
       <Clock className="h-3 w-3 shrink-0 opacity-45" aria-hidden />
       <span>{time}</span>

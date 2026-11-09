@@ -1,4 +1,4 @@
-import type { DiscoverFaceFilter } from '@onsocial/sdk';
+import type { DiscoverFaceCounts, DiscoverFaceFilter } from '@onsocial/sdk';
 import { profileIdentityTopicLabel } from '@/lib/profile-identity-topics';
 
 /** Compact counts for Discover tab lead lines. */
@@ -13,14 +13,31 @@ export function formatDiscoverTabCount(count: number): string {
   }).format(numericCount);
 }
 
+function faceLeadNoun(face: DiscoverFaceFilter): string {
+  if (face === 'people') return 'people';
+  if (face === 'orgs') return 'orgs';
+  if (face === 'daos') return 'DAOs';
+  if (face === 'offers') return 'offers';
+  if (face === 'hiring') return 'hiring';
+  return 'profiles';
+}
+
+function faceLeadCount(
+  faceCounts: Partial<DiscoverFaceCounts> | null | undefined,
+  face: DiscoverFaceFilter
+): string | null {
+  const raw = faceCounts?.[face];
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return null;
+  return formatDiscoverTabCount(raw);
+}
+
 /**
- * One hint line per Discover tab. Names the section / count / active filter.
- * Do not echo the query — it's already in the search field. Lists, chips,
- * and peeks render only when they have something to show.
+ * One hint line for Profiles Discover — count for the active face, plus
+ * craft / industry when set. Chips stay label-only; this matches Guilds /
+ * Hubs / DAOs lead chrome.
  */
 export function discoverProfilesLead(
-  discoverableTotal: number | null | undefined,
-  _query?: string,
+  faceCounts: Partial<DiscoverFaceCounts> | null | undefined,
   face: DiscoverFaceFilter = 'all',
   industry = '',
   craft = ''
@@ -29,17 +46,26 @@ export function discoverProfilesLead(
   const craftLabel = craft.trim()
     ? profileIdentityTopicLabel(craft.trim())
     : '';
-  if (craftLabel) return `People · ${craftLabel}`;
-  if (face === 'offers') return 'Offers';
-  if (face === 'hiring') return sector ? `Hiring · ${sector}` : 'Hiring';
-  if (face === 'orgs') return sector ? `Orgs · ${sector}` : 'Orgs';
-  if (face === 'daos') return sector ? `DAOs · ${sector}` : 'DAOs';
-  if (face === 'people') return 'People';
-  if (sector) return `Profiles · ${sector}`;
-  if (typeof discoverableTotal === 'number' && discoverableTotal > 0) {
-    return `${formatDiscoverTabCount(discoverableTotal)} profiles`;
+  const count = faceLeadCount(faceCounts, face);
+  const noun = faceLeadNoun(face);
+  const head = count ? `${count} ${noun}` : noun === 'profiles' ? 'Profiles' : noun.charAt(0).toUpperCase() + noun.slice(1);
+
+  if (craftLabel) {
+    const peopleCount = faceLeadCount(faceCounts, 'people');
+    const peopleHead = peopleCount
+      ? `${peopleCount} people`
+      : 'People';
+    return `${peopleHead} · ${craftLabel}`;
   }
-  return 'Profiles';
+  if (face === 'hiring' && sector) return `${head} · ${sector}`;
+  if (face === 'orgs' && sector) return `${head} · ${sector}`;
+  if (face === 'daos' && sector) return `${head} · ${sector}`;
+  if (face === 'all' && sector) {
+    const allCount = faceLeadCount(faceCounts, 'all');
+    const allHead = allCount ? `${allCount} profiles` : 'Profiles';
+    return `${allHead} · ${sector}`;
+  }
+  return head;
 }
 
 export function discoverDaosLead(

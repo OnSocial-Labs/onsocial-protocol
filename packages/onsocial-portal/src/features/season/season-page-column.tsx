@@ -365,7 +365,7 @@ export const SEASON_STANDING_SCORE_COLUMN_CLASS =
 
 /** Fixed reward line — wide enough for 1,234.5 SOCIAL without reflow. */
 export const SEASON_STANDING_REWARD_ROW_CLASS =
-  'mt-1 block h-4 min-w-[6.25rem] whitespace-nowrap text-right text-xs font-semibold leading-none tabular-nums';
+  'mt-1 block h-4 min-w-[6.25rem] whitespace-nowrap text-right font-mono text-xs font-semibold leading-none tabular-nums';
 
 /** Invisible SOCIAL reserve — matches loaded reward line box. */
 export const SEASON_STANDING_REWARD_RESERVE_CLASS =

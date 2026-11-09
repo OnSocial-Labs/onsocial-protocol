@@ -790,7 +790,7 @@ export function ApplicationForm({
               className="w-full resize-none rounded-2xl bg-transparent px-4 pt-3 pb-7 text-sm outline-none placeholder:text-muted-foreground/50 md:pt-3.5"
             />
             <span
-              className={`pointer-events-none absolute right-3 bottom-2 portal-type-caption tabular-nums tracking-wide ${getBoundedNoteCounterClass(
+              className={`pointer-events-none absolute right-3 bottom-2 portal-type-caption tracking-wide ${getBoundedNoteCounterClass(
                 descriptionLength,
                 hasDescription,
                 PROPOSAL_DESCRIPTION_LIMITS

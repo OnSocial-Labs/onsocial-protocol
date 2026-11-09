@@ -44,7 +44,7 @@ export function ProfileSocialList({
   footerSummary?: string | null;
   isLoadingMore: boolean;
   showLoadMoreSentinel: boolean;
-  /** Offers and Hiring replace the bio with the offer or role. */
+  /** Offers / Hiring: face line + See-* aside; no Standing on the row. */
   directoryLine?: 'offers' | 'hiring';
 }) {
   /*

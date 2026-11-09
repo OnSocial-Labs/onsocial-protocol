@@ -583,7 +583,7 @@ export function WalletStorageModal({
                     )}
                   </div>
 
-                  <p className="portal-type-micro ml-auto min-h-4 shrink-0 text-right tabular-nums text-muted-foreground/50">
+                  <p className="portal-type-micro ml-auto min-h-4 shrink-0 text-right text-muted-foreground/50">
                     {mode === 'deposit' &&
                     depositPreviewCapacityBytes != null &&
                     depositPreviewCapacityBytes > 0 ? (

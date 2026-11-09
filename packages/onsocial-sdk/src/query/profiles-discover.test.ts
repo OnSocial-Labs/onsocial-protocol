@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildDiscoverWhere,
+  discoverFaceAggregateAlias,
   discoverFaceSearchOptions,
   parseDiscoverFaceFilter,
 } from './profiles.js';
@@ -65,5 +66,20 @@ describe('discover face filters', () => {
     expect(craft.variables.accountIds).toEqual(['alice.near', 'bob.near']);
 
     expect(buildDiscoverWhere({}).filter).toBe('');
+  });
+
+  it('builds face aggregate aliases that match chip filters', () => {
+    expect(discoverFaceAggregateAlias('all', 'all')).toBe(
+      'all: profileSearchAggregate { aggregate { count } }'
+    );
+    expect(discoverFaceAggregateAlias('people', 'people')).toContain(
+      'people: profileSearchAggregate(where:'
+    );
+    expect(discoverFaceAggregateAlias('hiring', 'hiring')).toContain(
+      'openJobsCount: {_gt: 0}'
+    );
+    expect(discoverFaceAggregateAlias('offers', 'offers')).toContain(
+      'offerCount: {_gt: 0}'
+    );
   });
 });

@@ -363,7 +363,7 @@ export function GovernanceCreateNoActionsPlaceholder({
     return (
       <p className={bodyClass}>
         Delegate{' '}
-        <span className="font-semibold tabular-nums text-foreground/85">
+        <span className="font-mono font-semibold tabular-nums text-foreground/85">
           {message.remainingToThresholdDisplay}
         </span>{' '}
         SOCIAL to propose here.
@@ -375,7 +375,7 @@ export function GovernanceCreateNoActionsPlaceholder({
     return (
       <p className={bodyClass}>
         Add{' '}
-        <span className="font-semibold tabular-nums text-foreground/85">
+        <span className="font-mono font-semibold tabular-nums text-foreground/85">
           {message.bondDisplay}
         </span>{' '}
         NEAR bond to propose here.
@@ -387,11 +387,11 @@ export function GovernanceCreateNoActionsPlaceholder({
     return (
       <p className={bodyClass}>
         Delegate{' '}
-        <span className="font-semibold tabular-nums text-foreground/85">
+        <span className="font-mono font-semibold tabular-nums text-foreground/85">
           {message.remainingToThresholdDisplay}
         </span>{' '}
         SOCIAL and add{' '}
-        <span className="font-semibold tabular-nums text-foreground/85">
+        <span className="font-mono font-semibold tabular-nums text-foreground/85">
           {message.bondDisplay}
         </span>{' '}
         NEAR bond to propose here.
@@ -448,7 +448,7 @@ export function GovernanceCreateEligibilityLine({
             <span className="text-muted-foreground/45"> · </span>
             <span
               className={cn(
-                'font-semibold tabular-nums',
+                'font-mono font-semibold tabular-nums',
                 hasEnoughBond ? 'portal-green-text' : 'portal-red-text'
               )}
             >
@@ -456,7 +456,7 @@ export function GovernanceCreateEligibilityLine({
             </span>
             <span className="text-muted-foreground/60"> NEAR bond</span>
             <span className="text-muted-foreground/45"> · </span>
-            <span className="tabular-nums text-muted-foreground/65">
+            <span className="font-mono tabular-nums text-muted-foreground/65">
               {delegatedDisplay}/{thresholdDisplay} delegated
             </span>
           </>
@@ -464,21 +464,21 @@ export function GovernanceCreateEligibilityLine({
           <>
             <span
               className={cn(
-                'font-semibold tabular-nums',
+                'font-mono font-semibold tabular-nums',
                 hasEnoughDelegation ? 'portal-green-text' : 'portal-red-text'
               )}
             >
               {delegatedDisplay}
             </span>
             <span className="text-muted-foreground/60"> / </span>
-            <span className="tabular-nums text-muted-foreground/70">
+            <span className="font-mono tabular-nums text-muted-foreground/70">
               {thresholdDisplay}
             </span>
             <span className="text-muted-foreground/60"> SOCIAL delegated</span>
             <span className="text-muted-foreground/45"> · </span>
             <span
               className={cn(
-                'font-semibold tabular-nums',
+                'font-mono font-semibold tabular-nums',
                 hasEnoughBond ? 'portal-green-text' : 'portal-red-text'
               )}
             >

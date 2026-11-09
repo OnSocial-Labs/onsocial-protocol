@@ -20,14 +20,14 @@ export function buildDiscoverListSummary({
   hasMore,
   query,
   face = 'all',
-  discoverableTotal,
-  indexedProfileTotal,
 }: {
   shownCount: number;
   hasMore: boolean;
   query: string;
   face?: DiscoverFaceFilter;
+  /** @deprecated Face chips own browse census; ignored. */
   discoverableTotal?: number | null;
+  /** @deprecated Face chips own browse census; ignored. */
   indexedProfileTotal?: number | null;
 }): string | null {
   if (shownCount <= 0) return null;
@@ -35,32 +35,20 @@ export function buildDiscoverListSummary({
   const shown = formatDiscoverCount(shownCount);
   const trimmedQuery = query.trim();
 
-  if (trimmedQuery) {
-    if (face === 'offers') {
-      return hasMore
-        ? `Showing ${shown} matching profiles`
-        : `${shown} matching profile${shownCount === 1 ? '' : 's'}`;
-    }
-    if (face === 'hiring') {
-      return hasMore
-        ? `Showing ${shown} matching orgs`
-        : `${shown} matching org${shownCount === 1 ? '' : 's'}`;
-    }
+  // Browse census lives on the face chips. Footer only narrates search hits.
+  if (!trimmedQuery) return null;
+
+  if (face === 'offers') {
     return hasMore
       ? `Showing ${shown} matching profiles`
       : `${shown} matching profile${shownCount === 1 ? '' : 's'}`;
   }
-
-  if (typeof discoverableTotal === 'number' && discoverableTotal > 0) {
-    const ofDiscoverable = `Showing ${shown} of ${formatDiscoverCount(discoverableTotal)} discoverable`;
-    if (
-      typeof indexedProfileTotal === 'number' &&
-      indexedProfileTotal > discoverableTotal
-    ) {
-      return `${ofDiscoverable} · ${formatDiscoverCount(indexedProfileTotal)} indexed`;
-    }
-    return ofDiscoverable;
+  if (face === 'hiring') {
+    return hasMore
+      ? `Showing ${shown} matching orgs`
+      : `${shown} matching org${shownCount === 1 ? '' : 's'}`;
   }
-
-  return hasMore ? `Showing ${shown} profiles` : `${shown} profiles`;
+  return hasMore
+    ? `Showing ${shown} matching profiles`
+    : `${shown} matching profile${shownCount === 1 ? '' : 's'}`;
 }

@@ -498,7 +498,7 @@ function SharePoolFundSection({
             })}
           </div>
         </div>
-        <p className="portal-type-micro ml-auto min-h-4 shrink-0 text-right tabular-nums text-muted-foreground/50">
+        <p className="portal-type-micro ml-auto min-h-4 shrink-0 text-right text-muted-foreground/50">
           {fundPreviewCapacityBytes != null && fundPreviewCapacityBytes > 0 ? (
             <>
               ≈{' '}
@@ -628,7 +628,7 @@ function StorageSharesGrantedReadout({
       <div className="flex items-baseline justify-between gap-2">
         <p className={cn(sectionEyebrowClass, 'mb-0')}>Shared with</p>
         {!error && grants.length > 0 ? (
-          <p className="inline-flex items-baseline gap-1 portal-type-micro tabular-nums">
+          <p className="inline-flex items-baseline gap-1 portal-type-micro">
             <span className="font-semibold text-portal-neutral">
               {grants.length}
             </span>

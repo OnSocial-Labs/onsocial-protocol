@@ -23,7 +23,7 @@ export function SocialSpendAmountPill({
       aria-pressed={selected}
       className={cn(
         portalCompactActionPillClass,
-        'min-w-[2.35rem] justify-center px-2.5 tabular-nums',
+        'min-w-[2.35rem] justify-center px-2.5 font-mono tabular-nums',
         selected && profileActionToneClass('green'),
         className
       )}
