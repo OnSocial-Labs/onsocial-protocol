@@ -45524,6 +45524,10 @@ button.messages-bubble-quote:focus-visible {
   > .portfolio-summon-dock {
   bottom: var(--messages-keyboard-lift, 0px);
   z-index: 85;
+  /* Track the keyboard. A bottom ease lags the visual viewport. */
+  transition:
+    transform var(--os-motion-dock, 260ms) ease,
+    opacity 200ms ease;
 }
 
 .os-app-screen:has(.messages-panel[data-keyboard='open']) .os-app-screen-body {
@@ -45595,6 +45599,10 @@ button.messages-bubble-quote:focus-visible {
   > .portfolio-summon-dock {
   bottom: var(--drop-create-keyboard-lift, 0px);
   z-index: 85;
+  /* Track the keyboard. A bottom ease lags the visual viewport. */
+  transition:
+    transform var(--os-motion-dock, 260ms) ease,
+    opacity 200ms ease;
 }
 
 .os-app-screen:has(
