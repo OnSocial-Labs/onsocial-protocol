@@ -500,12 +500,14 @@ export function SummonLauncher({
     handlePointerMove: (_event: { clientY: number }) => {},
     handlePointerEnd: () => {},
   });
-  launcherPullApi.current = {
-    keyboardOpen: false,
-    beginPointerDrag: beginLauncherDrag,
-    handlePointerMove: handleDragPointerMove,
-    handlePointerEnd: handleDragPointerEnd,
-  };
+  useEffect(() => {
+    launcherPullApi.current = {
+      keyboardOpen: false,
+      beginPointerDrag: beginLauncherDrag,
+      handlePointerMove: handleDragPointerMove,
+      handlePointerEnd: handleDragPointerEnd,
+    };
+  }, [beginLauncherDrag, handleDragPointerMove, handleDragPointerEnd]);
   useSheetSurfacePull({
     enabled: !rallyHandoff,
     panel: sheetNode,
