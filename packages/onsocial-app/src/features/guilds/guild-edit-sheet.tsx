@@ -44,6 +44,7 @@ import {
 import { GuildTagsEditor } from '@/features/guilds/guild-tags-editor';
 import { guildCoverStyle } from '@/features/guilds/guild-visual';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { usePageKeyboardLift } from '@/hooks/use-page-keyboard-lift';
 import {
   APP_COLUMN_HERO_SIZES,
   EDITOR_MARK_SIZES,
@@ -152,6 +153,7 @@ export function GuildEditSheet({
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const scrollFieldIntoView = useMobileFieldFocusScroll();
+  const { keyboardOpen, panelStyle } = usePageKeyboardLift(open);
 
   const [loadState, setLoadState] = useState<
     'ready' | 'missing' | 'error' | 'forbidden'
@@ -565,7 +567,10 @@ export function GuildEditSheet({
         zIndex={GUILD_EDIT_Z}
         ariaLabelledBy={titleId}
         backdropLabel="Close"
-        panelClassName="guild-edit-sheet-panel"
+        panelClassName={`guild-edit-sheet-panel${
+          keyboardOpen ? ' is-keyboard-open is-page-keyboard' : ''
+        }`}
+        panelStyle={panelStyle}
         bodyClassName="guild-edit-sheet-body"
         header={null}
         footer={footer}

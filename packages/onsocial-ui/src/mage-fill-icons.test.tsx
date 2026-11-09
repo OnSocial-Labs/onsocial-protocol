@@ -1,3 +1,5 @@
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import {
   DirectionUpFillIcon,
@@ -43,6 +45,21 @@ import {
 } from './mage-fill-icons.js';
 
 describe('mage fill icons', () => {
+  it('draws the Activity bell as the Mage bulk, with the unread dot separate', () => {
+    const idle = renderToStaticMarkup(createElement(NotificationBellFillIcon));
+    const pending = renderToStaticMarkup(
+      createElement(NotificationBellPendingFillIcon, {
+        badgeFill: 'var(--mood-accent)',
+        badgeClassName: 'activity-dot',
+      })
+    );
+    expect(idle).toContain('viewBox="0 0 24 24"');
+    expect(idle).not.toContain('448');
+    expect(pending).toContain('fill="var(--mood-accent)"');
+    expect(pending).toContain('activity-dot');
+    expect(pending.match(/<path/g)?.length).toBe(2);
+  });
+
   it('exports icon components', () => {
     expect(typeof DirectionUpFillIcon).toBe('function');
     expect(typeof CopyFillIcon).toBe('function');

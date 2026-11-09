@@ -8,7 +8,6 @@ import {
   useRef,
   useState,
   type ChangeEvent,
-  type CSSProperties,
   type FocusEvent,
   type FormEvent,
   type RefObject,
@@ -36,7 +35,10 @@ import { OsChipRail } from '@/components/os/os-chip-rail';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
-import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
+import {
+  keyboardLiftCssVars,
+  useVisualViewportSheetMetrics,
+} from '@/hooks/use-visual-viewport-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
@@ -532,12 +534,7 @@ export function CreateDropPanel() {
   );
 
   const screenStyle = useMemo(
-    () =>
-      ({
-        ['--drop-create-keyboard-lift' as string]: formKeyboardOpen
-          ? `${formViewport.lift}px`
-          : '0px',
-      }) as CSSProperties,
+    () => keyboardLiftCssVars(formKeyboardOpen, formViewport.lift),
     [formKeyboardOpen, formViewport.lift]
   );
 

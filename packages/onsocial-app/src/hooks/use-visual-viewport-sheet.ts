@@ -1,6 +1,21 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
+
+/** One lift token for every layout-pinned bar (write dock, messages, create). */
+export const OS_KEYBOARD_LIFT_VAR = '--os-keyboard-lift';
+
+/** Raw keyboard overlap. Drawers use the same pixels via `keyboardSheetMargin`. */
+export function keyboardLiftCssVars(
+  open: boolean,
+  liftPx: number
+): CSSProperties {
+  return {
+    [OS_KEYBOARD_LIFT_VAR]: open
+      ? `${Math.max(0, Math.round(liftPx))}px`
+      : '0px',
+  } as CSSProperties;
+}
 
 const MOBILE_MAX_WIDTH_PX = 767;
 

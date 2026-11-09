@@ -18,18 +18,22 @@ import {
   OsGestureSheet,
   OsSheetAction,
   OsSheetActions,
+  OsSheetFooter,
   osFieldBorderedClassName,
   useDiscardConfirm,
 } from '@onsocial/ui';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
+import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import { DM_MESSAGING_UNAVAILABLE, DM_UNMUTE_TO_MESSAGE } from '@/lib/dm/copy';
 import { sendEncryptedDm } from '@/lib/dm/send';
 import { acknowledgeDmRecoveryCode, hasUnlockedDmKey } from '@/lib/dm/keys';
 import { messagesPath } from '@/lib/app-routes';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
+import { commerceSheetKeyboardPanelStyle } from '@/features/scarces/commerce-sheet-keyboard';
 import { commercePartyLines } from '@/features/scarces/collection-creator-face';
 import { ScarcePartyLine } from '@/features/scarces/scarce-party-line';
 import {
@@ -67,7 +71,9 @@ export function DmComposeSheet({
 }: DmComposeSheetProps) {
   const router = useRouter();
   const titleId = useId();
+  const formId = useId();
   const mediaInputId = useId();
+  const scrollFieldIntoView = useMobileFieldFocusScroll();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { accountId, isConnected, connect, hasSocialSession } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
@@ -95,13 +101,20 @@ export function DmComposeSheet({
     Boolean(peerAccountId) && (open || closing)
   );
   const effectiveMood = mood ?? fetchedMood;
-  const panelStyle = useMemo(
-    () =>
-      effectiveMood
-        ? (supportSheetPanelStyle(effectiveMood.cssVars) as CSSProperties)
-        : undefined,
-    [effectiveMood]
+  const sheetOpen = open && !closing;
+  const viewport = useVisualViewportSheetMetrics(sheetOpen);
+  const keyboardStyle = useMemo(
+    () => commerceSheetKeyboardPanelStyle(viewport),
+    [viewport]
   );
+  const keyboardOpen = viewport.isMobile && viewport.lift > 0;
+  const panelStyle = useMemo(() => {
+    const moodStyle = effectiveMood
+      ? (supportSheetPanelStyle(effectiveMood.cssVars) as CSSProperties)
+      : undefined;
+    if (!moodStyle && !keyboardStyle) return undefined;
+    return { ...moodStyle, ...keyboardStyle };
+  }, [effectiveMood, keyboardStyle]);
 
   const dirty = Boolean(text.trim() || mediaFile);
   const finishClose = useCallback(() => {
@@ -158,8 +171,6 @@ export function DmComposeSheet({
     setMediaFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, []);
-
-  const sheetOpen = open && !closing;
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -240,10 +251,28 @@ export function DmComposeSheet({
         backdropLabel="Close message"
         moodId={effectiveMood?.id}
         panelStyle={panelStyle}
+        keyboardOpen={keyboardOpen}
         size="tall"
         bodyClassName="profile-support-sheet-body"
         titleId={titleId}
         {...(zIndex != null ? { zIndex } : {})}
+        footer={
+          accountId && !isUnlocked ? undefined : (
+            <OsSheetFooter keyboardOpen={keyboardOpen}>
+              <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+                <OsSheetAction
+                  type="submit"
+                  form={formId}
+                  ready={(!isConnected || canSend) && !pending}
+                  pending={pending}
+                  pendingLabel="Sending…"
+                >
+                  {!isConnected ? DM_CONNECT_CTA : 'Send'}
+                </OsSheetAction>
+              </OsSheetActions>
+            </OsSheetFooter>
+          )
+        }
       >
         <div className="dm-compose-body">
           <ScarcePartyLine
@@ -267,6 +296,7 @@ export function DmComposeSheet({
             />
           ) : (
             <form
+              id={formId}
               className="dm-compose-form"
               onSubmit={(e) => void handleSubmit(e)}
             >
@@ -276,6 +306,7 @@ export function DmComposeSheet({
                   className={osFieldBorderedClassName}
                   value={text}
                   onChange={(event) => setText(event.target.value)}
+                  onFocus={scrollFieldIntoView}
                   placeholder="Message"
                   rows={5}
                   disabled={pending || discardConfirmOpen}
@@ -343,17 +374,6 @@ export function DmComposeSheet({
               ) : !isConnected ? (
                 <p className="dm-compose-hint">{DM_CONNECT_HINT}</p>
               ) : null}
-
-              <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-                <OsSheetAction
-                  type="submit"
-                  ready={(!isConnected || canSend) && !pending}
-                  pending={pending}
-                  pendingLabel="Sending…"
-                >
-                  {!isConnected ? DM_CONNECT_CTA : 'Send'}
-                </OsSheetAction>
-              </OsSheetActions>
             </form>
           )}
         </div>

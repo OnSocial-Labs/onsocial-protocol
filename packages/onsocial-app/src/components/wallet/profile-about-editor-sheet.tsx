@@ -31,7 +31,11 @@ import { ProfileAlignToolIcon } from '@/components/profile/profile-align-tool-ic
 import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-textarea';
 import { ProfileTopicsEditor } from '@/components/wallet/profile-topics-editor';
 import type { ProfileAboutPhotoDraft } from '@/components/wallet/profile-about-photos-editor';
-import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
+import {
+  scrollMobileFieldIntoView,
+  useMobileFieldFocusScroll,
+} from '@/hooks/use-mobile-field-focus-scroll';
+import { usePageKeyboardLift } from '@/hooks/use-page-keyboard-lift';
 import {
   PROFILE_BIO_LIMIT_WARN,
   PROFILE_BIO_MAX,
@@ -105,6 +109,7 @@ export function ProfileAboutEditorSheet({
   const [leadOpen, setLeadOpen] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<number | null>(null);
   const scrollFieldIntoView = useMobileFieldFocusScroll();
+  const { keyboardOpen, panelStyle } = usePageKeyboardLift(open);
 
   const aboutLen = aboutBio.replace(/\r\n/g, '\n').length;
   const leadLen = lead.replace(/\r\n/g, '\n').length;
@@ -156,11 +161,7 @@ export function ProfileAboutEditorSheet({
       setSelectedPhoto(null);
       return;
     }
-    const next = swapProfileAboutPhoto(
-      photosRef.current,
-      selectedPhoto,
-      index
-    );
+    const next = swapProfileAboutPhoto(photosRef.current, selectedPhoto, index);
     photosRef.current = next;
     onPhotosChange(next);
     setSelectedPhoto(null);
@@ -274,10 +275,7 @@ export function ProfileAboutEditorSheet({
     fileInputRef.current?.click();
   }, [atMax, disabled]);
 
-  const photoControls = (
-    index: number,
-    role: 'print' | 'film'
-  ): ReactNode => (
+  const photoControls = (index: number, role: 'print' | 'film'): ReactNode => (
     <div className="profile-about-edit-media-chrome">
       {canReorder ? (
         <button
@@ -310,6 +308,45 @@ export function ProfileAboutEditorSheet({
     </div>
   );
 
+  const formatToolbar = editingField ? (
+    <div className="profile-about-edit-format-toolbar" data-active="true">
+      <div
+        ref={setFormatChromeHost}
+        className="profile-about-edit-format-tools"
+        aria-label="Text formatting"
+      />
+      <div
+        className="profile-about-edit-align-tools"
+        role="group"
+        aria-label="Essay alignment"
+      >
+        {PROFILE_ABOUT_ALIGN_OPTIONS.map((option) => (
+          <button
+            key={option}
+            type="button"
+            className={`account-editor-bio-tool profile-about-edit-align-tool${
+              aboutAlign === option ? ' is-active' : ''
+            }`}
+            aria-label={
+              option === 'left'
+                ? 'Align left'
+                : option === 'center'
+                  ? 'Align center'
+                  : 'Justify'
+            }
+            aria-pressed={aboutAlign === option}
+            disabled={disabled}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => onAboutAlignChange(option)}
+          >
+            <ProfileAlignToolIcon option={option} />
+          </button>
+        ))}
+      </div>
+    </div>
+  ) : null;
+  const formatOnKeys = Boolean(formatToolbar && keyboardOpen);
+
   return (
     <OsSlideOverScreen
       open={open}
@@ -320,50 +357,13 @@ export function ProfileAboutEditorSheet({
       zIndex={SHEET_Z.confirm}
       moodId={moodId ?? undefined}
       moodStyle={moodStyle}
-      className="profile-edit-slide profile-about-edit-slide"
+      className={`profile-edit-slide profile-about-edit-slide${
+        keyboardOpen ? ' is-keyboard-open' : ''
+      }`}
+      style={panelStyle}
       contentClassName="profile-edit-slide-body"
-      toolbar={
-        editingField ? (
-          <div
-            className="profile-about-edit-format-toolbar"
-            data-active="true"
-          >
-            <div
-              ref={setFormatChromeHost}
-              className="profile-about-edit-format-tools"
-              aria-label="Text formatting"
-            />
-            <div
-              className="profile-about-edit-align-tools"
-              role="group"
-              aria-label="Essay alignment"
-            >
-              {PROFILE_ABOUT_ALIGN_OPTIONS.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  className={`account-editor-bio-tool profile-about-edit-align-tool${
-                    aboutAlign === option ? ' is-active' : ''
-                  }`}
-                  aria-label={
-                    option === 'left'
-                      ? 'Align left'
-                      : option === 'center'
-                        ? 'Align center'
-                        : 'Justify'
-                  }
-                  aria-pressed={aboutAlign === option}
-                  disabled={disabled}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => onAboutAlignChange(option)}
-                >
-                  <ProfileAlignToolIcon option={option} />
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null
-      }
+      toolbar={formatOnKeys ? null : formatToolbar}
+      footer={formatOnKeys ? formatToolbar : null}
     >
       <form
         id={formId}
@@ -371,6 +371,16 @@ export function ProfileAboutEditorSheet({
         onSubmit={(event) => {
           event.preventDefault();
           handleClose();
+        }}
+        onFocusCapture={(event) => {
+          const field = event.target;
+          if (
+            field instanceof HTMLInputElement ||
+            field instanceof HTMLTextAreaElement ||
+            (field instanceof HTMLElement && field.isContentEditable)
+          ) {
+            scrollMobileFieldIntoView(field);
+          }
         }}
       >
         <div className="account-editor-form-main profile-edit-form-main">
@@ -590,9 +600,7 @@ export function ProfileAboutEditorSheet({
                 maxLength={PROFILE_BIO_MAX}
                 placeholder="More for About"
                 disabled={disabled}
-                chromePortal={
-                  editingField === 'more' ? formatChromeHost : null
-                }
+                chromePortal={editingField === 'more' ? formatChromeHost : null}
                 onFocus={(event) => {
                   setEditingField('more');
                   scrollFieldIntoView(event);

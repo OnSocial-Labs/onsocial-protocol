@@ -17,6 +17,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from './cn.js';
+import { useKeyboardDrawerFrame } from './keyboard-drawer-frame.js';
 import { useOverlayStackZ } from './overlay-stack.js';
 import { MultiplyIcon } from './mage-stroke-icons.js';
 import { resolveSheetMood, useMoodTheme } from './mood-theme.js';
@@ -1212,6 +1213,9 @@ export function GlassSheet({
 }: GlassSheetProps) {
   const opaquePage = surface === 'page';
   const band = sizing === 'band';
+  const keyboard = useKeyboardDrawerFrame(
+    open && sizing !== 'band' && sheetSurface !== 'page'
+  );
   const motion = useResolvedSheetMotion(
     open,
     band,
@@ -1672,6 +1676,7 @@ export function GlassSheet({
           panelIsOpen && 'is-open',
           showEnterAnimation && 'glass-sheet-panel--enter',
           dragging && 'is-dragging',
+          keyboard.keyboardOpen && 'is-keyboard-open',
           panelClassName
         )}
         data-tone={tone}
@@ -1686,6 +1691,7 @@ export function GlassSheet({
             '--sheet-y': sheetY,
             ...(dragging ? { transform: `translateY(${sheetY})` } : {}),
             ...panelStyle,
+            ...keyboard.style,
           } as CSSProperties
         }
         onTransitionEnd={handlePanelTransitionEnd}

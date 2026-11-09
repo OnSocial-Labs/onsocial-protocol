@@ -48,11 +48,11 @@ test.describe('create guild voice', () => {
     await expect(page.locator('.guild-look-preview-badge-empty')).toHaveText(
       '+'
     );
-    await expect(page.locator('.os-app-screen')).toHaveAttribute(
+    await expect(page.locator('.os-app-screen')).not.toHaveAttribute(
       'data-header-owns-connect',
       ''
     );
-    await expect(page.locator('.portfolio-summon-dock')).toBeVisible();
+    await expect(page.locator('.portfolio-summon-dock')).toHaveCount(0);
     await expect(page.locator('.portfolio-summon-hint--connect')).toHaveCount(
       0
     );
@@ -155,7 +155,7 @@ test.describe('create guild voice', () => {
     ).toBeVisible();
   });
 
-  test('dock Back leaves to Guilds', async ({ page }) => {
+  test('header Back leaves to Guilds', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoApp(page, '/home');
     await dismissNextDevOverlay(page);
@@ -171,7 +171,7 @@ test.describe('create guild voice', () => {
     ).toHaveCount(0);
   });
 
-  test('dirty dock Back asks before leaving', async ({ page }) => {
+  test('dirty header Back asks before leaving', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoApp(page, '/home');
     await dismissNextDevOverlay(page);

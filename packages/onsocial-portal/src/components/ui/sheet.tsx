@@ -17,6 +17,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 
+import { keyboardDrawerFrameStyle } from '@onsocial/ui';
 import { portalElevatedShadowClass } from '@/components/ui/floating-panel';
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -32,14 +33,12 @@ import { cn } from '@/lib/utils';
  * (use `md:` prefixes so the mobile drawer keeps its own geometry).
  */
 export const sheetShellClass =
-  'relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[1.25rem] border border-b-0 border-border/67 bg-background/98 pb-[env(safe-area-inset-bottom)] md:max-h-[min(640px,calc(100vh-2rem))] md:max-w-md md:rounded-2xl md:border-b md:pb-0';
+  'relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[1.25rem] border border-b-0 border-border/67 bg-background/98 md:max-h-[min(640px,calc(100vh-2rem))] md:max-w-md md:rounded-2xl md:border-b';
 
 /** Grip must travel this far before the panel follows (keeps taps inert). */
 const DRAG_ACTIVATION_PX = 4;
 /** Release past this pull distance dismisses the drawer. */
 const DRAG_DISMISS_PX = 120;
-/** Breathing room kept above the drawer while the keyboard is open. */
-const KEYBOARD_TOP_INSET_PX = 12;
 /** Retry pass after the keyboard animation settles. */
 const KEYBOARD_SCROLL_RETRY_MS = 280;
 
@@ -48,19 +47,35 @@ const KEYBOARD_SCROLL_RETRY_MS = 280;
  * immediately and once after the keyboard animation; body scroll is locked
  * while a sheet is open, so only the sheet's own scroller moves.
  */
+function nearestSheetScroller(element: HTMLElement): HTMLElement | null {
+  let node: HTMLElement | null = element.parentElement;
+  while (node) {
+    const overflowY = window.getComputedStyle(node).overflowY;
+    if (
+      (overflowY === 'auto' ||
+        overflowY === 'scroll' ||
+        overflowY === 'overlay') &&
+      node.scrollHeight > node.clientHeight + 1
+    ) {
+      return node;
+    }
+    node = node.parentElement;
+  }
+  return null;
+}
+
 function scrollSheetFieldIntoView(element: HTMLElement) {
   const run = () => {
     if (document.activeElement !== element) return;
-    const viewport = window.visualViewport;
-    if (!viewport) {
-      element.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      return;
-    }
-    const rect = element.getBoundingClientRect();
-    const topInset = viewport.offsetTop + 72;
-    const bottomInset = viewport.offsetTop + viewport.height - 96;
-    if (rect.top < topInset || rect.bottom > bottomInset) {
-      element.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const scroller = nearestSheetScroller(element);
+    if (!scroller) return;
+    const bodyRect = scroller.getBoundingClientRect();
+    const fieldRect = element.getBoundingClientRect();
+    const pad = 12;
+    if (fieldRect.bottom > bodyRect.bottom - pad) {
+      scroller.scrollTop += fieldRect.bottom - (bodyRect.bottom - pad);
+    } else if (fieldRect.top < bodyRect.top + pad) {
+      scroller.scrollTop -= bodyRect.top + pad - fieldRect.top;
     }
   };
   window.requestAnimationFrame(run);
@@ -228,22 +243,15 @@ export function Sheet({
               isMobile
                 ? {
                     y: panelY,
-                    ...(viewport.lift > 0
-                      ? {
-                          // Ride above the keyboard; cap height to the
-                          // visible band so the grip/header stay on-screen.
-                          marginBottom: `calc(${viewport.lift}px - env(safe-area-inset-bottom, 0px))`,
-                          maxHeight: Math.max(
-                            240,
-                            viewport.height - KEYBOARD_TOP_INSET_PX
-                          ),
-                        }
-                      : {}),
+                    ...keyboardDrawerFrameStyle(viewport),
                   }
                 : undefined
             }
             className={cn(
               sheetShellClass,
+              isMobile && viewport.lift > 0
+                ? 'is-keyboard-open pb-[0.45rem]'
+                : 'pb-[env(safe-area-inset-bottom,0px)] md:pb-0',
               portalElevatedShadowClass,
               panelClassName
             )}

@@ -28,9 +28,18 @@
   max-height: var(--os-hug-cap);
 }
 
-.glass-sheet-panel.os-gesture-sheet-panel.is-keyboard-open > .glass-sheet-body {
+/*
+ * Keyboard open, every drawer. The panel is capped at the visible screen
+ * (inline max-height) and lifted onto the keys. A short drawer stays short.
+ * A tall one stops at the top edge. Only the body between header and action
+ * scrolls. Basis stays auto so a short form does not collapse.
+ */
+.glass-sheet-panel.is-keyboard-open > .glass-sheet-body {
   flex: 1 1 auto;
   min-height: 0;
+  overflow-x: clip;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /**

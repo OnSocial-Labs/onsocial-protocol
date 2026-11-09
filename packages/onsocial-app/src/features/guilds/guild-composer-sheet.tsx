@@ -520,6 +520,13 @@ export function ComposerSheet({
   const [articleFormatHost, setArticleFormatHost] =
     useState<HTMLDivElement | null>(null);
   const viewport = useVisualViewportSheetMetrics(open);
+  const keyboardOpen = viewport.isMobile && viewport.lift > 0;
+  const keyboardStyle = useMemo((): CSSProperties | undefined => {
+    if (!keyboardOpen) return undefined;
+    return {
+      ['--os-keyboard-lift' as string]: `${viewport.lift}px`,
+    } as CSSProperties;
+  }, [keyboardOpen, viewport.lift]);
   const postingAsDao = authorTargets?.mode === 'dao';
   const threadBeats = composerBeatsForThread(beats);
   const safeFocus = Math.min(focusedBeat, Math.max(0, threadBeats.length - 1));
@@ -766,13 +773,6 @@ export function ComposerSheet({
       setFocusedBeat(0);
     })();
   };
-
-  const panelStyle = useMemo((): CSSProperties | undefined => {
-    if (!viewport.isMobile || viewport.lift <= 0) return undefined;
-    return {
-      marginBottom: `calc(${viewport.lift}px - env(safe-area-inset-bottom, 0px))`,
-    };
-  }, [viewport.isMobile, viewport.lift]);
 
   const requestClose = () => {
     if (pending) return;
@@ -1323,9 +1323,8 @@ export function ComposerSheet({
   const composerFooter = (
     <div
       className={`guild-composer-sheet-footer${
-        viewport.lift > 0 ? ' is-keyboard-open' : ''
+        keyboardOpen ? ' is-keyboard-open' : ''
       }`}
-      style={panelStyle}
     >
       <div className="guild-composer-toolbar">
         <div
@@ -1554,8 +1553,10 @@ export function ComposerSheet({
         backdropLabel="Close composer"
         moodId={viewerMoodId ?? undefined}
         moodStyle={viewerMoodStyle}
-        panelStyle={panelStyle}
-        panelClassName="guild-composer-sheet-panel"
+        panelStyle={keyboardStyle}
+        panelClassName={`guild-composer-sheet-panel${
+          keyboardOpen ? ' is-keyboard-open' : ''
+        }`}
         bodyClassName="guild-composer-sheet-body"
         header={null}
         footer={composerFooter}

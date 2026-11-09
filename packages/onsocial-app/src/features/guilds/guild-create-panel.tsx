@@ -4,13 +4,13 @@ import {
   useCallback,
   useMemo,
   useState,
-  type CSSProperties,
   type ChangeEvent,
   type FocusEvent,
   type FormEvent,
 } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  ChevronLeftIcon,
   DiscardConfirmSheet,
   OsIconAction,
   QuestionMarkCircleFillIcon,
@@ -23,7 +23,10 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
-import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
+import {
+  keyboardLiftCssVars,
+  useVisualViewportSheetMetrics,
+} from '@/hooks/use-visual-viewport-sheet';
 import {
   entityIdAvailabilityClass,
   entityIdAvailabilityLead,
@@ -230,12 +233,7 @@ export function GuildCreatePanel() {
   );
 
   const screenStyle = useMemo(
-    () =>
-      ({
-        ['--drop-create-keyboard-lift' as string]: formKeyboardOpen
-          ? `${formViewport.lift}px`
-          : '0px',
-      }) as CSSProperties,
+    () => keyboardLiftCssVars(formKeyboardOpen, formViewport.lift),
     [formKeyboardOpen, formViewport.lift]
   );
 
@@ -386,12 +384,14 @@ export function GuildCreatePanel() {
   return (
     <OsAppScreen
       title={GUILD_CREATE_TITLE}
-      dockBack
-      headerOwnsConnect
-      backFallbackHref={APP_GROUPS_PATH}
-      onDockBack={handleDockBack}
+      launcher={false}
       glassChrome
       style={screenStyle}
+      leading={
+        <OsIconAction ariaLabel="Back" onClick={handleDockBack}>
+          <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
+        </OsIconAction>
+      }
       actions={
         <OsIconAction
           ariaLabel={GUILD_CREATE_HELP_TITLE}
