@@ -4,9 +4,10 @@
  * Multi-path strokes painted with translucent currentColor stack brighter
  * where edges join. Mute with opaque ink + element opacity instead.
  *
- * Universal: when a host still mutes via color alpha, re-apply that alpha
- * as opacity. Hosts that set opacity on the glyph (higher specificity)
- * keep their ladder — e.g. drawer 0.72, search 0.48→0.72, header 0.72→0.92.
+ * Chrome keeps the alpha on `color` here and leaves `opacity` at 1, so a
+ * host that still mutes with a color alpha needs its own unlayered rule.
+ * Hosts that set opacity on the glyph keep that ladder — drawer 0.72,
+ * search 0.48→0.72, header 0.72→0.92.
  */
 @supports (color: rgb(from red r g b)) {
   .mage-stroke-icon {
