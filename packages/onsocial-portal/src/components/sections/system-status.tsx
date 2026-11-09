@@ -261,7 +261,7 @@ export function SystemStatus() {
                     </div>
                     <span
                       key={live.rpc.ms ?? live.rpc.status}
-                      className={`portal-live-ms shrink-0 text-xs font-medium font-mono tabular-nums ${}}
+                      className={`portal-live-ms shrink-0 text-xs font-medium font-mono ${
                         live.rpc.status === 'up' && live.rpc.ms != null
                           ? rpcMsColor(live.rpc.ms)
                           : wordColor(live.rpc.status)
