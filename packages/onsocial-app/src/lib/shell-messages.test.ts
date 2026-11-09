@@ -134,6 +134,16 @@ describe('shell catalogs', () => {
     expect(en.taxonomy.closeIndustry).toBe('Close industry');
     expect(en.taxonomy.closeLocation).toBe('Close location');
     expect(en.taxonomy.closeCraft).toBe('Close craft');
+    expect(en.profileFace.person).toBe('Person');
+    expect(en.profileFace.about).toBe('About');
+    expect(en.profileFace.aboutHouse).toBe('About');
+    expect(en.profileFace.bio).toBe('Bio');
+    expect(en.profileFace.leadCrafts).toBe('Lead, crafts, photos, more');
+    expect(en.profileFace.leadPhotos).toBe('Lead, photos, more');
+    expect(en.profileFace.manageOffers).toBe('Manage offers');
+    expect(en.profileFace.manageHiring).toBe('Manage hiring');
+    expect(en.profileFace.viewOffers).toBe('View offers');
+    expect(en.profileFace.viewRole).toBe('View open role');
     expect(en.topicEditor.alreadyAdded).toBe('Already added');
     expect(en.topicEditor.remove).toBe('Remove {name}');
     expect(en.industries.healthcare).toBe('Healthcare');
@@ -211,6 +221,30 @@ describe('shell catalogs', () => {
     expect(taxonomyPl('people', { count: 1 })).toBe('1 osoba');
     expect(taxonomyPl('people', { count: 4 })).toBe('4 osoby');
     expect(taxonomyPl('people', { count: 12 })).toBe('12 osób');
+    const face = createTranslator({
+      locale: 'en',
+      messages: en,
+      namespace: 'profileFace',
+    });
+    expect(face('offersCount', { count: 3 })).toBe('Offers · 3');
+    expect(face('hiringCount', { count: 2 })).toBe('Hiring · 2');
+    expect(face('viewOffersCount', { count: 3 })).toBe('View 3 offers');
+    expect(face('viewRoles', { count: 4 })).toBe('View 4 open roles');
+    expect(face('craftCount', { count: 1 })).toBe('1 craft');
+    expect(face('craftCount', { count: 2 })).toBe('2 crafts');
+    expect(face('photoCount', { count: 1 })).toBe('1 photo');
+    expect(face('photoCount', { count: 5 })).toBe('5 photos');
+    const facePl = createTranslator({
+      locale: 'pl',
+      messages: pl,
+      namespace: 'profileFace',
+    });
+    expect(facePl('craftCount', { count: 1 })).toBe('1 fach');
+    expect(facePl('craftCount', { count: 3 })).toBe('3 fachy');
+    expect(facePl('craftCount', { count: 5 })).toBe('5 fachów');
+    expect(facePl('photoCount', { count: 1 })).toBe('1 zdjęcie');
+    expect(facePl('photoCount', { count: 4 })).toBe('4 zdjęcia');
+    expect(facePl('photoCount', { count: 12 })).toBe('12 zdjęć');
   });
 
   it('maps each create-form error onto its English sentence', () => {

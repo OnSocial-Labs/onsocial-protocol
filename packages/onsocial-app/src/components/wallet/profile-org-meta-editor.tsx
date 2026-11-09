@@ -9,10 +9,6 @@ import { useEffect, useId, useRef, useState } from 'react';
 import {
   PROFILE_INDUSTRY_MAX,
   PROFILE_LOCATION_MAX,
-  hiringLineAriaLabel,
-  hiringLineLabel,
-  offerLineAriaLabel,
-  offerLineLabel,
   isProfileIndustryWriteIn,
   matchProfileIndustryOption,
   normalizeProfileIndustryInput,
@@ -46,6 +42,12 @@ import {
   useIndustryLabel,
   useTaxonomyChoices,
 } from '@/lib/use-profile-taxonomy';
+import {
+  useHiringFaceLabel,
+  useHiringViewAria,
+  useOfferFaceLabel,
+  useOfferViewAria,
+} from '@/lib/use-profile-face';
 
 const PROFILE_INDUSTRY_CHOICES: ChoiceOption<string>[] =
   profileIndustryChoiceOptions();
@@ -146,8 +148,10 @@ export function ProfileOrgMetaEditor({
     ? industryName(storedIndustry)
     : emptyLabel;
   const locationLabel = location.trim() || t('taxonomy.location');
-  const hiringLabel = hiringLineLabel(jobCount);
-  const offerLabel = offerLineLabel(offerCount);
+  const hiringLabel = useHiringFaceLabel(jobCount);
+  const offerLabel = useOfferFaceLabel(offerCount);
+  const hiringAria = useHiringViewAria(jobCount);
+  const offerAria = useOfferViewAria(offerCount);
 
   const handleIndustryChoice = (next: string) => {
     if (isProfileIndustryWriteIn(next)) {
@@ -235,9 +239,7 @@ export function ProfileOrgMetaEditor({
               aria-haspopup="dialog"
               aria-expanded={offerOpen}
               aria-label={
-                offerCount > 0
-                  ? offerLineAriaLabel(offerCount)
-                  : 'Manage offers'
+                offerCount > 0 ? offerAria : t('profileFace.manageOffers')
               }
               onClick={() => setOfferOpen(true)}
             >
@@ -253,7 +255,7 @@ export function ProfileOrgMetaEditor({
               aria-haspopup="dialog"
               aria-expanded={hiringOpen}
               aria-label={
-                jobCount > 0 ? hiringLineAriaLabel(jobCount) : 'Manage hiring'
+                jobCount > 0 ? hiringAria : t('profileFace.manageHiring')
               }
               onClick={() => setHiringOpen(true)}
             >

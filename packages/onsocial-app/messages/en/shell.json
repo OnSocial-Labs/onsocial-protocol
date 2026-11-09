@@ -433,6 +433,27 @@
     "industryNamed": "Industry, {name}",
     "closeIndustry": "Close industry"
   },
+  "profileFace": {
+    "person": "Person",
+    "accountType": "Account type",
+    "bio": "Bio",
+    "about": "About",
+    "aboutHouse": "About",
+    "offersCount": "Offers · {count}",
+    "hiringCount": "Hiring · {count}",
+    "manageOffers": "Manage offers",
+    "manageHiring": "Manage hiring",
+    "viewOffers": "View offers",
+    "viewOffersCount": "View {count} offers",
+    "viewRole": "View open role",
+    "viewRoles": "View {count} open roles",
+    "lead": "Lead",
+    "moreBio": "More bio",
+    "leadCrafts": "Lead, crafts, photos, more",
+    "leadPhotos": "Lead, photos, more",
+    "craftCount": "{count, plural, one {# craft} other {# crafts}}",
+    "photoCount": "{count, plural, one {# photo} other {# photos}}"
+  },
   "industries": {
     "accounting": "Accounting",
     "agriculture": "Agriculture",

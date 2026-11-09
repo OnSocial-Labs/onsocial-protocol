@@ -433,6 +433,27 @@
     "industryNamed": "Branża, {name}",
     "closeIndustry": "Zamknij branżę"
   },
+  "profileFace": {
+    "person": "Osoba",
+    "accountType": "Rodzaj konta",
+    "bio": "O sobie",
+    "about": "O mnie",
+    "aboutHouse": "O nas",
+    "offersCount": "Oferty · {count}",
+    "hiringCount": "Rekrutacja · {count}",
+    "manageOffers": "Zarządzaj ofertami",
+    "manageHiring": "Zarządzaj rekrutacją",
+    "viewOffers": "Zobacz oferty",
+    "viewOffersCount": "Zobacz oferty: {count}",
+    "viewRole": "Zobacz otwartą rolę",
+    "viewRoles": "Zobacz otwarte role: {count}",
+    "lead": "Wstęp",
+    "moreBio": "Więcej opisu",
+    "leadCrafts": "Wstęp, fachy, zdjęcia, więcej",
+    "leadPhotos": "Wstęp, zdjęcia, więcej",
+    "craftCount": "{count, plural, one {# fach} few {# fachy} many {# fachów} other {# fachy}}",
+    "photoCount": "{count, plural, one {# zdjęcie} few {# zdjęcia} many {# zdjęć} other {# zdjęcia}}"
+  },
   "industries": {
     "accounting": "Księgowość",
     "agriculture": "Rolnictwo",

@@ -904,7 +904,7 @@ export function AppProfileEditorSheet({
                             <div
                               className="account-editor-kind"
                               role="radiogroup"
-                              aria-label="Account type"
+                              aria-label={t('profileFace.accountType')}
                             >
                               {PROFILE_FACE_KIND_OPTIONS.map((option) => (
                                 <button
@@ -920,7 +920,9 @@ export function AppProfileEditorSheet({
                                     setKind(option.value);
                                   }}
                                 >
-                                  {option.label}
+                                  {option.value === 'person'
+                                    ? t('profileFace.person')
+                                    : t('taxonomy.organization')}
                                 </button>
                               ))}
                             </div>
@@ -993,14 +995,14 @@ export function AppProfileEditorSheet({
                             htmlFor="profile-editor-bio"
                             className="sr-only"
                           >
-                            Bio
+                            {t('profileFace.bio')}
                           </label>
                           <ProfileFaceBioField
                             textareaRef={bioRef}
                             id="profile-editor-bio"
                             value={faceBio}
                             maxLength={FACE_BIO_WRAP_CHARS}
-                            placeholder="Bio"
+                            placeholder={t('profileFace.bio')}
                             onFocus={scrollFieldIntoView}
                             onChange={handleFaceBioChange}
                             onBlur={() => {
@@ -1066,7 +1068,9 @@ export function AppProfileEditorSheet({
                     onClick={() => setAboutOpen(true)}
                   >
                     <span className="account-editor-about-trigger-label">
-                      About
+                      {isDaoAccount || kind === 'org'
+                        ? t('profileFace.aboutHouse')
+                        : t('profileFace.about')}
                     </span>
                     <span className="account-editor-about-trigger-meta">
                       {profileAboutHasMoreThanFace({
@@ -1077,25 +1081,29 @@ export function AppProfileEditorSheet({
                           !isDaoAccount && kind === 'person' ? tags.length : 0,
                       })
                         ? [
-                            lead.trim() ? 'Lead' : null,
+                            lead.trim() ? t('profileFace.lead') : null,
                             !isDaoAccount &&
                             kind === 'person' &&
                             tags.length > 0
-                              ? `${tags.length} craft${tags.length === 1 ? '' : 's'}`
+                              ? t('profileFace.craftCount', {
+                                  count: tags.length,
+                                })
                               : null,
                             photos.length > 0
-                              ? `${photos.length} photo${photos.length === 1 ? '' : 's'}`
+                              ? t('profileFace.photoCount', {
+                                  count: photos.length,
+                                })
                               : null,
-                            aboutBio.trim() ? 'More bio' : null,
+                            aboutBio.trim() ? t('profileFace.moreBio') : null,
                           ]
                             .filter(Boolean)
                             .join(' · ') ||
                           (!isDaoAccount && kind === 'person'
-                            ? 'Lead, crafts, photos, more'
-                            : 'Lead, photos, more')
+                            ? t('profileFace.leadCrafts')
+                            : t('profileFace.leadPhotos'))
                         : !isDaoAccount && kind === 'person'
-                          ? 'Lead, crafts, photos, more'
-                          : 'Lead, photos, more'}
+                          ? t('profileFace.leadCrafts')
+                          : t('profileFace.leadPhotos')}
                     </span>
                   </button>
                 </div>
