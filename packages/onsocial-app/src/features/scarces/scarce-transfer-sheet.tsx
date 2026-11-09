@@ -113,6 +113,7 @@ export function ScarceTransferSheet({
           formId={formId}
           item={item}
           ownerAccountId={ownerAccountId}
+          keyboardOpen={keyboardOpen}
           onFooterStateChange={handleFooterStateChange}
           onSuccess={(detail) => {
             onTransferred?.(detail);

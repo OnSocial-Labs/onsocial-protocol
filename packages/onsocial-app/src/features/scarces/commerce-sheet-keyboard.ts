@@ -13,6 +13,9 @@ export const COMMERCE_SHEET_MAX_HEIGHT_PX = 736;
 /**
  * Lift/clamp GlassSheet panels above the mobile keyboard (composer pattern),
  * while keeping content-sized height when the keyboard is closed.
+ * Open height is the visual viewport, so the sheet top sits on the screen
+ * edge and does not climb past it. Header and footer stay put; the body
+ * between them is the only scroller.
  */
 export function commerceSheetKeyboardPanelStyle(
   viewport: VisualViewportSheetMetrics,

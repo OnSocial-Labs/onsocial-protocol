@@ -31588,6 +31588,16 @@ a.os-surface-row,
     background: transparent;
   }
 
+  /*
+   * While the keyboard holds the sheet to the screen, keep the To field near
+   * the top of the body so profile rows land in the band above Transfer
+   * instead of under the button.
+   */
+  .os-gesture-sheet-panel.is-keyboard-open .scarce-transfer-recipient {
+    scroll-margin-top: 0.35rem;
+    scroll-margin-bottom: 70%;
+  }
+
   /* Plain type-ins wear .os-field-bordered on the control; layout only here. */
   .drop-create-form .guild-field > textarea,
   .guild-create-form .guild-field > textarea,

@@ -28,9 +28,19 @@
   max-height: var(--os-hug-cap);
 }
 
+/*
+ * Keyboard open: the panel height is the visual viewport, so the top stays
+ * on the screen edge and the sheet cannot climb past it. Header and footer
+ * stay fixed. Only the body between them scrolls.
+ * flex-basis 0 (not auto) so the cover and profile rows cannot grow the
+ * sheet; they scroll inside the band.
+ */
 .glass-sheet-panel.os-gesture-sheet-panel.is-keyboard-open > .glass-sheet-body {
-  flex: 1 1 auto;
+  flex: 1 1 0%;
   min-height: 0;
+  overflow-x: clip;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /**

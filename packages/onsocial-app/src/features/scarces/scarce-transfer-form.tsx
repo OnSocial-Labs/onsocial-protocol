@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ProfileAccountSearchPicks,
   profileAccountSearchActive,
@@ -28,6 +28,7 @@ import {
   scarceTransferClipSession,
   scarceTransferReady,
 } from '@/features/scarces/scarce-transfer';
+import { alignSheetFieldToBodyTop } from '@/features/scarces/sheet-field-scroll';
 import { pollTransferOwner } from '@/features/scarces/transfer-index-confirm';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import {
@@ -57,6 +58,8 @@ interface ScarceTransferFormProps {
   item: OwnedScarceItem;
   formId: string;
   ownerAccountId?: string | null;
+  /** Sheet is clamped to the visual viewport. Park To at the top of the body. */
+  keyboardOpen?: boolean;
   onSuccess?: (detail: ScarceTransferSuccessDetail) => void;
   onFooterStateChange?: (state: CommerceSheetFooterState | null) => void;
 }
@@ -66,12 +69,14 @@ export function ScarceTransferForm({
   item,
   formId,
   ownerAccountId = null,
+  keyboardOpen = false,
   onSuccess,
   onFooterStateChange,
 }: ScarceTransferFormProps) {
   const { accountId: viewerAccountId, getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [receiverId, setReceiverId] = useState('');
+  const recipientRef = useRef<HTMLLabelElement>(null);
   const [pending, setPending] = useState(false);
   const [hydratedPlayable, setHydratedPlayable] =
     useState<ScarcePlayableMedia | null>(null);
@@ -102,6 +107,18 @@ export function ScarceTransferForm({
     receiverId,
     accountStatus === 'found'
   );
+
+  useEffect(() => {
+    if (!keyboardOpen && !searchActive) return;
+    const field = recipientRef.current;
+    const input = field?.querySelector('input');
+    if (!field) return;
+    if (!searchActive && document.activeElement !== input) return;
+    const frame = window.requestAnimationFrame(() => {
+      alignSheetFieldToBodyTop(field);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [keyboardOpen, searchActive]);
 
   useEffect(() => {
     if (item.playable && item.playables?.length) return;
@@ -228,6 +245,7 @@ export function ScarceTransferForm({
       </div>
 
       <label
+        ref={recipientRef}
         className="guild-field scarce-transfer-recipient"
         htmlFor={`${formId}-to`}
       >
@@ -255,8 +273,7 @@ export function ScarceTransferForm({
         onPick={setReceiverId}
       />
 
-      {!searchActive &&
-      (listed || isSelf || accountStatus === 'missing') ? (
+      {!searchActive && (listed || isSelf || accountStatus === 'missing') ? (
         <p className="profile-support-hint">
           {listed ? 'This comes off sale.' : ''}
           {isSelf ? ' Choose another account.' : ''}
