@@ -33998,6 +33998,48 @@ a.os-surface-row,
       max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
   }
 
+  /*
+   * Edit profile is a full page (100dvh). The keyboard covers the layout
+   * bottom, so Save rides the lift and the body keeps the band above it.
+   * The page itself stays full-bleed — a max-height frame would squash it.
+   */
+  .glass-sheet-panel.profile-edit-sheet-panel.is-keyboard-open
+    > .glass-sheet-footer {
+    margin-bottom: var(--os-keyboard-lift, 0px);
+  }
+
+  .profile-edit-sheet-footer.is-keyboard-open {
+    padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem);
+  }
+
+  /*
+   * About stays a full page too. While the keyboard is up, the format bar
+   * leaves the title and sits on the keys; the story scrolls between Done
+   * and that bar. Other fields just clear the keyboard.
+   */
+  .profile-about-edit-slide.is-keyboard-open[data-os-slide-over='true']
+    .os-app-screen-footer {
+    bottom: var(--os-keyboard-lift, 0px);
+    transition: none;
+  }
+
+  .profile-about-edit-slide.is-keyboard-open .os-slide-over-footer-inner {
+    padding: 0.35rem var(--os-screen-body-pad-x, 0.75rem)
+      var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem);
+  }
+
+  .profile-about-edit-slide.is-keyboard-open[data-os-slide-over='true']
+    .os-app-screen-body {
+    padding-bottom: calc(
+      var(--os-keyboard-lift, 0px) + var(--os-about-keyboard-chrome, 0px)
+    );
+    scroll-padding-bottom: var(--os-about-keyboard-chrome, 0px);
+  }
+
+  .profile-about-edit-slide.is-keyboard-open[data-screen-footer='true'] {
+    --os-about-keyboard-chrome: 2.75rem;
+  }
+
   .drop-variation-set-slide-grid {
     --drop-seat-tile: clamp(4.5rem, 22vw, 6rem);
     width: 100%;
