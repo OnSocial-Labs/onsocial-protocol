@@ -34005,11 +34005,16 @@ a.os-surface-row,
    */
   .glass-sheet-panel.profile-edit-sheet-panel.is-keyboard-open
     > .glass-sheet-footer {
-    margin-bottom: var(--os-keyboard-lift, 0px);
+    /* Lift includes the keyboard pad so Save itself clears the keys.
+       A pad inside the footer sits under the keyboard. */
+    margin-bottom: calc(
+      var(--os-keyboard-lift, 0px) +
+        var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem)
+    );
   }
 
   .profile-edit-sheet-footer.is-keyboard-open {
-    padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem);
+    padding-bottom: 0.35rem;
   }
 
   /*
@@ -34019,19 +34024,23 @@ a.os-surface-row,
    */
   .profile-about-edit-slide.is-keyboard-open[data-os-slide-over='true']
     .os-app-screen-footer {
-    bottom: var(--os-keyboard-lift, 0px);
+    bottom: calc(
+      var(--os-keyboard-lift, 0px) +
+        var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem)
+    );
     transition: none;
   }
 
   .profile-about-edit-slide.is-keyboard-open .os-slide-over-footer-inner {
-    padding: 0.35rem var(--os-screen-body-pad-x, 0.75rem)
-      var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem);
+    padding: 0.35rem var(--os-screen-body-pad-x, 0.75rem) 0.35rem;
   }
 
   .profile-about-edit-slide.is-keyboard-open[data-os-slide-over='true']
     .os-app-screen-body {
     padding-bottom: calc(
-      var(--os-keyboard-lift, 0px) + var(--os-about-keyboard-chrome, 0px)
+      var(--os-keyboard-lift, 0px) +
+        var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem) +
+        var(--os-about-keyboard-chrome, 0px)
     );
     scroll-padding-bottom: var(--os-about-keyboard-chrome, 0px);
   }
