@@ -85,6 +85,25 @@ import {
 } from './mage-stroke-icons.js';
 
 describe('mage stroke icons', () => {
+  it('draws quiet launcher glyphs at the shared Mage stroke', () => {
+    for (const Icon of [
+      HomeIcon,
+      UsersIcon,
+      UserCircleIcon,
+      DashboardIcon,
+      CalendarIcon,
+    ]) {
+      const html = renderToStaticMarkup(createElement(Icon));
+      expect(html).toContain('stroke-width="2"');
+      expect(html).not.toContain('stroke-width="1.6"');
+    }
+    const users = renderToStaticMarkup(createElement(UsersIcon));
+    const page = renderToStaticMarkup(createElement(UserCircleIcon));
+    expect(users).not.toContain('M21.987');
+    expect(page).toContain('M12 21.5');
+    expect(page).not.toContain('M11.9667 1.75195');
+  });
+
   it('stamps every stroke glyph with mage-stroke-icon', () => {
     expect(mageStrokeIconClassName).toBe('mage-stroke-icon');
     const html = renderToStaticMarkup(
