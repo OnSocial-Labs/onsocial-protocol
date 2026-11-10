@@ -193,66 +193,6 @@ test.describe('drawer pull gestures', () => {
     await expect(entry).toBeFocused();
   });
 
-  test('a covered chevron stays in the tab order and shows when focused', async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width: 1280, height: 800 });
-    await gotoApp(page, '/@alice.testnet');
-    await dismissNextDevOverlay(page);
-    await page.evaluate(() => {
-      document.documentElement.style.fontSize = '32px';
-      window.dispatchEvent(new Event('resize'));
-    });
-    const entry = page.getByRole('button', { name: 'Open page', exact: true });
-    await entry.waitFor({ state: 'attached' });
-    await page.evaluate(() => {
-      const chevron = document.querySelector('.portfolio-page-chevron');
-      if (!(chevron instanceof HTMLElement)) return;
-      if (getComputedStyle(chevron).opacity === '0') return;
-      const rect = chevron.getBoundingClientRect();
-      const caption = document.createElement('p');
-      caption.setAttribute('data-standing-caption', '');
-      caption.textContent = 'STANDING·SOLIDARITY·ENDORSEMENTS';
-      caption.style.position = 'fixed';
-      caption.style.left = `${rect.left}px`;
-      caption.style.top = `${rect.top}px`;
-      caption.style.width = `${Math.max(rect.width, 120)}px`;
-      caption.style.height = `${Math.max(rect.height, 32)}px`;
-      caption.style.margin = '0';
-      caption.style.zIndex = '1';
-      document.body.appendChild(caption);
-      window.dispatchEvent(new Event('resize'));
-    });
-    await expect
-      .poll(() => entry.evaluate((el) => getComputedStyle(el).opacity))
-      .toBe('0');
-    await expect(entry).toHaveAccessibleName('Open page');
-    for (let step = 0; step < 50; step += 1) {
-      if (await entry.evaluate((el) => el === document.activeElement)) break;
-      await page.keyboard.press('Tab');
-    }
-    await expect(entry).toBeFocused();
-    await expect
-      .poll(() => entry.evaluate((el) => getComputedStyle(el).opacity))
-      .toBe('1');
-    await page.keyboard.press('Enter');
-    await expect(page.locator('.page-drawer-panel')).toBeVisible();
-    const chevron = page.locator('.portfolio-page-chevron');
-    await expect
-      .poll(() => chevron.evaluate((el) => el.getAttribute('aria-hidden')))
-      .toBe('true');
-    await expect.poll(() => chevron.evaluate((el) => el.tabIndex)).toBe(-1);
-    let reached = false;
-    for (let step = 0; step < 16; step += 1) {
-      await page.keyboard.press('Tab');
-      if (await chevron.evaluate((el) => el === document.activeElement)) {
-        reached = true;
-        break;
-      }
-    }
-    expect(reached).toBe(false);
-  });
-
   test('space opens the page and escape returns focus', async ({ page }) => {
     await gotoApp(page, '/@alice.testnet');
     await dismissNextDevOverlay(page);
@@ -584,6 +524,59 @@ test.describe('sheet body pulls', () => {
     await expect(launcher).toBeVisible();
     await launcher.getByRole('button', { name: 'Close launcher' }).click();
     await expect(launcher).toBeHidden();
+  });
+});
+
+test.describe('covered chevron keyboard', () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test('a covered chevron stays in the tab order and shows when focused', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/@alice.testnet');
+    await dismissNextDevOverlay(page);
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '32px';
+      window.dispatchEvent(new Event('resize'));
+    });
+    const chevron = page.locator('.portfolio-page-chevron');
+    await expect
+      .poll(() =>
+        chevron.evaluate((el) => {
+          const style = getComputedStyle(el);
+          return (
+            style.opacity === '0' ||
+            style.display === 'none' ||
+            el.hasAttribute('hidden')
+          );
+        })
+      )
+      .toBe(true);
+    await expect(chevron).toHaveAttribute('aria-label', 'Open page');
+    await expect(chevron).toHaveAccessibleName('Open page');
+    for (let step = 0; step < 50; step += 1) {
+      if (await chevron.evaluate((el) => el === document.activeElement)) break;
+      await page.keyboard.press('Tab');
+    }
+    await expect(chevron).toBeFocused();
+    await expect
+      .poll(() => chevron.evaluate((el) => getComputedStyle(el).opacity))
+      .toBe('1');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.page-drawer-panel')).toBeVisible();
+    await expect
+      .poll(() => chevron.evaluate((el) => el.getAttribute('aria-hidden')))
+      .toBe('true');
+    await expect.poll(() => chevron.evaluate((el) => el.tabIndex)).toBe(-1);
+    let reached = false;
+    for (let step = 0; step < 16; step += 1) {
+      await page.keyboard.press('Tab');
+      if (await chevron.evaluate((el) => el === document.activeElement)) {
+        reached = true;
+        break;
+      }
+    }
+    expect(reached).toBe(false);
   });
 });
 
