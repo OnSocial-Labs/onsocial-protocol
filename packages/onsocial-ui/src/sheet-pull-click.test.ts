@@ -8,18 +8,14 @@ import { armSheetPullClickSwallow } from './use-sheet-surface-pull.js';
 
 describe('sheet pull click', () => {
   it('keeps a slow press and a move under the confirm slop as a click', () => {
-    expect(
-      sheetPressActivatesClick({ phase: 'pending' })
-    ).toBe(true);
+    expect(sheetPressActivatesClick({ phase: 'pending' })).toBe(true);
     expect(sheetPressActivatesClick({ phase: 'pending' })).toBe(true);
     expect(sheetBodyPullDirection(2, 8, SHEET_PULL_CONFIRM_PX)).toBe('pending');
   });
 
   it('swallows the click only after a downward pull is confirmed', () => {
     expect(sheetBodyPullDirection(2, 12, SHEET_PULL_CONFIRM_PX)).toBe('pull');
-    expect(
-      sheetPressActivatesClick({ phase: 'pull' })
-    ).toBe(false);
+    expect(sheetPressActivatesClick({ phase: 'pull' })).toBe(false);
     expect(sheetPressActivatesClick({ phase: 'abort' })).toBe(true);
   });
 
