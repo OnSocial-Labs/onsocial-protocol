@@ -48,8 +48,8 @@ const SWIPE_UP_PX = 28;
 
 type FloatBox = { left: number; top: number; right: number; bottom: number };
 
-/** Outer edge of the unlayered page-chevron focus ring (`0 0 0 4px`). */
-const CHEVRON_FOCUS_RING_PX = 4;
+/** Outer edge of the page-chevron focus ring (`0 0 0 4px`). */
+export const CHEVRON_FOCUS_RING_PX = 4;
 
 export function chevronFloatBox(
   pill: { left: number; top: number; width: number },
@@ -67,6 +67,24 @@ export function chevronFloatBox(
 export function boxesMeet(a: FloatBox, b: FloatBox): boolean {
   return (
     a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
+  );
+}
+
+/**
+ * The lifted hint plus its focus ring. The ring fills the pad, so a content
+ * edge on that outer edge counts as a hit. A zero-size hint does not.
+ */
+export function liftedHintHitsContent(
+  hint: FloatBox & { width: number; height: number },
+  content: FloatBox
+): boolean {
+  if (!(hint.width > 0) || !(hint.height > 0)) return false;
+  const pad = CHEVRON_FOCUS_RING_PX;
+  return (
+    hint.left - pad <= content.right &&
+    hint.right + pad >= content.left &&
+    hint.top - pad <= content.bottom &&
+    hint.bottom + pad >= content.top
   );
 }
 
@@ -159,13 +177,7 @@ export function PortfolioSummonDock({
       const pillRect = pill.getBoundingClientRect();
       const outside = (el: Element) =>
         !dock.contains(el) && !el.closest('.glass-sheet-root');
-      const regionHits = (box: FloatBox) => {
-        const meets = (
-          left: number,
-          top: number,
-          right: number,
-          bottom: number
-        ) => boxesMeet(box, { left, top, right, bottom });
+      const regionHits = (meet: (rect: FloatBox) => boolean) => {
         for (const el of document.querySelectorAll(
           'a, button, input, textarea, select, [tabindex]'
         )) {
@@ -174,7 +186,16 @@ export function PortfolioSummonDock({
           }
           const rect = el.getBoundingClientRect();
           if (rect.width < 1 || rect.height < 1) continue;
-          if (meets(rect.left, rect.top, rect.right, rect.bottom)) return true;
+          if (
+            meet({
+              left: rect.left,
+              top: rect.top,
+              right: rect.right,
+              bottom: rect.bottom,
+            })
+          ) {
+            return true;
+          }
         }
         const walker = document.createTreeWalker(
           document.body,
@@ -194,7 +215,12 @@ export function PortfolioSummonDock({
           if (
             rect.width > 0 &&
             rect.height > 0 &&
-            meets(rect.left, rect.top, rect.right, rect.bottom)
+            meet({
+              left: rect.left,
+              top: rect.top,
+              right: rect.right,
+              bottom: rect.bottom,
+            })
           ) {
             return true;
           }
@@ -203,7 +229,7 @@ export function PortfolioSummonDock({
         return false;
       };
       const chevronBox = chevronFloatBox(pillRect, size, gap);
-      let covered = regionHits(chevronBox);
+      let covered = regionHits((rect) => boxesMeet(chevronBox, rect));
       if (
         covered &&
         chevron instanceof HTMLElement &&
@@ -218,14 +244,19 @@ export function PortfolioSummonDock({
         if (wasHidden) hint.hidden = false;
         const hintRect = hint.getBoundingClientRect();
         if (wasHidden) hint.hidden = true;
-        const hintBox = {
-          left: hintRect.left - CHEVRON_FOCUS_RING_PX,
-          right: hintRect.right + CHEVRON_FOCUS_RING_PX,
-          top: hintRect.top - CHEVRON_FOCUS_RING_PX,
-          bottom: hintRect.bottom + CHEVRON_FOCUS_RING_PX,
-        };
-        const hintHits =
-          hintRect.width > 0 && hintRect.height > 0 && regionHits(hintBox);
+        const hintHits = regionHits((rect) =>
+          liftedHintHitsContent(
+            {
+              left: hintRect.left,
+              top: hintRect.top,
+              right: hintRect.right,
+              bottom: hintRect.bottom,
+              width: hintRect.width,
+              height: hintRect.height,
+            },
+            rect
+          )
+        );
         setHintCovered((prev) => (prev === hintHits ? prev : hintHits));
       }
     };
