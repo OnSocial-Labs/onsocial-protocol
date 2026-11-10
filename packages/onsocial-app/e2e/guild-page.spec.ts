@@ -721,10 +721,15 @@ test.describe('guild page', () => {
     await proposals.getByRole('button', { name: 'Close' }).click();
     await expect(proposals).toHaveCount(0);
 
-    // Closing proposals pops back to Settings when it owned the prior URL.
-    // Prefer the hero control (`exact`) — backdrop is "Close guild settings".
-    const settingsAgain = page.getByRole('dialog', { name: 'Settings' });
-    if (!(await settingsAgain.isVisible())) {
+    // Closing proposals pops back to Settings when that sheet owned the prior
+    // URL. The handed-off Settings dialog stays mounted through its exit: it
+    // is still a dialog, but hits fall through to the page, then it detaches.
+    // Only the top visible sheet can take the next click. Otherwise reopen
+    // from the hero (`exact` — the backdrop is "Close guild settings").
+    const settingsAgain = page
+      .locator('.glass-sheet-root.is-visible[data-sheet-top="true"]')
+      .getByRole('dialog', { name: 'Settings' });
+    if ((await settingsAgain.count()) === 0) {
       await page
         .getByRole('button', { name: 'Guild settings', exact: true })
         .click();
