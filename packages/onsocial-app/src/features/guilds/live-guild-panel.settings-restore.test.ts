@@ -66,6 +66,8 @@ const harness = vi.hoisted(() => {
   };
   let onRoute: ((href: string) => void) | null = null;
   let popListeners: Array<() => void> = [];
+  let historyStack = ['/outside', '/groups/audit-guild'];
+  let historyIndex = 1;
   const viewerMode: { current: 'owner' | 'stranger' } = { current: 'owner' };
 
   function applyHref(href: string) {
@@ -82,6 +84,7 @@ const harness = vi.hoisted(() => {
     },
     replace(href: string) {
       calls.push({ op: 'replace' as const, href });
+      if (historyIndex >= 0) historyStack[historyIndex] = href;
       onRoute?.(href);
     },
     back() {},
@@ -141,6 +144,25 @@ const harness = vi.hoisted(() => {
     dispatchPop: () => {
       for (const fn of popListeners.slice()) fn();
     },
+    historyTop: () => historyStack[historyIndex],
+    noteUncommittedSettings() {
+      historyStack[historyIndex] = '/groups/audit-guild';
+    },
+    commitPush(href: string) {
+      historyStack = historyStack.slice(0, historyIndex + 1);
+      historyStack.push(href);
+      historyIndex += 1;
+      onRoute?.(href);
+    },
+    popCommitted() {
+      if (historyIndex <= 0) return false;
+      historyIndex -= 1;
+      const href = historyStack[historyIndex];
+      applyHref(href);
+      onRoute?.(href);
+      for (const fn of popListeners.slice()) fn();
+      return true;
+    },
     reset() {
       calls.length = 0;
       pendingPushes.length = 0;
@@ -150,6 +172,8 @@ const harness = vi.hoisted(() => {
       applyHref(BARE);
       onRoute = null;
       popListeners = [];
+      historyStack = ['/outside', '/groups/audit-guild'];
+      historyIndex = 1;
     },
   };
 });
@@ -727,34 +751,73 @@ describe('guild settings restore when a successor push has not landed', () => {
     await handoffAndCloseBeforePush('Proposals', 'Proposals');
   });
 
-  it('restores settings when requests closes before the push lands', async () => {
-    await handoffAndCloseBeforePush('Member requests', 'Requests');
-  });
-
-  it('restores settings when a landed proposals close pops onto the bare guild', async () => {
+  it('closes requests before the push lands onto the bare guild', async () => {
     const view = await mount();
     await openSettings(view);
+    click(view, 'Member requests');
+    await flush();
+    expect(dialogOpen(view, 'Requests')).toBe(true);
+    expect(hrefNow()).toBe(SETTINGS);
+    expect(harness.pendingPushes).toContain(REQUESTS);
+    harness.popInApp.mockClear();
+    click(view, 'Close');
+    await flush(450);
+    expect(dialogOpen(view, 'Settings')).toBe(false);
+    expect(dialogOpen(view, 'Requests')).toBe(false);
+    expect(hrefNow()).toBe(BARE);
+    expect(
+      harness.calls.some((call) => call.op === 'replace' && call.href === BARE)
+    ).toBe(true);
+  });
+
+  it('restores settings when the proposals push committed on the bare guild entry', async () => {
+    const view = await mount();
+    await openSettings(view);
+    harness.noteUncommittedSettings();
     click(view, 'Proposals');
     await flush();
     const pending = harness.pendingPushes.shift();
+    expect(pending).toBe(PROPOSALS);
     await act(async () => {
-      harness.emitRoute(pending!);
+      harness.commitPush(pending!);
     });
     expect(hrefNow()).toBe(PROPOSALS);
-    harness.popInApp.mockImplementation(() => {
-      harness.applyHref(BARE);
-      harness.dispatchPop();
-      return true;
-    });
+    expect(harness.historyTop()).toBe(PROPOSALS);
+    harness.popInApp.mockImplementation(() => harness.popCommitted());
     click(view, 'Close');
     await flush(450);
     expect(harness.popInApp).toHaveBeenCalled();
     expect(dialogOpen(view, 'Settings')).toBe(true);
     expect(dialogOpen(view, 'Proposals')).toBe(false);
     expect(hrefNow()).toBe(SETTINGS);
+    expect(harness.historyTop()).toBe(SETTINGS);
     expect(
       harness.calls.some((call) => call.op === 'push' && call.href === SETTINGS)
     ).toBe(false);
+  });
+
+  it('drops the proposals pop listener when the panel unmounts first', async () => {
+    const view = await mount();
+    await openSettings(view);
+    click(view, 'Proposals');
+    await flush();
+    const pending = harness.pendingPushes.shift();
+    await act(async () => {
+      harness.commitPush(pending!);
+    });
+    harness.popInApp.mockImplementation(() => true);
+    click(view, 'Close');
+    const replaces = harness.calls.filter((call) => call.op === 'replace').length;
+    act(() => {
+      view.unmount();
+    });
+    renderer = undefined;
+    harness.applyHref(BARE);
+    harness.dispatchPop();
+    expect(harness.calls.filter((call) => call.op === 'replace').length).toBe(
+      replaces
+    );
+    expect(hrefNow()).toBe(BARE);
   });
 
   it('leaves a bare guild in place when the pop was not this proposals close', async () => {

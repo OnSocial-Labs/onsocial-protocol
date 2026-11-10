@@ -1,4 +1,3 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { E2E_CHROME_TIMEOUT_MS, gotoApp } from './helpers';
 import { seedE2eWallet } from './helpers/collection-page';
@@ -9,6 +8,9 @@ import {
   GUILD_E2E_TITLE,
   stubGuildPage,
 } from './helpers/guild-page';
+
+const SETTINGS = `${GUILD_E2E_PATH}?sheet=settings`;
+const PROPOSALS = `${GUILD_E2E_PATH}?sheet=proposals`;
 
 async function readyGuild(page: Page) {
   await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
@@ -21,55 +23,81 @@ async function readyGuild(page: Page) {
   ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
 }
 
-async function mark(page: Page) {
+async function mark(page: Page, label: string) {
   const historyLength = await page.evaluate(() => history.length);
-  const url = new URL(page.url());
-  return { historyLength, url: url.pathname + url.search };
-}
-
-function save(name: string, record: unknown) {
-  const dir = process.env.BACK_CHECK_DIR;
-  if (!dir) return;
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(`${dir}/${name}.json`, JSON.stringify(record, null, 2));
+  const current = new URL(page.url());
+  const url = current.pathname + current.search;
+  console.log(`BACK_STEP ${label} historyLength=${historyLength} url=${url}`);
+  return { historyLength, url };
 }
 
 test('history back from proposals opened from settings', async ({ page }) => {
   await readyGuild(page);
+  expect(await mark(page, 'guild')).toEqual({
+    historyLength: 3,
+    url: GUILD_E2E_PATH,
+  });
   await page.getByRole('button', { name: 'Guild settings' }).click();
   await expect(page).toHaveURL(new RegExp(`${GUILD_E2E_PATH}\\?sheet=settings$`));
+  expect(await mark(page, 'settings')).toEqual({
+    historyLength: 3,
+    url: SETTINGS,
+  });
   const settings = page.getByRole('dialog', { name: 'Settings' });
   await expect(settings).toBeVisible();
   await settings.getByRole('button', { name: /Proposals/ }).click();
   await expect(page).toHaveURL(
     new RegExp(`${GUILD_E2E_PATH}\\?sheet=proposals$`)
   );
-  const before = await mark(page);
+  expect(await mark(page, 'proposals')).toEqual({
+    historyLength: 4,
+    url: PROPOSALS,
+  });
   await page.goBack();
-  await expect(page).not.toHaveURL(/sheet=proposals/);
-  const after = await mark(page);
-  save('proposals-history-back', { before, after });
+  await expect(page).toHaveURL(new RegExp(`${GUILD_E2E_PATH}\\?sheet=settings$`));
+  expect(await mark(page, 'after-proposals-back')).toEqual({
+    historyLength: 4,
+    url: SETTINGS,
+  });
 });
 
 test('one history back after proposals close leaves the guild', async ({
   page,
 }) => {
   await readyGuild(page);
+  expect(await mark(page, 'guild')).toEqual({
+    historyLength: 3,
+    url: GUILD_E2E_PATH,
+  });
   await page.getByRole('button', { name: 'Guild settings' }).click();
+  await expect(page).toHaveURL(new RegExp(`${GUILD_E2E_PATH}\\?sheet=settings$`));
+  expect(await mark(page, 'settings')).toEqual({
+    historyLength: 3,
+    url: SETTINGS,
+  });
   const settings = page.getByRole('dialog', { name: 'Settings' });
   await expect(settings).toBeVisible();
   await settings.getByRole('button', { name: /Proposals/ }).click();
   const proposals = page.getByRole('dialog', { name: 'Proposals' });
   await expect(proposals).toBeVisible();
+  await expect(page).toHaveURL(
+    new RegExp(`${GUILD_E2E_PATH}\\?sheet=proposals$`)
+  );
+  expect(await mark(page, 'proposals')).toEqual({
+    historyLength: 4,
+    url: PROPOSALS,
+  });
   await proposals.getByRole('button', { name: 'Close' }).click();
   await expect(proposals).toHaveCount(0);
-  await expect(page).toHaveURL(
-    new RegExp(`${GUILD_E2E_PATH}(?:\\?sheet=settings)?$`)
-  );
-  const afterClose = await mark(page);
+  await expect(page).toHaveURL(new RegExp(`${GUILD_E2E_PATH}\\?sheet=settings$`));
+  expect(await mark(page, 'after-close')).toEqual({
+    historyLength: 4,
+    url: SETTINGS,
+  });
   await page.goBack();
-  await expect(page).not.toHaveURL(new RegExp(GUILD_E2E_PATH));
-  const afterBack = await mark(page);
-  expect(afterBack.url).not.toContain(GUILD_E2E_PATH);
-  save('close-then-history-back', { afterClose, afterBack });
+  await expect(page).toHaveURL(/\/$/);
+  expect(await mark(page, 'after-back')).toEqual({
+    historyLength: 4,
+    url: '/',
+  });
 });

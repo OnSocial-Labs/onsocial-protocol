@@ -275,6 +275,7 @@ export function LiveGuildPanel({
   // whose open is a push that may still be in flight when the sheet closes.
   const settingsPredecessorRef = useRef(false);
   const pendingSuccessorHrefRef = useRef<string | null>(null);
+  const handoffPopListenerRef = useRef<(() => void) | null>(null);
   const openManageSheet = useCallback(
     (sheet: GuildManageSheetId | null) => {
       const shareable =
@@ -303,7 +304,13 @@ export function LiveGuildPanel({
           setSettingsSheetOpen(true);
           router.replace(settingsHref, { scroll: false });
         };
-        if (settingsPredecessorRef.current && !successorLanded) {
+        const detachHandoffPop = () => {
+          const listener = handoffPopListenerRef.current;
+          if (!listener) return;
+          window.removeEventListener('popstate', listener);
+          handoffPopListenerRef.current = null;
+        };
+        if (proposalsFromSettings && !successorLanded) {
           settingsPredecessorRef.current = false;
           manageSheetPushedRef.current = false;
           pendingSuccessorHrefRef.current = null;
@@ -313,18 +320,18 @@ export function LiveGuildPanel({
         settingsPredecessorRef.current = false;
         pendingSuccessorHrefRef.current = null;
         setManageSheet(null);
-        // Listen before the pop so this close, and not a later browser
+        // Listen before the pop so this close, and not a later history
         // back, is the only pop that can restore settings.
         const onHandoffPop = () => {
+          handoffPopListenerRef.current = null;
           if (hereNow() === face) restoreSettings();
         };
         if (proposalsFromSettings && manageSheetPushedRef.current) {
-          window.addEventListener('popstate', onHandoffPop, { once: true });
+          handoffPopListenerRef.current = onHandoffPop;
+          window.addEventListener('popstate', onHandoffPop);
         }
         if (!manageSheetPushedRef.current || !popInApp()) {
-          if (proposalsFromSettings) {
-            window.removeEventListener('popstate', onHandoffPop);
-          }
+          detachHandoffPop();
           manageSheetPushedRef.current = false;
           if (proposalsFromSettings) {
             restoreSettings();
@@ -339,6 +346,7 @@ export function LiveGuildPanel({
         // stale `?sheet=` URL over a closed drawer. Sheet urls differ by
         // search, not pathname, so compare both.
         const timer = window.setTimeout(() => {
+          detachHandoffPop();
           if (hereNow() === before) {
             if (proposalsFromSettings) restoreSettings();
             else router.replace(face, { scroll: false });
@@ -370,6 +378,15 @@ export function LiveGuildPanel({
     },
     [groupId, initialSheet, manageSheet, popInApp, router]
   );
+
+  useEffect(() => {
+    return () => {
+      const listener = handoffPopListenerRef.current;
+      if (!listener) return;
+      window.removeEventListener('popstate', listener);
+      handoffPopListenerRef.current = null;
+    };
+  }, []);
 
   const joinRequestPending = pendingJoinRequest(viewer?.joinRequest ?? null);
   const joinProposalPending = Boolean(viewer?.pendingJoinProposalId);
