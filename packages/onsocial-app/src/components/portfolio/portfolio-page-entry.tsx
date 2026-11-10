@@ -12,20 +12,20 @@ export function PortfolioPageContentEntry({
   open: boolean;
   /** Hidden from keyboard and the accessibility tree while the sheet trap is up. */
   concealed: boolean;
-  /** Floating box would cover page content, so the control is not shown. */
+  /** Floating box would cover page content. Hidden from the pointer, still reachable by keyboard. */
   covered: boolean;
   onOpen: () => void;
 }) {
-  const quiet = concealed || covered;
   return (
     <OsIconAction
       ariaLabel="Open page"
       aria-haspopup="dialog"
       aria-expanded={open}
-      aria-hidden={quiet ? true : undefined}
-      tabIndex={quiet ? -1 : undefined}
-      hidden={covered || undefined}
-      className={`${osDockPillClassName} portfolio-page-chevron`}
+      aria-hidden={concealed ? true : undefined}
+      tabIndex={concealed ? -1 : undefined}
+      className={`${osDockPillClassName} portfolio-page-chevron${
+        covered && !concealed ? ' is-content-covered' : ''
+      }`}
       onClick={onOpen}
     >
       <ChevronUpIcon aria-hidden />

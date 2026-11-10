@@ -52,7 +52,7 @@ describe('portfolio page entry', () => {
     expect(element.props.hidden).toBeUndefined();
   });
 
-  it('removes a covered chevron from the tree and the tab order', () => {
+  it('keeps a covered chevron named and in the tab order', () => {
     const covered = renderToStaticMarkup(
       createElement(PortfolioPageContentEntry, {
         open: false,
@@ -61,8 +61,23 @@ describe('portfolio page entry', () => {
         onOpen: () => {},
       })
     );
-    expect(covered).toContain('hidden=""');
-    expect(covered).toMatch(/<button[^>]*aria-hidden="true"/);
-    expect(covered).toContain('tabindex="-1"');
+    expect(covered).toContain('aria-label="Open page"');
+    expect(covered).toContain('is-content-covered');
+    expect(covered).not.toContain('hidden=""');
+    expect(covered).not.toMatch(/<button[^>]*aria-hidden="true"/);
+    expect(covered).not.toContain('tabindex="-1"');
+    expect(covered).not.toContain('inert');
+
+    const openAndCovered = renderToStaticMarkup(
+      createElement(PortfolioPageContentEntry, {
+        open: true,
+        concealed: true,
+        covered: true,
+        onOpen: () => {},
+      })
+    );
+    expect(openAndCovered).toMatch(/<button[^>]*aria-hidden="true"/);
+    expect(openAndCovered).toContain('tabindex="-1"');
+    expect(openAndCovered).not.toContain('is-content-covered');
   });
 });

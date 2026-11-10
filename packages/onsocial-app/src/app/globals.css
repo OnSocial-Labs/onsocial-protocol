@@ -47423,6 +47423,19 @@ button.portfolio-page-chevron.glass-sheet-icon-action:focus-visible {
     0 0 0 4px rgb(var(--fg-rgb));
 }
 
+/* Cover hides the control from the pointer. It stays in the tab order,
+   and keyboard focus shows it at full strength, ring included. */
+button.portfolio-page-chevron.glass-sheet-icon-action.is-content-covered {
+  opacity: 0;
+  pointer-events: none;
+}
+
+button.portfolio-page-chevron.glass-sheet-icon-action.is-content-covered:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+  z-index: 3;
+}
+
 @media (prefers-reduced-motion: reduce) {
   button.portfolio-page-chevron.glass-sheet-icon-action,
   button.portfolio-page-chevron.glass-sheet-icon-action::before,
