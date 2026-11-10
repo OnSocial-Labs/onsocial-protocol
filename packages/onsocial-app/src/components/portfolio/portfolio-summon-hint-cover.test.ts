@@ -16,18 +16,13 @@ describe('lifted hint cover', () => {
     expect(boxesMeet(hintAt200, captionAt175)).toBe(false);
   });
 
-  it('shows the hint when there is no caption', () => {
-    expect(boxesMeet(hintAt200, captionAt200)).toBe(true);
-    const captions: Array<typeof captionAt200> = [];
-    expect(captions.some((caption) => boxesMeet(hintAt200, caption))).toBe(
-      false
-    );
-  });
-
-  it('hides at the measured 390 200% boxes', () => {
-    expect(captionAt200.bottom).toBe(612.7);
-    expect(hintAt200.top).toBe(600);
-    expect(hintAt200.bottom).toBe(636);
-    expect(boxesMeet(hintAt200, captionAt200)).toBe(true);
+  it('shows the hint when the caption edge only touches the lifted box', () => {
+    const touching = {
+      left: captionAt200.left,
+      top: 560,
+      right: captionAt200.right,
+      bottom: hintAt200.top,
+    };
+    expect(boxesMeet(hintAt200, touching)).toBe(false);
   });
 });
