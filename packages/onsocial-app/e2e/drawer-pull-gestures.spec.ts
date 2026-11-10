@@ -1,4 +1,3 @@
-import { writeFileSync } from 'node:fs';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
   E2E_CHROME_TIMEOUT_MS,
@@ -96,12 +95,8 @@ test.describe('drawer pull gestures', () => {
     await expect(entry).toBeFocused();
     const ring = await entry.evaluate((el) => getComputedStyle(el).boxShadow);
     expect(ring).not.toBe('none');
-    const tree = await entry.ariaSnapshot();
-    writeFileSync(
-      '/opt/cursor/artifacts/page-entry-a11y-emulated.txt',
-      `EMULATED accessibility tree (not a physical screen reader)\n${tree}\n`
-    );
-    expect(tree).toContain('Open page');
+    await expect(entry).toHaveRole('button');
+    await expect(entry).toHaveAccessibleName('Open page');
 
     await page.keyboard.press('Enter');
     const drawer = page.getByRole('dialog', { name: / page$/ });
