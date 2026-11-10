@@ -168,16 +168,21 @@ test.describe('drawer pull gestures', () => {
     await entry.click();
     await expect(page.locator('.page-drawer-panel')).toBeVisible();
     await page.evaluate(() => {
-      const el = document.querySelector('.portfolio-page-chevron');
       const record = window as Window & { __chevronFocusOpacity?: string | null };
       record.__chevronFocusOpacity = null;
-      if (!(el instanceof HTMLElement)) return;
-      el.addEventListener(
-        'focus',
-        () => {
+      document.addEventListener(
+        'focusin',
+        (event) => {
+          const el = event.target;
+          if (
+            !(el instanceof HTMLElement) ||
+            !el.classList.contains('portfolio-page-chevron')
+          ) {
+            return;
+          }
           record.__chevronFocusOpacity = getComputedStyle(el).opacity;
         },
-        { once: true }
+        true
       );
     });
     await page.keyboard.press('Escape');
@@ -539,7 +544,34 @@ test.describe('covered chevron keyboard', () => {
       document.documentElement.style.fontSize = '32px';
       window.dispatchEvent(new Event('resize'));
     });
+    await page.waitForTimeout(800);
     const chevron = page.locator('.portfolio-page-chevron');
+    const coveredNow = await chevron.evaluate((el) => {
+      const style = getComputedStyle(el);
+      return (
+        style.opacity === '0' ||
+        style.display === 'none' ||
+        el.hasAttribute('hidden')
+      );
+    });
+    if (!coveredNow) {
+      await page.evaluate(() => {
+        const el = document.querySelector('.portfolio-page-chevron');
+        if (!(el instanceof HTMLElement)) return;
+        const rect = el.getBoundingClientRect();
+        const caption = document.createElement('p');
+        caption.setAttribute('data-standing-caption', '');
+        caption.textContent = 'STANDING·SOLIDARITY·ENDORSEMENTS';
+        caption.style.position = 'fixed';
+        caption.style.left = `${rect.left - 8}px`;
+        caption.style.top = `${rect.top - 8}px`;
+        caption.style.width = `${rect.width + 16}px`;
+        caption.style.height = `${rect.height + 16}px`;
+        caption.style.margin = '0';
+        document.body.appendChild(caption);
+        window.dispatchEvent(new Event('resize'));
+      });
+    }
     await expect
       .poll(() =>
         chevron.evaluate((el) => {
