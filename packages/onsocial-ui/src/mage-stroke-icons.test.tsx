@@ -84,8 +84,8 @@ import {
   VolumeUpIcon,
 } from './mage-stroke-icons.js';
 
-describe('mage stroke icons', () => {
-  it('draws quiet launcher glyphs at the shared Mage stroke', () => {
+describe('stroke icons', () => {
+  it('draws quiet launcher glyphs at the shared 2px stroke', () => {
     for (const Icon of [
       HomeIcon,
       UsersIcon,

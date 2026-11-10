@@ -1,7 +1,7 @@
 import type { ReactNode, SVGProps } from 'react';
 import { cn } from './cn.js';
 
-/** Shared class for every Mage stroke glyph — see `mage-stroke-icons.css`. */
+/** Shared class for every stroke glyph — see `mage-stroke-icons.css`. */
 export const mageStrokeIconClassName = 'mage-stroke-icon';
 
 export type MageStrokeIconProps = Pick<
@@ -29,7 +29,7 @@ function MageStrokeSvg({
   );
 }
 
-/** Mage stroke paths — camelCase attrs for React 19. */
+/** Stroke paths — camelCase attributes. */
 export function ChevronDownIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -44,7 +44,7 @@ export function ChevronDownIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `chevron-up` — vertical flip of {@link ChevronDownIcon}. */
+/** `chevron-up` — vertical flip of {@link ChevronDownIcon}. */
 export function ChevronUpIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -80,7 +80,7 @@ export function MultiplyIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `cancel` — circle with a slash. Abort a drop or sale, not close. */
+/** `cancel` — circle with a slash. Abort a drop or sale, not close. */
 export function CancelIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -96,7 +96,7 @@ export function CancelIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `stop` — media stop square. */
+/** `stop` — media stop square. */
 export function StopIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -133,7 +133,7 @@ export function SearchIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `filter` — horizontal sliders; page appearance / layout customize. */
+/** `filter` — horizontal sliders; page appearance / layout customize. */
 export function SlidersHorizontalIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -148,7 +148,7 @@ export function SlidersHorizontalIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `settings` — gear for settings hubs / configuration entry. */
+/** `settings` — gear for settings hubs / configuration entry. */
 export function SettingsIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -170,7 +170,7 @@ export function SettingsIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `dots-circle` — subtle customize / more affordance (stroke reads larger than fill). */
+/** `dots-circle` — subtle customize / more affordance (stroke reads larger than fill). */
 export function DotsCircleIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -264,7 +264,7 @@ export function ArrowLeftIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `check` — inline save / confirm affordance. */
+/** `check` — inline save / confirm affordance. */
 export function CheckIcon({
   strokeWidth = 2,
   ...props
@@ -283,7 +283,7 @@ export function CheckIcon({
   );
 }
 
-/** Mage `trash` — clear profile media. */
+/** `trash` — clear profile media. */
 export function TrashIcon({
   strokeWidth = 2,
   ...props
@@ -329,7 +329,7 @@ export function TrashIcon({
   );
 }
 
-/** Mage `focus` — camera reticle, stroke. Official weight is 1.5. */
+/** `focus` — camera reticle, stroke. Official weight is 1.5. */
 export function FocusIcon({
   strokeWidth = 1.5,
   ...props
@@ -354,7 +354,7 @@ export function FocusIcon({
   );
 }
 
-/** Mage `camera` — profile / media pickers. */
+/** `camera` — profile / media pickers. */
 export function CameraIcon({
   strokeWidth = 2,
   ...props
@@ -381,7 +381,7 @@ export function CameraIcon({
   );
 }
 
-/** Mage `chart-vertical` — poll / bar-chart affordance. */
+/** `chart-vertical` — poll / bar-chart affordance. */
 export function ChartVerticalIcon({
   strokeWidth = 2,
   ...props
@@ -400,7 +400,7 @@ export function ChartVerticalIcon({
   );
 }
 
-/** Mage `note-text` — text card / written cover; pair with NoteTextFillIcon when active. */
+/** `note-text` — text card / written cover; pair with NoteTextFillIcon when active. */
 export function NoteTextIcon({
   strokeWidth = 2,
   ...props
@@ -419,7 +419,7 @@ export function NoteTextIcon({
   );
 }
 
-/** Mage `Align Left` — essay / article alignment. */
+/** `Align Left` — essay / article alignment. */
 export function AlignLeftIcon({
   strokeWidth = 1.5,
   ...props
@@ -451,7 +451,7 @@ export function AlignLeftIcon({
   );
 }
 
-/** Mage `Align Center` — essay / article alignment. */
+/** `Align Center` — essay / article alignment. */
 export function AlignCenterIcon({
   strokeWidth = 1.5,
   ...props
@@ -484,8 +484,9 @@ export function AlignCenterIcon({
 }
 
 /**
- * Justify — Mage ships left/center/right only; this matches Align Left’s
- * stroke language with three equal full-width rules (standard justify mark).
+ * Justify — left, center, and right are the only shipped alignment marks.
+ * This matches Align Left’s stroke language with three equal full-width
+ * rules (standard justify mark).
  */
 export function AlignJustifyIcon({
   strokeWidth = 1.5,
@@ -518,7 +519,7 @@ export function AlignJustifyIcon({
   );
 }
 
-/** Mage `building-tree` — office / organization mark. */
+/** `building-tree` — office / organization mark. */
 export function BuildingTreeIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -590,7 +591,7 @@ export function BuildingTreeIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `map-marker` — place / venue pin. */
+/** `map-marker` — place / venue pin. */
 export function MapMarkerIcon({
   strokeWidth = 2,
   ...props
@@ -617,7 +618,7 @@ export function MapMarkerIcon({
   );
 }
 
-/** Mage `image` — still photo / picture cover. */
+/** `image` — still photo / picture cover. */
 export function ImageIcon({
   strokeWidth = 2,
   ...props
@@ -644,7 +645,7 @@ export function ImageIcon({
   );
 }
 
-/** Mage `video-player` — video frame / clip cover. */
+/** `video-player` — video frame / clip cover. */
 export function VideoPlayerIcon({
   strokeWidth = 2,
   ...props
@@ -726,10 +727,10 @@ export function CopyIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Default Mage stroke weight — 2px unless fill. */
+/** Default stroke weight — 2px unless fill. */
 const MAGE_STROKE = 2;
 
-/** Mage `message-round` — reply / conversation affordance. */
+/** `message-round` — reply / conversation affordance. */
 export function MessageRoundIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -748,7 +749,7 @@ export function MessageRoundIcon(props: MageStrokeIconProps) {
 /** @deprecated Use MessageRoundIcon */
 export const MessageIcon = MessageRoundIcon;
 
-/** Mage `exchange-b` — quote / repost cycle affordance. */
+/** `exchange-b` — quote / repost cycle affordance. */
 export function RepeatIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -772,7 +773,7 @@ export function RepeatIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `refresh` — renew / restart commitment. */
+/** `refresh` — renew / restart commitment. */
 export function RefreshIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -796,7 +797,7 @@ export function RefreshIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage-style `unlocked` — release a completed boost commitment. */
+/** Unlocked padlock — release a completed boost commitment. */
 export function UnlockIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -828,7 +829,7 @@ export function UnlockIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `heart` — like idle state; pair with HeartFillIcon when active. */
+/** `heart` — like idle state; pair with HeartFillIcon when active. */
 export function HeartIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -844,7 +845,7 @@ export function HeartIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `bookmark` — save for later idle; pair with BookmarkFillIcon when saved. */
+/** `bookmark` — save for later idle; pair with BookmarkFillIcon when saved. */
 export function BookmarkIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -860,7 +861,7 @@ export function BookmarkIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `fire-a` — Boost. Pair with FireFillIcon when active. */
+/** `fire-a` — Boost. Pair with FireFillIcon when active. */
 export function FireIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -884,7 +885,7 @@ export function FireIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `fire-b` — post amplify, and the Hot feed sort. Pair with FireBFillIcon when active. */
+/** `fire-b` — post amplify, and the Hot feed sort. Pair with FireBFillIcon when active. */
 export function FireBIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -908,7 +909,7 @@ export function FireBIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `clock` / time — chronological / Recent feed sort (idle). */
+/** `clock` / time — chronological / Recent feed sort (idle). */
 export function TimeIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -932,7 +933,7 @@ export function TimeIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `edit-pen` — profile / inline edit affordance. */
+/** `edit-pen` — profile / inline edit affordance. */
 export function EditPenIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -948,7 +949,7 @@ export function EditPenIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `edit` — profile / content editing. */
+/** `edit` — profile / content editing. */
 export function EditIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1010,7 +1011,7 @@ export function GlobeIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage stroke `gift` — reward and collect surfaces. */
+/** Stroke `gift` — reward and collect surfaces. */
 export function GiftIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1081,7 +1082,7 @@ export function LogoutIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `key` — app access / session key management. */
+/** `key` — app access / session key management. */
 export function KeyIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1103,7 +1104,7 @@ export function KeyIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `box-3d` — NEAR contract / infra account fallback. */
+/** `box-3d` — NEAR contract / infra account fallback. */
 export function Box3dIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1123,7 +1124,7 @@ export function Box3dIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `box-check` — submitted proposal / ballot mark. */
+/** `box-check` — submitted proposal / ballot mark. */
 export function BoxCheckIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1147,7 +1148,7 @@ export function BoxCheckIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `shield-check` — protocol guardian / council mark. */
+/** `shield-check` — protocol guardian / council mark. */
 export function ShieldCheckIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1171,7 +1172,7 @@ export function ShieldCheckIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `security-shield` — protocol governance DAO face mark. */
+/** `security-shield` — protocol governance DAO face mark. */
 export function SecurityShieldIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1210,7 +1211,7 @@ export function UserIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `user-plus` — add / stand-with affordance. */
+/** `user-plus` — add / stand-with affordance. */
 export function UserPlusIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1234,7 +1235,7 @@ export function UserPlusIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `user-check` — endorse / vouch for a person. */
+/** `user-check` — endorse / vouch for a person. */
 export function UserCheckIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1250,7 +1251,7 @@ export function UserCheckIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `user-cross` — block this person. */
+/** `user-cross` — block this person. */
 export function UserCrossIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1274,7 +1275,7 @@ export function UserCrossIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `user-minus` — remove / step-back affordance. */
+/** `user-minus` — remove / step-back affordance. */
 export function UserMinusIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1298,7 +1299,7 @@ export function UserMinusIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `star-moving` — Hubs mark (stroke). */
+/** `star-moving` — Hubs mark (stroke). */
 export function StarMovingIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1314,7 +1315,7 @@ export function StarMovingIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `stars-c` — drop / scarce affordance (stroke). */
+/** `stars-c` — drop / scarce affordance (stroke). */
 export function StarsCIcon({
   strokeWidth = 2,
   ...props
@@ -1333,7 +1334,7 @@ export function StarsCIcon({
   );
 }
 
-/** Mage `tag` — list / price for sale. */
+/** `tag` — list / price for sale. */
 export function TagIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1358,7 +1359,7 @@ export function TagIcon(props: MageStrokeIconProps) {
 }
 
 /**
- * Mage `direction-up-right` — paper-plane send / transfer.
+ * `direction-up-right` — paper-plane send / transfer.
  * Distinct from {@link ArrowUpRightIcon} (corner ↗ leave / open elsewhere).
  */
 export function DirectionUpRightIcon(props: MageStrokeIconProps) {
@@ -1376,7 +1377,7 @@ export function DirectionUpRightIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `shop` — open Market / marketplace destination. */
+/** `shop` — open Market / marketplace destination. */
 export function ShopIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1400,7 +1401,7 @@ export function ShopIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `plus` — add / create affordance. */
+/** `plus` — add / create affordance. */
 export function PlusIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1416,7 +1417,7 @@ export function PlusIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `plus-circle` — add the next item in a sequence. */
+/** `plus-circle` — add the next item in a sequence. */
 export function PlusCircleIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1440,7 +1441,7 @@ export function PlusCircleIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `exclamation-triangle` — content warning tool. */
+/** `exclamation-triangle` — content warning tool. */
 export function ExclamationTriangleIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1464,7 +1465,7 @@ export function ExclamationTriangleIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `information-circle` — small facts / explain affordance. */
+/** `information-circle` — small facts / explain affordance. */
 export function InformationCircleIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1495,7 +1496,7 @@ export function InformationCircleIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `question-mark-circle` — help / info affordance. */
+/** `question-mark-circle` — help / info affordance. */
 export function QuestionMarkCircleIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1527,7 +1528,7 @@ export function QuestionMarkCircleIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `link` — generic / other link affordance. */
+/** `link` — generic / other link affordance. */
 export function LinkIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1551,7 +1552,7 @@ export function LinkIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `scale-up` — expand / fullscreen listen affordance. */
+/** `scale-up` — expand / fullscreen listen affordance. */
 export function ScaleUpIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1567,7 +1568,7 @@ export function ScaleUpIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `scale-down` — contract / exit fullscreen listen. */
+/** `scale-down` — contract / exit fullscreen listen. */
 export function ScaleDownIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1583,7 +1584,7 @@ export function ScaleDownIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `file-download` — export a real file (page + arrow). */
+/** `file-download` — export a real file (page + arrow). */
 export function SaveIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1623,7 +1624,7 @@ export function SaveIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `download` — save / import affordance (arrow into tray). */
+/** `download` — save / import affordance (arrow into tray). */
 export function DownloadIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1655,7 +1656,7 @@ export function DownloadIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `share` — system / native share affordance. */
+/** `share` — system / native share affordance. */
 export function ShareIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1703,7 +1704,7 @@ export function ShareIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `volume-up` — speaker + waves (unmute / audible). */
+/** `volume-up` — speaker + waves (unmute / audible). */
 export function VolumeUpIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1735,7 +1736,7 @@ export function VolumeUpIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `volume-mute` — speaker + X (muted). */
+/** `volume-mute` — speaker + X (muted). */
 export function VolumeMuteIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1767,7 +1768,7 @@ export function VolumeMuteIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage stroke `home` — roof and walls. Quiet Home launcher tile. */
+/** Stroke `home` — roof and walls. Quiet Home launcher tile. */
 export function HomeIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1783,7 +1784,7 @@ export function HomeIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `fingerprint-minimal` — logged-out Connect. Apache 2.0. */
+/** `fingerprint-minimal` — logged-out Connect. Apache 2.0. */
 export function FingerprintIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1812,7 +1813,7 @@ export function FingerprintIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage stroke `notification-bell` — body and clapper. Quiet Activity tile. */
+/** Stroke `notification-bell` — body and clapper. Quiet Activity tile. */
 export function NotificationBellIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1836,7 +1837,7 @@ export function NotificationBellIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage stroke `users` — two people. Quiet Guilds launcher tile. */
+/** Stroke `users` — two people. Quiet Guilds launcher tile. */
 export function UsersIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1876,7 +1877,7 @@ export function UsersIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage stroke `dashboard` — four equal panes. Quiet DAOs launcher tile. */
+/** Stroke `dashboard` — four equal panes. Quiet DAOs launcher tile. */
 export function DashboardIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1916,7 +1917,7 @@ export function DashboardIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage stroke `calendar` — quiet Events launcher tile. */
+/** Stroke `calendar` — quiet Events launcher tile. */
 export function CalendarIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -1956,7 +1957,7 @@ export function CalendarIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage stroke `user-circle` — person in a circle. Quiet Page launcher tile. */
+/** Stroke `user-circle` — person in a circle. Quiet Page launcher tile. */
 export function UserCircleIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>

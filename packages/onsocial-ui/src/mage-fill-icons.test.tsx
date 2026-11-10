@@ -44,8 +44,8 @@ import {
   UserCircleFillIcon,
 } from './mage-fill-icons.js';
 
-describe('mage fill icons', () => {
-  it('draws the Activity bell as the Mage bulk, with the unread dot separate', () => {
+describe('fill icons', () => {
+  it('draws the Activity bell as a solid fill, with the unread dot separate', () => {
     const idle = renderToStaticMarkup(createElement(NotificationBellFillIcon));
     const pending = renderToStaticMarkup(
       createElement(NotificationBellPendingFillIcon, {
