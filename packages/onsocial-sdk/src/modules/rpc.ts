@@ -59,6 +59,11 @@ export class RpcModule {
    * One JSON-RPC call. Returns the `result`. A JSON-RPC error throws
    * `RpcError`. HTTP failures (auth, rate limit, upstream down) throw
    * `OnSocialError`.
+   *
+   * A broadcast is attempted once by the gateway. HTTP 429 carries
+   * `retryAfter` (seconds) on `OnSocialError`. HTTP 503 means that attempt
+   * did not finish; the transaction may still have landed, so check its
+   * status before sending it again. This method does not retry.
    */
   async call<T = unknown>(method: string, params: unknown = {}): Promise<T> {
     const body = await this._http.post<RpcResponse<T>>('/v1/rpc', {
