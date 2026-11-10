@@ -8,6 +8,7 @@ describe('portfolio page entry', () => {
     const closed = renderToStaticMarkup(
       createElement(PortfolioPageContentEntry, {
         open: false,
+        concealed: false,
         onOpen: () => {},
       })
     );
@@ -15,18 +16,27 @@ describe('portfolio page entry', () => {
     expect(closed).toContain('type="button"');
     expect(closed).toContain('aria-haspopup="dialog"');
     expect(closed).toContain('aria-expanded="false"');
-    expect(closed).toContain('aria-hidden="true"');
     expect(closed).toContain('<svg');
+    expect(closed).toMatch(/<svg[^>]*aria-hidden="true"/);
+    expect(closed).not.toMatch(/<button[^>]*aria-hidden="true"/);
+    expect(closed).not.toContain('tabindex="-1"');
     expect(closed).not.toContain('inert');
 
     const opened = renderToStaticMarkup(
-      createElement(PortfolioPageContentEntry, { open: true, onOpen: () => {} })
+      createElement(PortfolioPageContentEntry, {
+        open: true,
+        concealed: true,
+        onOpen: () => {},
+      })
     );
     expect(opened).toContain('aria-expanded="true"');
+    expect(opened).toMatch(/<button[^>]*aria-hidden="true"/);
+    expect(opened).toContain('tabindex="-1"');
 
     const calls: string[] = [];
     const element = PortfolioPageContentEntry({
       open: false,
+      concealed: false,
       onOpen: () => calls.push('open'),
     });
     element.props.onClick();
@@ -34,5 +44,7 @@ describe('portfolio page entry', () => {
     expect(element.props.ariaLabel).toBe('Open page');
     expect(element.props['aria-haspopup']).toBe('dialog');
     expect(element.props['aria-expanded']).toBe(false);
+    expect(element.props['aria-hidden']).toBeUndefined();
+    expect(element.props.tabIndex).toBeUndefined();
   });
 });

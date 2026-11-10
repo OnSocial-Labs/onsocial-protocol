@@ -2,10 +2,9 @@
 export const SHEET_DRAG_ACTIVATION_PX = 4;
 
 /**
- * Platform long-press. A release after this is not a click — the press already
- * left the tap. iOS uses the same 500ms before a hold becomes its own gesture.
+ * A press activates the control under the finger. Only a confirmed downward
+ * pull swallows that click. How long the finger stays down does not.
  */
-export const SHEET_TAP_MAX_MS = 500;
 
 /** Subpixel rest still counts as the top. */
 export const SHEET_PULL_SCROLL_TOP_PX = 1;
@@ -90,12 +89,23 @@ export const SHEET_PULL_CONFIRM_PX = 10;
  */
 export function sheetPressActivatesClick(input: {
   phase: 'pending' | 'pull' | 'abort';
-  heldMs?: number;
-  movedPx?: number;
-  tapMaxMs?: number;
-  activationPx?: number;
 }): boolean {
   return input.phase !== 'pull';
+}
+
+/**
+ * At the top of a sheet, the first downward-dominant touch claims the gesture
+ * so the platform does not start a pan and cancel the pointer. One claim is
+ * enough. Opted-out regions and scrolled bodies are decided by the caller.
+ */
+export function sheetShouldClaimFirstDownwardMove(input: {
+  phase: 'pending' | 'pull' | 'abort' | null;
+  dx: number;
+  dy: number;
+  alreadyClaimed: boolean;
+}): boolean {
+  if (input.alreadyClaimed || input.phase !== 'pending') return false;
+  return input.dy > 0 && input.dy >= Math.abs(input.dx);
 }
 
 /** Body pull tracks touch and pen. A mouse drag must not dismiss. */

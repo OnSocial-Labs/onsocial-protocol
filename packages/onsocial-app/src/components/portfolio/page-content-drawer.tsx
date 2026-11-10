@@ -131,7 +131,8 @@ function PageContentDrawerInner({
   createdPeeks = [],
   storeShelf = EMPTY_PROFILE_STORE,
 }: PageContentDrawerProps) {
-  const { isOpen, close, scrollNode, setScrollNode } = usePageContentDrawer();
+  const { isOpen, closing, beginClose, close, scrollNode, setScrollNode } =
+    usePageContentDrawer();
   const { postPeeks } = usePortfolioPostPeeks();
   const shelf = usePortfolioShelf();
   const createdPeeksResolved =
@@ -147,7 +148,6 @@ function PageContentDrawerInner({
   const [holdingsSettled, setHoldingsSettled] = useState(
     () => seedDrawerHoldings(pageAccountId, shelf.holdings).length > 0
   );
-  const [closing, setClosing] = useState(false);
   const [joinedFactsOpen, setJoinedFactsOpen] = useState(false);
   const sheetOpen = isOpen && !closing;
 
@@ -224,11 +224,10 @@ function PageContentDrawerInner({
 
   const requestClose = useCallback(() => {
     setJoinedFactsOpen(false);
-    setClosing(true);
-  }, []);
+    beginClose();
+  }, [beginClose]);
 
   const handleSheetClosed = useCallback(() => {
-    setClosing(false);
     // URL mirrors drawer state — closed face carries no `?tab=`.
     clearPortfolioRailTabParam();
     close();

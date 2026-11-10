@@ -1,4 +1,3 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
   E2E_CHROME_TIMEOUT_MS,
@@ -116,11 +115,6 @@ test.describe('drawer pull gestures', () => {
     await expect(entry).toHaveAttribute('aria-haspopup', 'dialog');
     await expect(entry).toHaveAttribute('aria-expanded', 'false');
     const tree = await page.locator('.portfolio-summon-dock').ariaSnapshot();
-    mkdirSync('test-output', { recursive: true });
-    writeFileSync(
-      'test-output/page-entry-a11y-emulated.txt',
-      `EMULATED accessibility tree (not a physical screen reader)\n${tree}\n`
-    );
     expect(tree).toContain('Open page');
 
     await page.keyboard.press('Enter');
@@ -129,7 +123,12 @@ test.describe('drawer pull gestures', () => {
     ).toHaveCount(0);
     const chevron = page.locator('.portfolio-page-chevron');
     await expect(chevron).toHaveAttribute('aria-expanded', 'true');
+    await expect(chevron).toHaveAttribute('aria-hidden', 'true');
+    await expect(chevron).toHaveAttribute('tabindex', '-1');
     await expectChevronConcealed(chevron);
+    await expect(
+      page.getByRole('button', { name: 'Open page', exact: true })
+    ).toHaveCount(0);
     const drawer = page.getByRole('dialog', { name: / page$/ });
     const close = drawer.getByRole('button', { name: 'Close page' });
     await expect(close).toBeVisible();
@@ -406,6 +405,51 @@ test.describe('drawer pull gestures', () => {
       { x: pull.x, y: pull.y + 260 },
     ]);
     await expect(transfer).toBeHidden();
+  });
+});
+
+test.describe('sheet body pulls', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('a touch pull on the page drawer body closes it from the top', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/@alice.testnet');
+    await dismissNextDevOverlay(page);
+    await page.getByRole('button', { name: 'Open page', exact: true }).click();
+    const body = page.locator('.page-drawer-body');
+    await expect(body).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await body.evaluate((el) => {
+      el.scrollTop = 0;
+    });
+    const start = await body.evaluate((el) => {
+      const rect = el.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + 72 };
+    });
+    await emulatedTouch(page, start, [
+      { x: start.x, y: start.y + 36 },
+      { x: start.x, y: start.y + 260 },
+    ]);
+    await expect(page.locator('.page-drawer-panel')).toHaveCount(0);
+  });
+
+  test('a touch pull on the launcher body closes it from the top', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/home');
+    await dismissNextDevOverlay(page);
+    await page.getByRole('button', { name: 'Open launcher' }).click();
+    const launcher = page.getByRole('dialog', { name: 'OnSocial launcher' });
+    await expect(launcher).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    const start = await launcher.evaluate((el) => {
+      const rect = el.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + 140 };
+    });
+    await emulatedTouch(page, start, [
+      { x: start.x, y: start.y + 36 },
+      { x: start.x, y: start.y + 280 },
+    ]);
+    await expect(launcher).toBeHidden();
   });
 });
 

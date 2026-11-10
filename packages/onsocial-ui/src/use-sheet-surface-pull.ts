@@ -12,6 +12,7 @@ import {
   sheetPullPointerCanDrag,
   sheetPullTargetBlocks,
   sheetShouldBlockTextSelection,
+  sheetShouldClaimFirstDownwardMove,
   sheetTouchMovePreventsNativePan,
 } from './sheet-body-pull.js';
 
@@ -114,8 +115,8 @@ export function useSheetSurfacePull(input: {
       pointerId: number;
       startX: number;
       startY: number;
-      startedAt: number;
       phase: 'pending' | 'pull' | 'abort';
+      claimedDownwardMove: boolean;
     } | null = null;
 
     const onDown = (event: PointerEvent) => {
@@ -126,8 +127,8 @@ export function useSheetSurfacePull(input: {
         pointerId: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,
-        startedAt: performance.now(),
         phase: 'pending',
+        claimedDownwardMove: false,
       };
     };
 
@@ -174,8 +175,27 @@ export function useSheetSurfacePull(input: {
     };
 
     const onTouchMove = (event: TouchEvent) => {
-      if (!pull || !sheetTouchMovePreventsNativePan(pull.phase)) return;
-      if (event.cancelable) event.preventDefault();
+      if (!pull) return;
+      if (sheetTouchMovePreventsNativePan(pull.phase)) {
+        if (event.cancelable) event.preventDefault();
+        return;
+      }
+      const touch = event.touches[0];
+      if (!touch || pull.phase !== 'pending') return;
+      if (
+        !sheetShouldClaimFirstDownwardMove({
+          phase: pull.phase,
+          dx: touch.clientX - pull.startX,
+          dy: touch.clientY - pull.startY,
+          alreadyClaimed: pull.claimedDownwardMove,
+        })
+      ) {
+        return;
+      }
+      if (blocked(event.target)) return;
+      if (!event.cancelable) return;
+      event.preventDefault();
+      pull.claimedDownwardMove = true;
     };
 
     const onUp = (event: PointerEvent) => {
@@ -184,17 +204,7 @@ export function useSheetSurfacePull(input: {
       const finished = pull;
       pull = null;
       releasePullClass();
-      const movedPx = Math.hypot(
-        event.clientX - finished.startX,
-        event.clientY - finished.startY
-      );
-      if (
-        !sheetPressActivatesClick({
-          phase: finished.phase,
-          heldMs: performance.now() - finished.startedAt,
-          movedPx,
-        })
-      ) {
+      if (!sheetPressActivatesClick({ phase: finished.phase })) {
         armSheetPullClickSwallow(window);
       }
       if (finished.phase === 'pull') apiRef.current.handlePointerEnd();

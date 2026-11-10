@@ -179,8 +179,8 @@ export function CollectionWritingPdfPage({
     let opened: PDFDocumentProxy | null = null;
 
     void loadPdfjs()
-      .then(
-        (pdfjs) => pdfjs.getDocument({ url, withCredentials: false }).promise
+      .then((pdfjs) =>
+        pdfjs.getDocument({ url, withCredentials: false }).promise
       )
       .then((nextDoc) => {
         if (cancelled) {
@@ -238,7 +238,8 @@ export function CollectionWritingPdfPage({
       if (leaves.length === 0) return;
       const origin = body.getBoundingClientRect().top;
       const tops = leaves.map(
-        (leaf) => leaf.getBoundingClientRect().top - origin + body.scrollTop
+        (leaf) =>
+          leaf.getBoundingClientRect().top - origin + body.scrollTop
       );
       setVisibleIndex(
         writingPdfVisiblePage({

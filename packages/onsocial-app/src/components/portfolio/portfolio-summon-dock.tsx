@@ -71,6 +71,7 @@ export function PortfolioSummonDock({
   const {
     open: openPageDrawer,
     isOpen: pageDrawerOpen,
+    closing: pageDrawerClosing,
     scrollNode,
   } = usePageContentDrawer();
   const { accountId, isConnected } = useAppWallet();
@@ -225,6 +226,7 @@ export function PortfolioSummonDock({
           {write ? null : (
             <PortfolioPageContentEntry
               open={pageDrawerOpen}
+              concealed={pageDrawerOpen && !pageDrawerClosing}
               onOpen={() => {
                 dismissHint();
                 openPageDrawer();
