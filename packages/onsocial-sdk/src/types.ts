@@ -802,7 +802,11 @@ export interface StorageUploadResponse {
 // ── Errors ──────────────────────────────────────────────────────────────────
 
 export interface ApiError {
-  error: string;
+  /**
+   * A limiter rejection is a string. A broadcast failure keeps the JSON-RPC
+   * error object and puts `retryAfter` beside it.
+   */
+  error: string | { code?: number; message?: string; data?: unknown };
   /** Machine-readable gateway code when present (e.g. MUTED, BLOCKED). */
   code?: string;
   details?: string;

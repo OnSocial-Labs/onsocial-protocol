@@ -9,12 +9,20 @@
  * contracts. Free keys can read recent state. A pinned block is archival
  * and stays on a paid tier. The node address is never returned; callers
  * reach this route only.
+ *
+ * Broadcasts are forwarded once and are not resent. An upstream rate limit
+ * is HTTP 429 with Retry-After and `retryAfter` in the body. A timeout,
+ * network error, or upstream 5xx is HTTP 503 with a short retry hint.
+ * Clients retry with backoff. A commit that exceeds the timeout can come
+ * back as 503 while the transaction still lands, so check its status
+ * before sending it again.
  */
 
 import { Router } from 'express';
 import type { Response } from 'express';
 import {
   isHistoricalBlockQuery,
+  NearRpcSendError,
   type NearRpcResponse,
   type Network,
 } from '@onsocial/rpc';
@@ -146,6 +154,23 @@ rpcRouter.post('/', requireAuth, async (req: AuthRequest, res: Response) => {
     res.json(payload);
   } catch (err) {
     logger.warn({ err, method }, 'public rpc upstream failed');
+    if (err instanceof NearRpcSendError) {
+      const retryAfter = err.retryAfterSeconds;
+      if (err.kind === 'rate_limited') {
+        res.setHeader('Retry-After', retryAfter);
+        res.status(429).json({
+          ...rpcError(body.id, -32000, 'RPC upstream rate limited'),
+          retryAfter,
+        });
+        return;
+      }
+      res.setHeader('Retry-After', retryAfter);
+      res.status(503).json({
+        ...rpcError(body.id, -32000, 'RPC upstream unavailable'),
+        retryAfter,
+      });
+      return;
+    }
     res.status(503).json(rpcError(body.id, -32000, 'RPC upstream unavailable'));
   }
 });

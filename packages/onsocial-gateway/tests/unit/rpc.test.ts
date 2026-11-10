@@ -25,6 +25,7 @@ vi.mock('../../src/logger.js', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+import { NearRpcSendError } from '@onsocial/rpc';
 import express from 'express';
 import request from 'supertest';
 import { rpcRouter } from '../../src/routes/rpc.js';
@@ -225,5 +226,69 @@ describe('POST /v1/rpc', () => {
     expect(res.status).toBe(503);
     expect(res.body.error.message).toBe('RPC upstream unavailable');
     expect(res.body.error.message).not.toMatch(/http/);
+    expect(res.headers['retry-after']).toBeUndefined();
+    expect(res.body.retryAfter).toBeUndefined();
+  });
+
+  it('returns 429 with Retry-After when a broadcast is rate limited', async () => {
+    mockCall.mockRejectedValue(new NearRpcSendError('rate_limited', 7));
+
+    const res = await request(createApp('free'))
+      .post('/v1/rpc')
+      .send({
+        jsonrpc: '2.0',
+        id: 4,
+        method: 'broadcast_tx_commit',
+        params: ['signed'],
+      });
+
+    expect(res.status).toBe(429);
+    expect(res.headers['retry-after']).toBe('7');
+    expect(res.body).toMatchObject({
+      jsonrpc: '2.0',
+      id: '4',
+      retryAfter: 7,
+      error: { code: -32000, message: 'RPC upstream rate limited' },
+    });
+  });
+
+  it('returns 503 with a short retry hint when a broadcast is unavailable', async () => {
+    mockCall.mockRejectedValue(new NearRpcSendError('unavailable', 1));
+
+    const res = await request(createApp('pro'))
+      .post('/v1/rpc')
+      .send({
+        jsonrpc: '2.0',
+        id: 5,
+        method: 'broadcast_tx_async',
+        params: ['signed'],
+      });
+
+    expect(res.status).toBe(503);
+    expect(res.headers['retry-after']).toBe('1');
+    expect(res.body).toMatchObject({
+      jsonrpc: '2.0',
+      id: '5',
+      retryAfter: 1,
+      error: { code: -32000, message: 'RPC upstream unavailable' },
+    });
+  });
+
+  it('keeps a plain broadcast failure on the existing 503', async () => {
+    mockCall.mockRejectedValue(new Error('All NEAR RPC providers failed'));
+
+    const res = await request(createApp('free'))
+      .post('/v1/rpc')
+      .send({
+        jsonrpc: '2.0',
+        id: 6,
+        method: 'broadcast_tx_commit',
+        params: ['signed'],
+      });
+
+    expect(res.status).toBe(503);
+    expect(res.headers['retry-after']).toBeUndefined();
+    expect(res.body.retryAfter).toBeUndefined();
+    expect(res.body.error.message).toBe('RPC upstream unavailable');
   });
 });

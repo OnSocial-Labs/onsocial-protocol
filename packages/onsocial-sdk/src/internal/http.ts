@@ -298,14 +298,29 @@ export class HttpClient {
 
 // ── Error class ─────────────────────────────────────────────────────────────
 
+function apiErrorMessage(status: number, body: ApiError): string {
+  const raw = body.error;
+  if (typeof raw === 'string' && raw.trim()) return raw;
+  if (
+    raw &&
+    typeof raw === 'object' &&
+    typeof raw.message === 'string' &&
+    raw.message.trim()
+  ) {
+    return raw.message;
+  }
+  return `HTTP ${status}`;
+}
+
 export class OnSocialError extends Error {
   status: number;
   code?: string;
   details?: string;
+  /** Seconds to wait, when the body includes `retryAfter`. */
   retryAfter?: number;
 
   constructor(status: number, body: ApiError) {
-    super(body.error);
+    super(apiErrorMessage(status, body));
     this.name = 'OnSocialError';
     this.status = status;
     this.code = body.code;
