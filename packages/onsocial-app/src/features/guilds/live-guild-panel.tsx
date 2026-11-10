@@ -151,6 +151,12 @@ import {
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
+function isGuildManageSheet(
+  sheet: string | null | undefined
+): sheet is GuildManageSheetId {
+  return sheet === 'proposals' || sheet === 'requests' || sheet === 'members';
+}
+
 export function LiveGuildPanel({
   groupId,
   initial = null,
@@ -265,6 +271,13 @@ export function LiveGuildPanel({
   // browser Back closes the drawer before leaving the guild. A sheet opened
   // by a cold deep link owns no entry — close replaces onto the guild page.
   const manageSheetPushedRef = useRef(false);
+  // Settings handed this sheet off. Set only for proposals and requests,
+  // whose open is a push that may still be in flight when the sheet closes.
+  const settingsPredecessorRef = useRef(false);
+  const pendingSuccessorHrefRef = useRef<string | null>(null);
+  // Successor href that must not replace a restored settings sheet.
+  const lateSuccessorHoldRef = useRef<string | null>(null);
+  const lateSuccessorTimerRef = useRef<number | null>(null);
   const openManageSheet = useCallback(
     (sheet: GuildManageSheetId | null) => {
       const shareable =
@@ -274,6 +287,48 @@ export function LiveGuildPanel({
       if (sheet === null) {
         const face = guildPath(groupId);
         const before = window.location.pathname + window.location.search;
+        const hereSheet = new URLSearchParams(window.location.search).get(
+          'sheet'
+        );
+        const successorLanded =
+          isGuildManageSheet(hereSheet) ||
+          isGuildManageSheet(initialSheet) ||
+          (pendingSuccessorHrefRef.current !== null &&
+            before === pendingSuccessorHrefRef.current);
+        if (settingsPredecessorRef.current && !successorLanded) {
+          const blocked = pendingSuccessorHrefRef.current;
+          settingsPredecessorRef.current = false;
+          manageSheetPushedRef.current = false;
+          pendingSuccessorHrefRef.current = null;
+          lateSuccessorHoldRef.current = blocked;
+          setManageSheet(null);
+          setSettingsSheetOpen(true);
+          const settingsHref = guildSheetPath(groupId, 'settings');
+          router.replace(settingsHref, { scroll: false });
+          if (blocked) {
+            const sendLateSuccessorBack = () => {
+              if (lateSuccessorHoldRef.current !== blocked) return;
+              const here = window.location.pathname + window.location.search;
+              if (here === blocked || here === face) {
+                setManageSheet(null);
+                setSettingsSheetOpen(true);
+                router.replace(settingsHref, { scroll: false });
+              }
+            };
+            queueMicrotask(sendLateSuccessorBack);
+            if (lateSuccessorTimerRef.current != null) {
+              window.clearTimeout(lateSuccessorTimerRef.current);
+            }
+            lateSuccessorTimerRef.current = window.setTimeout(
+              sendLateSuccessorBack,
+              400
+            );
+          }
+          return;
+        }
+        settingsPredecessorRef.current = false;
+        lateSuccessorHoldRef.current = null;
+        pendingSuccessorHrefRef.current = null;
         setManageSheet(null);
         if (!manageSheetPushedRef.current || !popInApp()) {
           manageSheetPushedRef.current = false;
@@ -298,8 +353,12 @@ export function LiveGuildPanel({
       const opening = manageSheet === null;
       setManageSheet(sheet);
       if (shareable && opening) {
+        const href = guildSheetPath(groupId, shareable);
         manageSheetPushedRef.current = true;
-        router.push(guildSheetPath(groupId, shareable), { scroll: false });
+        pendingSuccessorHrefRef.current = href;
+        // A new open owns the address. Drop a hold from an earlier restore.
+        lateSuccessorHoldRef.current = null;
+        router.push(href, { scroll: false });
         return;
       }
       // In-sheet switches replace — one history entry per open, not per tab.
@@ -308,7 +367,7 @@ export function LiveGuildPanel({
         { scroll: false }
       );
     },
-    [groupId, manageSheet, popInApp, router]
+    [groupId, initialSheet, manageSheet, popInApp, router]
   );
 
   const joinRequestPending = pendingJoinRequest(viewer?.joinRequest ?? null);
@@ -343,6 +402,33 @@ export function LiveGuildPanel({
       router.replace(guildPath(groupId), { scroll: false });
     }
   }, [canOpenSettings, groupId, initialSheet, router, viewerAccessResolved]);
+
+  // If the successor push commits after settings was restored, put settings
+  // back. A real close clears the hold because settings is no longer open.
+  useEffect(() => {
+    if (!settingsSheetOpen) {
+      lateSuccessorHoldRef.current = null;
+      return;
+    }
+    const blocked = lateSuccessorHoldRef.current;
+    if (!blocked) return;
+    const here = window.location.pathname + window.location.search;
+    const routeTookSuccessor =
+      initialSheet === 'proposals' || initialSheet === 'requests';
+    if (here === blocked || here === guildPath(groupId) || routeTookSuccessor) {
+      setManageSheet(null);
+      setSettingsSheetOpen(true);
+      router.replace(guildSheetPath(groupId, 'settings'), { scroll: false });
+    }
+  }, [groupId, initialSheet, router, settingsSheetOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (lateSuccessorTimerRef.current != null) {
+        window.clearTimeout(lateSuccessorTimerRef.current);
+      }
+    };
+  }, []);
   const pendingRequestCount = canReviewRequests
     ? (state.moderation?.pendingMemberRequestCount ?? 0)
     : 0;
@@ -1548,9 +1634,11 @@ export function LiveGuildPanel({
               replaceSheet();
               setSettingsSheetOpen(false);
               if (id === 'requests' || id === 'proposals') {
+                settingsPredecessorRef.current = true;
                 openManageSheet(id);
                 return;
               }
+              settingsPredecessorRef.current = false;
               if (id === 'edit') setEditSheetOpen(true);
               if (id === 'rooms') setRoomsSheetOpen(true);
               if (id === 'storage') {
