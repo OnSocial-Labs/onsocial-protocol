@@ -609,9 +609,11 @@ test.describe('guild page', () => {
     await sheet.getByRole('button', { name: 'Add room', exact: true }).click();
 
     await expect(sheet).toHaveCount(0, { timeout: E2E_CHROME_TIMEOUT_MS });
-    await expect(rooms.getByRole('tab', { name: 'Shipping Room' })).toBeVisible({
-      timeout: E2E_CHROME_TIMEOUT_MS,
-    });
+    await expect(rooms.getByRole('tab', { name: 'Shipping Room' })).toBeVisible(
+      {
+        timeout: E2E_CHROME_TIMEOUT_MS,
+      }
+    );
   });
 
   test('facts sheet opens from the hero info control', async ({ page }) => {
@@ -722,14 +724,21 @@ test.describe('guild page', () => {
     await expect(proposals).toHaveCount(0);
 
     // Closing proposals pops back to Settings when it owned the prior URL.
+    // A closing sheet still has a box, so wait until Settings is painted.
     // Prefer the hero control (`exact`) — backdrop is "Close guild settings".
     const settingsAgain = page.getByRole('dialog', { name: 'Settings' });
-    if (!(await settingsAgain.isVisible())) {
+    const settingsPainted = async () =>
+      (await settingsAgain.count()) > 0 &&
+      (await settingsAgain.evaluate((el) => getComputedStyle(el).opacity)) ===
+        '1';
+    if (!(await settingsPainted())) {
+      await expect(settingsAgain).toHaveCount(0);
       await page
         .getByRole('button', { name: 'Guild settings', exact: true })
         .click();
     }
     await expect(settingsAgain).toBeVisible();
+    await expect(settingsAgain).toHaveCSS('opacity', '1');
     await settingsAgain.getByRole('button', { name: /Guild storage/ }).click();
     const storage = page.getByRole('dialog', { name: 'Guild storage' });
     await expect(storage).toBeVisible();
@@ -768,7 +777,9 @@ test.describe('guild page', () => {
     await expect(
       rooms.getByRole('button', { name: '+ Announcements' })
     ).toBeVisible();
-    await fromLibrary.getByRole('button', { name: 'Add room', exact: true }).click();
+    await fromLibrary
+      .getByRole('button', { name: 'Add room', exact: true })
+      .click();
     await expect(fromLibrary).toHaveCount(0);
     await expect(announcementsRow).toBeVisible();
     await expect(
