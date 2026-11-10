@@ -65,6 +65,7 @@ const harness = vi.hoisted(() => {
     href: 'http://guild.local/groups/audit-guild',
   };
   let onRoute: ((href: string) => void) | null = null;
+  let popListeners: Array<() => void> = [];
   const viewerMode: { current: 'owner' | 'stranger' } = { current: 'owner' };
 
   function applyHref(href: string) {
@@ -88,6 +89,7 @@ const harness = vi.hoisted(() => {
   };
 
   function installWindow() {
+    popListeners = [];
     const windowStub = {
       location,
       history: {
@@ -108,8 +110,13 @@ const harness = vi.hoisted(() => {
       },
       setTimeout: globalThis.setTimeout.bind(globalThis),
       clearTimeout: globalThis.clearTimeout.bind(globalThis),
-      addEventListener: () => {},
-      removeEventListener: () => {},
+      addEventListener: (type: string, fn: () => void) => {
+        if (type === 'popstate') popListeners.push(fn);
+      },
+      removeEventListener: (type: string, fn: () => void) => {
+        if (type !== 'popstate') return;
+        popListeners = popListeners.filter((item) => item !== fn);
+      },
     };
     Object.defineProperty(globalThis, 'window', {
       configurable: true,
@@ -131,6 +138,9 @@ const harness = vi.hoisted(() => {
       onRoute = listener;
     },
     emitRoute: (href: string) => onRoute?.(href),
+    dispatchPop: () => {
+      for (const fn of popListeners.slice()) fn();
+    },
     reset() {
       calls.length = 0;
       pendingPushes.length = 0;
@@ -139,6 +149,7 @@ const harness = vi.hoisted(() => {
       viewerMode.current = 'owner';
       applyHref(BARE);
       onRoute = null;
+      popListeners = [];
     },
   };
 });
@@ -720,27 +731,70 @@ describe('guild settings restore when a successor push has not landed', () => {
     await handoffAndCloseBeforePush('Member requests', 'Requests');
   });
 
-  it('keeps the restored settings sheet when the successor push lands late', async () => {
+  it('restores settings when a landed proposals close pops onto the bare guild', async () => {
     const view = await mount();
     await openSettings(view);
     click(view, 'Proposals');
     await flush();
-    click(view, 'Close');
-    await flush();
-    expect(dialogOpen(view, 'Settings')).toBe(true);
-    expect(hrefNow()).toBe(SETTINGS);
-
-    const late = harness.pendingPushes.shift();
-    expect(late).toBe(PROPOSALS);
+    const pending = harness.pendingPushes.shift();
     await act(async () => {
-      harness.emitRoute(late!);
+      harness.emitRoute(pending!);
     });
+    expect(hrefNow()).toBe(PROPOSALS);
+    harness.popInApp.mockImplementation(() => {
+      harness.applyHref(BARE);
+      harness.dispatchPop();
+      return true;
+    });
+    click(view, 'Close');
     await flush(450);
-
+    expect(harness.popInApp).toHaveBeenCalled();
     expect(dialogOpen(view, 'Settings')).toBe(true);
     expect(dialogOpen(view, 'Proposals')).toBe(false);
     expect(hrefNow()).toBe(SETTINGS);
-    expect(harness.calls.some((call) => call.href === BARE)).toBe(false);
+    expect(
+      harness.calls.some((call) => call.op === 'push' && call.href === SETTINGS)
+    ).toBe(false);
+  });
+
+  it('leaves a bare guild in place when the pop was not this proposals close', async () => {
+    const view = await mount();
+    await openSettings(view);
+    click(view, 'Proposals');
+    await flush();
+    const pending = harness.pendingPushes.shift();
+    await act(async () => {
+      harness.emitRoute(pending!);
+      harness.applyHref(BARE);
+      harness.dispatchPop();
+      harness.emitRoute(BARE);
+    });
+    await flush();
+    expect(harness.popInApp).not.toHaveBeenCalled();
+    expect(dialogOpen(view, 'Settings')).toBe(false);
+    expect(dialogOpen(view, 'Proposals')).toBe(false);
+    expect(hrefNow()).toBe(BARE);
+  });
+
+  it('back from restored settings leaves the guild', async () => {
+    const view = await mount();
+    const history = ['/outside', BARE];
+    let index = 1;
+    await openSettings(view);
+    click(view, 'Proposals');
+    await flush();
+    click(view, 'Close');
+    await flush(450);
+    for (const call of harness.calls) {
+      if (call.op === 'push') continue;
+      history[index] = call.href;
+    }
+    expect(history[index]).toBe(SETTINGS);
+    expect(history.filter((entry) => entry === SETTINGS)).toHaveLength(1);
+    index -= 1;
+    expect(history[index]).toBe('/outside');
+    expect(dialogOpen(view, 'Settings')).toBe(true);
+    expect(view).toBeTruthy();
   });
 
   it('closes members opened from the hero onto the bare guild', async () => {

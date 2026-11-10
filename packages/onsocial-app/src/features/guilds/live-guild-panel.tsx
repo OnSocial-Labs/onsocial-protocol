@@ -275,8 +275,6 @@ export function LiveGuildPanel({
   // whose open is a push that may still be in flight when the sheet closes.
   const settingsPredecessorRef = useRef(false);
   const pendingSuccessorHrefRef = useRef<string | null>(null);
-  // Successor href that must not replace a restored settings sheet.
-  const lateSuccessorHoldRef = useRef<string | null>(null);
   const openManageSheet = useCallback(
     (sheet: GuildManageSheetId | null) => {
       const shareable =
@@ -294,26 +292,45 @@ export function LiveGuildPanel({
           isGuildManageSheet(initialSheet) ||
           (pendingSuccessorHrefRef.current !== null &&
             before === pendingSuccessorHrefRef.current);
+        // Only proposals opened from settings. Requests keeps its own close.
+        const proposalsFromSettings =
+          manageSheet === 'proposals' && settingsPredecessorRef.current;
+        const settingsHref = guildSheetPath(groupId, 'settings');
+        const hereNow = () =>
+          window.location.pathname + window.location.search;
+        const restoreSettings = () => {
+          setManageSheet(null);
+          setSettingsSheetOpen(true);
+          router.replace(settingsHref, { scroll: false });
+        };
         if (settingsPredecessorRef.current && !successorLanded) {
-          const blocked = pendingSuccessorHrefRef.current;
           settingsPredecessorRef.current = false;
           manageSheetPushedRef.current = false;
           pendingSuccessorHrefRef.current = null;
-          lateSuccessorHoldRef.current = blocked;
-          setManageSheet(null);
-          setSettingsSheetOpen(true);
-          router.replace(guildSheetPath(groupId, 'settings'), {
-            scroll: false,
-          });
+          restoreSettings();
           return;
         }
         settingsPredecessorRef.current = false;
-        lateSuccessorHoldRef.current = null;
         pendingSuccessorHrefRef.current = null;
         setManageSheet(null);
+        // Listen before the pop so this close, and not a later browser
+        // back, is the only pop that can restore settings.
+        const onHandoffPop = () => {
+          if (hereNow() === face) restoreSettings();
+        };
+        if (proposalsFromSettings && manageSheetPushedRef.current) {
+          window.addEventListener('popstate', onHandoffPop, { once: true });
+        }
         if (!manageSheetPushedRef.current || !popInApp()) {
+          if (proposalsFromSettings) {
+            window.removeEventListener('popstate', onHandoffPop);
+          }
           manageSheetPushedRef.current = false;
-          router.replace(face, { scroll: false });
+          if (proposalsFromSettings) {
+            restoreSettings();
+          } else {
+            router.replace(face, { scroll: false });
+          }
           return;
         }
         manageSheetPushedRef.current = false;
@@ -322,13 +339,18 @@ export function LiveGuildPanel({
         // stale `?sheet=` URL over a closed drawer. Sheet urls differ by
         // search, not pathname, so compare both.
         const timer = window.setTimeout(() => {
-          if (window.location.pathname + window.location.search === before) {
-            router.replace(face, { scroll: false });
+          if (hereNow() === before) {
+            if (proposalsFromSettings) restoreSettings();
+            else router.replace(face, { scroll: false });
           }
         }, 400);
-        window.addEventListener('popstate', () => window.clearTimeout(timer), {
-          once: true,
-        });
+        window.addEventListener(
+          'popstate',
+          () => {
+            window.clearTimeout(timer);
+          },
+          { once: true }
+        );
         return;
       }
       const opening = manageSheet === null;
@@ -337,8 +359,6 @@ export function LiveGuildPanel({
         const href = guildSheetPath(groupId, shareable);
         manageSheetPushedRef.current = true;
         pendingSuccessorHrefRef.current = href;
-        // A new open owns the address. Drop a hold from an earlier restore.
-        lateSuccessorHoldRef.current = null;
         router.push(href, { scroll: false });
         return;
       }
@@ -383,25 +403,6 @@ export function LiveGuildPanel({
       router.replace(guildPath(groupId), { scroll: false });
     }
   }, [canOpenSettings, groupId, initialSheet, router, viewerAccessResolved]);
-
-  // If the successor push commits after settings was restored, put settings
-  // back. A real close clears the hold because settings is no longer open.
-  useEffect(() => {
-    if (!settingsSheetOpen) {
-      lateSuccessorHoldRef.current = null;
-      return;
-    }
-    const blocked = lateSuccessorHoldRef.current;
-    if (!blocked) return;
-    const here = window.location.pathname + window.location.search;
-    const routeTookSuccessor =
-      initialSheet === 'proposals' || initialSheet === 'requests';
-    if (here === blocked || here === guildPath(groupId) || routeTookSuccessor) {
-      setManageSheet(null);
-      setSettingsSheetOpen(true);
-      router.replace(guildSheetPath(groupId, 'settings'), { scroll: false });
-    }
-  }, [groupId, initialSheet, router, settingsSheetOpen]);
 
   const pendingRequestCount = canReviewRequests
     ? (state.moderation?.pendingMemberRequestCount ?? 0)
