@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { act, useState, type ReactNode } from 'react';
+import { act, createElement, useState, type ReactNode } from 'react';
 import {
   create,
   type ReactTestInstance,
@@ -175,9 +175,8 @@ vi.mock('@onsocial/ui', () => {
 });
 
 vi.mock('@/components/app/os-app-screen', () => ({
-  OsAppScreen: ({ children }: { children?: ReactNode }) => (
-    <div>{children}</div>
-  ),
+  OsAppScreen: ({ children }: { children?: ReactNode }) =>
+    createElement('div', null, children),
 }));
 
 vi.mock('@/components/chrome/os-chrome-whisper', () => ({
@@ -360,20 +359,28 @@ vi.mock('@/features/guilds/guild-page-hero', () => ({
     actions?: ReactNode;
     leading?: ReactNode;
     onOpenFacts?: () => void;
-  }) => (
-    <div>
-      {leading}
-      <button type="button" aria-label="Guild facts" onClick={onOpenFacts} />
-      {actions}
-    </div>
-  ),
+  }) =>
+    createElement(
+      'div',
+      null,
+      leading,
+      createElement('button', {
+        type: 'button',
+        'aria-label': 'Guild facts',
+        onClick: onOpenFacts,
+      }),
+      actions
+    ),
 }));
 
 vi.mock('@/features/guilds/guild-facepile', () => ({
   buildGuildFacepileIds: (ids: string[]) => ids,
-  GuildFacepile: ({ onClick }: { onClick?: () => void }) => (
-    <button type="button" aria-label="Members" onClick={onClick} />
-  ),
+  GuildFacepile: ({ onClick }: { onClick?: () => void }) =>
+    createElement('button', {
+      type: 'button',
+      'aria-label': 'Members',
+      onClick,
+    }),
 }));
 
 vi.mock('@/features/guilds/guild-hero-actions', () => ({
@@ -397,13 +404,13 @@ vi.mock('@/features/guilds/guild-hero-actions', () => ({
     showSettings?: boolean;
     onOpenSettings: () => void;
   }) =>
-    showSettings ? (
-      <button
-        type="button"
-        aria-label="Guild settings"
-        onClick={onOpenSettings}
-      />
-    ) : null,
+    showSettings
+      ? createElement('button', {
+          type: 'button',
+          'aria-label': 'Guild settings',
+          onClick: onOpenSettings,
+        })
+      : null,
 }));
 
 vi.mock('@/features/guilds/guild-settings-sheet', () => ({
@@ -418,41 +425,47 @@ vi.mock('@/features/guilds/guild-settings-sheet', () => ({
     onClose: () => void;
     onOpenProposals?: () => void;
   }) =>
-    open ? (
-      <div role="dialog" aria-label="Settings">
-        <button
-          type="button"
-          aria-label="Proposals"
-          onClick={() => onHandoff?.('proposals')}
-        />
-        <button
-          type="button"
-          aria-label="Member requests"
-          onClick={() => onHandoff?.('requests')}
-        />
-        <button
-          type="button"
-          aria-label="Edit guild"
-          onClick={() => onHandoff?.('edit')}
-        />
-        <button
-          type="button"
-          aria-label="Rooms"
-          onClick={() => onHandoff?.('rooms')}
-        />
-        <button
-          type="button"
-          aria-label="Guild storage"
-          onClick={() => onHandoff?.('storage')}
-        />
-        <button
-          type="button"
-          aria-label="Open proposals directly"
-          onClick={() => onOpenProposals?.()}
-        />
-        <button type="button" aria-label="Close" onClick={onClose} />
-      </div>
-    ) : null,
+    open
+      ? createElement(
+          'div',
+          { role: 'dialog', 'aria-label': 'Settings' },
+          createElement('button', {
+            type: 'button',
+            'aria-label': 'Proposals',
+            onClick: () => onHandoff?.('proposals'),
+          }),
+          createElement('button', {
+            type: 'button',
+            'aria-label': 'Member requests',
+            onClick: () => onHandoff?.('requests'),
+          }),
+          createElement('button', {
+            type: 'button',
+            'aria-label': 'Edit guild',
+            onClick: () => onHandoff?.('edit'),
+          }),
+          createElement('button', {
+            type: 'button',
+            'aria-label': 'Rooms',
+            onClick: () => onHandoff?.('rooms'),
+          }),
+          createElement('button', {
+            type: 'button',
+            'aria-label': 'Guild storage',
+            onClick: () => onHandoff?.('storage'),
+          }),
+          createElement('button', {
+            type: 'button',
+            'aria-label': 'Open proposals directly',
+            onClick: () => onOpenProposals?.(),
+          }),
+          createElement('button', {
+            type: 'button',
+            'aria-label': 'Close',
+            onClick: onClose,
+          })
+        )
+      : null,
 }));
 
 vi.mock('@/features/guilds/guild-proposals-sheet', () => ({
@@ -586,7 +599,7 @@ function Harness({
         : null
     );
   });
-  return <Panel groupId={GROUP_ID} initialSheet={sheet} />;
+  return createElement(Panel, { groupId: GROUP_ID, initialSheet: sheet });
 }
 
 function buttons(renderer: ReactTestRenderer, label: string) {
@@ -674,7 +687,7 @@ describe('guild settings restore when a successor push has not landed', () => {
   async function mount(initialSheet: GuildShareSheetId | null = null) {
     const Panel = await loadPanel();
     await act(async () => {
-      renderer = create(<Harness initialSheet={initialSheet} Panel={Panel} />);
+      renderer = create(createElement(Harness, { initialSheet, Panel }));
     });
     return renderer!;
   }

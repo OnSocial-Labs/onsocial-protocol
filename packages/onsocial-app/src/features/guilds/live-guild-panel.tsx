@@ -277,7 +277,6 @@ export function LiveGuildPanel({
   const pendingSuccessorHrefRef = useRef<string | null>(null);
   // Successor href that must not replace a restored settings sheet.
   const lateSuccessorHoldRef = useRef<string | null>(null);
-  const lateSuccessorTimerRef = useRef<number | null>(null);
   const openManageSheet = useCallback(
     (sheet: GuildManageSheetId | null) => {
       const shareable =
@@ -303,27 +302,9 @@ export function LiveGuildPanel({
           lateSuccessorHoldRef.current = blocked;
           setManageSheet(null);
           setSettingsSheetOpen(true);
-          const settingsHref = guildSheetPath(groupId, 'settings');
-          router.replace(settingsHref, { scroll: false });
-          if (blocked) {
-            const sendLateSuccessorBack = () => {
-              if (lateSuccessorHoldRef.current !== blocked) return;
-              const here = window.location.pathname + window.location.search;
-              if (here === blocked || here === face) {
-                setManageSheet(null);
-                setSettingsSheetOpen(true);
-                router.replace(settingsHref, { scroll: false });
-              }
-            };
-            queueMicrotask(sendLateSuccessorBack);
-            if (lateSuccessorTimerRef.current != null) {
-              window.clearTimeout(lateSuccessorTimerRef.current);
-            }
-            lateSuccessorTimerRef.current = window.setTimeout(
-              sendLateSuccessorBack,
-              400
-            );
-          }
+          router.replace(guildSheetPath(groupId, 'settings'), {
+            scroll: false,
+          });
           return;
         }
         settingsPredecessorRef.current = false;
@@ -422,13 +403,6 @@ export function LiveGuildPanel({
     }
   }, [groupId, initialSheet, router, settingsSheetOpen]);
 
-  useEffect(() => {
-    return () => {
-      if (lateSuccessorTimerRef.current != null) {
-        window.clearTimeout(lateSuccessorTimerRef.current);
-      }
-    };
-  }, []);
   const pendingRequestCount = canReviewRequests
     ? (state.moderation?.pendingMemberRequestCount ?? 0)
     : 0;
