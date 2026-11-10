@@ -166,20 +166,34 @@ test.describe('drawer pull gestures', () => {
     const entry = page.getByRole('button', { name: 'Open page', exact: true });
     await entry.waitFor({ state: 'visible' });
     await entry.click();
-    await expect(page.locator('.page-drawer-panel')).toBeVisible();
+    const panel = page.locator('.page-drawer-panel');
+    await expect(panel).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const active = document.activeElement;
+          return (
+            active instanceof HTMLElement &&
+            Boolean(active.closest('.page-drawer-panel'))
+          );
+        })
+      )
+      .toBe(true);
     await page.evaluate(() => {
-      const record = window as Window & { __chevronFocusOpacity?: string | null };
+      const record = window as Window & {
+        __chevronFocusOpacity?: string | null;
+      };
       record.__chevronFocusOpacity = null;
       document.addEventListener(
         'focusin',
         (event) => {
-          const el = event.target;
-          if (
-            !(el instanceof HTMLElement) ||
-            !el.classList.contains('portfolio-page-chevron')
-          ) {
-            return;
-          }
+          const target = event.target;
+          const el =
+            target instanceof Element
+              ? target.closest('.portfolio-page-chevron')
+              : null;
+          if (!(el instanceof HTMLElement)) return;
+          if (record.__chevronFocusOpacity != null) return;
           record.__chevronFocusOpacity = getComputedStyle(el).opacity;
         },
         true
