@@ -66,6 +66,7 @@ const harness = vi.hoisted(() => {
   };
   let onRoute: ((href: string) => void) | null = null;
   let popListeners: Array<() => void> = [];
+  let oncePopListeners = new Set<() => void>();
   let historyStack = ['/outside', '/groups/audit-guild'];
   let historyIndex = 1;
   const viewerMode: { current: 'owner' | 'stranger' } = { current: 'owner' };
@@ -93,6 +94,7 @@ const harness = vi.hoisted(() => {
 
   function installWindow() {
     popListeners = [];
+    oncePopListeners = new Set();
     const windowStub = {
       location,
       history: {
@@ -113,12 +115,19 @@ const harness = vi.hoisted(() => {
       },
       setTimeout: globalThis.setTimeout.bind(globalThis),
       clearTimeout: globalThis.clearTimeout.bind(globalThis),
-      addEventListener: (type: string, fn: () => void) => {
-        if (type === 'popstate') popListeners.push(fn);
+      addEventListener: (
+        type: string,
+        fn: () => void,
+        options?: { once?: boolean }
+      ) => {
+        if (type !== 'popstate') return;
+        popListeners.push(fn);
+        if (options?.once) oncePopListeners.add(fn);
       },
       removeEventListener: (type: string, fn: () => void) => {
         if (type !== 'popstate') return;
         popListeners = popListeners.filter((item) => item !== fn);
+        oncePopListeners.delete(fn);
       },
     };
     Object.defineProperty(globalThis, 'window', {
@@ -142,8 +151,15 @@ const harness = vi.hoisted(() => {
     },
     emitRoute: (href: string) => onRoute?.(href),
     dispatchPop: () => {
-      for (const fn of popListeners.slice()) fn();
+      for (const fn of popListeners.slice()) {
+        if (oncePopListeners.has(fn)) {
+          popListeners = popListeners.filter((item) => item !== fn);
+          oncePopListeners.delete(fn);
+        }
+        fn();
+      }
     },
+    popListenerCount: () => popListeners.length,
     historyTop: () => historyStack[historyIndex],
     noteUncommittedSettings() {
       historyStack[historyIndex] = '/groups/audit-guild';
@@ -172,6 +188,7 @@ const harness = vi.hoisted(() => {
       applyHref(BARE);
       onRoute = null;
       popListeners = [];
+      oncePopListeners = new Set();
       historyStack = ['/outside', '/groups/audit-guild'];
       historyIndex = 1;
     },
@@ -794,6 +811,67 @@ describe('guild settings restore when a successor push has not landed', () => {
     expect(
       harness.calls.some((call) => call.op === 'push' && call.href === SETTINGS)
     ).toBe(false);
+  });
+
+  it('does not restore settings on a second pop after the handoff pop', async () => {
+    const view = await mount();
+    await openSettings(view);
+    harness.noteUncommittedSettings();
+    click(view, 'Proposals');
+    await flush();
+    const pending = harness.pendingPushes.shift();
+    await act(async () => {
+      harness.commitPush(pending!);
+    });
+    harness.popInApp.mockImplementation(() => harness.popCommitted());
+    click(view, 'Close');
+    await flush(450);
+    expect(dialogOpen(view, 'Settings')).toBe(true);
+    click(view, 'Close', 'Settings');
+    await flush();
+    expect(dialogOpen(view, 'Settings')).toBe(false);
+    expect(hrefNow()).toBe(BARE);
+    const replaces = harness.calls.filter((call) => call.op === 'replace').length;
+    harness.applyHref(BARE);
+    harness.dispatchPop();
+    await flush();
+    expect(dialogOpen(view, 'Settings')).toBe(false);
+    expect(harness.calls.filter((call) => call.op === 'replace').length).toBe(
+      replaces
+    );
+  });
+
+  it('does not update state when a pop arrives after unmount', async () => {
+    const view = await mount();
+    await openSettings(view);
+    click(view, 'Proposals');
+    await flush();
+    const pending = harness.pendingPushes.shift();
+    await act(async () => {
+      harness.commitPush(pending!);
+    });
+    harness.popInApp.mockImplementation(() => true);
+    click(view, 'Close');
+    const replaces = harness.calls.filter((call) => call.op === 'replace').length;
+    const calls = harness.calls.length;
+    const errors: string[] = [];
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation((...args) => {
+      errors.push(args.map(String).join(' '));
+    });
+    act(() => {
+      view.unmount();
+    });
+    renderer = undefined;
+    harness.applyHref(BARE);
+    harness.dispatchPop();
+    await flush(450);
+    errorSpy.mockRestore();
+    expect(view.toJSON()).toBeNull();
+    expect(harness.calls.length).toBe(calls);
+    expect(harness.calls.filter((call) => call.op === 'replace').length).toBe(
+      replaces
+    );
+    expect(errors.some((line) => /state update/i.test(line))).toBe(false);
   });
 
   it('drops the proposals pop listener when the panel unmounts first', async () => {
