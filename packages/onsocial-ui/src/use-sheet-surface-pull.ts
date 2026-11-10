@@ -3,11 +3,16 @@
 import { useEffect, type RefObject } from 'react';
 import {
   collectVerticalScrollTops,
+  elementOptsOutOfSheetPull,
   elementScrollsVertically,
+  SHEET_PULL_CONFIRM_PX,
   sheetBodyPullDirection,
   sheetPressActivatesClick,
   sheetPullFromPanelBlocked,
+  sheetPullPointerCanDrag,
   sheetPullTargetBlocks,
+  sheetShouldBlockTextSelection,
+  sheetTouchMovePreventsNativePan,
 } from './sheet-body-pull.js';
 
 export type SheetSurfacePullApi = {
@@ -21,10 +26,50 @@ export type SheetSurfacePullApi = {
   handlePointerEnd: () => void;
 };
 
+type ClickSwallowTarget = {
+  addEventListener: (
+    type: string,
+    listener: (event: Event) => void,
+    capture?: boolean
+  ) => void;
+  removeEventListener: (
+    type: string,
+    listener: (event: Event) => void,
+    capture?: boolean
+  ) => void;
+};
+
+/**
+ * Swallow the click this pull already queued. The guard drops on the next
+ * turn so the following press is not blocked.
+ */
+export function armSheetPullClickSwallow(
+  target: ClickSwallowTarget,
+  schedule: (release: () => void) => void = (release) => {
+    setTimeout(release, 0);
+  }
+): void {
+  let stop: ((event: Event) => void) | null = (event: Event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    release();
+  };
+  const release = () => {
+    if (!stop) return;
+    target.removeEventListener('click', stop, true);
+    target.removeEventListener('auxclick', stop, true);
+    stop = null;
+  };
+  target.addEventListener('click', stop, true);
+  target.addEventListener('auxclick', stop, true);
+  schedule(release);
+}
+
 /**
  * Downward pull from anywhere on a dismissable sheet, once every scroller
  * under the finger is at the top. The grip keeps its own handler.
- * A short still press remains a click. A drag or a long hold does not.
+ * Touch and pen only. A short or slow press remains a click until a pull
+ * is confirmed.
  */
 export function useSheetSurfacePull(input: {
   enabled: boolean;
@@ -54,6 +99,7 @@ export function useSheetSurfacePull(input: {
 
     const blocked = (target: EventTarget | null) => {
       if (!(target instanceof Element) || !panel.contains(target)) return true;
+      if (elementOptsOutOfSheetPull(target)) return true;
       return sheetPullFromPanelBlocked({
         keyboardOpen: apiRef.current.keyboardOpen,
         inField: sheetPullTargetBlocks(target),
@@ -64,8 +110,6 @@ export function useSheetSurfacePull(input: {
     };
 
     let armingPull = false;
-    let clickStop: ((event: Event) => void) | null = null;
-    let clickTimer = 0;
     let pull: {
       pointerId: number;
       startX: number;
@@ -74,33 +118,10 @@ export function useSheetSurfacePull(input: {
       phase: 'pending' | 'pull' | 'abort';
     } | null = null;
 
-    const releaseClickStop = () => {
-      if (clickTimer) {
-        window.clearTimeout(clickTimer);
-        clickTimer = 0;
-      }
-      if (!clickStop) return;
-      window.removeEventListener('click', clickStop, true);
-      window.removeEventListener('auxclick', clickStop, true);
-      clickStop = null;
-    };
-
-    const swallowNextClick = () => {
-      releaseClickStop();
-      clickStop = (event: Event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        releaseClickStop();
-      };
-      window.addEventListener('click', clickStop, true);
-      window.addEventListener('auxclick', clickStop, true);
-      clickTimer = window.setTimeout(releaseClickStop, 700);
-    };
-
     const onDown = (event: PointerEvent) => {
       if (event.button !== 0) return;
+      if (!sheetPullPointerCanDrag(event.pointerType)) return;
       if (blocked(event.target)) return;
-      panel.classList.add('is-body-pull');
       pull = {
         pointerId: event.pointerId,
         startX: event.clientX,
@@ -111,7 +132,7 @@ export function useSheetSurfacePull(input: {
     };
 
     const keepContentFromGrabbing = (event: Event) => {
-      if (!pull) return;
+      if (!sheetShouldBlockTextSelection(pull?.phase ?? null)) return;
       event.preventDefault();
     };
 
@@ -127,7 +148,8 @@ export function useSheetSurfacePull(input: {
       if (pull.phase === 'pending') {
         const direction = sheetBodyPullDirection(
           event.clientX - pull.startX,
-          event.clientY - pull.startY
+          event.clientY - pull.startY,
+          SHEET_PULL_CONFIRM_PX
         );
         if (direction === 'pending') return;
         if (direction === 'abort' || blocked(event.target)) {
@@ -135,6 +157,7 @@ export function useSheetSurfacePull(input: {
           return;
         }
         pull.phase = 'pull';
+        panel.classList.add('is-body-pull');
         window.getSelection?.()?.removeAllRanges();
         armingPull = true;
         try {
@@ -143,17 +166,15 @@ export function useSheetSurfacePull(input: {
           armingPull = false;
         }
       }
-      if (pull.phase === 'abort') return;
-      if (event.cancelable) event.preventDefault();
+      if (pull.phase !== 'pull') return;
+      if (sheetTouchMovePreventsNativePan(pull.phase) && event.cancelable) {
+        event.preventDefault();
+      }
       apiRef.current.handlePointerMove(event);
     };
 
     const onTouchMove = (event: TouchEvent) => {
-      const touch = event.touches[0];
-      if (!pull || !touch || pull.phase === 'abort') return;
-      const dy = touch.clientY - pull.startY;
-      const dx = touch.clientX - pull.startX;
-      if (dy <= 0 || dy < Math.abs(dx)) return;
+      if (!pull || !sheetTouchMovePreventsNativePan(pull.phase)) return;
       if (event.cancelable) event.preventDefault();
     };
 
@@ -174,7 +195,7 @@ export function useSheetSurfacePull(input: {
           movedPx,
         })
       ) {
-        swallowNextClick();
+        armSheetPullClickSwallow(window);
       }
       if (finished.phase === 'pull') apiRef.current.handlePointerEnd();
     };
@@ -200,7 +221,6 @@ export function useSheetSurfacePull(input: {
       panel.removeEventListener('pointerup', onUp, true);
       panel.removeEventListener('pointercancel', onUp, true);
       panel.removeEventListener('touchmove', onTouchMove, true);
-      releaseClickStop();
       pull = null;
       releasePullClass();
     };

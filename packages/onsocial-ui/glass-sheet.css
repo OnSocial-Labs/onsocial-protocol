@@ -472,6 +472,7 @@
   }
 }
 
+/* Only while a pull is confirmed. A resting sheet keeps text selection. */
 .glass-sheet-panel.is-dragging,
 .glass-sheet-panel.is-dragging *,
 .glass-sheet-panel.is-body-pull,

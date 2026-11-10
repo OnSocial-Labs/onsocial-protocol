@@ -99,19 +99,19 @@ describe('sheetPressActivatesClick', () => {
     ).toBe(true);
   });
 
-  it('does not activate a pull, a slide, or a long hold', () => {
+  it('activates a slow or shaky press, and skips only a confirmed pull', () => {
     expect(
       sheetPressActivatesClick({ phase: 'pull', heldMs: 80, movedPx: 40 })
     ).toBe(false);
     expect(
       sheetPressActivatesClick({ phase: 'abort', heldMs: 80, movedPx: 20 })
-    ).toBe(false);
+    ).toBe(true);
     expect(
       sheetPressActivatesClick({ phase: 'pending', heldMs: 80, movedPx: 8 })
-    ).toBe(false);
+    ).toBe(true);
     expect(
-      sheetPressActivatesClick({ phase: 'pending', heldMs: 500, movedPx: 0 })
-    ).toBe(false);
+      sheetPressActivatesClick({ phase: 'pending', heldMs: 800, movedPx: 0 })
+    ).toBe(true);
   });
 });
 

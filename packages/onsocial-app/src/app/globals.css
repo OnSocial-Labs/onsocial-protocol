@@ -15349,6 +15349,17 @@ a.os-surface-row,
     pointer-events: none;
   }
 
+  /* A tucked dock still reveals when a keyboard user reaches the page entry. */
+  .portfolio-summon-dock.is-scroll-hidden:focus-within {
+    transform: translateX(-50%);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .portfolio-summon-dock.is-scroll-hidden:focus-within .portfolio-summon {
+    pointer-events: auto;
+  }
+
   /*
    * Overlays portal into the card; tuck the face dock while other sheets are up.
    * The page drawer keeps the dock via keepDock (data-keep-dock) — any sheet
@@ -16601,6 +16612,7 @@ a.os-surface-row,
     animation: portfolio-summon-hint-in 420ms ease;
   }
 
+  button.portfolio-summon-hint.glass-sheet-icon-action,
   button.portfolio-summon-hint--connect {
     pointer-events: auto;
     border: none;

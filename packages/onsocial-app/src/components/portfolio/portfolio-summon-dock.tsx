@@ -37,6 +37,7 @@ import { ownerPortfolioOsApps, visitorPortfolioOsApps } from '@/lib/os-apps';
 import { CollectiblesNowPlayingDockChip } from '@/components/os/collectibles-now-playing-dock-chip';
 import { SummonLauncher } from '@/components/os/summon-launcher';
 import { PortfolioDockMarks } from '@/components/portfolio/portfolio-dock-marks';
+import { PortfolioPageContentEntry } from '@/components/portfolio/portfolio-page-entry';
 import { PortfolioSummonComposeButton } from '@/components/portfolio/portfolio-summon-compose-button';
 import { OsDockBackZone } from '@/components/wallet/os-dock-back-zone';
 import { OsDockPill } from '@/components/wallet/os-dock-pill';
@@ -220,6 +221,14 @@ export function PortfolioSummonDock({
         data-mood={dockMoodId ?? undefined}
         style={dockMoodStyle}
       >
+        {!pageDrawerOpen && !write ? (
+          <PortfolioPageContentEntry
+            onOpen={() => {
+              dismissHint();
+              openPageDrawer();
+            }}
+          />
+        ) : null}
         {showHint && !pageDrawerOpen && !write ? (
           <p className="portfolio-summon-hint" aria-hidden="true">
             Swipe up
