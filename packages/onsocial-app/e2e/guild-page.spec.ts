@@ -718,17 +718,18 @@ test.describe('guild page', () => {
     await expect(proposals).toBeVisible();
     await expect(proposals).toHaveAttribute('data-presentation', 'enter');
     await expect(proposals).toHaveAttribute('data-stack-op', 'replace');
+    await expect(page).toHaveURL(
+      new RegExp(`${GUILD_E2E_PATH}\\?sheet=proposals$`)
+    );
     await proposals.getByRole('button', { name: 'Close' }).click();
     await expect(proposals).toHaveCount(0);
 
-    // Closing proposals pops back to Settings when it owned the prior URL.
-    // Prefer the hero control (`exact`) — backdrop is "Close guild settings".
-    const settingsAgain = page.getByRole('dialog', { name: 'Settings' });
-    if (!(await settingsAgain.isVisible())) {
-      await page
-        .getByRole('button', { name: 'Guild settings', exact: true })
-        .click();
-    }
+    await expect(page).toHaveURL(
+      new RegExp(`${GUILD_E2E_PATH}\\?sheet=settings$`)
+    );
+    const settingsAgain = page
+      .locator('[data-sheet-top="true"]')
+      .getByRole('dialog', { name: 'Settings' });
     await expect(settingsAgain).toBeVisible();
     await settingsAgain.getByRole('button', { name: /Guild storage/ }).click();
     const storage = page.getByRole('dialog', { name: 'Guild storage' });
