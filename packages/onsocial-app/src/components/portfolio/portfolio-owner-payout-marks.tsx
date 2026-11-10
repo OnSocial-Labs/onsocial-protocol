@@ -10,6 +10,7 @@ import {
   TrophyFillIcon,
 } from '@onsocial/ui';
 import { useDmUnreadCount } from '@/components/providers/dm-unread-host';
+import { GestureSlotHold } from '@/components/portfolio/portfolio-gesture-slot-hold';
 import {
   PortfolioListingActionsMark,
   PortfolioListingActionsSheet,
@@ -204,11 +205,7 @@ export function PortfolioOwnerPayoutMarks({
     <>
       <div className="portfolio-identity-gestures">
         {!marksReady ? (
-          <span
-            className="standing-row-shimmer portfolio-identity-gesture-shimmer"
-            role="status"
-            aria-label="Loading payouts"
-          />
+          <GestureSlotHold bare label="Loading payouts" />
         ) : (
           <div
             className="portfolio-identity-gesture-row"

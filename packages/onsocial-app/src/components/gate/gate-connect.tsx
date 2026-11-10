@@ -17,28 +17,30 @@ export function GateConnect() {
     }
   }, [accountId, isConnected, isLoading, router]);
 
-  if (isLoading) {
-    return null;
-  }
-
-  if (isConnected && accountId) {
-    return (
-      <div className="gate-connect">
-        <span className="gate-connect-booting">Opening your page…</span>
-      </div>
-    );
-  }
+  const ready = !isLoading;
+  const booting = ready && isConnected && Boolean(accountId);
 
   return (
     <div className="gate-connect">
-      <button
-        className={`${osDockPillClassName} gate-connect-button`}
-        type="button"
-        onClick={connect}
-      >
-        <span className="gate-connect-label">Let’s connect</span>
-      </button>
-      <GatePwaInstall />
+      {booting ? (
+        <span className="gate-connect-booting">Opening your page…</span>
+      ) : (
+        <>
+          <button
+            className={`${osDockPillClassName} gate-connect-button`}
+            type="button"
+            onClick={() => {
+              if (!ready) return;
+              connect();
+            }}
+            aria-hidden={ready ? undefined : true}
+            tabIndex={ready ? undefined : -1}
+          >
+            <span className="gate-connect-label">Let’s connect</span>
+          </button>
+          {ready ? <GatePwaInstall /> : null}
+        </>
+      )}
     </div>
   );
 }

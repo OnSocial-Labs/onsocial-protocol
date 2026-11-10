@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import type { JobSearchRow } from '@onsocial/sdk';
+import type { JobSearchRow, OfferRecord } from '@onsocial/sdk';
 import { PortfolioHiringLine } from '@/components/portfolio/portfolio-hiring-line';
 import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
 import { PortfolioOffersLine } from '@/components/portfolio/portfolio-offers-line';
@@ -16,6 +16,7 @@ export function PortfolioOrgMetaLine({
   industry,
   location,
   initialJobs = [],
+  initialOffers = [],
   showHiring = true,
   showOffers = true,
   emptyIndustryLabel = 'Organization',
@@ -27,6 +28,8 @@ export function PortfolioOrgMetaLine({
   industry?: string | null;
   location?: string | null;
   initialJobs?: JobSearchRow[];
+  /** Standing offers already known with the shell. */
+  initialOffers?: OfferRecord[];
   showHiring?: boolean;
   showOffers?: boolean;
   /** When null, hide the industry part until they set one (DAO). */
@@ -85,6 +88,7 @@ export function PortfolioOrgMetaLine({
           kind={kindLine}
           variant="inline"
           leadingSep={Boolean(industryLabel || locationLabel)}
+          initialOffers={initialOffers}
         />
       ) : null}
       {showHiring ? (

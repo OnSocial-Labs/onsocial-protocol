@@ -17,12 +17,16 @@ function nearestIndex(container: HTMLElement): number {
     return 0;
   }
 
-  const centerY = container.scrollTop + container.clientHeight / 2;
+  // Visual center of the wheel. offsetTop is relative to a parent outside
+  // the scroller, so it always picks the first label.
+  const bounds = container.getBoundingClientRect();
+  const centerY = bounds.top + container.clientHeight / 2;
   let closestIndex = 0;
   let closestDistance = Number.POSITIVE_INFINITY;
 
   items.forEach((item, index) => {
-    const itemCenter = item.offsetTop + item.offsetHeight / 2;
+    const itemBounds = item.getBoundingClientRect();
+    const itemCenter = itemBounds.top + itemBounds.height / 2;
     const distance = Math.abs(itemCenter - centerY);
     if (distance < closestDistance) {
       closestDistance = distance;
@@ -56,7 +60,8 @@ export function OsAppRail({
       return;
     }
 
-    setActiveIndex(nearestIndex(container));
+    const next = nearestIndex(container);
+    setActiveIndex((current) => (current === next ? current : next));
   }, []);
 
   useEffect(() => {
@@ -67,9 +72,12 @@ export function OsAppRail({
 
     syncActiveIndex();
     container.addEventListener('scroll', syncActiveIndex, { passive: true });
+    const observer = new ResizeObserver(syncActiveIndex);
+    observer.observe(container);
 
     return () => {
       container.removeEventListener('scroll', syncActiveIndex);
+      observer.disconnect();
     };
   }, [apps.length, syncActiveIndex]);
 

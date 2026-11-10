@@ -1,4 +1,3 @@
-import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import { resolvePortfolioMood } from '@/lib/moods/resolve';
 import { displayName } from '@/lib/profile-display';
@@ -6,20 +5,17 @@ import { fetchPublicPageData, resolvePageAvatarMode } from '@/lib/page-data';
 import type { PageDrawerMeta } from '@/lib/page-drawer-meta';
 import { readPageHeroSourceExplicit } from '@/lib/page-face';
 import { loadProfileShell } from '@/lib/profile-shell';
-import { fetchProfileSignals } from '@/lib/profile-signals';
+import { fetchProfileSignals, loadProfileSearchRow } from '@/lib/profile-signals';
 import { resolveDaoPortfolioSummary } from '@/lib/load-dao-page';
+import { loadPortfolioHeroDaoContext } from '@/lib/portfolio-hero-path';
 import {
-  loadPortfolioHeroDaoContext,
-  portfolioHeroAwaitsSignals,
-} from '@/lib/portfolio-hero-path';
+  loadPortfolioFaceJobs,
+  loadPortfolioFaceOffers,
+} from '@/lib/portfolio-face-facts';
 import { PortfolioOwnerProfilePrompt } from '@/components/portfolio/portfolio-owner-profile-prompt';
 import { PortfolioEssayLeave } from '@/components/portfolio/portfolio-essay-leave';
 import { PortfolioDaoOrgChrome } from '@/components/portfolio/portfolio-dao-org-chrome';
 import { PortfolioDeferredShelf } from '@/components/portfolio/portfolio-deferred-shelf';
-import {
-  PortfolioDeferredProfileSeed,
-  PortfolioDeferredSignals,
-} from '@/components/portfolio/portfolio-deferred-signals';
 import { PortfolioEndorsementFocusHost } from '@/components/portfolio/portfolio-endorsement-focus-host';
 import { PortfolioIdentity } from '@/components/portfolio/portfolio-identity';
 import { PortfolioLinks } from '@/components/portfolio/portfolio-links';
@@ -52,7 +48,14 @@ export async function PortfolioAccountFace({
   /** `?kind=` / `?proposal=` open Proposals on the landing face only. */
   honorDeepLinks?: boolean;
 }) {
-  const data = await fetchPublicPageData(accountId);
+  // Signals and offers share the shell wait so they cannot insert above links.
+  const [data, shell, signals, offers, profileRow] = await Promise.all([
+    fetchPublicPageData(accountId),
+    loadProfileShell(accountId),
+    fetchProfileSignals(accountId),
+    loadPortfolioFaceOffers(accountId),
+    loadProfileSearchRow(accountId),
+  ]);
   if (!data) {
     if (strict) notFound();
     return <ProtocolFacePairFallback />;
@@ -66,14 +69,12 @@ export async function PortfolioAccountFace({
     data.config,
     search?.avatarMode ?? search?.avatar ?? null
   );
-  const shell = await loadProfileShell(accountId);
-  const [daoContext, signals] = await Promise.all([
-    loadPortfolioHeroDaoContext(accountId, shell),
-    portfolioHeroAwaitsSignals(accountId)
-      ? fetchProfileSignals(accountId)
-      : Promise.resolve(null),
-  ]);
+  const daoContext = await loadPortfolioHeroDaoContext(accountId, shell);
   const { entity: daoEntity, page: daoPage } = daoContext;
+  const openJobs =
+    !daoEntity.isDao && shell?.kind === 'org'
+      ? await loadPortfolioFaceJobs(accountId)
+      : [];
   const portfolioBio = resolveDaoPortfolioSummary({
     tagline,
     shellBio: shell?.bio,
@@ -91,7 +92,7 @@ export async function PortfolioAccountFace({
   const avatarUrl = shell?.avatarUrl ?? daoPage?.branding.avatarUrl ?? null;
   const drawerMeta: PageDrawerMeta = {
     name,
-    joinedAt: null,
+    joinedAt: profileRow?.firstProfileTimestamp ?? null,
     updatedAt: null,
     updatedFields: [],
     postCount,
@@ -112,22 +113,12 @@ export async function PortfolioAccountFace({
   return (
     <>
       {showEssayLeave ? <PortfolioEssayLeave accountId={accountId} /> : null}
-      {signals ? (
-        <PortfolioProfileSeed
-          accountId={accountId}
-          displayName={name}
-          avatarUrl={avatarUrl}
-          counts={seedCounts}
-        />
-      ) : (
-        <Suspense fallback={null}>
-          <PortfolioDeferredProfileSeed
-            accountId={accountId}
-            displayName={name}
-            avatarUrl={avatarUrl}
-          />
-        </Suspense>
-      )}
+      <PortfolioProfileSeed
+        accountId={accountId}
+        displayName={name}
+        avatarUrl={avatarUrl}
+        counts={seedCounts}
+      />
       <PortfolioShellRoot
         mood={mood}
         pageAccountId={accountId}
@@ -177,6 +168,8 @@ export async function PortfolioAccountFace({
           profileKind={shell?.kind ?? null}
           kindLabel={daoEntity.kindLabel}
           incomingStandingCount={daoIncomingStanding}
+          openJobs={openJobs}
+          initialOffers={offers}
         />
 
         {daoEntity.isDao ? null : (
@@ -204,11 +197,6 @@ export async function PortfolioAccountFace({
 
         {signals && !daoEntity.isDao ? (
           <PortfolioSignalsShell accountId={accountId} signals={signals} />
-        ) : null}
-        {!signals ? (
-          <Suspense fallback={null}>
-            <PortfolioDeferredSignals accountId={accountId} />
-          </Suspense>
         ) : null}
         <PortfolioLinks
           links={shell?.links}

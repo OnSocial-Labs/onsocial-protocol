@@ -104,7 +104,11 @@ export function ProfileFeedClient({
   // section can look empty even when older rows exist. Fetch each section
   // once on first view and merge into the pool.
   const fetchedTabsRef = useRef<Set<ProfileFeedTab>>(new Set());
-  const [pendingTab, setPendingTab] = useState<ProfileFeedTab | null>(null);
+  const [pendingTab, setPendingTab] = useState<ProfileFeedTab | null>(() =>
+    tab === 'posts' && initialPosts.length === 0 && postCount > 0
+      ? 'posts'
+      : null
+  );
 
   const fetchMediaPage = useCallback(
     (offset: number) => {

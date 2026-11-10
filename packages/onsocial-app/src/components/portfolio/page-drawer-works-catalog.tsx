@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { PageDrawerCreatedRail } from '@/components/portfolio/page-drawer-peeks';
 import { PortfolioDropRow } from '@/components/portfolio/portfolio-drop-row';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -89,7 +90,7 @@ export function PageDrawerWorksCatalog({
   };
 
   if (status === 'loading' && drops.length === 0 && createdPeeks.length === 0) {
-    return null;
+    return <MarketListSkeleton rows={3} variant="drops" />;
   }
 
   const hasCatalog = catalogDrops.length > 0;

@@ -22,6 +22,7 @@ import {
   profileKindShowsCrafts,
   resolveDisplayProfileKind,
   type JobSearchRow,
+  type OfferRecord,
   type ProfileKind,
 } from '@onsocial/sdk';
 import {
@@ -32,6 +33,12 @@ import {
 import { profileAboutHasMoreThanFace } from '@/lib/profile-bio-face';
 import { profileIdentityTopics } from '@/lib/profile-identity-topics';
 import type { ResolvedMood } from '@/lib/moods/types';
+
+function portraitKey(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const cid = /\/ipfs\/([A-Za-z0-9]+)/.exec(url)?.[1];
+  return cid ?? url;
+}
 
 interface PortfolioIdentityProps {
   accountId: string;
@@ -59,6 +66,8 @@ interface PortfolioIdentityProps {
   kindLabel?: string | null;
   incomingStandingCount?: number;
   openJobs?: JobSearchRow[];
+  /** Standing offers already known with the shell. */
+  initialOffers?: OfferRecord[];
 }
 
 export function PortfolioIdentity({
@@ -79,6 +88,7 @@ export function PortfolioIdentity({
   kindLabel = null,
   incomingStandingCount = 0,
   openJobs = [],
+  initialOffers = [],
 }: PortfolioIdentityProps) {
   const moodPreview = usePortfolioMoodPreviewOptional();
   const mood = moodPreview?.effectiveMood ?? savedMood;
@@ -100,12 +110,12 @@ export function PortfolioIdentity({
   const handleLabel = portfolioHandleForMood(accountId, mood.id);
   const avatarSrcSet = ipfsImgSrcSet(avatarUrl, [128, 384]);
   const avatarBlurPreview = Boolean(ipfsImgVariantUrl(avatarUrl, 128));
-  const [avatarReady, setAvatarReady] = useState(false);
-  const [trackedAvatar, setTrackedAvatar] = useState(avatarUrl);
-  if (trackedAvatar !== avatarUrl) {
-    setTrackedAvatar(avatarUrl);
-    setAvatarReady(false);
-  }
+  const portrait = portraitKey(avatarUrl);
+  const [shownPortrait, setShownPortrait] = useState<string | null>(null);
+  const avatarReady = portrait != null && shownPortrait === portrait;
+  const markAvatarReady = () => {
+    if (portrait && shownPortrait !== portrait) setShownPortrait(portrait);
+  };
 
   useEffect(() => {
     if (!isDao) return;
@@ -114,7 +124,7 @@ export function PortfolioIdentity({
 
   return (
     <section
-      className="portfolio-identity animate-rise-in"
+      className="portfolio-identity"
       data-profile-kind={displayKind}
     >
       {avatarUrl ? (
@@ -125,10 +135,12 @@ export function PortfolioIdentity({
               : 'portfolio-avatar'
           }
         >
-          {avatarBlurPreview ? <IpfsBlurPreview src={avatarUrl} /> : null}
+          {avatarBlurPreview && !avatarReady ? (
+            <IpfsBlurPreview src={avatarUrl} />
+          ) : null}
           <IpfsImg
             ref={(node) => {
-              if (node?.complete && node.naturalWidth > 0) setAvatarReady(true);
+              if (node?.complete && node.naturalWidth > 0) markAvatarReady();
             }}
             alt={titleLabel}
             className={
@@ -140,8 +152,8 @@ export function PortfolioIdentity({
             srcSet={avatarSrcSet}
             sizes={avatarSrcSet ? '104px' : undefined}
             decoding="async"
-            onLoad={() => setAvatarReady(true)}
-            onError={() => setAvatarReady(true)}
+            onLoad={markAvatarReady}
+            onError={markAvatarReady}
           />
         </span>
       ) : (
@@ -183,6 +195,7 @@ export function PortfolioIdentity({
             industry={industry}
             location={locationLabel}
             initialJobs={openJobs}
+            initialOffers={initialOffers}
             mood={mood}
           />
         ) : displayKind === 'dao' ? (
@@ -203,6 +216,7 @@ export function PortfolioIdentity({
             mood={mood}
             locationLabel={locationLabel}
             kind="person"
+            initialOffers={initialOffers}
           />
         )}
         {summary ? (

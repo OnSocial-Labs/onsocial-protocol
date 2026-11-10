@@ -3235,17 +3235,13 @@ a.os-surface-row,
   }
 }
 
-@keyframes logo-enter {
+@keyframes gate-fade {
   from {
     opacity: 0;
-    transform: scale(0.88);
-    filter: blur(6px);
   }
 
   to {
     opacity: 1;
-    transform: scale(1);
-    filter: blur(0);
   }
 }
 
@@ -4317,15 +4313,18 @@ a.os-surface-row,
     gap: 2.25rem;
     width: 100%;
     min-height: 100%;
-    padding: 3rem 1.5rem 5rem;
-    animation: logo-enter 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    /* Extra wheel height and the thumb shift grow downward, so the mark stays. */
+    padding: calc(3rem + 3.375rem) 1.5rem calc(5rem - 3.375rem);
   }
 
   .gate-logo {
     width: 96px;
     height: 96px;
     color: rgb(var(--fg-rgb) / 0.88);
-    animation: breathe 6s ease-in-out infinite;
+    animation:
+      gate-fade var(--os-motion-overlay, 320ms)
+        var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1)) both,
+      breathe 6s ease-in-out infinite;
   }
 
   @media (min-width: 640px) {
@@ -4352,21 +4351,33 @@ a.os-surface-row,
     width: 100%;
     display: flex;
     justify-content: center;
+    margin-top: 2.5rem;
+    animation: gate-fade var(--os-motion-overlay, 320ms)
+      var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1))
+      var(--os-motion-micro, 120ms) both;
   }
 
   .gate-dapp-list {
+    --gate-dapp-row: 2.75rem;
+    --gate-dapp-window: calc(var(--gate-dapp-row) * 5);
     list-style: none;
     margin: 0;
-    padding: 0;
     width: min(100%, 14rem);
-    max-height: 9.5rem;
+    max-height: var(--gate-dapp-window);
     overflow-y: auto;
+    overscroll-behavior: contain;
     scroll-snap-type: y mandatory;
+    padding-block: calc(
+      (var(--gate-dapp-window) - var(--gate-dapp-row)) / 2
+    );
+    scroll-padding-block: calc(
+      (var(--gate-dapp-window) - var(--gate-dapp-row)) / 2
+    );
     mask-image: linear-gradient(
       to bottom,
       transparent,
-      black 24%,
-      black 76%,
+      black 22%,
+      black 78%,
       transparent
     );
   }
@@ -4396,13 +4407,11 @@ a.os-surface-row,
     font-weight: 500;
     letter-spacing: -0.04em;
     color: rgb(var(--fg-rgb) / 0.96);
-    transition: opacity 180ms ease;
+    transition: opacity var(--os-motion-chrome, 220ms)
+      var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1));
     cursor: pointer;
   }
 
-  .gate-dapp-link:hover {
-    opacity: 1 !important;
-  }
 
   .gate-connect {
     position: relative;
@@ -4414,7 +4423,22 @@ a.os-surface-row,
     justify-content: center;
     gap: 0.65rem;
     padding: 0 1.5rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
+    min-height: calc(
+      var(--os-dock-height, 3.25rem) + 1.5rem + env(safe-area-inset-bottom, 0px)
+    );
+    box-sizing: border-box;
     pointer-events: none;
+    animation: gate-fade var(--os-motion-overlay, 320ms)
+      var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1))
+      var(--os-motion-micro, 120ms) both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .gate-logo,
+    .gate-dapp-rail,
+    .gate-connect {
+      animation: none;
+    }
   }
 
   .gate-connect-install {
@@ -7525,6 +7549,26 @@ a.os-surface-row,
     max-width: 100%;
     margin-inline: auto;
     gap: var(--gestures-row-gap) 0;
+    min-height: var(--gestures-row-height, 1.65rem);
+  }
+
+  /* One bar, on the verb line, until the whole row replaces it. */
+  .portfolio-identity-gesture-row--loading {
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
+    height: var(--gestures-row-height, 1.65rem);
+    min-height: var(--gestures-row-height, 1.65rem);
+    max-height: var(--gestures-row-height, 1.65rem);
+    overflow: hidden;
+  }
+
+  .portfolio-identity-gesture-row--loading .portfolio-identity-gesture-shimmer {
+    align-self: center;
+    width: 2.75rem;
+    height: 0.7rem;
+    margin: 0;
+    vertical-align: middle;
   }
 
   .portfolio-identity-gesture-sep {
@@ -46272,6 +46316,35 @@ button.messages-bubble-quote:focus-visible {
   gap: 0.45rem;
   flex-shrink: 0;
   justify-self: end;
+}
+
+/*
+ * Portfolio rail glyphs (Posts and the chips beside it). Unlayered so this
+ * beats mage-stroke-icons.css. The word uses --os-surface-muted (0.55),
+ * hover emphasis (0.88), and the active chip (0.94). The stroke takes that
+ * same weight as opacity on solid ink, or the joins paint brighter.
+ */
+.profile-feed-tab-bar button > .profile-feed-tab-icon {
+  color: rgb(var(--fg-rgb));
+  opacity: 0.55;
+  transition: opacity var(--os-motion-chip, 160ms) ease;
+}
+
+.profile-feed-tab-bar button:hover > .profile-feed-tab-icon,
+.profile-feed-tab-bar button:focus-visible > .profile-feed-tab-icon {
+  opacity: 0.88;
+}
+
+.profile-feed-tab-bar button.is-active > .profile-feed-tab-icon,
+.profile-feed-tab-bar button.is-active:hover > .profile-feed-tab-icon,
+.profile-feed-tab-bar button.is-active:focus-visible > .profile-feed-tab-icon {
+  opacity: 0.94;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-feed-tab-bar button > .profile-feed-tab-icon {
+    transition: none;
+  }
 }
 
 /*

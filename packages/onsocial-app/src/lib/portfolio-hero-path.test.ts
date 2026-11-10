@@ -45,12 +45,14 @@ describe('portfolio hero path', () => {
     ).resolves.toEqual(EMPTY_PORTFOLIO_DAO_CONTEXT);
   });
 
-  it('streams person signals and does not await jobs on the account page', () => {
+  it('paints person signals and offers with the hero', () => {
     expect(pageSrc).toContain('PortfolioAccountFace');
     expect(faceSrc).toContain('loadPortfolioHeroDaoContext');
-    expect(faceSrc).toContain('PortfolioDeferredSignals');
-    expect(faceSrc).toContain('PortfolioDeferredProfileSeed');
-    expect(faceSrc).toContain('portfolioHeroAwaitsSignals');
+    expect(faceSrc).toContain('fetchProfileSignals');
+    expect(faceSrc).toContain('loadProfileSearchRow');
+    expect(faceSrc).toContain('loadPortfolioFaceOffers');
+    expect(faceSrc).toContain('loadPortfolioFaceJobs');
+    expect(faceSrc).not.toContain('PortfolioDeferredSignals');
     expect(faceSrc).not.toContain('jobs.openForAccount');
     expect(pageSrc).not.toContain('jobs.openForAccount');
     expect(aboutSrc).toContain('loadPortfolioHeroDaoContext');

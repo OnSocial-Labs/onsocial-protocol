@@ -27,6 +27,7 @@ import {
 } from '@/lib/wallet-errors';
 import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
 import { PortfolioDaoGestureStandingCount } from '@/components/portfolio/portfolio-dao-gesture-standing-count';
+import { GestureSlotHold } from '@/components/portfolio/portfolio-gesture-slot-hold';
 
 interface PortfolioIdentityGesturesProps {
   pageAccountId: string;
@@ -57,11 +58,15 @@ export function PortfolioIdentityGestures({
   isDao = false,
   incomingStandingCount = 0,
 }: PortfolioIdentityGesturesProps) {
-  const { accountId: viewerAccountId, isConnected } = useAppWallet();
+  const { accountId: viewerAccountId, isConnected, isLoading } = useAppWallet();
 
   const isSelf =
     Boolean(viewerAccountId) &&
     accountIdsEqual(viewerAccountId!, pageAccountId);
+
+  if (isLoading) {
+    return <GestureSlotHold />;
+  }
 
   if (!isConnected || !viewerAccountId) {
     if (isDao && incomingStandingCount > 0) {
@@ -169,19 +174,7 @@ function PortfolioIdentityGesturesVisitor({
   return (
     <div className="portfolio-identity-gestures">
       {isLoading ? (
-        <div
-          className="portfolio-identity-gesture-row portfolio-identity-gesture-row--loading"
-          aria-hidden
-        >
-          {Array.from({ length: isDao ? 2 : 4 }, (_, index) => (
-            <span key={index}>
-              {index > 0 ? (
-                <span className="portfolio-identity-gesture-sep" aria-hidden />
-              ) : null}
-              <span className="portfolio-identity-gesture-shimmer" />
-            </span>
-          ))}
-        </div>
+        <GestureSlotHold bare />
       ) : (
         <div
           className="portfolio-identity-gesture-row"

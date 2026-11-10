@@ -117,12 +117,21 @@ async function fetchReputationRow(
   }
 }
 
+export const loadProfileSearchRow = cache(async (accountId: string) => {
+  try {
+    const os = createServerOnSocialClient();
+    return await os.query.profiles.lookup(accountId);
+  } catch {
+    return null;
+  }
+});
+
 export const fetchProfileSignals = cache(
   async (accountId: string): Promise<ProfileSignals | null> => {
     try {
       const os = createServerOnSocialClient();
       const [row, reputation, standingCounts] = await Promise.all([
-        os.query.profiles.lookup(accountId),
+        loadProfileSearchRow(accountId),
         fetchReputationRow(os, accountId),
         os.query.standings.counts(accountId),
       ]);

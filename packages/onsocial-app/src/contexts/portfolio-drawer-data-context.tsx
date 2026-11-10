@@ -24,9 +24,8 @@ const PortfolioDrawerDataHydrateContext = createContext<
 >(null);
 
 /**
- * Drawer meta + guilds stay off the SSR hero-critical path. The server seeds a
- * cheap meta (name + stat counts); the streamed shelf hydrates joined/updated
- * timestamps, scarce mints, and guild rows once they resolve.
+ * Drawer meta seeds name, counts, and Joined with the hero. Scarce mints and
+ * guild rows still stream in after first paint.
  */
 export function PortfolioDrawerDataProvider({
   initialDrawerMeta,

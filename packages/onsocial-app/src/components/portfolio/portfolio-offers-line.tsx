@@ -28,6 +28,7 @@ export function PortfolioOffersLine({
   kind = 'person',
   variant = 'person',
   leadingSep = false,
+  initialOffers = [],
 }: {
   accountId: string;
   profileName: string;
@@ -38,11 +39,18 @@ export function PortfolioOffersLine({
   /** `inline` — · Offers inside an existing org meta row. */
   variant?: 'person' | 'inline';
   leadingSep?: boolean;
+  /** Standing offers already known with the shell. */
+  initialOffers?: OfferRecord[];
 }) {
   const { accountId: viewerId, isConnected } = useAppWallet();
   const isOwner =
     isConnected && Boolean(viewerId) && accountIdsEqual(viewerId!, accountId);
-  const [offers, setOffers] = useState<OfferRecord[]>([]);
+  const [offers, setOffers] = useState<OfferRecord[]>(initialOffers);
+  const [offersAccount, setOffersAccount] = useState(accountId);
+  if (offersAccount !== accountId) {
+    setOffersAccount(accountId);
+    setOffers(initialOffers);
+  }
   const [open, setOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const place = locationLabel?.trim() || null;
