@@ -1,6 +1,8 @@
 // @onsocial/rpc — NEAR JSON-RPC client with retry, failover, and circuit breaker.
 // Zero runtime dependencies (native fetch). Server callers inject a FastNear
 // bearer key and a Lava key. The browser path stays on public endpoints.
+// A broadcast (`send_tx`, `broadcast_tx_*`) is one attempt on the current
+// provider. Reads keep retry and failover.
 
 // --- Types ---
 
@@ -88,6 +90,9 @@ export const KEYED_FASTNEAR_RPC_URLS: Record<Network, string> = {
 };
 
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const SEND_RETRY_AFTER_MIN_SECONDS = 1;
+const SEND_RETRY_AFTER_MAX_SECONDS = 60;
+const SEND_RETRY_AFTER_DEFAULT_SECONDS = 1;
 
 /** Public archival nodes for historical `block_id` / `block_hash` queries. */
 export const ARCHIVAL_RPC_URLS: Record<Network, string> = {
@@ -284,6 +289,61 @@ interface CircuitState {
   openWindowMs: number;
   /** First endpoint to try while the circuit is open. */
   activeIndex: number;
+}
+
+// --- Broadcast submits ---
+
+export type NearRpcSendErrorKind = 'rate_limited' | 'unavailable';
+
+/**
+ * A broadcast was not accepted on the single attempt.
+ * Reads never throw this. Callers retry with backoff.
+ * A timeout does not prove the transaction failed.
+ */
+export class NearRpcSendError extends Error {
+  readonly kind: NearRpcSendErrorKind;
+  readonly retryAfterSeconds: number;
+
+  constructor(kind: NearRpcSendErrorKind, retryAfterSeconds: number) {
+    super(
+      kind === 'rate_limited'
+        ? 'RPC upstream rate limited'
+        : 'RPC upstream unavailable'
+    );
+    this.name = 'NearRpcSendError';
+    this.kind = kind;
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
+/** True for `send_tx` and any `broadcast_tx_*` submit. */
+export function isSendNearRpcMethod(method: string): boolean {
+  return method === 'send_tx' || method.startsWith('broadcast_tx_');
+}
+
+function clampRetryAfterSeconds(seconds: number): number {
+  if (!Number.isFinite(seconds)) return SEND_RETRY_AFTER_DEFAULT_SECONDS;
+  return Math.min(
+    SEND_RETRY_AFTER_MAX_SECONDS,
+    Math.max(SEND_RETRY_AFTER_MIN_SECONDS, Math.ceil(seconds))
+  );
+}
+
+/** Upstream Retry-After, as integer seconds clamped to 1-60. Missing or invalid is 1. */
+function retryAfterSecondsFromHeader(header: string | null): number {
+  if (!header) return SEND_RETRY_AFTER_DEFAULT_SECONDS;
+  const trimmed = header.trim();
+  if (!trimmed) return SEND_RETRY_AFTER_DEFAULT_SECONDS;
+
+  const asNumber = Number(trimmed);
+  if (Number.isFinite(asNumber)) return clampRetryAfterSeconds(asNumber);
+
+  const dateMs = Date.parse(trimmed);
+  if (Number.isFinite(dateMs)) {
+    return clampRetryAfterSeconds((dateMs - Date.now()) / 1000);
+  }
+
+  return SEND_RETRY_AFTER_DEFAULT_SECONDS;
 }
 
 // --- Factory ---
@@ -527,6 +587,73 @@ export function createNearRpc(config: NearRpcConfig): NearRpc {
     return result;
   }
 
+  /**
+   * One fetch on the provider a read would have started with.
+   * No per-provider retry and no failover. Rate limits still feed the
+   * shared switch; other transport failures increment the same counter.
+   */
+  async function sendOnce<T>(
+    endpoint: NearRpcEndpoint,
+    body: string,
+    index: number
+  ): Promise<NearRpcResponse<T>> {
+    let response: Response;
+    try {
+      response = await fetchWithTimeout(endpoint, body);
+    } catch {
+      recordFailure(false, index);
+      throw new NearRpcSendError(
+        'unavailable',
+        SEND_RETRY_AFTER_DEFAULT_SECONDS
+      );
+    }
+
+    if (response.status === 429) {
+      const retryAfterSeconds = retryAfterSecondsFromHeader(
+        response.headers.get('retry-after')
+      );
+      recordFailure(true, index);
+      throw new NearRpcSendError('rate_limited', retryAfterSeconds);
+    }
+
+    if (response.status >= 500) {
+      recordFailure(false, index);
+      throw new NearRpcSendError(
+        'unavailable',
+        SEND_RETRY_AFTER_DEFAULT_SECONDS
+      );
+    }
+
+    let json: NearRpcResponse<T>;
+    try {
+      json = (await response.json()) as NearRpcResponse<T>;
+    } catch {
+      recordFailure(false, index);
+      throw new NearRpcSendError(
+        'unavailable',
+        SEND_RETRY_AFTER_DEFAULT_SECONDS
+      );
+    }
+
+    const code = json.error?.cause?.name ?? json.error?.code;
+    if (json.error && isRateLimitedRpcError(code)) {
+      const retryAfterSeconds = retryAfterSecondsFromHeader(
+        response.headers.get('retry-after')
+      );
+      recordFailure(true, index);
+      throw new NearRpcSendError('rate_limited', retryAfterSeconds);
+    }
+
+    if (json.error) return json;
+    if (response.ok) return finishSuccess(index, json);
+
+    recordFailure(false, index);
+    throw new NearRpcSendError(
+      'unavailable',
+      SEND_RETRY_AFTER_DEFAULT_SECONDS
+    );
+  }
+
   return {
     async call<T = unknown>(
       method: string,
@@ -540,6 +667,11 @@ export function createNearRpc(config: NearRpcConfig): NearRpc {
       });
       const historical = isHistoricalBlockQuery(method, params);
       const start = isCircuitOpen() ? circuit.activeIndex : 0;
+
+      if (isSendNearRpcMethod(method)) {
+        return sendOnce<T>(endpoints[start], body, start);
+      }
+
       let lastError = 'unknown error';
 
       for (let index = start; index < endpoints.length; index++) {

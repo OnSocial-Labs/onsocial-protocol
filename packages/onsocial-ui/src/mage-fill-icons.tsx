@@ -25,7 +25,7 @@ function MageFillSvg({
   );
 }
 
-/** Mage `plus-circle-fill` — pressed add-next affordance. */
+/** `plus-circle-fill` — pressed add-next affordance. */
 export function PlusCircleFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -39,7 +39,7 @@ export function PlusCircleFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage bulk/fill paths for React 19. */
+/** Bulk and fill paths — camelCase attributes. */
 export function UserPlusFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -59,7 +59,7 @@ export function UserPlusFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `exclamation-triangle-fill` — content warning tool selected. */
+/** `exclamation-triangle-fill` — content warning tool selected. */
 export function ExclamationTriangleFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -71,7 +71,7 @@ export function ExclamationTriangleFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `information-circle-fill` — facts / explain affordance. */
+/** `information-circle-fill` — facts / explain affordance. */
 export function InformationCircleFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -83,7 +83,7 @@ export function InformationCircleFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `question-mark-circle-fill` — help affordance. */
+/** `question-mark-circle-fill` — help affordance. */
 export function QuestionMarkCircleFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -95,7 +95,7 @@ export function QuestionMarkCircleFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `dots-circle-fill` — subtle more/options affordance. */
+/** `dots-circle-fill` — subtle more/options affordance. */
 export function DotsCircleFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -107,7 +107,7 @@ export function DotsCircleFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage bulk `notification-bell` — Activity when that app is current, and the dock. */
+/** Filled `notification-bell` — Activity when that app is current, and the dock. */
 export function NotificationBellFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -119,7 +119,7 @@ export function NotificationBellFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage bulk `notification-bell-pending` — the same bell with the unread dot. */
+/** Filled `notification-bell-pending` — the same bell with the unread dot. */
 export function NotificationBellPendingFillIcon({
   badgeClassName,
   badgeFill = 'currentColor',
@@ -145,7 +145,7 @@ export function NotificationBellPendingFillIcon({
   );
 }
 
-/** Mage bulk `chart-fill` — boost leaderboard / rankings affordance. */
+/** Filled `chart-fill` — boost leaderboard / rankings affordance. */
 export function ChartFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -157,7 +157,7 @@ export function ChartFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `map-marker` bulk — place tool selected state. */
+/** `map-marker` bulk — place tool selected state. */
 export function MapMarkerFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -169,7 +169,7 @@ export function MapMarkerFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `image-fill` — media tool selected state. */
+/** `image-fill` — media tool selected state. */
 export function ImageFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -185,7 +185,7 @@ export function ImageFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `book-text-fill` — book or issue pin. */
+/** `book-text-fill` — book or issue pin. */
 export function BookTextFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -197,7 +197,7 @@ export function BookTextFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `note-text-fill` — article / writing tool selected state. */
+/** `note-text-fill` — article / writing tool selected state. */
 export function NoteTextFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -209,7 +209,7 @@ export function NoteTextFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage bulk `dashboard` — four equal panes. DAOs launcher tile. */
+/** Filled `dashboard` — four equal panes. DAOs launcher tile. */
 export function DashboardFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -233,7 +233,7 @@ export function DashboardFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `chart-vertical-fill` — poll tool selected state (same glyph as stroke). */
+/** `chart-vertical-fill` — poll tool selected state (same glyph as stroke). */
 export function ChartVerticalFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -245,7 +245,7 @@ export function ChartVerticalFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage bulk `fire-a` — Boost when active. */
+/** Filled `fire-a` — Boost when active. */
 export function FireFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -257,7 +257,7 @@ export function FireFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage bulk `fire-b` — post amplify and Hot sort when active. */
+/** Filled `fire-b` — post amplify and Hot sort when active. */
 export function FireBFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -269,7 +269,7 @@ export function FireBFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage bulk `clock` / time-fill — Recent feed sort when selected. */
+/** Filled `clock` / time-fill — Recent feed sort when selected. */
 export function TimeFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -281,7 +281,7 @@ export function TimeFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage bulk `star-moving` — Hubs mark (fill). */
+/** Filled `star-moving` — Hubs mark (fill). */
 export function StarMovingFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -293,7 +293,7 @@ export function StarMovingFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `trophy-fill` — Rally / season place affordance. */
+/** `trophy-fill` — Rally / season place affordance. */
 export function TrophyFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -305,7 +305,7 @@ export function TrophyFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `stars-c-fill` — drop / scarce creation affordance. */
+/** `stars-c-fill` — drop / scarce creation affordance. */
 export function StarsCFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -317,7 +317,7 @@ export function StarsCFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage bulk `shop` — Market / commerce surfaces. */
+/** Filled `shop` — Market / commerce surfaces. */
 export function ShopFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -329,7 +329,7 @@ export function ShopFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage bulk `users` — Groups and social lists. */
+/** Filled `users` — Groups and social lists. */
 export function UsersFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -353,7 +353,7 @@ export function UsersFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage bulk `home` — Home / feed entry. */
+/** Filled `home` — Home / feed entry. */
 export function HomeFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -365,7 +365,7 @@ export function HomeFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage bulk `search` — Discover and lookup. */
+/** Filled `search` — Discover and lookup. */
 export function SearchFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -377,7 +377,7 @@ export function SearchFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage bulk `globe` — Protocol and web surfaces. */
+/** Filled `globe` — Protocol and web surfaces. */
 export function GlobeFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -409,7 +409,7 @@ export function GlobeFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage bulk `user-circle` — OnPage / profile entry. */
+/** Filled `user-circle` — OnPage / profile entry. */
 export function UserCircleFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -421,7 +421,7 @@ export function UserCircleFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `heart-fill` — liked / reacted active state. */
+/** `heart-fill` — liked / reacted active state. */
 export function HeartFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -433,7 +433,7 @@ export function HeartFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `bookmark-fill` — saved / bookmarked active state. */
+/** `bookmark-fill` — saved / bookmarked active state. */
 export function BookmarkFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -445,7 +445,7 @@ export function BookmarkFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `message-round-fill` — room chip (matches MessageRound reply family). */
+/** `message-round-fill` — room chip (matches MessageRound reply family). */
 export function MessageFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -457,7 +457,7 @@ export function MessageFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `focus-fill` — camera reticle, live. */
+/** `focus-fill` — camera reticle, live. */
 export function FocusFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -469,7 +469,7 @@ export function FocusFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Font Awesome Free solid `feather-pointed` — launcher compose. Icons: CC BY 4.0. */
+/** Pointed feather — launcher compose. CC BY 4.0. */
 export function FeatherFillIcon(props: MageFillIconProps) {
   return (
     <svg
@@ -486,7 +486,7 @@ export function FeatherFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage bulk `gift` — reward and collect surfaces. */
+/** Filled `gift` — reward and collect surfaces. */
 export function GiftFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -498,7 +498,7 @@ export function GiftFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `user-fill` — profile action hover state. */
+/** `user-fill` — profile action hover state. */
 export function UserFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -510,7 +510,7 @@ export function UserFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `user-minus-fill` — step-back action hover state. */
+/** `user-minus-fill` — step-back action hover state. */
 export function UserMinusFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -522,7 +522,7 @@ export function UserMinusFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `direction-up-fill` — send / submit affordance. */
+/** `direction-up-fill` — send / submit affordance. */
 export function DirectionUpFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -534,7 +534,7 @@ export function DirectionUpFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `copy-fill` — copy-link action hover state. */
+/** `copy-fill` — copy-link action hover state. */
 export function CopyFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -546,7 +546,7 @@ export function CopyFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `trash-fill` — destructive action hover state. */
+/** `trash-fill` — destructive action hover state. */
 export function TrashFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -558,7 +558,7 @@ export function TrashFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `play-fill` — track / clip play glyph inside a soft circle chip. */
+/** `play-fill` — track / clip play glyph inside a soft circle chip. */
 export function PlayFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -570,7 +570,7 @@ export function PlayFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `pause-fill` — track / clip pause glyph (pair with PlayFillIcon). */
+/** `pause-fill` — track / clip pause glyph (pair with PlayFillIcon). */
 export function PauseFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -582,7 +582,7 @@ export function PauseFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `previous-fill` — skip / restart previous track. */
+/** `previous-fill` — skip / restart previous track. */
 export function PreviousFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -594,7 +594,7 @@ export function PreviousFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage `next-fill` — skip to next track. */
+/** `next-fill` — skip to next track. */
 export function NextFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -607,7 +607,7 @@ export function NextFillIcon(props: MageFillIconProps) {
 }
 
 /**
- * Mage `play-circle-fill` — cover / hero play control.
+ * `play-circle-fill` — cover / hero play control.
  * Prefer PlayFillIcon inside a soft chip for dense track lists (no pause-circle pair).
  */
 export function PlayCircleFillIcon(props: MageFillIconProps) {
@@ -621,7 +621,7 @@ export function PlayCircleFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage bulk `calendar` — Events launcher tile. */
+/** Filled `calendar` — Events launcher tile. */
 export function CalendarFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>

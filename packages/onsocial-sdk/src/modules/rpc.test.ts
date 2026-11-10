@@ -88,4 +88,29 @@ describe('os.rpc', () => {
 
     await expect(os.rpc.call('status')).rejects.toBeInstanceOf(OnSocialError);
   });
+
+  it('reads retryAfter from a rate-limited broadcast', async () => {
+    const fetch = jsonFetch(
+      {
+        jsonrpc: '2.0',
+        id: 'onsocial',
+        error: { code: -32000, message: 'RPC upstream rate limited' },
+        retryAfter: 15,
+      },
+      429
+    );
+    const os = new OnSocial({
+      network: 'testnet',
+      apiKey: 'onsocial_test',
+      fetch,
+    });
+
+    await expect(
+      os.rpc.call('broadcast_tx_commit', ['signed'])
+    ).rejects.toMatchObject({
+      status: 429,
+      message: 'RPC upstream rate limited',
+      retryAfter: 15,
+    });
+  });
 });

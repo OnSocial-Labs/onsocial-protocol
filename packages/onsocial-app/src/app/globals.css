@@ -46363,7 +46363,7 @@ button.messages-bubble-quote:focus-visible {
 
 /*
  * Portfolio rail glyphs (Posts and the chips beside it). Unlayered so this
- * beats mage-stroke-icons.css. The word uses --os-surface-muted (0.55),
+ * beats the stroke-icon sheet. The word uses --os-surface-muted (0.55),
  * hover emphasis (0.88), and the active chip (0.94). The stroke takes that
  * same weight as opacity on solid ink, or the joins paint brighter.
  */
@@ -46391,7 +46391,7 @@ button.messages-bubble-quote:focus-visible {
 }
 
 /*
- * Engagement glyphs. Unlayered so this beats mage-stroke-icons.css.
+ * Engagement glyphs. Unlayered so this beats the stroke-icon sheet.
  * A count uses fg at 0.5. With no one on that action yet, the glyph steps
  * toward the thread rail (0.12) and stops at the quiet glyph weight 0.28.
  * Hover and yours keep reply blue, repost green, heart red, amplify amber.
@@ -46494,8 +46494,8 @@ button.messages-bubble-quote:focus-visible {
 
 /*
  * Same ink as the post bar for the other multi-stroke glyphs that were
- * still muting with a translucent color. Chrome keeps that alpha on the
- * stroke, so joins paint brighter. Solid foreground plus element opacity
+ * still muting with a translucent color. Leaving that alpha on the
+ * stroke makes joins paint brighter. Solid foreground plus element opacity
  * keeps the same weight and paints the joins evenly.
  * Weights stay the ones each seat already used.
  */

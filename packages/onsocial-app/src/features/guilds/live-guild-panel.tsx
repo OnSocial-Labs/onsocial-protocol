@@ -151,6 +151,12 @@ import {
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
+function isGuildManageSheet(
+  sheet: string | null | undefined
+): sheet is GuildManageSheetId {
+  return sheet === 'proposals' || sheet === 'requests' || sheet === 'members';
+}
+
 export function LiveGuildPanel({
   groupId,
   initial = null,
@@ -265,6 +271,12 @@ export function LiveGuildPanel({
   // browser Back closes the drawer before leaving the guild. A sheet opened
   // by a cold deep link owns no entry — close replaces onto the guild page.
   const manageSheetPushedRef = useRef(false);
+  // Settings handed this sheet off. Set only for proposals and requests,
+  // whose open is a push that may still be in flight when the sheet closes.
+  const settingsPredecessorRef = useRef(false);
+  const pendingSuccessorHrefRef = useRef<string | null>(null);
+  const handoffPopListenerRef = useRef<(() => void) | null>(null);
+  const handoffTimerRef = useRef<number | null>(null);
   const openManageSheet = useCallback(
     (sheet: GuildManageSheetId | null) => {
       const shareable =
@@ -274,10 +286,64 @@ export function LiveGuildPanel({
       if (sheet === null) {
         const face = guildPath(groupId);
         const before = window.location.pathname + window.location.search;
-        setManageSheet(null);
-        if (!manageSheetPushedRef.current || !popInApp()) {
+        const hereSheet = new URLSearchParams(window.location.search).get(
+          'sheet'
+        );
+        const successorLanded =
+          isGuildManageSheet(hereSheet) ||
+          isGuildManageSheet(initialSheet) ||
+          (pendingSuccessorHrefRef.current !== null &&
+            before === pendingSuccessorHrefRef.current);
+        // Only proposals opened from settings. Requests keeps its own close.
+        const proposalsFromSettings =
+          manageSheet === 'proposals' && settingsPredecessorRef.current;
+        const settingsHref = guildSheetPath(groupId, 'settings');
+        const hereNow = () =>
+          window.location.pathname + window.location.search;
+        const restoreSettings = () => {
+          setManageSheet(null);
+          setSettingsSheetOpen(true);
+          router.replace(settingsHref, { scroll: false });
+        };
+        const detachHandoffPop = () => {
+          const listener = handoffPopListenerRef.current;
+          if (!listener) return;
+          window.removeEventListener('popstate', listener);
+          handoffPopListenerRef.current = null;
+        };
+        if (proposalsFromSettings && !successorLanded) {
+          settingsPredecessorRef.current = false;
           manageSheetPushedRef.current = false;
-          router.replace(face, { scroll: false });
+          pendingSuccessorHrefRef.current = null;
+          restoreSettings();
+          return;
+        }
+        settingsPredecessorRef.current = false;
+        pendingSuccessorHrefRef.current = null;
+        setManageSheet(null);
+        // Listen before the pop so this close, and not a later history
+        // back, is the only pop that can restore settings.
+        const onHandoffPop = () => {
+          window.removeEventListener('popstate', onHandoffPop);
+          if (handoffPopListenerRef.current === onHandoffPop) {
+            handoffPopListenerRef.current = null;
+          }
+          // The uncommitted-settings path is built by hand in the unit test
+          // and no browser run reaches it, so reachability is assumed.
+          if (hereNow() === face) restoreSettings();
+        };
+        if (proposalsFromSettings && manageSheetPushedRef.current) {
+          handoffPopListenerRef.current = onHandoffPop;
+          window.addEventListener('popstate', onHandoffPop, { once: true });
+        }
+        if (!manageSheetPushedRef.current || !popInApp()) {
+          detachHandoffPop();
+          manageSheetPushedRef.current = false;
+          if (proposalsFromSettings) {
+            restoreSettings();
+          } else {
+            router.replace(face, { scroll: false });
+          }
           return;
         }
         manageSheetPushedRef.current = false;
@@ -286,20 +352,30 @@ export function LiveGuildPanel({
         // stale `?sheet=` URL over a closed drawer. Sheet urls differ by
         // search, not pathname, so compare both.
         const timer = window.setTimeout(() => {
-          if (window.location.pathname + window.location.search === before) {
-            router.replace(face, { scroll: false });
+          handoffTimerRef.current = null;
+          detachHandoffPop();
+          if (hereNow() === before) {
+            if (proposalsFromSettings) restoreSettings();
+            else router.replace(face, { scroll: false });
           }
         }, 400);
-        window.addEventListener('popstate', () => window.clearTimeout(timer), {
-          once: true,
-        });
+        handoffTimerRef.current = timer;
+        window.addEventListener(
+          'popstate',
+          () => {
+            window.clearTimeout(timer);
+          },
+          { once: true }
+        );
         return;
       }
       const opening = manageSheet === null;
       setManageSheet(sheet);
       if (shareable && opening) {
+        const href = guildSheetPath(groupId, shareable);
         manageSheetPushedRef.current = true;
-        router.push(guildSheetPath(groupId, shareable), { scroll: false });
+        pendingSuccessorHrefRef.current = href;
+        router.push(href, { scroll: false });
         return;
       }
       // In-sheet switches replace — one history entry per open, not per tab.
@@ -308,8 +384,21 @@ export function LiveGuildPanel({
         { scroll: false }
       );
     },
-    [groupId, manageSheet, popInApp, router]
+    [groupId, initialSheet, manageSheet, popInApp, router]
   );
+
+  useEffect(() => {
+    return () => {
+      if (handoffTimerRef.current != null) {
+        window.clearTimeout(handoffTimerRef.current);
+        handoffTimerRef.current = null;
+      }
+      const listener = handoffPopListenerRef.current;
+      if (!listener) return;
+      window.removeEventListener('popstate', listener);
+      handoffPopListenerRef.current = null;
+    };
+  }, []);
 
   const joinRequestPending = pendingJoinRequest(viewer?.joinRequest ?? null);
   const joinProposalPending = Boolean(viewer?.pendingJoinProposalId);
@@ -343,6 +432,7 @@ export function LiveGuildPanel({
       router.replace(guildPath(groupId), { scroll: false });
     }
   }, [canOpenSettings, groupId, initialSheet, router, viewerAccessResolved]);
+
   const pendingRequestCount = canReviewRequests
     ? (state.moderation?.pendingMemberRequestCount ?? 0)
     : 0;
@@ -1548,9 +1638,11 @@ export function LiveGuildPanel({
               replaceSheet();
               setSettingsSheetOpen(false);
               if (id === 'requests' || id === 'proposals') {
+                settingsPredecessorRef.current = true;
                 openManageSheet(id);
                 return;
               }
+              settingsPredecessorRef.current = false;
               if (id === 'edit') setEditSheetOpen(true);
               if (id === 'rooms') setRoomsSheetOpen(true);
               if (id === 'storage') {
