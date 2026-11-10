@@ -392,8 +392,8 @@ export function PortfolioSummonDock({
         className={`portfolio-summon-dock${osOpen ? ' is-launcher-open' : ''}${
           scrollHidden ? ' is-scroll-hidden' : ''
         }${pageDrawerOpen ? ' is-drawer-overlay' : ''}${
-          write ? ' is-writing' : ''
-        }`}
+          pageDrawerOpen && !pageDrawerClosing ? ' is-chevron-concealed' : ''
+        }${write ? ' is-writing' : ''}`}
         data-mood={dockMoodId ?? undefined}
         style={dockMoodStyle}
       >

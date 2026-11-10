@@ -158,6 +158,41 @@ test.describe('drawer pull gestures', () => {
     await expect(entry).toBeFocused();
   });
 
+  test('the chevron is opaque when focus returns as the drawer starts closing', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/@alice.testnet');
+    await dismissNextDevOverlay(page);
+    const entry = page.getByRole('button', { name: 'Open page', exact: true });
+    await entry.waitFor({ state: 'visible' });
+    await entry.click();
+    await expect(page.locator('.page-drawer-panel')).toBeVisible();
+    await page.evaluate(() => {
+      const el = document.querySelector('.portfolio-page-chevron');
+      const record = window as Window & { __chevronFocusOpacity?: string | null };
+      record.__chevronFocusOpacity = null;
+      if (!(el instanceof HTMLElement)) return;
+      el.addEventListener(
+        'focus',
+        () => {
+          record.__chevronFocusOpacity = getComputedStyle(el).opacity;
+        },
+        { once: true }
+      );
+    });
+    await page.keyboard.press('Escape');
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (window as Window & { __chevronFocusOpacity?: string | null })
+              .__chevronFocusOpacity ?? null
+        )
+      )
+      .toBe('1');
+    await expect(entry).toBeFocused();
+  });
+
   test('space opens the page and escape returns focus', async ({ page }) => {
     await gotoApp(page, '/@alice.testnet');
     await dismissNextDevOverlay(page);

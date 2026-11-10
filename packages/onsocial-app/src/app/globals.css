@@ -15451,7 +15451,9 @@ a.os-surface-row,
     opacity: 1;
   }
 
-  .portfolio-summon-dock.is-drawer-overlay .portfolio-page-chevron,
+  /* Hidden only while the sheet trap owns focus. Closing releases that
+     trap on the next frame, so the chevron must already be visible. */
+  .portfolio-summon-dock.is-chevron-concealed .portfolio-page-chevron,
   .portfolio-summon-dock.is-writing .portfolio-page-chevron {
     opacity: 0;
     pointer-events: none;
