@@ -21,7 +21,6 @@ describe('sheet pull click', () => {
 
   it('blocks only the click from this pull, then lets the next click through', () => {
     const listeners = new Map<string, Set<(event: Event) => void>>();
-    const scheduled: Array<() => void> = [];
     const target = {
       addEventListener(type: string, listener: (event: Event) => void) {
         const set = listeners.get(type) ?? new Set();
@@ -49,18 +48,52 @@ describe('sheet pull click', () => {
       return event;
     };
 
-    armSheetPullClickSwallow(target, (release) => {
-      scheduled.push(release);
-    });
+    armSheetPullClickSwallow(target);
 
     const pulled = emit('click');
     expect(pulled.defaultPrevented).toBe(true);
     expect(pulled.stopped).toBe(true);
-    expect(scheduled).toHaveLength(1);
-    scheduled[0]!();
 
     const next = emit('click');
     expect(next.defaultPrevented).toBe(false);
     expect(next.stopped).toBe(false);
+  });
+
+  it('drops the guard on the next press when the pull never clicks', () => {
+    const listeners = new Map<string, Set<(event: Event) => void>>();
+    const target = {
+      addEventListener(type: string, listener: (event: Event) => void) {
+        const set = listeners.get(type) ?? new Set();
+        set.add(listener);
+        listeners.set(type, set);
+      },
+      removeEventListener(type: string, listener: (event: Event) => void) {
+        listeners.get(type)?.delete(listener);
+      },
+    };
+    const emit = (type: string) => {
+      const event = {
+        type,
+        defaultPrevented: false,
+        stopped: false,
+        preventDefault() {
+          this.defaultPrevented = true;
+        },
+        stopPropagation() {
+          this.stopped = true;
+        },
+      };
+      for (const listener of listeners.get(type) ?? []) {
+        listener(event as unknown as Event);
+      }
+      return event;
+    };
+
+    armSheetPullClickSwallow(target);
+    const press = emit('pointerdown');
+    expect(press.defaultPrevented).toBe(false);
+    const click = emit('click');
+    expect(click.defaultPrevented).toBe(false);
+    expect(click.stopped).toBe(false);
   });
 });

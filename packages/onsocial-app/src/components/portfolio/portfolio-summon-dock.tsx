@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -45,6 +46,30 @@ import { OsDockPill } from '@/components/wallet/os-dock-pill';
 const DOCK_HINT_KEY = 'onpage-portfolio-dock-hint-seen';
 const SWIPE_UP_PX = 28;
 
+type FloatBox = { left: number; top: number; right: number; bottom: number };
+
+/** Outer edge of the unlayered page-chevron focus ring (`0 0 0 4px`). */
+const CHEVRON_FOCUS_RING_PX = 4;
+
+export function chevronFloatBox(
+  pill: { left: number; top: number; width: number },
+  size: number,
+  gap: number
+): FloatBox {
+  return {
+    left: pill.left + pill.width / 2 - size / 2 - CHEVRON_FOCUS_RING_PX,
+    right: pill.left + pill.width / 2 + size / 2 + CHEVRON_FOCUS_RING_PX,
+    top: pill.top - gap - size - CHEVRON_FOCUS_RING_PX,
+    bottom: pill.top - gap + CHEVRON_FOCUS_RING_PX,
+  };
+}
+
+export function boxesMeet(a: FloatBox, b: FloatBox): boolean {
+  return (
+    a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
+  );
+}
+
 export interface PortfolioSummonDockProps {
   pageAccountId: string;
 }
@@ -81,6 +106,8 @@ export function PortfolioSummonDock({
   const writePinned = useWriteDockPinned();
   const writeMorph = useWriteDockMorph();
   const write = compose?.type === 'write' ? compose.entry : null;
+  const [chevronCovered, setChevronCovered] = useState(false);
+  const [hintCovered, setHintCovered] = useState(false);
   const registeredDockBack = useDockBack();
   const { leaveHref: faceLeaveHref, consumeLeave } = useOsFaceLeave();
   const router = useRouter();
@@ -96,6 +123,154 @@ export function PortfolioSummonDock({
     [faceLeaveHref, leaveToOrigin]
   );
   const dockBack = registeredDockBack ?? faceDockBack;
+
+  useLayoutEffect(() => {
+    const dock = dockRef.current;
+    if (!dock) return;
+    let frame = 0;
+    const lengthPx = (value: string, font: number) => {
+      const text = value.trim();
+      if (text.endsWith('rem')) return Number.parseFloat(text) * font;
+      if (text.endsWith('px')) return Number.parseFloat(text);
+      return Number.NaN;
+    };
+    const measure = () => {
+      if (pageDrawerOpen) {
+        setChevronCovered(false);
+        return;
+      }
+      const pill = dock.querySelector(
+        '.os-dock-pill:not(.portfolio-page-chevron)'
+      );
+      const chevron = dock.querySelector('.portfolio-page-chevron');
+      if (!(pill instanceof HTMLElement)) return;
+      const font =
+        Number.parseFloat(
+          getComputedStyle(document.documentElement).fontSize
+        ) || 16;
+      const size = lengthPx(
+        getComputedStyle(document.documentElement).getPropertyValue(
+          '--os-avatar-nav'
+        ),
+        font
+      );
+      const gap = 0.25 * font;
+      if (!Number.isFinite(size) || size <= 0) return;
+      const pillRect = pill.getBoundingClientRect();
+      const outside = (el: Element) =>
+        !dock.contains(el) && !el.closest('.glass-sheet-root');
+      const regionHits = (box: FloatBox) => {
+        const meets = (
+          left: number,
+          top: number,
+          right: number,
+          bottom: number
+        ) => boxesMeet(box, { left, top, right, bottom });
+        for (const el of document.querySelectorAll(
+          'a, button, input, textarea, select, [tabindex]'
+        )) {
+          if (!(el instanceof HTMLElement) || !outside(el) || el.tabIndex < 0) {
+            continue;
+          }
+          const rect = el.getBoundingClientRect();
+          if (rect.width < 1 || rect.height < 1) continue;
+          if (meets(rect.left, rect.top, rect.right, rect.bottom)) return true;
+        }
+        const walker = document.createTreeWalker(
+          document.body,
+          NodeFilter.SHOW_TEXT
+        );
+        let node = walker.nextNode();
+        while (node) {
+          const text = node.textContent?.replace(/\s+/g, ' ').trim();
+          const parent = node.parentElement;
+          if (!text || !parent || !outside(parent)) {
+            node = walker.nextNode();
+            continue;
+          }
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          const rect = range.getBoundingClientRect();
+          if (
+            rect.width > 0 &&
+            rect.height > 0 &&
+            meets(rect.left, rect.top, rect.right, rect.bottom)
+          ) {
+            return true;
+          }
+          node = walker.nextNode();
+        }
+        return false;
+      };
+      const chevronBox = chevronFloatBox(pillRect, size, gap);
+      let covered = regionHits(chevronBox);
+      if (
+        covered &&
+        chevron instanceof HTMLElement &&
+        document.activeElement === chevron
+      ) {
+        covered = false;
+      }
+      setChevronCovered((prev) => (prev === covered ? prev : covered));
+      const hint = dock.querySelector('.portfolio-summon-hint');
+      if (hint instanceof HTMLElement) {
+        const wasHidden = hint.hidden;
+        if (wasHidden) hint.hidden = false;
+        const hintRect = hint.getBoundingClientRect();
+        if (wasHidden) hint.hidden = true;
+        const hintBox = {
+          left: hintRect.left - CHEVRON_FOCUS_RING_PX,
+          right: hintRect.right + CHEVRON_FOCUS_RING_PX,
+          top: hintRect.top - CHEVRON_FOCUS_RING_PX,
+          bottom: hintRect.bottom + CHEVRON_FOCUS_RING_PX,
+        };
+        const hintHits =
+          hintRect.width > 0 && hintRect.height > 0 && regionHits(hintBox);
+        setHintCovered((prev) => (prev === hintHits ? prev : hintHits));
+      }
+    };
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(measure);
+      });
+    };
+    schedule();
+    const observer = new ResizeObserver(schedule);
+    observer.observe(document.documentElement);
+    const face = dock.closest('.portfolio-os-layer')?.previousElementSibling;
+    if (face instanceof HTMLElement) {
+      observer.observe(face);
+      const caption = face.querySelector('.portfolio-signals-caption');
+      if (caption instanceof HTMLElement) observer.observe(caption);
+      const standing = [...face.querySelectorAll('p, span')].find((el) =>
+        (el.textContent || '').includes('STANDING·SOLIDARITY')
+      );
+      if (standing instanceof HTMLElement) observer.observe(standing);
+    }
+    const mutations = new MutationObserver(schedule);
+    if (face instanceof HTMLElement) {
+      mutations.observe(face, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+    }
+    const chevron = dock.querySelector('.portfolio-page-chevron');
+    chevron?.addEventListener('blur', schedule);
+    window.addEventListener('resize', schedule);
+    document.fonts?.addEventListener('loadingdone', schedule);
+    document.addEventListener('transitionend', schedule, true);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      mutations.disconnect();
+      chevron?.removeEventListener('blur', schedule);
+      window.removeEventListener('resize', schedule);
+      document.fonts?.removeEventListener('loadingdone', schedule);
+      document.removeEventListener('transitionend', schedule, true);
+    };
+  }, [pageDrawerOpen, write]);
   const immersiveChromeQuiet = useImmersiveChromeQuiet();
   const { effectiveMood, isPreviewingMood } = usePortfolioMoodPreview();
   const { isPreviewing: isPreviewingFace } = usePortfolioFacePreview();
@@ -223,21 +398,26 @@ export function PortfolioSummonDock({
         style={dockMoodStyle}
       >
         <div className="portfolio-summon-line">
+          {showHint && !pageDrawerOpen && !write ? (
+            <p
+              className="portfolio-summon-hint"
+              aria-hidden="true"
+              hidden={hintCovered || undefined}
+            >
+              Swipe up
+            </p>
+          ) : null}
           {write ? null : (
             <PortfolioPageContentEntry
               open={pageDrawerOpen}
               concealed={pageDrawerOpen && !pageDrawerClosing}
+              covered={chevronCovered}
               onOpen={() => {
                 dismissHint();
                 openPageDrawer();
               }}
             />
           )}
-          {showHint && !pageDrawerOpen && !write ? (
-            <p className="portfolio-summon-hint" aria-hidden="true">
-              Swipe up
-            </p>
-          ) : null}
           <OsDockPill
             pageAccountId={pageAccountId}
             writeMorph={writeMorph}

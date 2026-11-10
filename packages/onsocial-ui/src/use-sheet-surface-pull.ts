@@ -41,16 +41,16 @@ type ClickSwallowTarget = {
 };
 
 /**
- * Swallow the click this pull already queued. The guard drops on the next
- * turn so the following press is not blocked.
+ * Swallow the click this pull already queued. The guard stays until that
+ * click arrives, or until the next press starts, so a pull with no click
+ * cannot block the following press.
  */
-export function armSheetPullClickSwallow(
-  target: ClickSwallowTarget,
-  schedule: (release: () => void) => void = (release) => {
-    setTimeout(release, 0);
-  }
-): void {
+export function armSheetPullClickSwallow(target: ClickSwallowTarget): void {
   let stop: ((event: Event) => void) | null = (event: Event) => {
+    if (event.type === 'pointerdown') {
+      release();
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     release();
@@ -59,11 +59,12 @@ export function armSheetPullClickSwallow(
     if (!stop) return;
     target.removeEventListener('click', stop, true);
     target.removeEventListener('auxclick', stop, true);
+    target.removeEventListener('pointerdown', stop, true);
     stop = null;
   };
   target.addEventListener('click', stop, true);
   target.addEventListener('auxclick', stop, true);
-  schedule(release);
+  target.addEventListener('pointerdown', stop, true);
 }
 
 /**

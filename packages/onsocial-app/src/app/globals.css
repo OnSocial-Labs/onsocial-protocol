@@ -15437,63 +15437,9 @@ a.os-surface-row,
     pointer-events: none;
   }
 
-  /*
-   * Page chevron hangs above the pill and stays inside the dock box so the
-   * measured clearance includes it. 3.25rem hit, 0.25rem gap, 0.25rem ring.
-   */
-  .portfolio-summon-dock:not(.is-writing) {
-    padding-top: calc(3.25rem + 0.5rem);
-  }
-
-  .portfolio-summon-dock:not(.is-writing):has(.portfolio-summon-hint) {
-    padding-top: calc(3.25rem + 0.5rem + 1.35rem);
-  }
-
   .portfolio-page-chevron {
-    position: absolute;
     z-index: 2;
-    bottom: calc(100% + 0.25rem);
-    left: 50%;
-    width: 3.25rem;
-    height: 3.25rem;
-    min-width: 3.25rem;
-    min-height: 3.25rem;
-    padding: 0;
-    transform: translateX(-50%);
     pointer-events: auto;
-    color: rgb(var(--fg-rgb) / 0.92);
-    background: transparent;
-    border-radius: 9999px;
-  }
-
-  .portfolio-page-chevron::before {
-    content: '';
-    position: absolute;
-    inset: 0.25rem;
-    border-radius: inherit;
-    background: rgb(var(--bg-rgb) / 0.72);
-    pointer-events: none;
-  }
-
-  .portfolio-summon-dock[data-mood]:not([data-mood='glass'])
-    .portfolio-page-chevron::before {
-    background: color-mix(
-      in srgb,
-      var(--mood-accent-chrome, var(--mood-accent, transparent)) 14%,
-      rgb(var(--bg-rgb) / 0.72)
-    );
-  }
-
-  .portfolio-summon-dock[data-mood='glass'] .portfolio-page-chevron {
-    color: var(--glass-summon-hint, rgb(var(--fg-rgb) / 0.92));
-  }
-
-  .portfolio-summon-dock[data-mood='glass'] .portfolio-page-chevron::before {
-    background: color-mix(
-      in srgb,
-      rgb(var(--bg-rgb) / 0.72) 62%,
-      var(--glass-summon-bg, transparent)
-    );
   }
 
   .portfolio-page-chevron > .mage-stroke-icon,
@@ -15514,7 +15460,9 @@ a.os-surface-row,
   .portfolio-summon-line > .portfolio-summon-hint {
     position: absolute;
     left: 50%;
-    bottom: calc(100% + 0.25rem + 3.25rem + 0.35rem);
+    bottom: calc(
+      100% + 0.25rem + var(--os-avatar-nav, 1.85rem) + 0.25rem
+    );
     margin: 0;
     transform: translateX(-50%);
     pointer-events: none;
@@ -47454,6 +47402,18 @@ button.messages-bubble-quote:focus-visible {
  * The shared icon button's focus ring and transition are unlayered,
  * so a layered rule cannot override them.
  */
+button.portfolio-page-chevron.glass-sheet-icon-action {
+  position: absolute;
+  bottom: calc(100% + 0.25rem);
+  left: 50%;
+  width: var(--os-avatar-nav, 1.85rem);
+  height: var(--os-avatar-nav, 1.85rem);
+  min-width: var(--os-avatar-nav, 1.85rem);
+  min-height: var(--os-avatar-nav, 1.85rem);
+  transform: translateX(-50%);
+  color: rgb(var(--fg-rgb) / 100%);
+}
+
 button.portfolio-page-chevron.glass-sheet-icon-action:focus-visible {
   outline: none;
   box-shadow:

@@ -97,8 +97,8 @@ test.describe('drawer pull gestures', () => {
     await expect(entry).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     const box = await entry.boundingBox();
     expect(box).not.toBeNull();
-    expect(Math.round(box!.width)).toBe(52);
-    expect(Math.round(box!.height)).toBe(52);
+    expect(Math.round(box!.width)).toBe(30);
+    expect(Math.round(box!.height)).toBe(30);
 
     for (let step = 0; step < 40; step += 1) {
       if (await entry.evaluate((el) => el === document.activeElement)) break;
@@ -464,6 +464,32 @@ test.describe('sheet body pulls', () => {
     ]);
     await expect(launcher).toBeHidden();
   });
+
+  test('a pull then a tap still opens the app launcher', async ({ page }) => {
+    await gotoApp(page, '/home');
+    await dismissNextDevOverlay(page);
+    const open = page.getByRole('button', { name: 'Open launcher' });
+    await open.click();
+    const launcher = page.getByRole('dialog', { name: 'OnSocial launcher' });
+    await expect(launcher).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect(launcher).not.toHaveClass(/is-enter/);
+    const grip = launcher.getByRole('button', { name: 'Drag down to close' });
+    const gripBox = await grip.boundingBox();
+    if (!gripBox) throw new Error('launcher grip has no box');
+    const start = {
+      x: gripBox.x + gripBox.width / 2,
+      y: gripBox.y + gripBox.height + 24,
+    };
+    await emulatedTouch(page, start, [
+      { x: start.x, y: start.y + 36 },
+      { x: start.x, y: start.y + 280 },
+    ]);
+    await expect(launcher).toBeHidden();
+    await open.click();
+    await expect(launcher).toBeVisible();
+    await launcher.getByRole('button', { name: 'Close launcher' }).click();
+    await expect(launcher).toBeHidden();
+  });
 });
 
 test.describe('page chevron on a wide desktop', () => {
@@ -485,7 +511,106 @@ test.describe('page chevron on a wide desktop', () => {
     await expect(page.locator('.page-drawer-panel')).toHaveCount(0);
     await expect(entry).toBeFocused();
     const visible = await entry.boundingBox();
-    expect(Math.round(visible!.width)).toBe(52);
-    expect(Math.round(visible!.height)).toBe(52);
+    expect(Math.round(visible!.width)).toBe(30);
+    expect(Math.round(visible!.height)).toBe(30);
+  });
+
+  test('a focused page chevron stays available when text grows', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoApp(page, '/@alice.testnet');
+    await dismissNextDevOverlay(page);
+    const entry = page.getByRole('button', { name: 'Open page', exact: true });
+    await entry.focus();
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '32px';
+      window.dispatchEvent(new Event('resize'));
+    });
+    await expect(entry).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.page-drawer-panel')).toBeVisible();
+  });
+});
+
+test.describe('page chevron and hint clearance', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('the visible hint stays clear of the chevron and the standing label', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/@alice.testnet');
+    await dismissNextDevOverlay(page);
+    const read = () =>
+      page.evaluate(() => {
+        const box = (el: Element | null) => {
+          if (!(el instanceof HTMLElement) || el.hidden) return null;
+          const rect = el.getBoundingClientRect();
+          if (rect.width < 1 || rect.height < 1) return null;
+          return {
+            left: rect.left,
+            top: rect.top,
+            right: rect.right,
+            bottom: rect.bottom,
+          };
+        };
+        const meet = (
+          a: {
+            left: number;
+            top: number;
+            right: number;
+            bottom: number;
+          } | null,
+          b: { left: number; top: number; right: number; bottom: number } | null
+        ) =>
+          Boolean(
+            a &&
+              b &&
+              a.left < b.right &&
+              a.right > b.left &&
+              a.top < b.bottom &&
+              a.bottom > b.top
+          );
+        const hint = box(
+          document.querySelector(
+            '.portfolio-summon-dock .portfolio-summon-hint'
+          )
+        );
+        const chevron = box(document.querySelector('.portfolio-page-chevron'));
+        const label = box(
+          [...document.querySelectorAll('p, span')].find((el) =>
+            (el.textContent || '').includes('STANDING·SOLIDARITY·ENDORSEMENTS')
+          ) ?? null
+        );
+        return {
+          hint: Boolean(hint),
+          chevron: Boolean(chevron),
+          hintChevron: meet(hint, chevron),
+          hintLabel: meet(hint, label),
+          chevronLabel: meet(chevron, label),
+        };
+      });
+    const clear = {
+      chevron: true,
+      hintChevron: false,
+      hintLabel: false,
+      chevronLabel: false,
+    };
+    await expect.poll(read).toMatchObject({ ...clear, hint: true });
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '32px';
+      window.dispatchEvent(new Event('resize'));
+    });
+    await expect.poll(read).toMatchObject(clear);
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '16px';
+      window.dispatchEvent(new Event('resize'));
+    });
+    await expect.poll(read).toMatchObject({ ...clear, hint: true });
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '32px';
+      window.dispatchEvent(new Event('resize'));
+    });
+    await expect.poll(read).toMatchObject(clear);
   });
 });
