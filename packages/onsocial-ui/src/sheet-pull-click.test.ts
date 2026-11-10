@@ -96,4 +96,43 @@ describe('sheet pull click', () => {
     expect(click.defaultPrevented).toBe(false);
     expect(click.stopped).toBe(false);
   });
+
+  it('lets Enter reach its target after a pull that never clicked', () => {
+    const listeners = new Map<string, Set<(event: Event) => void>>();
+    const target = {
+      addEventListener(type: string, listener: (event: Event) => void) {
+        const set = listeners.get(type) ?? new Set();
+        set.add(listener);
+        listeners.set(type, set);
+      },
+      removeEventListener(type: string, listener: (event: Event) => void) {
+        listeners.get(type)?.delete(listener);
+      },
+    };
+    const emit = (type: string) => {
+      const event = {
+        type,
+        defaultPrevented: false,
+        stopped: false,
+        preventDefault() {
+          this.defaultPrevented = true;
+        },
+        stopPropagation() {
+          this.stopped = true;
+        },
+      };
+      for (const listener of [...(listeners.get(type) ?? [])]) {
+        listener(event as unknown as Event);
+      }
+      return event;
+    };
+
+    armSheetPullClickSwallow(target);
+    const key = emit('keydown');
+    expect(key.defaultPrevented).toBe(false);
+    expect(key.stopped).toBe(false);
+    const click = emit('click');
+    expect(click.defaultPrevented).toBe(false);
+    expect(click.stopped).toBe(false);
+  });
 });

@@ -40,14 +40,18 @@ type ClickSwallowTarget = {
   ) => void;
 };
 
+/** A pull with no click must not stay armed across the next key. */
+const SHEET_PULL_CLICK_SWALLOW_MS = 400;
+
 /**
- * Swallow the click this pull already queued. The guard stays until that
- * click arrives, or until the next press starts, so a pull with no click
- * cannot block the following press.
+ * Swallow the click this pull already queued. The guard drops when that
+ * click arrives, when the next press starts, when a key is pressed, or
+ * when the short timeout ends, whichever comes first. A key is not swallowed.
  */
 export function armSheetPullClickSwallow(target: ClickSwallowTarget): void {
+  let timer: ReturnType<typeof setTimeout> | null = null;
   let stop: ((event: Event) => void) | null = (event: Event) => {
-    if (event.type === 'pointerdown') {
+    if (event.type === 'pointerdown' || event.type === 'keydown') {
       release();
       return;
     }
@@ -60,11 +64,16 @@ export function armSheetPullClickSwallow(target: ClickSwallowTarget): void {
     target.removeEventListener('click', stop, true);
     target.removeEventListener('auxclick', stop, true);
     target.removeEventListener('pointerdown', stop, true);
+    target.removeEventListener('keydown', stop, true);
+    if (timer != null) clearTimeout(timer);
+    timer = null;
     stop = null;
   };
+  timer = setTimeout(release, SHEET_PULL_CLICK_SWALLOW_MS);
   target.addEventListener('click', stop, true);
   target.addEventListener('auxclick', stop, true);
   target.addEventListener('pointerdown', stop, true);
+  target.addEventListener('keydown', stop, true);
 }
 
 /**
