@@ -146,6 +146,21 @@ export function useSheetSurfacePull(input: {
         if (pulling) apiRef.current.handlePointerEnd();
         return;
       }
+      if (
+        pull.phase === 'pending' &&
+        !pull.claimedDownwardMove &&
+        event.cancelable &&
+        sheetShouldClaimFirstDownwardMove({
+          phase: pull.phase,
+          dx: event.clientX - pull.startX,
+          dy: event.clientY - pull.startY,
+          alreadyClaimed: false,
+        }) &&
+        !blocked(event.target)
+      ) {
+        event.preventDefault();
+        pull.claimedDownwardMove = true;
+      }
       if (pull.phase === 'pending') {
         const direction = sheetBodyPullDirection(
           event.clientX - pull.startX,

@@ -417,14 +417,18 @@ test.describe('sheet body pulls', () => {
     await gotoApp(page, '/@alice.testnet');
     await dismissNextDevOverlay(page);
     await page.getByRole('button', { name: 'Open page', exact: true }).click();
+    const panel = page.locator('.page-drawer-panel');
+    await expect(panel).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect
+      .poll(async () => (await panel.boundingBox())?.y ?? 9999)
+      .toBeLessThan(20);
     const body = page.locator('.page-drawer-body');
-    await expect(body).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     await body.evaluate((el) => {
       el.scrollTop = 0;
     });
     const start = await body.evaluate((el) => {
       const rect = el.getBoundingClientRect();
-      return { x: rect.left + rect.width / 2, y: rect.top + 72 };
+      return { x: rect.left + rect.width / 2, y: rect.top + 36 };
     });
     await emulatedTouch(page, start, [
       { x: start.x, y: start.y + 36 },
@@ -441,10 +445,19 @@ test.describe('sheet body pulls', () => {
     await page.getByRole('button', { name: 'Open launcher' }).click();
     const launcher = page.getByRole('dialog', { name: 'OnSocial launcher' });
     await expect(launcher).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
-    const start = await launcher.evaluate((el) => {
-      const rect = el.getBoundingClientRect();
-      return { x: rect.left + rect.width / 2, y: rect.top + 140 };
+    await expect(launcher).not.toHaveClass(/is-enter/);
+    const grip = launcher.getByRole('button', { name: 'Drag down to close' });
+    const gripBox = await grip.boundingBox();
+    if (!gripBox) throw new Error('launcher grip has no box');
+    await launcher.evaluate((el) => {
+      for (const node of el.querySelectorAll('*')) {
+        if (node instanceof HTMLElement) node.scrollTop = 0;
+      }
     });
+    const start = {
+      x: gripBox.x + gripBox.width / 2,
+      y: gripBox.y + gripBox.height + 24,
+    };
     await emulatedTouch(page, start, [
       { x: start.x, y: start.y + 36 },
       { x: start.x, y: start.y + 280 },
