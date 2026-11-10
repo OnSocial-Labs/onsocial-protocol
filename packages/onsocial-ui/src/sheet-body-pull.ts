@@ -1,11 +1,6 @@
 /** Same activation the grip uses before a drag owns the pointer. */
 export const SHEET_DRAG_ACTIVATION_PX = 4;
 
-/**
- * A press activates the control under the finger. Only a confirmed downward
- * pull swallows that click. How long the finger stays down does not.
- */
-
 /** Subpixel rest still counts as the top. */
 export const SHEET_PULL_SCROLL_TOP_PX = 1;
 
