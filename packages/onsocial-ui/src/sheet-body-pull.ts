@@ -3,7 +3,8 @@ export const SHEET_DRAG_ACTIVATION_PX = 4;
 
 /**
  * Platform long-press. A release after this is not a click — the press already
- * left the tap. iOS uses the same 500ms before a hold becomes its own gesture.
+ * left the tap. Touch browsers that turn a hold into its own gesture use the
+ * same 500ms.
  */
 export const SHEET_TAP_MAX_MS = 500;
 
