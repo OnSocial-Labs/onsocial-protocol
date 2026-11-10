@@ -197,21 +197,9 @@ export function PortfolioSummonDock({
             return true;
           }
         }
-        const walker = document.createTreeWalker(
-          document.body,
-          NodeFilter.SHOW_TEXT
-        );
-        let node = walker.nextNode();
-        while (node) {
-          const text = node.textContent?.replace(/\s+/g, ' ').trim();
-          const parent = node.parentElement;
-          if (!text || !parent || !outside(parent)) {
-            node = walker.nextNode();
-            continue;
-          }
-          const range = document.createRange();
-          range.selectNodeContents(node);
-          const rect = range.getBoundingClientRect();
+        const caption = document.querySelector('[data-standing-caption]');
+        if (caption instanceof HTMLElement && outside(caption)) {
+          const rect = caption.getBoundingClientRect();
           if (
             rect.width > 0 &&
             rect.height > 0 &&
@@ -224,7 +212,6 @@ export function PortfolioSummonDock({
           ) {
             return true;
           }
-          node = walker.nextNode();
         }
         return false;
       };
@@ -272,12 +259,8 @@ export function PortfolioSummonDock({
     const face = dock.closest('.portfolio-os-layer')?.previousElementSibling;
     if (face instanceof HTMLElement) {
       observer.observe(face);
-      const caption = face.querySelector('.portfolio-signals-caption');
+      const caption = face.querySelector('[data-standing-caption]');
       if (caption instanceof HTMLElement) observer.observe(caption);
-      const standing = [...face.querySelectorAll('p, span')].find((el) =>
-        (el.textContent || '').includes('STANDING·SOLIDARITY')
-      );
-      if (standing instanceof HTMLElement) observer.observe(standing);
     }
     const mutations = new MutationObserver(schedule);
     if (face instanceof HTMLElement) {
@@ -291,7 +274,20 @@ export function PortfolioSummonDock({
     chevron?.addEventListener('blur', schedule);
     window.addEventListener('resize', schedule);
     document.fonts?.addEventListener('loadingdone', schedule);
-    document.addEventListener('transitionend', schedule, true);
+    const transitionTargets: Element[] = [dock];
+    const banner =
+      face instanceof HTMLElement
+        ? face.querySelector('.portfolio-banner-region')
+        : null;
+    const standing =
+      face instanceof HTMLElement
+        ? face.querySelector('[data-standing-caption]')
+        : null;
+    if (banner instanceof HTMLElement) transitionTargets.push(banner);
+    if (standing instanceof HTMLElement) transitionTargets.push(standing);
+    for (const target of transitionTargets) {
+      target.addEventListener('transitionend', schedule);
+    }
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
@@ -299,7 +295,9 @@ export function PortfolioSummonDock({
       chevron?.removeEventListener('blur', schedule);
       window.removeEventListener('resize', schedule);
       document.fonts?.removeEventListener('loadingdone', schedule);
-      document.removeEventListener('transitionend', schedule, true);
+      for (const target of transitionTargets) {
+        target.removeEventListener('transitionend', schedule);
+      }
     };
   }, [pageDrawerOpen, write]);
   const immersiveChromeQuiet = useImmersiveChromeQuiet();

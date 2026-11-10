@@ -260,6 +260,7 @@ export function PortfolioSignals({
 
         <p
           className="portfolio-signals-caption"
+          data-standing-caption=""
           aria-label={[
             'standing',
             'solidarity',
