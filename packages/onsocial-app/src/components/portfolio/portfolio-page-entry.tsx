@@ -1,16 +1,24 @@
 'use client';
 
-import { OsIconAction } from '@onsocial/ui';
+import { ChevronUpIcon, OsIconAction } from '@onsocial/ui';
 
-/** Keyboard and pointer path into the portfolio page drawer. */
-export function PortfolioPageContentEntry({ onOpen }: { onOpen: () => void }) {
+/** Opens the portfolio page drawer. Stays mounted while the drawer is open. */
+export function PortfolioPageContentEntry({
+  open,
+  onOpen,
+}: {
+  open: boolean;
+  onOpen: () => void;
+}) {
   return (
     <OsIconAction
       ariaLabel="Open page"
-      className="portfolio-summon-hint"
+      aria-haspopup="dialog"
+      aria-expanded={open}
+      className="portfolio-page-chevron"
       onClick={onOpen}
     >
-      Open page
+      <ChevronUpIcon aria-hidden />
     </OsIconAction>
   );
 }

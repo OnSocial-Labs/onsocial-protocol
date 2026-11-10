@@ -221,20 +221,21 @@ export function PortfolioSummonDock({
         data-mood={dockMoodId ?? undefined}
         style={dockMoodStyle}
       >
-        {!pageDrawerOpen && !write ? (
-          <PortfolioPageContentEntry
-            onOpen={() => {
-              dismissHint();
-              openPageDrawer();
-            }}
-          />
-        ) : null}
-        {showHint && !pageDrawerOpen && !write ? (
-          <p className="portfolio-summon-hint" aria-hidden="true">
-            Swipe up
-          </p>
-        ) : null}
         <div className="portfolio-summon-line">
+          {write ? null : (
+            <PortfolioPageContentEntry
+              open={pageDrawerOpen}
+              onOpen={() => {
+                dismissHint();
+                openPageDrawer();
+              }}
+            />
+          )}
+          {showHint && !pageDrawerOpen && !write ? (
+            <p className="portfolio-summon-hint" aria-hidden="true">
+              Swipe up
+            </p>
+          ) : null}
           <OsDockPill
             pageAccountId={pageAccountId}
             writeMorph={writeMorph}

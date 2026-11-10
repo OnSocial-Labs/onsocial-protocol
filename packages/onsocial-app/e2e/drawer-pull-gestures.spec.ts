@@ -1,3 +1,4 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
   E2E_CHROME_TIMEOUT_MS,
@@ -67,6 +68,18 @@ async function translateY(panel: Locator) {
   });
 }
 
+async function expectChevronConcealed(locator: Locator) {
+  const style = await locator.evaluate((el) => {
+    const computed = getComputedStyle(el);
+    return {
+      opacity: computed.opacity,
+      pointerEvents: computed.pointerEvents,
+    };
+  });
+  expect(style.opacity).toBe('0');
+  expect(style.pointerEvents).toBe('none');
+}
+
 async function mouseDrag(page: Page, locator: Locator, dy: number) {
   const start = await centerOf(locator);
   await page.mouse.move(start.x, start.y);
@@ -85,20 +98,38 @@ test.describe('drawer pull gestures', () => {
     await expect(entry).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     const box = await entry.boundingBox();
     expect(box).not.toBeNull();
-    expect(box!.width).toBeGreaterThanOrEqual(24);
-    expect(box!.height).toBeGreaterThanOrEqual(24);
+    expect(Math.round(box!.width)).toBe(52);
+    expect(Math.round(box!.height)).toBe(52);
 
     for (let step = 0; step < 40; step += 1) {
       if (await entry.evaluate((el) => el === document.activeElement)) break;
       await page.keyboard.press('Tab');
     }
     await expect(entry).toBeFocused();
+    await expect
+      .poll(async () => entry.evaluate((el) => getComputedStyle(el).boxShadow))
+      .toMatch(/0px 2px/);
     const ring = await entry.evaluate((el) => getComputedStyle(el).boxShadow);
-    expect(ring).not.toBe('none');
+    expect(ring).toMatch(/0px 4px/);
     await expect(entry).toHaveRole('button');
     await expect(entry).toHaveAccessibleName('Open page');
+    await expect(entry).toHaveAttribute('aria-haspopup', 'dialog');
+    await expect(entry).toHaveAttribute('aria-expanded', 'false');
+    const tree = await page.locator('.portfolio-summon-dock').ariaSnapshot();
+    mkdirSync('test-output', { recursive: true });
+    writeFileSync(
+      'test-output/page-entry-a11y-emulated.txt',
+      `EMULATED accessibility tree (not a physical screen reader)\n${tree}\n`
+    );
+    expect(tree).toContain('Open page');
 
     await page.keyboard.press('Enter');
+    await expect(
+      page.getByRole('dialog', { name: 'OnSocial launcher' })
+    ).toHaveCount(0);
+    const chevron = page.locator('.portfolio-page-chevron');
+    await expect(chevron).toHaveAttribute('aria-expanded', 'true');
+    await expectChevronConcealed(chevron);
     const drawer = page.getByRole('dialog', { name: / page$/ });
     const close = drawer.getByRole('button', { name: 'Close page' });
     await expect(close).toBeVisible();
@@ -125,6 +156,105 @@ test.describe('drawer pull gestures', () => {
       { x: touchStart.x, y: touchStart.y + 220 },
     ]);
     await expect(drawer).toBeHidden();
+    await expect(entry).toBeFocused();
+  });
+
+  test('space opens the page and escape returns focus', async ({ page }) => {
+    await gotoApp(page, '/@alice.testnet');
+    await dismissNextDevOverlay(page);
+    const entry = page.getByRole('button', { name: 'Open page', exact: true });
+    await entry.waitFor({ state: 'visible' });
+    for (let step = 0; step < 40; step += 1) {
+      if (await entry.evaluate((el) => el === document.activeElement)) break;
+      await page.keyboard.press('Tab');
+    }
+    await page.keyboard.press('Space');
+    await expect(page.locator('.page-drawer-panel')).toBeVisible();
+    await expectChevronConcealed(page.locator('.portfolio-page-chevron'));
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.page-drawer-panel')).toHaveCount(0);
+    await expect(entry).toBeFocused();
+  });
+
+  test('a tucked chevron reveals on focus', async ({ page }) => {
+    await gotoApp(page, '/@alice.testnet');
+    await dismissNextDevOverlay(page);
+    await page.evaluate(() => {
+      const scroller = document.querySelector('.portfolio-page');
+      if (!(scroller instanceof HTMLElement)) return;
+      scroller.style.overflowY = 'auto';
+      const filler = document.createElement('div');
+      filler.setAttribute('data-test-scroll-room', '');
+      filler.style.height = '2000px';
+      filler.style.minHeight = '2000px';
+      filler.style.flexShrink = '0';
+      scroller.appendChild(filler);
+      const fire = (top: number) => {
+        scroller.scrollTop = top;
+        scroller.dispatchEvent(new Event('scroll', { bubbles: true }));
+      };
+      fire(80);
+      fire(240);
+    });
+    const dock = page.locator('.portfolio-summon-dock');
+    await expect(dock).toHaveClass(/is-scroll-hidden/);
+    const entry = page.getByRole('button', { name: 'Open page', exact: true });
+    for (let step = 0; step < 50; step += 1) {
+      if (await entry.evaluate((el) => el === document.activeElement)) break;
+      await page.keyboard.press('Tab');
+    }
+    await expect(entry).toBeFocused();
+    await expect(dock).toHaveClass(/is-scroll-hidden/);
+    await expect
+      .poll(async () =>
+        dock.evaluate((el) => {
+          const style = getComputedStyle(el);
+          const y = new DOMMatrixReadOnly(style.transform).m42;
+          return (
+            style.opacity === '1' &&
+            style.pointerEvents === 'auto' &&
+            Math.abs(y) < 1
+          );
+        })
+      )
+      .toBe(true);
+    await expect
+      .poll(async () => entry.evaluate((el) => getComputedStyle(el).boxShadow))
+      .toMatch(/0px 4px/);
+    const motion = await entry.evaluate(
+      (el) => getComputedStyle(el).transitionDuration
+    );
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.page-drawer-panel')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.page-drawer-panel')).toHaveCount(0);
+    await expect(entry).toBeFocused();
+    expect(motion).toBeTruthy();
+  });
+
+  test('reduced motion keeps the chevron still', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await gotoApp(page, '/@alice.testnet');
+    await dismissNextDevOverlay(page);
+    const entry = page.getByRole('button', { name: 'Open page', exact: true });
+    await entry.waitFor();
+    const motion = await entry.evaluate((el) => {
+      const style = getComputedStyle(el);
+      return `${style.transitionDuration} ${style.animationName}`;
+    });
+    expect(motion.startsWith('0s')).toBe(true);
+    expect(motion).not.toContain('portfolio-summon-hint-in');
+  });
+
+  test('the chevron stays hidden while writing', async ({ page }) => {
+    await gotoApp(page, '/@alice.testnet');
+    await dismissNextDevOverlay(page);
+    const entry = page.getByRole('button', { name: 'Open page', exact: true });
+    await entry.waitFor();
+    await page.locator('.portfolio-summon-dock').evaluate((el) => {
+      el.classList.add('is-writing');
+    });
+    await expectChevronConcealed(entry);
   });
 
   test('launcher ignores a mouse drag and still closes from an emulated touch pull', async ({
@@ -276,5 +406,29 @@ test.describe('drawer pull gestures', () => {
       { x: pull.x, y: pull.y + 260 },
     ]);
     await expect(transfer).toBeHidden();
+  });
+});
+
+test.describe('page chevron on a wide desktop', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test('a mouse click opens the page and leaves the launcher closed', async ({
+    page,
+  }) => {
+    await gotoApp(page, '/@alice.testnet');
+    await dismissNextDevOverlay(page);
+    const entry = page.getByRole('button', { name: 'Open page', exact: true });
+    await entry.click();
+    await expect(page.locator('.page-drawer-panel')).toBeVisible();
+    await expect(
+      page.getByRole('dialog', { name: 'OnSocial launcher' })
+    ).toHaveCount(0);
+    await expectChevronConcealed(page.locator('.portfolio-page-chevron'));
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.page-drawer-panel')).toHaveCount(0);
+    await expect(entry).toBeFocused();
+    const visible = await entry.boundingBox();
+    expect(Math.round(visible!.width)).toBe(52);
+    expect(Math.round(visible!.height)).toBe(52);
   });
 });

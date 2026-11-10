@@ -1,37 +1,38 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { PortfolioPageContentEntry } from './portfolio-page-entry';
 
-const iconActionCss = readFileSync(
-  new URL('../../../../onsocial-ui/glass-sheet.css', import.meta.url),
-  'utf8'
-);
-
 describe('portfolio page entry', () => {
-  it('is a visible labelled button that opens the page', () => {
-    const html = renderToStaticMarkup(
-      createElement(PortfolioPageContentEntry, { onOpen: () => {} })
+  it('is a button named Open page with a hidden chevron', () => {
+    const closed = renderToStaticMarkup(
+      createElement(PortfolioPageContentEntry, {
+        open: false,
+        onOpen: () => {},
+      })
     );
-    expect(html).toContain('>Open page<');
-    expect(html).toContain('aria-label="Open page"');
-    expect(html).toContain('type="button"');
-    expect(html).toContain('glass-sheet-icon-action');
+    expect(closed).toContain('aria-label="Open page"');
+    expect(closed).toContain('type="button"');
+    expect(closed).toContain('aria-haspopup="dialog"');
+    expect(closed).toContain('aria-expanded="false"');
+    expect(closed).toContain('aria-hidden="true"');
+    expect(closed).toContain('<svg');
+    expect(closed).not.toContain('inert');
 
-    const opened: string[] = [];
+    const opened = renderToStaticMarkup(
+      createElement(PortfolioPageContentEntry, { open: true, onOpen: () => {} })
+    );
+    expect(opened).toContain('aria-expanded="true"');
+
+    const calls: string[] = [];
     const element = PortfolioPageContentEntry({
-      onOpen: () => opened.push('open'),
+      open: false,
+      onOpen: () => calls.push('open'),
     });
     element.props.onClick();
-    expect(opened).toEqual(['open']);
+    expect(calls).toEqual(['open']);
     expect(element.props.ariaLabel).toBe('Open page');
-    expect(element.props.children).toBe('Open page');
-  });
-
-  it('uses the shared hit target and focus ring', () => {
-    expect(iconActionCss).toContain('min-height: var(--os-icon-hit, 3.25rem)');
-    expect(iconActionCss).toContain('.glass-sheet-icon-action:focus-visible');
-    expect(iconActionCss).toContain('--os-focus-ring');
+    expect(element.props['aria-haspopup']).toBe('dialog');
+    expect(element.props['aria-expanded']).toBe(false);
   });
 });
