@@ -21032,6 +21032,7 @@ a.os-surface-row,
   .profile-about-edit-format-toolbar .account-editor-bio-chrome,
   .profile-about-edit-format-toolbar .account-editor-bio-chrome--portal {
     justify-content: flex-start;
+    gap: 0;
     margin: 0;
   }
 
@@ -34407,20 +34408,27 @@ a.os-surface-row,
   }
 
   /*
-   * About stays a full page. The format row lives in the footer, and the
-   * keyboard lifts that same row onto the keys. The story scrolls above it.
+   * About stays a full page. While the keyboard is open the format row
+   * takes the write-dock seat: column width, the dock gutter, and the
+   * same air above the keys. The story scrolls above that row.
    */
   .profile-about-edit-slide.is-keyboard-open[data-os-slide-over='true']
     .os-app-screen-footer {
-    bottom: calc(
-      var(--os-keyboard-lift, 0px) +
-        var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem)
-    );
+    box-sizing: border-box;
+    left: 50%;
+    right: auto;
+    width: min(100%, var(--os-column-width));
+    bottom: var(--os-keyboard-lift, 0px);
+    padding: 0 max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px))
+      var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem)
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
+    transform: translateX(-50%);
     transition: none;
   }
 
   .profile-about-edit-slide.is-keyboard-open .os-slide-over-footer-inner {
-    padding: 0.35rem var(--os-screen-body-pad-x, 0.75rem) 0.35rem;
+    max-width: none;
+    padding: 0;
   }
 
   .profile-about-edit-slide.is-keyboard-open[data-os-slide-over='true']
@@ -34428,17 +34436,13 @@ a.os-surface-row,
     padding-bottom: calc(
       var(--os-keyboard-lift, 0px) +
         var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem) +
-        var(--os-about-keyboard-chrome, 0px)
+        var(--os-dock-height, 3.25rem)
     );
-    scroll-padding-bottom: var(--os-about-keyboard-chrome, 0px);
+    scroll-padding-bottom: var(--os-dock-height, 3.25rem);
   }
 
   .profile-about-edit-slide[data-screen-footer='true'] {
     --os-screen-footer-band: calc(var(--os-dock-height, 3.25rem) + 1.1rem);
-  }
-
-  .profile-about-edit-slide.is-keyboard-open[data-screen-footer='true'] {
-    --os-about-keyboard-chrome: calc(var(--os-dock-height, 3.25rem) + 0.7rem);
   }
 
   .drop-variation-set-slide-grid {
@@ -47676,6 +47680,11 @@ button.messages-bubble-quote:focus-visible {
  * Format row hit. Unlayered so it beats the 1.45rem bio-tool rule, which
  * is also emitted outside the component layer.
  */
+.profile-about-edit-format-toolbar .account-editor-bio-chrome,
+.profile-about-edit-format-toolbar .account-editor-bio-chrome--portal {
+  gap: 0;
+}
+
 .profile-about-edit-format-toolbar .account-editor-bio-tool,
 .profile-about-edit-format-toolbar .account-editor-bio-list {
   width: var(--os-dock-height, 3.25rem);
