@@ -21004,6 +21004,26 @@ a.os-surface-row,
     margin-left: auto;
   }
 
+  .profile-about-edit-format-split {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    align-self: center;
+    margin-left: auto;
+    padding-inline: 0.55rem;
+  }
+
+  .profile-about-edit-format-divider {
+    width: 1px;
+    height: 1.35rem;
+    background: rgb(var(--fg-rgb) / 0.18);
+  }
+
+  .profile-about-edit-format-toolbar:has(.profile-about-edit-format-split)
+    .profile-about-edit-align-tools {
+    margin-left: 0;
+  }
+
   .profile-align-tool-icon {
     display: block;
     width: 1.36rem;
@@ -21022,11 +21042,17 @@ a.os-surface-row,
     font-size: 1.125rem;
   }
 
-  .profile-about-edit-format-toolbar .account-editor-bio-tool.is-active,
-  .profile-about-edit-format-toolbar .account-editor-bio-tool:hover,
-  .profile-about-edit-format-toolbar .account-editor-bio-tool:focus-visible {
+  .profile-about-edit-format-toolbar .account-editor-bio-tool.is-active {
     background: transparent;
     color: rgb(var(--fg-rgb) / 0.96);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .profile-about-edit-format-toolbar
+      .account-editor-bio-tool:hover:not(.is-active) {
+      background: transparent;
+      color: rgb(var(--fg-rgb) / 0.68);
+    }
   }
 
   .profile-about-edit-format-toolbar .account-editor-bio-chrome,
@@ -21728,13 +21754,17 @@ a.os-surface-row,
   }
 
   .account-editor-bio-tool.is-active,
-  .account-editor-bio-tool:hover,
-  .account-editor-bio-tool:focus-visible,
-  .account-editor-bio-bold.is-active,
-  .account-editor-bio-bold:hover,
-  .account-editor-bio-bold:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.82);
-    background: rgb(var(--fg-rgb) / 0.05);
+  .account-editor-bio-bold.is-active {
+    color: rgb(var(--fg-rgb) / 0.92);
+    background: rgb(var(--fg-rgb) / 0.12);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .account-editor-bio-tool:hover:not(.is-active),
+    .account-editor-bio-bold:hover:not(.is-active) {
+      color: rgb(var(--fg-rgb) / 0.68);
+      background: rgb(var(--fg-rgb) / 0.04);
+    }
   }
 
   .account-editor-bio-tool:focus-visible,
@@ -47696,11 +47726,17 @@ button.messages-bubble-quote:focus-visible {
   font-size: 1.125rem;
 }
 
-.profile-about-edit-format-toolbar .account-editor-bio-tool.is-active,
-.profile-about-edit-format-toolbar .account-editor-bio-tool:hover,
-.profile-about-edit-format-toolbar .account-editor-bio-tool:focus-visible {
+.profile-about-edit-format-toolbar .account-editor-bio-tool.is-active {
   background: transparent;
   color: rgb(var(--fg-rgb) / 0.96);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .profile-about-edit-format-toolbar
+    .account-editor-bio-tool:hover:not(.is-active) {
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.68);
+  }
 }
 
 @layer components {
