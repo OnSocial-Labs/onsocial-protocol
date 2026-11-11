@@ -5976,10 +5976,6 @@ a.os-surface-row,
     opacity: 1;
   }
 
-  .portfolio-summon-dock[data-mood='glass'] .portfolio-summon-hint {
-    color: var(--glass-summon-hint);
-  }
-
   @media (prefers-reduced-transparency: reduce) {
     .portfolio-summon-dock[data-mood='glass'] .os-dock-pill {
       --os-dock-shadow: var(--os-chrome-elev-shadow);
@@ -15704,73 +15700,26 @@ a.os-surface-row,
     pointer-events: none;
   }
 
-  /*
-   * Keyboard “Open page” — invisible to the pointer (swipe up on the grip).
-   * :focus-visible paints the same Swipe up line mouse users already know.
-   */
-  .portfolio-page-entry {
-    position: absolute;
-    left: 50%;
-    bottom: calc(100% + 0.25rem);
+  .portfolio-page-chevron {
     z-index: 2;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0;
-    padding: 0.1rem 0.35rem;
-    border: 0;
-    border-radius: 0.35rem;
-    background: transparent;
-    transform: translateX(-50%);
-    opacity: 0;
-    pointer-events: none;
-    cursor: pointer;
-    font: inherit;
-    font-size: var(--os-stamp-size, 0.75rem);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.42);
-    white-space: nowrap;
+    pointer-events: auto;
   }
 
-  .portfolio-page-entry-label {
-    pointer-events: none;
-  }
-
-  /* :focus — keyboard tab and Escape-return both reveal the Swipe up line. */
-  .portfolio-page-entry:focus {
+  .portfolio-page-chevron > .mage-stroke-icon,
+  .portfolio-page-chevron > svg {
+    position: relative;
+    z-index: 1;
+    width: 1.75rem;
+    height: 1.75rem;
     opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.72);
   }
 
-  .portfolio-page-entry:focus-visible {
-    outline: none;
-    box-shadow:
-      0 0 0 2px rgb(var(--bg-rgb)),
-      0 0 0 4px rgb(var(--fg-rgb));
-  }
-
-  /* Hide the teaching hint while the keyboard entry shows the same words. */
-  .portfolio-summon-dock:has(.portfolio-page-entry:focus)
-    .portfolio-summon-hint {
-    visibility: hidden;
-  }
-
-  /* Hidden while the sheet trap owns focus, and while writing. */
-  .portfolio-summon-dock.is-chevron-concealed .portfolio-page-entry,
-  .portfolio-summon-dock.is-writing .portfolio-page-entry {
+  /* Hidden only while the sheet trap owns focus. Closing releases that
+     trap on the next frame, so the chevron must already be visible. */
+  .portfolio-summon-dock.is-chevron-concealed .portfolio-page-chevron,
+  .portfolio-summon-dock.is-writing .portfolio-page-chevron {
     opacity: 0;
     pointer-events: none;
-  }
-
-  .portfolio-summon-line > .portfolio-summon-hint {
-    position: absolute;
-    left: 50%;
-    bottom: calc(100% + 0.25rem);
-    margin: 0;
-    transform: translateX(-50%);
-    pointer-events: none;
-    white-space: nowrap;
   }
 
   .portfolio-summon-dock.is-writing .portfolio-summon-line {
@@ -16945,47 +16894,6 @@ a.os-surface-row,
 
   .os-write-dock-char-count.is-error {
     color: color-mix(in srgb, var(--protocol-red) 92%, transparent);
-  }
-
-  .portfolio-summon-hint {
-    pointer-events: none;
-    margin: 0 0 0.45rem;
-    font-size: var(--os-stamp-size, 0.75rem);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.42);
-    animation: portfolio-summon-hint-in 420ms ease;
-  }
-
-  button.portfolio-summon-hint--connect {
-    pointer-events: auto;
-    border: none;
-    padding: 0;
-    background: none;
-    cursor: pointer;
-    font: inherit;
-    font-size: var(--os-stamp-size, 0.75rem);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.48);
-  }
-
-  button.portfolio-summon-hint--connect:hover,
-  button.portfolio-summon-hint--connect:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.72);
-    outline: none;
-  }
-
-  @keyframes portfolio-summon-hint-in {
-    from {
-      opacity: 0;
-      transform: translateY(0.35rem);
-    }
-
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
   }
 
   /* ── Page content drawer (sections inside GlassSheet) ─── */
@@ -47797,16 +47705,60 @@ button.messages-bubble-quote:focus-visible {
 }
 
 /* Page entry focus ring sits outside the component layer. */
-.portfolio-page-entry:focus-visible {
+/*
+ * Page chevron focus and motion sit outside the component layer.
+ * The shared icon button's focus ring and transition are unlayered,
+ * so a layered rule cannot override them.
+ */
+button.portfolio-page-chevron.glass-sheet-icon-action {
+  position: absolute;
+  bottom: calc(100% + 0.25rem);
+  left: 50%;
+  width: var(--os-avatar-nav, 1.85rem);
+  height: var(--os-avatar-nav, 1.85rem);
+  min-width: var(--os-avatar-nav, 1.85rem);
+  min-height: var(--os-avatar-nav, 1.85rem);
+  transform: translateX(-50%);
+  color: rgb(var(--fg-rgb) / 100%);
+}
+
+button.portfolio-page-chevron.glass-sheet-icon-action:focus-visible {
   outline: none;
   box-shadow:
     0 0 0 2px rgb(var(--bg-rgb)),
     0 0 0 4px rgb(var(--fg-rgb));
 }
 
+/* Cover hides the control from the pointer. It stays in the tab order,
+   and keyboard focus shows it at full strength, ring included. */
+button.portfolio-page-chevron.glass-sheet-icon-action.is-content-covered {
+  opacity: 0;
+  pointer-events: none;
+}
+
+button.portfolio-page-chevron.glass-sheet-icon-action.is-content-covered:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+  z-index: 3;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .portfolio-page-entry {
+  button.portfolio-page-chevron.glass-sheet-icon-action,
+  button.portfolio-page-chevron.glass-sheet-icon-action::before,
+  button.portfolio-page-chevron.glass-sheet-icon-action > .mage-stroke-icon,
+  button.portfolio-page-chevron.glass-sheet-icon-action > svg {
     transition: none;
     animation: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .portfolio-page-chevron::before,
+  .portfolio-summon-dock[data-mood='glass'] .portfolio-page-chevron::before,
+  .portfolio-summon-dock[data-mood]:not([data-mood='glass'])
+    .portfolio-page-chevron::before {
+    background: var(--glass-surface-solid, rgb(var(--bg-rgb) / 0.96));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 }

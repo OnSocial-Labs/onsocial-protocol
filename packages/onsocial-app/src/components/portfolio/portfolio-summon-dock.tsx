@@ -43,7 +43,6 @@ import { PortfolioSummonComposeButton } from '@/components/portfolio/portfolio-s
 import { OsDockBackZone } from '@/components/wallet/os-dock-back-zone';
 import { OsDockPill } from '@/components/wallet/os-dock-pill';
 
-const DOCK_HINT_KEY = 'onpage-portfolio-dock-hint-seen';
 const SWIPE_UP_PX = 28;
 
 type FloatBox = { left: number; top: number; right: number; bottom: number };
@@ -92,16 +91,6 @@ export interface PortfolioSummonDockProps {
   pageAccountId: string;
 }
 
-function readDockHintPending(): boolean {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-  try {
-    return localStorage.getItem(DOCK_HINT_KEY) !== '1';
-  } catch {
-    return false;
-  }
-}
 
 /**
  * One fixed launcher pill for the portfolio — overlays the face and the page
@@ -124,7 +113,7 @@ export function PortfolioSummonDock({
   const writePinned = useWriteDockPinned();
   const writeMorph = useWriteDockMorph();
   const write = compose?.type === 'write' ? compose.entry : null;
-  const [hintCovered, setHintCovered] = useState(false);
+  const [chevronCovered, setChevronCovered] = useState(false);
   const registeredDockBack = useDockBack();
   const { leaveHref: faceLeaveHref, consumeLeave } = useOsFaceLeave();
   const router = useRouter();
@@ -145,8 +134,35 @@ export function PortfolioSummonDock({
     const dock = dockRef.current;
     if (!dock) return;
     let frame = 0;
+    const lengthPx = (value: string, font: number) => {
+      const text = value.trim();
+      if (text.endsWith('rem')) return Number.parseFloat(text) * font;
+      if (text.endsWith('px')) return Number.parseFloat(text);
+      return Number.NaN;
+    };
     const measure = () => {
-      if (pageDrawerOpen) return;
+      if (pageDrawerOpen) {
+        setChevronCovered(false);
+        return;
+      }
+      const pill = dock.querySelector(
+        '.os-dock-pill:not(.portfolio-page-chevron)'
+      );
+      const chevron = dock.querySelector('.portfolio-page-chevron');
+      if (!(pill instanceof HTMLElement)) return;
+      const font =
+        Number.parseFloat(
+          getComputedStyle(document.documentElement).fontSize
+        ) || 16;
+      const size = lengthPx(
+        getComputedStyle(document.documentElement).getPropertyValue(
+          '--os-avatar-nav'
+        ),
+        font
+      );
+      const gap = 0.25 * font;
+      if (!Number.isFinite(size) || size <= 0) return;
+      const pillRect = pill.getBoundingClientRect();
       const outside = (el: Element) =>
         !dock.contains(el) && !el.closest('.glass-sheet-root');
       const regionHits = (meet: (rect: FloatBox) => boolean) => {
@@ -187,27 +203,16 @@ export function PortfolioSummonDock({
         }
         return false;
       };
-      const hint = dock.querySelector('.portfolio-summon-hint');
-      if (hint instanceof HTMLElement) {
-        const wasHidden = hint.hidden;
-        if (wasHidden) hint.hidden = false;
-        const hintRect = hint.getBoundingClientRect();
-        if (wasHidden) hint.hidden = true;
-        const hintHits = regionHits((rect) =>
-          liftedHintHitsContent(
-            {
-              left: hintRect.left,
-              top: hintRect.top,
-              right: hintRect.right,
-              bottom: hintRect.bottom,
-              width: hintRect.width,
-              height: hintRect.height,
-            },
-            rect
-          )
-        );
-        setHintCovered((prev) => (prev === hintHits ? prev : hintHits));
+      const chevronBox = chevronFloatBox(pillRect, size, gap);
+      let covered = regionHits((rect) => boxesMeet(chevronBox, rect));
+      if (
+        covered &&
+        chevron instanceof HTMLElement &&
+        document.activeElement === chevron
+      ) {
+        covered = false;
       }
+      setChevronCovered((prev) => (prev === covered ? prev : covered));
     };
     const schedule = () => {
       cancelAnimationFrame(frame);
@@ -232,6 +237,8 @@ export function PortfolioSummonDock({
         characterData: true,
       });
     }
+    const chevron = dock.querySelector('.portfolio-page-chevron');
+    chevron?.addEventListener('blur', schedule);
     window.addEventListener('resize', schedule);
     document.fonts?.addEventListener('loadingdone', schedule);
     const transitionTargets: Element[] = [dock];
@@ -252,6 +259,7 @@ export function PortfolioSummonDock({
       cancelAnimationFrame(frame);
       observer.disconnect();
       mutations.disconnect();
+      chevron?.removeEventListener('blur', schedule);
       window.removeEventListener('resize', schedule);
       document.fonts?.removeEventListener('loadingdone', schedule);
       for (const target of transitionTargets) {
@@ -264,7 +272,6 @@ export function PortfolioSummonDock({
   const { isPreviewing: isPreviewingFace } = usePortfolioFacePreview();
   const viewerDockMood = useViewerDockMood(pageAccountId);
   const [osOpen, setOsOpen] = useState(false);
-  const [showHint, setShowHint] = useState(readDockHintPending);
   const [openPinned, setOpenPinned] = useState(false);
   const showDockBack =
     !write &&
@@ -320,19 +327,9 @@ export function PortfolioSummonDock({
     return viewerDockMood.style;
   }, [effectiveMood.cssVars, isOwner, viewerDockMood.style]);
 
-  const dismissHint = useCallback(() => {
-    setShowHint(false);
-    try {
-      localStorage.setItem(DOCK_HINT_KEY, '1');
-    } catch {
-      // ignore storage failures
-    }
-  }, []);
-
   const openLauncher = useCallback(() => {
-    dismissHint();
     setOsOpen(true);
-  }, [dismissHint]);
+  }, []);
 
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -354,11 +351,10 @@ export function PortfolioSummonDock({
       const dy = start.y - event.clientY;
       if (dy > SWIPE_UP_PX && dx < 48) {
         suppressGripClickRef.current = true;
-        dismissHint();
         openPageDrawer();
       }
     },
-    [dismissHint, openPageDrawer, pageDrawerOpen]
+    [openPageDrawer, pageDrawerOpen]
   );
 
   const handleGripClick = useCallback(
@@ -386,23 +382,12 @@ export function PortfolioSummonDock({
         style={dockMoodStyle}
       >
         <div className="portfolio-summon-line">
-          {showHint && !pageDrawerOpen && !write ? (
-            <p
-              className="portfolio-summon-hint"
-              aria-hidden="true"
-              hidden={hintCovered || undefined}
-            >
-              Swipe up
-            </p>
-          ) : null}
           {write ? null : (
             <PortfolioPageContentEntry
               open={pageDrawerOpen}
               concealed={pageDrawerOpen && !pageDrawerClosing}
-              onOpen={() => {
-                dismissHint();
-                openPageDrawer();
-              }}
+              covered={chevronCovered}
+              onOpen={openPageDrawer}
             />
           )}
           <OsDockPill

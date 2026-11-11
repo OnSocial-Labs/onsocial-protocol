@@ -38,12 +38,10 @@ test.describe('collectibles shell', () => {
       page.getByText('Connect to open Collectibles.', { exact: true })
     ).toBeVisible();
     await expect(page.getByText('Connect wallet')).toHaveCount(0);
+    await expect(page.locator('.portfolio-summon-hint--connect')).toHaveCount(0);
     await expect(
-      page.getByRole('main').getByRole('button', { name: 'Connect' })
-    ).toHaveCount(0);
-    await expect(page.locator('.portfolio-summon-hint--connect')).toHaveText(
-      'Connect'
-    );
+      page.getByRole('main').getByRole('button', { name: 'Connect', exact: true })
+    ).toBeVisible();
     await expectOsEmptyAction(
       page.getByRole('main').getByRole('link', { name: 'Browse Market' })
     );

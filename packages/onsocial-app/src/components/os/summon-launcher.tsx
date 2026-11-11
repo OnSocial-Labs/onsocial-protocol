@@ -53,10 +53,8 @@ import {
 } from '@/contexts/compose-launcher-context';
 import {
   resolveDockBackVisible,
-  resolveDockConnectHintVisible,
   useDockAction,
   useDockBack,
-  useHeaderOwnsConnect,
   useImmersiveChromeQuiet,
 } from '@/contexts/dock-chrome-context';
 import { OsWriteDock } from '@/components/os/os-write-dock';
@@ -232,7 +230,7 @@ export function SummonLauncher({
 }: SummonLauncherProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { accountId, isConnected, connect } = useAppWallet();
+  const { accountId, isConnected } = useAppWallet();
   const rally = useRallySheetOptional();
   const activityUnread = useNotificationsUnreadCount();
   const dmUnread = useDmUnreadCount();
@@ -271,11 +269,6 @@ export function SummonLauncher({
   const compose = useComposeLauncher();
   const dockBack = useDockBack();
   const dockAction = useDockAction();
-  const headerOwnsConnect = useHeaderOwnsConnect();
-  const showDockConnectHint = resolveDockConnectHintVisible({
-    headerOwnsConnect,
-    isConnected,
-  });
   const writePinned = useWriteDockPinned();
   const writeMorph = useWriteDockMorph();
   const write = compose?.type === 'write' ? compose.entry : null;
@@ -615,15 +608,6 @@ export function SummonLauncher({
           data-mood={dockMoodId ?? undefined}
           style={dockMoodStyle}
         >
-          {showDockConnectHint ? (
-            <button
-              type="button"
-              className="portfolio-summon-hint portfolio-summon-hint--connect"
-              onClick={() => void connect()}
-            >
-              Connect
-            </button>
-          ) : null}
           <OsDockPill
             pageAccountId={pageAccountId}
             writeMorph={writeMorph}

@@ -40,10 +40,21 @@ import {
 import { DOOR_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 
-function DoorEmpty({ copy, dropHref }: { copy: ReactNode; dropHref?: string }) {
+function DoorEmpty({
+  copy,
+  dropHref,
+  onConnect,
+}: {
+  copy: ReactNode;
+  dropHref?: string;
+  onConnect?: () => void;
+}) {
   return (
     <div className="market-page-empty">
       <p className="market-page-empty-copy">{copy}</p>
+      {onConnect ? (
+        <OsEmptyAction onClick={onConnect}>Connect</OsEmptyAction>
+      ) : null}
       {dropHref ? (
         <OsEmptyAction href={dropHref}>Back to drop</OsEmptyAction>
       ) : null}
@@ -84,7 +95,7 @@ export function TicketDoorPagePanel({
   voice: PassStaffVoice;
 }) {
   const router = useRouter();
-  const { accountId, isConnected } = useAppWallet();
+  const { accountId, isConnected, connect } = useAppWallet();
   const [view, setView] = useState<CollectionView | null>(initial);
   const [redeemerCheck, setRedeemerCheck] = useState<{
     key: string;
@@ -246,7 +257,12 @@ export function TicketDoorPagePanel({
   } else if (kindVoice !== voiceProp) {
     body = <DoorEmpty copy="Opening the right staff page…" />;
   } else if (!isConnected) {
-    body = <DoorEmpty copy={ticketStaffConnectHint(voiceProp)} />;
+    body = (
+      <DoorEmpty
+        copy={ticketStaffConnectHint(voiceProp)}
+        onConnect={() => void connect()}
+      />
+    );
   } else if (!accessReady) {
     body = (
       <DoorEmpty

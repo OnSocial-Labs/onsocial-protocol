@@ -378,9 +378,10 @@ test.describe('collection drop page', () => {
     ).toHaveCount(0);
     await expect(page.locator('.ticket-door-page-actions')).toHaveCount(0);
     await expectConnectVoice(page);
-    await expect(page.locator('.portfolio-summon-hint--connect')).toHaveText(
-      'Connect'
-    );
+    await expect(page.locator('.portfolio-summon-hint--connect')).toHaveCount(0);
+    await expect(
+      page.getByRole('main').getByRole('button', { name: 'Connect', exact: true })
+    ).toBeVisible();
   });
 
   test('saved Show pass keeps the QR and offers a picture', async ({

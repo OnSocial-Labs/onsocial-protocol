@@ -202,7 +202,11 @@ export function CollectiblesPagePanel({
   shell?: 'portfolio' | 'os';
 } = {}) {
   const resolvedShell = embedded ? 'portfolio' : shell;
-  const { accountId: viewerAccountId, isConnected } = useAppWallet();
+  const {
+    accountId: viewerAccountId,
+    isConnected,
+    connect,
+  } = useAppWallet();
   const router = useRouter();
   const seedKey = collectiblesSeedParamsKey(seedQuery);
   const [pageQuery, setPageQuery] = useState<CollectiblesPageQuery>(seedQuery);
@@ -948,6 +952,7 @@ export function CollectiblesPagePanel({
         <div className="market-page-empty">
           <p className="market-page-empty-copy">{COLLECTIBLES_CONNECT_HINT}</p>
           <div className="collectibles-empty-actions">
+            <OsEmptyAction onClick={() => void connect()}>Connect</OsEmptyAction>
             <OsEmptyAction href={APP_MARKET_PATH}>Browse Market</OsEmptyAction>
           </div>
         </div>
