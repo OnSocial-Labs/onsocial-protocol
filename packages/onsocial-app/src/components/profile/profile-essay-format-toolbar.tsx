@@ -1,12 +1,10 @@
 'use client';
 
 import type { Ref } from 'react';
-import {
-  PROFILE_ABOUT_ALIGN_OPTIONS,
-  type ProfileAboutAlign,
-} from '@onsocial/sdk';
+import type { ProfileAboutAlign } from '@onsocial/sdk';
+import { Divider } from '@onsocial/ui';
 import { ProfileAlignToolIcon } from '@/components/profile/profile-align-tool-icon';
-import { pressProfileEssayAlign } from '@/components/profile/profile-essay-align';
+import { cycleProfileEssayAlign } from '@/components/profile/profile-essay-align';
 
 const ALIGN_LABEL: Record<ProfileAboutAlign, string> = {
   left: 'Align left',
@@ -16,7 +14,8 @@ const ALIGN_LABEL: Record<ProfileAboutAlign, string> = {
 
 /**
  * Shared About / article format row. Markdown chrome portals into `chromeRef`.
- * Alignment, when shown, sits after a hairline so the two groups stay distinct.
+ * Alignment is one dock-sized control so the row fits the phone. The shared
+ * vertical divider sits in front of it, same as the write dock.
  */
 export function ProfileEssayFormatToolbar({
   align,
@@ -33,6 +32,7 @@ export function ProfileEssayFormatToolbar({
   alignGroupLabel?: string;
   showAlign?: boolean;
 }) {
+  const selected = align !== 'left';
   return (
     <div className="profile-about-edit-format-toolbar" data-active="true">
       <div
@@ -42,35 +42,29 @@ export function ProfileEssayFormatToolbar({
       />
       {showAlign ? (
         <>
-          <span className="profile-about-edit-format-split" aria-hidden="true">
-            <span className="profile-about-edit-format-divider" />
-          </span>
+          <Divider
+            orientation="vertical"
+            variant="detail"
+            className="profile-about-edit-format-divider"
+          />
           <div
             className="profile-about-edit-align-tools"
             role="group"
             aria-label={alignGroupLabel}
           >
-            {PROFILE_ABOUT_ALIGN_OPTIONS.map((option) => {
-              const selected = align === option;
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  className={`account-editor-bio-tool profile-about-edit-align-tool${
-                    selected ? ' is-active' : ''
-                  }`}
-                  aria-label={ALIGN_LABEL[option]}
-                  aria-pressed={selected}
-                  disabled={disabled}
-                  onPointerDown={(event) => event.preventDefault()}
-                  onClick={() =>
-                    onAlignChange(pressProfileEssayAlign(align, option))
-                  }
-                >
-                  <ProfileAlignToolIcon option={option} />
-                </button>
-              );
-            })}
+            <button
+              type="button"
+              className={`account-editor-bio-tool profile-about-edit-align-tool${
+                selected ? ' is-active' : ''
+              }`}
+              aria-label={ALIGN_LABEL[align]}
+              aria-pressed={selected}
+              disabled={disabled}
+              onPointerDown={(event) => event.preventDefault()}
+              onClick={() => onAlignChange(cycleProfileEssayAlign(align))}
+            >
+              <ProfileAlignToolIcon option={align} />
+            </button>
           </div>
         </>
       ) : null}

@@ -1,12 +1,9 @@
 export type EssayAlign = 'left' | 'center' | 'justify';
 
-/**
- * Pressing the alignment that is already on returns to left, so center and
- * justify untick. Left is the resting alignment.
- */
-export function pressProfileEssayAlign(
-  current: EssayAlign,
-  option: EssayAlign
-): EssayAlign {
-  return current === option ? 'left' : option;
+const CYCLE: readonly EssayAlign[] = ['left', 'center', 'justify'];
+
+/** One control. Each press moves left → center → justify → left. */
+export function cycleProfileEssayAlign(current: EssayAlign): EssayAlign {
+  const index = CYCLE.indexOf(current);
+  return CYCLE[(index + 1) % CYCLE.length] ?? 'left';
 }

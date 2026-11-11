@@ -20987,7 +20987,7 @@ a.os-surface-row,
     gap: 0;
     width: 100%;
     min-height: var(--os-dock-height, 3.25rem);
-    overflow-x: auto;
+    overflow-x: hidden;
   }
 
   .profile-about-edit-format-tools,
@@ -21004,22 +21004,7 @@ a.os-surface-row,
     margin-left: auto;
   }
 
-  .profile-about-edit-format-split {
-    display: flex;
-    align-items: center;
-    flex: 0 0 auto;
-    align-self: center;
-    margin-left: auto;
-    padding-inline: 0.55rem;
-  }
-
-  .profile-about-edit-format-divider {
-    width: 1px;
-    height: 1.35rem;
-    background: rgb(var(--fg-rgb) / 0.18);
-  }
-
-  .profile-about-edit-format-toolbar:has(.profile-about-edit-format-split)
+  .profile-about-edit-format-toolbar:has(.profile-about-edit-format-divider)
     .profile-about-edit-align-tools {
     margin-left: 0;
   }
@@ -47724,6 +47709,16 @@ button.messages-bubble-quote:focus-visible {
   border-radius: 0;
   background: transparent;
   font-size: 1.125rem;
+}
+
+.profile-about-edit-format-divider {
+  align-self: center;
+  flex: 0 0 auto;
+  height: 1.25rem;
+  min-height: 1.25rem;
+  margin-block: 0;
+  margin-left: auto;
+  margin-right: 0.35rem;
 }
 
 .profile-about-edit-format-toolbar .account-editor-bio-tool.is-active {

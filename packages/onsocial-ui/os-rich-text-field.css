@@ -195,7 +195,7 @@
   gap: 0;
   width: 100%;
   min-height: var(--os-dock-height, 3.25rem);
-  overflow-x: auto;
+  overflow-x: hidden;
 }
 
 .profile-about-edit-format-tools {
@@ -218,22 +218,17 @@
   font-size: 1.125rem;
 }
 
-.profile-about-edit-format-split {
-  display: flex;
-  align-items: center;
-  flex: 0 0 auto;
-  align-self: center;
-  margin-left: auto;
-  padding-inline: 0.55rem;
-}
-
 .profile-about-edit-format-divider {
-  width: 1px;
-  height: 1.35rem;
-  background: rgb(var(--fg-rgb) / 0.18);
+  align-self: center;
+  flex: 0 0 auto;
+  height: 1.25rem;
+  min-height: 1.25rem;
+  margin-block: 0;
+  margin-left: auto;
+  margin-right: 0.35rem;
 }
 
-.profile-about-edit-format-toolbar:has(.profile-about-edit-format-split)
+.profile-about-edit-format-toolbar:has(.profile-about-edit-format-divider)
   .profile-about-edit-align-tools {
   margin-left: 0;
 }
