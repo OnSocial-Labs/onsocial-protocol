@@ -29,7 +29,7 @@ export default defineConfig({
     ? undefined
     : {
         command: useNextStart
-          ? `pnpm run build:deps && pnpm exec next build && pnpm exec next start --port ${port}`
+          ? `pnpm run build:deps && pnpm exec next build --webpack && pnpm exec next start --port ${port}`
           : `pnpm run build:deps && pnpm exec next dev --port ${port}`,
         url: baseURL,
         reuseExistingServer: !process.env.CI,
