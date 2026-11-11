@@ -106,9 +106,7 @@ export function sheetShouldClaimFirstDownwardMove(input: {
 /** Body pull tracks mouse, touch, and pen. Selection stays until pull confirms. */
 export function sheetPullPointerCanDrag(pointerType: string): boolean {
   return (
-    pointerType === 'mouse' ||
-    pointerType === 'touch' ||
-    pointerType === 'pen'
+    pointerType === 'mouse' || pointerType === 'touch' || pointerType === 'pen'
   );
 }
 

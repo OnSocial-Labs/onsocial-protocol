@@ -36,10 +36,7 @@ export function settleKeyboardDrawerMetrics(
     return current;
   }
   const keyboardHeld =
-    current.isMobile &&
-    next.isMobile &&
-    current.lift > 0 &&
-    next.lift > 0;
+    current.isMobile && next.isMobile && current.lift > 0 && next.lift > 0;
   if (
     keyboardHeld &&
     Math.abs(current.lift - next.lift) < KEYBOARD_LIFT_SLOP_PX &&
