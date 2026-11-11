@@ -6,14 +6,11 @@ import { ChevronUpIcon, OsIconAction, osDockPillClassName } from '@onsocial/ui';
 export function PortfolioPageContentEntry({
   open,
   concealed,
-  covered,
   onOpen,
 }: {
   open: boolean;
   /** Hidden from keyboard and the accessibility tree while the sheet trap is up. */
   concealed: boolean;
-  /** Floating box would cover page content. Hidden from the pointer, still reachable by keyboard. */
-  covered: boolean;
   onOpen: () => void;
 }) {
   return (
@@ -23,9 +20,7 @@ export function PortfolioPageContentEntry({
       aria-expanded={open}
       aria-hidden={concealed ? true : undefined}
       tabIndex={concealed ? -1 : undefined}
-      className={`${osDockPillClassName} portfolio-page-chevron${
-        covered && !concealed ? ' is-content-covered' : ''
-      }`}
+      className={`${osDockPillClassName} portfolio-page-chevron`}
       onClick={onOpen}
     >
       <ChevronUpIcon aria-hidden />

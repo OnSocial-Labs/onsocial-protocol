@@ -23,7 +23,18 @@ export function useSummonDockOccupiedHeight(
 
     let published: string | null = null;
     const sync = () => {
-      const height = Math.ceil(dock.getBoundingClientRect().height);
+      const dockRect = dock.getBoundingClientRect();
+      /* The page chevron is positioned above the dock box. Count it so the
+         reserved band reaches the top of that control. */
+      let top = dockRect.top;
+      for (const node of dock.querySelectorAll<HTMLElement>('*')) {
+        const style = getComputedStyle(node);
+        if (style.display === 'none' || style.visibility === 'hidden') continue;
+        const rect = node.getBoundingClientRect();
+        if (rect.width < 1 || rect.height < 1) continue;
+        if (rect.top < top) top = rect.top;
+      }
+      const height = Math.ceil(dockRect.bottom - top);
       const value = `${Math.max(0, height)}px`;
       /* ResizeObserver also fires when the box did not change. Rewriting the
          variable restyles the scroller, which jiggles a list mid-scroll. */

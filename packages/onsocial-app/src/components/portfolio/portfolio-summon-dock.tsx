@@ -3,7 +3,6 @@
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -30,6 +29,7 @@ import { usePageContentDrawer } from '@/contexts/page-content-drawer-context';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
 import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
+import { useChevronFaceClearance } from '@/hooks/use-chevron-face-clearance';
 import { useSummonDockOccupiedHeight } from '@/hooks/use-summon-dock-occupied-height';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { accountIdsEqual } from '@/lib/account-match';
@@ -44,48 +44,6 @@ import { OsDockBackZone } from '@/components/wallet/os-dock-back-zone';
 import { OsDockPill } from '@/components/wallet/os-dock-pill';
 
 const SWIPE_UP_PX = 28;
-
-type FloatBox = { left: number; top: number; right: number; bottom: number };
-
-/** Outer edge of the page-chevron focus ring (`0 0 0 4px`). */
-export const CHEVRON_FOCUS_RING_PX = 4;
-
-export function chevronFloatBox(
-  pill: { left: number; top: number; width: number },
-  size: number,
-  gap: number
-): FloatBox {
-  return {
-    left: pill.left + pill.width / 2 - size / 2 - CHEVRON_FOCUS_RING_PX,
-    right: pill.left + pill.width / 2 + size / 2 + CHEVRON_FOCUS_RING_PX,
-    top: pill.top - gap - size - CHEVRON_FOCUS_RING_PX,
-    bottom: pill.top - gap + CHEVRON_FOCUS_RING_PX,
-  };
-}
-
-export function boxesMeet(a: FloatBox, b: FloatBox): boolean {
-  return (
-    a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
-  );
-}
-
-/**
- * The lifted hint plus its focus ring. The ring fills the pad, so a content
- * edge on that outer edge counts as a hit. A zero-size hint does not.
- */
-export function liftedHintHitsContent(
-  hint: FloatBox & { width: number; height: number },
-  content: FloatBox
-): boolean {
-  if (!(hint.width > 0) || !(hint.height > 0)) return false;
-  const pad = CHEVRON_FOCUS_RING_PX;
-  return (
-    hint.left - pad <= content.right &&
-    hint.right + pad >= content.left &&
-    hint.top - pad <= content.bottom &&
-    hint.bottom + pad >= content.top
-  );
-}
 
 export interface PortfolioSummonDockProps {
   pageAccountId: string;
@@ -113,7 +71,7 @@ export function PortfolioSummonDock({
   const writePinned = useWriteDockPinned();
   const writeMorph = useWriteDockMorph();
   const write = compose?.type === 'write' ? compose.entry : null;
-  const [chevronCovered, setChevronCovered] = useState(false);
+  useChevronFaceClearance(dockRef, !write);
   const registeredDockBack = useDockBack();
   const { leaveHref: faceLeaveHref, consumeLeave } = useOsFaceLeave();
   const router = useRouter();
@@ -130,143 +88,6 @@ export function PortfolioSummonDock({
   );
   const dockBack = registeredDockBack ?? faceDockBack;
 
-  useLayoutEffect(() => {
-    const dock = dockRef.current;
-    if (!dock) return;
-    let frame = 0;
-    const lengthPx = (value: string, font: number) => {
-      const text = value.trim();
-      if (text.endsWith('rem')) return Number.parseFloat(text) * font;
-      if (text.endsWith('px')) return Number.parseFloat(text);
-      return Number.NaN;
-    };
-    const measure = () => {
-      if (pageDrawerOpen) {
-        setChevronCovered(false);
-        return;
-      }
-      const pill = dock.querySelector(
-        '.os-dock-pill:not(.portfolio-page-chevron)'
-      );
-      const chevron = dock.querySelector('.portfolio-page-chevron');
-      if (!(pill instanceof HTMLElement)) return;
-      const font =
-        Number.parseFloat(
-          getComputedStyle(document.documentElement).fontSize
-        ) || 16;
-      const size = lengthPx(
-        getComputedStyle(document.documentElement).getPropertyValue(
-          '--os-avatar-nav'
-        ),
-        font
-      );
-      const gap = 0.25 * font;
-      if (!Number.isFinite(size) || size <= 0) return;
-      const pillRect = pill.getBoundingClientRect();
-      const outside = (el: Element) =>
-        !dock.contains(el) && !el.closest('.glass-sheet-root');
-      const regionHits = (meet: (rect: FloatBox) => boolean) => {
-        for (const el of document.querySelectorAll(
-          'a, button, input, textarea, select, [tabindex]'
-        )) {
-          if (!(el instanceof HTMLElement) || !outside(el) || el.tabIndex < 0) {
-            continue;
-          }
-          const rect = el.getBoundingClientRect();
-          if (rect.width < 1 || rect.height < 1) continue;
-          if (
-            meet({
-              left: rect.left,
-              top: rect.top,
-              right: rect.right,
-              bottom: rect.bottom,
-            })
-          ) {
-            return true;
-          }
-        }
-        const caption = document.querySelector('[data-standing-caption]');
-        if (caption instanceof HTMLElement && outside(caption)) {
-          const rect = caption.getBoundingClientRect();
-          if (
-            rect.width > 0 &&
-            rect.height > 0 &&
-            meet({
-              left: rect.left,
-              top: rect.top,
-              right: rect.right,
-              bottom: rect.bottom,
-            })
-          ) {
-            return true;
-          }
-        }
-        return false;
-      };
-      const chevronBox = chevronFloatBox(pillRect, size, gap);
-      let covered = regionHits((rect) => boxesMeet(chevronBox, rect));
-      if (
-        covered &&
-        chevron instanceof HTMLElement &&
-        document.activeElement === chevron
-      ) {
-        covered = false;
-      }
-      setChevronCovered((prev) => (prev === covered ? prev : covered));
-    };
-    const schedule = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        frame = requestAnimationFrame(measure);
-      });
-    };
-    schedule();
-    const observer = new ResizeObserver(schedule);
-    observer.observe(document.documentElement);
-    const face = dock.closest('.portfolio-os-layer')?.previousElementSibling;
-    if (face instanceof HTMLElement) {
-      observer.observe(face);
-      const caption = face.querySelector('[data-standing-caption]');
-      if (caption instanceof HTMLElement) observer.observe(caption);
-    }
-    const mutations = new MutationObserver(schedule);
-    if (face instanceof HTMLElement) {
-      mutations.observe(face, {
-        childList: true,
-        subtree: true,
-        characterData: true,
-      });
-    }
-    const chevron = dock.querySelector('.portfolio-page-chevron');
-    chevron?.addEventListener('blur', schedule);
-    window.addEventListener('resize', schedule);
-    document.fonts?.addEventListener('loadingdone', schedule);
-    const transitionTargets: Element[] = [dock];
-    const banner =
-      face instanceof HTMLElement
-        ? face.querySelector('.portfolio-banner-region')
-        : null;
-    const standing =
-      face instanceof HTMLElement
-        ? face.querySelector('[data-standing-caption]')
-        : null;
-    if (banner instanceof HTMLElement) transitionTargets.push(banner);
-    if (standing instanceof HTMLElement) transitionTargets.push(standing);
-    for (const target of transitionTargets) {
-      target.addEventListener('transitionend', schedule);
-    }
-    return () => {
-      cancelAnimationFrame(frame);
-      observer.disconnect();
-      mutations.disconnect();
-      chevron?.removeEventListener('blur', schedule);
-      window.removeEventListener('resize', schedule);
-      document.fonts?.removeEventListener('loadingdone', schedule);
-      for (const target of transitionTargets) {
-        target.removeEventListener('transitionend', schedule);
-      }
-    };
-  }, [pageDrawerOpen, write]);
   const immersiveChromeQuiet = useImmersiveChromeQuiet();
   const { effectiveMood, isPreviewingMood } = usePortfolioMoodPreview();
   const { isPreviewing: isPreviewingFace } = usePortfolioFacePreview();
@@ -386,7 +207,6 @@ export function PortfolioSummonDock({
             <PortfolioPageContentEntry
               open={pageDrawerOpen}
               concealed={pageDrawerOpen && !pageDrawerClosing}
-              covered={chevronCovered}
               onOpen={openPageDrawer}
             />
           )}
