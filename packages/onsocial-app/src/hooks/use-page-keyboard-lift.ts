@@ -23,7 +23,7 @@ export function usePageKeyboardLift(active: boolean) {
     ) {
       scrollMobileFieldIntoView(activeEl);
     }
-  }, [keyboardOpen, viewport.lift]);
+  }, [keyboardOpen]);
 
   const panelStyle = useMemo((): CSSProperties | undefined => {
     if (!keyboardOpen) return undefined;

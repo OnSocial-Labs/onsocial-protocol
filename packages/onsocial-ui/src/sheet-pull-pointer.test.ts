@@ -5,10 +5,10 @@ import {
 } from './sheet-body-pull.js';
 
 describe('sheet pull pointer', () => {
-  it('pulls for touch and pen, and never for a mouse', () => {
+  it('pulls for mouse, touch, and pen', () => {
+    expect(sheetPullPointerCanDrag('mouse')).toBe(true);
     expect(sheetPullPointerCanDrag('touch')).toBe(true);
     expect(sheetPullPointerCanDrag('pen')).toBe(true);
-    expect(sheetPullPointerCanDrag('mouse')).toBe(false);
     expect(sheetPullPointerCanDrag('')).toBe(false);
   });
 

@@ -30,6 +30,8 @@ import {
   ipfsImgSrcSet,
   OsIconAction,
   OsPageSheet,
+  OsSurfaceRow,
+  OsSurfaceRowList,
   OsSheetAction,
   OsSheetActions,
   ProfileEditorMediaToolbar,
@@ -71,7 +73,12 @@ import {
   clampFaceEditorInput,
   profileAboutHasMoreThanFace,
 } from '@/lib/profile-bio-face';
-import { displayName, fallbackLabel, initials } from '@/lib/profile-display';
+import {
+  displayName,
+  fallbackLabel,
+  initials,
+  profileEditorShownName,
+} from '@/lib/profile-display';
 import type { ResolvedPageHero } from '@/lib/page-data';
 import {
   profileLinkEditorFieldErrors,
@@ -309,7 +316,7 @@ export function AppProfileEditorSheet({
     setSeedKey(loadKey);
     setSeededFrom(snapshot);
     if (untouched) {
-      setName(snapshot.name);
+      setName(profileEditorShownName(snapshot.accountId, snapshot.name));
       setLocation(snapshot.location);
       setIndustry(snapshot.industry ?? '');
       setKind(editorFaceKind(snapshot.kind));
@@ -675,6 +682,25 @@ export function AppProfileEditorSheet({
   };
 
   const formReady = Boolean(snapshot && seedKey === loadKey);
+  const aboutDetail = profileAboutHasMoreThanFace({
+    aboutText: aboutBio,
+    leadText: lead,
+    photoCount: photos.length,
+    tagCount: !isDaoAccount && kind === 'person' ? tags.length : 0,
+  })
+    ? [
+        lead.trim() ? 'Lead' : null,
+        !isDaoAccount && kind === 'person' && tags.length > 0
+          ? `${tags.length} craft${tags.length === 1 ? '' : 's'}`
+          : null,
+        photos.length > 0
+          ? `${photos.length} photo${photos.length === 1 ? '' : 's'}`
+          : null,
+        aboutBio.trim() ? 'More bio' : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : '';
 
   const footer = (
     <div
@@ -906,7 +932,7 @@ export function AppProfileEditorSheet({
                               value={name}
                               maxLength={PROFILE_NAME_MAX}
                               autoComplete="name"
-                              placeholder={handleLabel}
+                              placeholder={profileEditorShownName(accountId)}
                               aria-required="true"
                               disabled={saving}
                               onFocus={scrollFieldIntoView}
@@ -1075,47 +1101,14 @@ export function AppProfileEditorSheet({
                     onClearFieldError={clearLinkFieldError}
                     onSetFieldError={setLinkFieldError}
                   />
-                  <button
-                    type="button"
-                    className="account-editor-about-trigger"
-                    disabled={saving}
-                    aria-haspopup="dialog"
-                    aria-expanded={aboutOpen}
-                    onClick={() => setAboutOpen(true)}
-                  >
-                    <span className="account-editor-about-trigger-label">
-                      About
-                    </span>
-                    <span className="account-editor-about-trigger-meta">
-                      {profileAboutHasMoreThanFace({
-                        aboutText: aboutBio,
-                        leadText: lead,
-                        photoCount: photos.length,
-                        tagCount:
-                          !isDaoAccount && kind === 'person' ? tags.length : 0,
-                      })
-                        ? [
-                            lead.trim() ? 'Lead' : null,
-                            !isDaoAccount &&
-                            kind === 'person' &&
-                            tags.length > 0
-                              ? `${tags.length} craft${tags.length === 1 ? '' : 's'}`
-                              : null,
-                            photos.length > 0
-                              ? `${photos.length} photo${photos.length === 1 ? '' : 's'}`
-                              : null,
-                            aboutBio.trim() ? 'More bio' : null,
-                          ]
-                            .filter(Boolean)
-                            .join(' · ') ||
-                          (!isDaoAccount && kind === 'person'
-                            ? 'Lead, crafts, photos, more'
-                            : 'Lead, photos, more')
-                        : !isDaoAccount && kind === 'person'
-                          ? 'Lead, crafts, photos, more'
-                          : 'Lead, photos, more'}
-                    </span>
-                  </button>
+                  <OsSurfaceRowList aria-label="About">
+                    <OsSurfaceRow
+                      label="About"
+                      description={aboutDetail || undefined}
+                      disabled={saving}
+                      onClick={() => setAboutOpen(true)}
+                    />
+                  </OsSurfaceRowList>
                 </div>
               </div>
 

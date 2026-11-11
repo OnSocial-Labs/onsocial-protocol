@@ -31,6 +31,19 @@ import type { TransactionFeedback } from '@/components/ui/transaction-feedback-t
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
 import { fetchAccountJobs, notifyJobsChanged } from '@/lib/profile-jobs';
 
+function roleFormatFocusStays(
+  event: { relatedTarget: EventTarget | null },
+  host: HTMLElement | null
+) {
+  const next = event.relatedTarget;
+  if (!(next instanceof Node)) return false;
+  if (host?.contains(next)) return true;
+  return (
+    next instanceof Element &&
+    Boolean(next.closest('.profile-about-edit-format-toolbar'))
+  );
+}
+
 function collectRelayTxHashes(response: unknown): string[] {
   if (!response || typeof response !== 'object') return [];
   const value = response as Record<string, unknown>;
@@ -60,6 +73,8 @@ export function ProfileJobsEditor({
   const [url, setUrl] = useState('');
   const [ends, setEnds] = useState('');
   const [busy, setBusy] = useState(false);
+  const [describing, setDescribing] = useState(false);
+  const [formatHost, setFormatHost] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     onToast?.(txResult);
@@ -99,6 +114,7 @@ export function ProfileJobsEditor({
         setDescription('');
         setUrl('');
         setEnds('');
+        setDescribing(false);
         setFormOpen(false);
         notify();
         void reload();
@@ -192,6 +208,7 @@ export function ProfileJobsEditor({
         open={formOpen}
         onClose={() => {
           if (!busy) {
+            setDescribing(false);
             setFormOpen(false);
             clearTxResult();
           }
@@ -202,6 +219,18 @@ export function ProfileJobsEditor({
         zIndex={2147483647}
         footer={
           <OsSheetFooter>
+            {describing ? (
+              <div
+                className="profile-about-edit-format-toolbar"
+                data-active="true"
+              >
+                <div
+                  ref={setFormatHost}
+                  className="profile-about-edit-format-tools"
+                  aria-label="Text formatting"
+                />
+              </div>
+            ) : null}
             <OsSheetActions layout="stack" tone="frosted-primary" borderless>
               <OsSheetAction
                 type="submit"
@@ -251,6 +280,12 @@ export function ProfileJobsEditor({
                 rows={3}
                 placeholder="What you’re hiring for"
                 tools={['bold', 'italic', 'list']}
+                chromePortal={describing ? formatHost : null}
+                onFocus={() => setDescribing(true)}
+                onBlur={(event) => {
+                  if (roleFormatFocusStays(event, formatHost)) return;
+                  setDescribing(false);
+                }}
                 onChange={setDescription}
               />
             </div>

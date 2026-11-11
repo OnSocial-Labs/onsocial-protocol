@@ -263,6 +263,20 @@ describe('isProfileEditorDirty', () => {
     ).toBe(false);
   });
 
+  it('shows the spoken account name without marking a new profile dirty', () => {
+    const snapshot = baseSnapshot({
+      accountId: 'green-ghost.tg',
+      hasProfile: false,
+      name: '',
+    });
+    expect(
+      isProfileEditorDirty(dirtyInput(snapshot, { name: 'Green Ghost' }))
+    ).toBe(false);
+    expect(
+      isProfileEditorDirty(dirtyInput(snapshot, { name: 'Green' }))
+    ).toBe(true);
+  });
+
   it('stays clean when a name only has extra spaces', () => {
     const snapshot = baseSnapshot({ name: 'Ada Lovelace' });
     expect(

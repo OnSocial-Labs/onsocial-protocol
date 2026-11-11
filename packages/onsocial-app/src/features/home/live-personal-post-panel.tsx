@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import type { PostRow, ThreadNode } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsHeaderBack } from '@/components/app/os-header-back';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -107,6 +108,7 @@ import { THREAD_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
 import { resolveThreadFoldLabel } from '@/lib/thread-fold-label';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { playPostFocusVideo } from '@/hooks/use-post-list-video';
+import { holdScrollerAt } from '@/lib/write-dock-keyboard-hold';
 import { readPostMediaUnmuteIndex } from '@/lib/post-media';
 
 type LoadState = 'loading' | 'ready' | 'missing' | 'error';
@@ -118,12 +120,11 @@ const REPLY_TREE_MAX_NODES = THREAD_REPLY_TREE_MAX_NODES;
 const RECONCILE_DELAYS_MS = [2_000, 5_000];
 
 /*
- * Reply reveal — the dock glides up over ~260ms (and the keyboard keeps
- * rising after), so check twice and only scroll when the answered post
- * actually ends up covered. Never moves a post that is already in view.
+ * Reply reveal — one instant nudge when the answered post is under the
+ * pill. The keyboard hold then keeps that gap. A smooth scroll during
+ * the lift is the hop.
  */
 const REPLY_REVEAL_MARGIN_PX = 12;
-const REPLY_REVEAL_CHECKS_MS = [340, 780];
 
 function replyRevealScrollable(node: HTMLElement): HTMLElement | null {
   let current = node.parentElement;
@@ -144,11 +145,6 @@ function scheduleReplyTargetReveal(post: Pick<PostRow, 'postId'>) {
   if (typeof window === 'undefined') return;
   const id = post.postId.trim();
   if (!id) return;
-  const behavior: ScrollBehavior = window.matchMedia(
-    '(prefers-reduced-motion: reduce)'
-  ).matches
-    ? 'auto'
-    : 'smooth';
   const reveal = () => {
     const escaped = CSS.escape(id);
     const node = document.querySelector<HTMLElement>(
@@ -164,12 +160,10 @@ function scheduleReplyTargetReveal(post: Pick<PostRow, 'postId'>) {
       dock.getBoundingClientRect().top;
     if (overlap <= 0) return;
     const scroller = replyRevealScrollable(node);
-    if (scroller) scroller.scrollBy({ top: overlap, behavior });
-    else window.scrollBy({ top: overlap, behavior });
+    if (scroller) holdScrollerAt(scroller, scroller.scrollTop + overlap);
+    else window.scrollBy({ top: overlap, behavior: 'auto' });
   };
-  for (const delay of REPLY_REVEAL_CHECKS_MS) {
-    window.setTimeout(reveal, delay);
-  }
+  window.requestAnimationFrame(reveal);
 }
 
 interface LivePersonalPostPanelProps {
@@ -1248,10 +1242,10 @@ export function LivePersonalPostPanel({
   return (
     <OsAppScreen
       title="Post"
-      dockBack
       glassChrome
       compactChrome
       backFallbackHref={APP_HOME_PATH}
+      leading={<OsHeaderBack fallbackHref={APP_HOME_PATH} />}
     >
       {thread}
       {composer}

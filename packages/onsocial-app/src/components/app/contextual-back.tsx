@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { MultiplyIcon, OsIconAction } from '@onsocial/ui';
 import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
 
-/** Opt-in header mode-close (×). Leave a place with `dockBack`. */
+/** Opt-in header mode-close (×). Leave a place with `dockBack` or `OsHeaderBack`. */
 interface ContextualBackProps {
   fallbackHref?: string;
 }

@@ -85,6 +85,16 @@ export function choiceDrawerHasPersistedSelection<T extends string>(
   return options.some((option) => option.value === value);
 }
 
+/** Tick for one row. A set marks every chosen row; otherwise the single value. */
+export function choiceDrawerOptionSelected<T extends string>(
+  optionValue: T,
+  value: T,
+  values?: readonly T[]
+): boolean {
+  if (values) return values.includes(optionValue);
+  return optionValue === value;
+}
+
 export interface ChoiceDrawerProps<T extends string> {
   open: boolean;
   onClose: () => void;
@@ -93,6 +103,11 @@ export interface ChoiceDrawerProps<T extends string> {
   value: T;
   options: readonly ChoiceOption<T>[];
   onChange: (next: T) => void;
+  /**
+   * Chosen rows that keep a tick. Crafts pass the whole set. Omit for a
+   * single `value`.
+   */
+  values?: readonly T[];
   copy?: string;
   hint?: string;
   closeOnSelect?: boolean;
@@ -115,6 +130,7 @@ export function ChoiceDrawer<T extends string>({
   value,
   options,
   onChange,
+  values,
   copy,
   hint,
   closeOnSelect = true,
@@ -136,7 +152,12 @@ export function ChoiceDrawer<T extends string>({
       {...(moodId ? { moodId } : {})}
       {...(panelStyle ? { panelStyle } : {})}
     >
-      <div className="os-choice-sheet-list" role="listbox" aria-label={label}>
+      <div
+        className="os-choice-sheet-list"
+        role="listbox"
+        aria-label={label}
+        aria-multiselectable={values ? true : undefined}
+      >
         {sections.map((section, sectionIndex) => (
           <div
             key={`section-${sectionIndex}`}
@@ -146,7 +167,11 @@ export function ChoiceDrawer<T extends string>({
               <p className="os-choice-sheet-section-title">{section.title}</p>
             ) : null}
             {section.options.map((option) => {
-              const selected = option.value === value;
+              const selected = choiceDrawerOptionSelected(
+                option.value,
+                value,
+                values
+              );
               return (
                 <button
                   key={option.value}

@@ -39,7 +39,7 @@ describe('buildProfileCraftEditorOptions', () => {
     expect(options.some((option) => option.value === 'writer')).toBe(true);
     expect(
       options.find((option) => option.value === 'writer')?.description
-    ).toBe('Selected');
+    ).toBeUndefined();
     expect(
       options.find((option) => option.value === 'photographer')
     ).toMatchObject({

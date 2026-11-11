@@ -21,7 +21,10 @@ import {
   osFieldBorderedClassName,
 } from '@onsocial/ui';
 import { OfferAddedTime } from '@/components/portfolio/offer-added-time';
-import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-textarea';
+import {
+  ProfileBioRichTextarea,
+  profileFormatFocusStays,
+} from '@/components/wallet/profile-bio-rich-textarea';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -82,6 +85,8 @@ export function ProfileOffersEditor({
   const [url, setUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [removeId, setRemoveId] = useState<string | null>(null);
+  const [describing, setDescribing] = useState(false);
+  const [formatHost, setFormatHost] = useState<HTMLDivElement | null>(null);
   const max = offerMaxForKind(kind);
   const sheetOpen = openProp ?? uncontrolledOpen;
   const setSheetOpen = onOpenChange ?? setUncontrolledOpen;
@@ -102,6 +107,7 @@ export function ProfileOffersEditor({
     setDescription('');
     setUrl('');
     setRemoveId(null);
+    setDescribing(false);
   }, [sheetOpen]);
 
   useEffect(() => {
@@ -119,6 +125,7 @@ export function ProfileOffersEditor({
     setTitle('');
     setDescription('');
     setUrl('');
+    setDescribing(false);
   };
 
   const openEdit = (offer: OfferRecord) => {
@@ -237,6 +244,12 @@ export function ProfileOffersEditor({
             tools={['bold', 'italic', 'list']}
             className="account-editor-sheet-bio"
             disabled={busy}
+            chromePortal={describing ? formatHost : null}
+            onFocus={() => setDescribing(true)}
+            onBlur={(event) => {
+              if (profileFormatFocusStays(event, formatHost)) return;
+              setDescribing(false);
+            }}
             onChange={setDescription}
           />
         </div>
@@ -375,7 +388,10 @@ export function ProfileOffersEditor({
       <OsHugSheet
         open={sheetOpen && formOpen}
         onClose={() => {
-          if (!busy) setFormOpen(false);
+          if (!busy) {
+            setDescribing(false);
+            setFormOpen(false);
+          }
         }}
         label={editingId ? 'Edit offer' : 'New offer'}
         closeAriaLabel="Close offer"
@@ -383,6 +399,18 @@ export function ProfileOffersEditor({
         zIndex={SHEET_Z.overlayNested}
         footer={
           <OsSheetFooter>
+            {describing ? (
+              <div
+                className="profile-about-edit-format-toolbar"
+                data-active="true"
+              >
+                <div
+                  ref={setFormatHost}
+                  className="profile-about-edit-format-tools"
+                  aria-label="Text formatting"
+                />
+              </div>
+            ) : null}
             <OsSheetActions layout="stack" tone="frosted-primary" borderless>
               {editingId ? (
                 <OsSheetAction

@@ -149,6 +149,7 @@ function BorderedLinkValue({
   autoComplete,
   spellCheck,
   onChange,
+  onBlur,
   onKeyDown,
 }: {
   id: string;
@@ -164,6 +165,7 @@ function BorderedLinkValue({
   autoComplete?: string;
   spellCheck?: boolean;
   onChange: (value: string) => void;
+  onBlur?: () => void;
   onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
 }) {
   return (
@@ -193,6 +195,7 @@ function BorderedLinkValue({
           spellCheck={spellCheck}
           onPointerDown={focusFieldStill}
           onFocus={holdDrawerStill}
+          onBlur={onBlur}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={onKeyDown}
         />
@@ -222,6 +225,7 @@ function WebsiteLinkForm({
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [linkBlurred, setLinkBlurred] = useState(false);
   const src = websitePhotoSrc(draft);
 
   const onPhoto = (event: ChangeEvent<HTMLInputElement>) => {
@@ -280,11 +284,11 @@ function WebsiteLinkForm({
         value={draft.url}
         placeholder="studio.com"
         label="Link"
-        invalid={Boolean(addressError)}
-        error={addressError}
+        invalid={linkBlurred && Boolean(addressError)}
+        error={linkBlurred ? addressError : null}
         maxLength={255}
         inputMode="url"
-        autoComplete="url"
+        autoComplete="off"
         leading={
           <button
             type="button"
@@ -301,6 +305,7 @@ function WebsiteLinkForm({
           </button>
         }
         onChange={(url) => onChange({ url })}
+        onBlur={() => setLinkBlurred(true)}
         onKeyDown={onKeyDown}
       />
       <button
@@ -793,7 +798,7 @@ export function ProfileLinksEditor({
                   ? 'url'
                   : undefined
               }
-              autoComplete={socialField.kind === 'website' ? 'url' : 'off'}
+              autoComplete="off"
               spellCheck={socialField.kind === 'onsocial' ? false : undefined}
               leading={
                 <span className="os-account-field-leading" aria-hidden>

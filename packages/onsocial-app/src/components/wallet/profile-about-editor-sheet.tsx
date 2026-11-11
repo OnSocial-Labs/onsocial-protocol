@@ -3,7 +3,7 @@
 /**
  * About workspace — visual twin of the live About page:
  * print | name → crafts (person) or industry (org / DAO); lead; film; More.
- * Lead + More share B / I / • / H under the title.
+ * Lead and More share the bottom format row. Alignment is the essay only.
  */
 
 import {
@@ -18,7 +18,7 @@ import {
   type PointerEvent,
   type ReactNode,
 } from 'react';
-import { Divider, MultiplyIcon } from '@onsocial/ui';
+import { ChevronLeftIcon, Divider, MultiplyIcon } from '@onsocial/ui';
 import {
   PROFILE_ABOUT_ALIGN_OPTIONS,
   PROFILE_LEAD_MAX,
@@ -315,55 +315,59 @@ export function ProfileAboutEditorSheet({
         className="profile-about-edit-format-tools"
         aria-label="Text formatting"
       />
-      <div
-        className="profile-about-edit-align-tools"
-        role="group"
-        aria-label="Essay alignment"
-      >
-        {PROFILE_ABOUT_ALIGN_OPTIONS.map((option) => (
-          <button
-            key={option}
-            type="button"
-            className={`account-editor-bio-tool profile-about-edit-align-tool${
-              aboutAlign === option ? ' is-active' : ''
-            }`}
-            aria-label={
-              option === 'left'
-                ? 'Align left'
-                : option === 'center'
-                  ? 'Align center'
-                  : 'Justify'
-            }
-            aria-pressed={aboutAlign === option}
-            disabled={disabled}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => onAboutAlignChange(option)}
-          >
-            <ProfileAlignToolIcon option={option} />
-          </button>
-        ))}
-      </div>
+      {editingField === 'more' ? (
+        <div
+          className="profile-about-edit-align-tools"
+          role="group"
+          aria-label="Essay alignment"
+        >
+          {PROFILE_ABOUT_ALIGN_OPTIONS.map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={`account-editor-bio-tool profile-about-edit-align-tool${
+                aboutAlign === option ? ' is-active' : ''
+              }`}
+              aria-label={
+                option === 'left'
+                  ? 'Align left'
+                  : option === 'center'
+                    ? 'Align center'
+                    : 'Justify'
+              }
+              aria-pressed={aboutAlign === option}
+              disabled={disabled}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => onAboutAlignChange(option)}
+            >
+              <ProfileAlignToolIcon option={option} />
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   ) : null;
-  const formatOnKeys = Boolean(formatToolbar && keyboardOpen);
 
   return (
     <OsSlideOverScreen
       open={open}
       onClose={handleClose}
       title="About"
-      closeAriaLabel="Done"
+      closeAriaLabel="Back"
+      closeIcon={
+        <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
+      }
       closeDisabled={disabled}
       zIndex={SHEET_Z.confirm}
       moodId={moodId ?? undefined}
       moodStyle={moodStyle}
+      compactChrome
       className={`profile-edit-slide profile-about-edit-slide${
         keyboardOpen ? ' is-keyboard-open' : ''
       }`}
       style={panelStyle}
       contentClassName="profile-edit-slide-body"
-      toolbar={formatOnKeys ? null : formatToolbar}
-      footer={formatOnKeys ? formatToolbar : null}
+      footer={formatToolbar}
     >
       <form
         id={formId}

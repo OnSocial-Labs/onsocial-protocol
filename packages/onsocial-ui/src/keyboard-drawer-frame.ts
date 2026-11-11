@@ -4,6 +4,12 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 
 const MOBILE_MAX_WIDTH_PX = 767;
 
+/**
+ * A phone suggestion bar, or the caret chase, moves the viewport by less
+ * than a real keyboard. Following those ticks shakes a pinned Done control.
+ */
+const KEYBOARD_LIFT_SLOP_PX = 64;
+
 export interface KeyboardDrawerMetrics {
   /** Pixels of the layout viewport covered below the visual viewport. */
   lift: number;
@@ -13,6 +19,36 @@ export interface KeyboardDrawerMetrics {
 }
 
 const IDLE: KeyboardDrawerMetrics = { lift: 0, height: 0, isMobile: false };
+
+/**
+ * Keep the last settled frame while the keyboard is up and the viewport
+ * only jitters. Opening and closing still apply on the first real change.
+ */
+export function settleKeyboardDrawerMetrics(
+  current: KeyboardDrawerMetrics,
+  next: KeyboardDrawerMetrics
+): KeyboardDrawerMetrics {
+  if (
+    current.lift === next.lift &&
+    current.height === next.height &&
+    current.isMobile === next.isMobile
+  ) {
+    return current;
+  }
+  const keyboardHeld =
+    current.isMobile &&
+    next.isMobile &&
+    current.lift > 0 &&
+    next.lift > 0;
+  if (
+    keyboardHeld &&
+    Math.abs(current.lift - next.lift) < KEYBOARD_LIFT_SLOP_PX &&
+    Math.abs(current.height - next.height) < KEYBOARD_LIFT_SLOP_PX
+  ) {
+    return current;
+  }
+  return next;
+}
 
 function readKeyboardDrawerMetrics(): KeyboardDrawerMetrics {
   if (typeof window === 'undefined') return IDLE;
@@ -70,27 +106,19 @@ export function useKeyboardDrawerFrame(active: boolean): {
   useEffect(() => {
     if (!active || typeof window === 'undefined') return;
     const sync = () => {
-      setMetrics((current) => {
-        const next = readKeyboardDrawerMetrics();
-        if (
-          current.lift === next.lift &&
-          current.height === next.height &&
-          current.isMobile === next.isMobile
-        ) {
-          return current;
-        }
-        return next;
-      });
+      setMetrics((current) =>
+        settleKeyboardDrawerMetrics(current, readKeyboardDrawerMetrics())
+      );
     };
     const viewport = window.visualViewport;
+    // Resize is the keyboard. Scroll is the browser chasing the caret, and
+    // following it moves the drawer, which makes the caret chase again.
     viewport?.addEventListener('resize', sync);
-    viewport?.addEventListener('scroll', sync);
     window.addEventListener('resize', sync);
     const frame = window.requestAnimationFrame(sync);
     return () => {
       window.cancelAnimationFrame(frame);
       viewport?.removeEventListener('resize', sync);
-      viewport?.removeEventListener('scroll', sync);
       window.removeEventListener('resize', sync);
     };
   }, [active]);

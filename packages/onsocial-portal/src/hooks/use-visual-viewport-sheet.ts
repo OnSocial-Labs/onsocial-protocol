@@ -1,5 +1,6 @@
 'use client';
 
+import { settleKeyboardDrawerMetrics } from '@onsocial/ui';
 import { useEffect, useState } from 'react';
 
 const MOBILE_MAX_WIDTH_PX = 767;
@@ -59,19 +60,19 @@ export function useVisualViewportSheetMetrics(
     }
 
     const sync = () => {
-      setMetrics(readMetrics());
+      setMetrics((current) =>
+        settleKeyboardDrawerMetrics(current, readMetrics())
+      );
     };
 
     const viewport = window.visualViewport;
     viewport?.addEventListener('resize', sync);
-    viewport?.addEventListener('scroll', sync);
     window.addEventListener('resize', sync);
     // Defer initial read so we don't sync setState in the effect body.
     const frame = window.requestAnimationFrame(sync);
     return () => {
       window.cancelAnimationFrame(frame);
       viewport?.removeEventListener('resize', sync);
-      viewport?.removeEventListener('scroll', sync);
       window.removeEventListener('resize', sync);
     };
   }, [active]);

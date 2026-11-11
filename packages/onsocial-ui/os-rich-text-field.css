@@ -178,3 +178,51 @@
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+/*
+ * Footer format row. Same hit as the post controls. Hosts pin the chrome
+ * here with `chromePortal` while the writing field is focused.
+ */
+.profile-about-edit-format-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  gap: 0;
+  width: 100%;
+  min-height: var(--os-dock-height, 3.25rem);
+  overflow-x: auto;
+}
+
+.profile-about-edit-format-tools {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0;
+  min-height: var(--os-dock-height, 3.25rem);
+}
+
+.profile-about-edit-format-toolbar .account-editor-bio-tool,
+.profile-about-edit-format-toolbar .account-editor-bio-list {
+  width: var(--os-dock-height, 3.25rem);
+  min-width: var(--os-dock-height, 3.25rem);
+  height: var(--os-dock-height, 3.25rem);
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 1.125rem;
+}
+
+.profile-about-edit-format-toolbar .account-editor-bio-tool.is-active,
+.profile-about-edit-format-toolbar .account-editor-bio-tool:hover,
+.profile-about-edit-format-toolbar .account-editor-bio-tool:focus-visible {
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.96);
+}
+
+.profile-about-edit-format-toolbar .account-editor-bio-chrome,
+.profile-about-edit-format-toolbar .account-editor-bio-chrome--portal {
+  justify-content: flex-start;
+  margin: 0;
+}

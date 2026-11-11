@@ -20,6 +20,7 @@ import {
   OsAppChromePageStatus,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsHeaderBack } from '@/components/app/os-header-back';
 import {
   OsChromeListAlert,
   OsChromeWhisper,
@@ -1449,7 +1450,7 @@ export function MessagesPanel() {
     return () => el.removeEventListener('scroll', onScroll);
   }, [threadOpen, activeThreadId]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = scrollRootRef.current;
     if (!el || !threadOpen || !pinThreadToLatestRef.current) return;
     el.scrollTop = el.scrollHeight;
@@ -1778,10 +1779,16 @@ export function MessagesPanel() {
       scrollRootRef={scrollRootRef}
       moodId={threadOpen && peerMood ? peerMood.id : undefined}
       moodStyle={threadMoodStyle}
-      dockBack
-      onDockBack={threadOpen ? closeThread : undefined}
+      dockBack={!threadOpen}
       backFallbackHref={threadOpen ? messagesPath() : APP_HOME_PATH}
-      leading={null}
+      leading={
+        threadOpen ? (
+          <OsHeaderBack
+            fallbackHref={messagesPath()}
+            onBack={closeThread}
+          />
+        ) : null
+      }
       style={screenStyle}
       heading={
         threadChromeHeading ??

@@ -302,6 +302,7 @@ export { OsSheetFooter, osSheetFooterClassName } from './os-sheet-footer.js';
 export {
   keyboardDrawerFrameStyle,
   keyboardSheetMargin,
+  settleKeyboardDrawerMetrics,
   useKeyboardDrawerFrame,
   type KeyboardDrawerMetrics,
 } from './keyboard-drawer-frame.js';

@@ -95,10 +95,9 @@ test.describe('drawer pull gestures', () => {
     await dismissNextDevOverlay(page);
     const entry = page.getByRole('button', { name: 'Open page', exact: true });
     await expect(entry).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
-    const box = await entry.boundingBox();
-    expect(box).not.toBeNull();
-    expect(Math.round(box!.width)).toBe(30);
-    expect(Math.round(box!.height)).toBe(30);
+    await expect
+      .poll(async () => entry.evaluate((el) => getComputedStyle(el).opacity))
+      .toBe('0');
 
     for (let step = 0; step < 40; step += 1) {
       if (await entry.evaluate((el) => el === document.activeElement)) break;
@@ -121,7 +120,7 @@ test.describe('drawer pull gestures', () => {
     await expect(
       page.getByRole('dialog', { name: 'OnSocial launcher' })
     ).toHaveCount(0);
-    const chevron = page.locator('.portfolio-page-chevron');
+    const chevron = page.locator('.portfolio-page-entry');
     await expect(chevron).toHaveAttribute('aria-expanded', 'true');
     await expect(chevron).toHaveAttribute('aria-hidden', 'true');
     await expect(chevron).toHaveAttribute('tabindex', '-1');
@@ -147,25 +146,19 @@ test.describe('drawer pull gestures', () => {
 
     const grip = drawer.locator('.glass-sheet-drag');
     await mouseDrag(page, grip, 280);
-    await expect(drawer).toBeVisible();
-
-    const touchStart = await centerOf(grip);
-    await emulatedTouch(page, touchStart, [
-      { x: touchStart.x, y: touchStart.y + 80 },
-      { x: touchStart.x, y: touchStart.y + 220 },
-    ]);
     await expect(drawer).toBeHidden();
     await expect(entry).toBeFocused();
   });
 
-  test('the chevron is opaque when focus returns as the drawer starts closing', async ({
+  test('the swipe-up entry is opaque when focus returns as the drawer starts closing', async ({
     page,
   }) => {
     await gotoApp(page, '/@alice.testnet');
     await dismissNextDevOverlay(page);
     const entry = page.getByRole('button', { name: 'Open page', exact: true });
-    await entry.waitFor({ state: 'visible' });
-    await entry.click();
+    await entry.waitFor({ state: 'attached' });
+    await entry.focus();
+    await page.keyboard.press('Enter');
     const panel = page.locator('.page-drawer-panel');
     await expect(panel).toBeVisible();
     await expect
@@ -190,7 +183,7 @@ test.describe('drawer pull gestures', () => {
           const target = event.target;
           const el =
             target instanceof Element
-              ? target.closest('.portfolio-page-chevron')
+              ? target.closest('.portfolio-page-entry')
               : null;
           if (!(el instanceof HTMLElement)) return;
           if (record.__chevronFocusOpacity != null) return;
@@ -223,7 +216,7 @@ test.describe('drawer pull gestures', () => {
     }
     await page.keyboard.press('Space');
     await expect(page.locator('.page-drawer-panel')).toBeVisible();
-    await expectChevronConcealed(page.locator('.portfolio-page-chevron'));
+    await expectChevronConcealed(page.locator('.portfolio-page-entry'));
     await page.keyboard.press('Escape');
     await expect(page.locator('.page-drawer-panel')).toHaveCount(0);
     await expect(entry).toBeFocused();
@@ -310,9 +303,7 @@ test.describe('drawer pull gestures', () => {
     await expectChevronConcealed(entry);
   });
 
-  test('launcher ignores a mouse drag and still closes from an emulated touch pull', async ({
-    page,
-  }) => {
+  test('launcher closes from a mouse drag on the grip', async ({ page }) => {
     await gotoApp(page, '/home');
     await dismissNextDevOverlay(page);
     await page.getByRole('button', { name: 'Open launcher' }).click();
@@ -320,12 +311,6 @@ test.describe('drawer pull gestures', () => {
     await expect(launcher).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     const grip = launcher.getByRole('button', { name: 'Drag down to close' });
     await mouseDrag(page, grip, 280);
-    await expect(launcher).toBeVisible();
-    const touchStart = await centerOf(grip);
-    await emulatedTouch(page, touchStart, [
-      { x: touchStart.x, y: touchStart.y + 80 },
-      { x: touchStart.x, y: touchStart.y + 260 },
-    ]);
     await expect(launcher).toBeHidden();
   });
 
@@ -366,14 +351,6 @@ test.describe('drawer pull gestures', () => {
 
     const grip = sheet.locator('.glass-sheet-drag');
     await mouseDrag(page, grip, 240);
-    await expect(sheet).toBeVisible();
-    expect(Math.abs(await translateY(sheet))).toBeLessThan(8);
-
-    const pull = await centerOf(grip);
-    await emulatedTouch(page, pull, [
-      { x: pull.x, y: pull.y + 80 },
-      { x: pull.x, y: pull.y + 240 },
-    ]);
     await expect(sheet).toBeVisible();
     await expect(
       page.getByRole('dialog', { name: 'Discard endorsement?' })
@@ -431,7 +408,7 @@ test.describe('drawer pull gestures', () => {
     );
   });
 
-  test('hub transfer ignores a mouse drag and still closes when close is allowed', async ({
+  test('hub transfer closes from a mouse drag when close is allowed', async ({
     page,
   }) => {
     await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
@@ -452,12 +429,6 @@ test.describe('drawer pull gestures', () => {
     await expect(transfer).toBeVisible();
     const grip = transfer.locator('.glass-sheet-drag');
     await mouseDrag(page, grip, 240);
-    await expect(transfer).toBeVisible();
-    const pull = await centerOf(grip);
-    await emulatedTouch(page, pull, [
-      { x: pull.x, y: pull.y + 80 },
-      { x: pull.x, y: pull.y + 260 },
-    ]);
     await expect(transfer).toBeHidden();
   });
 });
@@ -470,7 +441,9 @@ test.describe('sheet body pulls', () => {
   }) => {
     await gotoApp(page, '/@alice.testnet');
     await dismissNextDevOverlay(page);
-    await page.getByRole('button', { name: 'Open page', exact: true }).click();
+    const entry = page.getByRole('button', { name: 'Open page', exact: true });
+    await entry.focus();
+    await page.keyboard.press('Enter');
     const panel = page.locator('.page-drawer-panel');
     await expect(panel).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     await expect
@@ -546,78 +519,39 @@ test.describe('sheet body pulls', () => {
   });
 });
 
-test.describe('covered chevron keyboard', () => {
+test.describe('keyboard page entry', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
-  test('a covered chevron stays in the tab order and shows when focused', async ({
+  test('the swipe-up entry stays hidden until focused, then opens the page', async ({
     page,
   }) => {
     await gotoApp(page, '/@alice.testnet');
     await dismissNextDevOverlay(page);
-    await page.evaluate(() => {
-      document.documentElement.style.fontSize = '32px';
-      window.dispatchEvent(new Event('resize'));
-    });
-    await page.waitForTimeout(800);
-    const chevron = page.locator('.portfolio-page-chevron');
-    const coveredNow = await chevron.evaluate((el) => {
-      const style = getComputedStyle(el);
-      return (
-        style.opacity === '0' ||
-        style.display === 'none' ||
-        el.hasAttribute('hidden')
-      );
-    });
-    if (!coveredNow) {
-      await page.evaluate(() => {
-        const el = document.querySelector('.portfolio-page-chevron');
-        if (!(el instanceof HTMLElement)) return;
-        const rect = el.getBoundingClientRect();
-        const caption = document.createElement('p');
-        caption.setAttribute('data-standing-caption', '');
-        caption.textContent = 'STANDING·SOLIDARITY·ENDORSEMENTS';
-        caption.style.position = 'fixed';
-        caption.style.left = `${rect.left - 8}px`;
-        caption.style.top = `${rect.top - 8}px`;
-        caption.style.width = `${rect.width + 16}px`;
-        caption.style.height = `${rect.height + 16}px`;
-        caption.style.margin = '0';
-        document.body.appendChild(caption);
-        window.dispatchEvent(new Event('resize'));
-      });
-    }
-    await expect
-      .poll(() =>
-        chevron.evaluate((el) => {
-          const style = getComputedStyle(el);
-          return (
-            style.opacity === '0' ||
-            style.display === 'none' ||
-            el.hasAttribute('hidden')
-          );
-        })
-      )
-      .toBe(true);
-    await expect(chevron).toHaveAttribute('aria-label', 'Open page');
-    await expect(chevron).toHaveAccessibleName('Open page');
+    const entry = page.locator('.portfolio-page-entry');
+    await expectChevronConcealed(entry);
+    await expect(entry).toHaveAttribute('aria-label', 'Open page');
+    await expect(entry).toHaveAccessibleName('Open page');
     for (let step = 0; step < 50; step += 1) {
-      if (await chevron.evaluate((el) => el === document.activeElement)) break;
+      if (await entry.evaluate((el) => el === document.activeElement)) break;
       await page.keyboard.press('Tab');
     }
-    await expect(chevron).toBeFocused();
+    await expect(entry).toBeFocused();
     await expect
-      .poll(() => chevron.evaluate((el) => getComputedStyle(el).opacity))
+      .poll(() => entry.evaluate((el) => getComputedStyle(el).opacity))
       .toBe('1');
+    await expect(entry.locator('.portfolio-page-entry-label')).toHaveText(
+      'Swipe up'
+    );
     await page.keyboard.press('Enter');
     await expect(page.locator('.page-drawer-panel')).toBeVisible();
     await expect
-      .poll(() => chevron.evaluate((el) => el.getAttribute('aria-hidden')))
+      .poll(() => entry.evaluate((el) => el.getAttribute('aria-hidden')))
       .toBe('true');
-    await expect.poll(() => chevron.evaluate((el) => el.tabIndex)).toBe(-1);
+    await expect.poll(() => entry.evaluate((el) => el.tabIndex)).toBe(-1);
     let reached = false;
     for (let step = 0; step < 16; step += 1) {
       await page.keyboard.press('Tab');
-      if (await chevron.evaluate((el) => el === document.activeElement)) {
+      if (await entry.evaluate((el) => el === document.activeElement)) {
         reached = true;
         break;
       }
@@ -626,30 +560,29 @@ test.describe('covered chevron keyboard', () => {
   });
 });
 
-test.describe('page chevron on a wide desktop', () => {
+test.describe('page entry on a wide desktop', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
-  test('a mouse click opens the page and leaves the launcher closed', async ({
+  test('keyboard opens the page and leaves the launcher closed', async ({
     page,
   }) => {
     await gotoApp(page, '/@alice.testnet');
     await dismissNextDevOverlay(page);
     const entry = page.getByRole('button', { name: 'Open page', exact: true });
-    await entry.click();
+    await expectChevronConcealed(entry);
+    await entry.focus();
+    await page.keyboard.press('Enter');
     await expect(page.locator('.page-drawer-panel')).toBeVisible();
     await expect(
       page.getByRole('dialog', { name: 'OnSocial launcher' })
     ).toHaveCount(0);
-    await expectChevronConcealed(page.locator('.portfolio-page-chevron'));
+    await expectChevronConcealed(page.locator('.portfolio-page-entry'));
     await page.keyboard.press('Escape');
     await expect(page.locator('.page-drawer-panel')).toHaveCount(0);
     await expect(entry).toBeFocused();
-    const visible = await entry.boundingBox();
-    expect(Math.round(visible!.width)).toBe(30);
-    expect(Math.round(visible!.height)).toBe(30);
   });
 
-  test('a focused page chevron stays available when text grows', async ({
+  test('a focused page entry stays available when text grows', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -667,10 +600,10 @@ test.describe('page chevron on a wide desktop', () => {
   });
 });
 
-test.describe('page chevron and hint clearance', () => {
+test.describe('page entry and hint clearance', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test('the visible hint stays clear of the chevron and the standing label', async ({
+  test('the teaching hint stays clear of the standing label', async ({
     page,
   }) => {
     await gotoApp(page, '/@alice.testnet');
@@ -710,7 +643,6 @@ test.describe('page chevron and hint clearance', () => {
             '.portfolio-summon-dock .portfolio-summon-hint'
           )
         );
-        const chevron = box(document.querySelector('.portfolio-page-chevron'));
         const label = box(
           [...document.querySelectorAll('p, span')].find((el) =>
             (el.textContent || '').includes('STANDING·SOLIDARITY·ENDORSEMENTS')
@@ -718,33 +650,19 @@ test.describe('page chevron and hint clearance', () => {
         );
         return {
           hint: Boolean(hint),
-          chevron: Boolean(chevron),
-          hintChevron: meet(hint, chevron),
           hintLabel: meet(hint, label),
-          chevronLabel: meet(chevron, label),
         };
       });
-    const clear = {
-      chevron: true,
-      hintChevron: false,
-      hintLabel: false,
-      chevronLabel: false,
-    };
-    await expect.poll(read).toMatchObject({ ...clear, hint: true });
+    await expect.poll(read).toMatchObject({ hint: true, hintLabel: false });
     await page.evaluate(() => {
       document.documentElement.style.fontSize = '32px';
       window.dispatchEvent(new Event('resize'));
     });
-    await expect.poll(read).toMatchObject(clear);
+    await expect.poll(read).toMatchObject({ hintLabel: false });
     await page.evaluate(() => {
       document.documentElement.style.fontSize = '16px';
       window.dispatchEvent(new Event('resize'));
     });
-    await expect.poll(read).toMatchObject({ ...clear, hint: true });
-    await page.evaluate(() => {
-      document.documentElement.style.fontSize = '32px';
-      window.dispatchEvent(new Event('resize'));
-    });
-    await expect.poll(read).toMatchObject(clear);
+    await expect.poll(read).toMatchObject({ hint: true, hintLabel: false });
   });
 });

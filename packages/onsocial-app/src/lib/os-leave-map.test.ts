@@ -80,11 +80,12 @@ describe('os leave map', () => {
     });
   });
 
-  it('leaves a cold post permalink to Home', () => {
+  it('leaves a cold post permalink to Home from the header', () => {
     expect(row('personal-post')).toMatchObject({
-      dockBack: true,
+      dockBack: false,
       parent: APP_HOME_PATH,
       verdict: 'matches',
+      note: expect.stringMatching(/Header leave/),
     });
   });
 

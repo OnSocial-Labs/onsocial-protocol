@@ -25,8 +25,9 @@ export interface OsAppScreenProps {
   subtitle?: string;
   backFallbackHref?: string;
   /**
-   * Optional header leading control (studio / composer close — ×).
-   * Leave is `dockBack` — not an implicit header chevron.
+   * Optional header leading control. Studio / composer close uses ×.
+   * Composer-first leave (Post, Messages thread) uses `OsHeaderBack`.
+   * Index leave stays `dockBack` in the summon dock.
    */
   leading?: ReactNode | null;
   /** Icon actions pinned opposite the back button (e.g. settings). */
@@ -85,8 +86,9 @@ export interface OsAppScreenProps {
    */
   footer?: ReactNode;
   /**
-   * Summon launcher. Leave is `dockBack`. Footer / header CTAs own Connect
-   * via `headerOwnsConnect` — do not turn the dock off to hide it.
+   * Summon launcher. Index leave is `dockBack`; composer-first leave is
+   * `OsHeaderBack` in `leading`. Footer / header CTAs own Connect via
+   * `headerOwnsConnect` — do not turn the dock off to hide it.
    */
   launcher?: boolean;
   /** Scroll container for nested infinite lists (`.os-app-screen-body`). */
@@ -180,6 +182,7 @@ export function OsAppScreen({
   useRegisterDockBack(dockBackEntry);
   useRegisterHeaderOwnsConnect(headerOwnsConnect);
   const navBackInDock = dockBack && leading === undefined;
+  const headerBack = Boolean(leading != null && !dockBack);
   const showNavRow =
     !compactChrome ||
     Boolean(actions || subtitle || heading) ||
@@ -233,6 +236,7 @@ export function OsAppScreen({
         glassMode && nestedScrollChrome ? 'true' : undefined
       }
       data-dock-back={dockBack ? 'true' : undefined}
+      data-header-back={headerBack ? 'true' : undefined}
       data-header-owns-connect={headerOwnsConnect ? '' : undefined}
       data-scroll-tuck={scrollTuck}
       data-screen-footer={hasFooter ? 'true' : undefined}

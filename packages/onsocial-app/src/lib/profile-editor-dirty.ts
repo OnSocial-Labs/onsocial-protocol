@@ -17,6 +17,7 @@ import {
   formatProfileLinkForEditor,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
+import { profileEditorShownName } from '@/lib/profile-display';
 import { profileEditorTagsEqual } from '@/lib/profile-tag-editor';
 import {
   portfolioWebsitesCopyEqual,
@@ -77,7 +78,9 @@ export function isProfileEditorContentDirty(input: {
 
   if (
     normalizeProfileEditorName(input.name) !==
-    normalizeProfileEditorName(input.snapshot.name)
+    normalizeProfileEditorName(
+      profileEditorShownName(input.snapshot.accountId, input.snapshot.name)
+    )
   ) {
     return true;
   }

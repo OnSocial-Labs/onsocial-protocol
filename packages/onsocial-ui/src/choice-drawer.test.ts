@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   choiceDrawerHasPersistedSelection,
+  choiceDrawerOptionSelected,
   osChoiceChipClassName,
   osChoiceSheetBodyClassName,
   osChoiceSheetPanelClassName,
@@ -31,6 +32,20 @@ describe('choiceDrawerHasPersistedSelection', () => {
       true
     );
     expect(choiceDrawerHasPersistedSelection('missing', options)).toBe(false);
+  });
+});
+
+describe('choiceDrawerOptionSelected', () => {
+  it('marks one value, or every value in a set', () => {
+    expect(choiceDrawerOptionSelected('writer', 'writer')).toBe(true);
+    expect(choiceDrawerOptionSelected('artist', 'writer')).toBe(false);
+    expect(
+      choiceDrawerOptionSelected('writer', 'artist', ['writer', 'artist'])
+    ).toBe(true);
+    expect(
+      choiceDrawerOptionSelected('founder', 'artist', ['writer', 'artist'])
+    ).toBe(false);
+    expect(choiceDrawerOptionSelected('writer', 'writer', [])).toBe(false);
   });
 });
 

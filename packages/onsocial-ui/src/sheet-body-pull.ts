@@ -103,9 +103,13 @@ export function sheetShouldClaimFirstDownwardMove(input: {
   return input.dy > 0 && input.dy >= Math.abs(input.dx);
 }
 
-/** Body pull tracks touch and pen. A mouse drag must not dismiss. */
+/** Body pull tracks mouse, touch, and pen. Selection stays until pull confirms. */
 export function sheetPullPointerCanDrag(pointerType: string): boolean {
-  return pointerType === 'touch' || pointerType === 'pen';
+  return (
+    pointerType === 'mouse' ||
+    pointerType === 'touch' ||
+    pointerType === 'pen'
+  );
 }
 
 /** Selection stays available until a pull is confirmed. */

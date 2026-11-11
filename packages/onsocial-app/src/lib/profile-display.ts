@@ -1,6 +1,7 @@
 import { truncateAccountId } from '@onsocial/sdk';
 import {
   formatNearAccountDisplayName,
+  formatNearAccountFallbackTitle,
   resolveNearAccountCustomName,
 } from '@onsocial/ui';
 import { isImplicitNearAccountId } from '@/lib/account-match';
@@ -85,6 +86,18 @@ export function displayName(
   profileName?: string | null
 ): string {
   return formatNearAccountDisplayName(accountId, profileName);
+}
+
+/**
+ * Editor name line. A stored name wins. With none set, show the same spoken
+ * title as the face (`Alice` from `alice.testnet`, `green-ghost.tg`, `bob.near`).
+ */
+export function profileEditorShownName(
+  accountId: string,
+  storedName?: string | null
+): string {
+  if (storedName?.trim()) return storedName;
+  return formatNearAccountFallbackTitle(accountId);
 }
 
 /** Account drawer — primary line when viewing your own sheet. */

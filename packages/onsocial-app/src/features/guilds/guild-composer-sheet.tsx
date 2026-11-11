@@ -1320,12 +1320,52 @@ export function ComposerSheet({
     />
   ) : null;
 
+  const articleFormatToolbar =
+    articleMode && articleWriting ? (
+      <div className="profile-about-edit-format-toolbar" data-active="true">
+        <div
+          ref={setArticleFormatHost}
+          className="profile-about-edit-format-tools"
+          aria-label="Text formatting"
+        />
+        <div
+          className="profile-about-edit-align-tools"
+          role="group"
+          aria-label="Article alignment"
+        >
+          {PROFILE_ABOUT_ALIGN_OPTIONS.map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={`account-editor-bio-tool profile-about-edit-align-tool${
+                articleAlign === option ? ' is-active' : ''
+              }`}
+              aria-label={
+                option === 'left'
+                  ? 'Align left'
+                  : option === 'center'
+                    ? 'Align center'
+                    : 'Justify'
+              }
+              aria-pressed={articleAlign === option}
+              disabled={pending}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => patchBeat(safeFocus, { articleAlign: option })}
+            >
+              <ProfileAlignToolIcon option={option} />
+            </button>
+          ))}
+        </div>
+      </div>
+    ) : null;
+
   const composerFooter = (
     <div
       className={`guild-composer-sheet-footer${
         keyboardOpen ? ' is-keyboard-open' : ''
       }`}
     >
+      {articleFormatToolbar}
       <div className="guild-composer-toolbar">
         <div
           className="guild-composer-toolbar-tools os-scrollbar-none"
@@ -1585,50 +1625,6 @@ export function ComposerSheet({
               : showArticleRail
                 ? articleChipRail
                 : undefined
-          }
-          toolbar={
-            articleMode && articleWriting ? (
-              <div
-                className="profile-about-edit-format-toolbar"
-                data-active="true"
-              >
-                <div
-                  ref={setArticleFormatHost}
-                  className="profile-about-edit-format-tools"
-                  aria-label="Text formatting"
-                />
-                <div
-                  className="profile-about-edit-align-tools"
-                  role="group"
-                  aria-label="Article alignment"
-                >
-                  {PROFILE_ABOUT_ALIGN_OPTIONS.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      className={`account-editor-bio-tool profile-about-edit-align-tool${
-                        articleAlign === option ? ' is-active' : ''
-                      }`}
-                      aria-label={
-                        option === 'left'
-                          ? 'Align left'
-                          : option === 'center'
-                            ? 'Align center'
-                            : 'Justify'
-                      }
-                      aria-pressed={articleAlign === option}
-                      disabled={pending}
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() =>
-                        patchBeat(safeFocus, { articleAlign: option })
-                      }
-                    >
-                      <ProfileAlignToolIcon option={option} />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null
           }
           actions={
             <OsSheetActions

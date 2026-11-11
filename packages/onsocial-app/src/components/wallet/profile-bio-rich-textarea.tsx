@@ -9,8 +9,20 @@ export type ProfileBioRichTool = OsRichTextTool;
  * Profile bio field — contenteditable WYSIWYG backed by markdown marks.
  * Pass `tools={[]}` for face bio (no chrome; bold/italic still paste).
  * About keeps the default toolbar (bold / italic / list / heading).
- * Pass `chromePortal` to pin tools under the About sheet header.
+ * Pass `chromePortal` to pin tools in the sheet footer row.
  */
+export function profileFormatFocusStays(
+  event: { relatedTarget: EventTarget | null },
+  host: HTMLElement | null
+) {
+  const next = event.relatedTarget;
+  if (!(next instanceof Node)) return false;
+  if (host?.contains(next)) return true;
+  return (
+    next instanceof Element &&
+    Boolean(next.closest('.profile-about-edit-format-toolbar'))
+  );
+}
 export function ProfileBioRichTextarea({
   value,
   onChange,

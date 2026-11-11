@@ -89,7 +89,6 @@ export function buildDiscoverCraftChoiceOptions(
 export function buildProfileCraftEditorOptions(
   selected: readonly string[]
 ): ChoiceOption<string>[] {
-  const selectedSet = new Set(selected);
   const seedIds = new Set(
     PROFILE_CRAFT_SUGGESTIONS.map((option) => option.id as string)
   );
@@ -99,7 +98,6 @@ export function buildProfileCraftEditorOptions(
       value: option.id,
       label: option.label,
       section: 'Crafts',
-      description: selectedSet.has(option.id) ? 'Selected' : undefined,
     })
   );
 
@@ -109,7 +107,6 @@ export function buildProfileCraftEditorOptions(
       value: slug,
       label: profileIdentityTopicLabel(slug),
       section: 'Yours',
-      description: 'Selected',
     }));
 
   return [
@@ -124,7 +121,7 @@ export function buildProfileCraftEditorOptions(
   ];
 }
 
-/** Drawer highlight — last selected craft, else none. */
+/** Last chosen craft. The drawer still takes one value; ticks use the full set. */
 export function profileCraftDrawerValue(selected: readonly string[]): string {
   return selected[selected.length - 1] ?? '';
 }

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsHeaderBack } from '@/components/app/os-header-back';
 import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -993,10 +994,10 @@ export function LiveGuildPostPanel({
   const threadScreen = (
     <OsAppScreen
       title="Post"
-      dockBack
       glassChrome
       compactChrome
       backFallbackHref={guildPath(groupId)}
+      leading={<OsHeaderBack fallbackHref={guildPath(groupId)} />}
     >
       <div className={GUILDS_PAGE_CLASS}>
         {loadState === 'loading' ? <PostRowSkeleton rows={4} /> : null}

@@ -1,5 +1,6 @@
 'use client';
 
+import { settleKeyboardDrawerMetrics } from '@onsocial/ui';
 import { useEffect, useState, type CSSProperties } from 'react';
 
 /** One lift token for every layout-pinned bar (write dock, messages, create). */
@@ -33,6 +34,17 @@ const IDLE: VisualViewportSheetMetrics = {
   isMobile: false,
 };
 
+/** Keyboard overlap with the layout viewport. Same pixels drawers use. */
+export function readKeyboardOverlapPx(): number {
+  if (typeof window === 'undefined') return 0;
+  const viewport = window.visualViewport;
+  if (!viewport) return 0;
+  return Math.max(
+    0,
+    Math.round(window.innerHeight - viewport.height - viewport.offsetTop)
+  );
+}
+
 function readMetrics(): VisualViewportSheetMetrics {
   if (typeof window === 'undefined') return IDLE;
 
@@ -48,12 +60,8 @@ function readMetrics(): VisualViewportSheetMetrics {
     };
   }
 
-  const lift = Math.max(
-    0,
-    Math.round(window.innerHeight - viewport.height - viewport.offsetTop)
-  );
   return {
-    lift,
+    lift: readKeyboardOverlapPx(),
     height: Math.round(viewport.height),
     isMobile: true,
   };
@@ -62,6 +70,8 @@ function readMetrics(): VisualViewportSheetMetrics {
 /**
  * Tracks visualViewport so bottom sheets can shrink/lift above the mobile
  * keyboard (iOS often leaves layout `dvh` unchanged).
+ * Resize is the keyboard. Scroll is the caret chase, and a suggestion bar
+ * is smaller than a keyboard — neither should move a pinned action.
  */
 export function useVisualViewportSheetMetrics(
   active: boolean
@@ -74,29 +84,19 @@ export function useVisualViewportSheetMetrics(
     }
 
     const sync = () => {
-      setMetrics((current) => {
-        const next = readMetrics();
-        if (
-          current.lift === next.lift &&
-          current.height === next.height &&
-          current.isMobile === next.isMobile
-        ) {
-          return current;
-        }
-        return next;
-      });
+      setMetrics((current) =>
+        settleKeyboardDrawerMetrics(current, readMetrics())
+      );
     };
 
     const viewport = window.visualViewport;
     viewport?.addEventListener('resize', sync);
-    viewport?.addEventListener('scroll', sync);
     window.addEventListener('resize', sync);
     // Defer initial read so we don't sync setState in the effect body.
     const frame = window.requestAnimationFrame(sync);
     return () => {
       window.cancelAnimationFrame(frame);
       viewport?.removeEventListener('resize', sync);
-      viewport?.removeEventListener('scroll', sync);
       window.removeEventListener('resize', sync);
     };
   }, [active]);

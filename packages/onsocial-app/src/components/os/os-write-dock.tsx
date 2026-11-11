@@ -22,9 +22,9 @@ import {
   type WriteDockSubmit,
 } from '@/contexts/compose-launcher-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import {
   OS_KEYBOARD_LIFT_VAR,
+  readKeyboardOverlapPx,
   useVisualViewportSheetMetrics,
 } from '@/hooks/use-visual-viewport-sheet';
 import {
@@ -58,6 +58,13 @@ import {
   readWriteDockDraft,
   writeWriteDockDraft,
 } from '@/lib/os-write-dock-draft';
+import {
+  dockRisePx,
+  isScrolledToEnd,
+  messagesThreadBody,
+  pinMessagesToLatest,
+  shiftFeedForDock,
+} from '@/lib/write-dock-keyboard-hold';
 
 const WRITE_KEYBOARD_LIFT_VAR = OS_KEYBOARD_LIFT_VAR;
 
@@ -158,7 +165,6 @@ export function OsWriteDock({
   const fieldId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
-  const scrollFieldIntoView = useMobileFieldFocusScroll<HTMLTextAreaElement>();
   const {
     registerWriteFocus,
     setWritePinned,
@@ -355,15 +361,73 @@ export function OsWriteDock({
     setIsTall((current) => (current === dockExpanded ? current : dockExpanded));
   }, [hasErrorChrome, hasReplyChrome, keyboardOpen, text]);
 
-  /* Focus + vv lift — dock rises with keys; read icons tuck in the same beat. */
+  /*
+   * The launcher and the feed move by the same pixels in one frame.
+   * A later smooth scroll is the hop: the posts glide while the pill snaps.
+   */
   useLayoutEffect(() => {
+    if (!viewport.isMobile) return;
     const dock =
       textRef.current?.closest<HTMLElement>('.portfolio-summon-dock') ?? null;
-    syncWriteKeyboardChrome(dock, keysChromeOpen, viewport.lift);
-    return () => {
-      syncWriteKeyboardChrome(dock, false, 0);
+    if (!dock) return;
+
+    let frame = 0;
+    let stopped = false;
+    let lastTop = dock.getBoundingClientRect().top;
+    let stableFrames = 0;
+
+    const follow = () => {
+      if (stopped) return;
+      const thread = messagesThreadBody(dock);
+      const pinned = thread
+        ? isScrolledToEnd(
+            thread.scrollTop,
+            thread.scrollHeight,
+            thread.clientHeight
+          )
+        : false;
+      const lift = readKeyboardOverlapPx();
+      syncWriteKeyboardChrome(dock, keysChromeOpen && lift > 0, lift);
+      const rise = dockRisePx(lastTop, dock.getBoundingClientRect().top);
+      let moved = rise !== 0;
+      if (thread) {
+        if (pinned) {
+          const before = thread.scrollTop;
+          pinMessagesToLatest(thread);
+          if (thread.scrollTop !== before) moved = true;
+        }
+      } else if (rise !== 0) {
+        shiftFeedForDock(dock, rise);
+      }
+      lastTop = dock.getBoundingClientRect().top;
+      stableFrames = moved ? 0 : stableFrames + 1;
+      if (stableFrames < 12) {
+        frame = window.requestAnimationFrame(follow);
+      }
     };
-  }, [keysChromeOpen, viewport.lift]);
+
+    follow();
+    return () => {
+      stopped = true;
+      window.cancelAnimationFrame(frame);
+      const before = dock.getBoundingClientRect().top;
+      const thread = messagesThreadBody(dock);
+      const pinned = thread
+        ? isScrolledToEnd(
+            thread.scrollTop,
+            thread.scrollHeight,
+            thread.clientHeight
+          )
+        : false;
+      syncWriteKeyboardChrome(dock, false, 0);
+      const rise = dockRisePx(before, dock.getBoundingClientRect().top);
+      if (thread) {
+        if (pinned) pinMessagesToLatest(thread);
+      } else if (rise !== 0) {
+        shiftFeedForDock(dock, rise);
+      }
+    };
+  }, [viewport.isMobile, keysChromeOpen, viewport.lift]);
 
   const removeMediaAt = (index: number) => {
     setMediaFiles((current) => {
@@ -572,16 +636,9 @@ export function OsWriteDock({
               setText(next);
               persistDraft(next, mediaFiles);
             }}
-            onFocus={(event) => {
+            onFocus={() => {
               setFieldFocused(true);
               setTrackKeyboard(true);
-              const dock =
-                event.currentTarget.closest<HTMLElement>(
-                  '.portfolio-summon-dock'
-                ) ?? null;
-              // Same frame as press — don't wait for layout effect.
-              syncWriteKeyboardChrome(dock, true, viewport.lift);
-              scrollFieldIntoView(event);
             }}
             onBlur={() => {
               const field = textRef.current;

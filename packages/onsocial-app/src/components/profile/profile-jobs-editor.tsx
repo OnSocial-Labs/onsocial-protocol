@@ -27,7 +27,10 @@ import {
   AppDateSheet,
   formatAppDateFieldLabel,
 } from '@/components/ui/app-date-sheet';
-import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-textarea';
+import {
+  ProfileBioRichTextarea,
+  profileFormatFocusStays,
+} from '@/components/wallet/profile-bio-rich-textarea';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -83,6 +86,8 @@ export function ProfileJobsEditor({
   const [url, setUrl] = useState('');
   const [ends, setEnds] = useState('');
   const [busy, setBusy] = useState(false);
+  const [describing, setDescribing] = useState(false);
+  const [formatHost, setFormatHost] = useState<HTMLDivElement | null>(null);
 
   const sheetOpen = openProp ?? uncontrolledOpen;
   const setSheetOpen = onOpenChange ?? setUncontrolledOpen;
@@ -117,6 +122,7 @@ export function ProfileJobsEditor({
     setDescription('');
     setUrl('');
     setEnds('');
+    setDescribing(false);
   };
 
   const closeForm = () => {
@@ -343,6 +349,18 @@ export function ProfileJobsEditor({
         zIndex={SHEET_Z.overlayNested}
         footer={
           <OsSheetFooter>
+            {describing ? (
+              <div
+                className="profile-about-edit-format-toolbar"
+                data-active="true"
+              >
+                <div
+                  ref={setFormatHost}
+                  className="profile-about-edit-format-tools"
+                  aria-label="Text formatting"
+                />
+              </div>
+            ) : null}
             <OsSheetActions layout="stack" tone="frosted-primary" borderless>
               {isEditing ? (
                 <OsSheetAction
@@ -400,6 +418,12 @@ export function ProfileJobsEditor({
                 tools={['bold', 'italic', 'list']}
                 className="account-editor-sheet-bio"
                 disabled={busy}
+                chromePortal={describing ? formatHost : null}
+                onFocus={() => setDescribing(true)}
+                onBlur={(event) => {
+                  if (profileFormatFocusStays(event, formatHost)) return;
+                  setDescribing(false);
+                }}
                 onChange={setDescription}
               />
             </div>

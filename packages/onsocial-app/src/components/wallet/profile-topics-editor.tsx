@@ -212,6 +212,7 @@ export function ProfileTopicsEditor({
         label="Crafts"
         copy="Up to 3. Tap again to remove."
         value={profileCraftDrawerValue(tags)}
+        values={tags}
         options={options}
         onChange={handleChoice}
         closeOnSelect={false}

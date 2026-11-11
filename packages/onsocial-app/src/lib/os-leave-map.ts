@@ -260,10 +260,10 @@ export const OS_LEAVE_MAP = [
     id: 'personal-post',
     place: 'Post',
     route: '/@[accountId]/posts/[postId]',
-    dockBack: true,
+    dockBack: false,
     parent: APP_HOME_PATH,
     verdict: 'matches',
-    note: 'Cold permalink. In-app opens as an appear page sheet over the current place.',
+    note: 'Cold permalink. Header leave (OsHeaderBack) keeps the write dock avatar + field only. In-app opens as an appear page sheet over the current place.',
   },
 ] as const satisfies readonly OsLeaveMapRow[];
 

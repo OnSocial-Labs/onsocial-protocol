@@ -124,7 +124,6 @@ export function PortfolioSummonDock({
   const writePinned = useWriteDockPinned();
   const writeMorph = useWriteDockMorph();
   const write = compose?.type === 'write' ? compose.entry : null;
-  const [chevronCovered, setChevronCovered] = useState(false);
   const [hintCovered, setHintCovered] = useState(false);
   const registeredDockBack = useDockBack();
   const { leaveHref: faceLeaveHref, consumeLeave } = useOsFaceLeave();
@@ -146,35 +145,8 @@ export function PortfolioSummonDock({
     const dock = dockRef.current;
     if (!dock) return;
     let frame = 0;
-    const lengthPx = (value: string, font: number) => {
-      const text = value.trim();
-      if (text.endsWith('rem')) return Number.parseFloat(text) * font;
-      if (text.endsWith('px')) return Number.parseFloat(text);
-      return Number.NaN;
-    };
     const measure = () => {
-      if (pageDrawerOpen) {
-        setChevronCovered(false);
-        return;
-      }
-      const pill = dock.querySelector(
-        '.os-dock-pill:not(.portfolio-page-chevron)'
-      );
-      const chevron = dock.querySelector('.portfolio-page-chevron');
-      if (!(pill instanceof HTMLElement)) return;
-      const font =
-        Number.parseFloat(
-          getComputedStyle(document.documentElement).fontSize
-        ) || 16;
-      const size = lengthPx(
-        getComputedStyle(document.documentElement).getPropertyValue(
-          '--os-avatar-nav'
-        ),
-        font
-      );
-      const gap = 0.25 * font;
-      if (!Number.isFinite(size) || size <= 0) return;
-      const pillRect = pill.getBoundingClientRect();
+      if (pageDrawerOpen) return;
       const outside = (el: Element) =>
         !dock.contains(el) && !el.closest('.glass-sheet-root');
       const regionHits = (meet: (rect: FloatBox) => boolean) => {
@@ -215,16 +187,6 @@ export function PortfolioSummonDock({
         }
         return false;
       };
-      const chevronBox = chevronFloatBox(pillRect, size, gap);
-      let covered = regionHits((rect) => boxesMeet(chevronBox, rect));
-      if (
-        covered &&
-        chevron instanceof HTMLElement &&
-        document.activeElement === chevron
-      ) {
-        covered = false;
-      }
-      setChevronCovered((prev) => (prev === covered ? prev : covered));
       const hint = dock.querySelector('.portfolio-summon-hint');
       if (hint instanceof HTMLElement) {
         const wasHidden = hint.hidden;
@@ -270,8 +232,6 @@ export function PortfolioSummonDock({
         characterData: true,
       });
     }
-    const chevron = dock.querySelector('.portfolio-page-chevron');
-    chevron?.addEventListener('blur', schedule);
     window.addEventListener('resize', schedule);
     document.fonts?.addEventListener('loadingdone', schedule);
     const transitionTargets: Element[] = [dock];
@@ -292,7 +252,6 @@ export function PortfolioSummonDock({
       cancelAnimationFrame(frame);
       observer.disconnect();
       mutations.disconnect();
-      chevron?.removeEventListener('blur', schedule);
       window.removeEventListener('resize', schedule);
       document.fonts?.removeEventListener('loadingdone', schedule);
       for (const target of transitionTargets) {
@@ -440,7 +399,6 @@ export function PortfolioSummonDock({
             <PortfolioPageContentEntry
               open={pageDrawerOpen}
               concealed={pageDrawerOpen && !pageDrawerClosing}
-              covered={chevronCovered}
               onOpen={() => {
                 dismissHint();
                 openPageDrawer();

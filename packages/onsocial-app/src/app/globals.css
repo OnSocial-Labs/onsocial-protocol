@@ -1136,6 +1136,10 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
 .glass-sheet-panel.guild-composer-sheet-panel
   .os-app-screen--embedded
   .os-app-screen-column,
+.glass-sheet-panel.profile-edit-sheet-panel
+  .os-app-screen--embedded
+  .os-app-screen-column,
+.os-slide-over.profile-about-edit-slide > .os-app-screen-column,
 .glass-sheet-panel.post-thread-sheet-panel
   .os-app-screen--embedded
   .os-app-screen-column,
@@ -2000,6 +2004,250 @@ button.market-listing-title-link {
   > .os-app-screen-header
   .glass-sheet-icon-action {
   pointer-events: auto;
+}
+
+/*
+ * Edit profile, Edit guild, Hub manage. The cover starts under a clear
+ * header, so the chevron and the words use the same on-media disc and pill.
+ * No full-width frost — that would reserve a bar across the cover.
+ */
+.profile-edit-slide > .os-app-screen-column > .os-app-screen-header::before,
+.guild-edit-slide > .os-app-screen-column > .os-app-screen-header::before,
+.hub-manage-slide > .os-app-screen-column > .os-app-screen-header::before {
+  content: none;
+}
+
+.profile-edit-slide
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action,
+.guild-edit-slide
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action,
+.hub-manage-slide
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action {
+  position: relative;
+  background: transparent;
+  color: var(--app-on-media-ink);
+  filter: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.profile-edit-slide
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action::before,
+.guild-edit-slide
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action::before,
+.hub-manage-slide
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 9999px;
+  background: var(--app-scrim-media);
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+}
+
+.profile-edit-slide
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action
+  > *,
+.guild-edit-slide
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action
+  > *,
+.hub-manage-slide
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action
+  > * {
+  position: relative;
+  z-index: 1;
+  color: var(--app-on-media-ink);
+  opacity: 1;
+}
+
+.profile-edit-slide
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action:hover,
+.profile-edit-slide
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action:focus-visible,
+.guild-edit-slide
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action:hover,
+.guild-edit-slide
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action:focus-visible,
+.hub-manage-slide
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action:hover,
+.hub-manage-slide
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action:focus-visible {
+  background: transparent;
+  color: rgb(255 255 255 / 1);
+}
+
+.profile-edit-slide
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action:hover::before,
+.profile-edit-slide
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action:focus-visible::before,
+.guild-edit-slide
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action:hover::before,
+.guild-edit-slide
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action:focus-visible::before,
+.hub-manage-slide
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action:hover::before,
+.hub-manage-slide
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action:focus-visible::before {
+  background: var(--app-scrim-media-hover);
+}
+
+.guild-edit-slide .os-app-screen-heading,
+.hub-manage-slide .os-app-screen-heading {
+  flex: 0 1 auto;
+  align-self: center;
+  width: fit-content;
+  min-width: 0;
+  max-width: calc(100% - 3.6rem);
+  padding: 0.28rem 0.72rem;
+  border-radius: 9999px;
+  background: var(--app-scrim-media);
+  color: var(--app-on-media-ink);
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+/*
+ * Edit profile and About share one bar. The chevron keeps the Post hit.
+ * The title stays in the row after that hit, so the word starts in one place.
+ * The inner screen does not draw the card frame — that border inset the
+ * Edit profile chevron by 1px against the borderless About layer.
+ */
+.portfolio-frame > .os-slide-over.profile-about-edit-slide,
+.app-surface > .os-slide-over.profile-about-edit-slide,
+.glass-sheet-panel.profile-edit-sheet-panel
+  .os-app-screen.app-surface.os-app-screen--embedded {
+  box-sizing: border-box;
+  max-width: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+.portfolio-frame > .os-slide-over.profile-about-edit-slide,
+.app-surface > .os-slide-over.profile-about-edit-slide {
+  inset: -1px;
+}
+
+.profile-edit-slide > .os-app-screen-column > .os-app-screen-header,
+.glass-sheet-panel.profile-edit-sheet-panel
+  .profile-edit-slide
+  > .os-app-screen-column
+  > .os-app-screen-header {
+  padding: calc(
+      env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y, 0.3rem)
+    )
+    max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px))
+    var(--os-app-chrome-pad-y, 0.3rem)
+    max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
+}
+
+.profile-edit-slide .os-app-screen-nav-row {
+  position: relative;
+  align-items: center;
+  height: var(--os-nav-band, 2.35rem);
+  min-height: var(--os-nav-band, 2.35rem);
+  max-height: var(--os-nav-band, 2.35rem);
+}
+
+.profile-edit-slide .os-app-screen-nav-row .glass-sheet-icon-action {
+  flex: 0 0 var(--os-nav-band, 2.35rem);
+  width: var(--os-nav-band, 2.35rem);
+  height: var(--os-nav-band, 2.35rem);
+  min-width: var(--os-nav-band, 2.35rem);
+  min-height: var(--os-nav-band, 2.35rem);
+  margin: 0;
+}
+
+.profile-edit-slide .os-app-screen-heading {
+  position: static;
+  transform: none;
+  flex: 0 1 auto;
+  align-self: center;
+  width: fit-content;
+  min-width: 0;
+  max-width: calc(100% - 3.6rem);
+  margin: 0;
+  padding: 0.28rem 0.72rem;
+  border-radius: 9999px;
+  background: var(--app-scrim-media);
+  color: var(--app-on-media-ink);
+  text-align: start;
+  overflow: visible;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.profile-edit-slide .os-app-screen-title,
+.profile-edit-slide .os-app-screen-subtitle,
+.guild-edit-slide .os-app-screen-title,
+.guild-edit-slide .os-app-screen-subtitle,
+.hub-manage-slide .os-app-screen-title,
+.hub-manage-slide .os-app-screen-subtitle {
+  color: var(--app-on-media-ink);
+  font-size: var(--os-identity-meta-size, 0.875rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.profile-edit-slide .os-app-screen-subtitle,
+.guild-edit-slide .os-app-screen-subtitle,
+.hub-manage-slide .os-app-screen-subtitle {
+  margin-top: 0.12rem;
+  font-weight: 500;
+  color: rgb(255 255 255 / 0.78);
 }
 
 /*
@@ -14110,11 +14358,15 @@ a.os-surface-row,
   /* Home rail open/tuck sizes live unlayered (see `.home-feed-compact-chrome`). */
 
   .os-app-screen[data-compact-chrome='true'][data-dock-back='true']
+    .os-app-screen-nav-row,
+  .os-app-screen[data-compact-chrome='true'][data-header-back='true']
     .os-app-screen-nav-row {
     min-height: 2.35rem;
   }
 
   .os-app-screen[data-compact-chrome='true'][data-dock-back='true']
+    .os-app-screen-title,
+  .os-app-screen[data-compact-chrome='true'][data-header-back='true']
     .os-app-screen-title {
     font-size: var(--os-identity-name-size, 0.9375rem);
   }
@@ -15289,17 +15541,32 @@ a.os-surface-row,
 
   /*
    * Soft keyboard — ride the keys with the lift the write dock publishes.
-   * Transfer moves on each visual-viewport frame and does not ease.
-   * A 280ms ease on bottom is the jump: it lags those frames.
-   * Scroll-hide still eases transform. The row sits flush on the keys.
+   * The gap under the pill is the same one Transfer keeps above the keys.
+   * Chrome size snaps with that lift. A 260ms glide is a second move, and
+   * the feed then chases it.
+   * Scroll-hide still eases transform.
    */
   .portfolio-summon-dock[data-keyboard='open'] {
     bottom: var(--os-keyboard-lift, 0px);
     z-index: 85;
-    padding-bottom: 0;
+    padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem);
     transition:
       transform var(--os-motion-dock, 260ms) ease,
       opacity 200ms ease;
+  }
+
+  .portfolio-summon-dock[data-keyboard='open'] .os-write-dock-above-shell,
+  .portfolio-summon-dock[data-keyboard='open'] .os-write-dock-footer-shell,
+  .portfolio-summon-dock[data-keyboard='open'] .os-write-dock-above,
+  .portfolio-summon-dock[data-keyboard='open'] .os-write-dock-footer-clip {
+    transition: none;
+  }
+
+  /* Padding under the pill updates with the dock. Don't let the browser
+     add a second scroll on top of the one-frame feed shift. */
+  .os-app-screen:has(> .portfolio-summon-dock[data-keyboard='open'])
+    .os-app-screen-body {
+    overflow-anchor: none;
   }
 
   /* Scroll-down hides the dock; scroll-up or nearing the top brings it back. */
@@ -15437,24 +15704,61 @@ a.os-surface-row,
     pointer-events: none;
   }
 
-  .portfolio-page-chevron {
+  /*
+   * Keyboard “Open page” — invisible to the pointer (swipe up on the grip).
+   * :focus-visible paints the same Swipe up line mouse users already know.
+   */
+  .portfolio-page-entry {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 0.25rem);
     z-index: 2;
-    pointer-events: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 0.1rem 0.35rem;
+    border: 0;
+    border-radius: 0.35rem;
+    background: transparent;
+    transform: translateX(-50%);
+    opacity: 0;
+    pointer-events: none;
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--os-stamp-size, 0.75rem);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.42);
+    white-space: nowrap;
   }
 
-  .portfolio-page-chevron > .mage-stroke-icon,
-  .portfolio-page-chevron > svg {
-    position: relative;
-    z-index: 1;
-    width: 1.75rem;
-    height: 1.75rem;
+  .portfolio-page-entry-label {
+    pointer-events: none;
+  }
+
+  /* :focus — keyboard tab and Escape-return both reveal the Swipe up line. */
+  .portfolio-page-entry:focus {
     opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.72);
   }
 
-  /* Hidden only while the sheet trap owns focus. Closing releases that
-     trap on the next frame, so the chevron must already be visible. */
-  .portfolio-summon-dock.is-chevron-concealed .portfolio-page-chevron,
-  .portfolio-summon-dock.is-writing .portfolio-page-chevron {
+  .portfolio-page-entry:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px rgb(var(--bg-rgb)),
+      0 0 0 4px rgb(var(--fg-rgb));
+  }
+
+  /* Hide the teaching hint while the keyboard entry shows the same words. */
+  .portfolio-summon-dock:has(.portfolio-page-entry:focus)
+    .portfolio-summon-hint {
+    visibility: hidden;
+  }
+
+  /* Hidden while the sheet trap owns focus, and while writing. */
+  .portfolio-summon-dock.is-chevron-concealed .portfolio-page-entry,
+  .portfolio-summon-dock.is-writing .portfolio-page-entry {
     opacity: 0;
     pointer-events: none;
   }
@@ -15462,9 +15766,7 @@ a.os-surface-row,
   .portfolio-summon-line > .portfolio-summon-hint {
     position: absolute;
     left: 50%;
-    bottom: calc(
-      100% + 0.25rem + var(--os-avatar-nav, 1.85rem) + 0.25rem
-    );
+    bottom: calc(100% + 0.25rem);
     margin: 0;
     transform: translateX(-50%);
     pointer-events: none;
@@ -16034,6 +16336,7 @@ a.os-surface-row,
     display: grid;
     grid-template-rows: 0fr;
     min-width: 0;
+    overflow: hidden;
     visibility: hidden;
     transition:
       grid-template-rows 260ms cubic-bezier(0.32, 0.72, 0, 1),
@@ -16063,19 +16366,27 @@ a.os-surface-row,
     transform: none;
   }
 
+  /*
+   * Pad only while the chip is open. Closed padding used to leave ~4px in the
+   * 0fr track, so “Add a reply” sat under the avatar on the post reply dock.
+   */
   .os-write-dock-above {
     display: flex;
     align-items: center;
     gap: 0.45rem;
     min-width: 0;
-    padding: 0.28rem 0.45rem 0;
+    padding: 0;
     transition:
       padding 220ms ease,
       opacity 200ms ease,
       transform 260ms cubic-bezier(0.32, 0.72, 0, 1);
   }
 
-  .os-write-dock.is-expanded .os-write-dock-above {
+  .os-write-dock-above-shell.is-open > .os-write-dock-above {
+    padding: 0.28rem 0.45rem 0;
+  }
+
+  .os-write-dock.is-expanded .os-write-dock-above-shell.is-open > .os-write-dock-above {
     padding: 0.5rem 0.65rem 0.2rem;
   }
 
@@ -20752,44 +21063,55 @@ a.os-surface-row,
     text-align: start;
   }
 
-  /* B / I / • / H — pinned under About title for Lead + More. */
-  .profile-about-edit-slide
-    .os-app-screen-toolbar:has(.profile-about-edit-format-toolbar) {
-    padding-block: 0.2rem 0.45rem;
-  }
-
+  /* B / I / • / H and alignment — one bottom row, post-control hit. */
   .profile-about-edit-format-toolbar {
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    flex-wrap: wrap;
-    gap: 0.35rem 0.75rem;
-    min-height: 1.45rem;
+    flex-wrap: nowrap;
+    gap: 0;
+    width: 100%;
+    min-height: var(--os-dock-height, 3.25rem);
+    overflow-x: auto;
   }
 
-  .profile-about-edit-format-tools {
-    display: flex;
+  .profile-about-edit-format-tools,
+  .profile-about-edit-align-tools {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
     justify-content: flex-start;
-    min-height: 1.45rem;
+    gap: 0;
+    min-height: var(--os-dock-height, 3.25rem);
   }
 
   .profile-about-edit-align-tools {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.12rem;
     margin-left: auto;
   }
 
   .profile-align-tool-icon {
     display: block;
-    width: 0.95rem;
-    height: 0.95rem;
+    width: 1.36rem;
+    height: 1.36rem;
     flex-shrink: 0;
   }
 
-  .account-editor-bio-tool.profile-about-edit-align-tool {
-    min-width: 1.65rem;
-    padding: 0 0.28rem;
+  .profile-about-edit-format-toolbar .account-editor-bio-tool,
+  .profile-about-edit-format-toolbar .account-editor-bio-list {
+    width: var(--os-dock-height, 3.25rem);
+    min-width: var(--os-dock-height, 3.25rem);
+    height: var(--os-dock-height, 3.25rem);
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    font-size: 1.125rem;
+  }
+
+  .profile-about-edit-format-toolbar .account-editor-bio-tool.is-active,
+  .profile-about-edit-format-toolbar .account-editor-bio-tool:hover,
+  .profile-about-edit-format-toolbar .account-editor-bio-tool:focus-visible {
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.96);
   }
 
   .profile-about-edit-format-toolbar .account-editor-bio-chrome,
@@ -34170,9 +34492,8 @@ a.os-surface-row,
   }
 
   /*
-   * About stays a full page too. While the keyboard is up, the format bar
-   * leaves the title and sits on the keys; the story scrolls between Done
-   * and that bar. Other fields just clear the keyboard.
+   * About stays a full page. The format row lives in the footer, and the
+   * keyboard lifts that same row onto the keys. The story scrolls above it.
    */
   .profile-about-edit-slide.is-keyboard-open[data-os-slide-over='true']
     .os-app-screen-footer {
@@ -34197,8 +34518,12 @@ a.os-surface-row,
     scroll-padding-bottom: var(--os-about-keyboard-chrome, 0px);
   }
 
+  .profile-about-edit-slide[data-screen-footer='true'] {
+    --os-screen-footer-band: calc(var(--os-dock-height, 3.25rem) + 1.1rem);
+  }
+
   .profile-about-edit-slide.is-keyboard-open[data-screen-footer='true'] {
-    --os-about-keyboard-chrome: 2.75rem;
+    --os-about-keyboard-chrome: calc(var(--os-dock-height, 3.25rem) + 0.7rem);
   }
 
   .drop-variation-set-slide-grid {
@@ -40182,6 +40507,7 @@ a.os-surface-row,
   .guild-composer-article-title {
     width: 100%;
     font-weight: 650;
+    text-align: start;
   }
 
   .guild-composer-cover {
@@ -40281,9 +40607,7 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.52);
   }
 
-  /* Live article align preview — title + body track the tool selection. */
-  .guild-composer-beat-body[data-article-align='center']
-    .guild-composer-article-title,
+  /* Live article align preview — the body tracks the tool. The title stays left. */
   .guild-composer-beat-body[data-article-align='center'] .guild-composer-input,
   .guild-composer-beat-body[data-article-align='center']
     .guild-composer-input-backdrop,
@@ -40291,8 +40615,6 @@ a.os-surface-row,
     text-align: center;
   }
 
-  .guild-composer-beat-body[data-article-align='justify']
-    .guild-composer-article-title,
   .guild-composer-beat-body[data-article-align='justify'] .guild-composer-input,
   .guild-composer-beat-body[data-article-align='justify']
     .guild-composer-input-backdrop,
@@ -40350,11 +40672,6 @@ a.os-surface-row,
     .guild-composer-article-body
     .ProseMirror {
     min-height: 11.5rem;
-  }
-
-  .guild-composer-sheet-panel
-    .os-app-screen-toolbar:has(.profile-about-edit-format-toolbar) {
-    padding-block: 0.2rem 0.45rem;
   }
 
   .guild-composer-place-field {
@@ -41754,10 +42071,37 @@ a.os-surface-row,
 }
 
 /*
- * One-line reply — park avatar (and leading back) on the typing row, centered
- * to the input — not the “Reply to …” chip, not the gap between.
- * Keep the field one line tall here: tools-open unlocks multi-line max-height,
- * which grew an empty textarea and sat the face ~3px under the first line.
+ * Post reply — root “Add a reply” has no chip. Match the feed face: sit on
+ * the typing row at the top of the pill. Stretch + a closed chip shell that
+ * still held ~4px of pad used to leave the face above the placeholder.
+ */
+.os-dock-pill.portfolio-summon.is-writing.has-dock-back:not(
+    .has-dock-back-stacked
+  ):not(:has(.os-write-dock-above-shell.is-open)):not(
+    :has(.os-write-dock-footer-shell.is-open)
+  )
+  .portfolio-summon-account,
+.os-dock-pill.portfolio-summon.is-writing.has-dock-back:not(
+    .has-dock-back-stacked
+  ):not(:has(.os-write-dock-above-shell.is-open)):not(
+    :has(.os-write-dock-footer-shell.is-open)
+  )
+  .portfolio-summon-back {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--os-dock-height, 3.25rem);
+  min-height: var(--os-dock-height, 3.25rem);
+  max-height: var(--os-dock-height, 3.25rem);
+  padding-top: 0;
+}
+
+/*
+ * One-line reply with chip — park avatar (and leading back) on the typing
+ * row, centered to the input — not the “Replying” chip. The keyboard marks
+ * the dock expanded and used to stretch the face to the top of that taller
+ * pill. Keep this row the feed line until the footer opens.
  */
 .os-dock-pill.portfolio-summon.is-writing.is-compose-tools:not(
     .is-compose-expanded
@@ -41766,6 +42110,14 @@ a.os-surface-row,
 .os-dock-pill.portfolio-summon.is-writing.is-compose-tools:not(
     .is-compose-expanded
   ):not(:has(.os-write-dock-footer-shell.is-open))
+  .portfolio-summon-back,
+.os-dock-pill.portfolio-summon.is-writing:has(.os-write-dock-above-shell.is-open):not(
+    :has(.os-write-dock-footer-shell.is-open)
+  )
+  .portfolio-summon-account,
+.os-dock-pill.portfolio-summon.is-writing:has(.os-write-dock-above-shell.is-open):not(
+    :has(.os-write-dock-footer-shell.is-open)
+  )
   .portfolio-summon-back {
   align-self: flex-end;
   display: inline-flex;
@@ -41773,6 +42125,7 @@ a.os-surface-row,
   justify-content: center;
   height: var(--os-dock-height, 3.25rem);
   min-height: var(--os-dock-height, 3.25rem);
+  max-height: var(--os-dock-height, 3.25rem);
   padding-top: 0;
   border-radius: 0 0 0 var(--os-write-dock-radius, 1.625rem);
 }
@@ -41780,6 +42133,10 @@ a.os-surface-row,
 .os-dock-pill.portfolio-summon.is-writing.is-compose-tools:not(
     .is-compose-expanded
   ):not(:has(.os-write-dock-footer-shell.is-open))
+  .os-write-dock-input,
+.os-dock-pill.portfolio-summon.is-writing:has(.os-write-dock-above-shell.is-open):not(
+    :has(.os-write-dock-footer-shell.is-open)
+  )
   .os-write-dock-input {
   height: var(--portfolio-summon-avatar-size, 1.85rem);
   min-height: var(--portfolio-summon-avatar-size, 1.85rem);
@@ -41790,9 +42147,14 @@ a.os-surface-row,
 .os-dock-pill.portfolio-summon.is-writing.is-compose-tools:not(
     .is-compose-expanded
   ):not(:has(.os-write-dock-footer-shell.is-open))
+  .os-write-dock-field,
+.os-dock-pill.portfolio-summon.is-writing:has(.os-write-dock-above-shell.is-open):not(
+    :has(.os-write-dock-footer-shell.is-open)
+  )
   .os-write-dock-field {
   min-height: var(--os-dock-height, 3.25rem);
   height: var(--os-dock-height, 3.25rem);
+  max-height: var(--os-dock-height, 3.25rem);
   padding-bottom: 0;
   /* Re-assert first-line center with the nav avatar token (not the 1.6rem fallback). */
   padding-top: calc(
@@ -41802,6 +42164,15 @@ a.os-surface-row,
       ) /
       2
   );
+}
+
+/* Reply chip keeps the feed's quiet pad. The expanded pad fattened the pill. */
+.os-dock-pill.portfolio-summon.is-writing:has(.os-write-dock-above-shell.is-open):not(
+    :has(.os-write-dock-footer-shell.is-open)
+  )
+  .os-write-dock.is-expanded
+  .os-write-dock-above {
+  padding: 0.28rem 0.45rem 0;
 }
 
 .os-dock-pill.portfolio-summon.is-writing.has-dock-back-stacked
@@ -42176,6 +42547,8 @@ body:has(.portfolio-summon-dock[data-mood='glass'])
   .glass-sheet-panel.post-thread-sheet-panel
     .os-app-screen.app-surface.os-app-screen--embedded,
   .glass-sheet-panel.drop-sheet-panel
+    .os-app-screen.app-surface.os-app-screen--embedded,
+  .glass-sheet-panel.profile-edit-sheet-panel
     .os-app-screen.app-surface.os-app-screen--embedded {
     border: 0;
     border-radius: 0;
@@ -45140,7 +45513,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   .messages-layout[data-messages-pane='thread'] {
   min-height: calc(
     100dvh - var(--portfolio-dock-clearance, 5.25rem) -
-      var(--os-keyboard-lift, 0px)
+      var(--os-keyboard-lift, 0px) -
+      var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem)
   );
 }
 
@@ -45663,7 +46037,7 @@ button.messages-bubble-quote:focus-visible {
   > .portfolio-summon-dock {
   bottom: var(--os-keyboard-lift, 0px);
   z-index: 85;
-  padding-bottom: 0;
+  padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem);
   /* Track the keyboard. A bottom ease lags the visual viewport. */
   transition:
     transform var(--os-motion-dock, 260ms) ease,
@@ -45673,6 +46047,7 @@ button.messages-bubble-quote:focus-visible {
 .os-app-screen:has(.messages-panel[data-keyboard='open']) .os-app-screen-body {
   padding-bottom: calc(
     var(--os-keyboard-lift, 0px) +
+      var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem) +
       var(--portfolio-dock-clearance, 5.25rem)
   );
 }
@@ -47382,6 +47757,28 @@ button.messages-bubble-quote:focus-visible {
   transition: opacity 160ms ease;
 }
 
+/*
+ * Format row hit. Unlayered so it beats the 1.45rem bio-tool rule, which
+ * is also emitted outside the component layer.
+ */
+.profile-about-edit-format-toolbar .account-editor-bio-tool,
+.profile-about-edit-format-toolbar .account-editor-bio-list {
+  width: var(--os-dock-height, 3.25rem);
+  min-width: var(--os-dock-height, 3.25rem);
+  height: var(--os-dock-height, 3.25rem);
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 1.125rem;
+}
+
+.profile-about-edit-format-toolbar .account-editor-bio-tool.is-active,
+.profile-about-edit-format-toolbar .account-editor-bio-tool:hover,
+.profile-about-edit-format-toolbar .account-editor-bio-tool:focus-visible {
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.96);
+}
+
 @layer components {
   /*
    * Disabled controls keep full opacity at one shared dim ink — a disabled
@@ -47399,60 +47796,17 @@ button.messages-bubble-quote:focus-visible {
   }
 }
 
-/*
- * Page chevron focus and motion sit outside the component layer.
- * The shared icon button's focus ring and transition are unlayered,
- * so a layered rule cannot override them.
- */
-button.portfolio-page-chevron.glass-sheet-icon-action {
-  position: absolute;
-  bottom: calc(100% + 0.25rem);
-  left: 50%;
-  width: var(--os-avatar-nav, 1.85rem);
-  height: var(--os-avatar-nav, 1.85rem);
-  min-width: var(--os-avatar-nav, 1.85rem);
-  min-height: var(--os-avatar-nav, 1.85rem);
-  transform: translateX(-50%);
-  color: rgb(var(--fg-rgb) / 100%);
-}
-
-button.portfolio-page-chevron.glass-sheet-icon-action:focus-visible {
+/* Page entry focus ring sits outside the component layer. */
+.portfolio-page-entry:focus-visible {
   outline: none;
   box-shadow:
     0 0 0 2px rgb(var(--bg-rgb)),
     0 0 0 4px rgb(var(--fg-rgb));
 }
 
-/* Cover hides the control from the pointer. It stays in the tab order,
-   and keyboard focus shows it at full strength, ring included. */
-button.portfolio-page-chevron.glass-sheet-icon-action.is-content-covered {
-  opacity: 0;
-  pointer-events: none;
-}
-
-button.portfolio-page-chevron.glass-sheet-icon-action.is-content-covered:focus-visible {
-  opacity: 1;
-  pointer-events: auto;
-  z-index: 3;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  button.portfolio-page-chevron.glass-sheet-icon-action,
-  button.portfolio-page-chevron.glass-sheet-icon-action::before,
-  button.portfolio-page-chevron.glass-sheet-icon-action > .mage-stroke-icon,
-  button.portfolio-page-chevron.glass-sheet-icon-action > svg {
+  .portfolio-page-entry {
     transition: none;
     animation: none;
-  }
-}
-
-@media (prefers-reduced-transparency: reduce) {
-  .portfolio-page-chevron::before,
-  .portfolio-summon-dock[data-mood='glass'] .portfolio-page-chevron::before,
-  .portfolio-summon-dock[data-mood]:not([data-mood='glass'])
-    .portfolio-page-chevron::before {
-    background: var(--glass-surface-solid, rgb(var(--bg-rgb) / 0.96));
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
   }
 }
