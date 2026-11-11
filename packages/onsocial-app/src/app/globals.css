@@ -7673,7 +7673,14 @@ a.os-surface-row,
     gap: var(--portfolio-hero-gap);
     padding: var(--portfolio-content-start)
       max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px))
-      var(--portfolio-dock-clearance)
+      /* The page chevron sits above the pill. The dock gap already covers
+         part of that stack. The shelf pull hangs the caption below its
+         margin, and 4px keeps that line clear of the focus ring. */
+      calc(
+        var(--portfolio-dock-clearance) + var(--os-avatar-nav, 1.85rem) +
+          0.25rem - var(--os-dock-clearance-gap, 1.1rem) +
+          var(--portfolio-shelf-pull, 0.44rem) + 4px
+      )
       max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
     text-align: center;
     transition: padding-top var(--mood-transition-duration)
@@ -47727,19 +47734,6 @@ button.portfolio-page-chevron.glass-sheet-icon-action:focus-visible {
   box-shadow:
     0 0 0 2px rgb(var(--bg-rgb)),
     0 0 0 4px rgb(var(--fg-rgb));
-}
-
-/* Cover hides the control from the pointer. It stays in the tab order,
-   and keyboard focus shows it at full strength, ring included. */
-button.portfolio-page-chevron.glass-sheet-icon-action.is-content-covered {
-  opacity: 0;
-  pointer-events: none;
-}
-
-button.portfolio-page-chevron.glass-sheet-icon-action.is-content-covered:focus-visible {
-  opacity: 1;
-  pointer-events: auto;
-  z-index: 3;
 }
 
 @media (prefers-reduced-motion: reduce) {
