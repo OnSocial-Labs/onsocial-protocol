@@ -11,7 +11,11 @@ import {
 
 interface PageContentDrawerContextValue {
   isOpen: boolean;
+  /** True from the close request until the sheet finishes leaving. */
+  closing: boolean;
   open: () => void;
+  /** Sheet open becomes false. The focus trap releases on the following frame. */
+  beginClose: () => void;
   close: () => void;
   /** Drawer body scroller — dock auto-hide listens here while the sheet is open. */
   scrollNode: HTMLDivElement | null;
@@ -23,19 +27,27 @@ const PageContentDrawerContext =
 
 export function PageContentDrawerProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [scrollNode, setScrollNodeState] = useState<HTMLDivElement | null>(
     null
   );
 
-  const open = useCallback(() => setIsOpen(true), []);
-  const close = useCallback(() => setIsOpen(false), []);
+  const open = useCallback(() => {
+    setClosing(false);
+    setIsOpen(true);
+  }, []);
+  const beginClose = useCallback(() => setClosing(true), []);
+  const close = useCallback(() => {
+    setClosing(false);
+    setIsOpen(false);
+  }, []);
   const setScrollNode = useCallback((node: HTMLDivElement | null) => {
     setScrollNodeState(node);
   }, []);
 
   const value = useMemo(
-    () => ({ isOpen, open, close, scrollNode, setScrollNode }),
-    [close, isOpen, open, scrollNode, setScrollNode]
+    () => ({ isOpen, closing, open, beginClose, close, scrollNode, setScrollNode }),
+    [beginClose, close, closing, isOpen, open, scrollNode, setScrollNode]
   );
 
   return (

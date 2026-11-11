@@ -1,13 +1,6 @@
 /** Same activation the grip uses before a drag owns the pointer. */
 export const SHEET_DRAG_ACTIVATION_PX = 4;
 
-/**
- * Platform long-press. A release after this is not a click — the press already
- * left the tap. Touch browsers that turn a hold into its own gesture use the
- * same 500ms.
- */
-export const SHEET_TAP_MAX_MS = 500;
-
 /** Subpixel rest still counts as the top. */
 export const SHEET_PULL_SCROLL_TOP_PX = 1;
 
@@ -80,23 +73,71 @@ export function sheetPullStartsOnGrip(target: Element): boolean {
 }
 
 /**
- * A press activates the thing under it only while it is still a tap.
- * A downward pull, a slide past the slop, or a hold past the long-press
- * time does not click — the release would land on a different line, or on
- * the page that slid in under the pointer.
+ * Downward travel that confirms a pull. Shorter motion stays a tap, so a
+ * slow or shaky press still activates the control under the finger.
+ */
+export const SHEET_PULL_CONFIRM_PX = 10;
+
+/**
+ * A press activates the thing under it unless a downward pull is confirmed.
+ * Time on the finger is not a reason to swallow the click.
  */
 export function sheetPressActivatesClick(input: {
   phase: 'pending' | 'pull' | 'abort';
-  heldMs: number;
-  movedPx: number;
-  tapMaxMs?: number;
-  activationPx?: number;
 }): boolean {
-  if (input.phase !== 'pending') return false;
-  const activation = input.activationPx ?? SHEET_DRAG_ACTIVATION_PX;
-  if (input.movedPx >= activation) return false;
-  if (input.heldMs >= (input.tapMaxMs ?? SHEET_TAP_MAX_MS)) return false;
-  return true;
+  return input.phase !== 'pull';
+}
+
+/**
+ * At the top of a sheet, the first downward-dominant touch claims the gesture
+ * so the platform does not start a pan and cancel the pointer. One claim is
+ * enough. Opted-out regions and scrolled bodies are decided by the caller.
+ */
+export function sheetShouldClaimFirstDownwardMove(input: {
+  phase: 'pending' | 'pull' | 'abort' | null;
+  dx: number;
+  dy: number;
+  alreadyClaimed: boolean;
+}): boolean {
+  if (input.alreadyClaimed || input.phase !== 'pending') return false;
+  return input.dy > 0 && input.dy >= Math.abs(input.dx);
+}
+
+/** Body pull tracks touch and pen. A mouse drag must not dismiss. */
+export function sheetPullPointerCanDrag(pointerType: string): boolean {
+  return pointerType === 'touch' || pointerType === 'pen';
+}
+
+/** Selection stays available until a pull is confirmed. */
+export function sheetShouldBlockTextSelection(
+  phase: 'pending' | 'pull' | 'abort' | null
+): boolean {
+  return phase === 'pull';
+}
+
+/**
+ * Native pan and scroll keep the touch until a pull is confirmed.
+ * Opt out with `data-sheet-pull="off"` on maps, canvases, and carousels.
+ */
+export function sheetTouchMovePreventsNativePan(
+  phase: 'pending' | 'pull' | 'abort' | null
+): boolean {
+  return phase === 'pull';
+}
+
+export const SHEET_PULL_OPT_OUT_SELECTOR = '[data-sheet-pull="off"]';
+
+export function sheetPullOptOutFromClosest(
+  closest: ((selector: string) => unknown) | undefined
+): boolean {
+  return Boolean(closest?.(SHEET_PULL_OPT_OUT_SELECTOR));
+}
+
+export function elementOptsOutOfSheetPull(target: EventTarget | null): boolean {
+  if (typeof Element === 'undefined' || !(target instanceof Element)) {
+    return false;
+  }
+  return sheetPullOptOutFromClosest((selector) => target.closest(selector));
 }
 
 /**

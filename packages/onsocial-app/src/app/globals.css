@@ -15349,6 +15349,17 @@ a.os-surface-row,
     pointer-events: none;
   }
 
+  /* A tucked dock still reveals when a keyboard user reaches the page entry. */
+  .portfolio-summon-dock.is-scroll-hidden:focus-within {
+    transform: translateX(-50%);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .portfolio-summon-dock.is-scroll-hidden:focus-within .portfolio-summon {
+    pointer-events: auto;
+  }
+
   /*
    * Overlays portal into the card; tuck the face dock while other sheets are up.
    * The page drawer keeps the dock via keepDock (data-keep-dock) — any sheet
@@ -15424,6 +15435,40 @@ a.os-surface-row,
     justify-content: center;
     max-width: 100%;
     pointer-events: none;
+  }
+
+  .portfolio-page-chevron {
+    z-index: 2;
+    pointer-events: auto;
+  }
+
+  .portfolio-page-chevron > .mage-stroke-icon,
+  .portfolio-page-chevron > svg {
+    position: relative;
+    z-index: 1;
+    width: 1.75rem;
+    height: 1.75rem;
+    opacity: 1;
+  }
+
+  /* Hidden only while the sheet trap owns focus. Closing releases that
+     trap on the next frame, so the chevron must already be visible. */
+  .portfolio-summon-dock.is-chevron-concealed .portfolio-page-chevron,
+  .portfolio-summon-dock.is-writing .portfolio-page-chevron {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .portfolio-summon-line > .portfolio-summon-hint {
+    position: absolute;
+    left: 50%;
+    bottom: calc(
+      100% + 0.25rem + var(--os-avatar-nav, 1.85rem) + 0.25rem
+    );
+    margin: 0;
+    transform: translateX(-50%);
+    pointer-events: none;
+    white-space: nowrap;
   }
 
   .portfolio-summon-dock.is-writing .portfolio-summon-line {
@@ -47351,5 +47396,63 @@ button.messages-bubble-quote:focus-visible {
     opacity: 1;
     color: rgb(var(--fg-rgb) / 0.26);
     cursor: default;
+  }
+}
+
+/*
+ * Page chevron focus and motion sit outside the component layer.
+ * The shared icon button's focus ring and transition are unlayered,
+ * so a layered rule cannot override them.
+ */
+button.portfolio-page-chevron.glass-sheet-icon-action {
+  position: absolute;
+  bottom: calc(100% + 0.25rem);
+  left: 50%;
+  width: var(--os-avatar-nav, 1.85rem);
+  height: var(--os-avatar-nav, 1.85rem);
+  min-width: var(--os-avatar-nav, 1.85rem);
+  min-height: var(--os-avatar-nav, 1.85rem);
+  transform: translateX(-50%);
+  color: rgb(var(--fg-rgb) / 100%);
+}
+
+button.portfolio-page-chevron.glass-sheet-icon-action:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px rgb(var(--bg-rgb)),
+    0 0 0 4px rgb(var(--fg-rgb));
+}
+
+/* Cover hides the control from the pointer. It stays in the tab order,
+   and keyboard focus shows it at full strength, ring included. */
+button.portfolio-page-chevron.glass-sheet-icon-action.is-content-covered {
+  opacity: 0;
+  pointer-events: none;
+}
+
+button.portfolio-page-chevron.glass-sheet-icon-action.is-content-covered:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+  z-index: 3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button.portfolio-page-chevron.glass-sheet-icon-action,
+  button.portfolio-page-chevron.glass-sheet-icon-action::before,
+  button.portfolio-page-chevron.glass-sheet-icon-action > .mage-stroke-icon,
+  button.portfolio-page-chevron.glass-sheet-icon-action > svg {
+    transition: none;
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .portfolio-page-chevron::before,
+  .portfolio-summon-dock[data-mood='glass'] .portfolio-page-chevron::before,
+  .portfolio-summon-dock[data-mood]:not([data-mood='glass'])
+    .portfolio-page-chevron::before {
+    background: var(--glass-surface-solid, rgb(var(--bg-rgb) / 0.96));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 }

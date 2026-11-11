@@ -23,6 +23,7 @@ export function PageDrawerHoldingsRail({
     <div
       className="page-drawer-media-rail os-scrollbar-none"
       aria-label="Collectibles"
+      data-sheet-pull="off"
     >
       {groupHoldingsForRail(holdings).map((item) => (
         <Link
@@ -70,6 +71,7 @@ export function PageDrawerCreatedRail({
     <div
       className="page-drawer-media-rail os-scrollbar-none"
       aria-label="Created scarces"
+      data-sheet-pull="off"
     >
       {created.map((item) => {
         const titleHint = item.kindLabel

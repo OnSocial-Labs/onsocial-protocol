@@ -40,6 +40,7 @@ import {
   resolvePanelPresentation,
   useOverlayStackZ,
   usePrefersReducedTransparency,
+  sheetPullPointerCanDrag,
   useScrollLock,
   useSheetSurfacePull,
   useSheetStackEntry,
@@ -448,6 +449,7 @@ export function SummonLauncher({
 
   const handleDragPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLButtonElement>) => {
+      if (!sheetPullPointerCanDrag(event.pointerType)) return;
       beginLauncherDrag(event.clientY, event.currentTarget, event.pointerId);
     },
     [beginLauncherDrag]

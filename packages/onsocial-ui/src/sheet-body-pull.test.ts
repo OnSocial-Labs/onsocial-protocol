@@ -94,24 +94,13 @@ describe('sheetPullFromPanelBlocked', () => {
 
 describe('sheetPressActivatesClick', () => {
   it('activates a short press that stayed still', () => {
-    expect(
-      sheetPressActivatesClick({ phase: 'pending', heldMs: 120, movedPx: 1 })
-    ).toBe(true);
+    expect(sheetPressActivatesClick({ phase: 'pending' })).toBe(true);
   });
 
-  it('does not activate a pull, a slide, or a long hold', () => {
-    expect(
-      sheetPressActivatesClick({ phase: 'pull', heldMs: 80, movedPx: 40 })
-    ).toBe(false);
-    expect(
-      sheetPressActivatesClick({ phase: 'abort', heldMs: 80, movedPx: 20 })
-    ).toBe(false);
-    expect(
-      sheetPressActivatesClick({ phase: 'pending', heldMs: 80, movedPx: 8 })
-    ).toBe(false);
-    expect(
-      sheetPressActivatesClick({ phase: 'pending', heldMs: 500, movedPx: 0 })
-    ).toBe(false);
+  it('activates a slow or shaky press, and skips only a confirmed pull', () => {
+    expect(sheetPressActivatesClick({ phase: 'pull' })).toBe(false);
+    expect(sheetPressActivatesClick({ phase: 'abort' })).toBe(true);
+    expect(sheetPressActivatesClick({ phase: 'pending' })).toBe(true);
   });
 });
 

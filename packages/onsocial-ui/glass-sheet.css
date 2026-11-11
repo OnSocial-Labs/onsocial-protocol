@@ -472,6 +472,7 @@
   }
 }
 
+/* Only while a pull is confirmed. A resting sheet keeps text selection. */
 .glass-sheet-panel.is-dragging,
 .glass-sheet-panel.is-dragging *,
 .glass-sheet-panel.is-body-pull,
@@ -585,6 +586,14 @@
 
 .glass-sheet-drag:active {
   cursor: grabbing;
+}
+
+/* A fine pointer cannot drag the grip, so it does not show a grab cursor. */
+@media (pointer: fine) {
+  .glass-sheet-drag,
+  .glass-sheet-drag:active {
+    cursor: default;
+  }
 }
 
 .glass-sheet-grip {

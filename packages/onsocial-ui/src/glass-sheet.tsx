@@ -18,7 +18,10 @@ import {
 import { createPortal } from 'react-dom';
 import { cn } from './cn.js';
 import { useKeyboardDrawerFrame } from './keyboard-drawer-frame.js';
-import { SHEET_DRAG_ACTIVATION_PX } from './sheet-body-pull.js';
+import {
+  SHEET_DRAG_ACTIVATION_PX,
+  sheetPullPointerCanDrag,
+} from './sheet-body-pull.js';
 import { useSheetSurfacePull } from './use-sheet-surface-pull.js';
 import { useOverlayStackZ } from './overlay-stack.js';
 import { MultiplyIcon } from './mage-stroke-icons.js';
@@ -115,6 +118,22 @@ export type GlassSheetSurface = 'glass' | 'page';
 
 export const GLASS_SHEET_PEEK_RATIO = 0.62;
 const DISMISS_GAP_PX = 96;
+
+/**
+ * A release always clears the drag offset. Past the dismiss gap the host is
+ * asked to close; if the host keeps the sheet open, the cleared offset is
+ * the settle back to rest.
+ */
+export function resolveSheetPointerRelease(input: {
+  currentY: number;
+  peekPx: number;
+  dismissGapPx: number;
+}): { requestClose: boolean; dragPx: null } {
+  return {
+    requestClose: input.currentY > input.peekPx + input.dismissGapPx,
+    dragPx: null,
+  };
+}
 const MOBILE_MAX_WIDTH_PX = 767;
 const SHEET_TRANSITION_MS = 320;
 /** Consecutive equal hug height samples before arming enter (avoids open→shrink). */
@@ -749,6 +768,7 @@ function useSheetGesture(
 
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!sheetPullPointerCanDrag(event.pointerType)) return;
       beginPointerDrag(event.clientY, event.currentTarget, event.pointerId);
     },
     [beginPointerDrag]
@@ -787,20 +807,21 @@ function useSheetGesture(
 
     // Desktop rests at full — dismiss after a short pull; mobile keeps peek.
     const peekPx = isMobile() ? peekPxFor(state.panelH) : 0;
-    const current = state.currentY;
+    const release = resolveSheetPointerRelease({
+      currentY: state.currentY,
+      peekPx,
+      dismissGapPx: DISMISS_GAP_PX,
+    });
+    if (release.requestClose) onClose();
+    setDragPx(release.dragPx);
+    if (release.requestClose) return;
 
-    if (current > peekPx + DISMISS_GAP_PX) {
-      onClose();
-      return;
-    }
-
-    setDragPx(null);
     if (peekPx <= 0) {
       setDetent('full');
       return;
     }
 
-    setDetent(current < peekPx / 2 ? 'full' : 'peek');
+    setDetent(state.currentY < peekPx / 2 ? 'full' : 'peek');
   }, [isMobile, onClose, peekPxFor]);
 
   const isDesktopSheet = useCallback(

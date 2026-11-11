@@ -122,6 +122,7 @@ function PdfLeaf({
             ref={canvasRef}
             className="collection-writing-pdf-canvas"
             aria-label={`${title} page ${pageNumber}`}
+            data-sheet-pull="off"
           />
           <div
             ref={textRef}
