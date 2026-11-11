@@ -8,7 +8,7 @@
     "dev": "next dev --port 3060 --hostname 0.0.0.0",
     "prebuild": "pnpm run build:deps",
     "pretype-check": "pnpm run build:deps",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "format": "prettier --write .",
     "lint": "eslint .",
