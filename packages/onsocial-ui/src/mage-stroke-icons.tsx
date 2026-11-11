@@ -1448,7 +1448,7 @@ export function ExclamationTriangleIcon(props: MageStrokeIconProps) {
       <path
         d="M10.367 4.462L2.752 17.655a1.885 1.885 0 0 0 1.634 2.827h15.228a1.885 1.885 0 0 0 1.633-2.827L13.633 4.462a1.885 1.885 0 0 0-3.266 0m1.628 3.116v6.277"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth={MAGE_STROKE}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -1456,7 +1456,7 @@ export function ExclamationTriangleIcon(props: MageStrokeIconProps) {
       <path
         d="M12.043 17.326h-.009"
         stroke="currentColor"
-        strokeWidth={2}
+        strokeWidth={MAGE_STROKE}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
