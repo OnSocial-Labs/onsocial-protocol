@@ -38,7 +38,7 @@ test.describe('compose thread', () => {
     }
 
     await dismissNextDevOverlay(page);
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
 
     await expectE2eSignerWrite(page, (recorded) => {
       const prepared = recorded.map(extractPreparedAction);

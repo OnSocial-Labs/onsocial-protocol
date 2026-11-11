@@ -2662,13 +2662,52 @@ button.post-media-tile {
   gap: 0;
 }
 
-/* Hug width only — height from size="sm" so the pill centers in the nav row. */
-.guild-composer-toolbar-post.os-sheet-actions--row-compact .os-sheet-action,
-.guild-composer-toolbar-post.os-sheet-actions--row-compact
-  .os-sheet-action--primary {
+/* Same height and type as the Post / Article chips in this row. */
+.guild-composer-header-post.os-sheet-actions--sm .os-sheet-action,
+.guild-composer-header-post.os-sheet-actions--sm .os-sheet-action--primary {
   flex: 0 0 auto;
   width: auto;
   min-width: 4.5rem;
+  min-height: 0;
+  border-width: 0;
+  padding: 0.4rem 0.85rem;
+  font-size: var(--os-identity-meta-size, 0.875rem);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+}
+
+/*
+ * Ready verb wears the send-arrow ink on a quiet pill. The solid inverted
+ * fill stays for money commits. Faint until there is something to send.
+ */
+.guild-composer-header-post.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):not(
+    .is-pending
+  ),
+.guild-composer-header-post.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded) {
+  border-color: transparent;
+  background: var(--os-surface-fill);
+  box-shadow: none;
+  color: var(
+    --os-dock-handle-ink,
+    var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.72)))
+  );
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .guild-composer-header-post.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+    .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):not(
+      .is-pending
+    ):hover {
+    background: var(--os-surface-fill-hover);
+    color: var(
+      --os-dock-handle-ink,
+      var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.72)))
+    );
+    box-shadow: none;
+  }
 }
 
 .guild-hero
