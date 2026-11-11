@@ -673,11 +673,18 @@ function useSheetGesture(
     panelH: number;
     currentY: number;
     active: boolean;
+    pointerId: number;
   } | null>(null);
+  const dragWindowCleanup = useRef<(() => void) | null>(null);
 
   const [detent, setDetent] = useState<Detent>(initialDetent);
   const [dragPx, setDragPx] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
+
+  const clearDragWindowListeners = useCallback(() => {
+    dragWindowCleanup.current?.();
+    dragWindowCleanup.current = null;
+  }, []);
 
   useEffect(() => {
     // Re-apply on every open so HMR / prior peeks cannot leave a stale detent.
@@ -685,7 +692,10 @@ function useSheetGesture(
     setDragPx(null);
     setDragging(false);
     dragState.current = null;
-  }, [initialDetent, open]);
+    clearDragWindowListeners();
+  }, [clearDragWindowListeners, initialDetent, open]);
+
+  useEffect(() => () => clearDragWindowListeners(), [clearDragWindowListeners]);
 
   useEffect(() => {
     if (!open) {
@@ -737,43 +747,6 @@ function useSheetGesture(
     [peekRatio]
   );
 
-  const beginPointerDrag = useCallback(
-    (
-      startY: number,
-      capture: { setPointerCapture?: (pointerId: number) => void } | null,
-      pointerId: number
-    ) => {
-      const panel = panelRef.current;
-      if (!panel) {
-        return;
-      }
-      const panelH = panel.offsetHeight;
-      const baseY = dragPx ?? (detent === 'full' ? 0 : peekPxFor(panelH));
-      dragState.current = {
-        startY,
-        baseY,
-        panelH,
-        currentY: baseY,
-        active: false,
-      };
-      try {
-        capture?.setPointerCapture?.(pointerId);
-      } catch {
-        // A synthetic or already-ended pointer cannot be captured. The drag
-        // still follows move events that reach the panel.
-      }
-    },
-    [detent, dragPx, panelRef, peekPxFor]
-  );
-
-  const handlePointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (!sheetPullPointerCanDrag(event.pointerType)) return;
-      beginPointerDrag(event.clientY, event.currentTarget, event.pointerId);
-    },
-    [beginPointerDrag]
-  );
-
   const handlePointerMove = useCallback((event: { clientY: number }) => {
     const state = dragState.current;
     if (!state) {
@@ -798,6 +771,7 @@ function useSheetGesture(
       return;
     }
     dragState.current = null;
+    clearDragWindowListeners();
     setDragging(false);
 
     if (!state.active) {
@@ -822,7 +796,71 @@ function useSheetGesture(
     }
 
     setDetent(state.currentY < peekPx / 2 ? 'full' : 'peek');
-  }, [isMobile, onClose, peekPxFor]);
+  }, [clearDragWindowListeners, isMobile, onClose, peekPxFor]);
+
+  const beginPointerDrag = useCallback(
+    (
+      startY: number,
+      capture: { setPointerCapture?: (pointerId: number) => void } | null,
+      pointerId: number
+    ) => {
+      const panel = panelRef.current;
+      if (!panel) {
+        return;
+      }
+      clearDragWindowListeners();
+      const panelH = panel.offsetHeight;
+      const baseY = dragPx ?? (detent === 'full' ? 0 : peekPxFor(panelH));
+      dragState.current = {
+        startY,
+        baseY,
+        panelH,
+        currentY: baseY,
+        active: false,
+        pointerId,
+      };
+      // Window listeners keep the drag alive when setPointerCapture fails
+      // (Playwright mouse, synthetic pointers, nested portals).
+      const onWindowMove = (event: PointerEvent) => {
+        if (event.pointerId !== pointerId) return;
+        handlePointerMove(event);
+      };
+      const onWindowUp = (event: PointerEvent) => {
+        if (event.pointerId !== pointerId) return;
+        handlePointerEnd();
+      };
+      window.addEventListener('pointermove', onWindowMove);
+      window.addEventListener('pointerup', onWindowUp);
+      window.addEventListener('pointercancel', onWindowUp);
+      dragWindowCleanup.current = () => {
+        window.removeEventListener('pointermove', onWindowMove);
+        window.removeEventListener('pointerup', onWindowUp);
+        window.removeEventListener('pointercancel', onWindowUp);
+      };
+      try {
+        capture?.setPointerCapture?.(pointerId);
+      } catch {
+        // Capture is optional — window listeners own the gesture.
+      }
+    },
+    [
+      clearDragWindowListeners,
+      detent,
+      dragPx,
+      handlePointerEnd,
+      handlePointerMove,
+      panelRef,
+      peekPxFor,
+    ]
+  );
+
+  const handlePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!sheetPullPointerCanDrag(event.pointerType)) return;
+      beginPointerDrag(event.clientY, event.currentTarget, event.pointerId);
+    },
+    [beginPointerDrag]
+  );
 
   const isDesktopSheet = useCallback(
     () =>

@@ -425,34 +425,15 @@ export function SummonLauncher({
     void launchCommunityApp({ appId, href, token, popup });
   }
 
-  const beginLauncherDrag = useCallback(
-    (
-      startY: number,
-      capture: { setPointerCapture?: (pointerId: number) => void } | null,
-      pointerId: number
-    ) => {
-      const panelH = sheetRef.current?.offsetHeight ?? 480;
-      dragStateRef.current = {
-        startY,
-        baseY: dragYRef.current,
-        panelH,
-        active: false,
-      };
-      try {
-        capture?.setPointerCapture?.(pointerId);
-      } catch {
-        // A pointer that already ended cannot be captured. Moves still apply.
-      }
-    },
-    []
-  );
+  const launcherDragCleanup = useRef<(() => void) | null>(null);
+  const clearLauncherDragListeners = useCallback(() => {
+    launcherDragCleanup.current?.();
+    launcherDragCleanup.current = null;
+  }, []);
 
-  const handleDragPointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLButtonElement>) => {
-      if (!sheetPullPointerCanDrag(event.pointerType)) return;
-      beginLauncherDrag(event.clientY, event.currentTarget, event.pointerId);
-    },
-    [beginLauncherDrag]
+  useEffect(
+    () => () => clearLauncherDragListeners(),
+    [clearLauncherDragListeners]
   );
 
   const handleDragPointerMove = useCallback((event: { clientY: number }) => {
@@ -481,6 +462,7 @@ export function SummonLauncher({
       return;
     }
     dragStateRef.current = null;
+    clearLauncherDragListeners();
     setDragging(false);
 
     if (dragYRef.current > LAUNCHER_DISMISS_PX) {
@@ -490,7 +472,58 @@ export function SummonLauncher({
 
     dragYRef.current = 0;
     setDragY(0);
-  }, [closeLauncher]);
+  }, [clearLauncherDragListeners, closeLauncher]);
+
+  const beginLauncherDrag = useCallback(
+    (
+      startY: number,
+      capture: { setPointerCapture?: (pointerId: number) => void } | null,
+      pointerId: number
+    ) => {
+      clearLauncherDragListeners();
+      const panelH = sheetRef.current?.offsetHeight ?? 480;
+      dragStateRef.current = {
+        startY,
+        baseY: dragYRef.current,
+        panelH,
+        active: false,
+      };
+      const onWindowMove = (event: PointerEvent) => {
+        if (event.pointerId !== pointerId) return;
+        handleDragPointerMove(event);
+      };
+      const onWindowUp = (event: PointerEvent) => {
+        if (event.pointerId !== pointerId) return;
+        handleDragPointerEnd();
+      };
+      window.addEventListener('pointermove', onWindowMove);
+      window.addEventListener('pointerup', onWindowUp);
+      window.addEventListener('pointercancel', onWindowUp);
+      launcherDragCleanup.current = () => {
+        window.removeEventListener('pointermove', onWindowMove);
+        window.removeEventListener('pointerup', onWindowUp);
+        window.removeEventListener('pointercancel', onWindowUp);
+      };
+      try {
+        capture?.setPointerCapture?.(pointerId);
+      } catch {
+        // Capture is optional — window listeners own the gesture.
+      }
+    },
+    [
+      clearLauncherDragListeners,
+      handleDragPointerEnd,
+      handleDragPointerMove,
+    ]
+  );
+
+  const handleDragPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLButtonElement>) => {
+      if (!sheetPullPointerCanDrag(event.pointerType)) return;
+      beginLauncherDrag(event.clientY, event.currentTarget, event.pointerId);
+    },
+    [beginLauncherDrag]
+  );
 
   const launcherPullApi = useRef({
     keyboardOpen: false,

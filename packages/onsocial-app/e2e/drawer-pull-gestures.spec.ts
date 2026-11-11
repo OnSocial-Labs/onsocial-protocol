@@ -425,10 +425,12 @@ test.describe('drawer pull gestures', () => {
     const settings = page.getByRole('dialog', { name: 'Settings' });
     await expect(settings).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     await settings.getByRole('button', { name: 'Transfer hub' }).click();
+    await expect(settings).toBeHidden();
     const transfer = page.getByRole('dialog', { name: 'Transfer hub' });
     await expect(transfer).toBeVisible();
+    await expect(transfer).not.toHaveClass(/glass-sheet-panel--enter/);
     const grip = transfer.locator('.glass-sheet-drag');
-    await mouseDrag(page, grip, 240);
+    await mouseDrag(page, grip, 280);
     await expect(transfer).toBeHidden();
   });
 });
