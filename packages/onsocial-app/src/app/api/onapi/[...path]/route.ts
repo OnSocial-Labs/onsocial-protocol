@@ -22,7 +22,8 @@ import {
 import {
   ALLOWED_PROXY_ROUTES,
   type AllowedProxyRoute,
-} from './allowed-proxy-routes';
+  type ProxyBodyKind,
+} from '../allowed-proxy-routes';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

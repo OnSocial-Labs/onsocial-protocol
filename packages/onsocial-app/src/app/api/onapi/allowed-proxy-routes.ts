@@ -1,6 +1,6 @@
 /** Allowlist for the same-origin OnAPI proxy (kept out of route.ts for Next typed routes). */
 
-type ProxyBodyKind = 'none' | 'json' | 'form';
+export type ProxyBodyKind = 'none' | 'json' | 'form';
 
 export interface AllowedProxyRoute {
   method: 'GET' | 'POST' | 'DELETE';
