@@ -351,10 +351,13 @@ export function AppProfileEditorSheet({
     setSeededFrom(null);
   }
 
-  const handleFaceBioChange = useCallback((next: string) => {
-    // Native maxLength is the hard stop; clamp only soft-caps Enter towers.
-    setFaceBio(clampFaceEditorInput(next.slice(0, FACE_BIO_WRAP_CHARS)));
-  }, []);
+  const handleFaceBioChange = useCallback(
+    (next: string) => {
+      // Native maxLength is the hard stop; clamp only soft-caps Enter towers.
+      setFaceBio(clampFaceEditorInput(next.slice(0, FACE_BIO_WRAP_CHARS)));
+    },
+    [setFaceBio]
+  );
 
   useEffect(() => {
     if (!open || !snapshot) return;
@@ -479,6 +482,7 @@ export function AppProfileEditorSheet({
     handleLeave,
     keepEditing,
     requestCloseOrConfirm,
+    setAboutOpen,
   ]);
 
   const handleClosed = useCallback(() => {
