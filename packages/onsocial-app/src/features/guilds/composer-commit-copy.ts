@@ -9,5 +9,5 @@ export function composerCommitCopy(opts: {
   if (opts.publishingArticle) {
     return { label: 'Publish', pendingLabel: 'Publishing…' };
   }
-  return { label: 'Send', pendingLabel: 'Sending…' };
+  return { label: 'Post', pendingLabel: 'Posting…' };
 }

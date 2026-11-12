@@ -2667,7 +2667,7 @@ button.post-media-tile {
 .guild-composer-header-post.os-sheet-actions--sm .os-sheet-action--primary {
   flex: 0 0 auto;
   width: auto;
-  min-width: 4.5rem;
+  min-width: 0;
   min-height: 0;
   border-width: 0;
   padding: 0.4rem 0.85rem;
@@ -2678,8 +2678,9 @@ button.post-media-tile {
 }
 
 /*
- * Ready verb wears the send-arrow ink on a quiet pill. The solid inverted
- * fill stays for money commits. Faint until there is something to send.
+ * Ready pill is the viewer's mood. The word flips to near-black or white
+ * from the accent's own lightness, so a pale mood stays readable.
+ * Faint until there is something to post.
  */
 .guild-composer-header-post.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
   .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):not(
@@ -2687,13 +2688,13 @@ button.post-media-tile {
   ),
 .guild-composer-header-post.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
   .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded) {
-  border-color: transparent;
-  background: var(--os-surface-fill);
-  box-shadow: none;
-  color: var(
-    --os-dock-handle-ink,
-    var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.72)))
+  --composer-commit-ink: oklch(
+    from var(--mood-accent) clamp(0, (0.58 - l) * 80, 1) 0 0 / 0.94
   );
+  border-color: transparent;
+  background: var(--mood-accent);
+  box-shadow: none;
+  color: var(--composer-commit-ink);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -2701,11 +2702,8 @@ button.post-media-tile {
     .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):not(
       .is-pending
     ):hover {
-    background: var(--os-surface-fill-hover);
-    color: var(
-      --os-dock-handle-ink,
-      var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.72)))
-    );
+    background: color-mix(in srgb, var(--mood-accent) 90%, white);
+    color: var(--composer-commit-ink);
     box-shadow: none;
   }
 }

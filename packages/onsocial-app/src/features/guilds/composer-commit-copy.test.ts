@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { composerCommitCopy } from './composer-commit-copy';
 
 describe('composerCommitCopy', () => {
-  it('sends a post, reply, or quote', () => {
+  it('posts a public post, reply, or quote', () => {
     expect(
       composerCommitCopy({ postingAsDao: false, publishingArticle: false })
-    ).toEqual({ label: 'Send', pendingLabel: 'Sending…' });
+    ).toEqual({ label: 'Post', pendingLabel: 'Posting…' });
   });
 
   it('publishes an article', () => {
