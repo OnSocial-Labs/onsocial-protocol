@@ -371,7 +371,8 @@ describe('scrollMobileFieldIntoView', () => {
       tagName: 'INPUT',
       isContentEditable: false,
       parentElement: scroller,
-      closest: () => host,
+      closest: (selector: string) =>
+        selector === '.is-keyboard-open' ? host : null,
       getBoundingClientRect: () => ({
         top: 700 - scrollTop,
         bottom: 744 - scrollTop,
@@ -441,6 +442,66 @@ describe('scrollMobileFieldIntoView', () => {
     scrollMobileFieldIntoView(field);
     expect(scrollIntoView).not.toHaveBeenCalled();
     expect(state.scrollTop).toBe(20 + (390 - (300 - 12)));
+  });
+
+  it('keeps a focused line below the overlay header', () => {
+    let scrollTop = 80;
+    const header = {
+      getBoundingClientRect: () => ({ top: 0, bottom: 64, height: 64 }),
+    };
+    const screen = {
+      querySelector: (selector: string) =>
+        selector.includes('header') ? header : null,
+    };
+    const scroller = {
+      get scrollTop() {
+        return scrollTop;
+      },
+      set scrollTop(value: number) {
+        scrollTop = value;
+      },
+      scrollHeight: 1400,
+      clientHeight: 700,
+      parentElement: null,
+      getBoundingClientRect: () => ({
+        top: 0,
+        bottom: 800,
+        left: 0,
+        right: 390,
+        width: 390,
+        height: 800,
+      }),
+    };
+    const field = {
+      tagName: 'DIV',
+      isContentEditable: true,
+      parentElement: scroller,
+      closest: (selector: string) =>
+        selector.includes('os-app-screen') ? screen : null,
+      getBoundingClientRect: () => ({
+        top: 20 + (80 - scrollTop),
+        bottom: 48 + (80 - scrollTop),
+      }),
+      scrollIntoView: vi.fn(),
+    } as unknown as HTMLElement;
+
+    vi.stubGlobal('window', {
+      matchMedia: () => ({ matches: true }),
+      visualViewport: { offsetTop: 0, height: 800 },
+      getComputedStyle: () => ({ overflowY: 'auto' }),
+      getSelection: () => null,
+      requestAnimationFrame: (cb: FrameRequestCallback) => {
+        cb(0);
+        return 1;
+      },
+      setTimeout: (cb: () => void) => {
+        cb();
+        return 1 as unknown as ReturnType<typeof setTimeout>;
+      },
+    });
+
+    scrollMobileFieldIntoView(field);
+    expect(scrollTop).toBe(80 - (64 + 12 - 20));
   });
 
   it('does not scroll on desktop', () => {

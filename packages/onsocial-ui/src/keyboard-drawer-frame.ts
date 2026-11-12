@@ -139,6 +139,34 @@ export function keyboardSheetMargin(liftPx: number): string {
   return `${liftPx}px`;
 }
 
+/**
+ * Seat that puts the drawer panel on the keys.
+ * `appliedSeat` is the margin already on the panel. The error is how far
+ * that panel still misses the visible bottom, in the same coordinates.
+ * A card that already ended on the keys stays at 0. A double lift shrinks
+ * back to the keys instead of keeping the full overlap.
+ */
+export function correctedKeyboardSeat(input: {
+  lift: number;
+  appliedSeat: number;
+  panelBottom: number | null;
+  visibleBottom: number;
+  fallbackSeat: number;
+}): number {
+  if (input.lift <= 0) return 0;
+  if (input.panelBottom == null) {
+    return Math.max(0, Math.min(input.lift, Math.round(input.fallbackSeat)));
+  }
+  const error = Math.round(input.panelBottom - input.visibleBottom);
+  if (Math.abs(error) < 2) {
+    return Math.max(0, Math.min(input.lift, Math.round(input.appliedSeat)));
+  }
+  return Math.max(
+    0,
+    Math.min(input.lift, Math.round(input.appliedSeat + error))
+  );
+}
+
 export type KeyboardDrawerFrameMode = 'drawer' | 'page';
 
 /** Tracks the keyboard while `active` (the sheet is open). */
@@ -164,12 +192,32 @@ export function useKeyboardDrawerFrame(
       const root = rootRef?.current ?? null;
       const viewport = window.visualViewport;
       const rect = root?.getBoundingClientRect();
-      const nextSeat = keyboardSeatPx({
+      const visibleBottom = viewport ? viewport.offsetTop + viewport.height : 0;
+      const rootSeat = keyboardSeatPx({
         lift: settled.lift,
         rootBottom: rect ? rect.bottom : null,
         rootHeight: rect ? rect.height : 0,
-        visualBottom: viewport ? viewport.offsetTop + viewport.height : 0,
+        visualBottom,
       });
+      // Pages stay full height, so the root overlap is the footer lift.
+      // Drawers move with margin: correct from the panel's real bottom so a
+      // second lift (card already on the keys, or the browser scrolling the
+      // visual viewport) does not leave Done floating.
+      const panel =
+        mode === 'drawer'
+          ? (root?.querySelector<HTMLElement>(':scope > .glass-sheet-panel') ??
+            null)
+          : null;
+      const nextSeat =
+        mode === 'drawer'
+          ? correctedKeyboardSeat({
+              lift: settled.lift,
+              appliedSeat: frameRef.current.seat,
+              panelBottom: panel ? panel.getBoundingClientRect().bottom : null,
+              visibleBottom,
+              fallbackSeat: rootSeat,
+            })
+          : rootSeat;
       if (
         settled === frameRef.current.metrics &&
         nextSeat === frameRef.current.seat
@@ -181,17 +229,19 @@ export function useKeyboardDrawerFrame(
       setFrame(next);
     };
     const viewport = window.visualViewport;
-    // Resize is the keyboard. Scroll is the browser chasing the caret, and
-    // following it moves the drawer, which makes the caret chase again.
+    // Resize is the keyboard. Scroll is the browser sliding the visual
+    // viewport to chase the caret — the panel has to follow or Done floats.
     viewport?.addEventListener('resize', sync);
+    viewport?.addEventListener('scroll', sync);
     window.addEventListener('resize', sync);
     const frame = window.requestAnimationFrame(sync);
     return () => {
       window.cancelAnimationFrame(frame);
       viewport?.removeEventListener('resize', sync);
+      viewport?.removeEventListener('scroll', sync);
       window.removeEventListener('resize', sync);
     };
-  }, [active, rootRef]);
+  }, [active, frame.seat, mode, rootRef]);
 
   const live = active ? frame.metrics : IDLE;
   const liveSeat = active ? frame.seat : 0;
