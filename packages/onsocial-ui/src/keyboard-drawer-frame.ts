@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -191,28 +190,57 @@ export function visualKeyboardFrame(input: {
   if (fillsVisible) {
     return { top: 0, height: parentHeight };
   }
-  const top = Math.max(0, Math.max(offsetTop, -parentTop));
+  // The card is already on the visual screen (hosted sheet). offsetTop is
+  // the caret pan, not a gap inside this card. Adding it slides the sheet
+  // down and uncovers a strip of the page.
+  if (parentTop >= -1) {
+    return { top: 0, height: Math.min(visualHeight, parentHeight) };
+  }
+  const top = Math.max(0, -parentTop);
   const room = Math.max(0, parentHeight - top);
   return { top, height: Math.min(visualHeight, room) };
 }
 
 /**
- * Follow the visible top so a keyboard pan cannot leave a gap.
- * A suggestion bar changes the height by less than a real keyboard, and
- * that height stays put. A one-pixel top twitch does not move the frame.
+ * A suggestion bar or a paste pan changes the height by less than a real
+ * keyboard. That frame stays put — including its top. Following the pan
+ * slides the sheet down inside the visible screen.
+ * A real keyboard resize still takes the new top and height.
  */
 export function settleVisualKeyboardFrame(
   current: VisualKeyboardBox | null,
   next: VisualKeyboardBox
 ): VisualKeyboardBox {
   if (!current) return next;
-  const height =
-    Math.abs(current.height - next.height) < KEYBOARD_VIEWPORT_SLOP_PX
-      ? current.height
-      : next.height;
+  const heightHeld =
+    Math.abs(current.height - next.height) < KEYBOARD_VIEWPORT_SLOP_PX;
+  if (heightHeld) return current;
   const top = Math.abs(current.top - next.top) < 2 ? current.top : next.top;
-  if (current.top === top && current.height === height) return current;
-  return { top, height };
+  if (current.top === top && current.height === next.height) return current;
+  return { top, height: next.height };
+}
+
+/**
+ * CSS top that puts a sheet on the visual top.
+ * `frameTop` is the sheet's visual top after `appliedTop` is already set.
+ * A positive frameTop is the white strip (the sheet was pushed down).
+ * A negative frameTop is the page lift (the sheet scrolled off the top).
+ * The correction is not stacked once the sheet is back on screen.
+ */
+export function keyboardFrameTop(input: {
+  appliedTop: number;
+  frameTop: number;
+  parentTop: number;
+}): number {
+  const frameTop = Math.round(input.frameTop);
+  const parentTop = Math.round(input.parentTop);
+  if (parentTop >= -1 && frameTop < -1) {
+    return Math.max(0, -frameTop);
+  }
+  const desired = Math.max(0, parentTop);
+  const error = desired - frameTop;
+  if (Math.abs(error) < 2) return input.appliedTop;
+  return Math.max(0, Math.round(input.appliedTop + error));
 }
 
 /** Root box for a drawer. The panel then ends on the keys with no margin. */
@@ -280,12 +308,36 @@ function pageSheetsSharingHost(drawerRoot: HTMLElement): HTMLElement[] {
  * moves them together, so the page does not slide up under the keys and
  * the drawer does not jump back.
  */
+function parentVisualTop(node: HTMLElement): number {
+  const parent = node.offsetParent;
+  if (!(parent instanceof HTMLElement)) return 0;
+  return parent.getBoundingClientRect().top;
+}
+
+/** Write the box, then pull the sheet back if that top missed the visual screen. */
+function commitVisibleBox(
+  node: HTMLElement,
+  box: VisualKeyboardBox
+): VisualKeyboardBox {
+  applyKeyboardRootFrame(node, box);
+  const top = keyboardFrameTop({
+    appliedTop: box.top,
+    frameTop: node.getBoundingClientRect().top,
+    parentTop: parentVisualTop(node),
+  });
+  if (top === box.top) return box;
+  const next = { top, height: box.height };
+  applyKeyboardRootFrame(node, next);
+  return next;
+}
+
 function pinPagesBehindDrawer(
   drawerRoot: HTMLElement,
   box: VisualKeyboardBox | null
 ) {
   for (const page of pageSheetsSharingHost(drawerRoot)) {
-    applyKeyboardRootFrame(page, box);
+    const pinned = box ? commitVisibleBox(page, box) : null;
+    if (!pinned) applyKeyboardRootFrame(page, null);
     const panel = page.querySelector<HTMLElement>('.glass-sheet-panel');
     if (!panel) continue;
     if (box) panel.style.setProperty('--os-keyboard-lift', '0px');
@@ -351,39 +403,41 @@ export function useKeyboardDrawerFrame(
       const metricsChanged = settled !== frameRef.current.metrics;
       const root = rootRef?.current ?? null;
       const viewport = window.visualViewport;
-      if (mode === 'drawer') {
-        // The drawer root IS the visible viewport. A pan updates the top.
-        // A margin on top of that pan is the gap above the keys.
-        const keyboardUp =
-          settled.isMobile &&
-          settled.lift >= KEYBOARD_VIEWPORT_SLOP_PX &&
-          viewport;
+      const keyboardUp =
+        settled.isMobile &&
+        settled.lift >= KEYBOARD_VIEWPORT_SLOP_PX &&
+        Boolean(viewport);
+      // One visible box for the open surface and the page behind it.
+      // A paste pan or a lower field (url keyboard) must not become CSS top.
+      if (keyboardUp && viewport) {
         const fixed =
           !root || window.getComputedStyle(root).position === 'fixed';
         const parentRect = fixed
           ? null
           : (root.offsetParent as HTMLElement | null)?.getBoundingClientRect();
-        const nextBox = keyboardUp
-          ? settleVisualKeyboardFrame(
-              frameRef.current.box,
-              visualKeyboardFrame({
-                position: fixed ? 'fixed' : 'absolute',
-                parentTop: parentRect?.top ?? 0,
-                parentHeight: parentRect?.height ?? 0,
-                offsetTop: viewport.offsetTop,
-                visualHeight: viewport.height,
-              })
-            )
-          : null;
-        activeDrawerBox = nextBox;
+        let nextBox =
+          mode === 'page' && activeDrawerBox
+            ? activeDrawerBox
+            : settleVisualKeyboardFrame(
+                frameRef.current.box,
+                visualKeyboardFrame({
+                  position: fixed ? 'fixed' : 'absolute',
+                  parentTop: parentRect?.top ?? 0,
+                  parentHeight: parentRect?.height ?? 0,
+                  offsetTop: viewport.offsetTop,
+                  visualHeight: viewport.height,
+                })
+              );
         if (root) {
-          // Before paint. Waiting for React lets the caret pan show for a frame.
-          applyKeyboardRootFrame(root, nextBox);
+          // Before paint. React's style commit is the frame the strip shows on.
+          nextBox = commitVisibleBox(root, nextBox);
           pinPagesBehindDrawer(root, nextBox);
         }
+        if (mode === 'drawer') activeDrawerBox = nextBox;
         if (
           settled === frameRef.current.metrics &&
-          nextBox === frameRef.current.box
+          nextBox === frameRef.current.box &&
+          frameRef.current.seat === 0
         ) {
           return;
         }
@@ -392,10 +446,15 @@ export function useKeyboardDrawerFrame(
         setFrame(next);
         return;
       }
-      // The drawer already owns this keyboard. The page keeps its footer down.
-      if (activeDrawerBox) {
+      if (mode === 'drawer') {
+        activeDrawerBox = null;
+        if (root) {
+          applyKeyboardRootFrame(root, null);
+          pinPagesBehindDrawer(root, null);
+        }
         if (
           settled === frameRef.current.metrics &&
+          frameRef.current.box == null &&
           frameRef.current.seat === 0
         ) {
           return;
@@ -405,28 +464,23 @@ export function useKeyboardDrawerFrame(
         setFrame(next);
         return;
       }
+      if (root && frameRef.current.box) {
+        applyKeyboardRootFrame(root, null);
+        pinPagesBehindDrawer(root, null);
+      }
       if (!keyboardFrameNeedsSeat(reason, metricsChanged)) return;
       const rect = root?.getBoundingClientRect();
       const visibleBottom = viewport ? viewport.offsetTop + viewport.height : 0;
-      // Class lands a paint after the drawer box. The box is the same-frame signal.
-      const drawerOwnsKeyboard =
-        activeDrawerBox != null ||
-        Boolean(
-          document.querySelector(
-            '.glass-sheet-panel[data-sizing="hug"].is-keyboard-open'
-          )
-        );
-      const rootSeat = drawerOwnsKeyboard
-        ? 0
-        : keyboardSeatPx({
-            lift: settled.lift,
-            rootBottom: rect ? rect.bottom : null,
-            rootHeight: rect ? rect.height : 0,
-            visualBottom: visibleBottom,
-          });
+      const rootSeat = keyboardSeatPx({
+        lift: settled.lift,
+        rootBottom: rect ? rect.bottom : null,
+        rootHeight: rect ? rect.height : 0,
+        visualBottom: visibleBottom,
+      });
       if (
         settled === frameRef.current.metrics &&
-        rootSeat === frameRef.current.seat
+        rootSeat === frameRef.current.seat &&
+        frameRef.current.box == null
       ) {
         return;
       }
@@ -437,10 +491,8 @@ export function useKeyboardDrawerFrame(
     const viewport = window.visualViewport;
     const onLayout = () => sync('layout');
     const onScroll = () => sync('scroll');
-    // Resize is the keyboard. Scroll is a pan of the visible viewport.
-    // Drawers follow that pan so the footer stays on the keys. Pages ignore
-    // a scroll that does not change the keyboard height, so a caret does
-    // not lift the page behind a drawer.
+    // Resize is the keyboard. Scroll is a caret or paste pan. The frame
+    // keeps its top through that pan so the page is not pushed down.
     const onFocus = () => {
       window.requestAnimationFrame(onLayout);
     };
@@ -464,31 +516,41 @@ export function useKeyboardDrawerFrame(
     };
   }, [active, frame.seat, mode, rootRef]);
 
-  useEffect(() => {
-    if (!active || mode !== 'drawer' || frame.metrics.lift <= 0) return;
-    const root = rootRef?.current;
-    if (!root) return;
-    // Freeze the page body. Snapping scrollTop after the browser paints a
-    // caret pan is the bounce: the page lifts, then jumps back, and the
-    // drawer follows both.
-    const locked: Array<{ node: HTMLElement; overflow: string }> = [];
+  useLayoutEffect(() => {
+    if (!active || typeof document === 'undefined') return;
+    if (!window.matchMedia(`(max-width: ${MOBILE_MAX_WIDTH_PX}px)`).matches) {
+      return;
+    }
+    const root = rootRef?.current ?? null;
+    // Freeze scrollers outside this sheet before a paste or url-field pan
+    // can move them. Restoring scrollTop after paint is the bounce.
+    const locked: Array<{
+      node: HTMLElement;
+      overflow: string;
+      top: number;
+    }> = [];
     const lock = (node: HTMLElement | null) => {
       if (!node || locked.some((item) => item.node === node)) return;
-      locked.push({ node, overflow: node.style.overflow });
+      if (root && (node === root || root.contains(node))) return;
+      const top = node.scrollTop;
+      locked.push({ node, overflow: node.style.overflow, top });
       node.style.overflow = 'hidden';
+      if (node.scrollTop !== top) node.scrollTop = top;
     };
-    for (const page of pageSheetsSharingHost(root)) {
-      lock(page.querySelector<HTMLElement>('.glass-sheet-body'));
-    }
-    lock(
-      document.scrollingElement instanceof HTMLElement
-        ? document.scrollingElement
-        : null
+    lock(document.documentElement);
+    const outside = document.querySelectorAll<HTMLElement>(
+      '.os-app-screen-body, .portfolio-page, .glass-sheet-body'
     );
+    for (let index = 0; index < outside.length; index += 1) {
+      lock(outside[index] ?? null);
+    }
     return () => {
-      for (const item of locked) item.node.style.overflow = item.overflow;
+      for (const item of locked) {
+        item.node.style.overflow = item.overflow;
+        if (item.node.scrollTop !== item.top) item.node.scrollTop = item.top;
+      }
     };
-  }, [active, frame.metrics.lift, mode, rootRef]);
+  }, [active, rootRef]);
 
   const live = active ? frame.metrics : IDLE;
   const liveSeat = active ? frame.seat : 0;
@@ -501,11 +563,8 @@ export function useKeyboardDrawerFrame(
     return { maxHeight: `${liveBox.height}px`, marginBottom: '0px' };
   }, [live, liveBox, liveSeat, mode]);
   const rootStyle = useMemo(
-    () =>
-      mode === 'drawer' && liveBox
-        ? keyboardRootFrameStyle(liveBox)
-        : undefined,
-    [liveBox, mode]
+    () => (liveBox ? keyboardRootFrameStyle(liveBox) : undefined),
+    [liveBox]
   );
   return {
     style,

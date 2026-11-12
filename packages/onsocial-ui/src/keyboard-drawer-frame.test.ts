@@ -3,6 +3,7 @@ import {
   correctedKeyboardSeat,
   keyboardDrawerFrameStyle,
   keyboardFrameNeedsSeat,
+  keyboardFrameTop,
   keyboardRootFrameStyle,
   keyboardSeatPx,
   pageKeyboardLiftStyle,
@@ -192,7 +193,19 @@ describe('visualKeyboardFrame', () => {
     ).toEqual({ top: 140, height: 520 });
   });
 
-  it('moves an absolute drawer down when its card still fills the layout', () => {
+  it('brings an absolute drawer back when its card has left the screen', () => {
+    expect(
+      visualKeyboardFrame({
+        position: 'absolute',
+        parentTop: -140,
+        parentHeight: 844,
+        offsetTop: 140,
+        visualHeight: 520,
+      })
+    ).toEqual({ top: 140, height: 520 });
+  });
+
+  it('keeps an absolute drawer at the top of a card that is already on screen', () => {
     expect(
       visualKeyboardFrame({
         position: 'absolute',
@@ -201,7 +214,7 @@ describe('visualKeyboardFrame', () => {
         offsetTop: 140,
         visualHeight: 520,
       })
-    ).toEqual({ top: 140, height: 520 });
+    ).toEqual({ top: 0, height: 520 });
   });
 
   it('does not push a card that has already shrunk onto the keys', () => {
@@ -216,12 +229,11 @@ describe('visualKeyboardFrame', () => {
     ).toEqual({ top: 0, height: 520 });
   });
 
-  it('follows the visible top and ignores a suggestion-bar height twitch', () => {
+  it('ignores a paste pan while the keyboard height is held', () => {
     const held = { top: 0, height: 520 };
-    expect(settleVisualKeyboardFrame(held, { top: 48, height: 480 })).toEqual({
-      top: 48,
-      height: 520,
-    });
+    expect(settleVisualKeyboardFrame(held, { top: 48, height: 480 })).toBe(
+      held
+    );
   });
 
   it('follows a real keyboard resize', () => {
@@ -231,6 +243,12 @@ describe('visualKeyboardFrame', () => {
         { top: 0, height: 380 }
       )
     ).toEqual({ top: 0, height: 380 });
+    expect(
+      settleVisualKeyboardFrame(
+        { top: 0, height: 700 },
+        { top: 40, height: 380 }
+      )
+    ).toEqual({ top: 40, height: 380 });
   });
 
   it('styles the root as that box and does not add a keyboard margin', () => {
@@ -240,6 +258,26 @@ describe('visualKeyboardFrame', () => {
       bottom: 'auto',
       paddingBottom: 0,
     });
+  });
+});
+
+describe('keyboardFrameTop', () => {
+  it('pulls a sheet back up when the pan top left a strip', () => {
+    expect(
+      keyboardFrameTop({ appliedTop: 140, frameTop: 140, parentTop: 0 })
+    ).toBe(0);
+  });
+
+  it('pulls a lifted page back onto the visual top', () => {
+    expect(
+      keyboardFrameTop({ appliedTop: 0, frameTop: -140, parentTop: 0 })
+    ).toBe(140);
+  });
+
+  it('leaves a sheet that is already on the visual top', () => {
+    expect(keyboardFrameTop({ appliedTop: 0, frameTop: 0, parentTop: 0 })).toBe(
+      0
+    );
   });
 });
 

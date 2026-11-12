@@ -1,0 +1,21 @@
+## 1. best-in-class call
+
+This is the right fix for the browsers this app actually ships on. A caret or paste pan is `visualViewport.offsetTop`. Writing that number as CSS `top` on a sheet that is already inside the on-screen card slides the sheet and the page behind it down, and the document background shows as a white strip. Safari does not implement `interactive-widget=resizes-content`, so that viewport meta would not stop the pan on iPhone and would fight the keyboard seat the rest of the app already measures. The frame now keeps its top while the keyboard height is held, and a measured correction pulls a sheet back only when its visual top has actually left the screen. Nothing here is chain-shaped. There is no cooler NEAR-native version of a viewport pan.
+
+## 2. alignment map
+
+The keyboard seat lives in `@onsocial/ui` `keyboard-drawer-frame.ts`, used by `GlassSheet` for both hug drawers and page sheets. About already pins with `usePageKeyboardLift` and `visualKeyboardFrame` / `correctedFrameTop` in `use-visual-viewport-sheet.ts`. Field reveal inside a scroller is `scrollMobileFieldIntoView`. #738 left `focusFieldStill` on the location, industry, and link fields (`profile-location-control.tsx`, `profile-org-meta-editor.tsx`, `profile-links-editor.tsx`) and removed the post-paint scroll snap in `hold-drawer-still.ts`. Those call sites stay. The snap stays gone. The link field differs from the title field by `inputMode="url"` and by sitting lower, which is what makes WebKit pan. Edit profile and the portfolio editor are the same `AppProfileEditorSheet` page (`usePageKeyboardLift` without a root pin). Tokens stay the sheet and screen tokens already on those roots. No new control, color, or length.
+
+## 3. near idioms
+
+No wallet, account, contract, gas, or storage change. The failure is the phone viewport while a field is focused. Names, bios, and links stay ordinary text. No chain wording is added to the screen.
+
+## 4. side effects
+
+On a phone, an open `GlassSheet` — drawer or page — pins its root to the visible viewport while the keyboard is up, and the footer lift for that pin is 0 so the action is not raised twice. A pan that does not resize the keyboard no longer moves that top. Sibling page sheets get the same pin, which is what keeps the page under a link drawer from sliding. While the sheet is open, `documentElement` and background scrollers (`.os-app-screen-body`, `.portfolio-page`, `.glass-sheet-body` outside the active sheet) are overflow-locked before paint. The sheet’s own body still scrolls. `scrollMobileFieldIntoView` no longer calls `scrollIntoView` on the window when the field is already inside a sheet or screen and no inner scroller can move. Desktop geometry is unchanged. About’s pin uses the same measured top correction.
+
+## 5. shipped
+
+`visualKeyboardFrame` leaves an absolute sheet at top 0 when its card is already on screen, and still pulls it back when the card has left the screen. `settleVisualKeyboardFrame` ignores a paste pan inside the keyboard slop. `keyboardFrameTop` removes a top that painted a strip and restores a sheet that actually lifted. Page sheets keep that box in React so the next commit cannot clear the pin. The #738 overflow lock moved to layout time and covers page editors, not only drawers after the keyboard lift is already non-zero.
+
+Checks: `pnpm check:push` passed. `@onsocial/ui` check passed (277 tests). `@onsocial/app` check passed (500 test files, production build compiled). App Playwright 359 passed, 1 skipped, 1 flaky on an unrelated launcher grip drag. Before that gate, Playwright `drawer-paste-lift` 6 passed (iPhone 13 and Pixel 7): paste in Edit profile, paste in the portfolio editor, Add link title, Add link field. Root top stayed under 12px and `scrollY` stayed 0 after a simulated paste pan and after a url-field pan. `profile-location-drawer` 2 passed, so the #738 location drawer still opens, accepts a place, and keeps Done on screen. Screenshots: `/opt/cursor/artifacts/edit-profile-paste-iphone.png`, `edit-profile-paste-android.png`, `edit-portfolio-paste-iphone.png`, `edit-portfolio-paste-android.png`, `add-link-title-iphone.png`, `add-link-title-android.png`, `add-link-field-iphone.png`, `add-link-field-android.png`. No new user-facing strings, so no glossary terms.

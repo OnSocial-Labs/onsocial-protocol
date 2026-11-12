@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  keyboardFrameTop,
   keyboardSeatPx,
   settleVisualKeyboardFrame,
   visualKeyboardFrame,
@@ -98,7 +99,7 @@ export function usePageKeyboardLift(
       const fixed = window.getComputedStyle(node).position === 'fixed';
       const parent = fixed ? null : (node.offsetParent as HTMLElement | null);
       const parentRect = parent?.getBoundingClientRect();
-      const next = settleVisualKeyboardFrame(
+      const proposed = settleVisualKeyboardFrame(
         pinned,
         visualKeyboardFrame({
           position: fixed ? 'fixed' : 'absolute',
@@ -108,6 +109,17 @@ export function usePageKeyboardLift(
           visualHeight: visual.height,
         })
       );
+      node.style.top = `${proposed.top}px`;
+      node.style.height = `${proposed.height}px`;
+      const next = {
+        top: keyboardFrameTop({
+          appliedTop: proposed.top,
+          frameTop: node.getBoundingClientRect().top,
+          parentTop: parentRect?.top ?? 0,
+        }),
+        height: proposed.height,
+      };
+      if (next.top !== proposed.top) node.style.top = `${next.top}px`;
       setPinned((current) =>
         current && current.top === next.top && current.height === next.height
           ? current

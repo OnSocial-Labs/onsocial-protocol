@@ -306,6 +306,7 @@ export {
   pageKeyboardLiftStyle,
   KEYBOARD_VIEWPORT_SLOP_PX,
   keyboardFrameNeedsSeat,
+  keyboardFrameTop,
   keyboardRootFrameStyle,
   settleKeyboardDrawerMetrics,
   settleVisualKeyboardFrame,
