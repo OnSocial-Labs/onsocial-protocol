@@ -1,32 +1,46 @@
 'use client';
 
+import { osCommitCancelClassName } from '@onsocial/ui';
 import { usePwa } from '@/components/providers/pwa-provider';
+import type { GateInstallPlatform } from '@/lib/gate-install-platform';
 
-/** Gate secondary CTA — install when the browser offers it; iOS gets Share hint. */
-export function GatePwaInstall() {
-  const { canInstall, isInstalled, isIos, install } = usePwa();
+/**
+ * Quiet text install under Let’s connect. The kit’s commit-cancel control
+ * is the colourless, borderless text button. A matching reserve keeps the
+ * slot’s height from the first paint. Standalone hides it in CSS before
+ * paint (`display-mode` and `data-pwa-standalone`).
+ */
+export function GatePwaInstall({
+  platform,
+}: {
+  platform: GateInstallPlatform;
+}) {
+  const { canInstall, install } = usePwa();
+  const showIosHint = platform === 'ios' && !canInstall;
 
-  if (isInstalled) return null;
-
-  if (canInstall) {
-    return (
+  return (
+    <div className="gate-install-slot">
       <button
         type="button"
-        className="gate-connect-button gate-connect-install"
-        onClick={() => {
-          void install();
-        }}
+        className={`${osCommitCancelClassName} gate-install-reserve`}
+        tabIndex={-1}
+        aria-hidden
       >
         Install app
       </button>
-    );
-  }
-
-  if (isIos) {
-    return (
-      <p className="gate-connect-install-hint">Share → Add to Home Screen</p>
-    );
-  }
-
-  return null;
+      {canInstall ? (
+        <button
+          type="button"
+          className={osCommitCancelClassName}
+          onClick={() => {
+            void install();
+          }}
+        >
+          Install app
+        </button>
+      ) : showIosHint ? (
+        <p className="gate-connect-install-hint">Share → Add to Home Screen</p>
+      ) : null}
+    </div>
+  );
 }

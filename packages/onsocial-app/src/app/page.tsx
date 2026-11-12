@@ -1,9 +1,15 @@
+import { headers } from 'next/headers';
 import { GateConnect } from '@/components/gate/gate-connect';
 import { GateDappRail } from '@/components/gate/gate-dapp-rail';
+import { GateViewportScript } from '@/components/gate/gate-viewport-script';
+import { gateInstallPlatform } from '@/lib/gate-install-platform';
 
-export default function HomePage() {
+export default async function HomePage() {
+  const userAgent = (await headers()).get('user-agent') ?? '';
+
   return (
     <main className="gate app-surface">
+      <GateViewportScript />
       <div className="gate-scroll" suppressHydrationWarning>
         <div className="gate-content">
           <div className="gate-logo" aria-label="OnSocial">
@@ -23,7 +29,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      <GateConnect />
+      <GateConnect platform={gateInstallPlatform(userAgent)} />
     </main>
   );
 }

@@ -4559,7 +4559,10 @@ a.os-surface-row,
 
     .gate.app-surface {
       position: fixed;
-      inset-block: 0;
+      top: var(--gate-viewport-offset, 0px);
+      bottom: auto;
+      height: var(--gate-viewport-height, 100dvh);
+      max-height: var(--gate-viewport-height, 100dvh);
       inset-inline-start: 50%;
       inset-inline-end: auto;
       width: min(100%, 36rem);
@@ -4573,33 +4576,53 @@ a.os-surface-row,
 
 @layer components {
   .gate {
+    --gate-dapp-row: 2.75rem;
+    --gate-dapp-window: calc(var(--gate-dapp-row) * 5);
     position: fixed;
-    inset: 0;
+    inset-inline: 0;
+    top: var(--gate-viewport-offset, 0px);
+    height: var(--gate-viewport-height, 100dvh);
+    max-height: var(--gate-viewport-height, 100dvh);
+    bottom: auto;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: manipulation;
     background: var(--bg);
   }
 
   .gate-scroll {
-    flex: 1;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: manipulation;
   }
 
   .gate-content {
     position: relative;
     z-index: 1;
     display: flex;
+    flex: 1 1 auto;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2.25rem;
+    gap: calc(var(--os-gutter) * 3);
     width: 100%;
-    min-height: 100%;
-    /* Extra wheel height and the thumb shift grow downward, so the mark stays. */
-    padding: calc(3rem + 3.375rem) 1.5rem calc(5rem - 3.375rem);
+    min-height: 0;
+    box-sizing: border-box;
+    padding:
+      var(--os-gutter)
+      max(var(--os-gutter), env(safe-area-inset-right, 0px))
+      var(--os-gutter)
+      max(var(--os-gutter), env(safe-area-inset-left, 0px));
+  }
+
+  .gate-content > .gate-logo {
+    flex: 0 0 auto;
   }
 
   .gate-logo {
@@ -4640,6 +4663,54 @@ a.os-surface-row,
     animation: gate-fade var(--os-motion-overlay, 320ms)
       var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1))
       var(--os-motion-micro, 120ms) both;
+  }
+
+  /* The wheel lives in the scroll region and shrinks before it can meet the actions.
+   The snap padding tracks the rail, not the five-row window, so a short
+   landscape rail cannot spill its list under the buttons. */
+  .gate .gate-os-rail {
+    position: relative;
+    flex: 1 1 0;
+    min-height: 0;
+    max-height: var(--gate-dapp-window);
+    margin-top: 0;
+    overflow: hidden;
+    container-type: size;
+  }
+
+  /* Edge fade is an overlay, not a mask on the scroller. A mask repaints
+     the whole wheel on every frame and shows up as a long task. */
+  .gate .gate-os-rail::before,
+  .gate .gate-os-rail::after {
+    content: '';
+    position: absolute;
+    z-index: 1;
+    left: 0;
+    right: 0;
+    height: 28%;
+    pointer-events: none;
+  }
+
+  .gate .gate-os-rail::before {
+    top: 0;
+    background: linear-gradient(to bottom, var(--bg), transparent);
+  }
+
+  .gate .gate-os-rail::after {
+    bottom: 0;
+    background: linear-gradient(to top, var(--bg), transparent);
+  }
+
+  .gate .gate-os-rail .gate-dapp-list {
+    box-sizing: border-box;
+    height: 100%;
+    max-height: 100%;
+    mask-image: none;
+    padding-block: calc((100cqh - var(--gate-dapp-row)) / 2);
+    scroll-padding-block: calc((100cqh - var(--gate-dapp-row)) / 2);
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
   }
 
   .gate-dapp-list {
@@ -4699,20 +4770,64 @@ a.os-surface-row,
     position: relative;
     z-index: 2;
     display: flex;
+    flex: 0 0 auto;
     flex-direction: column;
     flex-wrap: nowrap;
     align-items: center;
     justify-content: center;
-    gap: 0.65rem;
-    padding: 0 1.5rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
-    min-height: calc(
-      var(--os-dock-height, 3.25rem) + 1.5rem + env(safe-area-inset-bottom, 0px)
-    );
+    gap: var(--os-gutter);
+    width: 100%;
+    padding:
+      var(--os-dock-clearance-gap)
+      max(var(--os-gutter), env(safe-area-inset-right, 0px))
+      max(var(--os-dock-bottom-offset), env(safe-area-inset-bottom, 0px))
+      max(var(--os-gutter), env(safe-area-inset-left, 0px));
     box-sizing: border-box;
     pointer-events: none;
     animation: gate-fade var(--os-motion-overlay, 320ms)
       var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1))
       var(--os-motion-micro, 120ms) both;
+  }
+
+  .gate-install-slot {
+    display: grid;
+    justify-items: center;
+    align-items: center;
+    width: 100%;
+    min-height: var(--os-icon-hit);
+  }
+
+  /* Text install — kit colour and chrome, 44px hit, focus ring from the kit. */
+  .gate-install-slot .os-commit-cancel {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--os-icon-hit);
+    min-width: var(--os-icon-hit);
+    pointer-events: auto;
+  }
+
+  .gate-install-slot .os-commit-cancel:focus-visible {
+    box-shadow: var(--os-focus-ring);
+  }
+
+  .gate-install-slot > * {
+    grid-area: 1 / 1;
+  }
+
+  .gate-install-reserve {
+    visibility: hidden;
+  }
+
+  @media (display-mode: standalone), (display-mode: fullscreen) {
+    .gate-install-slot {
+      display: none;
+    }
+  }
+
+  html[data-pwa-standalone] .gate-install-slot {
+    display: none;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -4723,16 +4838,11 @@ a.os-surface-row,
     }
   }
 
-  .gate-connect-install {
-    opacity: 0.72;
-  }
-
   .gate-connect-install-hint {
     pointer-events: none;
     margin: 0;
-    color: rgb(var(--fg-rgb) / 0.42);
-    font-size: var(--os-stamp-size, 0.75rem);
-    letter-spacing: 0.06em;
+    color: var(--os-identity-handle);
+    font-size: var(--os-stamp-size);
     text-align: center;
   }
 
@@ -4758,47 +4868,14 @@ a.os-surface-row,
       transform 120ms ease;
   }
 
-  /* Install stays the quiet secondary chip. The connect control is the dock pill. */
-  .gate-connect-button.gate-connect-install {
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    background: rgb(var(--fg-rgb) / 0.04);
-    backdrop-filter: blur(12px);
-    color: rgb(var(--fg-rgb) / 0.72);
-    font-size: var(--os-stamp-size, 0.75rem);
-    font-weight: inherit;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    padding: 0.65rem 1rem;
-    min-height: 0;
-  }
-
   .gate-connect-button.os-dock-pill {
     --os-dock-fill: var(--os-surface-fill-strong);
     height: var(--os-dock-height, 3.25rem);
   }
 
-  @media (hover: hover) and (pointer: fine) {
-    .gate-connect-button.gate-connect-install:hover {
-      border-color: rgb(var(--fg-rgb) / 0.2);
-      background: rgb(var(--fg-rgb) / 0.07);
-      color: rgb(var(--fg-rgb) / 0.92);
-    }
-  }
-
   .gate-connect-button:focus-visible {
     outline: 2px solid var(--protocol-blue-ink);
     outline-offset: 2px;
-  }
-
-  .gate-connect-button.gate-connect-install:focus-visible {
-    outline: none;
-    border-color: rgb(var(--fg-rgb) / 0.2);
-    color: rgb(var(--fg-rgb) / 0.92);
-    box-shadow: var(
-      --os-focus-ring,
-      0 0 0 2px
-        color-mix(in srgb, var(--protocol-blue, #60a5fa) 35%, transparent)
-    );
   }
 
   .gate-connect-button:active:not(:disabled) {
@@ -42242,18 +42319,24 @@ body:has(.portfolio-summon-dock[data-mood='glass'])
 }
 
 /*
- * Gate connect composes `.os-dock-pill`. Frost, shadow, and the top lip stay
- * on that shared rule. The gate field is flat `--bg`, so `--glass-surface`
- * and `--glass-surface-solid` do not separate from it; the strongest surface
- * fill does, in both themes.
+ * Gate connect composes `.os-dock-pill`, but the fill is painted on the
+ * element. A `::before` backdrop layer is snapshotted against the first
+ * viewport and, after rotation, rebakes as a split fill with a lip that
+ * reads as a border. The gate field is flat `--bg`, so the strongest
+ * surface fill is enough in both themes. No backdrop sampling.
  */
 .os-dock-pill.gate-connect-button {
   --os-dock-fill: var(--os-surface-fill-strong);
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  height: 2.75rem;
-  min-height: 2.75rem;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--os-dock-fill);
+  background-image: none;
+  box-shadow: var(--os-dock-shadow), var(--os-dock-lip);
+  height: var(--os-dock-height, 3.25rem);
+  min-height: var(--os-dock-height, 3.25rem);
   margin: 0;
   padding: 0 1rem;
   font-size: var(--os-identity-name-size);
@@ -42263,6 +42346,11 @@ body:has(.portfolio-summon-dock[data-mood='glass'])
   line-height: 1;
   cursor: pointer;
   pointer-events: auto;
+}
+
+.os-dock-pill.gate-connect-button::before {
+  content: none;
+  backdrop-filter: none;
 }
 
 .os-dock-pill.gate-connect-button:focus-visible {
@@ -42277,11 +42365,14 @@ body:has(.portfolio-summon-dock[data-mood='glass'])
 }
 
 .os-dock-pill.portfolio-summon::before,
-.os-dock-pill.home-feed-new-posts-pill::before,
-.os-dock-pill.gate-connect-button::before {
+.os-dock-pill.home-feed-new-posts-pill::before {
   background: var(--os-dock-fill);
   /* Standard only — a -webkit- pair makes Lightning drop the blur. */
   backdrop-filter: blur(20px) saturate(1.3);
+}
+
+.gate-install-slot .gate-install-reserve {
+  pointer-events: none;
 }
 
 /* Pull indicator frost. */
@@ -42314,8 +42405,7 @@ body:has(.portfolio-summon-dock[data-mood='glass'])
     background: var(--glass-surface-solid, rgb(var(--bg-rgb) / 0.94));
   }
 
-  .os-dock-pill.gate-connect-button::before {
-    backdrop-filter: none;
+  .os-dock-pill.gate-connect-button {
     background: var(--os-dock-fill);
   }
 
