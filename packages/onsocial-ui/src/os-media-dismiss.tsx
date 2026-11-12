@@ -8,8 +8,8 @@ export const osMediaDismissClassName = 'os-media-dismiss';
 
 /**
  * Small photo dismiss. Same chip on a banner, avatar, guild mark, hub logo,
- * About still, and a composer attachment. The picture itself is the
- * add / replace target — this only removes.
+ * series logo, drop seat, About still, and a message or composer attachment.
+ * The picture itself is the add / replace target — this only removes.
  */
 export function OsMediaDismiss({
   label,

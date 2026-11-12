@@ -79,6 +79,11 @@
   outline: none;
 }
 
+.os-media-dismiss:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .profile-editor-media-toolbar {
   position: absolute;
   inset: 0;
