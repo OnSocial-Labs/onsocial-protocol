@@ -37,6 +37,7 @@ import { ChoiceDrawerMenu, type ChoiceOption } from '@onsocial/ui';
 import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { ProfileEssayFormatToolbar } from '@/components/profile/profile-essay-format-toolbar';
+import { composerCommitCopy } from '@/features/guilds/composer-commit-copy';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerProfileShellContext } from '@/contexts/viewer-profile-shell-context';
 import { useViewerWalletMoodVars } from '@/hooks/use-viewer-wallet-mood-vars';
@@ -1027,6 +1028,7 @@ export function ComposerSheet({
         (!row.articleMode || Boolean(row.articleTitle.trim()))
     );
   const publishingArticle = mode === 'post' && articleMode;
+  const commitCopy = composerCommitCopy({ postingAsDao, publishingArticle });
 
   const guildPlace =
     mode === 'post' && destination?.kind === 'guild' && !postingAsDao
@@ -1608,24 +1610,10 @@ export function ComposerSheet({
                 variant="primary"
                 ready={canPost}
                 pending={pending}
-                pendingLabel={
-                  postingAsDao
-                    ? 'Proposing…'
-                    : mode === 'quote'
-                      ? 'Quoting…'
-                      : publishingArticle
-                        ? 'Publishing…'
-                        : 'Posting…'
-                }
+                pendingLabel={commitCopy.pendingLabel}
                 disabled={!canPost}
               >
-                {postingAsDao
-                  ? 'Propose'
-                  : mode === 'quote'
-                    ? 'Quote'
-                    : publishingArticle
-                      ? 'Publish'
-                      : 'Post'}
+                {commitCopy.label}
               </OsSheetAction>
             </OsSheetActions>
           }
