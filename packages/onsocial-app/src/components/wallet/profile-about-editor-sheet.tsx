@@ -108,7 +108,13 @@ export function ProfileAboutEditorSheet({
   const [leadOpen, setLeadOpen] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<number | null>(null);
   const scrollFieldIntoView = useMobileFieldFocusScroll();
-  const { keyboardOpen, panelStyle } = usePageKeyboardLift(open);
+  const pinAboutRoot = useCallback(
+    () => document.querySelector<HTMLElement>('.profile-about-edit-slide'),
+    []
+  );
+  const { keyboardOpen, panelStyle } = usePageKeyboardLift(open, {
+    pinRoot: pinAboutRoot,
+  });
 
   const aboutLen = aboutBio.replace(/\r\n/g, '\n').length;
   const leadLen = lead.replace(/\r\n/g, '\n').length;

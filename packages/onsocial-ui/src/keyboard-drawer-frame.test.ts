@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  correctedKeyboardSeat,
   keyboardDrawerFrameStyle,
   keyboardSeatPx,
   pageKeyboardLiftStyle,
@@ -104,6 +105,56 @@ describe('keyboardSeatPx', () => {
         visualBottom: 524,
       })
     ).toBe(320);
+  });
+});
+
+describe('correctedKeyboardSeat', () => {
+  it('leaves a drawer that is already on the keys', () => {
+    expect(
+      correctedKeyboardSeat({
+        lift: 320,
+        appliedSeat: 0,
+        panelBottom: 524,
+        visibleBottom: 524,
+        fallbackSeat: 320,
+      })
+    ).toBe(0);
+  });
+
+  it('lifts a drawer that is still under the keys', () => {
+    expect(
+      correctedKeyboardSeat({
+        lift: 320,
+        appliedSeat: 0,
+        panelBottom: 844,
+        visibleBottom: 524,
+        fallbackSeat: 0,
+      })
+    ).toBe(320);
+  });
+
+  it('drops a double lift back onto the keys', () => {
+    expect(
+      correctedKeyboardSeat({
+        lift: 320,
+        appliedSeat: 320,
+        panelBottom: 204,
+        visibleBottom: 524,
+        fallbackSeat: 320,
+      })
+    ).toBe(0);
+  });
+
+  it('uses the root overlap before the panel is laid out', () => {
+    expect(
+      correctedKeyboardSeat({
+        lift: 320,
+        appliedSeat: 0,
+        panelBottom: null,
+        visibleBottom: 524,
+        fallbackSeat: 180,
+      })
+    ).toBe(180);
   });
 });
 

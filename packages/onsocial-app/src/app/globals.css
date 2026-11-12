@@ -34361,11 +34361,29 @@ a.os-surface-row,
   }
 
   /*
-   * About stays a full page. While the keyboard is open the format row
-   * takes the write-dock seat: column width and the dock gutter, flush
-   * on the keys the way the composer tools sit. The story scrolls above
-   * that row. The write dock keeps its own air under the pill.
+   * About stays a full page. The keyboard pins that page to the visible
+   * viewport (top + height from the lift hook) so the name stays under
+   * the header instead of riding into the status bar. The format row is
+   * then flush on the keys, the same padding as the composer tools.
+   * The write dock keeps its own air under the pill.
    */
+  .os-app-screen.profile-about-edit-slide.is-keyboard-open {
+    min-height: 0;
+    max-height: none;
+  }
+
+  .profile-about-edit-slide.is-keyboard-open .account-editor-bio-shell--about,
+  .profile-about-edit-slide.is-keyboard-open
+    .account-editor-bio-shell--about-lead {
+    scroll-margin-top: calc(
+      var(
+          --os-screen-chrome-height,
+          var(--os-app-screen-chrome-height, 4.5rem)
+        ) +
+        0.75rem
+    );
+  }
+
   .profile-about-edit-slide.is-keyboard-open[data-os-slide-over='true']
     .os-app-screen-footer {
     box-sizing: border-box;

@@ -106,6 +106,33 @@ const IDLE: VisualViewportSheetMetrics = {
   isMobile: false,
 };
 
+/**
+ * Pin a full page to the visible viewport while the keyboard is up.
+ * Fixed layers use the layout offset. Absolute layers are offset from
+ * their parent, whose box is in the same coordinates as getBoundingClientRect.
+ * The page then ends on the keys, so the footer lift stays 0.
+ */
+export function visualFramePin(input: {
+  position: 'fixed' | 'absolute';
+  parentTop: number;
+  parentHeight: number;
+  offsetTop: number;
+  visualHeight: number;
+}): { top: number; height: number } {
+  if (input.position === 'fixed') {
+    return {
+      top: Math.max(0, Math.round(input.offsetTop)),
+      height: Math.max(0, Math.round(input.visualHeight)),
+    };
+  }
+  const top = Math.max(0, Math.round(-input.parentTop));
+  const bottom = Math.min(
+    Math.max(0, Math.round(input.parentHeight)),
+    Math.round(input.visualHeight - input.parentTop)
+  );
+  return { top, height: Math.max(0, bottom - top) };
+}
+
 /** Keyboard overlap with the layout viewport. Same pixels drawers use. */
 export function readKeyboardOverlapPx(): number {
   if (typeof window === 'undefined') return 0;

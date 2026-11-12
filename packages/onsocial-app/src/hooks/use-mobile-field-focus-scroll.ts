@@ -181,6 +181,20 @@ function focusClientRect(element: HTMLElement): {
  * Top of the lifted Save / format bar, so the caret clears that chrome
  * instead of the layout bottom sitting under the keyboard.
  */
+/** Bottom of the overlay header, so a focused line does not sit on the screen edge. */
+function overlayHeaderBottom(element: HTMLElement): number | null {
+  if (typeof element.closest !== 'function') return null;
+  const screen = element.closest('.os-app-screen, .glass-sheet-panel');
+  if (!screen || typeof screen.querySelector !== 'function') return null;
+  const header = screen.querySelector(
+    '.os-app-screen-header, .glass-sheet-header'
+  );
+  if (!header || !('getBoundingClientRect' in header)) return null;
+  const rect = (header as HTMLElement).getBoundingClientRect();
+  if (rect.height < 1) return null;
+  return rect.bottom;
+}
+
 function keyboardChromeTop(element: HTMLElement): number | null {
   if (typeof element.closest !== 'function') return null;
   const host = element.closest('.is-keyboard-open');
@@ -209,12 +223,13 @@ export function scrollMobileFieldIntoView(element: HTMLElement | null) {
     if (scroller) {
       const scrollerRect = scroller.getBoundingClientRect();
       const viewport = window.visualViewport;
-      const viewTop = viewport?.offsetTop ?? 0;
       const viewBottom = viewport
         ? viewport.offsetTop + viewport.height
         : window.innerHeight;
       const chromeTop = keyboardChromeTop(element);
-      const topLimit = Math.max(scrollerRect.top, viewTop) + 12;
+      const headerBottom = overlayHeaderBottom(element);
+      const topLimit =
+        Math.max(scrollerRect.top, headerBottom ?? scrollerRect.top) + 12;
       let bottomLimit = Math.min(scrollerRect.bottom, viewBottom) - 12;
       if (chromeTop != null) {
         bottomLimit = Math.min(bottomLimit, chromeTop - 12);
