@@ -197,7 +197,7 @@ export function useKeyboardDrawerFrame(
         lift: settled.lift,
         rootBottom: rect ? rect.bottom : null,
         rootHeight: rect ? rect.height : 0,
-        visualBottom,
+        visualBottom: visibleBottom,
       });
       // Pages stay full height, so the root overlap is the footer lift.
       // Drawers move with margin: correct from the panel's real bottom so a
