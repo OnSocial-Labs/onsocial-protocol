@@ -5,7 +5,7 @@
  * industry · location · Offers · Hiring. Each segment opens a drawer.
  */
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import {
   PROFILE_INDUSTRY_MAX,
   PROFILE_LOCATION_MAX,
@@ -35,7 +35,7 @@ import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location
 import { PortfolioOrgKindMark } from '@/components/portfolio/portfolio-org-kind-mark';
 import { ProfileJobsEditor } from '@/components/profile/profile-jobs-editor';
 import { ProfileOffersEditor } from '@/components/profile/profile-offers-editor';
-import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
+import { focusFieldStill, holdDrawerStill } from '@/lib/hold-drawer-still';
 import { JOBS_CHANGED_EVENT, fetchOpenJobs } from '@/lib/profile-jobs';
 import { OFFERS_CHANGED_EVENT, fetchAccountOffers } from '@/lib/profile-offers';
 import { SHEET_Z } from '@/lib/sheet-z';
@@ -66,9 +66,6 @@ export function ProfileOrgMetaEditor({
 }) {
   const locationFormId = useId();
   const industryFormId = useId();
-  const industryInputRef = useRef<HTMLInputElement>(null);
-  const locationInputRef = useRef<HTMLInputElement>(null);
-  const scrollFieldIntoView = useMobileFieldFocusScroll();
 
   const [industryOpen, setIndustryOpen] = useState(false);
   const [industryWriteOpen, setIndustryWriteOpen] = useState(false);
@@ -124,11 +121,6 @@ export function ProfileOrgMetaEditor({
     return () => window.removeEventListener(OFFERS_CHANGED_EVENT, onChange);
   }, [accountId]);
 
-  useEffect(() => {
-    if (!industryWriteOpen) return;
-    window.setTimeout(() => industryInputRef.current?.focus(), 0);
-  }, [industryWriteOpen]);
-
   const industryLabel = industry.trim() || emptyIndustryLabel;
   const locationLabel = location.trim() || 'Location';
   const hiringLabel = hiringLineLabel(jobCount);
@@ -151,7 +143,6 @@ export function ProfileOrgMetaEditor({
   const openLocation = () => {
     setLocationDraft(location);
     setLocationOpen(true);
-    window.setTimeout(() => locationInputRef.current?.focus(), 0);
   };
 
   const commitLocation = () => {
@@ -286,7 +277,6 @@ export function ProfileOrgMetaEditor({
           <label className="guild-field" htmlFor={`${industryFormId}-input`}>
             <span>Industry</span>
             <input
-              ref={industryInputRef}
               id={`${industryFormId}-input`}
               className={osFieldBorderedClassName}
               value={industryDraft}
@@ -294,7 +284,8 @@ export function ProfileOrgMetaEditor({
               autoComplete="organization-title"
               placeholder="Industry"
               disabled={disabled}
-              onFocus={scrollFieldIntoView}
+              onPointerDown={focusFieldStill}
+              onFocus={holdDrawerStill}
               onChange={(event) =>
                 setIndustryDraft(
                   sanitizeProfileIndustryDraft(event.target.value)
@@ -337,7 +328,6 @@ export function ProfileOrgMetaEditor({
           <label className="guild-field" htmlFor={`${locationFormId}-input`}>
             <span>Based in</span>
             <input
-              ref={locationInputRef}
               id={`${locationFormId}-input`}
               className={osFieldBorderedClassName}
               value={locationDraft}
@@ -345,7 +335,8 @@ export function ProfileOrgMetaEditor({
               autoComplete="address-level2"
               placeholder="Based in"
               disabled={disabled}
-              onFocus={scrollFieldIntoView}
+              onPointerDown={focusFieldStill}
+              onFocus={holdDrawerStill}
               onChange={(event) =>
                 setLocationDraft(
                   sanitizeProfileLocationDraft(event.target.value)
