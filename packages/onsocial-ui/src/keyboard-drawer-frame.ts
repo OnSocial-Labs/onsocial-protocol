@@ -261,7 +261,9 @@ function pageSheetsSharingHost(drawerRoot: HTMLElement): HTMLElement[] {
   const host = drawerRoot.parentElement;
   if (!host) return [];
   const pages: HTMLElement[] = [];
-  for (const child of host.children) {
+  const children = host.children;
+  for (let index = 0; index < children.length; index += 1) {
+    const child = children[index];
     if (!(child instanceof HTMLElement) || child === drawerRoot) continue;
     if (
       child.classList.contains('glass-sheet-root') &&
