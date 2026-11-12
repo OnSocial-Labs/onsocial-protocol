@@ -306,8 +306,11 @@ export {
   pageKeyboardLiftStyle,
   KEYBOARD_VIEWPORT_SLOP_PX,
   keyboardFrameNeedsSeat,
+  keyboardRootFrameStyle,
   settleKeyboardDrawerMetrics,
+  settleVisualKeyboardFrame,
   useKeyboardDrawerFrame,
+  visualKeyboardFrame,
   type KeyboardDrawerMetrics,
 } from './keyboard-drawer-frame.js';
 export {

@@ -1,13 +1,19 @@
 'use client';
 
-import { KEYBOARD_VIEWPORT_SLOP_PX, keyboardSeatPx } from '@onsocial/ui';
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { scrollMobileFieldIntoView } from '@/hooks/use-mobile-field-focus-scroll';
 import {
-  correctedFrameTop,
-  useVisualViewportSheetMetrics,
-  visualFramePin,
-} from '@/hooks/use-visual-viewport-sheet';
+  keyboardSeatPx,
+  settleVisualKeyboardFrame,
+  visualKeyboardFrame,
+} from '@onsocial/ui';
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+} from 'react';
+import { scrollMobileFieldIntoView } from '@/hooks/use-mobile-field-focus-scroll';
+import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 
 export interface PageKeyboardLiftOptions {
   /**
@@ -80,7 +86,7 @@ export function usePageKeyboardLift(
     };
   }, [active, keyboardOpen, pin, viewport.lift, viewport.height]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!active || !keyboardOpen || !pin) return;
     const measure = () => {
       const node = pinRoot?.() ?? null;
@@ -89,37 +95,26 @@ export function usePageKeyboardLift(
         setPinned(null);
         return;
       }
-      const position = window.getComputedStyle(node).position;
-      const parent =
-        position === 'fixed' ? null : (node.offsetParent as HTMLElement | null);
+      const fixed = window.getComputedStyle(node).position === 'fixed';
+      const parent = fixed ? null : (node.offsetParent as HTMLElement | null);
       const parentRect = parent?.getBoundingClientRect();
-      const parentTop = parentRect ? parentRect.top : 0;
-      const frame = visualFramePin({
-        position: position === 'fixed' ? 'fixed' : 'absolute',
-        parentTop,
-        parentHeight: parentRect ? parentRect.height : visual.height,
-        offsetTop: visual.offsetTop,
-        visualHeight: visual.height,
-      });
-      const top = correctedFrameTop({
-        appliedTop: pinned?.top ?? 0,
-        frameTop: node.getBoundingClientRect().top,
-        parentTop,
-      });
-      const next = { top, height: frame.height };
-      if (
-        pinned &&
-        Math.abs(next.top - pinned.top) < KEYBOARD_VIEWPORT_SLOP_PX &&
-        Math.abs(next.height - pinned.height) < KEYBOARD_VIEWPORT_SLOP_PX
-      ) {
-        return;
-      }
+      const next = settleVisualKeyboardFrame(
+        pinned,
+        visualKeyboardFrame({
+          position: fixed ? 'fixed' : 'absolute',
+          parentTop: parentRect?.top ?? 0,
+          parentHeight: parentRect?.height ?? 0,
+          offsetTop: visual.offsetTop,
+          visualHeight: visual.height,
+        })
+      );
       setPinned((current) =>
         current && current.top === next.top && current.height === next.height
           ? current
           : next
       );
     };
+    measure();
     const frame = window.requestAnimationFrame(measure);
     const visual = window.visualViewport;
     visual?.addEventListener('resize', measure);
@@ -153,7 +148,7 @@ export function usePageKeyboardLift(
     if (pin) {
       if (!pinned) {
         return {
-          ['--os-keyboard-lift' as string]: `${seat}px`,
+          ['--os-keyboard-lift' as string]: '0px',
         } as CSSProperties;
       }
       return {
