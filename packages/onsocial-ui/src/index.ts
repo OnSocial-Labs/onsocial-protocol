@@ -224,10 +224,7 @@ export {
   resolveNearAccountCustomName,
   type GovernanceAccountSubjectKind,
 } from './governance-account-subject.js';
-export {
-  OsMediaDismiss,
-  osMediaDismissClassName,
-} from './os-media-dismiss.js';
+export { OsMediaDismiss, osMediaDismissClassName } from './os-media-dismiss.js';
 export {
   ProfileEditorMediaToolbar,
   type ProfileEditorMediaLayout,
