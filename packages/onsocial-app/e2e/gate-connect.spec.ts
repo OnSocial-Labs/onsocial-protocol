@@ -104,12 +104,14 @@ async function expectRailClearsActions(page: Page): Promise<void> {
   const stack = page.locator('.gate .gate-connect');
   await expect(rail).toBeVisible();
   await expect(stack).toBeVisible();
-  const railBox = await rail.boundingBox();
-  const stackBox = await stack.boundingBox();
-  if (!railBox || !stackBox) {
-    throw new Error('gate rail or actions have no box');
-  }
-  expect(railBox.y + railBox.height).toBeLessThanOrEqual(stackBox.y + 0.5);
+  await expect
+    .poll(async () => {
+      const railBox = await rail.boundingBox();
+      const stackBox = await stack.boundingBox();
+      if (!railBox || !stackBox) return Number.POSITIVE_INFINITY;
+      return railBox.y + railBox.height - stackBox.y;
+    })
+    .toBeLessThanOrEqual(0.5);
 }
 
 async function readFill(
