@@ -34314,16 +34314,13 @@ a.os-surface-row,
   }
 
   /*
-   * Full pages (Edit profile, Edit guild, Hub manage) stay 100dvh.
-   * Only the bottom action lifts. A pad inside the footer sits under
-   * the keys, so the lift includes the keyboard pad and the page stays
-   * full-bleed — a max-height frame would squash it.
+   * Full pages (Edit profile, Edit guild, Hub manage) stay full bleed.
+   * `--os-keyboard-lift` is only the overlap still under the keys, so a
+   * card that already shrunk to the keyboard does not lift the action
+   * again. The 0.45rem inset matches Transfer scarce.
    */
   .glass-sheet-panel.is-page-keyboard > .glass-sheet-footer {
-    margin-bottom: calc(
-      var(--os-keyboard-lift, 0px) +
-        var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem)
-    );
+    margin-bottom: var(--os-keyboard-lift, 0px);
   }
 
   .glass-sheet-panel.is-page-keyboard
@@ -34333,24 +34330,22 @@ a.os-surface-row,
       .guild-edit-sheet-footer,
       .hub-manage-sheet-footer
     ) {
-    padding-bottom: 0.35rem;
+    padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem);
   }
 
   /*
    * Slide-over pages (DAO edit, series edit) keep the full page too.
    * The action is absolute, so it rises with bottom rather than margin.
+   * The inset lives in the footer, the same 0.45rem as Transfer scarce.
    */
   .os-slide-over.is-page-keyboard[data-os-slide-over='true']
     .os-app-screen-footer {
-    bottom: calc(
-      var(--os-keyboard-lift, 0px) +
-        var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem)
-    );
+    bottom: var(--os-keyboard-lift, 0px);
     transition: none;
   }
 
   .os-slide-over.is-page-keyboard .os-slide-over-footer-inner {
-    padding-bottom: 0.35rem;
+    padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem);
   }
 
   .os-slide-over.is-page-keyboard .hub-manage-sheet-footer {
@@ -34360,9 +34355,7 @@ a.os-surface-row,
   .os-slide-over.is-page-keyboard[data-os-slide-over='true'][data-screen-footer='true']
     .os-app-screen-body {
     padding-bottom: calc(
-      var(--os-keyboard-lift, 0px) +
-        var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem) +
-        var(--os-screen-footer-band, 4.25rem)
+      var(--os-keyboard-lift, 0px) + var(--os-screen-footer-band, 4.25rem)
     );
     scroll-padding-bottom: var(--os-screen-footer-band, 4.25rem);
   }
@@ -45917,31 +45910,27 @@ button.messages-bubble-quote:focus-visible {
   );
 }
 
-/*
- * Open a hub / Create DAO — tuck the launcher while a field is focused
- * so the action sits on the keys. An open launcher stays put.
- * Create guild has no launcher; its rules below own the action edge.
- */
-.os-app-screen:has(
+/* Open a hub, Create guild, and Create DAO have no launcher. The action
+   owns the bottom edge, and the same lift puts it on the keys. The footer
+   paints the page so the form cannot show through the button. */
+.os-app-screen[data-launcher='off']:has(
+    :is(.hub-create-form, .guild-create-form, .dao-create-form)
+  )
+  .os-app-screen-footer {
+  bottom: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--mood-bg, var(--bg)) 0.75rem
+  );
+}
+
+.os-app-screen[data-launcher='off']:has(
     :is(
       .hub-create-form,
       .guild-create-form,
       .dao-create-form
     )[data-keyboard='open']
-  )
-  .os-app-screen-footer {
-  bottom: var(--os-keyboard-lift, 0px);
-}
-
-/* Create guild has no launcher. The action owns the bottom edge, and the
-   same lift puts it on the keys. */
-.os-app-screen[data-launcher='off']:has(.guild-create-form)
-  .os-app-screen-footer {
-  bottom: 0;
-}
-
-.os-app-screen[data-launcher='off']:has(
-    .guild-create-form[data-keyboard='open']
   )
   .os-app-screen-footer {
   bottom: var(--os-keyboard-lift, 0px);
@@ -45960,41 +45949,16 @@ button.messages-bubble-quote:focus-visible {
   );
 }
 
-.os-app-screen:has(
-    :is(
-      .hub-create-form,
-      .guild-create-form,
-      .dao-create-form
-    )[data-keyboard='open']
-  )
-  > .portfolio-summon-dock:not(.is-launcher-open) {
-  transform: translateX(-50%)
-    translateY(calc(100% + env(safe-area-inset-bottom)));
-  opacity: 0;
-  pointer-events: none;
-}
-
-.os-app-screen:has(
-    :is(
-      .hub-create-form,
-      .guild-create-form,
-      .dao-create-form
-    )[data-keyboard='open']
-  )
-  > .portfolio-summon-dock:not(.is-launcher-open)
-  .portfolio-summon {
-  pointer-events: none;
-}
-
-/* New drop — lift the dock while a field is focused. Hub create shares the
-   drop form class and keeps the tuck above. */
+/* New drop — lift the visible dock while a field is focused. Hub create
+   shares the drop form class and keeps the tuck above. The inset matches
+   the write dock. A scroll-hidden launcher stays at the bottom. */
 .os-app-screen:has(
     .drop-create-form[data-keyboard='open']:not(.hub-create-form)
   )
   > .portfolio-summon-dock {
   bottom: var(--os-keyboard-lift, 0px);
   z-index: 85;
-  padding-bottom: 0;
+  padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem);
   /* Track the keyboard. A bottom ease lags the visual viewport. */
   transition:
     transform var(--os-motion-dock, 260ms) ease,

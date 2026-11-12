@@ -25,6 +25,7 @@ import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import {
   keyboardLiftCssVars,
+  useMeasuredKeyboardSeat,
   useVisualViewportSheetMetrics,
 } from '@/hooks/use-visual-viewport-sheet';
 import {
@@ -232,9 +233,13 @@ export function GuildCreatePanel() {
     []
   );
 
+  const keyboardSeat = useMeasuredKeyboardSeat(
+    formKeyboardOpen,
+    formViewport.lift
+  );
   const screenStyle = useMemo(
-    () => keyboardLiftCssVars(formKeyboardOpen, formViewport.lift),
-    [formKeyboardOpen, formViewport.lift]
+    () => keyboardLiftCssVars(formKeyboardOpen, keyboardSeat),
+    [formKeyboardOpen, keyboardSeat]
   );
 
   const groupId = useMemo(

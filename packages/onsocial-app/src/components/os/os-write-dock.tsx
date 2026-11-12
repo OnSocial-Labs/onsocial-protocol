@@ -396,7 +396,8 @@ export function OsWriteDock({
           )
         : false;
       const lift = readKeyboardOverlapPx();
-      syncWriteKeyboardChrome(dock, keysChromeOpen && lift > 0, lift);
+      const open = keysChromeOpen && lift > 0;
+      syncWriteKeyboardChrome(dock, open, open ? lift : 0);
       const rise = dockRisePx(lastTop, dock.getBoundingClientRect().top);
       let moved = rise !== 0;
       if (thread) {

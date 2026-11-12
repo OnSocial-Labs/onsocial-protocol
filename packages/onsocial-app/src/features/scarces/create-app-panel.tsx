@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  ChevronLeftIcon,
   DiscardConfirmSheet,
   OsIconAction,
   QuestionMarkCircleFillIcon,
@@ -23,6 +24,7 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import {
   keyboardLiftCssVars,
+  useMeasuredKeyboardSeat,
   useVisualViewportSheetMetrics,
 } from '@/hooks/use-visual-viewport-sheet';
 import {
@@ -239,9 +241,13 @@ export function CreateAppPanel() {
     });
   };
 
+  const keyboardSeat = useMeasuredKeyboardSeat(
+    formKeyboardOpen,
+    formViewport.lift
+  );
   const screenStyle = useMemo(
-    () => keyboardLiftCssVars(formKeyboardOpen, formViewport.lift),
-    [formKeyboardOpen, formViewport.lift]
+    () => keyboardLiftCssVars(formKeyboardOpen, keyboardSeat),
+    [formKeyboardOpen, keyboardSeat]
   );
 
   const derivedSlug = useMemo(
@@ -387,12 +393,14 @@ export function CreateAppPanel() {
   return (
     <OsAppScreen
       title="Open a hub"
-      dockBack
-      headerOwnsConnect
-      backFallbackHref={APP_APPS_PATH}
-      onDockBack={handleDockBack}
+      launcher={false}
       glassChrome
       style={screenStyle}
+      leading={
+        <OsIconAction ariaLabel="Back" onClick={handleDockBack}>
+          <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
+        </OsIconAction>
+      }
       actions={
         <OsIconAction
           ariaLabel={HUB_CREATE_HELP_TITLE}

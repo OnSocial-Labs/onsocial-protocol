@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   keyboardDrawerFrameStyle,
+  keyboardSeatPx,
+  pageKeyboardLiftStyle,
   settleKeyboardDrawerMetrics,
 } from './keyboard-drawer-frame.js';
 
@@ -43,5 +45,72 @@ describe('keyboardDrawerFrameStyle', () => {
       keyboardDrawerFrameStyle({ isMobile: true, height: 900, lift: 100 }, 736)
         ?.maxHeight
     ).toBe('736px');
+  });
+
+  it('uses a measured seat when the card already ends on the keys', () => {
+    expect(
+      keyboardDrawerFrameStyle(
+        { isMobile: true, height: 380, lift: 320 },
+        736,
+        0
+      )
+    ).toEqual({
+      maxHeight: '380px',
+      marginBottom: '0px',
+    });
+  });
+});
+
+describe('keyboardSeatPx', () => {
+  it('lifts a sheet that still runs under the keyboard', () => {
+    expect(
+      keyboardSeatPx({
+        lift: 320,
+        rootBottom: 844,
+        rootHeight: 844,
+        visualBottom: 524,
+      })
+    ).toBe(320);
+  });
+
+  it('stays put when the card has already shrunk onto the keys', () => {
+    expect(
+      keyboardSeatPx({
+        lift: 320,
+        rootBottom: 524,
+        rootHeight: 524,
+        visualBottom: 524,
+      })
+    ).toBe(0);
+  });
+
+  it('falls back to the raw overlap before the sheet is laid out', () => {
+    expect(
+      keyboardSeatPx({
+        lift: 320,
+        rootBottom: null,
+        rootHeight: 0,
+        visualBottom: 524,
+      })
+    ).toBe(320);
+  });
+
+  it('never lifts past the keyboard', () => {
+    expect(
+      keyboardSeatPx({
+        lift: 320,
+        rootBottom: 2000,
+        rootHeight: 900,
+        visualBottom: 524,
+      })
+    ).toBe(320);
+  });
+});
+
+describe('pageKeyboardLiftStyle', () => {
+  it('writes the measured seat and clears a stale lift', () => {
+    expect(
+      pageKeyboardLiftStyle({ isMobile: true, height: 380, lift: 320 }, 0)
+    ).toEqual({ '--os-keyboard-lift': '0px' });
   });
 });

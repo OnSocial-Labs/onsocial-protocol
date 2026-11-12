@@ -1287,8 +1287,11 @@ export function GlassSheet({
 }: GlassSheetProps) {
   const opaquePage = surface === 'page';
   const band = sizing === 'band';
+  const rootRef = useRef<HTMLDivElement>(null);
   const keyboard = useKeyboardDrawerFrame(
-    open && sizing !== 'band' && sheetSurface !== 'page'
+    open && sizing !== 'band',
+    rootRef,
+    sheetSurface === 'page' ? 'page' : 'drawer'
   );
   const motion = useResolvedSheetMotion(
     open,
@@ -1307,7 +1310,6 @@ export function GlassSheet({
     inheritedMood
   );
   const panelRef = useRef<HTMLDivElement>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
   const [sheetBodyNode, setSheetBodyNode] = useState<HTMLDivElement | null>(
     null
   );

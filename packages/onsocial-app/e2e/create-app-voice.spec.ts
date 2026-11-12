@@ -33,7 +33,9 @@ test.describe('create app voice', () => {
     await expect(page.getByText('About', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Advanced' })).toHaveCount(0);
 
-    await expect(page.getByText('Your commission', { exact: true })).toBeVisible();
+    await expect(
+      page.getByText('Your commission', { exact: true })
+    ).toBeVisible();
     await expect(page.getByText('Category', { exact: true })).toBeVisible();
     const categorySlider = page.locator(
       '.hub-categories-editor .topic-chip-slider'
@@ -45,23 +47,31 @@ test.describe('create app voice', () => {
     await expect(
       page.getByText('Who can create drops', { exact: true })
     ).toBeVisible();
-    const access = page.getByRole('radiogroup', { name: 'Who can create drops' });
+    const access = page.getByRole('radiogroup', {
+      name: 'Who can create drops',
+    });
     await expect(access.getByRole('radio', { name: 'Open' })).toBeVisible();
     await expect(access.getByRole('radio', { name: 'Approval' })).toBeVisible();
     await expect(access.getByRole('radio', { name: 'Invite' })).toBeVisible();
     await expect(access.getByRole('radio', { name: 'Anyone' })).toHaveCount(0);
-    await expect(access.getByRole('radio', { name: 'Approved' })).toHaveCount(0);
-    await expect(page.getByText('Anyone can drop', { exact: true })).toBeVisible();
-    await expect(page.locator('.os-app-screen')).toHaveAttribute(
+    await expect(access.getByRole('radio', { name: 'Approved' })).toHaveCount(
+      0
+    );
+    await expect(
+      page.getByText('Anyone can drop', { exact: true })
+    ).toBeVisible();
+    await expect(page.locator('.os-app-screen')).not.toHaveAttribute(
       'data-header-owns-connect',
       ''
     );
-    await expect(page.locator('.portfolio-summon-dock')).toBeVisible();
+    await expect(page.locator('.portfolio-summon-dock')).toHaveCount(0);
     await expect(page.locator('.portfolio-summon-hint--connect')).toHaveCount(
       0
     );
     await expect(
-      page.locator('.os-app-screen-actions').getByRole('button', { name: 'Close' })
+      page
+        .locator('.os-app-screen-actions')
+        .getByRole('button', { name: 'Close' })
     ).toHaveCount(0);
     await expect(
       page.getByRole('button', { name: 'Back', exact: true })
@@ -116,8 +126,12 @@ test.describe('create app voice', () => {
       bannerBox!.y + bannerBox!.height
     );
     expect(bannerBox!.height).toBeLessThan(110);
-    const nameLabel = page.locator('.guild-field', { has: page.locator('#app-create-name') });
-    const idLabel = page.locator('.guild-field', { has: page.locator('#app-create-id') });
+    const nameLabel = page.locator('.guild-field', {
+      has: page.locator('#app-create-name'),
+    });
+    const idLabel = page.locator('.guild-field', {
+      has: page.locator('#app-create-id'),
+    });
     const nameBox = await nameLabel.boundingBox();
     const idBox = await idLabel.boundingBox();
     expect(nameBox).toBeTruthy();
@@ -138,7 +152,9 @@ test.describe('create app voice', () => {
     );
     await expect(page.locator('.hub-look-preview img').first()).toBeVisible();
     await page.locator('.hub-look-preview-banner').hover();
-    await expect(page.getByRole('button', { name: 'Remove banner' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Remove banner' })
+    ).toBeVisible();
 
     await setLookPreviewFile(
       page,
@@ -152,7 +168,9 @@ test.describe('create app voice', () => {
     );
     await expect(page.locator('.hub-look-preview img')).toHaveCount(2);
     await page.locator('.hub-look-preview-logo').hover();
-    await expect(page.getByRole('button', { name: 'Remove logo' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Remove logo' })
+    ).toBeVisible();
 
     await page.locator('.hub-look-preview-banner').hover();
     await page.getByRole('button', { name: 'Remove banner' }).click();
@@ -166,7 +184,7 @@ test.describe('create app voice', () => {
     ).toBeVisible();
   });
 
-  test('locks Connect in the footer and dock Back leaves to Hubs', async ({
+  test('locks Connect in the footer and header Back leaves to Hubs', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -177,7 +195,7 @@ test.describe('create app voice', () => {
     await expect(
       page.getByRole('heading', { name: 'Open a hub' })
     ).toBeVisible();
-    await expect(page.locator('.portfolio-summon-dock')).toBeVisible();
+    await expect(page.locator('.portfolio-summon-dock')).toHaveCount(0);
     await expect(page.getByText('Connect wallet')).toHaveCount(0);
     const footer = page.locator('.os-app-screen-footer');
     await expect(footer.getByRole('button', { name: 'Connect' })).toBeVisible();
@@ -186,12 +204,12 @@ test.describe('create app voice', () => {
     await dismissNextDevOverlay(page);
     await page.getByRole('button', { name: 'Back', exact: true }).click();
     await page.waitForURL(/\/apps\/?$/, { timeout: 15_000 });
-    await expect(
-      page.getByRole('heading', { name: 'Open a hub' })
-    ).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Open a hub' })).toHaveCount(
+      0
+    );
   });
 
-  test('dirty dock Back asks before leaving', async ({ page }) => {
+  test('dirty header Back asks before leaving', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoApp(page, '/home');
     await dismissNextDevOverlay(page);
@@ -211,7 +229,9 @@ test.describe('create app voice', () => {
     await expect(discard).toHaveCount(0);
     await expect(page).toHaveURL(/\/apps\/create\/?$/);
     await page.getByRole('button', { name: 'Back', exact: true }).click();
-    await expect(page.getByRole('dialog', { name: 'Discard hub?' })).toBeVisible();
+    await expect(
+      page.getByRole('dialog', { name: 'Discard hub?' })
+    ).toBeVisible();
     await page
       .locator('.os-sheet-action--danger')
       .filter({ hasText: 'Discard' })
@@ -233,7 +253,7 @@ test.describe('create app voice', () => {
     ).toBeVisible();
     await expect(form).toBeVisible();
     await expect(form).not.toHaveAttribute('data-form-focused');
-    await expect(page.locator('.portfolio-summon-dock')).toBeVisible();
+    await expect(page.locator('.portfolio-summon-dock')).toHaveCount(0);
     await expect(footer.getByRole('button', { name: 'Connect' })).toBeVisible();
 
     await dismissNextDevOverlay(page);
