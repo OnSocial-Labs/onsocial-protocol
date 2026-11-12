@@ -267,8 +267,7 @@ export function useKeyboardDrawerFrame(
     if (!active || mode !== 'drawer' || frame.metrics.lift <= 0) return;
     const root = rootRef?.current;
     if (!root) return;
-    const outside: Array<{ node: HTMLElement; top: number; left: number }> =
-      [];
+    const outside: Array<{ node: HTMLElement; top: number; left: number }> = [];
     let node: HTMLElement | null = root.parentElement;
     while (node) {
       outside.push({ node, top: node.scrollTop, left: node.scrollLeft });
@@ -279,7 +278,8 @@ export function useKeyboardDrawerFrame(
     const restore = () => {
       for (const item of outside) {
         if (item.node.scrollTop !== item.top) item.node.scrollTop = item.top;
-        if (item.node.scrollLeft !== item.left) item.node.scrollLeft = item.left;
+        if (item.node.scrollLeft !== item.left)
+          item.node.scrollLeft = item.left;
       }
       if (window.scrollX !== x || window.scrollY !== y) window.scrollTo(x, y);
     };
