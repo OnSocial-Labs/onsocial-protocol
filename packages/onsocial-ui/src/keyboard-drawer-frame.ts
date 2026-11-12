@@ -1,6 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 
 const MOBILE_MAX_WIDTH_PX = 767;
 
@@ -64,22 +70,62 @@ function readKeyboardDrawerMetrics(): KeyboardDrawerMetrics {
 }
 
 /**
+ * How far a sheet's box still hangs below the visible viewport.
+ * A `100dvh` phone card shrinks with the keyboard, so the sheet is already
+ * on the keys and the seat is 0. A card that stays full height still runs
+ * under the keys, and the seat is that overlap. Never more than `lift`.
+ */
+export function keyboardSeatPx(input: {
+  lift: number;
+  /** Null until the sheet root is in the document. */
+  rootBottom: number | null;
+  rootHeight: number;
+  /** Visible bottom, in the same coordinates as `rootBottom`. */
+  visualBottom: number;
+}): number {
+  if (input.lift <= 0) return 0;
+  if (input.rootBottom == null || input.rootHeight < 1) return input.lift;
+  const gap = Math.round(input.rootBottom - input.visualBottom);
+  return Math.max(0, Math.min(input.lift, gap));
+}
+
+/**
  * One drawer frame for every phone keyboard.
  * The bottom sits on the keys. The top may rest lower when the drawer is
  * short, and stops at the screen edge when it is tall. It does not climb
- * past that edge.
+ * past that edge. `seatPx` is the measured overlap; omit it to use `lift`.
  */
 export function keyboardDrawerFrameStyle(
   metrics: KeyboardDrawerMetrics,
-  maxHeightPx = 736
+  maxHeightPx = 736,
+  seatPx?: number
 ): CSSProperties | undefined {
   if (!metrics.isMobile || metrics.height <= 0 || metrics.lift <= 0) {
     return undefined;
   }
   const cap = Math.min(metrics.height, maxHeightPx);
+  const seat =
+    seatPx == null
+      ? metrics.lift
+      : Math.max(0, Math.min(metrics.lift, Math.round(seatPx)));
   return {
     maxHeight: `${cap}px`,
-    marginBottom: keyboardSheetMargin(metrics.lift),
+    marginBottom: keyboardSheetMargin(seat),
+  };
+}
+
+/**
+ * Page sheets stay full bleed. Only the action's lift variable changes,
+ * and only by the overlap that is still under the keys.
+ */
+export function pageKeyboardLiftStyle(
+  metrics: KeyboardDrawerMetrics,
+  seatPx: number
+): CSSProperties | undefined {
+  if (!metrics.isMobile || metrics.lift <= 0) return undefined;
+  const seat = Math.max(0, Math.min(metrics.lift, Math.round(seatPx)));
+  return {
+    ['--os-keyboard-lift' as string]: `${seat}px`,
   };
 }
 
@@ -93,19 +139,46 @@ export function keyboardSheetMargin(liftPx: number): string {
   return `${liftPx}px`;
 }
 
-/** Tracks the keyboard while `active` (the drawer is open). */
-export function useKeyboardDrawerFrame(active: boolean): {
+export type KeyboardDrawerFrameMode = 'drawer' | 'page';
+
+/** Tracks the keyboard while `active` (the sheet is open). */
+export function useKeyboardDrawerFrame(
+  active: boolean,
+  rootRef?: { readonly current: HTMLElement | null },
+  mode: KeyboardDrawerFrameMode = 'drawer'
+): {
   style: CSSProperties | undefined;
   keyboardOpen: boolean;
 } {
-  const [metrics, setMetrics] = useState<KeyboardDrawerMetrics>(IDLE);
+  const frameRef = useRef({ metrics: IDLE, seat: 0 });
+  const [frame, setFrame] = useState(frameRef.current);
 
   useEffect(() => {
     if (!active || typeof window === 'undefined') return;
     const sync = () => {
-      setMetrics((current) =>
-        settleKeyboardDrawerMetrics(current, readKeyboardDrawerMetrics())
+      const raw = readKeyboardDrawerMetrics();
+      const settled = settleKeyboardDrawerMetrics(
+        frameRef.current.metrics,
+        raw
       );
+      const root = rootRef?.current ?? null;
+      const viewport = window.visualViewport;
+      const rect = root?.getBoundingClientRect();
+      const nextSeat = keyboardSeatPx({
+        lift: settled.lift,
+        rootBottom: rect ? rect.bottom : null,
+        rootHeight: rect ? rect.height : 0,
+        visualBottom: viewport ? viewport.offsetTop + viewport.height : 0,
+      });
+      if (
+        settled === frameRef.current.metrics &&
+        nextSeat === frameRef.current.seat
+      ) {
+        return;
+      }
+      const next = { metrics: settled, seat: nextSeat };
+      frameRef.current = next;
+      setFrame(next);
     };
     const viewport = window.visualViewport;
     // Resize is the keyboard. Scroll is the browser chasing the caret, and
@@ -118,10 +191,17 @@ export function useKeyboardDrawerFrame(active: boolean): {
       viewport?.removeEventListener('resize', sync);
       window.removeEventListener('resize', sync);
     };
-  }, [active]);
+  }, [active, rootRef]);
 
-  const live = active ? metrics : IDLE;
-  const style = useMemo(() => keyboardDrawerFrameStyle(live), [live]);
+  const live = active ? frame.metrics : IDLE;
+  const liveSeat = active ? frame.seat : 0;
+  const style = useMemo(
+    () =>
+      mode === 'page'
+        ? pageKeyboardLiftStyle(live, liveSeat)
+        : keyboardDrawerFrameStyle(live, 736, liveSeat),
+    [live, liveSeat, mode]
+  );
   return {
     style,
     keyboardOpen: live.isMobile && live.lift > 0,

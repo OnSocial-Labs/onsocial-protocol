@@ -132,6 +132,15 @@
   padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard);
 }
 
+/* In-body actions (no footer) keep the same inset as a footer button.
+   The home-indicator pad would leave them higher than Transfer. */
+.glass-sheet-panel.is-keyboard-open:not(.os-gesture-sheet-panel):not(
+    :has(> .glass-sheet-footer:not(:empty))
+  )
+  > .os-hug-sheet-body {
+  padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard);
+}
+
 /*
  * Nested in an OS column host. Expand 1px so frost/scrim covers the full OS
  * page including the soft hairline lip. Own the outer phone radius on the
