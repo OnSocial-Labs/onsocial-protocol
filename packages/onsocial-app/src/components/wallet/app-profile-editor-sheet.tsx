@@ -16,11 +16,8 @@ import {
 } from 'react';
 import {
   PROFILE_FACE_KIND_OPTIONS,
-  PROFILE_LOCATION_MAX,
   editorFaceKind,
-  normalizeProfileLocationInput,
   profileAvatarShapeForFace,
-  sanitizeProfileLocationDraft,
   type ProfileKind,
 } from '@onsocial/sdk';
 import {
@@ -38,12 +35,12 @@ import {
   useDiscardConfirm,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
 import { ProfileEditorLoadError } from '@/components/wallet/profile-editor-load-error';
 import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor-loading-skeleton';
 import { ProfileAboutEditorSheet } from '@/components/wallet/profile-about-editor-sheet';
 import { ProfileFaceBioField } from '@/components/wallet/profile-face-bio-field';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
+import { ProfileLocationControl } from '@/components/wallet/profile-location-control';
 import { ProfileOrgMetaEditor } from '@/components/wallet/profile-org-meta-editor';
 import { ProfileOffersEditor } from '@/components/profile/profile-offers-editor';
 import type { ProfileAboutPhotoDraft } from '@/components/wallet/profile-about-photos-editor';
@@ -997,35 +994,13 @@ export function AppProfileEditorSheet({
                             />
                           ) : (
                             <div className="account-editor-location-row">
-                              <label
-                                className="account-editor-location-field"
-                                htmlFor="profile-editor-location"
-                              >
-                                <span className="sr-only">Location</span>
-                                <PortfolioLocationMark />
-                                <input
-                                  id="profile-editor-location"
-                                  className="account-editor-location"
-                                  value={location}
-                                  maxLength={PROFILE_LOCATION_MAX}
-                                  autoComplete="address-level2"
-                                  placeholder="Based in"
-                                  disabled={saving}
-                                  onFocus={scrollFieldIntoView}
-                                  onChange={(event) =>
-                                    setLocation(
-                                      sanitizeProfileLocationDraft(
-                                        event.target.value
-                                      )
-                                    )
-                                  }
-                                  onBlur={() => {
-                                    const next =
-                                      normalizeProfileLocationInput(location);
-                                    if (next !== location) setLocation(next);
-                                  }}
-                                />
-                              </label>
+                              <ProfileLocationControl
+                                location={location}
+                                onLocationChange={setLocation}
+                                disabled={saving}
+                                emptyLabel="Based in"
+                                buttonClassName="account-editor-location-field"
+                              />
                               {!isDaoAccount &&
                               kind === 'person' &&
                               snapshot?.accountId ? (
