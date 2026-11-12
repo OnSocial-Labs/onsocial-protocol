@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  ChevronLeftIcon,
   DiscardConfirmSheet,
   OsIconAction,
   QuestionMarkCircleFillIcon,
@@ -392,12 +393,14 @@ export function CreateAppPanel() {
   return (
     <OsAppScreen
       title="Open a hub"
-      dockBack
-      headerOwnsConnect
-      backFallbackHref={APP_APPS_PATH}
-      onDockBack={handleDockBack}
+      launcher={false}
       glassChrome
       style={screenStyle}
+      leading={
+        <OsIconAction ariaLabel="Back" onClick={handleDockBack}>
+          <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
+        </OsIconAction>
+      }
       actions={
         <OsIconAction
           ariaLabel={HUB_CREATE_HELP_TITLE}
