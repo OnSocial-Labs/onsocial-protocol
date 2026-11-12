@@ -12,7 +12,9 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  ChevronLeftIcon,
   DiscardConfirmSheet,
+  OsIconAction,
   osFieldBorderedClassName,
   useDiscardConfirm,
 } from '@onsocial/ui';
@@ -502,12 +504,14 @@ export function DaoCreatePanel() {
     <OsAppScreen
       title={DAO_CREATE_TITLE}
       subtitle={daoCreateWhisper(dealNearLabel)}
-      dockBack
-      headerOwnsConnect
-      backFallbackHref={APP_DAOS_PATH}
-      onDockBack={handleDockBack}
+      launcher={false}
       glassChrome
       style={screenStyle}
+      leading={
+        <OsIconAction ariaLabel="Back" onClick={handleDockBack}>
+          <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
+        </OsIconAction>
+      }
       footer={
         <CommerceSheetFooter
           formId={DAO_CREATE_FORM_ID}

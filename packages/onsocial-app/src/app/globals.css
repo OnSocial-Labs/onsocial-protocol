@@ -45910,21 +45910,11 @@ button.messages-bubble-quote:focus-visible {
   );
 }
 
-/*
- * Create DAO tucks the launcher while a field is focused so the action
- * sits on the keys. An open launcher stays put. Open a hub and Create
- * guild have no launcher; their rules below own the action edge.
- */
-.os-app-screen:has(.dao-create-form[data-keyboard='open'])
-  .os-app-screen-footer {
-  bottom: var(--os-keyboard-lift, 0px);
-}
-
-/* Open a hub and Create guild have no launcher. The action owns the bottom
-   edge, and the same lift puts it on the keys. The footer paints the page
-   so the form cannot show through the button. */
+/* Open a hub, Create guild, and Create DAO have no launcher. The action
+   owns the bottom edge, and the same lift puts it on the keys. The footer
+   paints the page so the form cannot show through the button. */
 .os-app-screen[data-launcher='off']:has(
-    :is(.hub-create-form, .guild-create-form)
+    :is(.hub-create-form, .guild-create-form, .dao-create-form)
   )
   .os-app-screen-footer {
   bottom: 0;
@@ -45936,7 +45926,11 @@ button.messages-bubble-quote:focus-visible {
 }
 
 .os-app-screen[data-launcher='off']:has(
-    :is(.hub-create-form, .guild-create-form)[data-keyboard='open']
+    :is(
+      .hub-create-form,
+      .guild-create-form,
+      .dao-create-form
+    )[data-keyboard='open']
   )
   .os-app-screen-footer {
   bottom: var(--os-keyboard-lift, 0px);
@@ -45953,20 +45947,6 @@ button.messages-bubble-quote:focus-visible {
   padding-bottom: calc(
     var(--os-keyboard-lift, 0px) + var(--os-screen-footer-band)
   );
-}
-
-.os-app-screen:has(.dao-create-form[data-keyboard='open'])
-  > .portfolio-summon-dock:not(.is-launcher-open) {
-  transform: translateX(-50%)
-    translateY(calc(100% + env(safe-area-inset-bottom)));
-  opacity: 0;
-  pointer-events: none;
-}
-
-.os-app-screen:has(.dao-create-form[data-keyboard='open'])
-  > .portfolio-summon-dock:not(.is-launcher-open)
-  .portfolio-summon {
-  pointer-events: none;
 }
 
 /* New drop — lift the visible dock while a field is focused. Hub create

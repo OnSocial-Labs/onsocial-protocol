@@ -16,40 +16,10 @@ async function publishKeyboard(page: Page, formSelector: string) {
   }, KEYBOARD_LIFT_PX);
 }
 
-async function expectLauncherResting(page: Page) {
-  const dock = page.locator('.os-app-screen > .portfolio-summon-dock');
-  const footer = page.locator('.os-app-screen-footer');
-  await expect(dock).toBeVisible();
-  await expect(footer.locator('.os-sheet-action').first()).toBeVisible();
-  const opacity = await dock.evaluate((el) => getComputedStyle(el).opacity);
-  expect(opacity).toBe('1');
-  const footerBottom = await footer.evaluate((el) =>
-    parseFloat(getComputedStyle(el).bottom)
-  );
-  expect(footerBottom).toBeGreaterThan(40);
-  expect(footerBottom).toBeLessThan(160);
-}
-
-async function expectActionOnKeys(page: Page) {
-  const dock = page.locator('.os-app-screen > .portfolio-summon-dock');
-  const footer = page.locator('.os-app-screen-footer');
-  await expect
-    .poll(() => footer.evaluate((el) => getComputedStyle(el).bottom))
-    .toBe(`${KEYBOARD_LIFT_PX}px`);
-  await expect
-    .poll(() => dock.evaluate((el) => getComputedStyle(el).opacity))
-    .toBe('0');
-  const summonEvents = await dock
-    .locator('.portfolio-summon')
-    .evaluate((el) => getComputedStyle(el).pointerEvents);
-  expect(summonEvents).toBe('none');
-  await expect(footer.locator('.os-sheet-action').first()).toBeVisible();
-}
-
 test.describe('create keyboard dock', () => {
   test.describe.configure({ mode: 'serial' });
 
-  test('Open a hub and Create guild keep the action on the keys; DAO tucks the launcher', async ({
+  test('create actions sit on the keys without a launcher', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -125,9 +95,22 @@ test.describe('create keyboard dock', () => {
     await expect(
       page.getByRole('heading', { name: 'Create DAO' })
     ).toBeVisible();
-    await expectLauncherResting(page);
+    await expect(
+      page.getByRole('button', { name: 'Back', exact: true })
+    ).toBeVisible();
+    await expect(
+      page.locator('.os-app-screen > .portfolio-summon-dock')
+    ).toHaveCount(0);
+    const daoFooter = page.locator('.os-app-screen-footer');
+    await expect(daoFooter.locator('.os-sheet-action').first()).toBeVisible();
+    const daoRestingBottom = await daoFooter.evaluate((el) =>
+      parseFloat(getComputedStyle(el).bottom)
+    );
+    expect(daoRestingBottom).toBe(0);
     await publishKeyboard(page, '.dao-create-form');
-    await expectActionOnKeys(page);
+    await expect
+      .poll(() => daoFooter.evaluate((el) => getComputedStyle(el).bottom))
+      .toBe(`${KEYBOARD_LIFT_PX}px`);
   });
 
   test('new drop keeps its quiet launcher off the keys', async ({ page }) => {

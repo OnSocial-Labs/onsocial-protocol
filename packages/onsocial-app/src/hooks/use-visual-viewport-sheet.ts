@@ -54,100 +54,25 @@ export function readScreenKeyboardSeat(
   });
 }
 
-/** A transform, filter, or paint containment makes this the fixed box. */
-function establishesFixedContainingBlock(node: HTMLElement): boolean {
-  const style = getComputedStyle(node);
-  if (style.transform !== 'none' || style.perspective !== 'none') return true;
-  if (style.filter && style.filter !== 'none') return true;
-  const backdrop = style.backdropFilter;
-  if (backdrop && backdrop !== 'none') return true;
-  const contain = style.contain;
-  if (
-    contain === 'strict' ||
-    contain === 'content' ||
-    contain.split(' ').includes('paint')
-  ) {
-    return true;
-  }
-  return /transform|perspective|filter|paint/.test(style.willChange);
-}
-
 /**
- * The box a `position: fixed` dock is positioned against.
- * Null is the layout viewport — the screen's `100dvh` box is not that box
- * when the screen has no filter.
+ * Seat for a footer positioned against the screen. Until the screen is
+ * measured, the raw overlap is used so the button does not flash under
+ * the keys. Fixed docks publish the raw overlap themselves.
  */
-export function fixedPositionContainer(
-  pinned: HTMLElement | null
-): HTMLElement | null {
-  let node = pinned?.parentElement ?? null;
-  while (node && node !== document.documentElement) {
-    if (establishesFixedContainingBlock(node)) return node;
-    node = node.parentElement;
-  }
-  return null;
-}
-
-/**
- * Seat for a fixed dock. A viewport-fixed dock keeps the full overlap.
- * A dock inside a shrunk filtered screen keeps 0.
- */
-export function readPinnedKeyboardSeat(
-  lift: number,
-  pinned: HTMLElement | null
-): number {
-  const block = fixedPositionContainer(pinned);
-  const rect = block?.getBoundingClientRect();
-  const visual = window.visualViewport;
-  return keyboardSeatPx({
-    lift,
-    rootBottom: rect ? rect.bottom : window.innerHeight,
-    rootHeight: rect ? rect.height : window.innerHeight,
-    visualBottom: visual ? visual.offsetTop + visual.height : 0,
-  });
-}
-
-export type KeyboardSeatBox = 'screen' | 'dock';
-
-function readSeatBox(lift: number, box: KeyboardSeatBox): number {
-  if (box === 'dock') {
-    const screen = screenForKeyboardSeat();
-    const dock =
-      screen?.querySelector<HTMLElement>(':scope > .portfolio-summon-dock') ??
-      document.querySelector<HTMLElement>('.portfolio-summon-dock');
-    return readPinnedKeyboardSeat(lift, dock);
-  }
-  return readScreenKeyboardSeat(lift, screenForKeyboardSeat());
-}
-
-/**
- * Seat for a pinned action. Until the box is measured, the raw overlap is
- * used so the button does not flash under the keys.
- * `screen` measures the screen (absolute footers). `dock` measures the
- * summon dock's fixed containing block.
- */
-export function useMeasuredKeyboardSeat(
-  active: boolean,
-  lift: number,
-  box: KeyboardSeatBox = 'screen'
-): number {
+export function useMeasuredKeyboardSeat(active: boolean, lift: number): number {
   const [measured, setMeasured] = useState<{
     lift: number;
     seat: number;
-    box: KeyboardSeatBox;
   } | null>(null);
 
   useEffect(() => {
     if (!active || lift <= 0 || typeof window === 'undefined') return;
     const measure = () => {
-      const next = readSeatBox(lift, box);
+      const next = readScreenKeyboardSeat(lift, screenForKeyboardSeat());
       setMeasured((current) =>
-        current &&
-        current.lift === lift &&
-        current.box === box &&
-        current.seat === next
+        current && current.lift === lift && current.seat === next
           ? current
-          : { lift, seat: next, box }
+          : { lift, seat: next }
       );
     };
     const frame = window.requestAnimationFrame(measure);
@@ -159,12 +84,10 @@ export function useMeasuredKeyboardSeat(
       visual?.removeEventListener('resize', measure);
       window.removeEventListener('resize', measure);
     };
-  }, [active, lift, box]);
+  }, [active, lift]);
 
   if (!active || lift <= 0) return 0;
-  return measured && measured.lift === lift && measured.box === box
-    ? measured.seat
-    : lift;
+  return measured && measured.lift === lift ? measured.seat : lift;
 }
 
 const MOBILE_MAX_WIDTH_PX = 767;
