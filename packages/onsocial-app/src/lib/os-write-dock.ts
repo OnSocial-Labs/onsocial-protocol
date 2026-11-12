@@ -130,6 +130,33 @@ export function writeDockDraftKey(kind: 'post' | 'dm', id: string): string {
 }
 
 /**
+ * The reply close control dismisses on pointerdown, which removes it before
+ * the tap's click. That click then lands on the post or article under the dock.
+ * Catch the one click that follows, then leave later taps alone.
+ */
+export function swallowFollowingPointerClick(target: EventTarget): void {
+  let timer = 0;
+  const cleanup = () => {
+    target.removeEventListener('click', stopClick, true);
+    target.removeEventListener('pointerdown', release, true);
+    globalThis.clearTimeout(timer);
+  };
+  const stopClick = (event: Event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    cleanup();
+  };
+  // The ghost click belongs to this press. A later press starts with
+  // pointerdown, and that one must still open whatever is underneath.
+  const release = () => {
+    cleanup();
+  };
+  target.addEventListener('click', stopClick, true);
+  target.addEventListener('pointerdown', release, true);
+  timer = globalThis.setTimeout(cleanup, 700) as unknown as number;
+}
+
+/**
  * Empty reply — keyboard dismiss or a tap outside the field drops the chip.
  * A draft (text or media), a send in flight, or an error keeps the target.
  * Focus moving to another control in the dock is not a dismiss.

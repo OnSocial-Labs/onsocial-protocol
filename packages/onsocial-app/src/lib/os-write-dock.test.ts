@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   WRITE_DOCK_ADD_REPLY_PLACEHOLDER,
   writeDockCanSend,
@@ -10,6 +10,7 @@ import {
   writeDockReplyPlaceholder,
   writeDockReplyPreview,
   writeDockReplySpokenName,
+  swallowFollowingPointerClick,
   writeDockShouldClearReplyOnDismiss,
   writeDockShouldSendOnEnter,
   writeDockShowCompactBarTools,
@@ -113,6 +114,41 @@ describe('os write dock helpers', () => {
     const long = writeDockReplyPreview('x'.repeat(140));
     expect(long.endsWith('…')).toBe(true);
     expect(long.length).toBeLessThanOrEqual(97);
+  });
+
+  it('cancels the click that follows a reply-close press, then steps aside', () => {
+    const handlers = new Map<string, (event: Event) => void>();
+    const target = {
+      addEventListener: (type: string, fn: (event: Event) => void) => {
+        handlers.set(type, fn);
+      },
+      removeEventListener: (type: string) => {
+        handlers.delete(type);
+      },
+    };
+    swallowFollowingPointerClick(target as unknown as EventTarget);
+
+    const click = new Event('click', { cancelable: true });
+    const stop = vi.spyOn(click, 'stopPropagation');
+    handlers.get('click')!(click);
+    expect(click.defaultPrevented).toBe(true);
+    expect(stop).toHaveBeenCalledOnce();
+    expect(handlers.has('click')).toBe(false);
+  });
+
+  it('lets the next press through after the reply close', () => {
+    const handlers = new Map<string, (event: Event) => void>();
+    const target = {
+      addEventListener: (type: string, fn: (event: Event) => void) => {
+        handlers.set(type, fn);
+      },
+      removeEventListener: (type: string) => {
+        handlers.delete(type);
+      },
+    };
+    swallowFollowingPointerClick(target as unknown as EventTarget);
+    handlers.get('pointerdown')!(new Event('pointerdown'));
+    expect(handlers.has('click')).toBe(false);
   });
 
   it('namespaces draft keys by surface', () => {
