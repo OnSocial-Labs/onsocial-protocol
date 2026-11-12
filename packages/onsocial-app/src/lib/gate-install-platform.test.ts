@@ -52,16 +52,16 @@ describe('gate viewport script', () => {
 });
 
 describe('gate button contract', () => {
-  it('paints install with the ghost sheet action and reserves the slot', () => {
+  it('paints install as the kit text button and reserves the slot', () => {
     const source = readFileSync(
       join(appSrc, 'components/gate/gate-pwa-install.tsx'),
       'utf8'
     );
-    expect(source).toContain('OsSheetAction');
-    expect(source).toContain('variant="ghost"');
+    expect(source).toContain('osCommitCancelClassName');
     expect(source).toContain('gate-install-reserve');
     expect(source).toContain('Install app');
     expect(source).toContain('Share → Add to Home Screen');
+    expect(source).not.toContain('OsSheetAction');
     expect(source).not.toContain('gate-connect-install"');
     expect(source).not.toContain('isIos');
   });
@@ -77,6 +77,9 @@ describe('gate button contract', () => {
     expect(gate).toContain('var(--gate-viewport-height, 100dvh)');
     expect(gate).toContain('env(safe-area-inset-bottom, 0px)');
     expect(gate).toContain('var(--os-dock-clearance-gap)');
+    expect(gate).toContain('var(--os-icon-hit)');
+    expect(gate).toContain('touch-action: pan-y');
+    expect(gate).toContain('overscroll-behavior: contain');
     expect(gate).toContain('var(--gate-viewport-offset, 0px)');
     expect(gate).not.toContain('opacity: 0.72');
     expect(gate).not.toContain('backdrop-filter: blur(12px)');

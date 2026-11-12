@@ -94,7 +94,7 @@ async function revealInstall(page: Page): Promise<void> {
   });
   await expect(
     page.locator(
-      '.gate-install-slot .os-sheet-action:not(.gate-install-reserve)'
+      '.gate-install-slot .os-commit-cancel:not(.gate-install-reserve)'
     )
   ).toBeVisible();
 }
@@ -209,17 +209,36 @@ async function expectGateFills(page: Page): Promise<void> {
     false
   );
   const install = page.locator(
-    '.gate-install-slot .os-sheet-action:not(.gate-install-reserve)'
+    '.gate-install-slot .os-commit-cancel:not(.gate-install-reserve)'
   );
   if ((await install.count()) === 0) return;
-  expectTokenFill(
-    await readFill(
-      page,
-      '.gate-install-slot .os-sheet-action.os-sheet-action--ghost:not(.gate-install-reserve)',
-      '--os-surface-fill-quiet'
-    ),
-    true
+  const text = await install.evaluate((el) => {
+    const cs = getComputedStyle(el);
+    const box = el.getBoundingClientRect();
+    return {
+      backgroundColor: cs.backgroundColor,
+      backgroundImage: cs.backgroundImage,
+      borderTopWidth: cs.borderTopWidth,
+      borderRightWidth: cs.borderRightWidth,
+      borderBottomWidth: cs.borderBottomWidth,
+      borderLeftWidth: cs.borderLeftWidth,
+      height: box.height,
+    };
+  });
+  expect(text.backgroundColor).toBe('rgba(0, 0, 0, 0)');
+  expect(text.backgroundImage).toBe('none');
+  expect(text.borderTopWidth).toBe('0px');
+  expect(text.borderRightWidth).toBe('0px');
+  expect(text.borderBottomWidth).toBe('0px');
+  expect(text.borderLeftWidth).toBe('0px');
+  expect(text.height).toBeGreaterThanOrEqual(44);
+  await page.locator('.gate .gate-connect-button').focus();
+  await page.keyboard.press('Tab');
+  await expect(install).toBeFocused();
+  const focusShadow = await install.evaluate(
+    (el) => getComputedStyle(el).boxShadow
   );
+  expect(focusShadow).not.toBe('none');
 }
 
 async function setTheme(page: Page, theme: 'light' | 'dark'): Promise<void> {

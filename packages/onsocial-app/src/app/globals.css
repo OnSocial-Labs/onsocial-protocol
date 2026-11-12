@@ -4587,6 +4587,8 @@ a.os-surface-row,
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: manipulation;
     background: var(--bg);
   }
 
@@ -4596,8 +4598,8 @@ a.os-surface-row,
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
+    touch-action: manipulation;
   }
 
   .gate-content {
@@ -4663,20 +4665,52 @@ a.os-surface-row,
       var(--os-motion-micro, 120ms) both;
   }
 
-  /* The wheel lives in the scroll region and shrinks before it can meet the actions. */
+  /* The wheel lives in the scroll region and shrinks before it can meet the actions.
+   The snap padding tracks the rail, not the five-row window, so a short
+   landscape rail cannot spill its list under the buttons. */
   .gate .gate-os-rail {
-    flex: 0 1 auto;
-    height: var(--gate-dapp-window);
-    max-height: 100%;
+    position: relative;
+    flex: 1 1 0;
     min-height: 0;
+    max-height: var(--gate-dapp-window);
     margin-top: 0;
     overflow: hidden;
+    container-type: size;
+  }
+
+  /* Edge fade is an overlay, not a mask on the scroller. A mask repaints
+     the whole wheel on every frame and shows up as a long task. */
+  .gate .gate-os-rail::before,
+  .gate .gate-os-rail::after {
+    content: '';
+    position: absolute;
+    z-index: 1;
+    left: 0;
+    right: 0;
+    height: 28%;
+    pointer-events: none;
+  }
+
+  .gate .gate-os-rail::before {
+    top: 0;
+    background: linear-gradient(to bottom, var(--bg), transparent);
+  }
+
+  .gate .gate-os-rail::after {
+    bottom: 0;
+    background: linear-gradient(to top, var(--bg), transparent);
   }
 
   .gate .gate-os-rail .gate-dapp-list {
     box-sizing: border-box;
     height: 100%;
     max-height: 100%;
+    mask-image: none;
+    padding-block: calc((100cqh - var(--gate-dapp-row)) / 2);
+    scroll-padding-block: calc((100cqh - var(--gate-dapp-row)) / 2);
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
   }
 
   .gate-dapp-list {
@@ -4760,7 +4794,22 @@ a.os-surface-row,
     justify-items: center;
     align-items: center;
     width: 100%;
-    min-height: var(--os-control-primary);
+    min-height: var(--os-icon-hit);
+  }
+
+  /* Text install — kit colour and chrome, 44px hit, focus ring from the kit. */
+  .gate-install-slot .os-commit-cancel {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--os-icon-hit);
+    min-width: var(--os-icon-hit);
+    pointer-events: auto;
+  }
+
+  .gate-install-slot .os-commit-cancel:focus-visible {
+    box-shadow: var(--os-focus-ring);
   }
 
   .gate-install-slot > * {
@@ -42320,34 +42369,6 @@ body:has(.portfolio-summon-dock[data-mood='glass'])
   background: var(--os-dock-fill);
   /* Standard only — a -webkit- pair makes Lightning drop the blur. */
   backdrop-filter: blur(20px) saturate(1.3);
-}
-
-/*
- * Install is the ghost sheet action. Hover frost in the kit samples the
- * page; the gate field is flat, so the quiet fill stays a token with no
- * backdrop. Width follows the label so it stacks with the dock pill.
- */
-.gate-install-slot .os-sheet-action.os-sheet-action--ghost,
-.gate-install-slot .os-sheet-action.os-sheet-action--ghost:hover,
-.gate-install-slot .os-sheet-action.os-sheet-action--ghost:focus-visible,
-.gate-install-slot .os-sheet-action.os-sheet-action--ghost:active {
-  width: auto;
-  max-width: 100%;
-  background-image: none;
-  pointer-events: auto;
-}
-
-.gate-install-slot .os-sheet-action.os-sheet-action--ghost:hover,
-.gate-install-slot .os-sheet-action.os-sheet-action--ghost:focus-visible,
-.gate-install-slot .os-sheet-action.os-sheet-action--ghost:active {
-  -webkit-backdrop-filter: none;
-}
-
-.gate-install-slot .os-sheet-action.os-sheet-action--ghost,
-.gate-install-slot .os-sheet-action.os-sheet-action--ghost:hover,
-.gate-install-slot .os-sheet-action.os-sheet-action--ghost:focus-visible,
-.gate-install-slot .os-sheet-action.os-sheet-action--ghost:active {
-  backdrop-filter: none;
 }
 
 .gate-install-slot .gate-install-reserve {
