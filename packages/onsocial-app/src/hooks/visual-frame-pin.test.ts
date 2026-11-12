@@ -71,6 +71,18 @@ describe('visualFramePin', () => {
     ).toBe(140);
   });
 
+  it('follows a visual pan while the card stays on the screen', () => {
+    expect(
+      visualFramePin({
+        position: 'absolute',
+        parentTop: 0,
+        parentHeight: 844,
+        offsetTop: 140,
+        visualHeight: 520,
+      })
+    ).toEqual({ top: 140, height: 520 });
+  });
+
   it('leaves a card that already ends on the keys', () => {
     expect(
       visualFramePin({

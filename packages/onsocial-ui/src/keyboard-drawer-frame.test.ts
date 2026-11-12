@@ -3,9 +3,12 @@ import {
   correctedKeyboardSeat,
   keyboardDrawerFrameStyle,
   keyboardFrameNeedsSeat,
+  keyboardRootFrameStyle,
   keyboardSeatPx,
   pageKeyboardLiftStyle,
   settleKeyboardDrawerMetrics,
+  settleVisualKeyboardFrame,
+  visualKeyboardFrame,
 } from './keyboard-drawer-frame.js';
 
 describe('keyboardDrawerFrameStyle', () => {
@@ -173,6 +176,70 @@ describe('correctedKeyboardSeat', () => {
         fallbackSeat: 180,
       })
     ).toBe(180);
+  });
+});
+
+describe('visualKeyboardFrame', () => {
+  it('pins a fixed drawer to the visible screen', () => {
+    expect(
+      visualKeyboardFrame({
+        position: 'fixed',
+        parentTop: 0,
+        parentHeight: 844,
+        offsetTop: 140,
+        visualHeight: 520,
+      })
+    ).toEqual({ top: 140, height: 520 });
+  });
+
+  it('moves an absolute drawer down when its card still fills the layout', () => {
+    expect(
+      visualKeyboardFrame({
+        position: 'absolute',
+        parentTop: 0,
+        parentHeight: 844,
+        offsetTop: 140,
+        visualHeight: 520,
+      })
+    ).toEqual({ top: 140, height: 520 });
+  });
+
+  it('does not push a card that has already shrunk onto the keys', () => {
+    expect(
+      visualKeyboardFrame({
+        position: 'absolute',
+        parentTop: 0,
+        parentHeight: 520,
+        offsetTop: 140,
+        visualHeight: 520,
+      })
+    ).toEqual({ top: 0, height: 520 });
+  });
+
+  it('follows the visible top and ignores a suggestion-bar height twitch', () => {
+    const held = { top: 0, height: 520 };
+    expect(settleVisualKeyboardFrame(held, { top: 48, height: 480 })).toEqual({
+      top: 48,
+      height: 520,
+    });
+  });
+
+  it('follows a real keyboard resize', () => {
+    expect(
+      settleVisualKeyboardFrame(
+        { top: 0, height: 700 },
+        { top: 0, height: 380 }
+      )
+    ).toEqual({ top: 0, height: 380 });
+  });
+
+  it('styles the root as that box and does not add a keyboard margin', () => {
+    expect(keyboardRootFrameStyle({ top: 140, height: 520 })).toEqual({
+      top: '140px',
+      height: '520px',
+      bottom: 'auto',
+      paddingBottom: 0,
+    });
   });
 });
 

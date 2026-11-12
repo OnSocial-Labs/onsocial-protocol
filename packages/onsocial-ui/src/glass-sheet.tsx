@@ -1732,6 +1732,7 @@ export function GlassSheet({
       style={{
         zIndex: overlayActive ? overlay.z : overlayFloor,
         ...resolvedMood.style,
+        ...keyboard.rootStyle,
       }}
       role="presentation"
     >
