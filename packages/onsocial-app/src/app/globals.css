@@ -34461,8 +34461,9 @@ a.os-surface-row,
 
   /*
    * About stays a full page. While the keyboard is open the format row
-   * takes the write-dock seat: column width, the dock gutter, and the
-   * same air above the keys. The story scrolls above that row.
+   * takes the write-dock seat: column width and the dock gutter, flush
+   * on the keys the way the composer tools sit. The story scrolls above
+   * that row. The write dock keeps its own air under the pill.
    */
   .profile-about-edit-slide.is-keyboard-open[data-os-slide-over='true']
     .os-app-screen-footer {
@@ -34471,8 +34472,7 @@ a.os-surface-row,
     right: auto;
     width: min(100%, var(--os-column-width));
     bottom: var(--os-keyboard-lift, 0px);
-    padding: 0 max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px))
-      var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem)
+    padding: 0 max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px)) 0
       max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
     transform: translateX(-50%);
     transition: none;
@@ -34486,9 +34486,7 @@ a.os-surface-row,
   .profile-about-edit-slide.is-keyboard-open[data-os-slide-over='true']
     .os-app-screen-body {
     padding-bottom: calc(
-      var(--os-keyboard-lift, 0px) +
-        var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem) +
-        var(--os-dock-height, 3.25rem)
+      var(--os-keyboard-lift, 0px) + var(--os-dock-height, 3.25rem)
     );
     scroll-padding-bottom: var(--os-dock-height, 3.25rem);
   }
