@@ -504,6 +504,31 @@ describe('scrollMobileFieldIntoView', () => {
     expect(scrollTop).toBe(80 - (64 + 12 - 20));
   });
 
+  it('does not scroll the page under an open editor', () => {
+    const scrollIntoView = vi.fn();
+    const field = {
+      getBoundingClientRect: () => ({ top: 500, bottom: 580 }),
+      closest: () => ({ nodeType: 1 }),
+      scrollIntoView,
+    } as unknown as HTMLElement;
+
+    vi.stubGlobal('window', {
+      matchMedia: () => ({ matches: true }),
+      visualViewport: { offsetTop: 80, height: 400 },
+      requestAnimationFrame: (cb: FrameRequestCallback) => {
+        cb(0);
+        return 1;
+      },
+      setTimeout: (cb: () => void) => {
+        cb();
+        return 1 as unknown as ReturnType<typeof setTimeout>;
+      },
+    });
+
+    scrollMobileFieldIntoView(field);
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
   it('does not scroll on desktop', () => {
     const scrollIntoView = vi.fn();
     const field = {

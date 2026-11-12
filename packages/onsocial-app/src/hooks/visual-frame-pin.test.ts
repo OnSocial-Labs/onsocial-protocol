@@ -51,6 +51,16 @@ describe('visualFramePin', () => {
     ).toBe(280);
   });
 
+  it('pulls a pushed sheet back up so the strip does not stay', () => {
+    expect(
+      correctedFrameTop({
+        appliedTop: 140,
+        frameTop: 140,
+        parentTop: 0,
+      })
+    ).toBe(0);
+  });
+
   it('does not stack that correction once the header is back', () => {
     expect(
       correctedFrameTop({
@@ -71,7 +81,7 @@ describe('visualFramePin', () => {
     ).toBe(140);
   });
 
-  it('follows a visual pan while the card stays on the screen', () => {
+  it('keeps a card that is already on screen through a caret pan', () => {
     expect(
       visualFramePin({
         position: 'absolute',
@@ -80,7 +90,7 @@ describe('visualFramePin', () => {
         offsetTop: 140,
         visualHeight: 520,
       })
-    ).toEqual({ top: 140, height: 520 });
+    ).toEqual({ top: 0, height: 520 });
   });
 
   it('leaves a card that already ends on the keys', () => {

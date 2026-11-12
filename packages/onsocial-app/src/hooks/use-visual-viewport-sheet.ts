@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  keyboardFrameTop,
   keyboardSeatPx,
   settleKeyboardDrawerMetrics,
   visualKeyboardFrame,
@@ -137,15 +138,7 @@ export function correctedFrameTop(input: {
   frameTop: number;
   parentTop: number;
 }): number {
-  const frameTop = Math.round(input.frameTop);
-  const parentTop = Math.round(input.parentTop);
-  if (parentTop >= -1 && frameTop < -1) {
-    return Math.max(0, -frameTop);
-  }
-  const desired = Math.max(0, parentTop);
-  const error = desired - frameTop;
-  if (Math.abs(error) < 2) return input.appliedTop;
-  return Math.max(0, input.appliedTop + error);
+  return keyboardFrameTop(input);
 }
 
 /** Keyboard overlap with the layout viewport. Same pixels drawers use. */

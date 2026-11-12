@@ -244,6 +244,15 @@ export function scrollMobileFieldIntoView(element: HTMLElement | null) {
       return;
     }
 
+    // No sheet scroller. scrollIntoView walks every ancestor, including
+    // the page under an editor, which is the white strip on paste.
+    if (typeof element.closest === 'function') {
+      const pinned = element.closest(
+        '.glass-sheet-root, .os-slide-over, [data-os-slide-over="true"], .os-app-screen'
+      );
+      if (pinned) return;
+    }
+
     const viewport = window.visualViewport;
     if (!viewport) {
       element.scrollIntoView({ block: 'center', behavior: 'smooth' });
