@@ -288,7 +288,10 @@ export function useKeyboardDrawerFrame(
       if (mode === 'drawer') {
         // The drawer root IS the visible viewport. A pan updates the top.
         // A margin on top of that pan is the gap above the keys.
-        const keyboardUp = settled.isMobile && settled.lift > 0 && viewport;
+        const keyboardUp =
+          settled.isMobile &&
+          settled.lift >= KEYBOARD_VIEWPORT_SLOP_PX &&
+          viewport;
         const fixed =
           !root || window.getComputedStyle(root).position === 'fixed';
         const parentRect = fixed
