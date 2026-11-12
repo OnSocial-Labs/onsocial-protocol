@@ -29,11 +29,11 @@ export default defineConfig({
     ? undefined
     : {
         command: useNextStart
-          ? `pnpm run build:deps && pnpm exec next build --webpack && pnpm exec next start --port ${port}`
+          ? 'bash scripts/e2e-next-start.sh'
           : `pnpm run build:deps && pnpm exec next dev --port ${port}`,
         url: baseURL,
         reuseExistingServer: !process.env.CI,
-        timeout: 240_000,
+        timeout: 480_000,
         env: {
           ...process.env,
           NEXT_DIST_DIR: process.env.NEXT_DIST_DIR ?? '.next-e2e',
