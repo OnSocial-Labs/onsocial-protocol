@@ -304,6 +304,8 @@ export {
   keyboardSeatPx,
   keyboardSheetMargin,
   pageKeyboardLiftStyle,
+  KEYBOARD_VIEWPORT_SLOP_PX,
+  keyboardFrameNeedsSeat,
   settleKeyboardDrawerMetrics,
   useKeyboardDrawerFrame,
   type KeyboardDrawerMetrics,

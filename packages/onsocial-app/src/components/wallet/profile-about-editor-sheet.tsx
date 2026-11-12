@@ -36,6 +36,12 @@ import {
 } from '@/hooks/use-mobile-field-focus-scroll';
 import { usePageKeyboardLift } from '@/hooks/use-page-keyboard-lift';
 import {
+  keepPageScrollOutside,
+  rememberPageScrollOutside,
+  restorePageScroll,
+  type PageScrollSnap,
+} from '@/lib/hold-page-scroll';
+import {
   PROFILE_BIO_LIMIT_WARN,
   PROFILE_BIO_MAX,
 } from '@/lib/profile-bio-face';
@@ -108,6 +114,7 @@ export function ProfileAboutEditorSheet({
   const [leadOpen, setLeadOpen] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<number | null>(null);
   const scrollFieldIntoView = useMobileFieldFocusScroll();
+  const pageSnapRef = useRef<PageScrollSnap | null>(null);
   const pinAboutRoot = useCallback(
     () => document.querySelector<HTMLElement>('.profile-about-edit-slide'),
     []
@@ -115,6 +122,20 @@ export function ProfileAboutEditorSheet({
   const { keyboardOpen, panelStyle } = usePageKeyboardLift(open, {
     pinRoot: pinAboutRoot,
   });
+
+  const armAboutPage = useCallback((target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return;
+    if (!target.closest('.account-editor-bio-shell')) return;
+    const scroller = target.closest<HTMLElement>(
+      '.profile-about-edit-slide .os-app-screen-body'
+    );
+    pageSnapRef.current = rememberPageScrollOutside(target, scroller);
+  }, []);
+
+  useEffect(() => {
+    if (keyboardOpen) return;
+    restorePageScroll(pageSnapRef.current);
+  }, [keyboardOpen]);
 
   const aboutLen = aboutBio.replace(/\r\n/g, '\n').length;
   const leadLen = lead.replace(/\r\n/g, '\n').length;
@@ -144,9 +165,15 @@ export function ProfileAboutEditorSheet({
     const justOpened = leadOpen && !prevLeadOpenRef.current;
     prevLeadOpenRef.current = leadOpen;
     if (!justOpened || !showLeadEditor) return;
-    const id = window.setTimeout(() => leadRef.current?.focus(), 0);
+    const id = window.setTimeout(() => {
+      const node = leadRef.current;
+      if (!node) return;
+      armAboutPage(node);
+      node.focus();
+      keepPageScrollOutside(pageSnapRef.current);
+    }, 0);
     return () => window.clearTimeout(id);
-  }, [leadOpen, showLeadEditor]);
+  }, [armAboutPage, leadOpen, showLeadEditor]);
 
   const handleClose = () => {
     setEditingField(null);
@@ -347,6 +374,9 @@ export function ProfileAboutEditorSheet({
           event.preventDefault();
           handleClose();
         }}
+        onPointerDownCapture={(event) => {
+          armAboutPage(event.target);
+        }}
         onFocusCapture={(event) => {
           const field = event.target;
           if (
@@ -354,6 +384,7 @@ export function ProfileAboutEditorSheet({
             field instanceof HTMLTextAreaElement ||
             (field instanceof HTMLElement && field.isContentEditable)
           ) {
+            keepPageScrollOutside(pageSnapRef.current);
             scrollMobileFieldIntoView(field);
           }
         }}

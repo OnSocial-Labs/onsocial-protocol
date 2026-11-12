@@ -122,7 +122,6 @@ export function DaoEditSheet({
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const scrollFieldIntoView = useMobileFieldFocusScroll();
-  const { keyboardOpen, panelStyle } = usePageKeyboardLift(open);
   const { eligibility, isLoading: eligibilityLoading } = useDaoPageCapability(
     daoAccountId,
     true
@@ -152,6 +151,7 @@ export function DaoEditSheet({
     () => baseline.photos
   );
   const [aboutOpen, setAboutOpen] = useState(false);
+  const { keyboardOpen, panelStyle } = usePageKeyboardLift(open && !aboutOpen);
   const [publishSocial, setPublishSocial] = useState(false);
   const [links, setLinks] = useState<ProfileLinksInput>(() =>
     profileLinksInputFromRecord(baseline.links)
