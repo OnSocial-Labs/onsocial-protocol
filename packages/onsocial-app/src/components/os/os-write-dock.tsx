@@ -37,6 +37,7 @@ import {
   writeDockShowExpand,
   writeDockShowMedia,
   writeDockShowSend,
+  swallowFollowingPointerClick,
   writeDockShouldClearReplyOnDismiss,
   writeDockShowTextCount,
   writeDockTextRemaining,
@@ -117,8 +118,16 @@ export function OsWriteDockReplyChip({
         onPointerDown={(event) => {
           // One tap on mobile — keep focus on the field until we dismiss so
           // the keyboard does not eat the first tap before click fires.
+          // Dismiss removes this control before click, which would open the
+          // post or article sitting under the dock. Swallow that click.
           event.preventDefault();
+          event.stopPropagation();
+          swallowFollowingPointerClick(window);
           dismiss();
+        }}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
         }}
         onKeyDown={(event) => {
           if (event.key !== 'Enter' && event.key !== ' ') return;
