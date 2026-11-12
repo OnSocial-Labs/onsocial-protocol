@@ -1,32 +1,45 @@
 'use client';
 
+import { OsSheetAction } from '@onsocial/ui';
 import { usePwa } from '@/components/providers/pwa-provider';
+import type { GateInstallPlatform } from '@/lib/gate-install-platform';
 
-/** Gate secondary CTA — install when the browser offers it; iOS gets Share hint. */
-export function GatePwaInstall() {
-  const { canInstall, isInstalled, isIos, install } = usePwa();
+/**
+ * Secondary install control under Let’s connect.
+ * The reserve button is in the first paint so the iOS hint and the
+ * Chromium prompt fill the same box. Standalone hides the slot in CSS
+ * before paint (`display-mode` and `data-pwa-standalone`).
+ */
+export function GatePwaInstall({
+  platform,
+}: {
+  platform: GateInstallPlatform;
+}) {
+  const { canInstall, install } = usePwa();
+  const showIosHint = platform === 'ios' && !canInstall;
 
-  if (isInstalled) return null;
-
-  if (canInstall) {
-    return (
-      <button
-        type="button"
-        className="gate-connect-button gate-connect-install"
-        onClick={() => {
-          void install();
-        }}
+  return (
+    <div className="gate-install-slot">
+      <OsSheetAction
+        variant="ghost"
+        className="gate-install-reserve"
+        tabIndex={-1}
+        aria-hidden
       >
         Install app
-      </button>
-    );
-  }
-
-  if (isIos) {
-    return (
-      <p className="gate-connect-install-hint">Share → Add to Home Screen</p>
-    );
-  }
-
-  return null;
+      </OsSheetAction>
+      {canInstall ? (
+        <OsSheetAction
+          variant="ghost"
+          onClick={() => {
+            void install();
+          }}
+        >
+          Install app
+        </OsSheetAction>
+      ) : showIosHint ? (
+        <p className="gate-connect-install-hint">Share → Add to Home Screen</p>
+      ) : null}
+    </div>
+  );
 }

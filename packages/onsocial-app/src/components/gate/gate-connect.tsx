@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation';
 import { osDockPillClassName } from '@onsocial/ui';
 import { GatePwaInstall } from '@/components/gate/gate-pwa-install';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import type { GateInstallPlatform } from '@/lib/gate-install-platform';
 import { gateContinuePath } from '@/lib/overlay-routes';
 
-export function GateConnect() {
+export function GateConnect({ platform }: { platform: GateInstallPlatform }) {
   const router = useRouter();
   const { accountId, isConnected, isLoading, connect } = useAppWallet();
 
@@ -38,7 +39,7 @@ export function GateConnect() {
           >
             <span className="gate-connect-label">Let’s connect</span>
           </button>
-          {ready ? <GatePwaInstall /> : null}
+          <GatePwaInstall platform={platform} />
         </>
       )}
     </div>
