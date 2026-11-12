@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   correctedKeyboardSeat,
   keyboardDrawerFrameStyle,
+  keyboardFrameNeedsSeat,
   keyboardSeatPx,
   pageKeyboardLiftStyle,
   settleKeyboardDrawerMetrics,
@@ -32,6 +33,23 @@ describe('keyboardDrawerFrameStyle', () => {
         lift: 364,
       })
     ).toBe(held);
+  });
+
+  it('keeps the seat when typing pans the visual viewport', () => {
+    const held = { isMobile: true, height: 380, lift: 320 };
+    expect(
+      settleKeyboardDrawerMetrics(held, {
+        isMobile: true,
+        height: 380,
+        lift: 40,
+      })
+    ).toBe(held);
+  });
+
+  it('follows a real keyboard resize', () => {
+    const held = { isMobile: true, height: 380, lift: 320 };
+    const grown = { isMobile: true, height: 260, lift: 440 };
+    expect(settleKeyboardDrawerMetrics(held, grown)).toEqual(grown);
   });
 
   it('still lifts when the keyboard opens and drops when it closes', () => {
@@ -155,6 +173,17 @@ describe('correctedKeyboardSeat', () => {
         fallbackSeat: 180,
       })
     ).toBe(180);
+  });
+});
+
+describe('keyboardFrameNeedsSeat', () => {
+  it('ignores a caret scroll once the keyboard height is settled', () => {
+    expect(keyboardFrameNeedsSeat('scroll', false)).toBe(false);
+  });
+
+  it('reseats when the keyboard height changes, including on scroll', () => {
+    expect(keyboardFrameNeedsSeat('scroll', true)).toBe(true);
+    expect(keyboardFrameNeedsSeat('layout', false)).toBe(true);
   });
 });
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { keyboardSeatPx } from '@onsocial/ui';
+import { KEYBOARD_VIEWPORT_SLOP_PX, keyboardSeatPx } from '@onsocial/ui';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { scrollMobileFieldIntoView } from '@/hooks/use-mobile-field-focus-scroll';
 import {
@@ -69,13 +69,13 @@ export function usePageKeyboardLift(
     };
     const frame = window.requestAnimationFrame(measure);
     const visual = window.visualViewport;
+    // Resize is the keyboard. Scroll is the caret — following it lifts the
+    // page behind an open drawer and shakes the field.
     visual?.addEventListener('resize', measure);
-    visual?.addEventListener('scroll', measure);
     window.addEventListener('resize', measure);
     return () => {
       window.cancelAnimationFrame(frame);
       visual?.removeEventListener('resize', measure);
-      visual?.removeEventListener('scroll', measure);
       window.removeEventListener('resize', measure);
     };
   }, [active, keyboardOpen, pin, viewport.lift, viewport.height]);
@@ -107,6 +107,13 @@ export function usePageKeyboardLift(
         parentTop,
       });
       const next = { top, height: frame.height };
+      if (
+        pinned &&
+        Math.abs(next.top - pinned.top) < KEYBOARD_VIEWPORT_SLOP_PX &&
+        Math.abs(next.height - pinned.height) < KEYBOARD_VIEWPORT_SLOP_PX
+      ) {
+        return;
+      }
       setPinned((current) =>
         current && current.top === next.top && current.height === next.height
           ? current

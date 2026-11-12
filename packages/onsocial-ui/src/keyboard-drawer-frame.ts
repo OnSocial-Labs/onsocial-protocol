@@ -12,9 +12,10 @@ const MOBILE_MAX_WIDTH_PX = 767;
 
 /**
  * A phone suggestion bar, or the caret chase, moves the viewport by less
- * than a real keyboard. Following those ticks shakes a pinned Done control.
+ * than a real keyboard. Following those ticks shakes the field and the page
+ * behind the drawer.
  */
-const KEYBOARD_LIFT_SLOP_PX = 64;
+export const KEYBOARD_VIEWPORT_SLOP_PX = 64;
 
 export interface KeyboardDrawerMetrics {
   /** Pixels of the layout viewport covered below the visual viewport. */
@@ -28,7 +29,10 @@ const IDLE: KeyboardDrawerMetrics = { lift: 0, height: 0, isMobile: false };
 
 /**
  * Keep the last settled frame while the keyboard is up and the viewport
- * only jitters. Opening and closing still apply on the first real change.
+ * only jitters. A caret pan changes `offsetTop`, which moves the computed
+ * lift without the keyboard changing height — that must not reseat the
+ * drawer or the page behind it. Opening, closing, and a real keyboard
+ * resize still apply.
  */
 export function settleKeyboardDrawerMetrics(
   current: KeyboardDrawerMetrics,
@@ -45,12 +49,23 @@ export function settleKeyboardDrawerMetrics(
     current.isMobile && next.isMobile && current.lift > 0 && next.lift > 0;
   if (
     keyboardHeld &&
-    Math.abs(current.lift - next.lift) < KEYBOARD_LIFT_SLOP_PX &&
-    Math.abs(current.height - next.height) < KEYBOARD_LIFT_SLOP_PX
+    Math.abs(current.height - next.height) < KEYBOARD_VIEWPORT_SLOP_PX
   ) {
     return current;
   }
   return next;
+}
+
+/**
+ * Scroll while the keyboard height is unchanged is the caret. Layout and
+ * resize passes still remeasure so the first seat can correct itself.
+ */
+export function keyboardFrameNeedsSeat(
+  reason: 'scroll' | 'layout',
+  metricsChanged: boolean
+): boolean {
+  if (reason === 'layout') return true;
+  return metricsChanged;
 }
 
 function readKeyboardDrawerMetrics(): KeyboardDrawerMetrics {
@@ -183,12 +198,14 @@ export function useKeyboardDrawerFrame(
 
   useEffect(() => {
     if (!active || typeof window === 'undefined') return;
-    const sync = () => {
+    const sync = (reason: 'scroll' | 'layout') => {
       const raw = readKeyboardDrawerMetrics();
       const settled = settleKeyboardDrawerMetrics(
         frameRef.current.metrics,
         raw
       );
+      const metricsChanged = settled !== frameRef.current.metrics;
+      if (!keyboardFrameNeedsSeat(reason, metricsChanged)) return;
       const root = rootRef?.current ?? null;
       const viewport = window.visualViewport;
       const rect = root?.getBoundingClientRect();
@@ -229,19 +246,50 @@ export function useKeyboardDrawerFrame(
       setFrame(next);
     };
     const viewport = window.visualViewport;
-    // Resize is the keyboard. Scroll is the browser sliding the visual
-    // viewport to chase the caret — the panel has to follow or Done floats.
-    viewport?.addEventListener('resize', sync);
-    viewport?.addEventListener('scroll', sync);
-    window.addEventListener('resize', sync);
-    const frame = window.requestAnimationFrame(sync);
+    const onLayout = () => sync('layout');
+    const onScroll = () => sync('scroll');
+    // Resize is the keyboard. Scroll is the caret. A scroll only reseats
+    // when the keyboard height actually changed; otherwise the field shakes
+    // and the page behind the drawer lifts.
+    viewport?.addEventListener('resize', onLayout);
+    viewport?.addEventListener('scroll', onScroll);
+    window.addEventListener('resize', onLayout);
+    const frame = window.requestAnimationFrame(onLayout);
     return () => {
       window.cancelAnimationFrame(frame);
-      viewport?.removeEventListener('resize', sync);
-      viewport?.removeEventListener('scroll', sync);
-      window.removeEventListener('resize', sync);
+      viewport?.removeEventListener('resize', onLayout);
+      viewport?.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onLayout);
     };
   }, [active, frame.seat, mode, rootRef]);
+
+  useEffect(() => {
+    if (!active || mode !== 'drawer' || frame.metrics.lift <= 0) return;
+    const root = rootRef?.current;
+    if (!root) return;
+    const outside: Array<{ node: HTMLElement; top: number; left: number }> =
+      [];
+    let node: HTMLElement | null = root.parentElement;
+    while (node) {
+      outside.push({ node, top: node.scrollTop, left: node.scrollLeft });
+      node = node.parentElement;
+    }
+    const x = window.scrollX;
+    const y = window.scrollY;
+    const restore = () => {
+      for (const item of outside) {
+        if (item.node.scrollTop !== item.top) item.node.scrollTop = item.top;
+        if (item.node.scrollLeft !== item.left) item.node.scrollLeft = item.left;
+      }
+      if (window.scrollX !== x || window.scrollY !== y) window.scrollTo(x, y);
+    };
+    const onScroll = (event: Event) => {
+      if (event.target instanceof Node && root.contains(event.target)) return;
+      restore();
+    };
+    window.addEventListener('scroll', onScroll, true);
+    return () => window.removeEventListener('scroll', onScroll, true);
+  }, [active, frame.metrics.lift, mode, rootRef]);
 
   const live = active ? frame.metrics : IDLE;
   const liveSeat = active ? frame.seat : 0;

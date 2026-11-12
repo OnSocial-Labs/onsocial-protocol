@@ -30,14 +30,34 @@ function restoreDrawerScroll(
 }
 
 let drawerScrollSnap: ReturnType<typeof rememberDrawerScroll> | null = null;
+let releaseDrawerHold: (() => void) | null = null;
 
 export function holdDrawerStill(event: FocusEvent<HTMLInputElement>) {
-  const snap = drawerScrollSnap ?? rememberDrawerScroll(event.currentTarget);
+  releaseDrawerHold?.();
+  const field = event.currentTarget;
+  const snap = drawerScrollSnap ?? rememberDrawerScroll(field);
   drawerScrollSnap = null;
   const restore = () => restoreDrawerScroll(snap);
   restore();
-  window.requestAnimationFrame(restore);
-  window.setTimeout(restore, 50);
+  const onScroll = () => {
+    if (document.activeElement !== field) return;
+    restore();
+  };
+  window.addEventListener('scroll', onScroll, true);
+  const frame = window.requestAnimationFrame(restore);
+  const timers = [
+    window.setTimeout(restore, 50),
+    window.setTimeout(restore, 320),
+  ];
+  const release = () => {
+    window.cancelAnimationFrame(frame);
+    for (const timer of timers) window.clearTimeout(timer);
+    window.removeEventListener('scroll', onScroll, true);
+    field.removeEventListener('blur', release);
+    if (releaseDrawerHold === release) releaseDrawerHold = null;
+  };
+  releaseDrawerHold = release;
+  field.addEventListener('blur', release);
 }
 
 export function focusFieldStill(event: PointerEvent<HTMLInputElement>) {
