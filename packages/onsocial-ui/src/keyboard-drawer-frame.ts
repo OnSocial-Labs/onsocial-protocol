@@ -323,12 +323,20 @@ export function useKeyboardDrawerFrame(
       if (!keyboardFrameNeedsSeat(reason, metricsChanged)) return;
       const rect = root?.getBoundingClientRect();
       const visibleBottom = viewport ? viewport.offsetTop + viewport.height : 0;
-      const rootSeat = keyboardSeatPx({
-        lift: settled.lift,
-        rootBottom: rect ? rect.bottom : null,
-        rootHeight: rect ? rect.height : 0,
-        visualBottom: visibleBottom,
-      });
+      // A drawer on top owns the keyboard. The page under it does not rise.
+      const drawerOwnsKeyboard = Boolean(
+        document.querySelector(
+          '.glass-sheet-panel[data-sizing="hug"].is-keyboard-open'
+        )
+      );
+      const rootSeat = drawerOwnsKeyboard
+        ? 0
+        : keyboardSeatPx({
+            lift: settled.lift,
+            rootBottom: rect ? rect.bottom : null,
+            rootHeight: rect ? rect.height : 0,
+            visualBottom: visibleBottom,
+          });
       if (
         settled === frameRef.current.metrics &&
         rootSeat === frameRef.current.seat
@@ -346,9 +354,13 @@ export function useKeyboardDrawerFrame(
     // Drawers follow that pan so the footer stays on the keys. Pages ignore
     // a scroll that does not change the keyboard height, so a caret does
     // not lift the page behind a drawer.
+    const onFocus = () => {
+      window.requestAnimationFrame(onLayout);
+    };
     viewport?.addEventListener('resize', onLayout);
     viewport?.addEventListener('scroll', onScroll);
     window.addEventListener('resize', onLayout);
+    document.addEventListener('focusin', onFocus);
     sync('layout');
     const frameId = window.requestAnimationFrame(onLayout);
     return () => {
@@ -356,6 +368,7 @@ export function useKeyboardDrawerFrame(
       viewport?.removeEventListener('resize', onLayout);
       viewport?.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onLayout);
+      document.removeEventListener('focusin', onFocus);
     };
   }, [active, frame.seat, mode, rootRef]);
 
@@ -393,7 +406,9 @@ export function useKeyboardDrawerFrame(
   const style = useMemo(() => {
     if (mode === 'page') return pageKeyboardLiftStyle(live, liveSeat);
     if (!liveBox) return undefined;
-    return { maxHeight: `${liveBox.height}px` };
+    // Last style on the panel. Clears a margin another caller already set,
+    // so the root pin is the only keyboard movement.
+    return { maxHeight: `${liveBox.height}px`, marginBottom: '0px' };
   }, [live, liveBox, liveSeat, mode]);
   const rootStyle = useMemo(
     () =>
