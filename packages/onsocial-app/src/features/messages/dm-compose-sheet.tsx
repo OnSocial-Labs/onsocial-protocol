@@ -15,6 +15,7 @@ import {
   DiscardConfirmSheet,
   ImageIcon,
   OsField,
+  OsMediaDismiss,
   OsGestureSheet,
   OsSheetAction,
   OsSheetActions,
@@ -326,7 +327,7 @@ export function DmComposeSheet({
                   }
                 />
                 {previewUrl && mediaFile ? (
-                  <div className="dm-compose-media-preview">
+                  <div className="dm-compose-media-frame">
                     {mediaFile.type.startsWith('video/') ? (
                       <video
                         src={previewUrl}
@@ -336,20 +337,25 @@ export function DmComposeSheet({
                         preload="metadata"
                       />
                     ) : (
-                      <img
-                        src={previewUrl}
-                        alt=""
-                        className="dm-compose-media-el"
-                      />
+                      <button
+                        type="button"
+                        className="dm-compose-media-hit"
+                        aria-label="Replace photo or video"
+                        disabled={pending || discardConfirmOpen}
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <img
+                          src={previewUrl}
+                          alt=""
+                          className="dm-compose-media-el"
+                        />
+                      </button>
                     )}
-                    <button
-                      type="button"
-                      className="dm-compose-media-remove"
+                    <OsMediaDismiss
+                      label="Remove media"
                       disabled={pending || discardConfirmOpen}
                       onClick={clearMedia}
-                    >
-                      Remove media
-                    </button>
+                    />
                   </div>
                 ) : (
                   <button

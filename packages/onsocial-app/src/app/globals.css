@@ -4652,9 +4652,7 @@ a.os-surface-row,
     overflow-y: auto;
     overscroll-behavior: contain;
     scroll-snap-type: y mandatory;
-    padding-block: calc(
-      (var(--gate-dapp-window) - var(--gate-dapp-row)) / 2
-    );
+    padding-block: calc((var(--gate-dapp-window) - var(--gate-dapp-row)) / 2);
     scroll-padding-block: calc(
       (var(--gate-dapp-window) - var(--gate-dapp-row)) / 2
     );
@@ -4696,7 +4694,6 @@ a.os-surface-row,
       var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1));
     cursor: pointer;
   }
-
 
   .gate-connect {
     position: relative;
@@ -9856,29 +9853,6 @@ a.os-surface-row,
   .account-editor-about-photos-list[data-count='1'] img,
   .account-editor-about-photos-list[data-count='3'] > :first-child img {
     aspect-ratio: 16 / 9;
-  }
-
-  .account-editor-about-photos-remove {
-    position: absolute;
-    top: 0.35rem;
-    right: 0.35rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.55rem;
-    height: 1.55rem;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    border-radius: 999px;
-    background: rgb(15 18 24 / 0.55);
-    color: rgb(255 255 255 / 0.92);
-    cursor: pointer;
-  }
-
-  .account-editor-about-photos-remove svg {
-    width: 0.7rem;
-    height: 0.7rem;
   }
 
   .account-editor-about-photos-add {
@@ -16379,7 +16353,9 @@ a.os-surface-row,
     padding: 0.28rem 0.45rem 0;
   }
 
-  .os-write-dock.is-expanded .os-write-dock-above-shell.is-open > .os-write-dock-above {
+  .os-write-dock.is-expanded
+    .os-write-dock-above-shell.is-open
+    > .os-write-dock-above {
     padding: 0.5rem 0.65rem 0.2rem;
   }
 
@@ -20530,32 +20506,7 @@ a.os-surface-row,
     object-fit: cover;
   }
 
-  .account-editor-banner-overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-    pointer-events: none;
-    transition:
-      background 200ms ease,
-      backdrop-filter 200ms ease,
-      -webkit-backdrop-filter 200ms ease;
-  }
-
-  .profile-editor-media-host:hover
-    .account-editor-banner-overlay:not(.has-media),
-  .profile-editor-media-host:focus-within
-    .account-editor-banner-overlay:not(.has-media) {
-    background: rgb(var(--fg-rgb) / 0.1);
-  }
-
-  .profile-editor-media-host:hover .account-editor-banner-overlay.has-media,
-  .profile-editor-media-host:focus-within
-    .account-editor-banner-overlay.has-media {
-    background: rgb(0 0 0 / 0.4);
-    -webkit-backdrop-filter: blur(2px);
-    backdrop-filter: blur(2px);
-  }
-
+  .account-editor-banner-overlay,
   .account-editor-avatar-overlay {
     border-radius: inherit;
   }
@@ -21159,10 +21110,7 @@ a.os-surface-row,
   @media (hover: hover) and (pointer: fine) {
     .profile-about-edit-studio
       .profile-about-edit-media-chrome
-      .account-editor-about-photos-drag,
-    .profile-about-edit-studio
-      .profile-about-edit-media-chrome
-      .account-editor-about-photos-remove {
+      .account-editor-about-photos-drag {
       opacity: 0;
       transition: opacity 140ms ease;
     }
@@ -22234,19 +22182,6 @@ a.os-surface-row,
       rgb(var(--fg-rgb) / 0.2)
     );
     color: var(--mood-text, rgb(var(--fg-rgb) / 0.82));
-  }
-
-  @media (prefers-reduced-transparency: reduce) {
-    .profile-editor-media-host:hover .account-editor-banner-overlay.has-media,
-    .profile-editor-media-host:focus-within
-      .account-editor-banner-overlay.has-media,
-    .profile-editor-media-host:hover .profile-editor-media-overlay.has-media,
-    .profile-editor-media-host:focus-within
-      .profile-editor-media-overlay.has-media {
-      -webkit-backdrop-filter: none;
-      backdrop-filter: none;
-      background: rgb(0 0 0 / 0.52);
-    }
   }
 
   .account-editor-file-input {
@@ -24537,33 +24472,6 @@ a.os-surface-row,
     .post-card-quote-thumb-media {
       transition: none;
     }
-  }
-
-  .post-media-remove {
-    position: absolute;
-    top: 0.3rem;
-    right: 0.3rem;
-    z-index: 2;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.35rem;
-    height: 1.35rem;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    border-radius: 9999px;
-    background: var(--app-scrim-media-hover);
-    color: rgb(255 255 255 / 0.95);
-    font-size: 1rem;
-    line-height: 1;
-    cursor: pointer;
-  }
-
-  .post-media-remove:hover,
-  .post-media-remove:focus-visible {
-    background: rgb(0 0 0 / 0.72);
-    outline: none;
   }
 
   /*
@@ -34592,16 +34500,6 @@ a.os-surface-row,
     outline: none;
   }
 
-  .drop-cover-seat-remove:disabled {
-    opacity: 0.4;
-    cursor: default;
-  }
-
-  .drop-cover-seat-remove-icon {
-    width: 0.75rem;
-    height: 0.75rem;
-  }
-
   .drop-cover-seat img {
     display: block;
     width: 100%;
@@ -36127,10 +36025,11 @@ a.os-surface-row,
     margin-top: 0.55rem;
   }
 
-  .series-logo-row {
-    display: flex;
-    align-items: flex-end;
-    gap: 0.55rem;
+  .series-logo-slot {
+    position: relative;
+    flex-shrink: 0;
+    width: 4.5rem;
+    height: 4.5rem;
   }
 
   /* Square logo picker in the series edit sheet. */
@@ -36138,8 +36037,8 @@ a.os-surface-row,
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 4.5rem;
-    height: 4.5rem;
+    width: 100%;
+    height: 100%;
     border-radius: 1rem;
     border: 1px dashed rgb(var(--fg-rgb) / 0.2);
     background: rgb(var(--fg-rgb) / 0.03);
@@ -38230,7 +38129,7 @@ a.os-surface-row,
     flex-shrink: 0;
     width: 2.75rem;
     height: 2.75rem;
-    overflow: hidden;
+    overflow: visible;
     border-radius: 0.72rem;
     background: rgb(var(--fg-rgb) / 0.06);
   }
@@ -41696,13 +41595,6 @@ a.os-surface-row,
     height: 2.35rem;
   }
 
-  .endorse-compose-media-preview {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.4rem;
-  }
-
   .endorse-compose-media-el {
     display: block;
     width: auto;
@@ -42080,13 +41972,13 @@ a.os-surface-row,
     .is-compose-expanded
   ):not(:has(.os-write-dock-footer-shell.is-open))
   .portfolio-summon-back,
-.os-dock-pill.portfolio-summon.is-writing:has(.os-write-dock-above-shell.is-open):not(
-    :has(.os-write-dock-footer-shell.is-open)
-  )
+.os-dock-pill.portfolio-summon.is-writing:has(
+    .os-write-dock-above-shell.is-open
+  ):not(:has(.os-write-dock-footer-shell.is-open))
   .portfolio-summon-account,
-.os-dock-pill.portfolio-summon.is-writing:has(.os-write-dock-above-shell.is-open):not(
-    :has(.os-write-dock-footer-shell.is-open)
-  )
+.os-dock-pill.portfolio-summon.is-writing:has(
+    .os-write-dock-above-shell.is-open
+  ):not(:has(.os-write-dock-footer-shell.is-open))
   .portfolio-summon-back {
   align-self: flex-end;
   display: inline-flex;
@@ -42103,9 +41995,9 @@ a.os-surface-row,
     .is-compose-expanded
   ):not(:has(.os-write-dock-footer-shell.is-open))
   .os-write-dock-input,
-.os-dock-pill.portfolio-summon.is-writing:has(.os-write-dock-above-shell.is-open):not(
-    :has(.os-write-dock-footer-shell.is-open)
-  )
+.os-dock-pill.portfolio-summon.is-writing:has(
+    .os-write-dock-above-shell.is-open
+  ):not(:has(.os-write-dock-footer-shell.is-open))
   .os-write-dock-input {
   height: var(--portfolio-summon-avatar-size, 1.85rem);
   min-height: var(--portfolio-summon-avatar-size, 1.85rem);
@@ -42117,9 +42009,9 @@ a.os-surface-row,
     .is-compose-expanded
   ):not(:has(.os-write-dock-footer-shell.is-open))
   .os-write-dock-field,
-.os-dock-pill.portfolio-summon.is-writing:has(.os-write-dock-above-shell.is-open):not(
-    :has(.os-write-dock-footer-shell.is-open)
-  )
+.os-dock-pill.portfolio-summon.is-writing:has(
+    .os-write-dock-above-shell.is-open
+  ):not(:has(.os-write-dock-footer-shell.is-open))
   .os-write-dock-field {
   min-height: var(--os-dock-height, 3.25rem);
   height: var(--os-dock-height, 3.25rem);
@@ -42136,9 +42028,9 @@ a.os-surface-row,
 }
 
 /* Reply chip keeps the feed's quiet pad. The expanded pad fattened the pill. */
-.os-dock-pill.portfolio-summon.is-writing:has(.os-write-dock-above-shell.is-open):not(
-    :has(.os-write-dock-footer-shell.is-open)
-  )
+.os-dock-pill.portfolio-summon.is-writing:has(
+    .os-write-dock-above-shell.is-open
+  ):not(:has(.os-write-dock-footer-shell.is-open))
   .os-write-dock.is-expanded
   .os-write-dock-above {
   padding: 0.28rem 0.45rem 0;
@@ -45039,7 +44931,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 .dao-look-preview-crest {
   width: 4.25rem;
   height: 4.25rem;
-  overflow: hidden;
+  overflow: visible;
   border-radius: 1rem;
   background: rgb(var(--bg-rgb) / 1);
   box-shadow: 0 0 0 0.18rem rgb(var(--bg-rgb) / 1);
@@ -45051,6 +44943,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   justify-content: center;
   width: 100%;
   height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
 }
 
 .dao-look-preview-crest-image {
@@ -45184,6 +45078,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   justify-content: center;
   width: 100%;
   height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
 }
 
 .guild-look-preview-badge-image {
@@ -45951,23 +45847,23 @@ button.messages-bubble-quote:focus-visible {
   height: 2.35rem;
 }
 
-.dm-compose-media-remove {
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  padding: 0;
-  font-size: var(--os-identity-name-size, 0.9375rem);
-  color: rgb(var(--fg-rgb) / 0.72);
-  text-decoration: underline;
-  text-underline-offset: 0.15em;
+.dm-compose-media-frame,
+.endorse-compose-media-frame {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
 }
 
-.dm-compose-media-preview {
-  display: grid;
-  gap: 0.4rem;
+.dm-compose-media-hit,
+.endorse-compose-media-hit {
+  display: block;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
 }
 
 .dm-compose-media-el {
@@ -46044,7 +45940,9 @@ button.messages-bubble-quote:focus-visible {
   bottom: 0;
 }
 
-.os-app-screen[data-launcher='off']:has(.guild-create-form[data-keyboard='open'])
+.os-app-screen[data-launcher='off']:has(
+    .guild-create-form[data-keyboard='open']
+  )
   .os-app-screen-footer {
   bottom: var(--os-keyboard-lift, 0px);
 }
@@ -46989,8 +46887,7 @@ button.messages-bubble-quote:focus-visible {
   > .portfolio-writing-article-action-icon,
 .portfolio-writing-article-action:focus-visible:not(:disabled)
   > .portfolio-writing-article-action-icon,
-.portfolio-writing-article-like:hover
-  .portfolio-writing-article-action-icon,
+.portfolio-writing-article-like:hover .portfolio-writing-article-action-icon,
 .portfolio-writing-article-like:focus-within
   .portfolio-writing-article-action-icon {
   opacity: 0.88;
@@ -47036,8 +46933,7 @@ button.messages-bubble-quote:focus-visible {
 
 .portfolio-frame[data-mood] .portfolio-link > .portfolio-link-icon {
   color: rgb(
-    from color-mix(in srgb, var(--mood-accent) 52%, var(--mood-muted)) r g b /
-      1
+    from color-mix(in srgb, var(--mood-accent) 52%, var(--mood-muted)) r g b / 1
   );
   opacity: 1;
 }

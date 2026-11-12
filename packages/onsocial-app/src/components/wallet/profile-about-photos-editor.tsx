@@ -7,7 +7,7 @@ import {
   type ChangeEvent,
   type PointerEvent,
 } from 'react';
-import { MultiplyIcon } from '@onsocial/ui';
+import { OsMediaDismiss } from '@onsocial/ui';
 import {
   PROFILE_ABOUT_PHOTOS_MAX,
   PROFILE_ABOUT_PHOTO_ACCEPT,
@@ -151,15 +151,12 @@ export function ProfileAboutPhotosEditor({
                   <span aria-hidden>⋮⋮</span>
                 </button>
               ) : null}
-              <button
-                type="button"
+              <OsMediaDismiss
                 className="account-editor-about-photos-remove"
                 disabled={disabled}
-                aria-label={`Remove photo ${index + 1}`}
+                label={`Remove photo ${index + 1}`}
                 onClick={() => handleRemove(index)}
-              >
-                <MultiplyIcon />
-              </button>
+              />
             </li>
           ))}
         </ul>

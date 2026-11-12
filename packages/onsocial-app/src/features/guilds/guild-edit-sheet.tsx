@@ -670,6 +670,7 @@ export function GuildEditSheet({
                       </button>
                       <ProfileEditorMediaToolbar
                         layout="banner"
+                        corner="bottom"
                         removeLabel={
                           displayBannerUrl ? 'Remove banner' : undefined
                         }

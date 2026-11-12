@@ -18,6 +18,7 @@ import {
   DiscardConfirmSheet,
   ImageIcon,
   IpfsImg,
+  OsMediaDismiss,
   ipfsImgSrcSet,
   OsGestureSheet,
   OsSheetAction,
@@ -700,7 +701,7 @@ export function EndorseComposeSheet({
               }}
             />
             {previewMediaUrl ? (
-              <div className="endorse-compose-media-preview">
+              <div className="endorse-compose-media-frame">
                 {previewMediaMime?.toLowerCase().startsWith('video/') ? (
                   <video
                     src={previewMediaUrl}
@@ -710,20 +711,27 @@ export function EndorseComposeSheet({
                     preload="metadata"
                   />
                 ) : (
-                  <IpfsImg
-                    src={previewMediaUrl}
-                    srcSet={previewImgSrcSet}
-                    sizes={previewImgSrcSet ? ENDORSE_MEDIA_SIZES : undefined}
-                    alt={existingMedia?.alt?.trim() || 'Endorsement media'}
-                    className="endorse-compose-media-el"
-                  />
+                  <button
+                    type="button"
+                    className="endorse-compose-media-hit"
+                    aria-label="Replace photo or video"
+                    disabled={busy || isSelf || discardConfirmOpen}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <IpfsImg
+                      src={previewMediaUrl}
+                      srcSet={previewImgSrcSet}
+                      sizes={previewImgSrcSet ? ENDORSE_MEDIA_SIZES : undefined}
+                      alt=""
+                      className="endorse-compose-media-el"
+                    />
+                  </button>
                 )}
-                <OsChipAction
+                <OsMediaDismiss
+                  label="Remove media"
                   disabled={busy || discardConfirmOpen}
                   onClick={handleClearMedia}
-                >
-                  Remove media
-                </OsChipAction>
+                />
               </div>
             ) : (
               <button

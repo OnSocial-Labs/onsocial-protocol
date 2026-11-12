@@ -2,7 +2,7 @@
 
 /**
  * Seat-tile artwork thumbs for create-drop — same size as variation sets,
- * Mage remove control, tap-to-zoom with the shared OsPageSheet overlay.
+ * shared photo dismiss, tap-to-zoom with the shared OsPageSheet overlay.
  */
 
 import {
@@ -15,7 +15,7 @@ import {
   type ReactNode,
 } from 'react';
 import {
-  MultiplyIcon,
+  OsMediaDismiss,
   OsPageSheet,
   OsSheetAction,
   OsSheetActions,
@@ -233,7 +233,7 @@ interface DropSeatTileProps {
   tileIndex?: number;
 }
 
-/** One seat tile — Mage × to remove, tap to zoom. */
+/** One seat tile — shared photo dismiss, tap to zoom. */
 export function DropSeatTile({
   src,
   label,
@@ -443,18 +443,12 @@ export function DropSeatTile({
         {selected ? <span className="drop-cover-seat-badge">Main</span> : null}
       </button>
       {onRemove ? (
-        <button
-          type="button"
+        <OsMediaDismiss
           className="drop-cover-seat-remove"
           disabled={disabled}
-          aria-label={`Remove ${label}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            onRemove();
-          }}
-        >
-          <MultiplyIcon className="drop-cover-seat-remove-icon" aria-hidden />
-        </button>
+          label={`Remove ${label}`}
+          onClick={onRemove}
+        />
       ) : null}
       <DropArtOverlay
         open={zoomOpen}

@@ -843,6 +843,7 @@ export function AppProfileEditorSheet({
                         </button>
                         <ProfileEditorMediaToolbar
                           layout="banner"
+                          corner="bottom"
                           removeLabel={
                             displayBannerMedia ? 'Remove banner' : undefined
                           }

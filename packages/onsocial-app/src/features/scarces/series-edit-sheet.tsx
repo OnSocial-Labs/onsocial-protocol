@@ -11,7 +11,7 @@ import {
 import {
   DiscardConfirmSheet,
   OsField,
-  OsFieldRemove,
+  OsMediaDismiss,
   OsSheetAction,
   OsSheetActions,
   osFieldBorderedClassName,
@@ -277,7 +277,7 @@ export function SeriesEditSheet({
             label="Logo"
             hint="Square works best · JPG, PNG, or WebP · up to 5 MB"
           >
-            <div className="series-logo-row">
+            <div className="series-logo-slot">
               <button
                 type="button"
                 className={`series-logo-picker${logoSrc ? ' has-media' : ''}`}
@@ -292,8 +292,8 @@ export function SeriesEditSheet({
                 )}
               </button>
               {logoSrc ? (
-                <OsFieldRemove
-                  aria-label="Remove series logo"
+                <OsMediaDismiss
+                  label="Remove series logo"
                   disabled={pending}
                   onClick={clearLogo}
                 />
