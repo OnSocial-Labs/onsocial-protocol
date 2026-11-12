@@ -225,8 +225,11 @@ export {
   type GovernanceAccountSubjectKind,
 } from './governance-account-subject.js';
 export {
+  OsMediaDismiss,
+  osMediaDismissClassName,
+} from './os-media-dismiss.js';
+export {
   ProfileEditorMediaToolbar,
-  PROFILE_EDITOR_MEDIA_GLYPH_STROKE,
   type ProfileEditorMediaLayout,
   type ProfileEditorMediaToolbarProps,
 } from './profile-editor-media-toolbar.js';

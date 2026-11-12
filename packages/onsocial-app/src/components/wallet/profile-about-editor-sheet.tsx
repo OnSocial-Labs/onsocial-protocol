@@ -18,7 +18,7 @@ import {
   type PointerEvent,
   type ReactNode,
 } from 'react';
-import { ChevronLeftIcon, Divider, MultiplyIcon } from '@onsocial/ui';
+import { ChevronLeftIcon, Divider, OsMediaDismiss } from '@onsocial/ui';
 import {
   PROFILE_ABOUT_ALIGN_OPTIONS,
   PROFILE_LEAD_MAX,
@@ -294,17 +294,12 @@ export function ProfileAboutEditorSheet({
           <span aria-hidden>⋮⋮</span>
         </button>
       ) : null}
-      <button
-        type="button"
+      <OsMediaDismiss
         className="account-editor-about-photos-remove"
         disabled={disabled}
-        aria-label={
-          role === 'print' ? 'Remove print' : `Remove film photo ${index}`
-        }
+        label={role === 'print' ? 'Remove print' : `Remove film photo ${index}`}
         onClick={() => handleRemove(index)}
-      >
-        <MultiplyIcon />
-      </button>
+      />
     </div>
   );
 

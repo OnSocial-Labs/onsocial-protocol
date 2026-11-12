@@ -9,6 +9,7 @@ import {
   type CSSProperties,
 } from 'react';
 import {
+  OsMediaDismiss,
   PauseFillIcon,
   PlayFillIcon,
   VolumeMuteIcon,
@@ -213,14 +214,11 @@ function PostAudioAttachment({
         </button>
         {engine}
         {onRemove ? (
-          <button
-            type="button"
+          <OsMediaDismiss
             className="post-media-remove"
+            label="Remove attached media"
             onClick={onRemove}
-            aria-label="Remove attached media"
-          >
-            ×
-          </button>
+          />
         ) : null}
       </div>
     );
@@ -284,14 +282,11 @@ function PostAudioAttachment({
       />
       {engine}
       {onRemove ? (
-        <button
-          type="button"
+        <OsMediaDismiss
           className="post-media-remove"
+          label="Remove attached media"
           onClick={onRemove}
-          aria-label="Remove attached media"
-        >
-          ×
-        </button>
+        />
       ) : null}
     </div>
   );
@@ -511,14 +506,11 @@ function PostVisualMediaBlock({
         </button>
       ) : null}
       {onRemove ? (
-        <button
-          type="button"
+        <OsMediaDismiss
           className="post-media-remove"
+          label="Remove attached media"
           onClick={onRemove}
-          aria-label="Remove attached media"
-        >
-          ×
-        </button>
+        />
       ) : null}
     </>
   );

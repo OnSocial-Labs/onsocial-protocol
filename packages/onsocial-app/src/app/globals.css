@@ -9821,28 +9821,6 @@ a.os-surface-row,
     aspect-ratio: 16 / 9;
   }
 
-  .account-editor-about-photos-remove {
-    position: absolute;
-    top: 0.35rem;
-    right: 0.35rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.55rem;
-    height: 1.55rem;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    border-radius: 999px;
-    background: rgb(15 18 24 / 0.55);
-    color: rgb(255 255 255 / 0.92);
-    cursor: pointer;
-  }
-
-  .account-editor-about-photos-remove svg {
-    width: 0.7rem;
-    height: 0.7rem;
-  }
 
   .account-editor-about-photos-add {
     margin: 0;
@@ -20493,32 +20471,7 @@ a.os-surface-row,
     object-fit: cover;
   }
 
-  .account-editor-banner-overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-    pointer-events: none;
-    transition:
-      background 200ms ease,
-      backdrop-filter 200ms ease,
-      -webkit-backdrop-filter 200ms ease;
-  }
-
-  .profile-editor-media-host:hover
-    .account-editor-banner-overlay:not(.has-media),
-  .profile-editor-media-host:focus-within
-    .account-editor-banner-overlay:not(.has-media) {
-    background: rgb(var(--fg-rgb) / 0.1);
-  }
-
-  .profile-editor-media-host:hover .account-editor-banner-overlay.has-media,
-  .profile-editor-media-host:focus-within
-    .account-editor-banner-overlay.has-media {
-    background: rgb(0 0 0 / 0.4);
-    -webkit-backdrop-filter: blur(2px);
-    backdrop-filter: blur(2px);
-  }
-
+  .account-editor-banner-overlay,
   .account-editor-avatar-overlay {
     border-radius: inherit;
   }
@@ -22182,19 +22135,6 @@ a.os-surface-row,
       rgb(var(--fg-rgb) / 0.2)
     );
     color: var(--mood-text, rgb(var(--fg-rgb) / 0.82));
-  }
-
-  @media (prefers-reduced-transparency: reduce) {
-    .profile-editor-media-host:hover .account-editor-banner-overlay.has-media,
-    .profile-editor-media-host:focus-within
-      .account-editor-banner-overlay.has-media,
-    .profile-editor-media-host:hover .profile-editor-media-overlay.has-media,
-    .profile-editor-media-host:focus-within
-      .profile-editor-media-overlay.has-media {
-      -webkit-backdrop-filter: none;
-      backdrop-filter: none;
-      background: rgb(0 0 0 / 0.52);
-    }
   }
 
   .account-editor-file-input {
@@ -24487,32 +24427,6 @@ a.os-surface-row,
     }
   }
 
-  .post-media-remove {
-    position: absolute;
-    top: 0.3rem;
-    right: 0.3rem;
-    z-index: 2;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.35rem;
-    height: 1.35rem;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    border-radius: 9999px;
-    background: var(--app-scrim-media-hover);
-    color: rgb(255 255 255 / 0.95);
-    font-size: 1rem;
-    line-height: 1;
-    cursor: pointer;
-  }
-
-  .post-media-remove:hover,
-  .post-media-remove:focus-visible {
-    background: rgb(0 0 0 / 0.72);
-    outline: none;
-  }
 
   /*
    * Audio attachment — a row, not a 4:3 photo frame. The engine stays in

@@ -1,8 +1,9 @@
 /**
- * Profile editor media — shared hover toolbar, backdrop, and overlay scrim.
+ * Profile editor media — tile hit target and the shared photo dismiss.
  * Import in app / portal globals: @import '@onsocial/ui/profile-editor-media.css';
  *
- * Interaction: full tile backdrop opens the picker; trash is the only overlay control.
+ * The picture is the add / replace control. `.os-media-dismiss` is the only
+ * chrome, and it is the same chip on banners, marks, About stills, and posts.
  */
 
 .profile-editor-media-host {
@@ -43,24 +44,39 @@
   inset: 0;
   z-index: 2;
   pointer-events: none;
-  transition:
-    background 200ms ease,
-    backdrop-filter 200ms ease,
-    -webkit-backdrop-filter 200ms ease;
 }
 
-.profile-editor-media-host:hover .profile-editor-media-overlay:not(.has-media),
-.profile-editor-media-host:focus-within
-  .profile-editor-media-overlay:not(.has-media) {
-  background: rgb(var(--fg-rgb) / 0.1);
+/* One dismiss. Top-right on a frame; on the corner of a mark. */
+.os-media-dismiss {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--app-scrim-media-hover, rgb(0 0 0 / 0.55));
+  color: rgb(255 255 255 / 0.95);
+  cursor: pointer;
+  pointer-events: auto;
 }
 
-.profile-editor-media-host:hover .profile-editor-media-overlay.has-media,
-.profile-editor-media-host:focus-within
-  .profile-editor-media-overlay.has-media {
-  background: rgb(0 0 0 / 0.4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+.os-media-dismiss svg {
+  display: block;
+  width: 0.7rem;
+  height: 0.7rem;
+}
+
+.os-media-dismiss:hover,
+.os-media-dismiss:focus-visible {
+  background: rgb(0 0 0 / 0.72);
+  outline: none;
 }
 
 .profile-editor-media-toolbar {
@@ -68,183 +84,17 @@
   inset: 0;
   z-index: 5;
   pointer-events: none;
-  opacity: 0;
-  transition: opacity 160ms ease;
 }
 
-/* Always a quiet glass chip — same language as trash; never centered over media. */
-.profile-editor-media-camera {
-  position: absolute;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 9999px;
-  pointer-events: none;
-  background: color-mix(
-    in srgb,
-    rgb(var(--bg-rgb) / 0.72) 88%,
-    rgb(0 0 0 / 0.35)
-  );
-  backdrop-filter: blur(16px) saturate(1.4);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.12),
-    0 4px 12px -6px rgb(0 0 0 / 0.35);
-  color: rgb(var(--fg-rgb) / 0.88);
+.profile-editor-media-toolbar--avatar .os-media-dismiss {
+  top: -0.2rem;
+  right: -0.2rem;
 }
 
-.profile-editor-media-host.has-media .profile-editor-media-camera {
-  background: rgb(0 0 0 / 0.42);
-  color: rgb(255 255 255 / 0.9);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.12),
-    0 4px 12px -6px rgb(0 0 0 / 0.35);
-}
-
-.profile-editor-media-toolbar-glyph--banner,
-.profile-editor-media-toolbar-glyph--avatar {
-  width: 0.875rem;
-  height: 0.875rem;
-}
-
-/* Banner — alone in trash corner; with trash, sit just left of it. */
-.profile-editor-media-toolbar--banner .profile-editor-media-camera {
-  right: 0.45rem;
-  bottom: 0.45rem;
-}
-
-.profile-editor-media-toolbar--banner:has(.profile-editor-media-remove-btn)
-  .profile-editor-media-camera {
-  right: 2.45rem;
-}
-
-/* Avatar — alone on trash rim; with trash, opposite rim (8 vs 4–5). */
-.profile-editor-media-toolbar--avatar .profile-editor-media-camera {
-  right: -0.05rem;
-  bottom: -0.05rem;
-  left: auto;
-}
-
-.profile-editor-media-toolbar--avatar:has(.profile-editor-media-remove-btn)
-  .profile-editor-media-camera {
-  left: -0.05rem;
-  right: auto;
-}
-
-.profile-editor-media-remove-btn {
-  position: absolute;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  padding: 0;
-  border: 0;
-  border-radius: 9999px;
-  background: color-mix(
-    in srgb,
-    rgb(var(--bg-rgb) / 0.72) 88%,
-    rgb(0 0 0 / 0.35)
-  );
-  backdrop-filter: blur(16px) saturate(1.4);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.12),
-    0 4px 12px -6px rgb(0 0 0 / 0.35);
-  color: rgb(var(--fg-rgb) / 0.88);
-  cursor: pointer;
-  pointer-events: auto;
-  transition:
-    background 160ms ease,
-    color 160ms ease,
-    opacity 160ms ease,
-    box-shadow 160ms ease;
-}
-
-.profile-editor-media-host.has-media .profile-editor-media-remove-btn {
-  background: rgb(0 0 0 / 0.48);
-  color: rgb(255 255 255 / 0.94);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.14),
-    0 4px 12px -6px rgb(0 0 0 / 0.4);
-}
-
-.profile-editor-media-remove-btn:hover,
-.profile-editor-media-remove-btn:focus-visible {
-  background: color-mix(
-    in srgb,
-    rgb(var(--bg-rgb) / 0.84) 90%,
-    rgb(0 0 0 / 0.28)
-  );
-  color: rgb(var(--fg-rgb) / 0.98);
-  outline: none;
-}
-
-.profile-editor-media-host.has-media .profile-editor-media-remove-btn:hover,
-.profile-editor-media-host.has-media
-  .profile-editor-media-remove-btn:focus-visible {
-  background: rgb(0 0 0 / 0.64);
-  color: rgb(255 255 255 / 1);
-}
-
-.profile-editor-media-remove-glyph {
-  display: block;
-  width: 0.875rem;
-  height: 0.875rem;
-}
-
-.profile-editor-media-toolbar--banner .profile-editor-media-remove-btn {
-  right: 0.45rem;
-  bottom: 0.45rem;
+.profile-editor-media-toolbar--bottom .os-media-dismiss {
   top: auto;
-}
-
-.profile-editor-media-toolbar--avatar .profile-editor-media-remove-btn {
-  /* Sit on the circle rim (4–5 o’clock) — clearer than inset on the face. */
-  right: -0.05rem;
-  bottom: -0.05rem;
-}
-
-@media (hover: hover) {
-  .profile-editor-media-host.has-media .profile-editor-media-toolbar {
-    opacity: 0;
-  }
-
-  .profile-editor-media-host:not(.has-media) .profile-editor-media-toolbar {
-    opacity: 0.55;
-  }
-
-  .profile-editor-media-host:hover .profile-editor-media-toolbar,
-  .profile-editor-media-host:focus-within .profile-editor-media-toolbar {
-    opacity: 1;
-  }
-
-  .profile-editor-media-host:hover .profile-editor-media-remove-btn,
-  .profile-editor-media-host:focus-within .profile-editor-media-remove-btn {
-    pointer-events: auto;
-  }
-
-  .profile-editor-media-host.has-media:not(:hover):not(:focus-within)
-    .profile-editor-media-remove-btn {
-    pointer-events: none;
-  }
-}
-
-@media (hover: none) {
-  .profile-editor-media-host .profile-editor-media-toolbar {
-    opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .profile-editor-media-toolbar,
-  .profile-editor-media-remove-btn {
-    transition: none;
-  }
+  right: 0.55rem;
+  bottom: 0.55rem;
 }
 
 .profile-editor-media-size-hint {
@@ -265,20 +115,20 @@
 }
 
 .profile-editor-media-size-hint--dock {
-  /* Bottom-left — keeps clear of banner trash (bottom-right) and centered avatar. */
+  /* Bottom-left. The dismiss sits top-right, and only once a photo exists. */
   position: absolute;
   left: max(0.75rem, env(safe-area-inset-left, 0px));
-  right: max(3.25rem, env(safe-area-inset-right, 0px));
+  right: max(0.75rem, env(safe-area-inset-right, 0px));
   bottom: 0.45rem;
   text-align: left;
   pointer-events: none;
-  max-width: min(14.5rem, calc(100% - 3.5rem));
+  max-width: min(16rem, calc(100% - 1.5rem));
 }
 
 @media (min-width: 768px) {
   .profile-editor-media-size-hint--dock {
     left: 1rem;
-    right: 3.5rem;
+    right: 1rem;
     bottom: 0.55rem;
     max-width: 16rem;
   }
@@ -288,7 +138,6 @@
   .profile-editor-media-size-hint--dock {
     font-size: var(--os-stamp-size, 0.75rem);
     letter-spacing: 0.02em;
-    max-width: min(11.5rem, calc(100% - 3.25rem));
   }
 }
 
@@ -373,12 +222,3 @@
   color: rgb(var(--fg-rgb) / 0.55);
 }
 
-@media (prefers-reduced-transparency: reduce) {
-  .profile-editor-media-host:hover .profile-editor-media-overlay.has-media,
-  .profile-editor-media-host:focus-within
-    .profile-editor-media-overlay.has-media {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    background: rgb(0 0 0 / 0.52);
-  }
-}

@@ -2,7 +2,11 @@
 
 import type { FocusEvent, ReactNode, RefObject } from 'react';
 import { type PostRow, type ProfileKind } from '@onsocial/sdk';
-import { OsFieldRemove, osFieldBorderedClassName } from '@onsocial/ui';
+import {
+  OsFieldRemove,
+  OsMediaDismiss,
+  osFieldBorderedClassName,
+} from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-textarea';
 import { QuotedPostInset } from '@/features/home/post-card';
@@ -312,14 +316,11 @@ export function ComposerThreadBeat({
                   <div className="post-media-tile post-media-tile--preview guild-composer-drop-fallback-tile">
                     <span className="guild-composer-drop-preview-fallback" />
                     {!pending ? (
-                      <button
-                        type="button"
+                      <OsMediaDismiss
                         className="post-media-remove"
-                        aria-label="Remove Drop"
+                        label="Remove Drop"
                         onClick={() => onPatch({ drop: null })}
-                      >
-                        ×
-                      </button>
+                      />
                     ) : null}
                   </div>
                 )}
