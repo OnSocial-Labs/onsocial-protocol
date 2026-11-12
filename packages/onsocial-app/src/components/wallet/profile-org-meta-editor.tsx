@@ -8,7 +8,6 @@
 import { useEffect, useId, useState } from 'react';
 import {
   PROFILE_INDUSTRY_MAX,
-  PROFILE_LOCATION_MAX,
   hiringLineAriaLabel,
   hiringLineLabel,
   offerLineAriaLabel,
@@ -16,11 +15,9 @@ import {
   isProfileIndustryWriteIn,
   matchProfileIndustryOption,
   normalizeProfileIndustryInput,
-  normalizeProfileLocationInput,
   profileIndustryChoiceOptions,
   profileIndustryDrawerValue,
   sanitizeProfileIndustryDraft,
-  sanitizeProfileLocationDraft,
 } from '@onsocial/sdk';
 import {
   ChoiceDrawer,
@@ -31,8 +28,8 @@ import {
   osFieldBorderedClassName,
   type ChoiceOption,
 } from '@onsocial/ui';
-import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
 import { PortfolioOrgKindMark } from '@/components/portfolio/portfolio-org-kind-mark';
+import { ProfileLocationControl } from '@/components/wallet/profile-location-control';
 import { ProfileJobsEditor } from '@/components/profile/profile-jobs-editor';
 import { ProfileOffersEditor } from '@/components/profile/profile-offers-editor';
 import { focusFieldStill, holdDrawerStill } from '@/lib/hold-drawer-still';
@@ -64,14 +61,11 @@ export function ProfileOrgMetaEditor({
   emptyIndustryLabel?: string;
   industryHint?: string;
 }) {
-  const locationFormId = useId();
   const industryFormId = useId();
 
   const [industryOpen, setIndustryOpen] = useState(false);
   const [industryWriteOpen, setIndustryWriteOpen] = useState(false);
   const [industryDraft, setIndustryDraft] = useState(industry);
-  const [locationOpen, setLocationOpen] = useState(false);
-  const [locationDraft, setLocationDraft] = useState(location);
   const [hiringOpen, setHiringOpen] = useState(false);
   const [offerOpen, setOfferOpen] = useState(false);
   const [jobCount, setJobCount] = useState(0);
@@ -122,7 +116,6 @@ export function ProfileOrgMetaEditor({
   }, [accountId]);
 
   const industryLabel = industry.trim() || emptyIndustryLabel;
-  const locationLabel = location.trim() || 'Location';
   const hiringLabel = hiringLineLabel(jobCount);
   const offerLabel = offerLineLabel(offerCount);
 
@@ -138,16 +131,6 @@ export function ProfileOrgMetaEditor({
   const commitIndustryWriteIn = () => {
     onIndustryChange(normalizeProfileIndustryInput(industryDraft));
     setIndustryWriteOpen(false);
-  };
-
-  const openLocation = () => {
-    setLocationDraft(location);
-    setLocationOpen(true);
-  };
-
-  const commitLocation = () => {
-    onLocationChange(normalizeProfileLocationInput(locationDraft));
-    setLocationOpen(false);
   };
 
   return (
@@ -179,26 +162,13 @@ export function ProfileOrgMetaEditor({
         <span className="portfolio-org-meta-sep" aria-hidden>
           ·
         </span>
-        <button
-          type="button"
-          className="portfolio-org-meta-part account-editor-org-meta-part"
+        <ProfileLocationControl
+          location={location}
+          onLocationChange={onLocationChange}
           disabled={disabled}
-          aria-haspopup="dialog"
-          aria-expanded={locationOpen}
-          aria-label={`Location, ${locationLabel}`}
-          onClick={openLocation}
-        >
-          <PortfolioLocationMark />
-          <span
-            className={
-              location.trim()
-                ? undefined
-                : 'account-editor-org-meta-placeholder'
-            }
-          >
-            {locationLabel}
-          </span>
-        </button>
+          emptyLabel="Location"
+          buttonClassName="portfolio-org-meta-part account-editor-org-meta-part"
+        />
         {showHiring ? (
           <>
             <span className="portfolio-org-meta-sep" aria-hidden>
@@ -295,57 +265,6 @@ export function ProfileOrgMetaEditor({
                 if (event.key !== 'Enter') return;
                 event.preventDefault();
                 if (industryDraft.trim()) commitIndustryWriteIn();
-              }}
-            />
-          </label>
-        </div>
-      </OsHugSheet>
-
-      <OsHugSheet
-        open={locationOpen}
-        onClose={() => setLocationOpen(false)}
-        label="Location"
-        closeAriaLabel="Close location"
-        backdropLabel="Close location"
-        zIndex={SHEET_Z.confirm}
-        footer={
-          <OsSheetFooter>
-            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-              <OsSheetAction
-                type="button"
-                variant="primary"
-                ready
-                disabled={disabled}
-                onClick={commitLocation}
-              >
-                Done
-              </OsSheetAction>
-            </OsSheetActions>
-          </OsSheetFooter>
-        }
-      >
-        <div className="account-editor-org-meta-field">
-          <label className="guild-field" htmlFor={`${locationFormId}-input`}>
-            <span>Based in</span>
-            <input
-              id={`${locationFormId}-input`}
-              className={osFieldBorderedClassName}
-              value={locationDraft}
-              maxLength={PROFILE_LOCATION_MAX}
-              autoComplete="address-level2"
-              placeholder="Based in"
-              disabled={disabled}
-              onPointerDown={focusFieldStill}
-              onFocus={holdDrawerStill}
-              onChange={(event) =>
-                setLocationDraft(
-                  sanitizeProfileLocationDraft(event.target.value)
-                )
-              }
-              onKeyDown={(event) => {
-                if (event.key !== 'Enter') return;
-                event.preventDefault();
-                commitLocation();
               }}
             />
           </label>
