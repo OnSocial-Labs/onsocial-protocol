@@ -33,6 +33,7 @@ import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { useListScrollRestore } from '@/hooks/use-list-scroll-restore';
 import {
   keyboardLiftCssVars,
+  useMeasuredKeyboardSeat,
   useVisualViewportSheetMetrics,
 } from '@/hooks/use-visual-viewport-sheet';
 import {
@@ -278,6 +279,11 @@ export function MessagesPanel() {
   const threadOpen = Boolean(activeThreadId && isUnlocked);
   const viewport = useVisualViewportSheetMetrics(threadOpen);
   const keyboardOpen = threadOpen && viewport.isMobile && viewport.lift > 0;
+  const keyboardSeat = useMeasuredKeyboardSeat(
+    keyboardOpen,
+    viewport.lift,
+    'dock'
+  );
 
   useListScrollRestore(
     scrollRootRef,
@@ -1726,7 +1732,7 @@ export function MessagesPanel() {
       />
     ) : null;
 
-  const screenStyle = keyboardLiftCssVars(keyboardOpen, viewport.lift);
+  const screenStyle = keyboardLiftCssVars(keyboardOpen, keyboardSeat);
 
   const screenTitle = threadOpen
     ? messagesThreadChromeTitle(peerName, peerHandle)
@@ -1783,10 +1789,7 @@ export function MessagesPanel() {
       backFallbackHref={threadOpen ? messagesPath() : APP_HOME_PATH}
       leading={
         threadOpen ? (
-          <OsHeaderBack
-            fallbackHref={messagesPath()}
-            onBack={closeThread}
-          />
+          <OsHeaderBack fallbackHref={messagesPath()} onBack={closeThread} />
         ) : null
       }
       style={screenStyle}

@@ -25,6 +25,7 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   OS_KEYBOARD_LIFT_VAR,
   readKeyboardOverlapPx,
+  readPinnedKeyboardSeat,
   useVisualViewportSheetMetrics,
 } from '@/hooks/use-visual-viewport-sheet';
 import {
@@ -385,6 +386,15 @@ export function OsWriteDock({
     let lastTop = dock.getBoundingClientRect().top;
     let stableFrames = 0;
 
+    const publish = () => {
+      const lift = readKeyboardOverlapPx();
+      const open = keysChromeOpen && lift > 0;
+      syncWriteKeyboardChrome(
+        dock,
+        open,
+        open ? readPinnedKeyboardSeat(lift, dock) : 0
+      );
+    };
     const follow = () => {
       if (stopped) return;
       const thread = messagesThreadBody(dock);
@@ -395,8 +405,7 @@ export function OsWriteDock({
             thread.clientHeight
           )
         : false;
-      const lift = readKeyboardOverlapPx();
-      syncWriteKeyboardChrome(dock, keysChromeOpen && lift > 0, lift);
+      publish();
       const rise = dockRisePx(lastTop, dock.getBoundingClientRect().top);
       let moved = rise !== 0;
       if (thread) {
@@ -416,9 +425,35 @@ export function OsWriteDock({
     };
 
     follow();
+    const onResize = () => {
+      if (stopped) return;
+      const before = dock.getBoundingClientRect().top;
+      publish();
+      const rise = dockRisePx(before, dock.getBoundingClientRect().top);
+      if (rise === 0) return;
+      const thread = messagesThreadBody(dock);
+      if (thread) {
+        if (
+          isScrolledToEnd(
+            thread.scrollTop,
+            thread.scrollHeight,
+            thread.clientHeight
+          )
+        ) {
+          pinMessagesToLatest(thread);
+        }
+        return;
+      }
+      shiftFeedForDock(dock, rise);
+    };
+    const visual = window.visualViewport;
+    visual?.addEventListener('resize', onResize);
+    window.addEventListener('resize', onResize);
     return () => {
       stopped = true;
       window.cancelAnimationFrame(frame);
+      visual?.removeEventListener('resize', onResize);
+      window.removeEventListener('resize', onResize);
       const before = dock.getBoundingClientRect().top;
       const thread = messagesThreadBody(dock);
       const pinned = thread

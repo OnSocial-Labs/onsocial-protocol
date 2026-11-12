@@ -37,6 +37,7 @@ import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context'
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import {
   keyboardLiftCssVars,
+  useMeasuredKeyboardSeat,
   useVisualViewportSheetMetrics,
 } from '@/hooks/use-visual-viewport-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -533,9 +534,14 @@ export function CreateDropPanel() {
     []
   );
 
+  const keyboardSeat = useMeasuredKeyboardSeat(
+    formKeyboardOpen,
+    formViewport.lift,
+    'dock'
+  );
   const screenStyle = useMemo(
-    () => keyboardLiftCssVars(formKeyboardOpen, formViewport.lift),
-    [formKeyboardOpen, formViewport.lift]
+    () => keyboardLiftCssVars(formKeyboardOpen, keyboardSeat),
+    [formKeyboardOpen, keyboardSeat]
   );
 
   const clearPins = useCallback(() => {

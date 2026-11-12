@@ -23,6 +23,7 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import {
   keyboardLiftCssVars,
+  useMeasuredKeyboardSeat,
   useVisualViewportSheetMetrics,
 } from '@/hooks/use-visual-viewport-sheet';
 import {
@@ -239,9 +240,13 @@ export function CreateAppPanel() {
     });
   };
 
+  const keyboardSeat = useMeasuredKeyboardSeat(
+    formKeyboardOpen,
+    formViewport.lift
+  );
   const screenStyle = useMemo(
-    () => keyboardLiftCssVars(formKeyboardOpen, formViewport.lift),
-    [formKeyboardOpen, formViewport.lift]
+    () => keyboardLiftCssVars(formKeyboardOpen, keyboardSeat),
+    [formKeyboardOpen, keyboardSeat]
   );
 
   const derivedSlug = useMemo(

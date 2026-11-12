@@ -45979,15 +45979,16 @@ button.messages-bubble-quote:focus-visible {
   pointer-events: none;
 }
 
-/* New drop — lift the dock while a field is focused. Hub create shares the
-   drop form class and keeps the tuck above. */
+/* New drop — lift the visible dock while a field is focused. Hub create
+   shares the drop form class and keeps the tuck above. The inset matches
+   the write dock. A scroll-hidden launcher stays at the bottom. */
 .os-app-screen:has(
     .drop-create-form[data-keyboard='open']:not(.hub-create-form)
   )
   > .portfolio-summon-dock {
   bottom: var(--os-keyboard-lift, 0px);
   z-index: 85;
-  padding-bottom: 0;
+  padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem);
   /* Track the keyboard. A bottom ease lags the visual viewport. */
   transition:
     transform var(--os-motion-dock, 260ms) ease,
