@@ -54,6 +54,35 @@ function markdownToEditorHtml(markdown: string): string {
 }
 
 /**
+ * Bold / italic use `extendEmptyMarkRange`. A caret inside a mark has an
+ * empty range, and the default toggle only clears the stored mark. The next
+ * selection step drops stored marks, `isActive` reads the document again,
+ * and the button lights back up.
+ * A list that is already on lifts instead of nesting another list.
+ * A heading that is already on returns to a paragraph.
+ */
+export function runRichTextTool(editor: Editor, tool: OsRichTextTool): void {
+  const chain = () => editor.chain().focus();
+  if (tool === 'bold' || tool === 'italic') {
+    chain().toggleMark(tool, {}, { extendEmptyMarkRange: true }).run();
+    return;
+  }
+  if (tool === 'list') {
+    if (editor.isActive('bulletList')) {
+      chain().liftListItem('listItem').run();
+      return;
+    }
+    chain().toggleBulletList().run();
+    return;
+  }
+  if (editor.isActive('heading', { level: 3 })) {
+    chain().setParagraph().run();
+    return;
+  }
+  chain().toggleHeading({ level: 3 }).run();
+}
+
+/**
  * TipTap (ProseMirror) rich text field. Stores profile-bio markdown
  * (`**bold**`, `*italic*`, `# heading`, `• list`). Same props API as before.
  */
@@ -252,10 +281,8 @@ export function OsRichTextField({
           aria-label="Bold"
           aria-pressed={Boolean(active?.bold)}
           disabled={disabled || !editor}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() =>
-            runTool(() => editor!.chain().focus().toggleBold().run())
-          }
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={() => runTool(() => runRichTextTool(editor!, 'bold'))}
         >
           B
         </button>
@@ -267,10 +294,8 @@ export function OsRichTextField({
           aria-label="Italic"
           aria-pressed={Boolean(active?.italic)}
           disabled={disabled || !editor}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() =>
-            runTool(() => editor!.chain().focus().toggleItalic().run())
-          }
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={() => runTool(() => runRichTextTool(editor!, 'italic'))}
         >
           <em>I</em>
         </button>
@@ -282,10 +307,8 @@ export function OsRichTextField({
           aria-label="List"
           aria-pressed={Boolean(active?.list)}
           disabled={disabled || !editor}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() =>
-            runTool(() => editor!.chain().focus().toggleBulletList().run())
-          }
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={() => runTool(() => runRichTextTool(editor!, 'list'))}
         >
           •
         </button>
@@ -297,12 +320,8 @@ export function OsRichTextField({
           aria-label="Heading"
           aria-pressed={Boolean(active?.heading)}
           disabled={disabled || !editor}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() =>
-            runTool(() =>
-              editor!.chain().focus().toggleHeading({ level: 3 }).run()
-            )
-          }
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={() => runTool(() => runRichTextTool(editor!, 'heading'))}
         >
           H
         </button>

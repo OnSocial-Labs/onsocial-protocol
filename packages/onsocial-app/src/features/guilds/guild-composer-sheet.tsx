@@ -12,11 +12,7 @@ import {
   type ReactNode,
 } from 'react';
 import { flushSync } from 'react-dom';
-import {
-  PROFILE_ABOUT_ALIGN_OPTIONS,
-  type PostRow,
-  type ProfileAboutAlign,
-} from '@onsocial/sdk';
+import { type PostRow, type ProfileAboutAlign } from '@onsocial/sdk';
 import {
   ChartVerticalFillIcon,
   ChartVerticalIcon,
@@ -40,7 +36,7 @@ import {
 import { ChoiceDrawerMenu, type ChoiceOption } from '@onsocial/ui';
 import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
-import { ProfileAlignToolIcon } from '@/components/profile/profile-align-tool-icon';
+import { ProfileEssayFormatToolbar } from '@/components/profile/profile-essay-format-toolbar';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerProfileShellContext } from '@/contexts/viewer-profile-shell-context';
 import { useViewerWalletMoodVars } from '@/hooks/use-viewer-wallet-mood-vars';
@@ -1322,41 +1318,13 @@ export function ComposerSheet({
 
   const articleFormatToolbar =
     articleMode && articleWriting ? (
-      <div className="profile-about-edit-format-toolbar" data-active="true">
-        <div
-          ref={setArticleFormatHost}
-          className="profile-about-edit-format-tools"
-          aria-label="Text formatting"
-        />
-        <div
-          className="profile-about-edit-align-tools"
-          role="group"
-          aria-label="Article alignment"
-        >
-          {PROFILE_ABOUT_ALIGN_OPTIONS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              className={`account-editor-bio-tool profile-about-edit-align-tool${
-                articleAlign === option ? ' is-active' : ''
-              }`}
-              aria-label={
-                option === 'left'
-                  ? 'Align left'
-                  : option === 'center'
-                    ? 'Align center'
-                    : 'Justify'
-              }
-              aria-pressed={articleAlign === option}
-              disabled={pending}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => patchBeat(safeFocus, { articleAlign: option })}
-            >
-              <ProfileAlignToolIcon option={option} />
-            </button>
-          ))}
-        </div>
-      </div>
+      <ProfileEssayFormatToolbar
+        align={articleAlign}
+        onAlignChange={(next) => patchBeat(safeFocus, { articleAlign: next })}
+        disabled={pending}
+        chromeRef={setArticleFormatHost}
+        alignGroupLabel="Article alignment"
+      />
     ) : null;
 
   const composerFooter = (

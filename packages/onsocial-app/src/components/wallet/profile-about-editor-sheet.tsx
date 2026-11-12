@@ -20,14 +20,13 @@ import {
 } from 'react';
 import { ChevronLeftIcon, Divider, MultiplyIcon } from '@onsocial/ui';
 import {
-  PROFILE_ABOUT_ALIGN_OPTIONS,
   PROFILE_LEAD_MAX,
   normalizeProfileLeadInput,
   type ProfileAboutAlign,
 } from '@onsocial/sdk';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { PortfolioAboutIndustry } from '@/components/portfolio/portfolio-identity-topics';
-import { ProfileAlignToolIcon } from '@/components/profile/profile-align-tool-icon';
+import { ProfileEssayFormatToolbar } from '@/components/profile/profile-essay-format-toolbar';
 import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-textarea';
 import { ProfileTopicsEditor } from '@/components/wallet/profile-topics-editor';
 import type { ProfileAboutPhotoDraft } from '@/components/wallet/profile-about-photos-editor';
@@ -309,43 +308,14 @@ export function ProfileAboutEditorSheet({
   );
 
   const formatToolbar = editingField ? (
-    <div className="profile-about-edit-format-toolbar" data-active="true">
-      <div
-        ref={setFormatChromeHost}
-        className="profile-about-edit-format-tools"
-        aria-label="Text formatting"
-      />
-      {editingField === 'more' ? (
-        <div
-          className="profile-about-edit-align-tools"
-          role="group"
-          aria-label="Essay alignment"
-        >
-          {PROFILE_ABOUT_ALIGN_OPTIONS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              className={`account-editor-bio-tool profile-about-edit-align-tool${
-                aboutAlign === option ? ' is-active' : ''
-              }`}
-              aria-label={
-                option === 'left'
-                  ? 'Align left'
-                  : option === 'center'
-                    ? 'Align center'
-                    : 'Justify'
-              }
-              aria-pressed={aboutAlign === option}
-              disabled={disabled}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => onAboutAlignChange(option)}
-            >
-              <ProfileAlignToolIcon option={option} />
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
+    <ProfileEssayFormatToolbar
+      align={aboutAlign}
+      onAlignChange={onAboutAlignChange}
+      disabled={disabled}
+      chromeRef={setFormatChromeHost}
+      alignGroupLabel="Essay alignment"
+      showAlign={editingField === 'more'}
+    />
   ) : null;
 
   return (
