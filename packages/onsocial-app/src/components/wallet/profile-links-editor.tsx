@@ -17,7 +17,7 @@ import {
   OsSheetFooter,
   osFieldBorderedClassName,
 } from '@onsocial/ui';
-import { focusFieldStill, holdDrawerStill } from '@/lib/hold-drawer-still';
+import { focusFieldStill } from '@/lib/hold-drawer-still';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { PortfolioLinkIcon } from '@/components/portfolio/portfolio-link-icon';
 import {
@@ -147,7 +147,6 @@ function BorderedLinkValue({
           autoComplete={autoComplete}
           spellCheck={spellCheck}
           onPointerDown={focusFieldStill}
-          onFocus={holdDrawerStill}
           onBlur={onBlur}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={onKeyDown}
@@ -223,7 +222,6 @@ function WebsiteLinkForm({
           maxLength={PAGE_LINK_NOTE_MAX}
           autoComplete="off"
           onPointerDown={focusFieldStill}
-          onFocus={holdDrawerStill}
           onChange={(event) =>
             onChange({
               name: event.target.value.slice(0, PAGE_LINK_NOTE_MAX),
@@ -709,7 +707,6 @@ export function ProfileLinksEditor({
                   autoComplete="off"
                   disabled={probingKey === socialField.key}
                   onPointerDown={focusFieldStill}
-                  onFocus={holdDrawerStill}
                   onChange={(event) =>
                     onUpdateNote(
                       socialField.key,

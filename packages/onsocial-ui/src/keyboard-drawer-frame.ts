@@ -228,6 +228,70 @@ export function keyboardRootFrameStyle(
 }
 
 /**
+ * The drawer writes this before paint. Page sheets in the same host read it
+ * in the same viewport event and drop their own keyboard margin.
+ */
+let activeDrawerBox: VisualKeyboardBox | null = null;
+
+export function activeDrawerKeyboardBox(): VisualKeyboardBox | null {
+  return activeDrawerBox;
+}
+
+/** Same-frame pin. A React state update lands after paint and the drawer jumps. */
+function applyKeyboardRootFrame(
+  node: HTMLElement,
+  box: VisualKeyboardBox | null
+) {
+  if (!box) {
+    node.style.top = '';
+    node.style.height = '';
+    node.style.bottom = '';
+    node.style.paddingBottom = '';
+    return;
+  }
+  const style = keyboardRootFrameStyle(box);
+  node.style.top = String(style.top);
+  node.style.height = String(style.height);
+  node.style.bottom = String(style.bottom);
+  node.style.paddingBottom = '0';
+}
+
+/** Page sheets sitting in the same host as the drawer. They stay visible around a short hug. */
+function pageSheetsSharingHost(drawerRoot: HTMLElement): HTMLElement[] {
+  const host = drawerRoot.parentElement;
+  if (!host) return [];
+  const pages: HTMLElement[] = [];
+  for (const child of host.children) {
+    if (!(child instanceof HTMLElement) || child === drawerRoot) continue;
+    if (
+      child.classList.contains('glass-sheet-root') &&
+      child.getAttribute('data-surface') === 'page'
+    ) {
+      pages.push(child);
+    }
+  }
+  return pages;
+}
+
+/**
+ * The page behind a drawer uses the same visible box. A caret pan then
+ * moves them together, so the page does not slide up under the keys and
+ * the drawer does not jump back.
+ */
+function pinPagesBehindDrawer(
+  drawerRoot: HTMLElement,
+  box: VisualKeyboardBox | null
+) {
+  for (const page of pageSheetsSharingHost(drawerRoot)) {
+    applyKeyboardRootFrame(page, box);
+    const panel = page.querySelector<HTMLElement>('.glass-sheet-panel');
+    if (!panel) continue;
+    if (box) panel.style.setProperty('--os-keyboard-lift', '0px');
+    else panel.style.removeProperty('--os-keyboard-lift');
+  }
+}
+
+/**
  * Seat that puts the drawer panel on the keys.
  * `appliedSeat` is the margin already on the panel. The error is how far
  * that panel still misses the visible bottom, in the same coordinates.
@@ -309,6 +373,12 @@ export function useKeyboardDrawerFrame(
               })
             )
           : null;
+        activeDrawerBox = nextBox;
+        if (root) {
+          // Before paint. Waiting for React lets the caret pan show for a frame.
+          applyKeyboardRootFrame(root, nextBox);
+          pinPagesBehindDrawer(root, nextBox);
+        }
         if (
           settled === frameRef.current.metrics &&
           nextBox === frameRef.current.box
@@ -320,15 +390,30 @@ export function useKeyboardDrawerFrame(
         setFrame(next);
         return;
       }
+      // The drawer already owns this keyboard. The page keeps its footer down.
+      if (activeDrawerBox) {
+        if (
+          settled === frameRef.current.metrics &&
+          frameRef.current.seat === 0
+        ) {
+          return;
+        }
+        const next = { metrics: settled, seat: 0, box: null };
+        frameRef.current = next;
+        setFrame(next);
+        return;
+      }
       if (!keyboardFrameNeedsSeat(reason, metricsChanged)) return;
       const rect = root?.getBoundingClientRect();
       const visibleBottom = viewport ? viewport.offsetTop + viewport.height : 0;
-      // A drawer on top owns the keyboard. The page under it does not rise.
-      const drawerOwnsKeyboard = Boolean(
-        document.querySelector(
-          '.glass-sheet-panel[data-sizing="hug"].is-keyboard-open'
-        )
-      );
+      // Class lands a paint after the drawer box. The box is the same-frame signal.
+      const drawerOwnsKeyboard =
+        activeDrawerBox != null ||
+        Boolean(
+          document.querySelector(
+            '.glass-sheet-panel[data-sizing="hug"].is-keyboard-open'
+          )
+        );
       const rootSeat = drawerOwnsKeyboard
         ? 0
         : keyboardSeatPx({
@@ -369,6 +454,11 @@ export function useKeyboardDrawerFrame(
       viewport?.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onLayout);
       document.removeEventListener('focusin', onFocus);
+      if (mode === 'drawer') {
+        activeDrawerBox = null;
+        const root = rootRef?.current;
+        if (root) pinPagesBehindDrawer(root, null);
+      }
     };
   }, [active, frame.seat, mode, rootRef]);
 
@@ -376,28 +466,26 @@ export function useKeyboardDrawerFrame(
     if (!active || mode !== 'drawer' || frame.metrics.lift <= 0) return;
     const root = rootRef?.current;
     if (!root) return;
-    const outside: Array<{ node: HTMLElement; top: number; left: number }> = [];
-    let node: HTMLElement | null = root.parentElement;
-    while (node) {
-      outside.push({ node, top: node.scrollTop, left: node.scrollLeft });
-      node = node.parentElement;
+    // Freeze the page body. Snapping scrollTop after the browser paints a
+    // caret pan is the bounce: the page lifts, then jumps back, and the
+    // drawer follows both.
+    const locked: Array<{ node: HTMLElement; overflow: string }> = [];
+    const lock = (node: HTMLElement | null) => {
+      if (!node || locked.some((item) => item.node === node)) return;
+      locked.push({ node, overflow: node.style.overflow });
+      node.style.overflow = 'hidden';
+    };
+    for (const page of pageSheetsSharingHost(root)) {
+      lock(page.querySelector<HTMLElement>('.glass-sheet-body'));
     }
-    const x = window.scrollX;
-    const y = window.scrollY;
-    const restore = () => {
-      for (const item of outside) {
-        if (item.node.scrollTop !== item.top) item.node.scrollTop = item.top;
-        if (item.node.scrollLeft !== item.left)
-          item.node.scrollLeft = item.left;
-      }
-      if (window.scrollX !== x || window.scrollY !== y) window.scrollTo(x, y);
+    lock(
+      document.scrollingElement instanceof HTMLElement
+        ? document.scrollingElement
+        : null
+    );
+    return () => {
+      for (const item of locked) item.node.style.overflow = item.overflow;
     };
-    const onScroll = (event: Event) => {
-      if (event.target instanceof Node && root.contains(event.target)) return;
-      restore();
-    };
-    window.addEventListener('scroll', onScroll, true);
-    return () => window.removeEventListener('scroll', onScroll, true);
   }, [active, frame.metrics.lift, mode, rootRef]);
 
   const live = active ? frame.metrics : IDLE;

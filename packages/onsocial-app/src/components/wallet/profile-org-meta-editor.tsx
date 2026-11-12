@@ -32,7 +32,7 @@ import { PortfolioOrgKindMark } from '@/components/portfolio/portfolio-org-kind-
 import { ProfileLocationControl } from '@/components/wallet/profile-location-control';
 import { ProfileJobsEditor } from '@/components/profile/profile-jobs-editor';
 import { ProfileOffersEditor } from '@/components/profile/profile-offers-editor';
-import { focusFieldStill, holdDrawerStill } from '@/lib/hold-drawer-still';
+import { focusFieldStill } from '@/lib/hold-drawer-still';
 import { JOBS_CHANGED_EVENT, fetchOpenJobs } from '@/lib/profile-jobs';
 import { OFFERS_CHANGED_EVENT, fetchAccountOffers } from '@/lib/profile-offers';
 import { SHEET_Z } from '@/lib/sheet-z';
@@ -255,7 +255,6 @@ export function ProfileOrgMetaEditor({
               placeholder="Industry"
               disabled={disabled}
               onPointerDown={focusFieldStill}
-              onFocus={holdDrawerStill}
               onChange={(event) =>
                 setIndustryDraft(
                   sanitizeProfileIndustryDraft(event.target.value)

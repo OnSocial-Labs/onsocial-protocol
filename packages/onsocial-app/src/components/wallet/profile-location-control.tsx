@@ -19,7 +19,7 @@ import {
   osFieldBorderedClassName,
 } from '@onsocial/ui';
 import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
-import { focusFieldStill, holdDrawerStill } from '@/lib/hold-drawer-still';
+import { focusFieldStill } from '@/lib/hold-drawer-still';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 export function ProfileLocationControl({
@@ -106,7 +106,6 @@ export function ProfileLocationControl({
               placeholder="Based in"
               disabled={disabled}
               onPointerDown={focusFieldStill}
-              onFocus={holdDrawerStill}
               onChange={(event) =>
                 setDraft(sanitizeProfileLocationDraft(event.target.value))
               }
