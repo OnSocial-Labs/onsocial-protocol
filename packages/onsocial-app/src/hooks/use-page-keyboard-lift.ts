@@ -4,6 +4,7 @@ import { keyboardSeatPx } from '@onsocial/ui';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { scrollMobileFieldIntoView } from '@/hooks/use-mobile-field-focus-scroll';
 import {
+  correctedFrameTop,
   useVisualViewportSheetMetrics,
   visualFramePin,
 } from '@/hooks/use-visual-viewport-sheet';
@@ -92,13 +93,20 @@ export function usePageKeyboardLift(
       const parent =
         position === 'fixed' ? null : (node.offsetParent as HTMLElement | null);
       const parentRect = parent?.getBoundingClientRect();
-      const next = visualFramePin({
+      const parentTop = parentRect ? parentRect.top : 0;
+      const frame = visualFramePin({
         position: position === 'fixed' ? 'fixed' : 'absolute',
-        parentTop: parentRect ? parentRect.top : 0,
+        parentTop,
         parentHeight: parentRect ? parentRect.height : visual.height,
         offsetTop: visual.offsetTop,
         visualHeight: visual.height,
       });
+      const top = correctedFrameTop({
+        appliedTop: pinned?.top ?? 0,
+        frameTop: node.getBoundingClientRect().top,
+        parentTop,
+      });
+      const next = { top, height: frame.height };
       setPinned((current) =>
         current && current.top === next.top && current.height === next.height
           ? current
@@ -110,13 +118,15 @@ export function usePageKeyboardLift(
     visual?.addEventListener('resize', measure);
     visual?.addEventListener('scroll', measure);
     window.addEventListener('resize', measure);
+    window.addEventListener('scroll', measure, { passive: true });
     return () => {
       window.cancelAnimationFrame(frame);
       visual?.removeEventListener('resize', measure);
       visual?.removeEventListener('scroll', measure);
       window.removeEventListener('resize', measure);
+      window.removeEventListener('scroll', measure);
     };
-  }, [active, keyboardOpen, pin, pinRoot]);
+  }, [active, keyboardOpen, pin, pinRoot, pinned]);
 
   useEffect(() => {
     if (!keyboardOpen) return;

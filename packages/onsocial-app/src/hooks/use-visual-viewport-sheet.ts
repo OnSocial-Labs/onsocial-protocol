@@ -133,6 +133,29 @@ export function visualFramePin(input: {
   return { top, height: Math.max(0, bottom - top) };
 }
 
+/**
+ * Slide top that keeps the header on the visible screen.
+ * The geometric pin is enough when the card's box moves with the scroll.
+ * When the card stays put and the page itself has scrolled above the
+ * screen, one correction from the frame's real top brings it back.
+ * That correction is not stacked, so a top the browser ignores cannot run away.
+ */
+export function correctedFrameTop(input: {
+  appliedTop: number;
+  frameTop: number;
+  parentTop: number;
+}): number {
+  const frameTop = Math.round(input.frameTop);
+  const parentTop = Math.round(input.parentTop);
+  if (parentTop >= -1 && frameTop < -1) {
+    return Math.max(0, -frameTop);
+  }
+  const desired = Math.max(0, parentTop);
+  const error = desired - frameTop;
+  if (Math.abs(error) < 2) return input.appliedTop;
+  return Math.max(0, input.appliedTop + error);
+}
+
 /** Keyboard overlap with the layout viewport. Same pixels drawers use. */
 export function readKeyboardOverlapPx(): number {
   if (typeof window === 'undefined') return 0;

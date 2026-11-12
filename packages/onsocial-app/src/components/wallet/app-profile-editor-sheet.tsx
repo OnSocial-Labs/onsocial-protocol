@@ -228,7 +228,6 @@ export function AppProfileEditorSheet({
   const titleId = useId();
   const { setTxResult } = useAppTransactionFeedback();
   const scrollFieldIntoView = useMobileFieldFocusScroll();
-  const { keyboardOpen, panelStyle } = usePageKeyboardLift(open);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
@@ -258,6 +257,7 @@ export function AppProfileEditorSheet({
     'left'
   );
   const [aboutOpen, setAboutOpen] = useState(false);
+  const { keyboardOpen, panelStyle } = usePageKeyboardLift(open && !aboutOpen);
   const [tags, setTags] = useState<string[]>([]);
   const [photos, setPhotos] = useState<ProfileAboutPhotoDraft[]>([]);
   const [links, setLinks] = useState<ProfileLinksInput>(() =>
