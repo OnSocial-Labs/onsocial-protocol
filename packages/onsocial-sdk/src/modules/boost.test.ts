@@ -3,9 +3,9 @@ import { Session } from '../advanced/session.js';
 import type { SessionKey } from '../advanced/session-key.js';
 import { OnSocialError } from '../internal/http.js';
 import {
-  BOOST_SPONSOR_DAILY_CAP,
+  BOOST_SPONSOR_LIMIT,
   BoostModule,
-  BoostSponsorDailyCapError,
+  BoostSponsorLimitError,
 } from './boost.js';
 
 function tokenSession(): Session {
@@ -195,14 +195,14 @@ describe('BoostModule.commitLock', () => {
     expect(body.signed_delegate.length).toBeGreaterThan(20);
   });
 
-  it('turns the relayer daily-cap code into BoostSponsorDailyCapError', async () => {
+  it('turns a sponsorship limit into BoostSponsorLimitError', async () => {
     const boost = new BoostModule({
       network: 'testnet',
       get: vi.fn().mockResolvedValue({ block_height: 10 }),
       post: vi
         .fn()
         .mockRejectedValue(
-          new OnSocialError(429, { error: BOOST_SPONSOR_DAILY_CAP })
+          new OnSocialError(429, { error: BOOST_SPONSOR_LIMIT })
         ),
     } as never);
 
@@ -212,6 +212,6 @@ describe('BoostModule.commitLock', () => {
         amountYocto: '1',
         months: 1,
       })
-    ).rejects.toBeInstanceOf(BoostSponsorDailyCapError);
+    ).rejects.toBeInstanceOf(BoostSponsorLimitError);
   });
 });

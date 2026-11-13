@@ -491,10 +491,10 @@ export { TokenModule } from './modules/token.js';
 export type { FtMetadata, FtStorageBalance } from './modules/token.js';
 export {
   BOOST_LOCK_GAS,
-  BOOST_SPONSOR_DAILY_CAP,
+  BOOST_SPONSOR_LIMIT,
   BoostModule,
-  BoostSponsorDailyCapError,
-  isBoostSponsorDailyCapError,
+  BoostSponsorLimitError,
+  isBoostSponsorLimitError,
 } from './modules/boost.js';
 export type {
   BoostAccountView,

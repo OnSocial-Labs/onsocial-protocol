@@ -1,7 +1,7 @@
 import type { NearWalletBase } from '@hot-labs/near-connect';
 import {
   RelayExecutionError,
-  isBoostSponsorDailyCapError,
+  isBoostSponsorLimitError,
   type OnSocial,
 } from '@onsocial/sdk';
 import {
@@ -26,26 +26,26 @@ const SESSION_STORE_PREFIX = 'onsocial.app.boost-sponsor.';
 
 export type BoostSponsorAttempt =
   | { kind: 'sponsored'; txHash: string }
-  | { kind: 'fallback'; cap: boolean }
+  | { kind: 'fallback'; limited: boolean }
   | { kind: 'cancelled' }
   | { kind: 'reverted' };
 
 export function classifyBoostSponsorFailure(
   error: unknown
-): 'cap' | 'cancelled' | 'reverted' | 'unavailable' {
+): 'limited' | 'cancelled' | 'reverted' | 'unavailable' {
   if (isWalletUserCancellation(error)) return 'cancelled';
-  if (isBoostSponsorCap(error)) return 'cap';
+  if (isBoostSponsorLimit(error)) return 'limited';
   if (isRelayRevert(error)) return 'reverted';
   return 'unavailable';
 }
 
-function isBoostSponsorCap(error: unknown): boolean {
-  if (isBoostSponsorDailyCapError(error)) return true;
+function isBoostSponsorLimit(error: unknown): boolean {
+  if (isBoostSponsorLimitError(error)) return true;
   if (!error || typeof error !== 'object') return false;
   const record = error as { code?: unknown; message?: unknown };
   return (
-    record.code === 'BOOST_SPONSOR_DAILY_CAP' ||
-    record.message === 'BOOST_SPONSOR_DAILY_CAP'
+    record.code === 'BOOST_SPONSOR_LIMIT' ||
+    record.message === 'BOOST_SPONSOR_LIMIT'
   );
 }
 
@@ -81,7 +81,7 @@ export async function sponsorBoostLock(input: {
   months: BoostLockPeriod;
 }): Promise<BoostSponsorAttempt> {
   if (readE2eMockSignerEnabled()) {
-    return { kind: 'fallback', cap: false };
+    return { kind: 'fallback', limited: false };
   }
 
   let session: Session | null;
@@ -91,9 +91,9 @@ export async function sponsorBoostLock(input: {
     if (classifyBoostSponsorFailure(error) === 'cancelled') {
       return { kind: 'cancelled' };
     }
-    return { kind: 'fallback', cap: false };
+    return { kind: 'fallback', limited: false };
   }
-  if (!session) return { kind: 'fallback', cap: false };
+  if (!session) return { kind: 'fallback', limited: false };
 
   try {
     const relayed = await input.client.boost.commitLock({
@@ -109,7 +109,7 @@ export async function sponsorBoostLock(input: {
     const kind = classifyBoostSponsorFailure(error);
     if (kind === 'cancelled') return { kind: 'cancelled' };
     if (kind === 'reverted') return { kind: 'reverted' };
-    return { kind: 'fallback', cap: kind === 'cap' };
+    return { kind: 'fallback', limited: kind === 'limited' };
   }
 }
 

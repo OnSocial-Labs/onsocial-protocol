@@ -14,24 +14,24 @@ import { relaySignedFunctionCall } from '../internal/session-bridge.js';
 import type { RelayResponse } from '../types.js';
 import type { FtStorageBalance } from './token.js';
 
-/** Stable relayer refusal when the per-user daily boost budget is spent. */
-export const BOOST_SPONSOR_DAILY_CAP = 'BOOST_SPONSOR_DAILY_CAP';
+/** Stable relayer refusal when a boost sponsorship limit is hit. */
+export const BOOST_SPONSOR_LIMIT = 'BOOST_SPONSOR_LIMIT';
 
 /** Prepaid gas for a boost lock `ft_transfer_call`. Matches the app sheet. */
 export const BOOST_LOCK_GAS = '80000000000000';
 
-export class BoostSponsorDailyCapError extends Error {
-  readonly code = BOOST_SPONSOR_DAILY_CAP;
+export class BoostSponsorLimitError extends Error {
+  readonly code = BOOST_SPONSOR_LIMIT;
   constructor() {
-    super("Today's free boost is used up.");
-    this.name = 'BoostSponsorDailyCapError';
+    super('Could not commit SOCIAL.');
+    this.name = 'BoostSponsorLimitError';
   }
 }
 
-export function isBoostSponsorDailyCapError(error: unknown): boolean {
-  if (error instanceof BoostSponsorDailyCapError) return true;
+export function isBoostSponsorLimitError(error: unknown): boolean {
+  if (error instanceof BoostSponsorLimitError) return true;
   return (
-    error instanceof OnSocialError && error.message === BOOST_SPONSOR_DAILY_CAP
+    error instanceof OnSocialError && error.message === BOOST_SPONSOR_LIMIT
   );
 }
 
@@ -160,9 +160,9 @@ export class BoostModule {
    * Lock SOCIAL into boost through the gateway relayer.
    *
    * The session key must be permitted to call `ft_transfer_call` on the
-   * SOCIAL token. The relayer pays the fee. A daily cap refusal throws
-   * `BoostSponsorDailyCapError` so the caller can fall back to a wallet
-   * transaction. A chain revert is not a cap refusal.
+   * SOCIAL token. The relayer pays the fee. A sponsorship limit throws
+   * `BoostSponsorLimitError` so the caller can fall back to a wallet
+   * transaction. A chain revert is not a limit refusal.
    */
   async commitLock(input: {
     session: Session;
@@ -190,10 +190,10 @@ export class BoostModule {
       });
     } catch (error) {
       if (
-        isBoostSponsorDailyCapError(error) &&
-        !(error instanceof BoostSponsorDailyCapError)
+        isBoostSponsorLimitError(error) &&
+        !(error instanceof BoostSponsorLimitError)
       ) {
-        throw new BoostSponsorDailyCapError();
+        throw new BoostSponsorLimitError();
       }
       throw error;
     }

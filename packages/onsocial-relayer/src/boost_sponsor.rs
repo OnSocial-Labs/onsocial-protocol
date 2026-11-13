@@ -3,8 +3,9 @@
 //! The delegate allow-list is still a contract id plus a method name. This
 //! module is the extra shape check for the token: one action, method
 //! `ft_transfer_call`, deposit of exactly 1 yoctoNEAR, and a parsed
-//! `receiver_id` that is the boost contract. A daily prepaid-gas cap sits
-//! beside that check. There is no older quota store in this crate.
+//! `receiver_id` that is the boost contract. An hourly per-account count and
+//! a relayer-wide daily spend cap sit beside that check. There is no older
+//! quota store in this crate.
 
 use near_primitives::transaction::Action;
 use near_primitives::types::AccountId;
@@ -15,12 +16,16 @@ use std::sync::Mutex;
 pub const FT_TRANSFER_CALL_METHOD: &str = "ft_transfer_call";
 pub const FT_TRANSFER_METHOD: &str = "ft_transfer";
 pub const ONE_YOCTO: u128 = 1;
-/// 0.01 NEAR.
-pub const DEFAULT_DAILY_CAP_YOCTO: u128 = 10_000_000_000_000_000_000_000;
+/// A commit, a few increases, and a retry fit in one sitting. A seventh
+/// sponsored boost in the same hour falls back to the wallet.
+pub const DEFAULT_HOURLY_LIMIT: u32 = 6;
+/// 1 NEAR of prepaid gas for the whole relayer per UTC day.
+pub const DEFAULT_FLEET_DAILY_SPEND_YOCTO: u128 = 1_000_000_000_000_000_000_000_000;
 /// Common minimum gas price, yoctoNEAR per gas unit.
 pub const DEFAULT_GAS_PRICE_YOCTO: u128 = 100_000_000;
-pub const BOOST_SPONSOR_DAILY_CAP: &str = "BOOST_SPONSOR_DAILY_CAP";
+pub const BOOST_SPONSOR_LIMIT: &str = "BOOST_SPONSOR_LIMIT";
 
+const HOUR_SECS: i64 = 3_600;
 const DAY_SECS: i64 = 86_400;
 
 pub struct SponsorPolicy {
@@ -152,19 +157,33 @@ pub fn validate_ordinary_delegate_action(
     Ok(())
 }
 
-/// In-process per-account UTC-day prepaid gas budget.
-pub struct DailyGasQuota {
-    cap_yocto: u128,
-    gas_price_yocto: u128,
-    used: Mutex<HashMap<(String, i64), u128>>,
+struct SponsorCounters {
+    hourly: HashMap<(String, i64), u32>,
+    fleet_daily: HashMap<i64, u128>,
 }
 
-impl DailyGasQuota {
-    pub fn new(cap_yocto: u128, gas_price_yocto: u128) -> Self {
+/// In-process abuse guard for sponsored boost transfers.
+///
+/// Each account may take `hourly_limit` sponsored boosts per clock hour.
+/// The relayer as a whole may prepay `fleet_daily_cap_yocto` per UTC day.
+/// Equal to either limit is allowed. Going over leaves both counters unchanged.
+pub struct SponsorQuota {
+    hourly_limit: u32,
+    fleet_daily_cap_yocto: u128,
+    gas_price_yocto: u128,
+    counters: Mutex<SponsorCounters>,
+}
+
+impl SponsorQuota {
+    pub fn new(hourly_limit: u32, fleet_daily_cap_yocto: u128, gas_price_yocto: u128) -> Self {
         Self {
-            cap_yocto,
+            hourly_limit,
+            fleet_daily_cap_yocto,
             gas_price_yocto,
-            used: Mutex::new(HashMap::new()),
+            counters: Mutex::new(SponsorCounters {
+                hourly: HashMap::new(),
+                fleet_daily: HashMap::new(),
+            }),
         }
     }
 
@@ -172,8 +191,6 @@ impl DailyGasQuota {
         (gas as u128).saturating_mul(self.gas_price_yocto)
     }
 
-    /// Charge `gas` for `account` on the UTC day of `unix_secs`.
-    /// Equal to the cap is allowed. Over the cap leaves the counter unchanged.
     pub fn try_consume_at(
         &self,
         account: &AccountId,
@@ -181,22 +198,34 @@ impl DailyGasQuota {
         unix_secs: i64,
     ) -> Result<u128, String> {
         let cost = self.cost_yocto(gas);
-        if cost == 0 {
-            return Err(BOOST_SPONSOR_DAILY_CAP.to_string());
+        if cost == 0 || self.hourly_limit == 0 {
+            return Err(BOOST_SPONSOR_LIMIT.to_string());
         }
+        let hour = unix_secs.div_euclid(HOUR_SECS);
         let day = unix_secs.div_euclid(DAY_SECS);
-        let key = (account.to_string(), day);
-        let mut used = self
-            .used
+        let hourly_key = (account.to_string(), hour);
+        let mut counters = self
+            .counters
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        used.retain(|(_, stored_day), _| *stored_day >= day.saturating_sub(1));
-        let spent = used.get(&key).copied().unwrap_or(0);
-        let next = spent.saturating_add(cost);
-        if next > self.cap_yocto {
-            return Err(BOOST_SPONSOR_DAILY_CAP.to_string());
+        counters
+            .hourly
+            .retain(|(_, stored_hour), _| *stored_hour >= hour.saturating_sub(1));
+        counters
+            .fleet_daily
+            .retain(|stored_day, _| *stored_day >= day.saturating_sub(1));
+
+        let used_count = counters.hourly.get(&hourly_key).copied().unwrap_or(0);
+        if used_count >= self.hourly_limit {
+            return Err(BOOST_SPONSOR_LIMIT.to_string());
         }
-        used.insert(key, next);
+        let spent = counters.fleet_daily.get(&day).copied().unwrap_or(0);
+        let next_spend = spent.saturating_add(cost);
+        if next_spend > self.fleet_daily_cap_yocto {
+            return Err(BOOST_SPONSOR_LIMIT.to_string());
+        }
+        counters.hourly.insert(hourly_key, used_count + 1);
+        counters.fleet_daily.insert(day, next_spend);
         Ok(cost)
     }
 
@@ -204,18 +233,24 @@ impl DailyGasQuota {
         if cost == 0 {
             return;
         }
+        let hour = unix_secs.div_euclid(HOUR_SECS);
         let day = unix_secs.div_euclid(DAY_SECS);
-        let key = (account.to_string(), day);
-        let mut used = self
-            .used
+        let hourly_key = (account.to_string(), hour);
+        let mut counters = self
+            .counters
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let Some(spent) = used.get_mut(&key) else {
-            return;
-        };
-        *spent = spent.saturating_sub(cost);
-        if *spent == 0 {
-            used.remove(&key);
+        if let Some(count) = counters.hourly.get_mut(&hourly_key) {
+            *count = count.saturating_sub(1);
+            if *count == 0 {
+                counters.hourly.remove(&hourly_key);
+            }
+        }
+        if let Some(spent) = counters.fleet_daily.get_mut(&day) {
+            *spent = spent.saturating_sub(cost);
+            if *spent == 0 {
+                counters.fleet_daily.remove(&day);
+            }
         }
     }
 }
@@ -383,58 +418,115 @@ mod tests {
             .is_none());
     }
 
-    #[test]
-    fn daily_cap_allows_under_and_at_and_rejects_over() {
-        let quota = DailyGasQuota::new(100, 1);
-        let account: AccountId = "alice.testnet".parse().unwrap();
-        let day = 1_700_000_000;
+    fn open_quota(hourly: u32, fleet: u128) -> SponsorQuota {
+        SponsorQuota::new(hourly, fleet, 1)
+    }
 
-        assert_eq!(quota.try_consume_at(&account, 40, day).unwrap(), 40);
-        assert_eq!(quota.try_consume_at(&account, 60, day).unwrap(), 60);
+    #[test]
+    fn hourly_limit_allows_under_and_at_and_rejects_over() {
+        let quota = open_quota(2, 1_000);
+        let account: AccountId = "alice.testnet".parse().unwrap();
+        let hour = 3_600 * 4;
+
+        assert_eq!(quota.try_consume_at(&account, 1, hour).unwrap(), 1);
+        assert_eq!(quota.try_consume_at(&account, 1, hour + 10).unwrap(), 1);
         assert_eq!(
-            quota.try_consume_at(&account, 1, day).unwrap_err(),
-            BOOST_SPONSOR_DAILY_CAP
+            quota.try_consume_at(&account, 1, hour + 20).unwrap_err(),
+            BOOST_SPONSOR_LIMIT
         );
     }
 
     #[test]
-    fn over_from_zero_does_not_stick() {
-        let quota = DailyGasQuota::new(100, 1);
+    fn hour_rollover_resets_the_account_count() {
+        let quota = open_quota(1, 1_000);
+        let account: AccountId = "alice.testnet".parse().unwrap();
+        let hour = 3_600 * 4;
+        assert_eq!(quota.try_consume_at(&account, 1, hour).unwrap(), 1);
+        assert!(quota.try_consume_at(&account, 1, hour).is_err());
+        assert_eq!(
+            quota.try_consume_at(&account, 1, hour + HOUR_SECS).unwrap(),
+            1
+        );
+    }
+
+    #[test]
+    fn fleet_daily_spend_allows_under_and_at_and_rejects_over() {
+        let quota = open_quota(10, 100);
+        let alice: AccountId = "alice.testnet".parse().unwrap();
+        let bob: AccountId = "bob.testnet".parse().unwrap();
+        let day = 86_400 * 3;
+
+        assert_eq!(quota.try_consume_at(&alice, 40, day).unwrap(), 40);
+        assert_eq!(quota.try_consume_at(&bob, 60, day).unwrap(), 60);
+        assert_eq!(
+            quota.try_consume_at(&alice, 1, day).unwrap_err(),
+            BOOST_SPONSOR_LIMIT
+        );
+    }
+
+    #[test]
+    fn fleet_over_from_zero_does_not_stick() {
+        let quota = open_quota(10, 100);
         let account: AccountId = "alice.testnet".parse().unwrap();
         assert_eq!(
             quota.try_consume_at(&account, 101, 50).unwrap_err(),
-            BOOST_SPONSOR_DAILY_CAP
+            BOOST_SPONSOR_LIMIT
         );
         assert_eq!(quota.try_consume_at(&account, 100, 50).unwrap(), 100);
     }
 
     #[test]
-    fn day_rollover_resets_the_cap() {
-        let quota = DailyGasQuota::new(100, 1);
+    fn day_rollover_resets_fleet_spend() {
+        let quota = open_quota(10, 100);
         let account: AccountId = "alice.testnet".parse().unwrap();
         let first = 86_400 * 10 + 10;
         assert_eq!(quota.try_consume_at(&account, 100, first).unwrap(), 100);
         assert!(quota.try_consume_at(&account, 1, first).is_err());
-        let next_day = first + DAY_SECS;
-        assert_eq!(quota.try_consume_at(&account, 100, next_day).unwrap(), 100);
+        assert_eq!(
+            quota
+                .try_consume_at(&account, 100, first + DAY_SECS)
+                .unwrap(),
+            100
+        );
     }
 
     #[test]
-    fn release_restores_the_same_day_budget() {
-        let quota = DailyGasQuota::new(100, 1);
+    fn release_restores_the_hour_and_the_fleet() {
+        let quota = open_quota(1, 100);
         let account: AccountId = "alice.testnet".parse().unwrap();
         let cost = quota.try_consume_at(&account, 80, 10).unwrap();
+        assert!(quota.try_consume_at(&account, 1, 10).is_err());
         quota.release_at(&account, cost, 10);
-        assert_eq!(quota.try_consume_at(&account, 100, 10).unwrap(), 100);
+        assert_eq!(quota.try_consume_at(&account, 80, 10).unwrap(), 80);
     }
 
     #[test]
-    fn default_cap_is_one_hundredth_of_a_near() {
-        assert_eq!(DEFAULT_DAILY_CAP_YOCTO, 10_000_000_000_000_000_000_000);
-        assert_eq!(DEFAULT_GAS_PRICE_YOCTO, 100_000_000);
-        let quota = DailyGasQuota::new(DEFAULT_DAILY_CAP_YOCTO, DEFAULT_GAS_PRICE_YOCTO);
+    fn another_account_is_not_blocked_by_the_hourly_count() {
+        let quota = open_quota(1, 1_000);
+        let alice: AccountId = "alice.testnet".parse().unwrap();
+        let bob: AccountId = "bob.testnet".parse().unwrap();
+        assert_eq!(quota.try_consume_at(&alice, 1, 10).unwrap(), 1);
+        assert!(quota.try_consume_at(&alice, 1, 10).is_err());
+        assert_eq!(quota.try_consume_at(&bob, 1, 10).unwrap(), 1);
+    }
+
+    #[test]
+    fn defaults_allow_several_boosts_and_bound_the_fleet() {
+        assert_eq!(DEFAULT_HOURLY_LIMIT, 6);
+        assert_eq!(
+            DEFAULT_FLEET_DAILY_SPEND_YOCTO,
+            1_000_000_000_000_000_000_000_000
+        );
+        let quota = SponsorQuota::new(
+            DEFAULT_HOURLY_LIMIT,
+            DEFAULT_FLEET_DAILY_SPEND_YOCTO,
+            DEFAULT_GAS_PRICE_YOCTO,
+        );
         let one_boost = quota.cost_yocto(80_000_000_000_000);
-        assert!(one_boost < DEFAULT_DAILY_CAP_YOCTO);
-        assert!(one_boost.saturating_mul(2) > DEFAULT_DAILY_CAP_YOCTO);
+        assert!(
+            one_boost.saturating_mul(u128::from(DEFAULT_HOURLY_LIMIT))
+                < DEFAULT_FLEET_DAILY_SPEND_YOCTO
+        );
+        assert!(one_boost < DEFAULT_FLEET_DAILY_SPEND_YOCTO);
     }
 }

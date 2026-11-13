@@ -26,6 +26,6 @@ Open page is the name of the pill. Do not rename it to Swipe up, Chevron, or Ope
 
 ## Boost
 
-| Surface                                                         | Name                           | Notes                                                                                  |
-| --------------------------------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------- |
-| Boost sheet, after the free boost is used and the confirm fails | Today's free boost is used up. | The button stays Commit or Increase. Do not say gas, relayer, sponsor, or transaction. |
+| Surface                          | Name                     | Notes                                                                                |
+| -------------------------------- | ------------------------ | ------------------------------------------------------------------------------------ |
+| Boost sheet, commit did not land | Could not commit SOCIAL. | The button stays Commit or Increase. Do not say gas, relayer, limit, or transaction. |

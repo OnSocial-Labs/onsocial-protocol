@@ -1,6 +1,6 @@
 //! Shared application state initialization.
 
-use crate::boost_sponsor::DailyGasQuota;
+use crate::boost_sponsor::SponsorQuota;
 use crate::config::{Config, SignerMode};
 use crate::key_pool::{bootstrap_pool_from_chain, KeyPool, PoolConfig};
 use crate::key_store::KeyStore;
@@ -25,8 +25,8 @@ pub struct AppState {
     pub token_contract_id: near_primitives::types::AccountId,
     /// Boost contract that a sponsored transfer may name as `receiver_id`.
     pub boost_contract_id: near_primitives::types::AccountId,
-    /// Per-user daily prepaid-gas budget for sponsored boost transfers.
-    pub boost_quota: DailyGasQuota,
+    /// Hourly account count and fleet daily spend for sponsored boosts.
+    pub boost_quota: SponsorQuota,
     pub start_time: Instant,
     pub request_count: AtomicU64,
     /// `/ready` returns 503 until the delegate signer pool reaches its target size.
@@ -82,23 +82,25 @@ impl AppState {
             parse_account_id("RELAYER_TOKEN_CONTRACT_ID", &config.token_contract_id)?;
         let boost_contract_id =
             parse_account_id("RELAYER_BOOST_CONTRACT_ID", &config.boost_contract_id)?;
-        let cap_yocto = parse_yocto(
-            "RELAYER_BOOST_SPONSOR_DAILY_CAP_YOCTO",
-            &config.boost_sponsor_daily_cap_yocto,
+        let daily_spend_yocto = parse_yocto(
+            "RELAYER_BOOST_SPONSOR_DAILY_SPEND_YOCTO",
+            &config.boost_sponsor_daily_spend_yocto,
         )?;
         let gas_price_yocto = parse_yocto(
             "RELAYER_BOOST_SPONSOR_GAS_PRICE_YOCTO",
             &config.boost_sponsor_gas_price_yocto,
         )?;
-        if cap_yocto == 0 || gas_price_yocto == 0 {
+        if config.boost_sponsor_hourly_limit == 0 || daily_spend_yocto == 0 || gas_price_yocto == 0
+        {
             return Err(crate::Error::Config(
-                "Boost sponsor cap and gas price must be positive".into(),
+                "Boost sponsor hourly limit, daily spend, and gas price must be positive".into(),
             ));
         }
         info!(
             token = %token_contract_id,
             boost = %boost_contract_id,
-            cap_yocto = %cap_yocto,
+            hourly_limit = config.boost_sponsor_hourly_limit,
+            daily_spend_yocto = %daily_spend_yocto,
             gas_price_yocto = %gas_price_yocto,
             "Boost sponsorship limits"
         );
@@ -181,7 +183,11 @@ impl AppState {
             allowed_methods,
             token_contract_id,
             boost_contract_id,
-            boost_quota: DailyGasQuota::new(cap_yocto, gas_price_yocto),
+            boost_quota: SponsorQuota::new(
+                config.boost_sponsor_hourly_limit,
+                daily_spend_yocto,
+                gas_price_yocto,
+            ),
             config,
             key_pool,
             start_time: Instant::now(),

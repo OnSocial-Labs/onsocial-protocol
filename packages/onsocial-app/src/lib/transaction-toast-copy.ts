@@ -475,7 +475,6 @@ export const txToastError = {
   blockStoreAccessFailed: 'Could not block the requester.',
   unblockStoreAccessFailed: 'Could not unblock the requester.',
   commitBoostFailed: 'Could not commit SOCIAL.',
-  boostSponsorUsedUp: "Today's free boost is used up.",
   collectBoostFailed: 'Could not collect boost rewards.',
   renewBoostFailed: 'Could not renew the commitment.',
   extendBoostFailed: 'Could not extend the commitment.',

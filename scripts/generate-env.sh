@@ -55,11 +55,7 @@ case "$NETWORK" in
     ;;
 esac
 
-if [ "$NETWORK" = "testnet" ]; then
-  RELAYER_ALLOWED_CONTRACTS="core.${NEAR_SUFFIX},scarces.${NEAR_SUFFIX},rewards.${NEAR_SUFFIX},token.${NEAR_SUFFIX}"
-else
-  RELAYER_ALLOWED_CONTRACTS="core.${NEAR_SUFFIX},scarces.${NEAR_SUFFIX},rewards.${NEAR_SUFFIX}"
-fi
+RELAYER_ALLOWED_CONTRACTS="core.${NEAR_SUFFIX},scarces.${NEAR_SUFFIX},rewards.${NEAR_SUFFIX},token.${NEAR_SUFFIX}"
 
 echo -e "${YELLOW}⚠️  This generates a LOCAL preview. Production deploys pull secrets on the server.${NC}"
 echo ""

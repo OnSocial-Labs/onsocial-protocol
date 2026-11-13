@@ -320,7 +320,7 @@ pub async fn execute_delegate(
                 warn!(
                     req_id = %req_id,
                     sender = %inner_sender,
-                    "boost sponsorship daily cap exceeded"
+                    "boost sponsorship limit exceeded"
                 );
                 return (
                     StatusCode::TOO_MANY_REQUESTS,

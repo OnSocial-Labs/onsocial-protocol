@@ -175,11 +175,7 @@ ssh "root@$SERVER_IP" bash -s \
 
   NETWORK="$1"
   NEAR_SUFFIX="$2"
-  if [ "$NETWORK" = "testnet" ]; then
-    RELAYER_ALLOWED_CONTRACTS="core.$NEAR_SUFFIX,scarces.$NEAR_SUFFIX,rewards.$NEAR_SUFFIX,token.$NEAR_SUFFIX"
-  else
-    RELAYER_ALLOWED_CONTRACTS="core.$NEAR_SUFFIX,scarces.$NEAR_SUFFIX,rewards.$NEAR_SUFFIX"
-  fi
+  RELAYER_ALLOWED_CONTRACTS="core.$NEAR_SUFFIX,scarces.$NEAR_SUFFIX,rewards.$NEAR_SUFFIX,token.$NEAR_SUFFIX"
   PUBLIC_DOMAIN="$3"
   CORS_ORIGINS="$4"
   HASURA_CORS="$5"

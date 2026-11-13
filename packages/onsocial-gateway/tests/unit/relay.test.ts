@@ -175,12 +175,12 @@ describe('POST /relay/delegate', () => {
     expect(body.options).toEqual({ topup_yocto: '100' });
   });
 
-  it('forwards a boost sponsorship cap refusal unchanged', async () => {
+  it('forwards a boost sponsorship limit unchanged', async () => {
     mockFetch.mockResolvedValueOnce({
       status: 429,
       json: async () => ({
         success: false,
-        error: 'BOOST_SPONSOR_DAILY_CAP',
+        error: 'BOOST_SPONSOR_LIMIT',
       }),
     });
     const token = makeToken('alice.testnet');
@@ -193,7 +193,7 @@ describe('POST /relay/delegate', () => {
     expect(res.status).toBe(429);
     expect(res.body).toEqual({
       success: false,
-      error: 'BOOST_SPONSOR_DAILY_CAP',
+      error: 'BOOST_SPONSOR_LIMIT',
     });
   });
 

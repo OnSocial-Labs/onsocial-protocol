@@ -3,19 +3,19 @@ import { RelayExecutionError } from '@onsocial/sdk';
 import { classifyBoostSponsorFailure } from '@/lib/boost-sponsor';
 
 describe('classifyBoostSponsorFailure', () => {
-  it('treats the daily cap code as a wallet fallback', () => {
+  it('treats a sponsorship limit as a wallet fallback', () => {
     expect(
       classifyBoostSponsorFailure({
-        name: 'BoostSponsorDailyCapError',
-        code: 'BOOST_SPONSOR_DAILY_CAP',
-        message: "Today's free boost is used up.",
+        name: 'BoostSponsorLimitError',
+        code: 'BOOST_SPONSOR_LIMIT',
+        message: 'Could not commit SOCIAL.',
       })
-    ).toBe('cap');
+    ).toBe('limited');
   });
 
-  it('recognizes the relayer cap string on an Error', () => {
-    const error = new Error('BOOST_SPONSOR_DAILY_CAP');
-    expect(classifyBoostSponsorFailure(error)).toBe('cap');
+  it('recognizes the relayer limit string on an Error', () => {
+    const error = new Error('BOOST_SPONSOR_LIMIT');
+    expect(classifyBoostSponsorFailure(error)).toBe('limited');
   });
 
   it('keeps a chain revert off the wallet fallback', () => {

@@ -615,7 +615,7 @@ export function PortfolioBoostSheet({
     setSigningAction(input.action);
     setTxBusy(true);
     const freezeClaimable = Boolean(input.freezeClaimable);
-    let capHit = false;
+    let limitedHit = false;
     try {
       const { accountId: signingAccountId, wallet, client } = await getClient();
       let payment: unknown;
@@ -635,7 +635,7 @@ export function PortfolioBoostSheet({
         if (attempt.kind === 'sponsored') {
           payment = { transaction: { hash: attempt.txHash } };
         } else {
-          capHit = attempt.cap;
+          limitedHit = attempt.limited;
         }
       }
       if (!payment) {
@@ -691,8 +691,8 @@ export function PortfolioBoostSheet({
       if (!isWalletUserCancellation(cause)) {
         setTxResult({
           type: 'error',
-          msg: capHit
-            ? txToastError.boostSponsorUsedUp
+          msg: limitedHit
+            ? input.failureMessage
             : cause instanceof Error
               ? cause.message
               : input.failureMessage,
