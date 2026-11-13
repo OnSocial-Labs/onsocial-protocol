@@ -22,7 +22,7 @@ Theme: `theme-init.ts`, `theme-init-script.tsx`, `theme-toggle.tsx`, `layout.tsx
 
 Return path: new `gate-return.ts` next to `gate-viewport.ts`, mounted from the root layout the same way as `ThemeInitScript`. The href matches `gateContinuePath` in `overlay-routes.ts`. The storage key matches `app-wallet-context.tsx`.
 
-Account first paint: `app/[accountId]/page.tsx` suspends into `PortfolioShell` (`portfolio-shell.tsx`) with the existing shimmer classes (`portfolio-avatar`, `standing-row-shimmer`).
+Account first paint: `app/[accountId]/loading.tsx` suspends into `PortfolioShell` (`portfolio-shell.tsx`) with the existing shimmer classes (`portfolio-avatar`, `standing-row-shimmer`).
 
 Wallet: `app-wallet-context.tsx` seeds the stored id and does not wait on `restoreSocialSessionQuietly` before `setIsLoading(false)`. Restore still calls `restoreAppSocialSession`.
 

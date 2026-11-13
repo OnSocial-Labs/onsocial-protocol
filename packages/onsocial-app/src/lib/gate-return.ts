@@ -19,6 +19,8 @@ export function gateReturnHref(
  * Client navigations still use the gate redirect.
  */
 export const gateReturnScript = `(function(){
+  if(document.documentElement.getAttribute('data-gate-return')==='1') return;
+  document.documentElement.setAttribute('data-gate-return','1');
   try{
     if(location.pathname!=='/') return;
     var id=localStorage.getItem(${JSON.stringify(APP_WALLET_ACCOUNT_STORAGE_KEY)});

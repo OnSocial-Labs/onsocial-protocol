@@ -14,6 +14,8 @@ export const THEME_CANVAS_DARK = '#000000';
 
 /** Blocking pre-hydration script. Keep in sync with ThemeToggle. */
 export const themeInitScript = `(function(){
+  if(document.documentElement.getAttribute('data-theme-boot')==='1') return;
+  document.documentElement.setAttribute('data-theme-boot','1');
   var KEY=${JSON.stringify(THEME_STORAGE_KEY)};
   var BAR={light:${JSON.stringify(THEME_BAR_LIGHT)},dark:${JSON.stringify(THEME_BAR_DARK)}};
   var CANVAS={light:${JSON.stringify(THEME_CANVAS_LIGHT)},dark:${JSON.stringify(THEME_CANVAS_DARK)}};
@@ -78,9 +80,7 @@ export const themeInitScript = `(function(){
     if(document.head){
       new MutationObserver(syncBar).observe(document.head,{
         childList:true,
-        subtree:true,
-        attributes:true,
-        attributeFilter:['content']
+        subtree:true
       });
     }
     try{

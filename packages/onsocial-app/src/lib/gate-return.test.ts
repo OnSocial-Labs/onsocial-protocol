@@ -14,6 +14,14 @@ function runReturn(options: {
   let replaced: string | null = null;
   const context = vm.createContext({
     URLSearchParams,
+    document: {
+      documentElement: {
+        getAttribute() {
+          return null;
+        },
+        setAttribute() {},
+      },
+    },
     location: {
       pathname: options.pathname ?? '/',
       search: options.search ?? '',
