@@ -20,7 +20,26 @@ Copy: `packages/onsocial-app/src/lib/wallet-errors.ts` `mapAppAccessError`, `txT
 
 First connect: `resolveAppConnectRoute` in `packages/onsocial-app/src/lib/app-session-sponsor.ts` bundles whenever the account does not need the drip and this is not the switch-wallet picker. `hasStoredHint` no longer blocks a funded first visit. `walletMayBundleSessionKey` keeps the returning path on the wallet-list filter, and requires `signInWithFunctionCallKey` on the already chosen wallet for a first visit. `resolveBundledAppConnect` in `app-wallet-context.tsx` takes that account id, stored or previewed. A first visit calls `selectWallet`, peeks `getAccounts`, then `connect({ walletId, addFunctionCallKey })` only when the peek is funded and the wallet can add the key. The same pending key and `completeAppSessionAfterConnect` path finish it. The e2e stand-in is `createE2eFirstConnectConnector` in `e2e-mock-signer.ts`.
 
-Wallet drawer: `AppAccessBanner` in `app-account-sheet.tsx`, first child of `.account-card`, above `AccountWalletZone`. Copy comes from `appAccessBannerCopy`. The button calls `useAppAccessGrant`, the same hook as `app-access-sheet.tsx`. `socialSessionSettled` and `socialSessionLifecycle` live on `app-wallet-context.tsx`. Amber compact chrome is `os-notice-card--compact` and `os-notice-card--attention` in `packages/onsocial-ui/os-notice-card.css` (`--os-gutter`, `--protocol-amber`, `--protocol-amber-ink`, `--protocol-amber-bg`). The Account menu row no longer sets `tone="attention"`.
+Wallet drawer neighbours, read with the parent `GlassSheet` (`app-account-sheet.tsx`, `sizing="hug"`, `initialDetent="full"`, `panelClassName` `account-drawer-panel os-sheet-cap-tall`):
+
+- Grip: `.glass-sheet-grip` inside `.glass-sheet-drag` (`glass-sheet.css`). Width `--os-grip-width` (`2.25rem`), thickness `--os-grip-thickness`. Hover opacity `0.65`, `:active` opacity `0.8` and `scaleX(1.05)`. The banner does not replace it.
+- Close: `SheetChromeHeader` → `SheetCloseButton` (`MultiplyIcon` in `OsIconAction`), `closeAriaLabel="Close"`. Header pad is `0 var(--os-sheet-pad-inline) 0.75rem`. Measured hit `38×38`.
+- Identity: `.account-drawer-avatar` (kit avatar, `size="md"`), `.account-drawer-name` (`1.05rem`, `--os-identity-name-weight`), `.account-drawer-face:focus-visible` uses `--os-surface-ring`. Copy control is `.account-drawer-handle` with `CopyIcon` / `CheckIcon` from `@onsocial/ui`. Thumb target `2.75rem`.
+- Safe area: the glass sheet pads with `env(safe-area-inset-*)`. Inline pad is `--os-sheet-pad-inline`, which is `--os-gutter` (`0.75rem`). The hosted root uses `inset: -1px`, so the panel's bottom measures 1px past the layout viewport.
+- Dock: `.portfolio-summon-dock` is `position: fixed`, `z-index: 40`, bottom `--portfolio-dock-bottom`. While a glass sheet is open, `body:has(.glass-sheet-root) … .portfolio-summon-dock` sets `opacity: 0` and `translateY(100% + safe-area)`. Measured opacity `0`. The sheet z-index is `SHEET_Z.account` (55). The banner is inside the sheet body, not on the dock.
+- Balance: `#account-sheet-wallet-zone` / `.account-card-wallet-zone` (`os-surface-panel`, pad `0.55rem 0.65rem`, gap `0.5rem`). Kicker `.account-card-balance-kicker`, value `.account-card-balance-value`, unit `.account-card-balance-unit`. Get SOCIAL is an `OsSheetAction` primary. Collect is `.account-wallet-action.os-surface-chip`, disabled until a claim is ready. Activity uses `--os-stamp-size` and `--protocol-green` when ready. Storage strip uses the existing attention wash when storage is low. The Account row under the zone is `.os-surface-row` with `ChevronRightIcon`.
+- Column: `.account-card` is a column with gap `0.65rem` (`0.5rem` under `42rem` height). The banner is the first child, so that gap is the space before the balance. Nothing new is reserved when the card returns null.
+- Cap: `os-sheet-cap-standard` is `min(88dvh, 36rem, 100%)` (576px). The notice plus the wallet column is taller than that, and the Account row's bottom sat past the panel. The drawer now uses `os-sheet-cap-tall`, the existing editor/commerce cap `min(94dvh, 46rem, 100%)`. Hug still sizes to the content, so a drawer with no notice stays the shorter height. With the notice showing, the body does not scroll (`scrollHeight` equals `clientHeight`).
+- App access row: `AccountShortcutDock` in the Account menu, not the drawer body. It keeps the label and the “Allow this device” hint. `tone="attention"` is gone, so it no longer uses the amber row wash (`color-mix` of `--protocol-amber` at 8% / 14%, ink `--protocol-amber-ink`).
+
+Icons already on this surface: `MultiplyIcon` (close), `CopyIcon` / `CheckIcon` (handle), `ChevronRightIcon` (Account). The notice pattern does not carry an icon.
+
+Notice cards in the repo (`OsNoticeCard`):
+
+- Log out, in this same account family (`account-card-parts.tsx`): `align="start"`, no `shell`, no icon, title + body, footer `OsSheetActions layout="row" tone="frosted-primary" borderless`. Pending dots on the commit button. Cancel is `disabled` while that runs. Focus, hover, and press come from `OsSheetAction` (`:focus-visible` uses `--os-focus-ring`, `:active` and `:disabled` are in `os-sheet-action.css`).
+- Profile load error (`profile-editor-load-error.tsx`): `align="center"`, `shell`, one primary in a stack, no icon. Different surface.
+
+Neither notice carries an icon. The banner's card contains no `svg`. It uses the log-out structure: start align, no shell, the same footer. Spacing is the kit card (`.os-notice-card` gap `0.7rem`, pad `0.9rem 0.9rem 0.75rem`), not a second pad. The only added rule is `.os-notice-card--attention`: fill `--protocol-amber-bg`, title and body `--protocol-amber-ink`. Those tokens swap under `[data-theme='dark']` (`protocol.css`). `--protocol-amber` stays the hue; ink is the text color because the hue fails contrast on a light surface. The resting button is `os-sheet-action os-sheet-action--primary is-ready` and is not `disabled`. While the grant runs it is `pending` and `disabled` together, which is the kit dots state. Focus, press, and disabled styling stay in `os-sheet-action.css` (`:focus-visible` uses `--os-focus-ring`). No new pressed, focus, or loading styles.
 
 Re-scan after the edits: community handoff still calls `grantCommunityAppSession` → `buildSessionGrant` with `apps/<id>/`, so that grant still emits AddKey and `set_key_permission`. Portal welcome-near is a separate helper and was not retargeted. Switch wallet still calls `connect({})` with no key. An already connected `connect()` still resumes through `ensureSocialSession` and does not bundle into that resume.
 
@@ -46,16 +65,21 @@ A funded first visit whose wallet names the account sees one sign-in, and that s
 
 The banner sits in the drawer body, above the Wallet balance, and does not cover the page. Chrome, Safari, and Brave were captured with Playwright. Chrome is Chromium. Safari is WebKit. Brave is not installed, so that column is Chromium with a Brave user agent. iPhone is the Playwright iPhone 14 descriptor (390×844). Samsung is a 360×800 Galaxy-class viewport. Pixel is the Playwright Pixel 7 descriptor (412×915). No physical handsets.
 
-iPhone Chrome, before → after. Drawer was 392×442 at y 222. After, 392×576 at y 88. The banner is 368×150 at y 142, the same width as the wallet zone (368). The balance stays at y 322, x 20, height 40. The banner’s bottom (292) sits 8px above the wallet zone (y 300).
+Opened with no extra scroll, after the enter animation, with the balance settled (`0` SOCIAL and the empty hint). Chrome, Safari, and Brave agree on each device. The banner does not overlap the balance, the close button, or the grip. The Account row sits inside the panel. The body does not scroll. The panel bottom is 1px past the layout viewport from the hosted `inset: -1px`.
 
-Samsung Chrome. Drawer 362×461 at y 339 becomes 362×576 at y 224. Banner 338×150 at y 257, matching the wallet width 338. Balance y 440 → 441, height 48. Banner bottom 407, wallet zone y 417.
+iPhone (layout viewport 390×664). Grip 42×4 at (174, 74), close 38×38 at (341, 90), banner 368×152 at (11, 141), balance value 15×40 at (20, 323), wallet zone 368×282 at (11, 300), Account row 368×66 at (11, 590) ending at 656. The banner bottom (292) is above the wallet zone.
 
-Pixel Chrome. Drawer 414×461 at y 378 becomes 414×576 at y 263. Banner 390×131 at y 315, matching the wallet width 390. The wider line wraps to one row, so the card is 19px shorter than on the 360 and 390 widths. Balance y 479 → 480. Banner bottom 446, wallet zone y 456.
+Samsung (360×800). Banner 338×152 at (11, 256). Account row ends at 792. Panel ends at 801.
 
-Safari and Brave match those widths. Safari balance text is 2–3px wider (77→80 on Samsung and Pixel). Positions otherwise follow the same stack: banner, then wallet zone, then balance inside it.
+Pixel (412×839). Banner 390×133 at (11, 313). The wider line is one row, so the card is 19px shorter. Account row ends at 831. Panel ends at 840.
+
+Light ink is `rgb(180, 83, 9)` (`--protocol-amber-ink` `#b45309`) on `rgba(251, 191, 36, 0.1)`. Dark is `rgb(251, 191, 36)` on `rgba(251, 191, 36, 0.12)`.
+
+The sheet frost is translucent. On WebKit the page type can read through the amber wash. `elementsFromPoint` on the banner still hits the notice first. The Next.js dev badge was hidden for these shots. It is not in the production build.
 
 ![iPhone Chrome before](2026-11-13-wallet-session-key/before-iphone-chrome.png)
 ![iPhone Chrome after](2026-11-13-wallet-session-key/after-iphone-chrome.png)
+![iPhone Chrome after, dark](2026-11-13-wallet-session-key/after-iphone-chrome-dark.png)
 ![iPhone Safari before](2026-11-13-wallet-session-key/before-iphone-safari.png)
 ![iPhone Safari after](2026-11-13-wallet-session-key/after-iphone-safari.png)
 ![iPhone Brave before](2026-11-13-wallet-session-key/before-iphone-brave.png)
@@ -85,6 +109,6 @@ Route tests: a funded first visit with no stored hint bundles; an unfunded first
 
 Banner copy tests: hidden while unsettled, Allow when missing, Renew when expired, hidden when active.
 
-The banner commit is 29 files, +379 / −118, including these 18 screenshots. Source and glossary are the rest of that diff.
+The drawer uses the tall hug cap so the Account row stays in the first paint. The notice uses the kit pad, ink on the title and the body, and `disabled` while the grant is pending. Screenshots are the 18 device shots plus the dark iPhone Chrome shot. The branch against `main` is 47 files, +1636 / −230.
 
-`pnpm check:push` ran through the pre-push hook, not `--no-verify`. The Job 2 hook (head `44001a85`) passed with Playwright 383 passed, 5 flaky, 1 skipped. The Job 3 hook passed with 508 test files, 3544 unit tests, and Playwright 389 passed, 1 flaky, 1 skipped. The remaining flake is the collection supply line matching two nodes. The banner hook result follows that commit.
+`pnpm check:push` ran through the pre-push hook, not `--no-verify`. The Job 2 hook (head `44001a85`) passed with Playwright 383 passed, 5 flaky, 1 skipped. The Job 3 hook passed with 508 test files, 3544 unit tests, and Playwright 389 passed, 1 flaky, 1 skipped. The remaining flake is the collection supply line matching two nodes. The banner and this audit go out on the next push of this branch.

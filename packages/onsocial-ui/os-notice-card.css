@@ -136,21 +136,14 @@
   text-align: center;
 }
 
-.os-notice-card--compact {
-  gap: var(--os-gutter);
-  padding: var(--os-gutter);
-}
-
+/* Attention wash. Text uses ink so light and dark both stay readable. */
 .os-notice-card--attention {
   background: var(--protocol-amber-bg);
 }
 
-.os-notice-card--attention .os-notice-card-title {
-  color: var(--protocol-amber-ink);
-}
-
+.os-notice-card--attention .os-notice-card-title,
 .os-notice-card--attention .os-notice-card-body {
-  color: var(--protocol-amber);
+  color: var(--protocol-amber-ink);
 }
 
 .os-notice-card-toggle {

@@ -323,7 +323,7 @@ export function AppAccountSheet({
         zIndex={SHEET_Z.account}
         ariaLabelledBy="account-sheet-title"
         backdropLabel="Close"
-        panelClassName={`account-drawer-panel os-sheet-cap-standard${pageMoodPanelClass}`}
+        panelClassName={`account-drawer-panel os-sheet-cap-tall${pageMoodPanelClass}`}
         panelStyle={accountPanelStyle}
         moodId={pageMoodId ?? undefined}
         bodyClassName={osHugSheetBodyClassName}

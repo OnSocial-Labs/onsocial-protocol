@@ -26,7 +26,7 @@ export function AppAccessBanner() {
   return (
     <OsNoticeCard
       data-app-access-banner=""
-      className="os-notice-card--compact os-notice-card--attention"
+      className="os-notice-card--attention"
       align="start"
       title={copy.title}
       body={copy.body}
@@ -37,6 +37,7 @@ export function AppAccessBanner() {
             variant="primary"
             ready={!busy}
             pending={busy}
+            disabled={busy}
             pendingLabel={
               socialSessionLifecycle === 'expired' ? 'Renewing…' : 'Allowing…'
             }
