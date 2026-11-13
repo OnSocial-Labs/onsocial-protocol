@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
   clearComposerThreadDrafts,
+  clickAddThreadBeat,
   openHomePostComposer,
 } from './helpers/compose-thread';
 import { setE2eGraphWriting } from './helpers/e2e-graph';
@@ -9,7 +10,8 @@ import { dismissNextDevOverlay, gotoApp } from './helpers';
 
 /**
  * Header bottom → first avatar. Phone viewport: the open Post page and
- * every composer mode share one gap (within 1px).
+ * every composer mode share one gap (within 1px). A second beat keeps a
+ * 0.2rem rail gap on each side of the avatars, with the rail centred.
  */
 test.use({
   viewport: { width: 390, height: 664 },
@@ -18,15 +20,64 @@ test.use({
 });
 
 async function settle(page: Page) {
-  await page.waitForTimeout(350);
   await dismissNextDevOverlay(page);
+  await page.evaluate(() => document.fonts.ready);
+  const panel = page.locator('.guild-composer-sheet-panel');
+  if ((await panel.count()) > 0) {
+    await expect(panel).toBeVisible();
+    await expect
+      .poll(async () =>
+        panel.evaluate((node) => {
+          if (!node.classList.contains('is-open')) return false;
+          if (node.classList.contains('glass-sheet-panel--enter')) return false;
+          const style = getComputedStyle(node);
+          if (Number.parseFloat(style.opacity) < 1) return false;
+          const matrix = new DOMMatrix(style.transform);
+          return Math.abs(matrix.m41) <= 1 && Math.abs(matrix.m42) <= 1;
+        })
+      )
+      .toBe(true);
+    await panel.evaluate(async (node) => {
+      await Promise.all(
+        node
+          .getAnimations()
+          .map((animation) => animation.finished.catch(() => undefined))
+      );
+    });
+  }
   await page.evaluate(() => {
     const active = document.activeElement;
-    if (active instanceof HTMLElement) active.blur();
-    for (const node of document.querySelectorAll('.os-app-screen-body')) {
-      if (node instanceof HTMLElement) node.scrollTop = 0;
-    }
+    if (active instanceof HTMLElement && active !== document.body)
+      active.blur();
   });
+  const beats = page.locator('.guild-composer-thread-item');
+  if ((await beats.count()) > 0) {
+    await beats.evaluateAll(async (nodes) => {
+      await Promise.all(
+        nodes.flatMap((node) =>
+          node
+            .getAnimations()
+            .map((animation) => animation.finished.catch(() => undefined))
+        )
+      );
+    });
+  }
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const panel = document.querySelector('.guild-composer-sheet-panel');
+        const panelOpen =
+          panel instanceof HTMLElement && panel.classList.contains('is-open');
+        const root = panelOpen
+          ? panel
+          : document.querySelector(
+              '.os-app-screen:not(.os-app-screen--embedded)'
+            );
+        const body = root?.querySelector('.os-app-screen-body');
+        return body instanceof HTMLElement ? body.scrollTop : -1;
+      })
+    )
+    .toBe(0);
 }
 
 async function headerToAvatarGap(page: Page, surface: 'post' | 'composer') {
@@ -55,7 +106,70 @@ function expectSameGap(actual: number | null, expected: number) {
   expect(Math.abs(actual! - expected)).toBeLessThanOrEqual(1);
 }
 
-test('composer first avatar matches the Post page gap', async ({ page }) => {
+/** Painted rail box for a pseudo, from the item's border box plus used top/height. */
+function continuationRails(page: Page) {
+  return page.evaluate(() => {
+    const font = Number.parseFloat(
+      getComputedStyle(document.documentElement).fontSize
+    );
+    const items = [...document.querySelectorAll('.guild-composer-thread-item')];
+    if (items.length < 2) return null;
+
+    const railBox = (item: Element, pseudo: '::before' | '::after') => {
+      const style = getComputedStyle(item, pseudo);
+      if (style.content === 'none' || style.content === 'normal') return null;
+      const itemRect = item.getBoundingClientRect();
+      const top = Number.parseFloat(style.top);
+      const height = Number.parseFloat(style.height);
+      const left = Number.parseFloat(style.left);
+      const width = Number.parseFloat(style.width);
+      if (![top, height, left, width].every(Number.isFinite)) return null;
+      if (height <= 0 || width <= 0) return null;
+      return {
+        top: itemRect.top + top,
+        bottom: itemRect.top + top + height,
+        centerX: itemRect.left + left + width / 2,
+      };
+    };
+
+    const gaps: Array<{
+      side: 'above' | 'below';
+      gap: number;
+      railCenterX: number;
+      avatarCenterX: number;
+    }> = [];
+    for (const item of items) {
+      const avatar = item.querySelector('.guild-composer-row-avatar');
+      if (!avatar) return null;
+      const box = avatar.getBoundingClientRect();
+      if (box.height <= 0) return null;
+      const centerX = box.left + box.width / 2;
+      const above = railBox(item, '::before');
+      const below = railBox(item, '::after');
+      if (above) {
+        gaps.push({
+          side: 'above',
+          gap: box.top - above.bottom,
+          railCenterX: above.centerX,
+          avatarCenterX: centerX,
+        });
+      }
+      if (below) {
+        gaps.push({
+          side: 'below',
+          gap: below.top - box.bottom,
+          railCenterX: below.centerX,
+          avatarCenterX: centerX,
+        });
+      }
+    }
+    return { gaps, expectedGap: 0.2 * font };
+  });
+}
+
+test('composer first avatar matches the Post page gap @webkit', async ({
+  page,
+}) => {
   await setE2eGraphWriting(page, 'shelf');
   await clearComposerThreadDrafts(page);
   await seedE2eMockSigner(page, 'alice.testnet');
@@ -101,39 +215,28 @@ test('composer first avatar matches the Post page gap', async ({ page }) => {
     .getByRole('dialog', { name: 'New post' })
     .waitFor({ state: 'visible' });
   await page.getByRole('textbox', { name: 'Share something…' }).fill('hello');
-  await page.getByRole('button', { name: 'Add to thread' }).evaluate((el) => {
-    if (el instanceof HTMLButtonElement) el.click();
-  });
-  await page
-    .getByRole('textbox', { name: 'Post 2' })
-    .waitFor({ state: 'visible' });
+  await clickAddThreadBeat(page);
   await settle(page);
 
-  const continuation = await page.evaluate(() => {
-    const font = Number.parseFloat(
-      getComputedStyle(document.documentElement).fontSize
-    );
-    const items = [...document.querySelectorAll('.guild-composer-thread-item')];
-    const first = items[0];
-    const second = items[1];
-    if (!first || !second) return null;
-    const avatar = first.querySelector('.guild-composer-row-avatar');
-    if (!avatar) return null;
-    const pad = Number.parseFloat(getComputedStyle(first).paddingTop);
-    const railTop = Number.parseFloat(getComputedStyle(first, '::after').top);
-    const avatarHeight = avatar.getBoundingClientRect().height;
-    return {
-      secondPad: Number.parseFloat(getComputedStyle(second).paddingTop),
-      expectedSecondPad: 0.42 * font,
-      railGap: railTop - pad - avatarHeight,
-      expectedRailGap: 0.2 * font,
-    };
-  });
+  const continuation = await continuationRails(page);
   expect(continuation).not.toBeNull();
-  expect(
-    Math.abs(continuation!.secondPad - continuation!.expectedSecondPad)
-  ).toBeLessThanOrEqual(0.5);
-  expect(
-    Math.abs(continuation!.railGap - continuation!.expectedRailGap)
-  ).toBeLessThanOrEqual(0.5);
+  expect(continuation!.gaps.length).toBeGreaterThanOrEqual(2);
+  const above = continuation!.gaps.filter((gap) => gap.side === 'above');
+  const below = continuation!.gaps.filter((gap) => gap.side === 'below');
+  expect(above.length).toBeGreaterThanOrEqual(1);
+  expect(below.length).toBeGreaterThanOrEqual(1);
+  for (const gap of continuation!.gaps) {
+    expect(
+      Math.abs(gap.gap - continuation!.expectedGap),
+      `${gap.side} rail gap ${gap.gap}px, expected ${continuation!.expectedGap}px`
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(gap.railCenterX - gap.avatarCenterX),
+      `${gap.side} rail centre ${gap.railCenterX} vs avatar ${gap.avatarCenterX}`
+    ).toBeLessThanOrEqual(1);
+  }
+  const firstGap = continuation!.gaps[0]!.gap;
+  for (const gap of continuation!.gaps) {
+    expect(Math.abs(gap.gap - firstGap)).toBeLessThanOrEqual(1);
+  }
 });

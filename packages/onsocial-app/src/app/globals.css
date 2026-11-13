@@ -4624,10 +4624,8 @@ a.os-surface-row,
     width: 100%;
     min-height: 0;
     box-sizing: border-box;
-    padding:
-      max(var(--os-gutter), env(safe-area-inset-top, 0px))
-      max(var(--os-gutter), env(safe-area-inset-right, 0px))
-      var(--os-gutter)
+    padding: max(var(--os-gutter), env(safe-area-inset-top, 0px))
+      max(var(--os-gutter), env(safe-area-inset-right, 0px)) var(--os-gutter)
       max(var(--os-gutter), env(safe-area-inset-left, 0px));
   }
 
@@ -4781,8 +4779,7 @@ a.os-surface-row,
     justify-content: center;
     gap: var(--os-gutter);
     width: 100%;
-    padding:
-      var(--os-dock-clearance-gap)
+    padding: var(--os-dock-clearance-gap)
       max(var(--os-gutter), env(safe-area-inset-right, 0px))
       max(var(--os-dock-bottom-offset), env(safe-area-inset-bottom, 0px))
       max(var(--os-gutter), env(safe-area-inset-left, 0px));
@@ -7817,8 +7814,8 @@ a.os-surface-row,
     width: 100%;
     min-height: 0;
     overflow: visible;
-    padding: 0 max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px))
-      0 max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
+    padding: 0 max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px)) 0
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
   }
 
   .portfolio-hero-band {
@@ -39373,14 +39370,16 @@ a.os-surface-row,
      One coordinate system for every connected post. Segments are drawn on
      the row wrapper (not the card), so consecutive rows meet exactly at
      their shared boundary and the rail is straight by construction.
-     The card's negative margin cancels its padding-left, but its 1px
-     transparent border still shifts the avatar 1px right and 1px down —
-     the 1px terms below fold that in so the rail is dead-centre on the
-     avatar and the gaps above/below the circle are identical. */
+     The card's negative margin cancels its padding-left, but its
+     transparent border (--os-post-card-edge) still shifts the avatar
+     right and down, and the face carries --os-post-avatar-nudge. Those
+     tokens fold into the rail so it stays dead-centre on the avatar and
+     the gaps above and below the circle match. */
   .post-thread-item,
   .post-thread-more {
     /* Face size + rail x follow --os-avatar-feed (same lg everywhere).
-       2px rail left at half-face; card's 1px border shifts the centre +1px. */
+       2px rail left at half-face; the card edge shifts the centre by
+       --os-post-card-edge, which lines up while that edge is 1px. */
     --thread-avatar: var(--os-avatar-feed, 2.5rem);
     --thread-rail-x: calc(var(--thread-avatar) / 2);
     --thread-pad-top: 0.68rem;
@@ -39452,18 +39451,20 @@ a.os-surface-row,
     pointer-events: none;
   }
 
-  /* Row top → just above the avatar (1px = card border-top). */
+  /* Row top → just above the avatar. */
   .post-thread-item--up::before {
     top: 0;
     height: calc(
-      var(--thread-pad-top) + 0.05rem + 1px - var(--thread-rail-gap)
+      var(--thread-pad-top) + var(--os-post-avatar-nudge, 0.05rem) +
+        var(--os-post-card-edge, 1px) - var(--thread-rail-gap)
     );
   }
 
-  /* Just below the avatar → row bottom (1px = card border-top). */
+  /* Just below the avatar → row bottom. */
   .post-thread-item--down::after {
     top: calc(
-      var(--thread-pad-top) + 0.05rem + var(--thread-avatar) + 1px +
+      var(--thread-pad-top) + var(--os-post-avatar-nudge, 0.05rem) +
+        var(--thread-avatar) + var(--os-post-card-edge, 1px) +
         var(--thread-rail-gap)
     );
     bottom: 0;
