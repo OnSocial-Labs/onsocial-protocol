@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { usePageContentDrawer } from '@/contexts/page-content-drawer-context';
 import {
   normalizeLegacyPortfolioRailUrl,
@@ -10,6 +11,7 @@ import { PORTFOLIO_FEED_SECTION_ID } from '@/lib/overlay-routes';
 import {
   PORTFOLIO_FEED_REVEAL_EVENT,
   isPortfolioFeedLayoutScroll,
+  portfolioSwipeOpensPage,
   shouldRevealPortfolioFeed,
 } from '@/lib/portfolio-feed-reveal';
 
@@ -24,6 +26,8 @@ function hasPortfolioFeedHash(): boolean {
  * `#portfolio-feed` links and the reveal event open the same drawer.
  */
 export function PortfolioDrawerScrollTrigger() {
+  const pathname = usePathname();
+  const swipeOpens = portfolioSwipeOpensPage(pathname);
   const { isOpen, open } = usePageContentDrawer();
   const userGesturedRef = useRef(false);
   const anchorRef = useRef<HTMLSpanElement>(null);
@@ -61,7 +65,7 @@ export function PortfolioDrawerScrollTrigger() {
   }, [open]);
 
   useEffect(() => {
-    if (isOpen) return;
+    if (!swipeOpens || isOpen) return;
 
     const layer = anchorRef.current?.closest('.portfolio-os-layer');
     const frame = layer?.previousElementSibling;
@@ -144,7 +148,7 @@ export function PortfolioDrawerScrollTrigger() {
       root.removeEventListener('touchmove', onTouchMove);
       root.removeEventListener('pointerdown', markUserGesture);
     };
-  }, [isOpen, open]);
+  }, [isOpen, open, swipeOpens]);
 
   return <span ref={anchorRef} hidden />;
 }

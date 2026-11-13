@@ -10,7 +10,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   useComposeLauncher,
@@ -32,6 +32,7 @@ import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useSummonDockOccupiedHeight } from '@/hooks/use-summon-dock-occupied-height';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { accountIdsEqual } from '@/lib/account-match';
+import { portfolioSwipeOpensPage } from '@/lib/portfolio-feed-reveal';
 import { portfolioMoodShellStyle } from '@/lib/moods/resolve';
 import { ownerPortfolioOsApps, visitorPortfolioOsApps } from '@/lib/os-apps';
 import { CollectiblesNowPlayingDockChip } from '@/components/os/collectibles-now-playing-dock-chip';
@@ -72,6 +73,7 @@ export function PortfolioSummonDock({
   const registeredDockBack = useDockBack();
   const { leaveHref: faceLeaveHref, consumeLeave } = useOsFaceLeave();
   const router = useRouter();
+  const swipeOpens = portfolioSwipeOpensPage(usePathname());
   const leaveToOrigin = useCallback(() => {
     router.push(consumeLeave());
   }, [consumeLeave, router]);
@@ -167,12 +169,12 @@ export function PortfolioSummonDock({
 
       const dx = Math.abs(event.clientX - start.x);
       const dy = start.y - event.clientY;
-      if (dy > SWIPE_UP_PX && dx < 48) {
+      if (swipeOpens && dy > SWIPE_UP_PX && dx < 48) {
         suppressGripClickRef.current = true;
         openPageDrawer();
       }
     },
-    [openPageDrawer, pageDrawerOpen]
+    [openPageDrawer, pageDrawerOpen, swipeOpens]
   );
 
   const handleGripClick = useCallback(
@@ -200,7 +202,7 @@ export function PortfolioSummonDock({
         style={dockMoodStyle}
       >
         <div className="portfolio-summon-line">
-          {write ? null : (
+          {write || !swipeOpens ? null : (
             <PortfolioPageContentEntry
               open={pageDrawerOpen}
               concealed={pageDrawerOpen && !pageDrawerClosing}

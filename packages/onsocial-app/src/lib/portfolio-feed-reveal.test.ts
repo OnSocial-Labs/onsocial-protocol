@@ -3,8 +3,21 @@ import {
   PORTFOLIO_FEED_LOCKED_MAX_SCROLL_PX,
   PORTFOLIO_FEED_REVEAL_LEAD_PX,
   isPortfolioFeedLayoutScroll,
+  portfolioSwipeOpensPage,
   shouldRevealPortfolioFeed,
 } from './portfolio-feed-reveal';
+
+describe('portfolioSwipeOpensPage', () => {
+  it('opens on the portfolio face and nowhere the shelf covers', () => {
+    expect(portfolioSwipeOpensPage('/@alice.testnet')).toBe(true);
+    expect(portfolioSwipeOpensPage('/@bob.testnet?from=home')).toBe(true);
+    expect(portfolioSwipeOpensPage('/@alice.testnet/writing')).toBe(false);
+    expect(portfolioSwipeOpensPage('/@bob.testnet/about')).toBe(false);
+    expect(portfolioSwipeOpensPage('/@alice.testnet/posts/1')).toBe(false);
+    expect(portfolioSwipeOpensPage('/home')).toBe(false);
+    expect(portfolioSwipeOpensPage(null)).toBe(false);
+  });
+});
 
 describe('shouldRevealPortfolioFeed', () => {
   const clientHeight = 800;

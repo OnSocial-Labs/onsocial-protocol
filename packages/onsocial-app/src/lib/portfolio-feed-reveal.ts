@@ -1,3 +1,17 @@
+/**
+ * Swipe-up opens the page drawer only on the portfolio face.
+ * `/@id` counts. A writing shelf, another page, or a post does not.
+ * The pill and the gesture both read this, so one cannot outlive the other.
+ */
+export function portfolioSwipeOpensPage(
+  pathname: string | null | undefined
+): boolean {
+  const raw = (pathname ?? '').trim();
+  if (!raw.startsWith('/@')) return false;
+  const path = raw.split(/[?#]/)[0] ?? '';
+  return /^\/@[^/]+$/.test(path);
+}
+
 /** Same-page “open the feed” signal (drawer link, `/feed` soft intercept). */
 export const PORTFOLIO_FEED_REVEAL_EVENT = 'onsocial:portfolio-feed-reveal';
 
