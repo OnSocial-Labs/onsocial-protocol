@@ -50,4 +50,12 @@ Before this change, full-load CLS on `/@alice.testnet` signed in as alice.testne
 
 ## 5. shipped
 
-Not shipped yet. This section is replaced when the pill, the 44px hit, and the after CLS runs are measured.
+The control is a 24×14 pill (`border-radius: 9999px`, padding 0) with the dock frost on `::before` (`blur(20px) saturate(1.3)`). The glyph box is 12px, opacity 0.78, stroke 2px. The hit layer measures 44×44. Inline `margin-top` on `.portfolio-identity` stays empty. Open page is still the accessible name, with the same 2px/4px focus ring.
+
+The 44px layer is wider than the old 30px mark, and the dock paints above a hug sheet, so the layer covered Discard on the message confirm. While a `.glass-sheet-root` is open the pill takes no pointer events. The face hit stays 44px.
+
+Browser and phone: the pill sits centered on the dock, clear of the grip, and the identity does not move into it. The chevron reads as a small caret, not a second dock. Screenshots: `/opt/cursor/artifacts/portfolio-pill-before/` and `/opt/cursor/artifacts/portfolio-pill-after/`.
+
+CLS on `/@alice.testnet` signed in as alice.testnet, three runs each. Before: desktop 0, 0, 0; iPhone 13 0, 0, 0; Pixel 7 0, 0, 0. After: desktop 0, 0, 0; iPhone 13 0, 0, 0; Pixel 7 0, 0, 0. On that face the old hook never wrote a margin, because the stack ends above the chevron. The jump it could still write is gone with the hook.
+
+`pnpm check:push` is recorded when it exits.

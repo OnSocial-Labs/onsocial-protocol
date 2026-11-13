@@ -97,8 +97,8 @@ test.describe('drawer pull gestures', () => {
     await expect(entry).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     const box = await entry.boundingBox();
     expect(box).not.toBeNull();
-    expect(Math.round(box!.width)).toBe(30);
-    expect(Math.round(box!.height)).toBe(30);
+    expect(Math.round(box!.width)).toBe(24);
+    expect(Math.round(box!.height)).toBe(14);
 
     for (let step = 0; step < 40; step += 1) {
       if (await entry.evaluate((el) => el === document.activeElement)) break;
@@ -589,8 +589,8 @@ test.describe('page chevron on a wide desktop', () => {
     await expect(page.locator('.page-drawer-panel')).toHaveCount(0);
     await expect(entry).toBeFocused();
     const visible = await entry.boundingBox();
-    expect(Math.round(visible!.width)).toBe(30);
-    expect(Math.round(visible!.height)).toBe(30);
+    expect(Math.round(visible!.width)).toBe(24);
+    expect(Math.round(visible!.height)).toBe(14);
   });
 
   test('a focused page chevron stays available when text grows', async ({

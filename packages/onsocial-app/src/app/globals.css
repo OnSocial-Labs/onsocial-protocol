@@ -3587,6 +3587,19 @@ a.os-surface-row,
     /* Pull tier-2 meta (caption · tags) into one band below signal numbers. */
     --portfolio-shelf-pull: 0.44rem;
     --portfolio-shelf-meta-gap: 0.22rem;
+    /* Swipe-up pill. The slot is the pill plus the gap above the dock.
+       Face clearance adds the focus ring. Hero padding reserves it. */
+    --portfolio-chevron-w: 1.5rem;
+    --portfolio-chevron-h: 0.875rem;
+    --portfolio-chevron-gap: 0.25rem;
+    --portfolio-chevron-ring: 4px;
+    --portfolio-chevron-hit: 2.75rem;
+    --portfolio-chevron-slot: calc(
+      var(--portfolio-chevron-h) + var(--portfolio-chevron-gap)
+    );
+    --portfolio-face-clearance: calc(
+      var(--portfolio-chevron-slot) + var(--portfolio-chevron-ring)
+    );
     /* One horizontal text gutter for screens and drawers. html stays font-size: 100%. */
     --os-gutter: 0.75rem;
     --os-screen-body-pad-x: var(--os-gutter);
@@ -4611,10 +4624,8 @@ a.os-surface-row,
     width: 100%;
     min-height: 0;
     box-sizing: border-box;
-    padding:
-      max(var(--os-gutter), env(safe-area-inset-top, 0px))
-      max(var(--os-gutter), env(safe-area-inset-right, 0px))
-      var(--os-gutter)
+    padding: max(var(--os-gutter), env(safe-area-inset-top, 0px))
+      max(var(--os-gutter), env(safe-area-inset-right, 0px)) var(--os-gutter)
       max(var(--os-gutter), env(safe-area-inset-left, 0px));
   }
 
@@ -4768,8 +4779,7 @@ a.os-surface-row,
     justify-content: center;
     gap: var(--os-gutter);
     width: 100%;
-    padding:
-      var(--os-dock-clearance-gap)
+    padding: var(--os-dock-clearance-gap)
       max(var(--os-gutter), env(safe-area-inset-right, 0px))
       max(var(--os-dock-bottom-offset), env(safe-area-inset-bottom, 0px))
       max(var(--os-gutter), env(safe-area-inset-left, 0px));
@@ -7772,13 +7782,13 @@ a.os-surface-row,
     gap: var(--portfolio-hero-gap);
     padding: var(--portfolio-content-start)
       max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px))
-      /* The page chevron sits above the pill. The dock gap already covers
-         part of that stack. The shelf pull hangs the caption below its
-         margin, and 4px keeps that line clear of the focus ring. */
+      /* The swipe-up pill sits above the dock. The dock gap already covers
+         part of that stack. Face clearance is the pill slot plus the focus
+         ring, reserved here so the first paint is the final one. The shelf
+         pull hangs the caption below its margin. */
       calc(
-        var(--portfolio-dock-clearance) + var(--os-avatar-nav, 1.85rem) +
-          0.25rem - var(--os-dock-clearance-gap, 1.1rem) +
-          var(--portfolio-shelf-pull, 0.44rem) + 4px
+        var(--portfolio-dock-clearance) - var(--os-dock-clearance-gap) +
+          var(--portfolio-shelf-pull) + var(--portfolio-face-clearance)
       )
       max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
     text-align: center;
@@ -15796,9 +15806,6 @@ a.os-surface-row,
   .portfolio-page-chevron > svg {
     position: relative;
     z-index: 1;
-    width: 1.75rem;
-    height: 1.75rem;
-    opacity: 1;
   }
 
   /* Hidden only while the sheet trap owns focus. Closing releases that
@@ -47758,26 +47765,73 @@ button.messages-bubble-quote:focus-visible {
  */
 button.portfolio-page-chevron.glass-sheet-icon-action {
   position: absolute;
-  bottom: calc(100% + 0.25rem);
+  bottom: calc(100% + var(--portfolio-chevron-gap, 0.25rem));
   left: 50%;
-  width: var(--os-avatar-nav, 1.85rem);
-  height: var(--os-avatar-nav, 1.85rem);
-  min-width: var(--os-avatar-nav, 1.85rem);
-  min-height: var(--os-avatar-nav, 1.85rem);
+  width: var(--portfolio-chevron-w, 1.5rem);
+  height: var(--portfolio-chevron-h, 0.875rem);
+  min-width: var(--portfolio-chevron-w, 1.5rem);
+  min-height: var(--portfolio-chevron-h, 0.875rem);
+  max-width: var(--portfolio-chevron-w, 1.5rem);
+  max-height: var(--portfolio-chevron-h, 0.875rem);
+  padding: 0;
+  overflow: visible;
+  border-radius: 9999px;
   transform: translateX(-50%);
-  color: rgb(var(--fg-rgb) / 100%);
+  color: rgb(var(--fg-rgb));
+}
+
+/* 44px hit. Grown mostly upward so the bottom edge meets the dock.
+   .os-dock-pill overflow would clip this, so the button stays visible. */
+button.portfolio-page-chevron.glass-sheet-icon-action::after {
+  content: '';
+  position: absolute;
+  z-index: 2;
+  width: var(--portfolio-chevron-hit, 2.75rem);
+  height: var(--portfolio-chevron-hit, 2.75rem);
+  left: 50%;
+  bottom: calc(-1 * var(--portfolio-chevron-gap, 0.25rem));
+  transform: translateX(-50%);
+  background: transparent;
+}
+
+button.portfolio-page-chevron.glass-sheet-icon-action > .mage-stroke-icon,
+button.portfolio-page-chevron.glass-sheet-icon-action > svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  color: rgb(var(--fg-rgb));
+  opacity: 0.78;
+}
+
+/* CSS px, so the stroke stays 2px in the 12px box. The inked mark is about 10×6. */
+button.portfolio-page-chevron.glass-sheet-icon-action > svg path {
+  stroke-width: 2px;
+}
+
+/* A sheet sits in front of the face. The 44px hit must not cover its actions. */
+body:has(.glass-sheet-root)
+  button.portfolio-page-chevron.glass-sheet-icon-action {
+  pointer-events: none;
+}
+
+button.portfolio-page-chevron.glass-sheet-icon-action:hover > .mage-stroke-icon,
+button.portfolio-page-chevron.glass-sheet-icon-action:hover > svg,
+button.portfolio-page-chevron.glass-sheet-icon-action:focus-visible
+  > .mage-stroke-icon,
+button.portfolio-page-chevron.glass-sheet-icon-action:focus-visible > svg {
+  opacity: 0.92;
 }
 
 button.portfolio-page-chevron.glass-sheet-icon-action:focus-visible {
   outline: none;
   box-shadow:
     0 0 0 2px rgb(var(--bg-rgb)),
-    0 0 0 4px rgb(var(--fg-rgb));
+    0 0 0 var(--portfolio-chevron-ring, 4px) rgb(var(--fg-rgb));
 }
 
 @media (prefers-reduced-motion: reduce) {
   button.portfolio-page-chevron.glass-sheet-icon-action,
   button.portfolio-page-chevron.glass-sheet-icon-action::before,
+  button.portfolio-page-chevron.glass-sheet-icon-action::after,
   button.portfolio-page-chevron.glass-sheet-icon-action > .mage-stroke-icon,
   button.portfolio-page-chevron.glass-sheet-icon-action > svg {
     transition: none;
