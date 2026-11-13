@@ -7,6 +7,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react';
 import { NearConnector } from '@hot-labs/near-connect';
@@ -40,8 +41,9 @@ import {
   readE2eMockSignerEnabled,
 } from '@/lib/e2e-mock-signer';
 import { readE2eWalletAccountId } from '@/lib/e2e-wallet-account';
+import { APP_WALLET_ACCOUNT_KEY } from '@/lib/gate-return';
 
-const APP_WALLET_ACCOUNT_KEY = 'onsocial.app.wallet.accountId';
+const WALLET_ACCOUNT_EVENT = 'onsocial:wallet-account';
 
 interface SigningWallet {
   wallet: NearWalletBase;
@@ -84,6 +86,15 @@ function readStoredWalletAccountId(): string | null {
   }
 }
 
+function subscribeStoredWalletAccount(onChange: () => void): () => void {
+  window.addEventListener('storage', onChange);
+  window.addEventListener(WALLET_ACCOUNT_EVENT, onChange);
+  return () => {
+    window.removeEventListener('storage', onChange);
+    window.removeEventListener(WALLET_ACCOUNT_EVENT, onChange);
+  };
+}
+
 function writeStoredWalletAccountId(accountId: string | null): void {
   try {
     if (accountId) {
@@ -94,6 +105,7 @@ function writeStoredWalletAccountId(accountId: string | null): void {
   } catch {
     // ignore
   }
+  window.dispatchEvent(new Event(WALLET_ACCOUNT_EVENT));
 }
 
 function pickRestoredAccountId(
@@ -172,7 +184,16 @@ export function useAppWallet() {
 
 export function AppWalletProvider({ children }: { children: ReactNode }) {
   const [, setWallet] = useState<NearWalletBase | null>(null);
-  const [accountId, setAccountId] = useState<string | null>(null);
+  const storedAccountId = useSyncExternalStore(
+    subscribeStoredWalletAccount,
+    readStoredWalletAccountId,
+    () => null
+  );
+  const [liveAccountId, setAccountId] = useState<string | null | undefined>(
+    undefined
+  );
+  const resolvedAccountId =
+    liveAccountId === undefined ? storedAccountId : liveAccountId;
   const [isLoading, setIsLoading] = useState(true);
   const [hasSocialSession, setHasSocialSession] = useState(false);
   const [isBootstrappingSession, setIsBootstrappingSession] = useState(false);
@@ -358,7 +379,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
           setAccountId(nextAccountId);
           writeStoredWalletAccountId(nextAccountId);
           if (nextAccountId) {
-            await restoreSocialSessionQuietly(nextAccountId);
+            void restoreSocialSessionQuietly(nextAccountId);
           }
         }
       } catch {
@@ -388,7 +409,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
         await connector.getConnectedWallet();
       const nextAccountId = pickRestoredAccountId(
         accounts,
-        accountId ?? readStoredWalletAccountId()
+        resolvedAccountId ?? readStoredWalletAccountId()
       );
       if (connectedWallet && nextAccountId) {
         setWallet(connectedWallet);
@@ -478,7 +499,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     connectPromiseRef.current = connectPromise;
     await connectPromise;
   }, [
-    accountId,
+    resolvedAccountId,
     clearSessionFeedback,
     ensureSocialSession,
     finishSessionFeedback,
@@ -517,7 +538,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
           throw new Error('Select a wallet account and try again.');
         }
 
-        const previousAccountId = accountId;
+        const previousAccountId = resolvedAccountId;
         setWallet(connectedWallet);
         setAccountId(nextAccountId);
         writeStoredWalletAccountId(nextAccountId);
@@ -542,12 +563,12 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
 
     connectPromiseRef.current = connectPromise;
     await connectPromise;
-  }, [accountId, ensureSocialSession, network]);
+  }, [resolvedAccountId, ensureSocialSession, network]);
 
   const disconnect = useCallback(async () => {
     const connector = connectorRef.current;
     if (!connector) return;
-    const previousAccountId = accountId;
+    const previousAccountId = resolvedAccountId;
     await connector.disconnect();
     setWallet(null);
     setAccountId(null);
@@ -555,13 +576,13 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     writeStoredWalletAccountId(null);
     invalidateAppSocialSessionCache();
     clearAppGatewayAuth(previousAccountId);
-  }, [accountId]);
+  }, [resolvedAccountId]);
 
   const clearSocialSessionLocal = useCallback(() => {
     setHasSocialSession(false);
     invalidateAppSocialSessionCache();
-    clearAppGatewayAuth(accountId);
-  }, [accountId]);
+    clearAppGatewayAuth(resolvedAccountId);
+  }, [resolvedAccountId]);
 
   const getSigningWallet = useCallback(async (): Promise<SigningWallet> => {
     const e2eAccount = readE2eWalletAccountId();
@@ -580,40 +601,39 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       throw new Error('Wallet is still loading. Try again in a moment.');
     }
 
-    const preferredAccountId = accountId ?? readStoredWalletAccountId();
+    const preferredAccountId = resolvedAccountId ?? readStoredWalletAccountId();
 
     try {
       const { wallet: connectedWallet, accounts } =
         await connector.getConnectedWallet();
-      const resolvedAccountId = pickRestoredAccountId(
+      const pickedAccountId = pickRestoredAccountId(
         accounts,
         preferredAccountId
       );
-      if (connectedWallet && resolvedAccountId) {
+      if (connectedWallet && pickedAccountId) {
         setWallet(connectedWallet);
-        setAccountId(resolvedAccountId);
-        writeStoredWalletAccountId(resolvedAccountId);
-        return { wallet: connectedWallet, accountId: resolvedAccountId };
+        setAccountId(pickedAccountId);
+        writeStoredWalletAccountId(pickedAccountId);
+        return { wallet: connectedWallet, accountId: pickedAccountId };
       }
     } catch {
-      // reconnect below
+      if (liveAccountId === undefined) {
+        throw new Error('Wallet is still loading. Try again in a moment.');
+      }
     }
 
     const connectedWallet = await connector.connect();
     const accounts = await connectedWallet.getAccounts({ network });
-    const resolvedAccountId = pickRestoredAccountId(
-      accounts,
-      preferredAccountId
-    );
-    if (!resolvedAccountId) {
+    const pickedAccountId = pickRestoredAccountId(accounts, preferredAccountId);
+    if (!pickedAccountId) {
       throw new Error('Select a wallet account and try again.');
     }
 
     setWallet(connectedWallet);
-    setAccountId(resolvedAccountId);
-    writeStoredWalletAccountId(resolvedAccountId);
-    return { wallet: connectedWallet, accountId: resolvedAccountId };
-  }, [accountId, network]);
+    setAccountId(pickedAccountId);
+    writeStoredWalletAccountId(pickedAccountId);
+    return { wallet: connectedWallet, accountId: pickedAccountId };
+  }, [liveAccountId, resolvedAccountId, network]);
 
   const resumeSocialSession = useCallback(
     async (options?: {
@@ -622,7 +642,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     }): Promise<boolean> => {
       const renewIfExpired = options?.renewIfExpired !== false;
       const bootstrapIfMissing = options?.bootstrapIfMissing !== false;
-      const nextAccountId = accountId ?? readStoredWalletAccountId();
+      const nextAccountId = resolvedAccountId ?? readStoredWalletAccountId();
       if (!nextAccountId) return false;
       try {
         // Fast path: local session still valid — avoid reopening the wallet.
@@ -675,14 +695,14 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
 
       return ensureSocialSession(nextAccountId);
     },
-    [accountId, ensureSocialSession, getSigningWallet]
+    [resolvedAccountId, ensureSocialSession, getSigningWallet]
   );
 
   return (
     <AppWalletContext.Provider
       value={{
-        accountId,
-        isConnected: Boolean(accountId),
+        accountId: resolvedAccountId,
+        isConnected: Boolean(resolvedAccountId),
         isLoading,
         hasSocialSession,
         isBootstrappingSession,

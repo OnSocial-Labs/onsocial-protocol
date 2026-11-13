@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useLayoutEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { osDockPillClassName } from '@onsocial/ui';
 import { GatePwaInstall } from '@/components/gate/gate-pwa-install';
@@ -12,7 +12,7 @@ export function GateConnect({ platform }: { platform: GateInstallPlatform }) {
   const router = useRouter();
   const { accountId, isConnected, isLoading, connect } = useAppWallet();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isLoading && isConnected && accountId) {
       router.replace(gateContinuePath(accountId, window.location.search));
     }

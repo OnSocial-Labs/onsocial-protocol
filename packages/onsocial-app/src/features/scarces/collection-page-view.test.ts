@@ -3,6 +3,7 @@ import {
   invalidateOwnedVaultCache,
   putOwnedVaultPage,
 } from '@/features/market/owned-vault-cache';
+import { APP_WALLET_ACCOUNT_KEY } from '@/lib/gate-return';
 import {
   collectionCatalogShell,
   collectionCoverExpandAction,
@@ -282,10 +283,10 @@ describe('collection page view', () => {
         },
       },
     });
-    window.localStorage.setItem('onsocial.app.wallet.accountId', 'alice.near');
+    window.localStorage.setItem(APP_WALLET_ACCOUNT_KEY, 'alice.near');
     expect(peekHoldsCollectionForDropPage(null, 'night-drive')).toBe(true);
     expect(peekHoldsCollectionForDropPage(null, 'chapter-one')).toBe(false);
-    window.localStorage.removeItem('onsocial.app.wallet.accountId');
+    window.localStorage.removeItem(APP_WALLET_ACCOUNT_KEY);
     vi.unstubAllGlobals();
     invalidateOwnedVaultCache('alice.near');
   });
