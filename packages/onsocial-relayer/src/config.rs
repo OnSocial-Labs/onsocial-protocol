@@ -83,6 +83,26 @@ pub struct Config {
         deserialize_with = "deserialize_allowed_contracts"
     )]
     pub allowed_contracts: Vec<String>,
+
+    /// SOCIAL NEP-141 account. Sponsored `ft_transfer_call` is only accepted
+    /// when the delegate receiver is this account.
+    #[serde(default = "defaults::token_contract_id")]
+    pub token_contract_id: String,
+
+    /// Boost account that a sponsored `ft_transfer_call` may name as
+    /// `receiver_id`. Not added to the mainnet allow-list until it has wasm.
+    #[serde(default = "defaults::boost_contract_id")]
+    pub boost_contract_id: String,
+
+    /// Per-user per-UTC-day prepaid gas budget for sponsored boost transfers,
+    /// in yoctoNEAR. Default is 0.01 NEAR.
+    #[serde(default = "defaults::boost_sponsor_daily_cap_yocto")]
+    pub boost_sponsor_daily_cap_yocto: String,
+
+    /// YoctoNEAR charged per gas unit when drawing the daily boost budget.
+    /// Default is the common minimum gas price, 10^8.
+    #[serde(default = "defaults::boost_sponsor_gas_price_yocto")]
+    pub boost_sponsor_gas_price_yocto: String,
 }
 
 impl Default for Config {
@@ -108,6 +128,10 @@ impl Default for Config {
             rewards_contract_id: defaults::rewards_contract_id(),
             social_spend_contract_id: defaults::social_spend_contract_id(),
             allowed_contracts: defaults::allowed_contracts(),
+            token_contract_id: defaults::token_contract_id(),
+            boost_contract_id: defaults::boost_contract_id(),
+            boost_sponsor_daily_cap_yocto: defaults::boost_sponsor_daily_cap_yocto(),
+            boost_sponsor_gas_price_yocto: defaults::boost_sponsor_gas_price_yocto(),
         }
     }
 }
@@ -368,14 +392,61 @@ mod defaults {
 
     pub(super) fn allowed_contracts_for_network(network: &str) -> Vec<String> {
         if network.contains("mainnet") {
+            // boost.onsocial.near has no wasm. Keep the token off this list
+            // until that account exists. See Resources/mainnet-golive.md.
             vec!["rewards.onsocial.near".into()]
         } else {
             vec![
                 "core.onsocial.testnet".into(),
                 "scarces.onsocial.testnet".into(),
                 "rewards.onsocial.testnet".into(),
+                "token.onsocial.testnet".into(),
             ]
         }
+    }
+
+    pub fn token_contract_id() -> String {
+        std::env::var("RELAYER_TOKEN_CONTRACT_ID")
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| token_contract_id_for_network(&network()))
+    }
+
+    pub(super) fn token_contract_id_for_network(network: &str) -> String {
+        if network.contains("mainnet") {
+            "token.onsocial.near".into()
+        } else {
+            "token.onsocial.testnet".into()
+        }
+    }
+
+    pub fn boost_contract_id() -> String {
+        std::env::var("RELAYER_BOOST_CONTRACT_ID")
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| boost_contract_id_for_network(&network()))
+    }
+
+    pub(super) fn boost_contract_id_for_network(network: &str) -> String {
+        if network.contains("mainnet") {
+            "boost.onsocial.near".into()
+        } else {
+            "boost.onsocial.testnet".into()
+        }
+    }
+
+    pub fn boost_sponsor_daily_cap_yocto() -> String {
+        std::env::var("RELAYER_BOOST_SPONSOR_DAILY_CAP_YOCTO")
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| crate::boost_sponsor::DEFAULT_DAILY_CAP_YOCTO.to_string())
+    }
+
+    pub fn boost_sponsor_gas_price_yocto() -> String {
+        std::env::var("RELAYER_BOOST_SPONSOR_GAS_PRICE_YOCTO")
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| crate::boost_sponsor::DEFAULT_GAS_PRICE_YOCTO.to_string())
     }
 }
 
@@ -461,6 +532,9 @@ mod tests {
         assert!(contracts
             .iter()
             .any(|contract| contract == "rewards.onsocial.testnet"));
+        assert!(contracts
+            .iter()
+            .any(|contract| contract == "token.onsocial.testnet"));
     }
 
     #[test]
@@ -479,6 +553,26 @@ mod tests {
         assert_eq!(
             defaults::rewards_contract_id_for_network("testnet"),
             "rewards.onsocial.testnet"
+        );
+    }
+
+    #[test]
+    fn default_token_and_boost_contracts_track_network() {
+        assert_eq!(
+            defaults::token_contract_id_for_network("mainnet"),
+            "token.onsocial.near"
+        );
+        assert_eq!(
+            defaults::token_contract_id_for_network("testnet"),
+            "token.onsocial.testnet"
+        );
+        assert_eq!(
+            defaults::boost_contract_id_for_network("mainnet"),
+            "boost.onsocial.near"
+        );
+        assert_eq!(
+            defaults::boost_contract_id_for_network("testnet"),
+            "boost.onsocial.testnet"
         );
     }
 

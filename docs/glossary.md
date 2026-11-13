@@ -14,12 +14,18 @@ The app’s social vocabulary. Check a new label against this file before it shi
 
 ## Labels touched with the page pill
 
-| Surface | Name | Notes |
-| --- | --- | --- |
-| Portfolio swipe-up pill | Open page | Opens the page drawer. Real button. `aria-haspopup="dialog"`. |
-| Page drawer close | Close page | Same noun. Not Close sheet, not Dismiss. |
-| Dock grip | Open launcher | The grip is the launcher, not the page. |
-| Own empty Writing shelf | Longer pieces live here. | Shown to the owner when they have no articles. |
-| Own empty Writing action | Write an article | Opens compose already in article mode. |
+| Surface                  | Name                     | Notes                                                         |
+| ------------------------ | ------------------------ | ------------------------------------------------------------- |
+| Portfolio swipe-up pill  | Open page                | Opens the page drawer. Real button. `aria-haspopup="dialog"`. |
+| Page drawer close        | Close page               | Same noun. Not Close sheet, not Dismiss.                      |
+| Dock grip                | Open launcher            | The grip is the launcher, not the page.                       |
+| Own empty Writing shelf  | Longer pieces live here. | Shown to the owner when they have no articles.                |
+| Own empty Writing action | Write an article         | Opens compose already in article mode.                        |
 
 Open page is the name of the pill. Do not rename it to Swipe up, Chevron, or Open portfolio.
+
+## Boost
+
+| Surface                                                         | Name                           | Notes                                                                                  |
+| --------------------------------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------- |
+| Boost sheet, after the free boost is used and the confirm fails | Today's free boost is used up. | The button stays Commit or Increase. Do not say gas, relayer, sponsor, or transaction. |

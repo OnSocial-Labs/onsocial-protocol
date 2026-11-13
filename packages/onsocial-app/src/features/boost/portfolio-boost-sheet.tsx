@@ -63,6 +63,7 @@ import {
 } from '@/features/scarces/commerce-sheet-footer';
 import { useCommerceSheetKeyboard } from '@/features/scarces/commerce-sheet-keyboard';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { sponsorBoostLock } from '@/lib/boost-sponsor';
 import { useSocialTokenIcon } from '@/hooks/use-social-token-icon';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import {
@@ -600,6 +601,11 @@ export function PortfolioBoostSheet({
     confirmingMessage: string;
     successMessage: string;
     failureMessage: string;
+    /** Sponsored SOCIAL lock. Other boost actions stay on the wallet. */
+    sponsor?: {
+      amountYocto: string;
+      months: BoostLockPeriod;
+    };
     /** Post-claim counter reset / collect celebration (collect / unlock). */
     freezeClaimable?: boolean;
     onConfirmed?: () => void | Promise<void>;
@@ -609,16 +615,39 @@ export function PortfolioBoostSheet({
     setSigningAction(input.action);
     setTxBusy(true);
     const freezeClaimable = Boolean(input.freezeClaimable);
+    let capHit = false;
     try {
-      const { accountId: signingAccountId, wallet } = await getClient();
-      const payment = await wallet.signAndSendTransaction({
-        network: ACTIVE_NEAR_NETWORK,
-        signerId: signingAccountId,
-        receiverId: input.receiverId,
-        actions: [
-          { type: 'FunctionCall' as const, params: input.functionCall },
-        ],
-      });
+      const { accountId: signingAccountId, wallet, client } = await getClient();
+      let payment: unknown;
+      if (input.sponsor) {
+        const attempt = await sponsorBoostLock({
+          client,
+          wallet,
+          accountId: signingAccountId,
+          amountYocto: input.sponsor.amountYocto,
+          months: input.sponsor.months,
+        });
+        if (attempt.kind === 'cancelled') return;
+        if (attempt.kind === 'reverted') {
+          setTxResult({ type: 'error', msg: input.failureMessage });
+          return;
+        }
+        if (attempt.kind === 'sponsored') {
+          payment = { transaction: { hash: attempt.txHash } };
+        } else {
+          capHit = attempt.cap;
+        }
+      }
+      if (!payment) {
+        payment = await wallet.signAndSendTransaction({
+          network: ACTIVE_NEAR_NETWORK,
+          signerId: signingAccountId,
+          receiverId: input.receiverId,
+          actions: [
+            { type: 'FunctionCall' as const, params: input.functionCall },
+          ],
+        });
+      }
       // Wallet returned — clear button dots so toast owns confirming.
       setSigningAction(null);
       const txHashes = extractNearTransactionHashes(payment);
@@ -662,7 +691,11 @@ export function PortfolioBoostSheet({
       if (!isWalletUserCancellation(cause)) {
         setTxResult({
           type: 'error',
-          msg: cause instanceof Error ? cause.message : input.failureMessage,
+          msg: capHit
+            ? txToastError.boostSponsorUsedUp
+            : cause instanceof Error
+              ? cause.message
+              : input.failureMessage,
         });
       }
     } finally {
@@ -698,6 +731,10 @@ export function PortfolioBoostSheet({
       confirmingMessage: txToastConfirming.committingBoost,
       successMessage: txToastSuccess.boostCommitted(normalizedAmount),
       failureMessage: txToastError.commitBoostFailed,
+      sponsor: {
+        amountYocto: amountYocto.toString(),
+        months,
+      },
       onConfirmed: async () => {
         setAmountInput('');
         setMode('collect');

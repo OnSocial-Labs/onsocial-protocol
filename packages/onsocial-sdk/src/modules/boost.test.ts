@@ -1,5 +1,25 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BoostModule } from './boost.js';
+import { Session } from '../advanced/session.js';
+import type { SessionKey } from '../advanced/session-key.js';
+import { OnSocialError } from '../internal/http.js';
+import {
+  BOOST_SPONSOR_DAILY_CAP,
+  BoostModule,
+  BoostSponsorDailyCapError,
+} from './boost.js';
+
+function tokenSession(): Session {
+  const key: SessionKey = {
+    publicKey: 'ed25519:11111111111111111111111111111111',
+    sign: async () => new Uint8Array(64),
+  };
+  return new Session({
+    network: 'testnet',
+    accountId: 'alice.testnet',
+    contract: 'token',
+    key,
+  });
+}
 
 describe('BoostModule.getStats', () => {
   it('GETs /data/boost-stats and returns the body verbatim', async () => {
@@ -139,5 +159,59 @@ describe('BoostModule.storageBalanceOf', () => {
     const boost = new BoostModule({ get } as never);
     const out = await boost.storageBalanceOf('alice.testnet');
     expect(out).toEqual(bal);
+  });
+});
+
+describe('BoostModule.commitLock', () => {
+  it('relays one ft_transfer_call aimed at the boost contract', async () => {
+    const get = vi.fn().mockResolvedValue({ block_height: 10 });
+    const post = vi.fn().mockResolvedValue({
+      success: true,
+      tx_hash: 'boost-tx',
+    });
+    const boost = new BoostModule({
+      network: 'testnet',
+      get,
+      post,
+    } as never);
+
+    const out = await boost.commitLock({
+      session: tokenSession(),
+      amountYocto: '1000000000000000000',
+      months: 12,
+    });
+
+    expect(out.txHash ?? (out as { tx_hash?: string }).tx_hash).toBe(
+      'boost-tx'
+    );
+    expect(get).toHaveBeenCalledWith('/relay/latest-block');
+    expect(post).toHaveBeenCalledTimes(1);
+    const [path, body] = post.mock.calls[0] as [
+      string,
+      { signed_delegate: string },
+    ];
+    expect(path).toBe('/relay/delegate?wait=true');
+    expect(typeof body.signed_delegate).toBe('string');
+    expect(body.signed_delegate.length).toBeGreaterThan(20);
+  });
+
+  it('turns the relayer daily-cap code into BoostSponsorDailyCapError', async () => {
+    const boost = new BoostModule({
+      network: 'testnet',
+      get: vi.fn().mockResolvedValue({ block_height: 10 }),
+      post: vi
+        .fn()
+        .mockRejectedValue(
+          new OnSocialError(429, { error: BOOST_SPONSOR_DAILY_CAP })
+        ),
+    } as never);
+
+    await expect(
+      boost.commitLock({
+        session: tokenSession(),
+        amountYocto: '1',
+        months: 1,
+      })
+    ).rejects.toBeInstanceOf(BoostSponsorDailyCapError);
   });
 });

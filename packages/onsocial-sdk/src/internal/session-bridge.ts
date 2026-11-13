@@ -369,6 +369,101 @@ function appendWait(url: string, wait: boolean): string {
   return url.includes('?') ? `${url}&wait=true` : `${url}?wait=true`;
 }
 
+const SPONSORED_FUNCTION_CALL_MAX_DEPOSIT_YOCTO = 1n;
+
+/**
+ * Sign one raw FunctionCall as a NEP-366 delegate and POST it to the gateway
+ * relayer. Used for sponsored SOCIAL `ft_transfer_call`, which is not an
+ * `execute` envelope. Deposit is limited to 0 or 1 yoctoNEAR. The 1 yocto
+ * confirmation is allowed on a function-call session key because the relayer
+ * rejects every other deposit for that method.
+ */
+export async function relaySignedFunctionCall(
+  http: HttpClient,
+  session: Session,
+  call: {
+    receiverId: string;
+    methodName: string;
+    argsJson: string;
+    gas: bigint | string;
+    depositYocto: bigint | string;
+    wait?: boolean;
+    latestBlockHeightProvider?: LatestBlockHeightProvider;
+    accessKeyNonceProvider?: AccessKeyNonceProvider;
+  }
+): Promise<RelayResponse> {
+  const deposit = normalizeDepositYocto(call.depositYocto);
+  if (deposit > SPONSORED_FUNCTION_CALL_MAX_DEPOSIT_YOCTO) {
+    throw new NeedsWalletConfirmationError(
+      `${call.methodName} requires an attached deposit of ${deposit.toString()} yoctoNEAR. ` +
+        `The OnSocial gateway relayer only accepts 0-deposit calls and 1 yoctoNEAR confirmation deposits.`,
+      'value_deposit_required'
+    );
+  }
+
+  return runSerializedSessionRelay(session, () =>
+    relaySignedFunctionCallOnce(http, session, call, deposit)
+  );
+}
+
+async function relaySignedFunctionCallOnce(
+  http: HttpClient,
+  session: Session,
+  call: {
+    receiverId: string;
+    methodName: string;
+    argsJson: string;
+    gas: bigint | string;
+    wait?: boolean;
+    latestBlockHeightProvider?: LatestBlockHeightProvider;
+    accessKeyNonceProvider?: AccessKeyNonceProvider;
+  },
+  deposit: bigint
+): Promise<RelayResponse> {
+  let retried = false;
+
+  while (true) {
+    try {
+      const latest = await getLatestBlockHeight(
+        http,
+        call.latestBlockHeightProvider
+      );
+      session.ensureNonceAboveAccessKeyFloor?.(latest);
+      const { base64, nonce } = await session.signDelegate(
+        [
+          {
+            type: 'FunctionCall',
+            methodName: call.methodName,
+            args: call.argsJson,
+            gas: call.gas,
+            deposit,
+          },
+        ],
+        {
+          receiverId: call.receiverId,
+          maxBlockHeight: latest + DELEGATE_BLOCK_TTL,
+        }
+      );
+      const result = await postSignedDelegate<RelayResponse>(http, base64, {
+        wait: call.wait,
+        broadcast: 'gateway',
+      });
+      await session.persistRelayNonce?.(nonce);
+      return result;
+    } catch (error) {
+      if (!retried && isDelegateNonceError(error)) {
+        retried = true;
+        await resyncSessionDelegateNonce(session, error, {
+          network: session.network,
+          accessKeyNonceProvider: call.accessKeyNonceProvider,
+        });
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
 function assertDelegateBroadcastSupported(
   session: Session,
   target: BroadcastTarget,

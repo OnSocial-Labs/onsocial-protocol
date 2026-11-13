@@ -11,6 +11,7 @@
 //! - `GET  /tx/:hash`   - Query TX status
 //! - `GET  /metrics`    - Prometheus metrics
 
+pub mod boost_sponsor;
 pub mod config;
 mod error;
 mod handlers;

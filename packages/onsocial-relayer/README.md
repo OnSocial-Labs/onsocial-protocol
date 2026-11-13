@@ -23,6 +23,7 @@ allowed_contracts = [
   "core.onsocial.testnet",
   "scarces.onsocial.testnet",
   "rewards.onsocial.testnet",
+  "token.onsocial.testnet",
 ]
 keys_path = "./account_keys/relayer.onsocial.testnet.json"
 bind_address = "0.0.0.0:3040"
@@ -38,6 +39,14 @@ export RELAYER_ALLOWED_CONTRACTS=core.onsocial.near,scarces.onsocial.near,reward
 `RELAYER_ALLOWED_CONTRACTS` is the canonical inner receiver allowlist. Every
 relayed `SignedDelegateAction` must set `delegate_action.receiver_id` to one of
 these contracts.
+
+On testnet the list includes `token.onsocial.testnet`. The only sponsored
+method on that account is `ft_transfer_call`, and only when the parsed
+`receiver_id` is `boost.onsocial.testnet`, the deposit is 1 yoctoNEAR, and
+the delegate holds one action. Each account can spend
+`RELAYER_BOOST_SPONSOR_DAILY_CAP_YOCTO` of prepaid gas per UTC day (default
+0.01 NEAR, priced by `RELAYER_BOOST_SPONSOR_GAS_PRICE_YOCTO`). Mainnet stays
+`rewards.onsocial.near` until boost has wasm.
 
 RPC resolution order:
 
