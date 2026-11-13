@@ -1020,8 +1020,8 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
    face enters from the card edge, not the browser gutter. */
 .protocol-face-pair {
   position: relative;
-  height: 100dvh;
-  max-height: 100dvh;
+  height: var(--portfolio-viewport-height, 100dvh);
+  max-height: var(--portfolio-viewport-height, 100dvh);
   overflow: hidden;
 }
 
@@ -5102,14 +5102,29 @@ a.os-surface-row,
   .portfolio-frame {
     position: relative;
     display: flex;
-    height: 100dvh;
-    max-height: 100dvh;
-    min-height: 100dvh;
+    /* Same bottom edge as the fixed dock. Fallback is dvh before the
+       viewport script publishes the visual bottom. */
+    height: var(--portfolio-viewport-height, 100dvh);
+    max-height: var(--portfolio-viewport-height, 100dvh);
+    min-height: var(--portfolio-viewport-height, 100dvh);
+    --portfolio-pill-footprint: calc(
+      var(--portfolio-face-clearance) + var(--portfolio-shelf-pull) +
+        var(--portfolio-shelf-meta-gap)
+    );
+    --portfolio-face-slot-size: calc(
+      var(--os-dock-height) + var(--os-dock-bottom-offset) +
+        env(safe-area-inset-bottom, 0px) + var(--portfolio-pill-footprint)
+    );
     flex-direction: column;
     isolation: isolate;
     /* Face is a locked card. The page drawer owns scrolling. */
     overflow: hidden;
     --portfolio-avatar-size: 5rem;
+    /* Floor for the hero band. The avatar's negative margin needs this much
+       room, so the circle is not pushed out of the frame when the band shrinks. */
+    --portfolio-hero-min: calc(
+      var(--portfolio-avatar-size) + var(--portfolio-identity-avatar-gap)
+    );
     /* Name sits just below the hero band; Card avatar straddles the dissolve seam. */
     --portfolio-face-name-gap: 0.65rem;
     --portfolio-content-start: calc(
@@ -5169,6 +5184,7 @@ a.os-surface-row,
     --portfolio-hero-height: min(48svh, 26rem);
     --portfolio-hero-dissolve: 22%;
     --portfolio-cover-content-lift: 2rem;
+    --portfolio-hero-min: var(--portfolio-cover-content-lift);
     --portfolio-content-start: calc(
       var(--portfolio-hero-height) + var(--portfolio-face-name-gap) -
         var(--portfolio-cover-content-lift)
@@ -7787,8 +7803,10 @@ a.os-surface-row,
     text-align: center;
   }
 
-  /* Clip lives on the stack so a tall face stops at the slot. The avatar's
-     negative margin stays inside this padding, so the top is not cut. */
+  /* The face does not scroll — the drawer does — and it does not clip.
+     The band is the hero inset. It keeps --portfolio-content-start when the
+     column has room, and shrinks toward --portfolio-hero-min when the pill
+     footprint leaves less, so the icons stay whole above the slot. */
   .portfolio-hero-stack {
     display: flex;
     flex: 1 1 auto;
@@ -7798,25 +7816,32 @@ a.os-surface-row,
     gap: var(--portfolio-hero-gap);
     width: 100%;
     min-height: 0;
-    overflow: hidden;
-    padding: var(--portfolio-content-start)
-      max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px)) 0
-      max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
-    transition: padding-top var(--mood-transition-duration)
+    overflow: visible;
+    padding: 0 max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px))
+      0 max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
+  }
+
+  .portfolio-hero-band {
+    flex: 0 1 var(--portfolio-content-start);
+    width: 100%;
+    min-height: var(--portfolio-hero-min);
+    max-height: var(--portfolio-content-start);
+    margin-bottom: calc(var(--portfolio-hero-gap) * -1);
+    transition: flex-basis var(--mood-transition-duration)
       var(--mood-transition-ease);
   }
 
-  /* Same shape as dock clearance, plus the pill footprint (height + gap +
-     ring) and the shelf pulls that hang the last line into that inset.
-     The slot is outside the clip, so nothing paints under the pill. */
+  .portfolio-hero-stack > :not(.portfolio-hero-band) {
+    flex-shrink: 0;
+  }
+
+  /* Outside the clip. Height is the dock chrome plus --portfolio-pill-footprint,
+     and the frame bottom is the dock's bottom, so the pill cannot drift
+     onto the links when the visual viewport lifts the fixed dock. */
   .portfolio-face-slot {
     flex: 0 0 auto;
     width: 100%;
-    height: calc(
-      var(--portfolio-dock-clearance) - var(--os-dock-clearance-gap) +
-        var(--portfolio-shelf-pull) + var(--portfolio-shelf-meta-gap) +
-        var(--portfolio-face-clearance)
-    );
+    height: var(--portfolio-face-slot-size);
   }
 
   /* Pages that hide the pill do not keep its slot. The route sets the
@@ -10731,6 +10756,41 @@ a.os-surface-row,
     line-height: 1;
     user-select: none;
     pointer-events: none;
+  }
+
+  /* Writing stays in the tree. Visitors do not see it until an article exists.
+     The owner attribute is set before paint, so this does not pop in. */
+  .portfolio-writing-slot {
+    display: contents;
+  }
+
+  html:not([data-portfolio-owner='1'])
+    .portfolio-writing-slot[data-articles='false'],
+  html:not([data-portfolio-owner='1'])
+    .portfolio-writing-slot[data-articles='unknown'] {
+    display: none;
+  }
+
+  html:not([data-portfolio-owner='1'])
+    .portfolio-depth-links[data-articles='false']:not(
+      :has(> .portfolio-about-link)
+    ),
+  html:not([data-portfolio-owner='1'])
+    .portfolio-depth-links[data-articles='unknown']:not(
+      :has(> .portfolio-about-link)
+    ) {
+    display: none;
+  }
+
+  html:not([data-portfolio-owner='1'])
+    .portfolio-about-closer:not(
+      :has(a.portfolio-about-link:not(.portfolio-writing-entry))
+    ):has(.portfolio-writing-slot[data-articles='false']),
+  html:not([data-portfolio-owner='1'])
+    .portfolio-about-closer:not(
+      :has(a.portfolio-about-link:not(.portfolio-writing-entry))
+    ):has(.portfolio-writing-slot[data-articles='unknown']) {
+    display: none;
   }
 
   .portfolio-about-link:hover,
@@ -15643,7 +15703,7 @@ a.os-surface-row,
   .portfolio-summon-dock {
     position: fixed;
     left: 50%;
-    bottom: 0;
+    bottom: var(--portfolio-dock-bottom, 0px);
     z-index: 40;
     display: flex;
     flex-direction: column;

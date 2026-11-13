@@ -124,7 +124,10 @@ export function PortfolioShell({
           </div>
 
           <div className="portfolio-hero portfolio-hero--strip-overlap">
-            <div className="portfolio-hero-stack">{children}</div>
+            <div className="portfolio-hero-stack">
+              <div className="portfolio-hero-band" aria-hidden />
+              {children}
+            </div>
             <div className="portfolio-face-slot" aria-hidden />
           </div>
         </div>

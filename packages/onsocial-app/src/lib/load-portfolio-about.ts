@@ -8,6 +8,7 @@ import type { ResolvedMood } from '@/lib/moods/types';
 import { fetchPublicPageData } from '@/lib/page-data';
 import { resolvePortfolioAboutBio } from '@/lib/profile-bio-face';
 import { displayName } from '@/lib/profile-display';
+import { fetchAuthorArticlePresence } from '@/lib/load-portfolio-writing';
 import { loadProfileShell } from '@/lib/profile-shell';
 import { resolveAccountId } from '@/lib/resolve-account';
 
@@ -29,11 +30,12 @@ export const loadPortfolioAboutForAccount = cache(
 
     const mood = resolvePortfolioMood(data.config);
     const shellPromise = loadProfileShell(accountId);
-    const [shell, daoContext] = await Promise.all([
+    const [shell, daoContext, articlePresence] = await Promise.all([
       shellPromise,
       shellPromise.then((profileShell) =>
         loadPortfolioHeroDaoContext(accountId, profileShell)
       ),
+      fetchAuthorArticlePresence(accountId),
     ]);
     const { entity: daoEntity, page: daoPage } = daoContext;
     const profileName = shell?.name ?? daoPage?.branding.name ?? null;
@@ -69,6 +71,7 @@ export const loadPortfolioAboutForAccount = cache(
         isDao: daoEntity.isDao,
         profileKind: shell?.kind ?? null,
         industry: shell?.industry ?? null,
+        articlePresence,
       },
     };
   }

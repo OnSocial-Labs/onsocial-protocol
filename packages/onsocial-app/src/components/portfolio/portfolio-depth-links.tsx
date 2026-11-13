@@ -1,46 +1,33 @@
 'use client';
 
-import { Fragment, type ReactNode } from 'react';
 import { PortfolioAboutLink } from '@/components/portfolio/portfolio-about-link';
-import {
-  PortfolioWritingAnchor,
-  useShowPortfolioWritingLink,
-} from '@/components/portfolio/portfolio-writing-link';
+import { PortfolioWritingAnchor } from '@/components/portfolio/portfolio-writing-link';
+import { writingArticlesAttr } from '@/lib/article-post-payload';
 
 /** Face depth doors — one quiet line: About · Writing. */
 export function PortfolioDepthLinks({
   accountId,
   showAbout = false,
+  articlePresence,
 }: {
   accountId: string;
   showAbout?: boolean;
+  /** Server window. Null while the article read is unknown. */
+  articlePresence: boolean | null;
 }) {
-  const showWriting = useShowPortfolioWritingLink(accountId);
-  const slots: Array<{ key: string; node: ReactNode }> = [];
-
-  if (showAbout) {
-    slots.push({
-      key: 'about',
-      node: <PortfolioAboutLink accountId={accountId} />,
-    });
-  }
-  if (showWriting) {
-    slots.push({
-      key: 'writing',
-      node: <PortfolioWritingAnchor accountId={accountId} />,
-    });
-  }
-
-  if (slots.length === 0) return null;
+  const articles = writingArticlesAttr(articlePresence);
 
   return (
-    <nav className="portfolio-depth-links" aria-label="More">
-      {slots.map((slot, index) => (
-        <Fragment key={slot.key}>
-          {index > 0 ? <DepthSep /> : null}
-          {slot.node}
-        </Fragment>
-      ))}
+    <nav
+      className="portfolio-depth-links"
+      data-articles={articles}
+      aria-label="More"
+    >
+      {showAbout ? <PortfolioAboutLink accountId={accountId} /> : null}
+      <span className="portfolio-writing-slot" data-articles={articles}>
+        {showAbout ? <DepthSep /> : null}
+        <PortfolioWritingAnchor accountId={accountId} />
+      </span>
     </nav>
   );
 }

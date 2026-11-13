@@ -28,6 +28,8 @@ export type PortfolioWritingPageData = {
   avatarUrl: string | null;
   mood: ResolvedMood;
   articles: PostRow[];
+  /** False when the article read failed. Do not treat that as zero articles. */
+  articlesKnown: boolean;
   coverHints: Record<string, WritingArticleCoverHint>;
   /** Next `feed.recent` offset. Null when this page was the last. */
   articleNextOffset: number | null;
@@ -66,13 +68,34 @@ export const fetchAccountArticles = cache(
   async (
     accountId: string,
     limit = WRITING_SHELF_FETCH_LIMIT
-  ): Promise<{ articles: PostRow[]; nextOffset: number | null }> => {
+  ): Promise<{
+    articles: PostRow[];
+    nextOffset: number | null;
+    /** False when the read failed. Empty is a real zero only when this is true. */
+    known: boolean;
+  }> => {
     try {
       const os = createServerOnSocialClient();
-      return await fetchAuthorArticleWindow(os, accountId, 0, limit);
+      const page = await fetchAuthorArticleWindow(os, accountId, 0, limit);
+      return { ...page, known: true };
     } catch {
-      return { articles: [], nextOffset: null };
+      return { articles: [], nextOffset: null, known: false };
     }
+  }
+);
+
+/**
+ * Whether this author's first shelf window has an article.
+ * Null when the read failed or a later page might still hold one.
+ * Same window as the shelf (`fetchAuthorArticleWindow`).
+ */
+export const fetchAuthorArticlePresence = cache(
+  async (accountId: string): Promise<boolean | null> => {
+    const page = await fetchAccountArticles(accountId);
+    if (!page.known) return null;
+    if (page.articles.length > 0) return true;
+    if (page.nextOffset != null) return null;
+    return false;
   }
 );
 
@@ -93,6 +116,7 @@ async function e2eWritingShelfChrome(
     avatarUrl: null,
     mood: resolvePortfolioMood({}),
     articles: [],
+    articlesKnown: true,
     coverHints: {},
     articleNextOffset: null,
   };
@@ -125,6 +149,7 @@ const loadPortfolioWritingChrome = cache(
       avatarUrl: shell?.avatarUrl ?? null,
       mood: resolvePortfolioMood(config),
       articles: [],
+      articlesKnown: false,
       coverHints: {},
       articleNextOffset: null,
     };
@@ -142,6 +167,7 @@ export const loadPortfolioWritingForAccount = cache(
     return {
       ...chrome,
       articles: feed.articles,
+      articlesKnown: feed.known,
       coverHints: {},
       articleNextOffset: feed.nextOffset,
     };
@@ -201,6 +227,7 @@ export async function loadPortfolioWritingArticlePage(
     return {
       ...chrome,
       articles,
+      articlesKnown: feed.known,
       coverHints,
       articleNextOffset: feed.nextOffset,
       post: null,
@@ -210,6 +237,7 @@ export async function loadPortfolioWritingArticlePage(
   return {
     ...chrome,
     articles,
+    articlesKnown: feed.known,
     coverHints,
     articleNextOffset: feed.nextOffset,
     post: article,

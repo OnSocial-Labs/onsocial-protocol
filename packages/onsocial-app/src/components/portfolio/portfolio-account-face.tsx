@@ -12,6 +12,7 @@ import {
   loadPortfolioFaceJobs,
   loadPortfolioFaceOffers,
 } from '@/lib/portfolio-face-facts';
+import { fetchAuthorArticlePresence } from '@/lib/load-portfolio-writing';
 import { PortfolioOwnerProfilePrompt } from '@/components/portfolio/portfolio-owner-profile-prompt';
 import { PortfolioEssayLeave } from '@/components/portfolio/portfolio-essay-leave';
 import { PortfolioDaoOrgChrome } from '@/components/portfolio/portfolio-dao-org-chrome';
@@ -49,13 +50,15 @@ export async function PortfolioAccountFace({
   honorDeepLinks?: boolean;
 }) {
   // Signals and offers share the shell wait so they cannot insert above links.
-  const [data, shell, signals, offers, profileRow] = await Promise.all([
-    fetchPublicPageData(accountId),
-    loadProfileShell(accountId),
-    fetchProfileSignals(accountId),
-    loadPortfolioFaceOffers(accountId),
-    loadProfileSearchRow(accountId),
-  ]);
+  const [data, shell, signals, offers, profileRow, articlePresence] =
+    await Promise.all([
+      fetchPublicPageData(accountId),
+      loadProfileShell(accountId),
+      fetchProfileSignals(accountId),
+      loadPortfolioFaceOffers(accountId),
+      loadProfileSearchRow(accountId),
+      fetchAuthorArticlePresence(accountId),
+    ]);
   if (!data) {
     if (strict) notFound();
     return <ProtocolFacePairFallback />;
@@ -170,6 +173,7 @@ export async function PortfolioAccountFace({
           incomingStandingCount={daoIncomingStanding}
           openJobs={openJobs}
           initialOffers={offers}
+          articlePresence={articlePresence}
         />
 
         {daoEntity.isDao ? null : (

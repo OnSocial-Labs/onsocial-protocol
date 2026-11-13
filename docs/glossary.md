@@ -19,5 +19,7 @@ The app’s social vocabulary. Check a new label against this file before it shi
 | Portfolio swipe-up pill | Open page | Opens the page drawer. Real button. `aria-haspopup="dialog"`. |
 | Page drawer close | Close page | Same noun. Not Close sheet, not Dismiss. |
 | Dock grip | Open launcher | The grip is the launcher, not the page. |
+| Own empty Writing shelf | Longer pieces live here. | Shown to the owner when they have no articles. |
+| Own empty Writing action | Write an article | Opens compose already in article mode. |
 
 Open page is the name of the pill. Do not rename it to Swipe up, Chevron, or Open portfolio.

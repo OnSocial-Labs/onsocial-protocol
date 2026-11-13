@@ -58,6 +58,8 @@ export type PortfolioAboutPanelProps = {
   profileKind?: ProfileKind | null;
   /** House sector — echoed under the About name for org / DAO. */
   industry?: string | null;
+  /** First Writing window. Null when that read failed. */
+  articlePresence?: boolean | null;
 };
 
 /**
@@ -78,6 +80,7 @@ export function PortfolioAboutPanel({
   isDao = false,
   profileKind = null,
   industry = null,
+  articlePresence = null,
 }: PortfolioAboutPanelProps) {
   const displayKind = resolveDisplayProfileKind(profileKind, isDao);
   const essayAlign = normalizeProfileAboutAlign(aboutAlign);
@@ -214,7 +217,10 @@ export function PortfolioAboutPanel({
       ) : null}
 
       <footer className="portfolio-about-closer">
-        <PortfolioWritingLink accountId={accountId} />
+        <PortfolioWritingLink
+          accountId={accountId}
+          articlePresence={articlePresence}
+        />
         {showWork ? <PortfolioAboutWorkLink accountId={accountId} /> : null}
       </footer>
 

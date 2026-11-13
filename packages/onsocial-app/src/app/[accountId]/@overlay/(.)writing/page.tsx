@@ -3,6 +3,7 @@ import { InterceptMisfireRecovery } from '@/components/overlay/intercept-misfire
 import { PortfolioWritingOverlay } from '@/components/portfolio/portfolio-writing-panel';
 import { loadPortfolioWritingPage } from '@/lib/load-portfolio-writing';
 import { isInterceptMisfireSegment } from '@/lib/resolve-account';
+import { visitorEmptyWritingRedirectScript } from '@/lib/writing-shelf-redirect';
 
 type WritingOverlayRouteProps = {
   params: Promise<{
@@ -21,6 +22,13 @@ export default async function WritingOverlayRoute({
 
   return (
     <OverlayInterceptRoot>
+      {page.articlesKnown && page.articles.length === 0 ? (
+        <script
+          dangerouslySetInnerHTML={{
+            __html: visitorEmptyWritingRedirectScript(page.accountId),
+          }}
+        />
+      ) : null}
       <PortfolioWritingOverlay
         mood={page.mood}
         accountId={page.accountId}

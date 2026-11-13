@@ -67,15 +67,23 @@ describe('portfolio page entry', () => {
     const heroStart = css.indexOf('.portfolio-hero {');
     const heroEnd = css.indexOf('.page-drawer-rail-tabs', heroStart);
     const hero = css.slice(heroStart, heroEnd);
-    expect(hero).toContain('var(--portfolio-face-clearance)');
-    expect(hero).toContain('var(--portfolio-dock-clearance)');
-    expect(hero).toContain('var(--os-dock-clearance-gap)');
-    expect(hero).toContain('var(--portfolio-shelf-pull)');
-    expect(hero).toContain('var(--portfolio-shelf-meta-gap)');
     expect(hero).toContain('.portfolio-face-slot');
+    expect(hero).toContain('var(--portfolio-face-slot-size)');
     expect(hero).toContain('.portfolio-frame:not(.is-portfolio-swipe)');
     expect(hero).toContain('--portfolio-face-clearance: 0px');
     expect(hero).not.toContain('--os-avatar-nav');
+    const frameStart = css.indexOf('--portfolio-pill-footprint:');
+    const frame = css.slice(frameStart, frameStart + 700);
+    expect(frameStart).toBeGreaterThan(0);
+    expect(frame).toContain('var(--portfolio-face-clearance)');
+    expect(frame).toContain('var(--portfolio-shelf-pull)');
+    expect(frame).toContain('var(--portfolio-shelf-meta-gap)');
+    expect(frame).toContain('--portfolio-face-slot-size:');
+    expect(frame).toContain('var(--os-dock-height)');
+    expect(frame).toContain('var(--os-dock-bottom-offset)');
+    expect(frame).toContain('env(safe-area-inset-bottom, 0px)');
+    expect(css).toContain('var(--portfolio-viewport-height, 100dvh)');
+    expect(css).toContain('bottom: var(--portfolio-dock-bottom, 0px)');
     const pillStart = css.indexOf(
       'button.portfolio-page-chevron.glass-sheet-icon-action {'
     );
