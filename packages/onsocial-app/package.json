@@ -53,6 +53,7 @@
     "eslint-config-next": "^16.3.4",
     "postcss": "^8.5.8",
     "prettier": "^3.6.2",
+    "sharp": "^0.35.3",
     "tailwindcss": "^4.2.1",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"

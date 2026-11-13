@@ -8,10 +8,17 @@ import {
   themeInitScript,
 } from '@/lib/theme-init';
 
-function runThemeScript(options: { stored?: string | null; light?: boolean }) {
+function runThemeScript(options: {
+  stored?: string | null;
+  light?: boolean;
+  installed?: boolean;
+  iosStandalone?: boolean;
+}) {
   const context = vm.createContext({
     stored: options.stored ?? null,
     light: Boolean(options.light),
+    installed: Boolean(options.installed),
+    iosStandalone: Boolean(options.iosStandalone),
     result: {
       theme: '',
       colorScheme: '',
@@ -62,10 +69,12 @@ function runThemeScript(options: { stored?: string | null; light?: boolean }) {
       }
     };
     var localStorage = { getItem: function () { return stored; } };
+    var navigator = { standalone: iosStandalone };
     var window = {
-      matchMedia: function () {
+      matchMedia: function (query) {
+        var standaloneQuery = String(query).indexOf('display-mode: standalone') !== -1;
         return {
-          matches: light,
+          matches: standaloneQuery ? installed : light,
           addEventListener: function () {}
         };
       }
@@ -121,6 +130,50 @@ describe('theme init script', () => {
         content: THEME_BAR_DARK,
         media: '(prefers-color-scheme: dark)',
       },
+    ]);
+  });
+
+  it('stays dark in a standalone install when nothing is stored', () => {
+    const painted = runThemeScript({
+      stored: null,
+      light: true,
+      installed: true,
+    });
+    expect(painted.theme).toBe('dark');
+    expect(painted.colorScheme).toBe('dark');
+    expect(painted.canvas).toContain(THEME_CANVAS_DARK);
+    expect(painted.metas.map((meta) => meta.content)).toEqual([
+      THEME_BAR_DARK,
+      THEME_BAR_DARK,
+    ]);
+  });
+
+  it('stays dark when iOS reports navigator.standalone and nothing is stored', () => {
+    const painted = runThemeScript({
+      stored: null,
+      light: true,
+      iosStandalone: true,
+    });
+    expect(painted.theme).toBe('dark');
+    expect(painted.canvas).toContain(THEME_CANVAS_DARK);
+    expect(painted.metas.map((meta) => meta.content)).toEqual([
+      THEME_BAR_DARK,
+      THEME_BAR_DARK,
+    ]);
+  });
+
+  it('keeps a stored light theme in a standalone install', () => {
+    const painted = runThemeScript({
+      stored: 'light',
+      light: true,
+      installed: true,
+    });
+    expect(painted.theme).toBe('light');
+    expect(painted.colorScheme).toBe('light');
+    expect(painted.canvas).toContain(THEME_CANVAS_LIGHT);
+    expect(painted.metas.map((meta) => meta.content)).toEqual([
+      THEME_BAR_LIGHT,
+      THEME_BAR_LIGHT,
     ]);
   });
 });

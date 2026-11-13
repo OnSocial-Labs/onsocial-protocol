@@ -1,10 +1,11 @@
 /* OnSocial app shell — installable PWA + Collectibles offline chrome + Web Push. */
-const CACHE_NAME = 'onsocial-app-shell-v3';
+const CACHE_NAME = 'onsocial-app-shell-v4';
 const PRECACHE = [
   '/',
   '/manifest.webmanifest',
   '/onsocial_icon_192.png',
   '/onsocial_icon_512.png',
+  '/onsocial_icon_maskable_192.png',
   '/onsocial_icon_maskable_512.png',
   '/apple-touch-icon.png',
   '/collectibles',

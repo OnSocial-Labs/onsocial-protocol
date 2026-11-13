@@ -8,6 +8,11 @@ export const THEME_BAR_DARK = '#0c0d10';
 export const THEME_CANVAS_LIGHT = '#ffffff';
 export const THEME_CANVAS_DARK = '#000000';
 
+/**
+ * Blocking first paint. A stored choice wins and locks the bar.
+ * Installed standalone with no stored choice stays dark so the splash and
+ * the first frame are both black. A browser tab still follows the system.
+ */
 export const themeInitScript = `(function(){
   if(document.documentElement.getAttribute('data-theme-boot')==='1') return;
   document.documentElement.setAttribute('data-theme-boot','1');
@@ -49,15 +54,28 @@ export const themeInitScript = `(function(){
     }catch(e){}
     return 'dark';
   }
+  function installed(){
+    try{
+      if(window.matchMedia('(display-mode: standalone)').matches) return true;
+    }catch(e){}
+    try{
+      if(navigator.standalone===true) return true;
+    }catch(e){}
+    return false;
+  }
+  function barLocked(){
+    return locked() || installed();
+  }
   function resolve(){
     try{
       var stored=localStorage.getItem(KEY);
       if(stored==='light'||stored==='dark') return stored;
     }catch(e){}
+    if(installed()) return 'dark';
     return fromMedia();
   }
   function syncBar(){
-    if(!locked()) return;
+    if(!barLocked()) return;
     var theme=document.documentElement.getAttribute('data-theme')==='light'?'light':'dark';
     var want=BAR[theme];
     var nodes=document.querySelectorAll('meta[name="theme-color"]');
@@ -66,10 +84,10 @@ export const themeInitScript = `(function(){
     }
   }
   try{
-    paint(resolve(), locked());
+    paint(resolve(), barLocked());
     var root=document.documentElement;
     new MutationObserver(function(){
-      paint(root.getAttribute('data-theme')==='light'?'light':'dark', locked());
+      paint(root.getAttribute('data-theme')==='light'?'light':'dark', barLocked());
       syncBar();
     }).observe(root,{attributes:true,attributeFilter:['data-theme']});
     if(document.head){
@@ -80,7 +98,7 @@ export const themeInitScript = `(function(){
     }
     try{
       window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', function(event){
-        if(locked()) return;
+        if(locked() || installed()) return;
         paint(event.matches?'light':'dark', false);
       });
     }catch(e){}
