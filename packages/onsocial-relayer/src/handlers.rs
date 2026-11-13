@@ -31,6 +31,30 @@ pub struct ExecuteParams {
     pub wait: bool,
 }
 
+const MAX_DELEGATE_INNER_DEPOSIT_YOCTO: u128 = 1;
+
+fn validate_delegate_inner_action(
+    action: &Action,
+    allowed_methods: &[String],
+) -> Result<(), String> {
+    let fc = match action {
+        Action::FunctionCall(fc) => fc.as_ref(),
+        _ => return Err("Only FunctionCall inner actions are allowed".to_string()),
+    };
+
+    if !allowed_methods.iter().any(|m| m == &fc.method_name) {
+        return Err(format!("Inner method not allowed: {}", fc.method_name));
+    }
+
+    if fc.deposit.as_yoctonear() > MAX_DELEGATE_INNER_DEPOSIT_YOCTO {
+        return Err(format!(
+            "Inner action deposit exceeds max {MAX_DELEGATE_INNER_DEPOSIT_YOCTO} yoctoNEAR"
+        ));
+    }
+
+    Ok(())
+}
+
 /// Readiness probe. 200 once pool has active keys.
 pub async fn ready(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     if !state.ready.load(Ordering::Relaxed)
@@ -270,28 +294,21 @@ pub async fn execute_delegate(
     // Sessions only submit allowlisted FunctionCalls. Permit the standard
     // 1-yocto confirmation deposit, but reject value-bearing deposits so a
     // stolen session key cannot be coerced into spending user funds through
-    // the relayer. A SOCIAL `ft_transfer_call` is narrower: one action,
-    // deposit of exactly 1 yocto, and a parsed receiver_id of the boost
-    // contract. That path also draws the per-user daily gas budget.
-    let inner_actions: Vec<Action> = signed_delegate
-        .delegate_action
-        .actions
-        .iter()
-        .cloned()
-        .map(Action::from)
-        .collect();
-    let policy = crate::boost_sponsor::SponsorPolicy {
-        token_contract_id: state.token_contract_id.clone(),
-        boost_contract_id: state.boost_contract_id.clone(),
-        allowed_methods: state.allowed_methods.clone(),
-    };
-    let sponsored = match crate::boost_sponsor::validate_delegate_actions(
-        &inner_receiver,
-        &inner_actions,
-        &policy,
-    ) {
-        Ok(sponsored) => sponsored,
-        Err(message) => {
+    // the relayer.
+    if signed_delegate.delegate_action.actions.is_empty() {
+        METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+        warn!(req_id = %req_id, "delegate has no inner actions");
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ExecuteResponse::err(
+                "Delegate must contain at least one action",
+                None,
+            )),
+        );
+    }
+    for nda in &signed_delegate.delegate_action.actions {
+        let action: Action = nda.clone().into();
+        if let Err(message) = validate_delegate_inner_action(&action, &state.allowed_methods) {
             METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
             warn!(
                 req_id = %req_id,
@@ -304,33 +321,7 @@ pub async fn execute_delegate(
                 Json(ExecuteResponse::err(message, None)),
             );
         }
-    };
-    let charged = if let Some(call) = sponsored {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|duration| duration.as_secs() as i64)
-            .unwrap_or(0);
-        match state
-            .boost_quota
-            .try_consume_at(&inner_sender, call.gas, now)
-        {
-            Ok(cost) => Some((cost, now)),
-            Err(message) => {
-                METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
-                warn!(
-                    req_id = %req_id,
-                    sender = %inner_sender,
-                    "boost sponsorship limit exceeded"
-                );
-                return (
-                    StatusCode::TOO_MANY_REQUESTS,
-                    Json(ExecuteResponse::err(message, None)),
-                );
-            }
-        }
-    } else {
-        None
-    };
+    }
 
     info!(
         req_id = %req_id,
@@ -348,9 +339,6 @@ pub async fn execute_delegate(
     {
         Ok(outcome) => outcome,
         Err(e) => {
-            if let Some((cost, now)) = charged {
-                state.boost_quota.release_at(&inner_sender, cost, now);
-            }
             METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
             let (status, public_error) = match &e {
                 Error::Config(_) => (
@@ -1021,11 +1009,7 @@ mod tests {
             deposit: NearToken::from_yoctonear(1),
         }));
 
-        assert!(crate::boost_sponsor::validate_ordinary_delegate_action(
-            &action,
-            &["execute".to_string()]
-        )
-        .is_ok());
+        assert!(validate_delegate_inner_action(&action, &["execute".to_string()]).is_ok());
     }
 
     #[test]
@@ -1038,10 +1022,7 @@ mod tests {
         }));
 
         assert_eq!(
-            crate::boost_sponsor::validate_ordinary_delegate_action(
-                &action,
-                &["execute".to_string()]
-            ),
+            validate_delegate_inner_action(&action, &["execute".to_string()]),
             Err("Inner action deposit exceeds max 1 yoctoNEAR".to_string())
         );
     }
@@ -1056,10 +1037,7 @@ mod tests {
         }));
 
         assert_eq!(
-            crate::boost_sponsor::validate_ordinary_delegate_action(
-                &action,
-                &["execute".to_string()]
-            ),
+            validate_delegate_inner_action(&action, &["execute".to_string()]),
             Err("Inner method not allowed: danger".to_string())
         );
     }

@@ -220,7 +220,7 @@ apply_network_config() {
 
   env_upsert "NEAR_NETWORK" "$NETWORK"
   env_upsert "RELAYER_ACCOUNT_ID" "relayer.${near_suffix}"
-  env_upsert "RELAYER_ALLOWED_CONTRACTS" "core.${near_suffix},scarces.${near_suffix},rewards.${near_suffix},token.${near_suffix}"
+  env_upsert "RELAYER_ALLOWED_CONTRACTS" "core.${near_suffix},scarces.${near_suffix},rewards.${near_suffix}"
   env_upsert "RELAYER_CONTRACT_ID" "core.${near_suffix}"
   env_upsert "SOCIAL_TOKEN_CONTRACT" "token.${near_suffix}"
   env_upsert "MARKETPLACE_CONTRACT" "marketplace.${near_suffix}"

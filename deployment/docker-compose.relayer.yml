@@ -11,7 +11,7 @@ services:
       RELAYER_INSTANCE_NAME: ${RELAYER_INSTANCE_NAME:-relayer}
       RELAYER_SIGNER_MODE: kms
       RELAYER_ACCOUNT_ID: ${RELAYER_ACCOUNT_ID:-relayer.onsocial.near}
-      RELAYER_ALLOWED_CONTRACTS: ${RELAYER_ALLOWED_CONTRACTS:-rewards.onsocial.near,token.onsocial.near}
+      RELAYER_ALLOWED_CONTRACTS: ${RELAYER_ALLOWED_CONTRACTS:-rewards.onsocial.near}
       RELAYER_API_KEY: ${RELAYER_API_KEY}
       GCP_KMS_PROJECT: ${GCP_KMS_PROJECT:-onsocial-protocol}
       GCP_KMS_LOCATION: ${GCP_KMS_LOCATION:-global}

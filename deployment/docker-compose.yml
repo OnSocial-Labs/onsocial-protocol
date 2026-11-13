@@ -333,7 +333,7 @@ services:
       RELAYER_SIGNER_MODE: kms
       RELAYER_INSTANCE_NAME: relayer-0
       RELAYER_ACCOUNT_ID: ${RELAYER_ACCOUNT_ID:-relayer.onsocial.testnet}
-      RELAYER_ALLOWED_CONTRACTS: ${RELAYER_ALLOWED_CONTRACTS:-core.onsocial.testnet,scarces.onsocial.testnet,rewards.onsocial.testnet,token.onsocial.testnet}
+      RELAYER_ALLOWED_CONTRACTS: ${RELAYER_ALLOWED_CONTRACTS:-core.onsocial.testnet,scarces.onsocial.testnet,rewards.onsocial.testnet}
       RELAYER_API_KEY: ${RELAYER_API_KEY}
       LAVA_API_KEY: ${LAVA_API_KEY:-}
       FASTNEAR_API_KEY: ${FASTNEAR_API_KEY:-}
