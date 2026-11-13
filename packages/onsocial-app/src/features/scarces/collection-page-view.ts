@@ -1,6 +1,7 @@
 import { peekOwnedVaultPage } from '@/features/market/owned-vault-cache';
 import { APP_DROPS_PATH, collectionPath } from '@/lib/app-routes';
 import { collectionIdFromTokenId } from '@/features/market/market-listings';
+import { APP_WALLET_ACCOUNT_KEY } from '@/lib/gate-return';
 import { portfolioCollectiblesPath } from '@/lib/overlay-routes';
 import type { CollectiblesNowPlayingSession } from '@/contexts/collectibles-now-playing-context';
 import type { CollectionView } from '@/features/scarces/collections-data';
@@ -157,9 +158,6 @@ export function peekHoldsCollection(
   if (!page) return false;
   return page.items.some((item) => itemCollectionId(item) === id);
 }
-
-/** Same key as app-wallet-context — seed hold before React wallet hydrates. */
-const APP_WALLET_ACCOUNT_KEY = 'onsocial.app.wallet.accountId';
 
 function peekStoredWalletAccountId(): string | null {
   if (typeof window === 'undefined') return null;

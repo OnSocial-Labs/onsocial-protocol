@@ -1,7 +1,7 @@
 import vm from 'node:vm';
 import { describe, expect, it } from 'vitest';
 import {
-  APP_WALLET_ACCOUNT_STORAGE_KEY,
+  APP_WALLET_ACCOUNT_KEY,
   gateReturnHref,
   gateReturnScript,
 } from '@/lib/gate-return';
@@ -31,7 +31,7 @@ function runReturn(options: {
     },
     localStorage: {
       getItem(key: string) {
-        if (key !== APP_WALLET_ACCOUNT_STORAGE_KEY) return null;
+        if (key !== APP_WALLET_ACCOUNT_KEY) return null;
         return options.stored ?? null;
       },
     },

@@ -1,11 +1,9 @@
 import { gateContinuePath } from '@/lib/overlay-routes';
 
-/** Same key as `app-wallet-context.tsx`. */
-export const APP_WALLET_ACCOUNT_STORAGE_KEY = 'onsocial.app.wallet.accountId';
+export const APP_WALLET_ACCOUNT_KEY = 'onsocial.app.wallet.accountId';
 
 const STORED_ACCOUNT_ID = /^[a-z0-9][a-z0-9._-]{1,63}$/;
 
-/** Path a stored account should open. Null when the id is not an account id. */
 export function gateReturnHref(
   accountId: string,
   search: string
@@ -15,7 +13,7 @@ export function gateReturnHref(
 }
 
 /**
- * Full load of `/` only. A stored account leaves before the gate paints.
+ * Full load of `/` only.
  * Client navigations still use the gate redirect.
  */
 export const gateReturnScript = `(function(){
@@ -23,7 +21,7 @@ export const gateReturnScript = `(function(){
   document.documentElement.setAttribute('data-gate-return','1');
   try{
     if(location.pathname!=='/') return;
-    var id=localStorage.getItem(${JSON.stringify(APP_WALLET_ACCOUNT_STORAGE_KEY)});
+    var id=localStorage.getItem(${JSON.stringify(APP_WALLET_ACCOUNT_KEY)});
     if(!id||!/^[a-z0-9][a-z0-9._-]{1,63}$/.test(id)) return;
     var sheet='';
     try{

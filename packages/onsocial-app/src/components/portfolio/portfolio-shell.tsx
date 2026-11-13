@@ -127,7 +127,6 @@ export function PortfolioShell({
   );
 }
 
-/** Shell frame while the account route is still loading. Same card, no second tree. */
 export function PortfolioShellPending({
   pageAccountId,
 }: {

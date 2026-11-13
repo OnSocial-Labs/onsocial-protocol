@@ -4562,7 +4562,6 @@ a.os-surface-row,
   }
 }
 
-/* Light desktop gutters. A white column on --bg disappears. */
 @media (min-width: 640px) {
   html[data-theme='light'],
   html[data-theme='light'] body {

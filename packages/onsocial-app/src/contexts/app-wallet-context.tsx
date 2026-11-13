@@ -41,8 +41,8 @@ import {
   readE2eMockSignerEnabled,
 } from '@/lib/e2e-mock-signer';
 import { readE2eWalletAccountId } from '@/lib/e2e-wallet-account';
+import { APP_WALLET_ACCOUNT_KEY } from '@/lib/gate-return';
 
-const APP_WALLET_ACCOUNT_KEY = 'onsocial.app.wallet.accountId';
 const WALLET_ACCOUNT_EVENT = 'onsocial:wallet-account';
 
 interface SigningWallet {

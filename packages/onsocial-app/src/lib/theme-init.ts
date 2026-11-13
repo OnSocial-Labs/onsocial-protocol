@@ -1,18 +1,13 @@
 /** Shared key for persisted OS theme (light / dark). */
 export const THEME_STORAGE_KEY = 'onsocial.theme';
 
-/**
- * Browser chrome. A `theme-color` meta cannot read a CSS variable.
- * Light matches `:root --bg`. Dark is the existing bar.
- */
+/** A `theme-color` meta cannot read a CSS variable. */
 export const THEME_BAR_LIGHT = '#ffffff';
 export const THEME_BAR_DARK = '#0c0d10';
 
-/** Canvas behind the column. Matches `:root --bg`. */
 export const THEME_CANVAS_LIGHT = '#ffffff';
 export const THEME_CANVAS_DARK = '#000000';
 
-/** Blocking pre-hydration script. Keep in sync with ThemeToggle. */
 export const themeInitScript = `(function(){
   if(document.documentElement.getAttribute('data-theme-boot')==='1') return;
   document.documentElement.setAttribute('data-theme-boot','1');
