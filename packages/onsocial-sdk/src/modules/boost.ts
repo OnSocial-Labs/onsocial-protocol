@@ -23,7 +23,7 @@ export const BOOST_LOCK_GAS = '80000000000000';
 export class BoostSponsorLimitError extends Error {
   readonly code = BOOST_SPONSOR_LIMIT;
   constructor() {
-    super('Could not commit SOCIAL.');
+    super(BOOST_SPONSOR_LIMIT);
     this.name = 'BoostSponsorLimitError';
   }
 }
