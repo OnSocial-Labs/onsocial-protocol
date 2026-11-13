@@ -1,83 +1,25 @@
 /*
- * Temporary viewport readout. Remove this file with the overlay before merge.
- * Sits above sheet bands so a phone can read it with a drawer open.
+ * Temporary readout. Remove this file with the overlay before merge.
+ * Top-left, above the sheet, no controls. Does not take taps.
  */
 .viewport-debug {
   position: fixed;
   z-index: 400;
   top: env(safe-area-inset-top, 0px);
-  left: 50%;
-  transform: translateX(-50%);
+  left: env(safe-area-inset-left, 0px);
   box-sizing: border-box;
-  width: min(100%, var(--os-column-width, 36rem));
-  max-height: min(38svh, 19.5rem);
-  overflow: auto;
+  width: auto;
+  max-width: min(100%, var(--os-column-width, 36rem));
   padding: var(--os-gutter, 0.75rem);
+  pointer-events: none;
   font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
-  font-size: var(--os-stamp-size, 0.75rem);
+  font-size: var(--os-title-size, 1.05rem);
+  font-weight: 600;
   color: rgb(var(--fg-rgb));
   background: var(--glass-surface-solid, rgb(var(--bg-rgb) / 0.96));
-  pointer-events: auto;
-}
-
-.viewport-debug-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--os-gutter, 0.75rem);
-  margin-bottom: var(--os-gutter, 0.75rem);
-}
-
-.viewport-debug-title {
-  margin: 0;
-  font-size: var(--os-stamp-size, 0.75rem);
-  font-weight: 600;
-}
-
-.viewport-debug-copy {
-  font: inherit;
-  font-size: var(--os-control-label-sm-size, 0.75rem);
-  color: rgb(var(--fg-rgb));
-  background: transparent;
-  border: 0;
-  padding: 0;
-  cursor: pointer;
 }
 
 .viewport-debug-readout {
   margin: 0;
-  white-space: pre-wrap;
-}
-
-.viewport-debug-probes {
-  position: absolute;
-  width: 0;
-  height: 0;
-  overflow: visible;
-  visibility: hidden;
-  pointer-events: none;
-}
-
-.viewport-debug-probes [data-probe='safe-top'] {
-  height: env(safe-area-inset-top, 0px);
-}
-
-.viewport-debug-probes [data-probe='safe-bottom'] {
-  height: env(safe-area-inset-bottom, 0px);
-}
-
-.viewport-debug-probes [data-probe='vh'] {
-  height: 100vh;
-}
-
-.viewport-debug-probes [data-probe='svh'] {
-  height: 100svh;
-}
-
-.viewport-debug-probes [data-probe='lvh'] {
-  height: 100lvh;
-}
-
-.viewport-debug-probes [data-probe='dvh'] {
-  height: 100dvh;
+  white-space: pre;
 }

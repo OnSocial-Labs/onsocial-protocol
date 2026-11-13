@@ -49,7 +49,7 @@ The readout that decides this is `measuredLift`, `visualViewport.offsetTop`, `vi
 
 ## 3. near idioms
 
-No wallet, account, contract, gas, or storage change. The readout is a temporary diagnostic. Its only new word is Copy, on that panel. No glossary term. The drawer’s own names are unchanged.
+No wallet, account, contract, gas, or storage change. The readout is a temporary diagnostic with no buttons. No glossary term. The drawer’s own names are unchanged.
 
 ## 4. side effects
 
@@ -69,7 +69,7 @@ Against `main` this branch is a readout and this brief. No production layout fil
 
 No fix. The cause cannot be confirmed from the code alone, so nothing speculative was left in `gate-viewport.ts`, `glass-sheet.css`, or the keyboard frame. The Location sheet with the keyboard up is the same: the candidates are listed above, and none of them is changed until a readout picks one. The keyboard-threshold and toolbar-token attempt is reverted, including its screenshots. The size of a fix was not the reason it was left out. A longer change would ship if the trace named one inset. It names the frame height, and then stops, because Brave’s reported heights are not in the source.
 
-The temporary readout lists `innerHeight`, `innerWidth`, `clientHeight`, visual viewport height / offsetTop / pageTop / scale, screen height and availHeight, device pixel ratio, safe-area top and bottom, `100vh` / `100svh` / `100lvh` / `100dvh`, standalone, a short user agent, Brave (`navigator.brave`, then `isBrave()` when it exists), `--portfolio-dock-bottom`, `--portfolio-viewport-height`, measured lift, keyboard lift, keyboard-open, and when a drawer is open the root, panel, footer, and dock boxes plus root and footer padding-bottom and the gap under the panel. Copy writes that snapshot as JSON.
+The temporary readout is always open. No toggle and no copy button. It sits at the top-left, takes no taps, and updates on resize, visual-viewport scroll, and page scroll. The lines are innerHeight, visualViewport height, offsetTop, measured lift, pin on or off (the sheet root’s inline `bottom: auto`), the sheet root bottom against the visual bottom, and `scrollY`.
 
 What would decide a later fix, from that JSON:
 

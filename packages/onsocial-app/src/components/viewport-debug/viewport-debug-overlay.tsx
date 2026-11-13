@@ -1,107 +1,45 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   resolveViewportDebug,
   VIEWPORT_DEBUG_STORAGE_KEY,
 } from './viewport-debug-flag';
 import './viewport-debug-overlay.css';
 
-type Box = {
-  top: number;
-  bottom: number;
-  height: number;
-  width: number;
-} | null;
-
 type ViewportDebugSnapshot = {
-  innerWidth: number;
   innerHeight: number;
-  clientHeight: number;
-  visualViewport: {
-    height: number | null;
-    offsetTop: number | null;
-    pageTop: number | null;
-    scale: number | null;
-  };
-  screenHeight: number;
-  availHeight: number;
-  devicePixelRatio: number;
-  safeAreaTop: number;
-  safeAreaBottom: number;
-  vh: number;
-  svh: number;
-  lvh: number;
-  dvh: number;
-  standalone: boolean;
-  userAgentShort: string;
-  userAgent: string;
-  brave: boolean;
-  portfolioDockBottom: string;
-  portfolioViewportHeight: string;
+  vvHeight: number | null;
+  offsetTop: number | null;
   measuredLift: number;
-  keyboardLift: string;
-  keyboardOpen: boolean;
-  portfolioFrame: Box;
-  drawerRoot: Box;
-  drawerPanel: Box;
-  drawerFooter: Box;
-  drawerRootPaddingBottom: string | null;
-  drawerFooterPaddingBottom: string | null;
-  dock: Box;
-  gapBelowDrawer: number | null;
+  pin: boolean;
+  rootBottom: number | null;
+  visualBottom: number | null;
+  scrollY: number;
 };
 
-function round(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
-function boxOf(node: Element | null): Box {
-  if (!(node instanceof HTMLElement)) return null;
-  const rect = node.getBoundingClientRect();
-  return {
-    top: round(rect.top),
-    bottom: round(rect.bottom),
-    height: round(rect.height),
-    width: round(rect.width),
-  };
-}
-
-function probeHeight(name: string): number {
-  const node = document.querySelector(`[data-probe='${name}']`);
-  return node instanceof HTMLElement ? round(node.offsetHeight) : 0;
-}
-
-function shortUserAgent(ua: string): string {
-  const platform = /Android/.test(ua)
-    ? 'Android'
-    : /iPhone|iPad/.test(ua)
-      ? 'iOS'
-      : 'desktop';
-  const token =
-    ua.match(/Brave\/[\d.]+/)?.[0] ??
-    ua.match(/Chrome\/[\d.]+/)?.[0] ??
-    ua.match(/Version\/[\d.]+/)?.[0] ??
-    'unknown';
-  return `${platform} ${token}`;
+function topSheetRoot(): HTMLElement | null {
+  const nodes = document.querySelectorAll('.glass-sheet-root.is-visible');
+  let best: HTMLElement | null = null;
+  let bestZ = -1;
+  for (let index = 0; index < nodes.length; index += 1) {
+    const node = nodes[index];
+    if (!(node instanceof HTMLElement)) continue;
+    const z = Number.parseInt(getComputedStyle(node).zIndex, 10);
+    const score = Number.isFinite(z) ? z : 0;
+    if (!best || score >= bestZ) {
+      best = node;
+      bestZ = score;
+    }
+  }
+  return best;
 }
 
 function readViewportDebug(): ViewportDebugSnapshot {
   const vv = window.visualViewport;
-  const rootStyle = getComputedStyle(document.documentElement);
-  const panel =
-    document.querySelector('.glass-sheet-panel.page-drawer-panel.is-open') ??
-    document.querySelector('.glass-sheet-root.is-visible .glass-sheet-panel');
-  const sheetRoot =
-    panel instanceof HTMLElement ? panel.closest('.glass-sheet-root') : null;
-  const footer =
-    sheetRoot?.querySelector('.os-sheet-footer, .glass-sheet-footer') ?? null;
-  const dock =
-    document.querySelector('.feed-session-front .portfolio-summon-dock') ??
-    document.querySelector('.portfolio-summon-dock');
-  const frame = document.querySelector('.portfolio-frame');
-  const panelBox = boxOf(panel);
+  const vvHeight = vv ? Math.round(vv.height) : null;
+  const offsetTop = vv ? Math.round(vv.offsetTop) : null;
   const measuredLift = Math.max(
     0,
     Math.round(
@@ -110,84 +48,36 @@ function readViewportDebug(): ViewportDebugSnapshot {
         (vv?.offsetTop ?? 0)
     )
   );
-  const keyboardLift =
-    (panel instanceof HTMLElement
-      ? getComputedStyle(panel).getPropertyValue('--os-keyboard-lift')
-      : rootStyle.getPropertyValue('--os-keyboard-lift')
-    ).trim() || '0px';
+  const root = topSheetRoot();
+  const rootBottom = root
+    ? Math.round(root.getBoundingClientRect().bottom)
+    : null;
+  const visualBottom =
+    vvHeight == null || offsetTop == null ? null : offsetTop + vvHeight;
+  const pin = root?.style.bottom === 'auto' && root.style.height !== '';
 
   return {
-    innerWidth: window.innerWidth,
     innerHeight: window.innerHeight,
-    clientHeight: document.documentElement.clientHeight,
-    visualViewport: {
-      height: vv ? round(vv.height) : null,
-      offsetTop: vv ? round(vv.offsetTop) : null,
-      pageTop: vv ? round(vv.pageTop) : null,
-      scale: vv ? round(vv.scale) : null,
-    },
-    screenHeight: window.screen.height,
-    availHeight: window.screen.availHeight,
-    devicePixelRatio: window.devicePixelRatio,
-    safeAreaTop: probeHeight('safe-top'),
-    safeAreaBottom: probeHeight('safe-bottom'),
-    vh: probeHeight('vh'),
-    svh: probeHeight('svh'),
-    lvh: probeHeight('lvh'),
-    dvh: probeHeight('dvh'),
-    standalone:
-      window.matchMedia('(display-mode: standalone)').matches ||
-      window.matchMedia('(display-mode: fullscreen)').matches,
-    userAgentShort: shortUserAgent(navigator.userAgent),
-    userAgent: navigator.userAgent,
-    brave: typeof navigator.brave !== 'undefined',
-    portfolioDockBottom: rootStyle
-      .getPropertyValue('--portfolio-dock-bottom')
-      .trim(),
-    portfolioViewportHeight: rootStyle
-      .getPropertyValue('--portfolio-viewport-height')
-      .trim(),
+    vvHeight,
+    offsetTop,
     measuredLift,
-    keyboardLift,
-    keyboardOpen: Boolean(document.querySelector('.is-keyboard-open')),
-    portfolioFrame: boxOf(frame),
-    drawerRoot: boxOf(sheetRoot),
-    drawerPanel: panelBox,
-    drawerFooter: boxOf(footer),
-    drawerRootPaddingBottom:
-      sheetRoot instanceof HTMLElement
-        ? getComputedStyle(sheetRoot).paddingBottom
-        : null,
-    drawerFooterPaddingBottom:
-      footer instanceof HTMLElement
-        ? getComputedStyle(footer).paddingBottom
-        : null,
-    dock: boxOf(dock),
-    gapBelowDrawer:
-      panelBox == null ? null : round(window.innerHeight - panelBox.bottom),
+    pin,
+    rootBottom,
+    visualBottom,
+    scrollY: Math.round(window.scrollY),
   };
 }
 
 function formatSnapshot(snapshot: ViewportDebugSnapshot): string {
-  const vv = snapshot.visualViewport;
-  const lines = [
-    `inner ${snapshot.innerWidth}×${snapshot.innerHeight} client ${snapshot.clientHeight}`,
-    `vv h ${vv.height} off ${vv.offsetTop} page ${vv.pageTop} scale ${vv.scale}`,
-    `screen ${snapshot.screenHeight} avail ${snapshot.availHeight} dpr ${snapshot.devicePixelRatio}`,
-    `safe ${snapshot.safeAreaTop} / ${snapshot.safeAreaBottom}`,
-    `vh ${snapshot.vh} svh ${snapshot.svh} lvh ${snapshot.lvh} dvh ${snapshot.dvh}`,
-    `standalone ${snapshot.standalone ? 'yes' : 'no'} ${snapshot.userAgentShort} brave ${snapshot.brave ? 'yes' : 'no'}`,
-    `frame ${snapshot.portfolioViewportHeight || 'unset'} dock ${snapshot.portfolioDockBottom || '0px'}`,
-    `lift ${snapshot.measuredLift} keyboard ${snapshot.keyboardLift} open ${snapshot.keyboardOpen ? 'yes' : 'no'}`,
-  ];
-  if (snapshot.drawerPanel) {
-    lines.push(
-      `drawer bottom ${snapshot.drawerPanel.bottom} h ${snapshot.drawerPanel.height} gap ${snapshot.gapBelowDrawer}`,
-      `root pad ${snapshot.drawerRootPaddingBottom} footer pad ${snapshot.drawerFooterPaddingBottom ?? 'none'}`
-    );
-    if (snapshot.dock) lines.push(`dock bottom ${snapshot.dock.bottom}`);
-  }
-  return lines.join('\n');
+  return [
+    `inner ${snapshot.innerHeight}`,
+    `vv ${snapshot.vvHeight ?? '—'}`,
+    `off ${snapshot.offsetTop ?? '—'}`,
+    `lift ${snapshot.measuredLift}`,
+    `pin ${snapshot.pin ? 'on' : 'off'}`,
+    `root ${snapshot.rootBottom ?? '—'} / keys ${snapshot.visualBottom ?? '—'}`,
+    `scroll ${snapshot.scrollY}`,
+  ].join('\n');
 }
 
 /** Temporary. Remove before merge. `?viewport-debug=1` persists for the tab. */
@@ -198,8 +88,6 @@ export function ViewportDebugOverlay() {
     return window.sessionStorage.getItem(VIEWPORT_DEBUG_STORAGE_KEY);
   });
   const [text, setText] = useState('');
-  const [snapshot, setSnapshot] = useState<ViewportDebugSnapshot | null>(null);
-  const [copied, setCopied] = useState(false);
   const resolved = resolveViewportDebug(flag, stored);
   if (resolved.persist === '1' && stored !== '1') {
     window.sessionStorage.setItem(VIEWPORT_DEBUG_STORAGE_KEY, '1');
@@ -210,17 +98,12 @@ export function ViewportDebugOverlay() {
   }
   const enabled = resolved.enabled;
 
-  const braveRef = useRef<boolean | null>(null);
-
   useEffect(() => {
     if (!enabled) return;
     let frame = 0;
     const publish = () => {
       frame = 0;
-      const next = readViewportDebug();
-      if (braveRef.current != null) next.brave = braveRef.current;
-      setSnapshot(next);
-      setText(formatSnapshot(next));
+      setText(formatSnapshot(readViewportDebug()));
     };
     const schedule = () => {
       if (frame) return;
@@ -229,6 +112,7 @@ export function ViewportDebugOverlay() {
     schedule();
     window.addEventListener('resize', schedule);
     window.addEventListener('orientationchange', schedule);
+    window.addEventListener('scroll', schedule, true);
     window.visualViewport?.addEventListener('resize', schedule);
     window.visualViewport?.addEventListener('scroll', schedule);
     const observer = new MutationObserver((records) => {
@@ -248,59 +132,22 @@ export function ViewportDebugOverlay() {
       attributes: true,
       attributeFilter: ['class', 'style'],
     });
-    const braveApi = navigator.brave;
-    if (braveApi && typeof braveApi.isBrave === 'function') {
-      void braveApi.isBrave().then((isBrave) => {
-        braveRef.current = isBrave;
-        schedule();
-      });
-    }
     return () => {
       window.cancelAnimationFrame(frame);
       window.removeEventListener('resize', schedule);
       window.removeEventListener('orientationchange', schedule);
+      window.removeEventListener('scroll', schedule, true);
       window.visualViewport?.removeEventListener('resize', schedule);
       window.visualViewport?.removeEventListener('scroll', schedule);
       observer.disconnect();
     };
   }, [enabled]);
 
-  const copy = () => {
-    if (!snapshot) return;
-    const write = navigator.clipboard?.writeText(
-      JSON.stringify(snapshot, null, 2)
-    );
-    void write?.then(() => {
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1200);
-    });
-  };
-
   if (!enabled) return null;
 
   return (
     <aside className="viewport-debug" data-viewport-debug="on">
-      <div className="viewport-debug-probes" aria-hidden>
-        <div data-probe="safe-top" />
-        <div data-probe="safe-bottom" />
-        <div data-probe="vh" />
-        <div data-probe="svh" />
-        <div data-probe="lvh" />
-        <div data-probe="dvh" />
-      </div>
-      <div className="viewport-debug-bar">
-        <p className="viewport-debug-title">Viewport debug · temporary</p>
-        <button type="button" className="viewport-debug-copy" onClick={copy}>
-          {copied ? 'Copied' : 'Copy'}
-        </button>
-      </div>
       <pre className="viewport-debug-readout">{text}</pre>
     </aside>
   );
-}
-
-declare global {
-  interface Navigator {
-    brave?: { isBrave?: () => Promise<boolean> };
-  }
 }
