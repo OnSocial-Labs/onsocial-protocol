@@ -55,6 +55,8 @@ case "$NETWORK" in
     ;;
 esac
 
+RELAYER_ALLOWED_CONTRACTS="core.${NEAR_SUFFIX},scarces.${NEAR_SUFFIX},rewards.${NEAR_SUFFIX},token.${NEAR_SUFFIX}"
+
 echo -e "${YELLOW}⚠️  This generates a LOCAL preview. Production deploys pull secrets on the server.${NC}"
 echo ""
 
@@ -87,7 +89,7 @@ cat > "$OUTPUT_FILE" << EOF
 # --- Network config (derived from NETWORK=${NETWORK}) ---
 NEAR_NETWORK=${NETWORK}
 RELAYER_ACCOUNT_ID=relayer.${NEAR_SUFFIX}
-RELAYER_ALLOWED_CONTRACTS=core.${NEAR_SUFFIX},scarces.${NEAR_SUFFIX},rewards.${NEAR_SUFFIX}
+RELAYER_ALLOWED_CONTRACTS=${RELAYER_ALLOWED_CONTRACTS}
 SOCIAL_TOKEN_CONTRACT=token.${NEAR_SUFFIX}
 MARKETPLACE_CONTRACT=marketplace.${NEAR_SUFFIX}
 GCP_KMS_KEYRING_0=${KMS_KEYRING_0}

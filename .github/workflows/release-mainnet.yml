@@ -62,7 +62,7 @@ on:
       allowed_contracts:
         description: 'Comma-separated mainnet allowlist when promote_relayers=true'
         required: true
-        default: 'rewards.onsocial.near'
+        default: 'rewards.onsocial.near,token.onsocial.near'
       app_host:
         description: 'Optional override for mainnet app host/IP'
         required: false

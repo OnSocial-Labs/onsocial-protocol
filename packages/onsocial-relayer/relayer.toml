@@ -9,4 +9,9 @@ gas_tgas = 100
 # rpc_url — RELAYER_RPC_URL env var, then keyed Lava from LAVA_API_KEY, then FastNEAR
 # fallback_rpc_url — RELAYER_FALLBACK_RPC_URL env var, otherwise FastNEAR
 # allowed_contracts — RELAYER_ALLOWED_CONTRACTS env var; canonical contract allowlist
+# token_contract_id — RELAYER_TOKEN_CONTRACT_ID; SOCIAL token for sponsored ft_transfer_call
+# boost_contract_id — RELAYER_BOOST_CONTRACT_ID; only legal receiver_id on that call
+# boost_sponsor_hourly_limit — RELAYER_BOOST_SPONSOR_HOURLY_LIMIT (default 6)
+# boost_sponsor_daily_spend_yocto — RELAYER_BOOST_SPONSOR_DAILY_SPEND_YOCTO (default 1 NEAR)
+# boost_sponsor_gas_price_yocto — RELAYER_BOOST_SPONSOR_GAS_PRICE_YOCTO (default 100000000)
 # signer_mode — RELAYER_SIGNER_MODE ("kms" or "local")

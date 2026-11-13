@@ -21,7 +21,7 @@ Snapshot date: **2026-09-05** (official `rpc.mainnet.near.org`). Update the chec
 
 SDK / portal / backend already hardcode the missing mainnet IDs (`core.onsocial.near`, `scarces.onsocial.near`, …). Those names are reservations in code, not proof the contracts exist.
 
-Relayer default allowlist on mainnet is **`rewards.onsocial.near` only**. That is correct today.
+Relayer default allowlist on mainnet is **`rewards.onsocial.near` and `token.onsocial.near`**. The token entry is only for a single sponsored `ft_transfer_call` whose parsed receiver is `boost.onsocial.near`. That boost account still has no wasm, so the call fails on chain until boost is deployed. The relayer-wide daily spend cap bounds the gas.
 
 ## Inventory
 
@@ -82,7 +82,7 @@ Do this on the three live contracts before deploying anything else.
 1. **Treasury policy.** Remove or narrow `Everyone:AddProposal` before the DAO is public. 1 NEAR is cheap grief. Testnet template: [`deployment/governance-dao/treasury.remove-everyone-role.testnet.proposal.json`](../deployment/governance-dao/treasury.remove-everyone-role.testnet.proposal.json). Mainnet copy is not filed yet — write one when tightening, do not improvise from memory.
 2. **Ownership.** `token` and `rewards` stay owned by `onsocial.near` until a written proposal moves them to treasury or governance. Do not transfer as a side effect of the next deploy.
 3. **Keys.** Inventory FullAccess on `onsocial.near`, the 113 relayer keys, and the single FullAccess key on `rewards` and `treasury` (upgrade path). Token has zero keys — keep it that way.
-4. **Allowlist.** Relayer stays `rewards.onsocial.near` only. Do not allowlist a name that has no wasm.
+4. **Allowlist.** Rewards stays. `token.onsocial.near` is allowlisted for sponsored boost transfers only. Do not allowlist any other name that has no wasm. `boost.onsocial.near` is still missing.
 5. **Circulation.** The ~250k SOCIAL already outside the vaults is out. Do not assume a clean mint.
 
 ## Do not
@@ -110,7 +110,7 @@ Same order as testnet. One contract at a time. Allowlist and index only after wa
 9. Start the mainnet indexer from the **core genesis block**, not from “now.”
 10. Transfer token / rewards / core ownership to treasury or governance only with a filed proposal after the stack is live.
 
-Contract deploy entrypoint: [`Resources/deployment-guide.md`](deployment-guide.md) (`make deploy-contract-<name> NETWORK=mainnet`). DAO / staking helpers: [`scripts/deploy-sputnik-dao-staking.mjs`](../scripts/deploy-sputnik-dao-staking.mjs). Mainnet release workflow default allowlist is still `rewards.onsocial.near` ([`.github/workflows/release-mainnet.yml`](../.github/workflows/release-mainnet.yml)).
+Contract deploy entrypoint: [`Resources/deployment-guide.md`](deployment-guide.md) (`make deploy-contract-<name> NETWORK=mainnet`). DAO / staking helpers: [`scripts/deploy-sputnik-dao-staking.mjs`](../scripts/deploy-sputnik-dao-staking.mjs). Mainnet release workflow default allowlist is `rewards.onsocial.near,token.onsocial.near` ([`.github/workflows/release-mainnet.yml`](../.github/workflows/release-mainnet.yml)).
 
 ## Graph flip (build before public traffic)
 

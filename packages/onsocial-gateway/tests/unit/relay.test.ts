@@ -175,6 +175,28 @@ describe('POST /relay/delegate', () => {
     expect(body.options).toEqual({ topup_yocto: '100' });
   });
 
+  it('forwards a boost sponsorship limit unchanged', async () => {
+    mockFetch.mockResolvedValueOnce({
+      status: 429,
+      json: async () => ({
+        success: false,
+        error: 'BOOST_SPONSOR_LIMIT',
+      }),
+    });
+    const token = makeToken('alice.testnet');
+
+    const res = await request(createApp())
+      .post('/relay/delegate?wait=true')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ signed_delegate: 'AAAA' });
+
+    expect(res.status).toBe(429);
+    expect(res.body).toEqual({
+      success: false,
+      error: 'BOOST_SPONSOR_LIMIT',
+    });
+  });
+
   it('returns 502 when relayer is unreachable', async () => {
     relayFailure();
     const token = makeToken('alice.testnet');

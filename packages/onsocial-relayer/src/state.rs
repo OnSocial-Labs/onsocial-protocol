@@ -1,5 +1,6 @@
 //! Shared application state initialization.
 
+use crate::boost_sponsor::SponsorQuota;
 use crate::config::{Config, SignerMode};
 use crate::key_pool::{bootstrap_pool_from_chain, KeyPool, PoolConfig};
 use crate::key_store::KeyStore;
@@ -19,6 +20,13 @@ pub struct AppState {
     pub allowed_contracts: Vec<near_primitives::types::AccountId>,
     /// Inner FunctionCall methods accepted on `/execute_delegate` delegates.
     pub allowed_methods: Vec<String>,
+    /// SOCIAL token. Sponsored `ft_transfer_call` is only valid when the
+    /// delegate receiver is this account.
+    pub token_contract_id: near_primitives::types::AccountId,
+    /// Boost contract that a sponsored transfer may name as `receiver_id`.
+    pub boost_contract_id: near_primitives::types::AccountId,
+    /// Hourly account count and fleet daily spend for sponsored boosts.
+    pub boost_quota: SponsorQuota,
     pub start_time: Instant,
     pub request_count: AtomicU64,
     /// `/ready` returns 503 until the delegate signer pool reaches its target size.
@@ -69,6 +77,33 @@ impl AppState {
             ));
         }
         info!(methods = ?allowed_methods, "Allowed inner methods");
+
+        let token_contract_id =
+            parse_account_id("RELAYER_TOKEN_CONTRACT_ID", &config.token_contract_id)?;
+        let boost_contract_id =
+            parse_account_id("RELAYER_BOOST_CONTRACT_ID", &config.boost_contract_id)?;
+        let daily_spend_yocto = parse_yocto(
+            "RELAYER_BOOST_SPONSOR_DAILY_SPEND_YOCTO",
+            &config.boost_sponsor_daily_spend_yocto,
+        )?;
+        let gas_price_yocto = parse_yocto(
+            "RELAYER_BOOST_SPONSOR_GAS_PRICE_YOCTO",
+            &config.boost_sponsor_gas_price_yocto,
+        )?;
+        if config.boost_sponsor_hourly_limit == 0 || daily_spend_yocto == 0 || gas_price_yocto == 0
+        {
+            return Err(crate::Error::Config(
+                "Boost sponsor hourly limit, daily spend, and gas price must be positive".into(),
+            ));
+        }
+        info!(
+            token = %token_contract_id,
+            boost = %boost_contract_id,
+            hourly_limit = config.boost_sponsor_hourly_limit,
+            daily_spend_yocto = %daily_spend_yocto,
+            gas_price_yocto = %gas_price_yocto,
+            "Boost sponsorship limits"
+        );
 
         let delegate_target = config.delegate_pool_size.max(1) as usize;
         let key_pool = match config.signer_mode {
@@ -146,6 +181,13 @@ impl AppState {
             rpc,
             allowed_contracts,
             allowed_methods,
+            token_contract_id,
+            boost_contract_id,
+            boost_quota: SponsorQuota::new(
+                config.boost_sponsor_hourly_limit,
+                daily_spend_yocto,
+                gas_price_yocto,
+            ),
             config,
             key_pool,
             start_time: Instant::now(),
@@ -155,6 +197,24 @@ impl AppState {
             kms_client,
         })
     }
+}
+
+fn parse_account_id(
+    label: &str,
+    value: &str,
+) -> Result<near_primitives::types::AccountId, crate::Error> {
+    value
+        .trim()
+        .parse()
+        .map_err(|error| crate::Error::Config(format!("Invalid {label} `{value}`: {error}")))
+}
+
+fn parse_yocto(label: &str, value: &str) -> Result<u128, crate::Error> {
+    value.trim().parse::<u128>().map_err(|_| {
+        crate::Error::Config(format!(
+            "{label} must be a decimal yocto amount, got `{value}`"
+        ))
+    })
 }
 
 async fn bootstrap_local_pool(

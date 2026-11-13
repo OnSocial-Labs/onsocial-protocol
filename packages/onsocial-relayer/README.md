@@ -23,6 +23,7 @@ allowed_contracts = [
   "core.onsocial.testnet",
   "scarces.onsocial.testnet",
   "rewards.onsocial.testnet",
+  "token.onsocial.testnet",
 ]
 keys_path = "./account_keys/relayer.onsocial.testnet.json"
 bind_address = "0.0.0.0:3040"
@@ -32,12 +33,21 @@ gas_tgas = 100
 Environment variables use `RELAYER_` prefix:
 ```bash
 export LAVA_API_KEY=your-lava-key
-export RELAYER_ALLOWED_CONTRACTS=core.onsocial.near,scarces.onsocial.near,rewards.onsocial.near
+export RELAYER_ALLOWED_CONTRACTS=rewards.onsocial.near,token.onsocial.near
 ```
 
 `RELAYER_ALLOWED_CONTRACTS` is the canonical inner receiver allowlist. Every
 relayed `SignedDelegateAction` must set `delegate_action.receiver_id` to one of
 these contracts.
+
+Testnet and mainnet allow-lists include the SOCIAL token (`token.onsocial.testnet`
+or `token.onsocial.near`). The only sponsored method on that account is
+`ft_transfer_call`, and only when the parsed `receiver_id` is the boost
+contract, the deposit is 1 yoctoNEAR, and the delegate holds one action.
+Each account may take `RELAYER_BOOST_SPONSOR_HOURLY_LIMIT` sponsored boosts
+per hour (default 6). The relayer may prepay
+`RELAYER_BOOST_SPONSOR_DAILY_SPEND_YOCTO` per UTC day (default 1 NEAR), priced
+by `RELAYER_BOOST_SPONSOR_GAS_PRICE_YOCTO`.
 
 RPC resolution order:
 
