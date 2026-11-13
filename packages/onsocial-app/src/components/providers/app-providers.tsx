@@ -121,6 +121,8 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                                                     <WalletSheetDeepLink />
                                                     <BoostSheetDeepLink />
                                                     <RallySheetDeepLink />
+                                                  </Suspense>
+                                                  <Suspense fallback={null}>
                                                     <ViewportDebugOverlay />
                                                   </Suspense>
                                                   <AppAccountSheetHost />
