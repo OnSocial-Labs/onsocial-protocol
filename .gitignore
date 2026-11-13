@@ -139,8 +139,9 @@ examples/
 !Resources/deployment-guide.md
 !Resources/mainnet-golive.md
 
-# Keep shipped briefs (the rest of *.md stays ignored)
+# Keep shipped briefs and the social glossary (the rest of *.md stays ignored)
 !docs/briefs/*.md
+!docs/glossary.md
 
 # Ignore contract internal docs
 contracts/**/*.md

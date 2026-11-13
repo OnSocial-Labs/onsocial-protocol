@@ -29,7 +29,6 @@ import { usePageContentDrawer } from '@/contexts/page-content-drawer-context';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
 import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
-import { useChevronFaceClearance } from '@/hooks/use-chevron-face-clearance';
 import { useSummonDockOccupiedHeight } from '@/hooks/use-summon-dock-occupied-height';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { accountIdsEqual } from '@/lib/account-match';
@@ -48,7 +47,6 @@ const SWIPE_UP_PX = 28;
 export interface PortfolioSummonDockProps {
   pageAccountId: string;
 }
-
 
 /**
  * One fixed launcher pill for the portfolio — overlays the face and the page
@@ -71,7 +69,6 @@ export function PortfolioSummonDock({
   const writePinned = useWriteDockPinned();
   const writeMorph = useWriteDockMorph();
   const write = compose?.type === 'write' ? compose.entry : null;
-  useChevronFaceClearance(dockRef, !write);
   const registeredDockBack = useDockBack();
   const { leaveHref: faceLeaveHref, consumeLeave } = useOsFaceLeave();
   const router = useRouter();
