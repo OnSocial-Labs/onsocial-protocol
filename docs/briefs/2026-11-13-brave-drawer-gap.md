@@ -40,7 +40,7 @@ No wallet, account, contract, gas, or storage change. The readout is a temporary
 
 ## 4. side effects
 
-No layout rule changes. Chrome, Safari, Samsung, and the installed app keep the frame and the dock they have now. `?viewport-debug=1` shows a fixed readout at the top of the screen and stores the choice in `sessionStorage` for the tab. `?viewport-debug=0` clears it. The panel uses the stamp size, the gutter, the column width, and the solid glass fill. It does not move the drawer.
+No layout rule changes. Chrome, Safari, Samsung, and the installed app keep the frame and the dock they have now. `?viewport-debug=1` shows a fixed readout at the top of the screen and stores the choice in `sessionStorage` for the tab. It is a static import in its own Suspense boundary, so the face and the deep links do not wait on it. `?viewport-debug=0` clears it. The panel uses the stamp size, the gutter, the column width, and the solid glass fill. It does not move the drawer.
 
 Temporary, remove before merge:
 
