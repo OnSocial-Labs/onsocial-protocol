@@ -29,4 +29,7 @@ Open page is the name of the pill. Do not rename it to Swipe up, Chevron, or Ope
 | Surface | Name | Notes |
 | --- | --- | --- |
 | Device key | App access | Lets this device post and message without signing every action. |
+| Wallet drawer, missing | Allow app access | Title. Button: Allow access. |
+| Wallet drawer, expired | Renew app access | Title. Button: Renew access. |
+| Wallet drawer body | So you can post and message without signing every action. | Same line for missing and expired. |
 | Allow or Renew failure | Couldn't add app access. Try again in a moment. | Toast. No gas, chain, or contract words. |

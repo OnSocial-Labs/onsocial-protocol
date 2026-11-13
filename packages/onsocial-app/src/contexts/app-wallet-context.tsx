@@ -22,6 +22,7 @@ import {
   renewAppSocialSession,
   resolveAppSessionPlan,
   restoreAppSocialSession,
+  type AppSocialSessionLifecycle,
 } from '@/lib/app-social-session';
 import {
   resolveAppConnectRoute,
@@ -60,6 +61,10 @@ interface AppWalletContextType {
   isConnected: boolean;
   isLoading: boolean;
   hasSocialSession: boolean;
+  /** False until the local session check for the current account has finished. */
+  socialSessionSettled: boolean;
+  /** Null until that check finishes, and when nobody is signed in. */
+  socialSessionLifecycle: AppSocialSessionLifecycle | null;
   isBootstrappingSession: boolean;
   /** Session setup card. One toast, shared with transaction feedback. */
   sessionFeedback: TransactionFeedback | null;
@@ -183,6 +188,8 @@ const AppWalletContext = createContext<AppWalletContextType>({
   isConnected: false,
   isLoading: true,
   hasSocialSession: false,
+  socialSessionSettled: false,
+  socialSessionLifecycle: null,
   isBootstrappingSession: false,
   sessionFeedback: null,
   clearSessionFeedback: () => {},
@@ -214,6 +221,9 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     liveAccountId === undefined ? storedAccountId : liveAccountId;
   const [isLoading, setIsLoading] = useState(true);
   const [hasSocialSession, setHasSocialSession] = useState(false);
+  const [socialSessionSettled, setSocialSessionSettled] = useState(false);
+  const [socialSessionLifecycle, setSocialSessionLifecycle] =
+    useState<AppSocialSessionLifecycle | null>(null);
   const [isBootstrappingSession, setIsBootstrappingSession] = useState(false);
   const [sessionFeedback, setSessionFeedback] =
     useState<TransactionFeedback | null>(null);
@@ -238,6 +248,8 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
   const finishSessionFeedback = useCallback((ready: boolean) => {
     setHasSocialSession(ready);
     if (ready) {
+      setSocialSessionLifecycle('active');
+      setSocialSessionSettled(true);
       invalidateAppSocialSessionCache();
       setSessionFeedback({
         type: 'success',
@@ -318,20 +330,30 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
   /** Page-load / reconnect — restore only, never open AddKey. */
   const restoreSocialSessionQuietly = useCallback(
     async (nextAccountId: string): Promise<boolean> => {
+      setSocialSessionSettled(false);
       try {
         const session = await restoreAppSocialSession(nextAccountId);
-        const ready = Boolean(session);
-        setHasSocialSession(ready);
-        if (ready) {
+        if (session) {
+          setHasSocialSession(true);
+          setSocialSessionLifecycle('active');
           invalidateAppSocialSessionCache();
+          return true;
         }
-        return ready;
+        const lifecycle = await getAppSocialSessionLifecycle(nextAccountId);
+        setHasSocialSession(false);
+        setSocialSessionLifecycle(
+          lifecycle === 'active' ? 'missing' : lifecycle
+        );
+        return false;
       } catch (error) {
         if (!isWalletUserCancellation(error)) {
           console.warn('OnSocial session restore failed', error);
         }
         setHasSocialSession(false);
+        setSocialSessionLifecycle('missing');
         return false;
+      } finally {
+        setSocialSessionSettled(true);
       }
     },
     []
@@ -343,9 +365,10 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       setAccountId(e2eAccount);
       setIsLoading(false);
       if (readE2eAuthSessionEnabled()) {
-        void restoreAppSocialSession(e2eAccount)
-          .then((session) => setHasSocialSession(Boolean(session)))
-          .catch(() => setHasSocialSession(false));
+        void restoreSocialSessionQuietly(e2eAccount);
+      } else {
+        setSocialSessionLifecycle('missing');
+        setSocialSessionSettled(true);
       }
       return;
     }
@@ -373,6 +396,8 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
         void restoreSocialSessionQuietly(nextAccountId);
       } else {
         setHasSocialSession(false);
+        setSocialSessionLifecycle(null);
+        setSocialSessionSettled(true);
       }
     });
 
@@ -380,6 +405,8 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       setWallet(null);
       setAccountId(null);
       setHasSocialSession(false);
+      setSocialSessionLifecycle(null);
+      setSocialSessionSettled(true);
       writeStoredWalletAccountId(null);
       invalidateAppSocialSessionCache();
     });
@@ -626,6 +653,8 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     setWallet(null);
     setAccountId(null);
     setHasSocialSession(false);
+    setSocialSessionLifecycle(null);
+    setSocialSessionSettled(true);
     writeStoredWalletAccountId(null);
     invalidateAppSocialSessionCache();
     clearAppGatewayAuth(previousAccountId);
@@ -633,6 +662,8 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
 
   const clearSocialSessionLocal = useCallback(() => {
     setHasSocialSession(false);
+    setSocialSessionLifecycle('missing');
+    setSocialSessionSettled(true);
     invalidateAppSocialSessionCache();
     clearAppGatewayAuth(resolvedAccountId);
   }, [resolvedAccountId]);
@@ -701,6 +732,8 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
         // Fast path: local session still valid — avoid reopening the wallet.
         if (await restoreAppSocialSession(nextAccountId)) {
           setHasSocialSession(true);
+          setSocialSessionLifecycle('active');
+          setSocialSessionSettled(true);
           invalidateAppSocialSessionCache();
           return true;
         }
@@ -725,6 +758,8 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
               });
               setHasSocialSession(renew.ready);
               if (renew.ready) {
+                setSocialSessionLifecycle('active');
+                setSocialSessionSettled(true);
                 invalidateAppSocialSessionCache();
               }
               return renew.ready;
@@ -742,7 +777,14 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       }
 
       if (!bootstrapIfMissing) {
+        const lifecycle = await getAppSocialSessionLifecycle(
+          nextAccountId
+        ).catch(() => 'missing' as const);
         setHasSocialSession(false);
+        setSocialSessionLifecycle(
+          lifecycle === 'active' ? 'missing' : lifecycle
+        );
+        setSocialSessionSettled(true);
         return false;
       }
 
@@ -758,6 +800,8 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
         isConnected: Boolean(resolvedAccountId),
         isLoading,
         hasSocialSession,
+        socialSessionSettled,
+        socialSessionLifecycle,
         isBootstrappingSession,
         sessionFeedback,
         clearSessionFeedback,

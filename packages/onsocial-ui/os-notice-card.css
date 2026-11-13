@@ -136,6 +136,23 @@
   text-align: center;
 }
 
+.os-notice-card--compact {
+  gap: var(--os-gutter);
+  padding: var(--os-gutter);
+}
+
+.os-notice-card--attention {
+  background: var(--protocol-amber-bg);
+}
+
+.os-notice-card--attention .os-notice-card-title {
+  color: var(--protocol-amber-ink);
+}
+
+.os-notice-card--attention .os-notice-card-body {
+  color: var(--protocol-amber);
+}
+
 .os-notice-card-toggle {
   display: flex;
   align-items: flex-start;

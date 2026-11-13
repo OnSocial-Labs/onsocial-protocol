@@ -15,6 +15,7 @@ import {
   useScrollLock,
 } from '@onsocial/ui';
 import { AccountWalletZone } from '@/components/wallet/account-card-parts';
+import { AppAccessBanner } from '@/components/wallet/app-access-banner';
 import { AppAccountMenuSheet } from '@/components/wallet/app-account-menu-sheet';
 import { AccountDrawerChrome } from '@/components/wallet/account-drawer-chrome';
 import { AppAccessSheet } from '@/components/wallet/app-access-sheet';
@@ -342,6 +343,7 @@ export function AppAccountSheet({
         }
       >
         <div className="account-card">
+          <AppAccessBanner />
           <AccountWalletZone
             enabled={sheetOpen}
             onOpenStorage={handleOpenStorage}

@@ -388,7 +388,6 @@ export function AccountShortcutDock({
       <AccountMenuRow
         label="App access"
         hint={accessNeeded ? 'Allow this device' : 'Keys on this device'}
-        tone={accessNeeded ? 'attention' : undefined}
         onClick={onOpenAccess}
       />
       <AccountMenuRow

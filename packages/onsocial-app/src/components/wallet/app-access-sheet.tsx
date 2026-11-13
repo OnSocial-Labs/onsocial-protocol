@@ -9,26 +9,19 @@ import {
 } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useAppAccessGrant } from '@/components/wallet/use-app-access-grant';
 import {
-  clearAppSocialSession,
   getAppSocialSessionLifecycle,
   getAppSocialSessionPublicKey,
-  grantAppSocialSession,
-  renewAppSocialSession,
   revokeAppSocialSession,
   type AppSocialSessionLifecycle,
 } from '@/lib/app-social-session';
 import { SHEET_Z } from '@/lib/sheet-z';
 import {
-  sessionPendingFeedback,
   txToastConfirming,
   txToastError,
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
-import {
-  accountNeedsAppSessionSponsor,
-  fundAppSessionIfNeeded,
-} from '@/lib/welcome-near';
 import { mapAppAccessError } from '@/lib/wallet-errors';
 
 interface AppAccessSheetProps {
@@ -59,7 +52,6 @@ export function AppAccessSheet({
   const {
     hasSocialSession,
     isBootstrappingSession,
-    resumeSocialSession,
     clearSocialSessionLocal,
     getSigningWallet,
   } = useAppWallet();
@@ -94,6 +86,11 @@ export function AppAccessSheet({
     }
   }, [accountId, hasSocialSession]);
 
+  const { pending: grantPending, allowOrRenew } = useAppAccessGrant(
+    lifecycle,
+    refreshStatus
+  );
+
   useEffect(() => {
     if (!sheetOpen) {
       setConfirmRemove(false);
@@ -113,97 +110,6 @@ export function AppAccessSheet({
     setConfirmRemove(false);
     onClose();
   }, [onClose]);
-
-  const handleAllowOrRenew = useCallback(async () => {
-    if (pending || isBootstrappingSession) return;
-    const renewing = lifecycle === 'expired';
-    try {
-      const { wallet, accountId: signerId } = await getSigningWallet();
-      if (await accountNeedsAppSessionSponsor(signerId)) {
-        setTxResult(sessionPendingFeedback('setup'));
-        await fundAppSessionIfNeeded(signerId);
-      }
-      setPending(true);
-      setTxResult(sessionPendingFeedback('wallet'));
-      const result = renewing
-        ? await renewAppSocialSession({
-            accountId: signerId,
-            wallet,
-          })
-        : await grantAppSocialSession({
-            accountId: signerId,
-            wallet,
-          });
-
-      if (!result.ready) {
-        setTxResult({
-          type: 'error',
-          msg: txToastError.allowAppAccessFailed,
-        });
-        return;
-      }
-
-      if (result.txHashes.length === 0) {
-        setTxResult({
-          type: 'success',
-          msg: renewing
-            ? txToastSuccess.appAccessRenewed
-            : txToastSuccess.appAccessAllowed,
-        });
-        await resumeSocialSession({
-          renewIfExpired: false,
-          bootstrapIfMissing: false,
-        });
-        await refreshStatus();
-        return;
-      }
-
-      setTxResult(sessionPendingFeedback('confirming'));
-      const confirmed = await trackTransaction({
-        txHashes: result.txHashes,
-        submittedMessage: renewing
-          ? txToastConfirming.renewingAppAccess
-          : txToastConfirming.allowingAppAccess,
-        successMessage: renewing
-          ? txToastSuccess.appAccessRenewed
-          : txToastSuccess.appAccessAllowed,
-        failureMessage: txToastError.allowAppAccessFailed,
-      });
-      if (!confirmed) {
-        // The session store already wrote local metadata; drop it if confirmation failed.
-        await clearAppSocialSession(signerId);
-        clearSocialSessionLocal();
-        await refreshStatus();
-        return;
-      }
-
-      // Sync React session flag from local store (no second wallet prompt).
-      await resumeSocialSession({
-        renewIfExpired: false,
-        bootstrapIfMissing: false,
-      });
-      await refreshStatus();
-    } catch (error) {
-      const msg = mapAppAccessError(error, txToastError.allowAppAccessFailed);
-      if (!msg) {
-        setTxResult(null);
-        return;
-      }
-      setTxResult({ type: 'error', msg });
-    } finally {
-      setPending(false);
-    }
-  }, [
-    clearSocialSessionLocal,
-    getSigningWallet,
-    isBootstrappingSession,
-    lifecycle,
-    pending,
-    refreshStatus,
-    resumeSocialSession,
-    setTxResult,
-    trackTransaction,
-  ]);
 
   const handleRemove = useCallback(async () => {
     if (pending) return;
@@ -330,10 +236,10 @@ export function AppAccessSheet({
                   <OsSheetAction
                     type="button"
                     variant="primary"
-                    ready={!pending && !isBootstrappingSession}
-                    pending={pending || isBootstrappingSession}
+                    ready={!pending && !grantPending && !isBootstrappingSession}
+                    pending={pending || grantPending || isBootstrappingSession}
                     pendingLabel="Renewing…"
-                    onClick={() => void handleAllowOrRenew()}
+                    onClick={() => void allowOrRenew()}
                   >
                     Renew access
                   </OsSheetAction>
@@ -352,10 +258,10 @@ export function AppAccessSheet({
             <OsSheetAction
               type="button"
               variant="primary"
-              ready={!pending && !isBootstrappingSession}
-              pending={pending || isBootstrappingSession}
+              ready={!pending && !grantPending && !isBootstrappingSession}
+              pending={pending || grantPending || isBootstrappingSession}
               pendingLabel="Allowing…"
-              onClick={() => void handleAllowOrRenew()}
+              onClick={() => void allowOrRenew()}
             >
               Allow access
             </OsSheetAction>

@@ -2,7 +2,9 @@
 
 Settings Allow and Renew should add the same kind of key onboarding already adds. The account is the predecessor on `execute`, and the contract treats that account as allowed on its own tree. A second `execute_admin` `set_key_permission` does not grant the owner anything the key does not already have. It does attach 100 TGas. At the minimum gas price that is 0.01 NEAR, which does not fit in the welcome top-up once the sponsored allowance (0.008 NEAR) and the AddKey fee headroom (0.002 NEAR) are counted against the 0.013 NEAR threshold.
 
-The call is one AddKey for an owner app session, then the same persist onboarding uses. Delegated and cross-account grants still write `set_key_permission`. That API stays. The wallet settings banner is not in this change. It waits on an approved design.
+The call is one AddKey for an owner app session, then the same persist onboarding uses. Delegated and cross-account grants still write `set_key_permission`. That API stays.
+
+When this device has no app access, the wallet drawer shows one compact `OsNoticeCard` above the balance. It uses the amber attention tokens and the same Allow / Renew handler as the App access sheet. It paints only after the session check has finished, and it reserves no space before that. The App access row stays, without the amber highlight.
 
 A funded first visit should approve the key inside the same sign-in. The welcome drip and AddKey are different signers, so an unfunded first visit still signs in first. The account id is not in local storage on a first visit. It is knowable only when the chosen wallet will name it after the picker and before sign-in (`getAccounts`). When the wallet will not name it, sign-in stays without the key so an empty account can still connect. That case is two approvals even when the balance turns out to be enough. near-connect already filters the wallet list with `signInWithFunctionCallKey` when the key is bundled. A first visit has already picked a wallet, so that wallet has to advertise the feature or the key stays off the first sign-in.
 
@@ -18,7 +20,9 @@ Copy: `packages/onsocial-app/src/lib/wallet-errors.ts` `mapAppAccessError`, `txT
 
 First connect: `resolveAppConnectRoute` in `packages/onsocial-app/src/lib/app-session-sponsor.ts` bundles whenever the account does not need the drip and this is not the switch-wallet picker. `hasStoredHint` no longer blocks a funded first visit. `walletMayBundleSessionKey` keeps the returning path on the wallet-list filter, and requires `signInWithFunctionCallKey` on the already chosen wallet for a first visit. `resolveBundledAppConnect` in `app-wallet-context.tsx` takes that account id, stored or previewed. A first visit calls `selectWallet`, peeks `getAccounts`, then `connect({ walletId, addFunctionCallKey })` only when the peek is funded and the wallet can add the key. The same pending key and `completeAppSessionAfterConnect` path finish it. The e2e stand-in is `createE2eFirstConnectConnector` in `e2e-mock-signer.ts`.
 
-Re-scan after the edits: community handoff still calls `grantCommunityAppSession` → `buildSessionGrant` with `apps/<id>/`, so that grant still emits AddKey and `set_key_permission`. Portal welcome-near is a separate helper and was not retargeted. No banner component was added. Switch wallet still calls `connect({})` with no key. An already connected `connect()` still resumes through `ensureSocialSession` and does not bundle into that resume.
+Wallet drawer: `AppAccessBanner` in `app-account-sheet.tsx`, first child of `.account-card`, above `AccountWalletZone`. Copy comes from `appAccessBannerCopy`. The button calls `useAppAccessGrant`, the same hook as `app-access-sheet.tsx`. `socialSessionSettled` and `socialSessionLifecycle` live on `app-wallet-context.tsx`. Amber compact chrome is `os-notice-card--compact` and `os-notice-card--attention` in `packages/onsocial-ui/os-notice-card.css` (`--os-gutter`, `--protocol-amber`, `--protocol-amber-ink`, `--protocol-amber-bg`). The Account menu row no longer sets `tone="attention"`.
+
+Re-scan after the edits: community handoff still calls `grantCommunityAppSession` → `buildSessionGrant` with `apps/<id>/`, so that grant still emits AddKey and `set_key_permission`. Portal welcome-near is a separate helper and was not retargeted. Switch wallet still calls `connect({})` with no key. An already connected `connect()` still resumes through `ensureSocialSession` and does not bundle into that resume.
 
 ## 3. near idioms
 
@@ -40,7 +44,34 @@ Onboarding’s connect options are built from the same key spec. A connected emp
 
 A funded first visit whose wallet names the account sees one sign-in, and that sign-in includes the key. An unfunded first visit sees a sign-in without the key, then the drip, then a second sign-in for the key. A first visit whose wallet will not name the account also signs in without the key. If that account is funded, the follow-up AddKey is a second approval. Returning funded connects are unchanged: the key is still inside the first `connect`, and the wallet list is filtered to wallets that support the feature. The switch-wallet picker still does not bundle.
 
-There is no layout change. The wallet settings banner is held for design approval and is not in this branch. No before/after measurements.
+The banner sits in the drawer body, above the Wallet balance, and does not cover the page. Chrome, Safari, and Brave were captured with Playwright. Chrome is Chromium. Safari is WebKit. Brave is not installed, so that column is Chromium with a Brave user agent. iPhone is the Playwright iPhone 14 descriptor (390×844). Samsung is a 360×800 Galaxy-class viewport. Pixel is the Playwright Pixel 7 descriptor (412×915). No physical handsets.
+
+iPhone Chrome, before → after. Drawer was 392×442 at y 222. After, 392×576 at y 88. The banner is 368×150 at y 142, the same width as the wallet zone (368). The balance stays at y 322, x 20, height 40. The banner’s bottom (292) sits 8px above the wallet zone (y 300).
+
+Samsung Chrome. Drawer 362×461 at y 339 becomes 362×576 at y 224. Banner 338×150 at y 257, matching the wallet width 338. Balance y 440 → 441, height 48. Banner bottom 407, wallet zone y 417.
+
+Pixel Chrome. Drawer 414×461 at y 378 becomes 414×576 at y 263. Banner 390×131 at y 315, matching the wallet width 390. The wider line wraps to one row, so the card is 19px shorter than on the 360 and 390 widths. Balance y 479 → 480. Banner bottom 446, wallet zone y 456.
+
+Safari and Brave match those widths. Safari balance text is 2–3px wider (77→80 on Samsung and Pixel). Positions otherwise follow the same stack: banner, then wallet zone, then balance inside it.
+
+![iPhone Chrome before](2026-11-13-wallet-session-key/before-iphone-chrome.png)
+![iPhone Chrome after](2026-11-13-wallet-session-key/after-iphone-chrome.png)
+![iPhone Safari before](2026-11-13-wallet-session-key/before-iphone-safari.png)
+![iPhone Safari after](2026-11-13-wallet-session-key/after-iphone-safari.png)
+![iPhone Brave before](2026-11-13-wallet-session-key/before-iphone-brave.png)
+![iPhone Brave after](2026-11-13-wallet-session-key/after-iphone-brave.png)
+![Samsung Chrome before](2026-11-13-wallet-session-key/before-samsung-chrome.png)
+![Samsung Chrome after](2026-11-13-wallet-session-key/after-samsung-chrome.png)
+![Samsung Safari before](2026-11-13-wallet-session-key/before-samsung-safari.png)
+![Samsung Safari after](2026-11-13-wallet-session-key/after-samsung-safari.png)
+![Samsung Brave before](2026-11-13-wallet-session-key/before-samsung-brave.png)
+![Samsung Brave after](2026-11-13-wallet-session-key/after-samsung-brave.png)
+![Pixel Chrome before](2026-11-13-wallet-session-key/before-pixel-chrome.png)
+![Pixel Chrome after](2026-11-13-wallet-session-key/after-pixel-chrome.png)
+![Pixel Safari before](2026-11-13-wallet-session-key/before-pixel-safari.png)
+![Pixel Safari after](2026-11-13-wallet-session-key/after-pixel-safari.png)
+![Pixel Brave before](2026-11-13-wallet-session-key/before-pixel-brave.png)
+![Pixel Brave after](2026-11-13-wallet-session-key/after-pixel-brave.png)
 
 ## 5. shipped
 
@@ -52,4 +83,8 @@ App: `grantAppSocialSession` for `alice.testnet` signs one transaction whose onl
 
 Route tests: a funded first visit with no stored hint bundles; an unfunded first visit does not; a known funded account still bundles; an empty known account still does not; the switch-wallet picker still does not. `walletMayBundleSessionKey` is true for a returning connect even when the flag is false, and true for a first visit only when the chosen wallet supports `signInWithFunctionCallKey`.
 
-`pnpm check:push` ran through the pre-push hook, not `--no-verify`. The Job 2 hook (head `44001a85`) passed with Playwright 383 passed, 5 flaky, 1 skipped. The Job 3 hook (app only, on top of that) passed with 508 test files, 3544 unit tests, the production build, and Playwright 389 passed, 1 flaky, 1 skipped. The remaining flake is the collection supply line matching two nodes. The first-connect spec is in that 389.
+Banner copy tests: hidden while unsettled, Allow when missing, Renew when expired, hidden when active.
+
+The banner commit is 29 files, +379 / −118, including these 18 screenshots. Source and glossary are the rest of that diff.
+
+`pnpm check:push` ran through the pre-push hook, not `--no-verify`. The Job 2 hook (head `44001a85`) passed with Playwright 383 passed, 5 flaky, 1 skipped. The Job 3 hook passed with 508 test files, 3544 unit tests, and Playwright 389 passed, 1 flaky, 1 skipped. The remaining flake is the collection supply line matching two nodes. The banner hook result follows that commit.
