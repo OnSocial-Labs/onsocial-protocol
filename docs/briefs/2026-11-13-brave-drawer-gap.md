@@ -45,6 +45,8 @@ Location with the keyboard up is a different sheet from the page drawer. `Profil
 
 The readout that decides this is `measuredLift`, `visualViewport.offsetTop`, `visualViewport.height`, `innerHeight`, `keyboardOpen`, and the location sheet’s root and panel bottoms against the keyboard.
 
+7. The editor can still scroll, and `visualViewport.offsetTop` moves with that scroll. `OsHugSheet` does call `useScrollLock(true)` while Location is open, and `OsPageSheet` already holds a lock for Edit profile. The finder in `use-scroll-lock.ts` skips every `.os-app-screen-body` inside a `.glass-sheet-root`, which is the editor, and locks `.portfolio-page` instead. A second lock only increments a count. `blockScroll` also returns without `preventDefault` when the touch starts inside a `.glass-sheet-root`, and the strip is the editor’s sheet. Separately, while the hug is open on a phone, `useKeyboardDrawerFrame` sets `overflow: hidden` on `documentElement` and on `.os-app-screen-body`, `.portfolio-page`, and `.glass-sheet-body` outside the hug, including the editor body. That stops those elements’ `scrollTop`. It does not stop a visual-viewport pan. `offsetTop` changes on `visualViewport` scroll. If the pin is off, that offset is never applied. If the pin is on, `settleVisualKeyboardFrame` keeps the old top whenever the height change is under 64, so an `offsetTop` pan is ignored too. The hug stays put and the editor moves, and the strip gets taller. The readout’s `offsetTop` before and after that scroll is the check.
+
 ## 3. near idioms
 
 No wallet, account, contract, gas, or storage change. The readout is a temporary diagnostic. Its only new word is Copy, on that panel. No glossary term. The drawer’s own names are unchanged.
