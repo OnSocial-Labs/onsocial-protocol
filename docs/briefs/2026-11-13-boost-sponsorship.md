@@ -64,4 +64,6 @@ Mainnet’s default allow-list is still `rewards.onsocial.near`. `RELAYER_API_KE
 
 No sheet layout change, so there is no before/after geometry set. The commit fallback is covered on a 390×844 phone viewport in Playwright (iPhone-class). Samsung, Pixel, Safari, and Brave share that DOM. They were not run as separate browser binaries.
 
-Local checks before the push hook: `cargo test -p onsocial-relayer --lib` 52 passed, `cargo clippy -p onsocial-relayer --all-targets -- -D warnings` clean, SDK boost and session-bridge tests 34 passed, gateway relay tests 10 passed, app `boost-sponsor` tests 5 passed, app `tsc --noEmit` clean.
+`cargo test -p onsocial-relayer --lib` 52 passed. `cargo clippy -p onsocial-relayer --all-targets -- -D warnings` clean. SDK boost and session-bridge tests 34 passed. Gateway relay tests 10 passed. App `boost-sponsor` tests 5 passed. App `tsc --noEmit` clean.
+
+The push ran `pnpm check:push` through the git hook (no `--no-verify`). SDK 1468 tests, gateway 814 tests, and app 3531 tests passed. Playwright on that hook was 379 passed, 9 flaky (retries passed), 2 skipped. The flaky cases are existing portfolio and gate specs, not the boost commit.
