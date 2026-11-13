@@ -35,6 +35,7 @@
     "clean": "pnpm -r run clean",
     "dev": "pnpm -r run dev",
     "format": "pnpm -r run format",
+    "gen:icons": "node scripts/gen-icons.mjs",
     "format-deps": "syncpack format",
     "lint": "make lint-all-js",
     "postinstall": "node scripts/sync-deps.js",

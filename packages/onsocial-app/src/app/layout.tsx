@@ -11,6 +11,7 @@ import {
 import { ONSOCIAL_BRAND_TAGLINE } from '@onsocial/ui';
 import { AppProviders } from '@/components/providers/app-providers';
 import { ThemeInitScript } from '@/components/theme-init-script';
+import { appleStartupImages } from '@/lib/apple-startup-images';
 import { THEME_BAR_DARK, THEME_BAR_LIGHT } from '@/lib/theme-init';
 import './globals.css';
 
@@ -102,6 +103,7 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: 'black-translucent',
     title: 'OnSocial',
+    startupImage: [...appleStartupImages],
   },
   formatDetection: {
     telephone: false,

@@ -15,8 +15,7 @@ export default function manifest(): MetadataRoute.Manifest {
     display: 'standalone',
     display_override: ['standalone', 'minimal-ui'],
     background_color: '#000000',
-    // Status bar / browser chrome — soft surface ink, not portal blue.
-    theme_color: '#0c0d10',
+    theme_color: '#000000',
     categories: ['social', 'entertainment'],
     icons: [
       {
@@ -30,6 +29,12 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: '512x512',
         type: 'image/png',
         purpose: 'any',
+      },
+      {
+        src: '/onsocial_icon_maskable_192.png',
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'maskable',
       },
       {
         src: '/onsocial_icon_maskable_512.png',
