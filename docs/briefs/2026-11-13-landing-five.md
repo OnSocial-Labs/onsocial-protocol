@@ -50,4 +50,4 @@ A full load of `/` with `onsocial.app.wallet.accountId` set to `alice.testnet` r
 
 Install-slot CLS, three runs each after the install prompt, is 0, 0, 0 on desktop, iPhone 13, and Pixel 7. The same measurement before this change was also 0. The install slot was not edited.
 
-Theme script, return script, and gate CSS unit tests passed. `pnpm check:push` is recorded in the follow-up note after this commit.
+Theme script, return script, and gate CSS unit tests passed. `pnpm check:push` exited 0. App lint and typecheck passed. Unit tests were 503 files and 3511 tests. The production build compiled. Playwright was 362 passed, 5 flaky, 3 skipped. The flaky cases see the face skeleton and the resolved face at the same moment. The retry passes. Screenshots are in `/opt/cursor/artifacts/landing-before` and `/opt/cursor/artifacts/landing-after`.
