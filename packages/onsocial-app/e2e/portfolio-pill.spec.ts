@@ -147,4 +147,56 @@ test.describe('portfolio swipe-up pill', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await expectStablePill(page);
   });
+
+  test('stays off writing and another user’s writing', async ({ page }) => {
+    await gotoApp(page, '/@alice.testnet?shelf=/writing');
+    await page.waitForURL(/\/@alice\.testnet\/writing\/?$/, {
+      timeout: E2E_CHROME_TIMEOUT_MS,
+    });
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() =>
+            document
+              .querySelector('.portfolio-frame')
+              ?.classList.contains('is-portfolio-swipe')
+          ),
+        { timeout: E2E_CHROME_TIMEOUT_MS }
+      )
+      .toBe(false);
+    await expect(
+      page.getByRole('button', { name: 'Open page', exact: true })
+    ).toHaveCount(0);
+    const clearance = await page.evaluate(() => {
+      const frame = document.querySelector('.portfolio-frame');
+      const slot = document.querySelector('.portfolio-face-slot');
+      if (!(frame instanceof HTMLElement) || !(slot instanceof HTMLElement)) {
+        return null;
+      }
+      return {
+        swipe: frame.classList.contains('is-portfolio-swipe'),
+        clearance: getComputedStyle(frame)
+          .getPropertyValue('--portfolio-face-clearance')
+          .trim(),
+        slot: Number.parseFloat(getComputedStyle(slot).height),
+      };
+    });
+    expect(clearance?.swipe).toBe(false);
+    expect(clearance?.clearance).toBe('0px');
+    expect(clearance?.slot ?? 99).toBeLessThan(90);
+
+    await gotoApp(page, '/@bob.testnet');
+    await dismissNextDevOverlay(page);
+    await expect(
+      page.getByRole('button', { name: 'Open page', exact: true })
+    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+
+    await gotoApp(page, '/@bob.testnet?shelf=/writing');
+    await page.waitForURL(/\/@bob\.testnet\/writing\/?$/, {
+      timeout: E2E_CHROME_TIMEOUT_MS,
+    });
+    await expect(
+      page.getByRole('button', { name: 'Open page', exact: true })
+    ).toHaveCount(0);
+  });
 });

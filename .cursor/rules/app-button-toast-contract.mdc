@@ -163,7 +163,7 @@ Prefer `OsSheetAction` / `OsSheetPrimaryAction`:
 ## Toast chrome
 
 - One global status lane (bottom, above dock) — OS-column centered like preview bars
-- Readable overlay fill (`bg/0.92`, blur 32, soft lip) — near dropdown opacity; **stable fill** (never retint on success/error)
+- Readable overlay fill (`--glass-surface-solid` / `--surface-solid`, blur 32, `--os-chrome-elev-shadow`) — mood-neutral, not `--os-dock-fill`; **stable fill** (never retint on success/error)
 - Soft chip radius (`~1.15rem`), not a capsule (capsule = controls)
 - Color on the status icon + dismiss hairline (green/red); glass fill stays stable
 - One-line body; **green/red icon only** — no pending/blue state

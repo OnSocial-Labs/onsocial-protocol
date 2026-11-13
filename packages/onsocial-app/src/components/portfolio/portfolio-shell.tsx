@@ -6,6 +6,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
+import { usePathname } from 'next/navigation';
 import { resolveDisplayProfileKind, type ProfileKind } from '@onsocial/sdk';
 import { MoodThemeProvider } from '@onsocial/ui';
 import { PortfolioHeroTop } from '@/components/portfolio/portfolio-hero-top';
@@ -21,6 +22,7 @@ import type {
   ResolvedPageHero,
 } from '@/lib/page-data';
 import { resolvePageFace } from '@/lib/page-face';
+import { portfolioSwipeOpensPage } from '@/lib/portfolio-feed-reveal';
 import type { ResolvedMood } from '@/lib/moods/types';
 
 interface PortfolioShellProps {
@@ -80,12 +82,15 @@ export function PortfolioShell({
   const isMoodOnly = !hasBanner;
   const isGlassFinish = mood.id === 'glass';
   const shellStyle = portfolioMoodShellStyle(mood.cssVars);
+  const swipeOpens = portfolioSwipeOpensPage(usePathname());
 
   return (
     <MoodThemeProvider moodId={mood.id} style={shellStyle as CSSProperties}>
       <main
         ref={setFrame}
-        className="frame app-surface portfolio-frame"
+        className={`frame app-surface portfolio-frame${
+          swipeOpens ? ' is-portfolio-swipe' : ''
+        }`}
         data-page-account={pageAccountId}
         data-profile-kind={resolveDisplayProfileKind(profileKind, isDao)}
         data-mood={mood.id}
@@ -119,7 +124,8 @@ export function PortfolioShell({
           </div>
 
           <div className="portfolio-hero portfolio-hero--strip-overlap">
-            {children}
+            <div className="portfolio-hero-stack">{children}</div>
+            <div className="portfolio-face-slot" aria-hidden />
           </div>
         </div>
       </main>

@@ -28,6 +28,7 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import { PostQuotesTrackHostProvider } from '@/features/home/post-quotes-track-host';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { accountIdsEqual } from '@/lib/account-match';
+import { portfolioSwipeOpensPage } from '@/lib/portfolio-feed-reveal';
 import type { PersonalPostPageData } from '@/lib/load-personal-post-page';
 import type { GuildPostPageData } from '@/lib/load-guild-post-page';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
@@ -260,10 +261,7 @@ function collectionIdsEqual(left: string, right: string): boolean {
 
 /** Portfolio face only — `/@id`, not a post, shelf, or standing URL. */
 export function isPortfolioFaceHref(href: string | null | undefined): boolean {
-  const raw = (href ?? '').trim();
-  if (!raw.startsWith('/@')) return false;
-  const path = raw.split(/[?#]/)[0] ?? '';
-  return /^\/@[^/]+$/.test(path);
+  return portfolioSwipeOpensPage(href);
 }
 
 function isOverlayPlacePathname(pathname: string): boolean {

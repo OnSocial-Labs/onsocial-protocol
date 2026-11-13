@@ -68,6 +68,13 @@ describe('portfolio page entry', () => {
     const heroEnd = css.indexOf('.page-drawer-rail-tabs', heroStart);
     const hero = css.slice(heroStart, heroEnd);
     expect(hero).toContain('var(--portfolio-face-clearance)');
+    expect(hero).toContain('var(--portfolio-dock-clearance)');
+    expect(hero).toContain('var(--os-dock-clearance-gap)');
+    expect(hero).toContain('var(--portfolio-shelf-pull)');
+    expect(hero).toContain('var(--portfolio-shelf-meta-gap)');
+    expect(hero).toContain('.portfolio-face-slot');
+    expect(hero).toContain('.portfolio-frame:not(.is-portfolio-swipe)');
+    expect(hero).toContain('--portfolio-face-clearance: 0px');
     expect(hero).not.toContain('--os-avatar-nav');
     const pillStart = css.indexOf(
       'button.portfolio-page-chevron.glass-sheet-icon-action {'
@@ -96,5 +103,29 @@ describe('portfolio page entry', () => {
     );
     expect(dock).not.toContain('useChevronFaceClearance');
     expect(dock).not.toContain('useSwipeUpOpen');
+    expect(dock).toContain('portfolioSwipeOpensPage');
+    const trigger = readFileSync(
+      join(appSrc, 'components/portfolio/portfolio-drawer-scroll-trigger.tsx'),
+      'utf8'
+    );
+    expect(trigger).toContain('portfolioSwipeOpensPage');
+    const shell = readFileSync(
+      join(appSrc, 'components/portfolio/portfolio-shell.tsx'),
+      'utf8'
+    );
+    expect(shell).toContain('is-portfolio-swipe');
+    expect(shell).toContain('portfolioSwipeOpensPage');
+    const toast = readFileSync(
+      join(appSrc, 'app/transaction-feedback-toast.css'),
+      'utf8'
+    );
+    expect(toast).toContain(
+      'background: var(--glass-surface-solid, var(--surface-solid));'
+    );
+    expect(toast).toContain('box-shadow: var(--os-chrome-elev-shadow);');
+    expect(toast).not.toContain('--os-dock-fill');
+    expect(toast).not.toContain('#3b82f6');
+    expect(toast).not.toContain('rgb(var(--bg-rgb) / 0.92)');
+    expect(toast).toContain('color: rgb(var(--fg-rgb));');
   });
 });

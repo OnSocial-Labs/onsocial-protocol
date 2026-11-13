@@ -38,15 +38,12 @@ body:has(.glass-sheet-root:not(.post-thread-sheet-parked))
   position: relative;
   overflow: hidden;
   border: 0;
-  /* Soft chip — readable overlay (near dropdown opacity), not ambient glass. */
+  /* Soft chip. Kit solid, not the dock's mood-tinted fill. */
   border-radius: 1.15rem;
-  background: rgb(var(--bg-rgb) / 0.92);
+  background: var(--glass-surface-solid, var(--surface-solid));
   -webkit-backdrop-filter: blur(32px) saturate(1.6);
   backdrop-filter: blur(32px) saturate(1.6);
-  box-shadow:
-    inset 0 1px 0 rgb(var(--fg-rgb) / 0.1),
-    0 18px 40px -18px rgb(0 0 0 / 0.34),
-    0 6px 16px -12px rgb(0 0 0 / 0.18);
+  box-shadow: var(--os-chrome-elev-shadow);
   color: rgb(var(--fg-rgb) / 0.92);
   pointer-events: auto;
   animation: app-tx-toast-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -55,7 +52,7 @@ body:has(.glass-sheet-root:not(.post-thread-sheet-parked))
 /* Stable shell — success/error never retint the glass fill. */
 .app-tx-toast.is-success,
 .app-tx-toast.is-error {
-  background: rgb(var(--bg-rgb) / 0.92);
+  background: var(--glass-surface-solid, var(--surface-solid));
 }
 
 @keyframes app-tx-toast-in {
@@ -97,22 +94,25 @@ body:has(.glass-sheet-root:not(.post-thread-sheet-parked))
   height: 0.875rem;
 }
 
-.app-tx-toast-icon--success {
+.app-tx-toast-icon--success,
+.app-tx-toast-icon--error,
+.app-tx-toast-icon--pending {
   width: 1rem;
   height: 1rem;
+}
+
+.app-tx-toast-icon--success {
   color: var(--protocol-green);
 }
 
 .app-tx-toast-icon--error {
-  width: 1rem;
-  height: 1rem;
   color: var(--protocol-red);
 }
 
 .app-tx-toast-icon--pending {
-  width: 1rem;
-  height: 1rem;
-  color: var(--protocol-blue, #3b82f6);
+  color: rgb(var(--fg-rgb));
+  transform-box: view-box;
+  transform-origin: center;
   animation: app-tx-toast-spin 0.8s linear infinite;
 }
 
@@ -233,7 +233,7 @@ body:has(.glass-sheet-root:not(.post-thread-sheet-parked))
   .app-tx-toast,
   .app-tx-toast.is-success,
   .app-tx-toast.is-error {
-    background: rgb(var(--bg-rgb) / 0.98);
+    background: var(--glass-surface-solid, var(--surface-solid));
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }

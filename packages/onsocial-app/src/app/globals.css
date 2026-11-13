@@ -7779,24 +7779,50 @@ a.os-surface-row,
     flex: 1;
     display: flex;
     width: 100%;
+    min-height: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    overflow: hidden;
+    text-align: center;
+  }
+
+  /* Clip lives on the stack so a tall face stops at the slot. The avatar's
+     negative margin stays inside this padding, so the top is not cut. */
+  .portfolio-hero-stack {
+    display: flex;
+    flex: 1 1 auto;
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
     gap: var(--portfolio-hero-gap);
+    width: 100%;
+    min-height: 0;
+    overflow: hidden;
     padding: var(--portfolio-content-start)
-      max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px))
-      /* The swipe-up pill sits above the dock. The dock gap already covers
-         part of that stack. Face clearance is the pill slot plus the focus
-         ring, reserved here so the first paint is the final one. The shelf
-         pull hangs the caption below its margin. */
-      calc(
-        var(--portfolio-dock-clearance) - var(--os-dock-clearance-gap) +
-          var(--portfolio-shelf-pull) + var(--portfolio-face-clearance)
-      )
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px)) 0
       max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
-    text-align: center;
     transition: padding-top var(--mood-transition-duration)
       var(--mood-transition-ease);
+  }
+
+  /* Same shape as dock clearance, plus the pill footprint (height + gap +
+     ring) and the shelf pulls that hang the last line into that inset.
+     The slot is outside the clip, so nothing paints under the pill. */
+  .portfolio-face-slot {
+    flex: 0 0 auto;
+    width: 100%;
+    height: calc(
+      var(--portfolio-dock-clearance) - var(--os-dock-clearance-gap) +
+        var(--portfolio-shelf-pull) + var(--portfolio-shelf-meta-gap) +
+        var(--portfolio-face-clearance)
+    );
+  }
+
+  /* Pages that hide the pill do not keep its slot. The route sets the
+     class in the same render as the swipe gesture, before paint. */
+  .portfolio-frame:not(.is-portfolio-swipe) {
+    --portfolio-face-clearance: 0px;
   }
 
   /* .portfolio-hero--strip-overlap — legacy class; overlap lives on .portfolio-identity. */
