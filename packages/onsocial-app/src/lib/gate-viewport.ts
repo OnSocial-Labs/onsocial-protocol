@@ -1,5 +1,3 @@
-import { KEYBOARD_VIEWPORT_SLOP_PX } from '../../../onsocial-ui/src/keyboard-viewport-slop';
-
 /**
  * Pin the logged-out gate to the visible viewport.
  * `dvh` is the fallback before this runs. iOS keeps the large layout
@@ -23,15 +21,9 @@ export const gateViewportScript = `(function(){
        which left the face slot below the pill. */
     var visualBottom = offset + height;
     var lift = Math.max(0, Math.round(layout - visualBottom));
-    /* Same cutoff as KEYBOARD_VIEWPORT_SLOP_PX. Below it, the gap is the
-       browser toolbar and matches the dock. A real keyboard publishes 0 so
-       the sheet pin is the only move. */
-    var toolbarSlop = ${KEYBOARD_VIEWPORT_SLOP_PX};
-    var toolbar = lift < toolbarSlop ? lift : 0;
     root.style.setProperty('--gate-viewport-height', Math.round(height) + 'px');
     root.style.setProperty('--gate-viewport-offset', Math.round(offset) + 'px');
     root.style.setProperty('--portfolio-viewport-height', Math.round(visualBottom) + 'px');
-    root.style.setProperty('--os-toolbar-bottom', toolbar + 'px');
     root.style.setProperty('--portfolio-dock-bottom', lift + 'px');
     var standalone = false;
     try {

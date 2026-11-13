@@ -86,21 +86,6 @@
     max(0px, env(safe-area-inset-left, 0px));
 }
 
-/*
- * Browser toolbar. The dock already sits on this edge. The token is that
- * gap only while it is smaller than a keyboard, and 0 while the keys are
- * up (also 0 on an installed app, iPhone, and desktop) so opening the
- * keyboard does not jump the sheet for a frame. The keyboard pin's inline
- * bottom wins. Hosted sheets follow their card. Bands own their own box.
- */
-.glass-sheet-root:not(.glass-sheet-root--hosted):not(.glass-sheet-root--band) {
-  bottom: var(--os-toolbar-bottom, 0px);
-  padding-bottom: max(
-    0px,
-    calc(env(safe-area-inset-bottom, 0px) - var(--os-toolbar-bottom, 0px))
-  );
-}
-
 /* Keyboard frame uses the raw overlap. Drop the home-indicator pad so the
    panel bottom sits on the keys (hosted roots already have no pad). */
 .glass-sheet-root:has(.glass-sheet-panel.is-keyboard-open) {

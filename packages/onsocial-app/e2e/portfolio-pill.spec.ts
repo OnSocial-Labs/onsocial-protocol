@@ -4,8 +4,10 @@ import {
   dismissNextDevOverlay,
   gotoApp,
 } from './helpers';
-import { setE2eGraphProfile, setE2eGraphWriting } from './helpers/e2e-graph';
-import { stubShorterVisualViewport } from './helpers/visual-viewport';
+import {
+  setE2eGraphProfile,
+  setE2eGraphWriting,
+} from './helpers/e2e-graph';
 
 type FaceProbe = {
   first: number | null;
@@ -210,6 +212,34 @@ const LINKED_PHONES = [
   { name: 'Pixel', width: 412, height: 915 },
 ] as const;
 
+async function stubShorterVisualViewport(page: Page): Promise<void> {
+  await page.addInitScript(`(() => {
+    var lift = 56;
+    var real = window.visualViewport;
+    var vv = {
+      get height() { return Math.max(320, (window.innerHeight || 0) - lift); },
+      get width() { return window.innerWidth || 0; },
+      offsetTop: 0,
+      offsetLeft: 0,
+      pageTop: 0,
+      pageLeft: 0,
+      scale: 1,
+      addEventListener: function (type, fn) {
+        if (real && real.addEventListener) real.addEventListener(type, fn);
+      },
+      removeEventListener: function (type, fn) {
+        if (real && real.removeEventListener) real.removeEventListener(type, fn);
+      }
+    };
+    try {
+      Object.defineProperty(window, 'visualViewport', {
+        configurable: true,
+        get: function () { return vv; }
+      });
+    } catch (error) {}
+  })();`);
+}
+
 async function openLinkedFace(
   page: Page,
   viewport: { width: number; height: number }
@@ -302,7 +332,7 @@ async function measurePillAgainstFace(page: Page): Promise<{
         rect.left + rect.width / 2,
         rect.top + rect.height / 2
       );
-      if (!(link instanceof Element) || (!link.contains(hit) && hit !== link)) {
+      if (!(link instanceof Element) || !link.contains(hit) && hit !== link) {
         iconHit = false;
       }
     }

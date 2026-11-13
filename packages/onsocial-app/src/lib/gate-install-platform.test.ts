@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { KEYBOARD_VIEWPORT_SLOP_PX } from '@onsocial/ui';
 import { gateInstallPlatform } from '@/lib/gate-install-platform';
 import { gateViewportScript } from '@/lib/gate-viewport';
 
@@ -49,25 +48,6 @@ describe('gate viewport script', () => {
     expect(gateViewportScript).toContain('--gate-viewport-height');
     expect(gateViewportScript).toContain('--gate-viewport-offset');
     expect(gateViewportScript).toContain('data-pwa-standalone');
-    expect(gateViewportScript).toContain('--os-toolbar-bottom');
-    expect(gateViewportScript).toContain(
-      `var toolbarSlop = ${KEYBOARD_VIEWPORT_SLOP_PX};`
-    );
-    expect(gateViewportScript).toContain(
-      'var toolbar = lift < toolbarSlop ? lift : 0;'
-    );
-
-    const sheet = readFileSync(
-      join(appSrc, '../../onsocial-ui/glass-sheet.css'),
-      'utf8'
-    );
-    expect(sheet).toContain('bottom: var(--os-toolbar-bottom, 0px);');
-    expect(sheet).toContain(
-      'max(\n    0px,\n    calc(env(safe-area-inset-bottom, 0px) - var(--os-toolbar-bottom, 0px))\n  )'
-    );
-    expect(sheet).toContain(
-      '.glass-sheet-root:not(.glass-sheet-root--hosted):not(.glass-sheet-root--band)'
-    );
   });
 });
 

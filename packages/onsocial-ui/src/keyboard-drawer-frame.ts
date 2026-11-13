@@ -7,11 +7,15 @@ import {
   useState,
   type CSSProperties,
 } from 'react';
-import { KEYBOARD_VIEWPORT_SLOP_PX } from './keyboard-viewport-slop.js';
-
-export { KEYBOARD_VIEWPORT_SLOP_PX };
 
 const MOBILE_MAX_WIDTH_PX = 767;
+
+/**
+ * A phone suggestion bar, or the caret chase, moves the viewport by less
+ * than a real keyboard. Following those ticks shakes the field and the page
+ * behind the drawer.
+ */
+export const KEYBOARD_VIEWPORT_SLOP_PX = 64;
 
 export interface KeyboardDrawerMetrics {
   /** Pixels of the layout viewport covered below the visual viewport. */
@@ -22,13 +26,6 @@ export interface KeyboardDrawerMetrics {
 }
 
 const IDLE: KeyboardDrawerMetrics = { lift: 0, height: 0, isMobile: false };
-
-/** A real keyboard. A toolbar or suggestion bar stays under the slop. */
-export function keyboardViewportOpen(
-  metrics: Pick<KeyboardDrawerMetrics, 'isMobile' | 'lift'>
-): boolean {
-  return metrics.isMobile && metrics.lift >= KEYBOARD_VIEWPORT_SLOP_PX;
-}
 
 /**
  * Keep the last settled frame while the keyboard is up and the viewport
@@ -118,7 +115,7 @@ export function keyboardDrawerFrameStyle(
   maxHeightPx = 736,
   seatPx?: number
 ): CSSProperties | undefined {
-  if (!keyboardViewportOpen(metrics) || metrics.height <= 0) {
+  if (!metrics.isMobile || metrics.height <= 0 || metrics.lift <= 0) {
     return undefined;
   }
   const cap = Math.min(metrics.height, maxHeightPx);
@@ -140,7 +137,7 @@ export function pageKeyboardLiftStyle(
   metrics: KeyboardDrawerMetrics,
   seatPx: number
 ): CSSProperties | undefined {
-  if (!keyboardViewportOpen(metrics)) return undefined;
+  if (!metrics.isMobile || metrics.lift <= 0) return undefined;
   const seat = Math.max(0, Math.min(metrics.lift, Math.round(seatPx)));
   return {
     ['--os-keyboard-lift' as string]: `${seat}px`,
@@ -406,7 +403,10 @@ export function useKeyboardDrawerFrame(
       const metricsChanged = settled !== frameRef.current.metrics;
       const root = rootRef?.current ?? null;
       const viewport = window.visualViewport;
-      const keyboardUp = keyboardViewportOpen(settled) && Boolean(viewport);
+      const keyboardUp =
+        settled.isMobile &&
+        settled.lift >= KEYBOARD_VIEWPORT_SLOP_PX &&
+        Boolean(viewport);
       // One visible box for the open surface and the page behind it.
       // A paste pan or a lower field (url keyboard) must not become CSS top.
       if (keyboardUp && viewport) {
@@ -569,6 +569,6 @@ export function useKeyboardDrawerFrame(
   return {
     style,
     rootStyle,
-    keyboardOpen: keyboardViewportOpen(live),
+    keyboardOpen: live.isMobile && live.lift > 0,
   };
 }
