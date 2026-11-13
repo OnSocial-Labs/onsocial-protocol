@@ -8,13 +8,17 @@ After a `reverted` attempt the sheet set “Could not commit SOCIAL.” and retu
 
 This hotfix deletes that path. Commit and Increase send the same wallet `ft_transfer_call` they sent before 749. No token session key is created.
 
-A later gasless design, not built here, has two real options.
+### Feasibility proof (not built)
 
-The wallet signs the delegate with its full-access key, and the relayer only submits it. `@hot-labs/near-connect` 0.11.4 exposes `NearWalletBase.signDelegateActions`. Injected, sandboxed, and parent-frame wallets forward that call. The feature flag is per manifest, loaded from `https://raw.githubusercontent.com/hot-dao/near-selector/refs/heads/main/repository/manifest.json` (fetched 2026-11-13). These manifests set `signDelegateActions: true`: HOT Wallet (Android, iOS, Chrome, Firefox, Telegram), Meteor (web, Chrome, Android, iOS), Intear, Ledger, NEAR Mobile (Android, iOS), and near-cli. MyNearWallet, OKX, Nightly, Hana, Unity, WalletConnect, and Trezu do not. The in-package `NearWalletsPopup` debug manifest also sets the flag. That is not a production wallet. The Android report fits HOT, Meteor, or NEAR Mobile, which do advertise the method. The sheet today only calls `signAndSendTransaction`.
+Verdict: a full-access signature is accepted by the deployed relayer and by the protocol. The SOCIAL lock did not land. One wallet prompt exists only on wallets whose manifest sets `signDelegateActions`.
 
-The other option is a contract method that locks without a 1 yocto deposit. Boost lock today is only `ft_on_transfer` after `ft_transfer_call`. There is no zero-deposit lock. That would be a new contract method. It is not in this change.
+1. `@hot-labs/near-connect` 0.11.4 (`package.json` `version`) exposes `signDelegateActions` on `NearWalletBase` (`build/types/index.d.ts` lines 104–114 and 183). `WalletFeatures.signDelegateActions` is a boolean on the manifest (`build/types/index.d.ts` line 137). The three adapters forward it: `InjectedWallet.js` lines 62–70, `ParentFrameWallet.js` lines 73–82 (`near:signDelegateActions`), `SandboxedWallet/index.js` lines 57–66 (`wallet:signDelegateActions`). There is no second method name. Manifests load from `NearConnector.js` lines 14–17, including `https://raw.githubusercontent.com/hot-dao/near-selector/refs/heads/main/repository/manifest.json` (fetched 2026-11-13, 14 wallets). `signDelegateActions: true`: HOT Wallet (Android, iOS, Chrome, Firefox, Telegram), Meteor (web, Chrome, Android, iOS), Intear, Ledger, NEAR Mobile (Android, iOS), near-cli. Absent or false: MyNearWallet, OKX, Nightly, Hana, Unity, WalletConnect, Trezu, ethereum-wallets. `NearWalletsPopup.js` lines 17–24 set the flag on a debug “Custom Wallet” manifest. That is not a production wallet. The sheet still calls only `signAndSendTransaction`. This proof does not add a prompt.
 
-A function-call key with several method names still has one receiver. It cannot replace the full-access signature.
+2. `validate_token_boost_transfer` in `packages/onsocial-relayer/src/boost_sponsor.rs` (lines 68–102) checks one `ft_transfer_call`, deposit exactly 1 yocto, positive gas, and a parsed `receiver_id` of the boost contract. It does not read the signer’s key class. A full-access signature of that shape passes the same check as any other valid signature.
+
+3. Real testnet transaction, signed with `near-api-js` 7.1.0 `Account.createSignedMetaTransaction` (`lib/accounts/account.d.ts` line 173) and `encodeSignedDelegate` (`lib/transactions/schema.d.ts` line 17). Throwaway `osboostfeas1794602665.testnet`, key `ed25519:3dCh2dqx14KqfPAV9QLyKRpJdnNztx8mf4JUmhdF7M9F`, permission `FullAccess` (created by the testnet helper faucet). Inner action: `ft_transfer_call` on `token.onsocial.testnet`, deposit `1`, amount `1`, msg `{"action":"lock","months":1}`, receiver `boost.onsocial.testnet`, gas 80 TGas. Posted to the live app proxy `https://testnet.app.onsocial.id/api/onapi/relay/delegate?wait=true`, which forwards to the relayer. Response `200` `{"success":true,"tx_hash":"Hm3SHqvmN41vUz5kvYxU95N6SLQgV2xwrN7ygbc43BtU"}`. `EXPERIMENTAL_tx_status`: outer signer `relayer.onsocial.testnet`, receiver the throwaway, one `Delegate`, top-level status `SuccessValue`. The token receipt is `Failure` / `FunctionCallError` / `ExecutionError`: `Smart contract panicked: The account doesn't have enough balance`. It is not `DepositWithFunctionCall`. `boost.onsocial.testnet` `get_account` for the throwaway is `locked_amount` `0`. The token owner is `onsocial.testnet`, the supply was minted once, and there is no public mint. A new faucet account has NEAR and zero SOCIAL, so the lock cannot land until that account holds SOCIAL.
+
+The other option, a contract method that locks without a 1 yocto deposit, is still not built. Boost lock today is only `ft_on_transfer` after `ft_transfer_call`. A function-call key with several method names still has one receiver. It cannot replace the full-access signature.
 
 ## 2. alignment map
 
@@ -37,7 +41,7 @@ Kept:
 
 ## 4. side effects
 
-The relayer validator stays. It is unused by the app after this hotfix. It should stay until a full-access delegate is actually sent: it is the check that the transfer is one `ft_transfer_call` to the boost contract. Removing it now does not fix commit, and it would drop that check for a later gasless path. Do not treat it as live product behavior.
+The relayer validator stays. The app does not call it. A one-off proof did: the deployed relayer accepted `Hm3SHqvmN41vUz5kvYxU95N6SLQgV2xwrN7ygbc43BtU` and the token then rejected a zero SOCIAL balance. Keep the validator until a full-access delegate is a product path. It is the check that the transfer is one `ft_transfer_call` to the boost contract. Removing it does not fix commit. Do not treat the proof transaction as product behavior.
 
 `token.onsocial.testnet` remains on the deployed testnet allow-list. That was not the failure.
 
