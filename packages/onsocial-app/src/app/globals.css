@@ -5120,6 +5120,11 @@ a.os-surface-row,
     /* Face is a locked card. The page drawer owns scrolling. */
     overflow: hidden;
     --portfolio-avatar-size: 5rem;
+    /* Floor for the hero band. The avatar's negative margin needs this much
+       room, so the circle is not pushed out of the frame when the band shrinks. */
+    --portfolio-hero-min: calc(
+      var(--portfolio-avatar-size) + var(--portfolio-identity-avatar-gap)
+    );
     /* Name sits just below the hero band; Card avatar straddles the dissolve seam. */
     --portfolio-face-name-gap: 0.65rem;
     --portfolio-content-start: calc(
@@ -5179,6 +5184,7 @@ a.os-surface-row,
     --portfolio-hero-height: min(48svh, 26rem);
     --portfolio-hero-dissolve: 22%;
     --portfolio-cover-content-lift: 2rem;
+    --portfolio-hero-min: var(--portfolio-cover-content-lift);
     --portfolio-content-start: calc(
       var(--portfolio-hero-height) + var(--portfolio-face-name-gap) -
         var(--portfolio-cover-content-lift)
@@ -7797,8 +7803,10 @@ a.os-surface-row,
     text-align: center;
   }
 
-  /* Clip lives on the stack so a tall face stops at the slot. The avatar's
-     negative margin stays inside this padding, so the top is not cut. */
+  /* The face does not scroll — the drawer does — and it does not clip.
+     The band is the hero inset. It keeps --portfolio-content-start when the
+     column has room, and shrinks toward --portfolio-hero-min when the pill
+     footprint leaves less, so the icons stay whole above the slot. */
   .portfolio-hero-stack {
     display: flex;
     flex: 1 1 auto;
@@ -7808,12 +7816,23 @@ a.os-surface-row,
     gap: var(--portfolio-hero-gap);
     width: 100%;
     min-height: 0;
-    overflow: hidden;
-    padding: var(--portfolio-content-start)
-      max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px)) 0
-      max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
-    transition: padding-top var(--mood-transition-duration)
+    overflow: visible;
+    padding: 0 max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px))
+      0 max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
+  }
+
+  .portfolio-hero-band {
+    flex: 0 1 var(--portfolio-content-start);
+    width: 100%;
+    min-height: var(--portfolio-hero-min);
+    max-height: var(--portfolio-content-start);
+    margin-bottom: calc(var(--portfolio-hero-gap) * -1);
+    transition: flex-basis var(--mood-transition-duration)
       var(--mood-transition-ease);
+  }
+
+  .portfolio-hero-stack > :not(.portfolio-hero-band) {
+    flex-shrink: 0;
   }
 
   /* Outside the clip. Height is the dock chrome plus --portfolio-pill-footprint,

@@ -265,44 +265,84 @@ async function openLinkedFace(
 async function measurePillAgainstFace(page: Page): Promise<{
   hits: string[];
   pillTop: number;
-  linksBottom: number;
+  iconBottom: number;
+  gap: number;
+  fullyVisible: boolean;
+  iconHit: boolean;
   frameBottom: number;
   dockBottom: number;
   dockVar: string;
 }> {
   return page.evaluate(() => {
     const pill = document.querySelector('button.portfolio-page-chevron');
-    const links = document.querySelector('.portfolio-links');
     const frame = document.querySelector('.portfolio-frame');
     const dock = document.querySelector('.portfolio-summon-dock');
+    const icons = [...document.querySelectorAll('.portfolio-link-icon')];
     if (
       !(pill instanceof HTMLElement) ||
-      !(links instanceof HTMLElement) ||
       !(frame instanceof HTMLElement) ||
-      !(dock instanceof HTMLElement)
+      !(dock instanceof HTMLElement) ||
+      icons.length === 0
     ) {
       throw new Error('missing pill face');
     }
-    const previous = pill.style.visibility;
-    pill.style.visibility = 'hidden';
-    const box = pill.getBoundingClientRect();
-    const hits = new Set<string>();
-    const seen = (el: Element | null) => {
-      const face = el?.closest(
-        '.portfolio-link, .portfolio-bio, .portfolio-name, .portfolio-handle, .portfolio-links, .portfolio-identity'
-      );
-      if (face) hits.add(face.className.toString());
+    const probe = document.createElement('div');
+    probe.style.position = 'absolute';
+    probe.style.width = 'var(--portfolio-chevron-gap)';
+    document.body.appendChild(probe);
+    const gap = probe.getBoundingClientRect().width;
+    probe.remove();
+
+    const clips = (value: string) =>
+      value === 'hidden' ||
+      value === 'clip' ||
+      value === 'scroll' ||
+      value === 'auto';
+    const fullyInside = (el: Element) => {
+      const rect = el.getBoundingClientRect();
+      let node = el.parentElement;
+      while (node && node !== document.documentElement) {
+        const style = getComputedStyle(node);
+        if (clips(style.overflowX) || clips(style.overflowY)) {
+          const box = node.getBoundingClientRect();
+          if (
+            rect.top < box.top - 0.5 ||
+            rect.bottom > box.bottom + 0.5 ||
+            rect.left < box.left - 0.5 ||
+            rect.right > box.right + 0.5
+          ) {
+            return false;
+          }
+        }
+        node = node.parentElement;
+      }
+      return true;
     };
-    for (let y = box.top + 1; y < box.bottom - 1; y += 3) {
-      for (let x = box.left + 1; x < box.right - 1; x += 6) {
-        seen(document.elementFromPoint(x, y));
+
+    const box = pill.getBoundingClientRect();
+    let iconBottom = 0;
+    let fullyVisible = true;
+    let iconHit = true;
+    for (const icon of icons) {
+      const rect = icon.getBoundingClientRect();
+      iconBottom = Math.max(iconBottom, rect.bottom);
+      if (!fullyInside(icon)) fullyVisible = false;
+      const link = icon.closest('a, button');
+      const hit = document.elementFromPoint(
+        rect.left + rect.width / 2,
+        rect.top + rect.height / 2
+      );
+      if (!(link instanceof Element) || !link.contains(hit) && hit !== link) {
+        iconHit = false;
       }
     }
-    pill.style.visibility = previous;
     return {
-      hits: [...hits],
+      hits: [],
       pillTop: box.top,
-      linksBottom: links.getBoundingClientRect().bottom,
+      iconBottom,
+      gap,
+      fullyVisible,
+      iconHit,
       frameBottom: frame.getBoundingClientRect().bottom,
       dockBottom: dock.getBoundingClientRect().bottom,
       dockVar: getComputedStyle(document.documentElement)
@@ -312,6 +352,20 @@ async function measurePillAgainstFace(page: Page): Promise<{
   });
 }
 
+function expectIconsAbovePill(measured: {
+  pillTop: number;
+  iconBottom: number;
+  gap: number;
+  fullyVisible: boolean;
+  iconHit: boolean;
+}) {
+  expect(measured.iconBottom).toBeLessThanOrEqual(
+    measured.pillTop - measured.gap + 0.5
+  );
+  expect(measured.fullyVisible).toBe(true);
+  expect(measured.iconHit).toBe(true);
+}
+
 test.describe('portfolio pill clears social links', () => {
   for (const phone of LINKED_PHONES) {
     test(`does not cover links, bio, or identity on ${phone.name} @webkit`, async ({
@@ -319,7 +373,7 @@ test.describe('portfolio pill clears social links', () => {
     }) => {
       await openLinkedFace(page, phone);
       const measured = await measurePillAgainstFace(page);
-      expect(measured.hits).toEqual([]);
+      expectIconsAbovePill(measured);
       expect(Math.abs(measured.frameBottom - measured.dockBottom)).toBeLessThan(
         2
       );
@@ -332,7 +386,7 @@ test.describe('portfolio pill clears social links', () => {
     await stubShorterVisualViewport(page);
     await openLinkedFace(page, { width: 360, height: 780 });
     const measured = await measurePillAgainstFace(page);
-    expect(measured.hits).toEqual([]);
+    expectIconsAbovePill(measured);
     expect(measured.dockVar).toBe('56px');
     expect(Math.abs(measured.frameBottom - measured.dockBottom)).toBeLessThan(
       2
@@ -369,7 +423,7 @@ test.describe('portfolio pill clears social links', () => {
     expect(standalone.media).toBe(true);
     expect(standalone.attr).toBe(true);
     const measured = await measurePillAgainstFace(page);
-    expect(measured.hits).toEqual([]);
+    expectIconsAbovePill(measured);
     expect(Math.abs(measured.frameBottom - measured.dockBottom)).toBeLessThan(
       2
     );
