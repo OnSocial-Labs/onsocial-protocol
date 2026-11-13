@@ -14142,6 +14142,18 @@ a.os-surface-row,
     --os-screen-body-pad-bottom: 1.5rem;
     --os-screen-body-inset: var(--os-screen-body-pad-top)
       var(--os-screen-body-pad-x) var(--os-screen-body-pad-bottom);
+    /*
+     * Open Post page face, under the shared body pad. The root card uses
+     * 0.35rem (not the feed card's 0.68rem), then the 1px card edge and the
+     * avatar's 0.05rem nudge. Composer first rows share this sum.
+     */
+    --os-post-open-pad-top: 0.35rem;
+    --os-post-avatar-nudge: 0.05rem;
+    --os-post-card-edge: 1px;
+    --os-composer-first-pad-top: calc(
+      var(--os-post-open-pad-top) + var(--os-post-avatar-nudge) +
+        var(--os-post-card-edge)
+    );
     position: relative;
     height: 100dvh;
     max-height: 100dvh;
@@ -23295,7 +23307,7 @@ a.os-surface-row,
     gap: var(--os-media-copy-gap, 0.55rem);
     margin: 0 -0.25rem;
     padding: 0.68rem 0.25rem;
-    border: 1px solid transparent;
+    border: var(--os-post-card-edge, 1px) solid transparent;
     border-radius: 0.9rem;
     background: transparent;
   }
@@ -23503,7 +23515,7 @@ a.os-surface-row,
     position: relative;
     z-index: 1;
     flex-shrink: 0;
-    margin-top: 0.05rem;
+    margin-top: var(--os-post-avatar-nudge, 0.05rem);
     color: inherit;
     text-decoration: none;
   }
@@ -39555,7 +39567,7 @@ a.os-surface-row,
 
   .guild-thread-root > .post-card {
     margin: 0;
-    padding: 0.35rem 0;
+    padding: var(--os-post-open-pad-top, 0.35rem) 0;
   }
 
   /*
@@ -39850,9 +39862,12 @@ a.os-surface-row,
    * Compose thread rail — same tokens as `.post-thread-item`, without the
    * feed card's 1px transparent border (that border is why the feed rail
    * sits at `--thread-rail-x` instead of `--thread-rail-x - 1px`).
-   * First beat keeps pad-top 0 so plus does not jump the opening post.
-   * Continuation uses feed `--cont` pad-top (0.42rem); down-rows use the
-   * feed card pad-bottom (0.68rem) so the rail has room between avatars.
+   * The opening beat uses the Post page's face pad
+   * (`--os-composer-first-pad-top`) so the avatar clears the header by
+   * the same amount. That pad sits above the face, so the plus under
+   * the beat does not jump. Continuation uses feed `--cont` pad-top
+   * (0.42rem); down-rows use the feed card pad-bottom (0.68rem) so the
+   * rail has room between avatars.
    */
   .guild-composer-thread {
     display: flex;
@@ -39863,7 +39878,7 @@ a.os-surface-row,
     position: relative;
     --thread-avatar: var(--os-avatar-feed, 2.5rem);
     --thread-rail-x: calc(var(--thread-avatar) / 2);
-    --thread-pad-top: 0px;
+    --thread-pad-top: var(--os-composer-first-pad-top);
     --thread-rail-gap: 0.2rem;
     --thread-rail-color: rgb(var(--fg-rgb) / 0.12);
     padding-top: var(--thread-pad-top);
@@ -40050,7 +40065,14 @@ a.os-surface-row,
     --thread-avatar: var(--os-avatar-feed, 2.5rem);
     --thread-rail-x: calc(var(--thread-avatar) / 2);
     --thread-rail-gap: 0.2rem;
+    --thread-pad-top: var(--os-composer-first-pad-top);
+    padding-top: var(--thread-pad-top);
     padding-bottom: 0.35rem;
+  }
+
+  /* Quote / single beat — no thread item, so the face pad lives on the row. */
+  .guild-composer-sheet-form > .guild-composer-self {
+    padding-top: var(--os-composer-first-pad-top);
   }
 
   /* Same compose-thread math: 2px rail centred on the lg avatar, 0.2rem gap. */
@@ -40058,7 +40080,9 @@ a.os-surface-row,
     content: '';
     position: absolute;
     left: calc(var(--thread-rail-x) - 1px);
-    top: calc(var(--thread-avatar) + var(--thread-rail-gap));
+    top: calc(
+      var(--thread-pad-top) + var(--thread-avatar) + var(--thread-rail-gap)
+    );
     bottom: -0.35rem;
     width: 2px;
     border-radius: 9999px;
