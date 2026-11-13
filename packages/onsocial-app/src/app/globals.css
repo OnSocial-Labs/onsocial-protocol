@@ -4624,8 +4624,10 @@ a.os-surface-row,
     width: 100%;
     min-height: 0;
     box-sizing: border-box;
-    padding: max(var(--os-gutter), env(safe-area-inset-top, 0px))
-      max(var(--os-gutter), env(safe-area-inset-right, 0px)) var(--os-gutter)
+    padding:
+      max(var(--os-gutter), env(safe-area-inset-top, 0px))
+      max(var(--os-gutter), env(safe-area-inset-right, 0px))
+      var(--os-gutter)
       max(var(--os-gutter), env(safe-area-inset-left, 0px));
   }
 
@@ -4779,7 +4781,8 @@ a.os-surface-row,
     justify-content: center;
     gap: var(--os-gutter);
     width: 100%;
-    padding: var(--os-dock-clearance-gap)
+    padding:
+      var(--os-dock-clearance-gap)
       max(var(--os-gutter), env(safe-area-inset-right, 0px))
       max(var(--os-dock-bottom-offset), env(safe-area-inset-bottom, 0px))
       max(var(--os-gutter), env(safe-area-inset-left, 0px));
