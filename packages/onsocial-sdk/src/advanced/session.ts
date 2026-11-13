@@ -99,6 +99,22 @@ export interface OnboardingPlan {
   expiresAtMs?: number;
 }
 
+function normalizeAccountScope(value: string): string {
+  return value.trim().toLowerCase().replace(/\/+$/, '');
+}
+
+/**
+ * True when `path` is the signer's own account tree.
+ * Owner function-call keys are predecessor-trusted, so they do not need
+ * a `set_key_permission` row. Delegated and cross-account scopes do.
+ */
+export function isOwnerAccountScope(accountId: string, path: string): boolean {
+  const owner = normalizeAccountScope(accountId);
+  const scope = normalizeAccountScope(path);
+  if (!owner || !scope) return false;
+  return scope === owner || scope.startsWith(`${owner}/`);
+}
+
 export class SessionScopeError extends Error {
   readonly code = 'SESSION_SCOPE_ERROR' as const;
   constructor(message: string) {
@@ -161,15 +177,19 @@ export function buildSessionGrant(
     }
     const ttl = input.ttlMs ?? 24 * 60 * 60 * 1000;
     expiresAtMs = (input.now ?? Date.now()) + ttl;
+    const onboarding = buildSessionOnboardingActions({
+      sessionPublicKey: input.sessionPublicKey,
+      scope: input.path,
+      ttlMs: ttl,
+      storageDepositYocto: input.storageDepositYocto ?? '0',
+      level: input.level ?? PERMISSION_LEVEL.WRITE,
+      now: input.now,
+    });
+    const ownerSelf = isOwnerAccountScope(input.accountId, input.path);
     coreActions.push(
-      ...buildSessionOnboardingActions({
-        sessionPublicKey: input.sessionPublicKey,
-        scope: input.path,
-        ttlMs: ttl,
-        storageDepositYocto: input.storageDepositYocto ?? '0',
-        level: input.level ?? PERMISSION_LEVEL.WRITE,
-        now: input.now,
-      })
+      ...onboarding.filter(
+        (action) => !(ownerSelf && action.type === 'set_key_permission')
+      )
     );
   } else if (
     input.path ||
@@ -401,6 +421,11 @@ export function buildSessionRevoke(input: {
   publicKey: string;
   contract: SessionContract;
   path?: string;
+  /**
+   * Signer account. When the path is that account's own tree, there is no
+   * permission row to clear.
+   */
+  accountId?: string;
 }): {
   publicKey: string;
   coreActions: CoreAction[];
@@ -412,13 +437,18 @@ export function buildSessionRevoke(input: {
         'core revoke requires the original `path` to clear the registry entry'
       );
     }
-    coreActions.push({
-      type: 'set_key_permission',
-      public_key: input.publicKey,
-      path: input.path,
-      level: 0,
-      expires_at: '0',
-    });
+    const ownerSelf =
+      input.accountId != null &&
+      isOwnerAccountScope(input.accountId, input.path);
+    if (!ownerSelf) {
+      coreActions.push({
+        type: 'set_key_permission',
+        public_key: input.publicKey,
+        path: input.path,
+        level: 0,
+        expires_at: '0',
+      });
+    }
   }
   return { publicKey: input.publicKey, coreActions };
 }

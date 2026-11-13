@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ADD_KEY_FEE_HEADROOM_YOCTO,
   chooseSessionKeyAllowanceYocto,
   FULL_SESSION_KEY_ALLOWANCE_YOCTO,
+  PERMISSION_WRITE_GAS_YOCTO,
   resolveAppConnectRoute,
   SPONSORED_SESSION_KEY_ALLOWANCE_YOCTO,
+  WELCOME_NEAR_THRESHOLD_YOCTO,
   accountNeedsSessionSponsor,
 } from '@/lib/app-session-sponsor';
 
@@ -36,6 +39,24 @@ describe('chooseSessionKeyAllowanceYocto', () => {
     expect(
       chooseSessionKeyAllowanceYocto(15_000_000_000_000_000_000_000n)
     ).toBe(SPONSORED_SESSION_KEY_ALLOWANCE_YOCTO.toString());
+  });
+});
+
+describe('welcome top-up and AddKey', () => {
+  it('covers AddKey plus the sponsored allowance', () => {
+    expect(
+      SPONSORED_SESSION_KEY_ALLOWANCE_YOCTO + ADD_KEY_FEE_HEADROOM_YOCTO <=
+        WELCOME_NEAR_THRESHOLD_YOCTO
+    ).toBe(true);
+  });
+
+  it('does not cover an extra 100 TGas permission write', () => {
+    expect(
+      SPONSORED_SESSION_KEY_ALLOWANCE_YOCTO +
+        ADD_KEY_FEE_HEADROOM_YOCTO +
+        PERMISSION_WRITE_GAS_YOCTO >
+        WELCOME_NEAR_THRESHOLD_YOCTO
+    ).toBe(true);
   });
 });
 

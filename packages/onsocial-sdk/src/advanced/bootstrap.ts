@@ -554,10 +554,12 @@ export async function bootstrapSession(
     gasTgas: input.grantGasTgas,
     includeAddKey: !input.skipAddKey,
   });
-  const grantResult = await input.wallet.signAndSendTransactions({
-    transactions,
-  });
-  input.onGrantResult?.(grantResult);
+  if (transactions.length > 0) {
+    const grantResult = await input.wallet.signAndSendTransactions({
+      transactions,
+    });
+    input.onGrantResult?.(grantResult);
+  }
 
   const contractId =
     input.contractId ?? resolveContractId(input.network, input.contract);
@@ -667,6 +669,7 @@ export async function revokeSession(
     publicKey: input.publicKey,
     contract: input.contract,
     path: input.path,
+    accountId,
   });
 
   const txs: Array<{ receiverId: string; actions: NearAction[] }> = [

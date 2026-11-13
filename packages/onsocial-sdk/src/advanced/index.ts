@@ -115,6 +115,7 @@ export {
   buildSessionGrant,
   buildSessionRevoke,
   buildSessionOnboardingActions,
+  isOwnerAccountScope,
   SessionScopeError,
   NeedsWalletConfirmationError,
 } from './session.js';

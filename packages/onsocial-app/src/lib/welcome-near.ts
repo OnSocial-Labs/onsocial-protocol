@@ -73,12 +73,16 @@ export async function fundAppSessionIfNeeded(accountId: string): Promise<void> {
     throw new Error(SESSION_SETUP_FAILED);
   }
 
-  if (data.enabled === false || data.sufficient_balance || !data.dripped) {
+  if (data.dripped === true && data.enabled !== false) {
+    const funded = await waitForSponsorBalance(accountId);
+    if (!funded) {
+      throw new Error(SESSION_SETUP_FAILED);
+    }
     return;
   }
 
-  const funded = await waitForSponsorBalance(accountId);
-  if (!funded) {
+  const liquid = await readLiquidYocto(accountId).catch(() => null);
+  if (accountNeedsSessionSponsor(liquid)) {
     throw new Error(SESSION_SETUP_FAILED);
   }
 }

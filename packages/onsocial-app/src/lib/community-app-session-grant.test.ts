@@ -42,6 +42,35 @@ describe('grantCommunityAppSession', () => {
     expect(signAndSendTransactions).not.toHaveBeenCalled();
   });
 
+  it('emits AddKey and set_key_permission for a community app key', async () => {
+    viewFunctionCallAccessKey.mockResolvedValue(null);
+    signAndSendTransactions.mockResolvedValue([{ transactionHash: 'hash' }]);
+    await grantCommunityAppSession({
+      accountId: 'bob.testnet',
+      appId: 'tracker',
+      publicKey: 'ed25519:8hK7pQ2nVxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+      wallet: { signAndSendTransactions } as never,
+    });
+    const transactions = signAndSendTransactions.mock.calls[0]?.[0]
+      ?.transactions as Array<{
+      actions: Array<{
+        type: string;
+        params: {
+          methodName?: string;
+          args?: { request?: { action?: { type?: string } } };
+        };
+      }>;
+    }>;
+    const actions = transactions.flatMap((tx) => tx.actions);
+    expect(actions.some((action) => action.type === 'AddKey')).toBe(true);
+    const permission = actions.find(
+      (action) => action.params.methodName === 'execute_admin'
+    );
+    expect(permission?.params.args?.request?.action?.type).toBe(
+      'set_key_permission'
+    );
+  });
+
   it('rejects a key bound to another contract', async () => {
     viewFunctionCallAccessKey.mockResolvedValue({
       receiverId: 'scarces.onsocial.testnet',

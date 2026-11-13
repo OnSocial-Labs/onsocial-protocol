@@ -485,7 +485,7 @@ export const txToastError = {
   unmuteAccountFailed: 'Could not unmute account.',
   communityAppGrantFailed: 'Could not grant app access.',
   removeAppAccessFailed: 'Could not remove app access.',
-  allowAppAccessFailed: 'Could not allow app access.',
+  allowAppAccessFailed: "Couldn't add app access. Try again in a moment.",
 } as const;
 
 /** Governance / partners — formal one-liners for DAO act_proposal flows. */

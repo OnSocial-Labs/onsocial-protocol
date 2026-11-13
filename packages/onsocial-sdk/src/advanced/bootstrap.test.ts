@@ -113,7 +113,24 @@ describe('planToWalletTransactions', () => {
     });
   });
 
-  it('can omit AddKey when the key was already added at wallet sign-in', () => {
+  it('can omit AddKey when a delegated key was already added', () => {
+    const plan = buildSessionGrant({
+      network: 'mainnet',
+      accountId: 'alice.near',
+      sessionPublicKey: 'ed25519:11111111111111111111111111111111',
+      contract: 'core',
+      path: 'apps/myapp/',
+      functionCallKey: { allowanceYocto: '250000000000000000000000' },
+    });
+    const txs = planToWalletTransactions(plan, { includeAddKey: false });
+    expect(txs).toHaveLength(1);
+    expect(txs[0].actions.every((action) => action.type !== 'AddKey')).toBe(
+      true
+    );
+    expect(JSON.stringify(txs)).toContain('set_key_permission');
+  });
+
+  it('emits only AddKey for an owner app session', () => {
     const plan = buildSessionGrant({
       network: 'mainnet',
       accountId: 'alice.near',
@@ -122,10 +139,25 @@ describe('planToWalletTransactions', () => {
       path: 'alice.near/',
       functionCallKey: { allowanceYocto: '250000000000000000000000' },
     });
-    const txs = planToWalletTransactions(plan, { includeAddKey: false });
+    const txs = planToWalletTransactions(plan);
     expect(txs).toHaveLength(1);
-    expect(txs[0].actions.every((action) => action.type !== 'AddKey')).toBe(
-      true
+    expect(txs[0].receiverId).toBe('alice.near');
+    expect(txs[0].actions).toHaveLength(1);
+    expect(txs[0].actions[0].type).toBe('AddKey');
+    expect(JSON.stringify(txs)).not.toMatch(/execute_admin|set_key_permission/);
+  });
+
+  it('emits nothing when an owner key is already on the account', () => {
+    const plan = buildSessionGrant({
+      network: 'mainnet',
+      accountId: 'alice.near',
+      sessionPublicKey: 'ed25519:11111111111111111111111111111111',
+      contract: 'core',
+      path: 'alice.near/',
+      functionCallKey: { allowanceYocto: '250000000000000000000000' },
+    });
+    expect(planToWalletTransactions(plan, { includeAddKey: false })).toEqual(
+      []
     );
   });
 });
@@ -156,6 +188,31 @@ describe('sessionId', () => {
       'alice.near|core|apps/x/'
     );
     expect(sessionId('alice.near', 'scarces')).toBe('alice.near|scarces');
+  });
+});
+
+describe('revokeSession owner scope', () => {
+  it('sends DeleteKey only for an owner app key', async () => {
+    const sent: Array<{
+      receiverId: string;
+      actions: Array<{ type: string }>;
+    }> = [];
+    const wallet: WalletAdapter = {
+      accountId: () => 'alice.near',
+      signAndSendTransactions: vi.fn(async ({ transactions }) => {
+        sent.push(...transactions);
+      }),
+    };
+    await revokeSession({
+      wallet,
+      publicKey: 'ed25519:abc',
+      contract: 'core',
+      path: 'alice.near/',
+      network: 'mainnet',
+      accountId: 'alice.near',
+    });
+    expect(sent).toHaveLength(1);
+    expect(sent[0].actions.map((action) => action.type)).toEqual(['DeleteKey']);
   });
 });
 
@@ -302,6 +359,49 @@ describe.skipIf(!hasEd25519)(
       expect(
         await store.get(sessionId('alice.near', 'core', 'apps/myapp/'))
       ).toBeNull();
+    });
+
+    it('bootstraps an owner app session with AddKey only', async () => {
+      const sent: Array<{
+        receiverId: string;
+        actions: Array<{ type: string }>;
+      }> = [];
+      const wallet: WalletAdapter = {
+        accountId: () => 'alice.near',
+        signAndSendTransactions: vi.fn(async ({ transactions }) => {
+          sent.push(...transactions);
+        }),
+      };
+
+      await bootstrapSession({
+        wallet,
+        network: 'mainnet',
+        contract: 'core',
+        path: 'alice.near/',
+        functionCallKey: { allowanceYocto: '1' },
+        startingNonce: 2,
+      });
+
+      expect(sent).toHaveLength(1);
+      expect(sent[0].actions.map((action) => action.type)).toEqual(['AddKey']);
+    });
+
+    it('does not open the wallet when an owner key is already added', async () => {
+      const signAndSendTransactions = vi.fn();
+      const sessionKey = await generateEd25519Key();
+      await bootstrapSession({
+        wallet: {
+          accountId: () => 'alice.near',
+          signAndSendTransactions,
+        },
+        sessionKey,
+        skipAddKey: true,
+        network: 'mainnet',
+        contract: 'core',
+        path: 'alice.near/',
+        functionCallKey: { allowanceYocto: '1' },
+      });
+      expect(signAndSendTransactions).not.toHaveBeenCalled();
     });
 
     it('returns null from restore when no entry exists', async () => {

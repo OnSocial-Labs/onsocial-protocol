@@ -3,6 +3,7 @@ import {
   Session,
   buildSessionGrant,
   buildSessionRevoke,
+  isOwnerAccountScope,
   NeedsWalletConfirmationError,
   SessionScopeError,
 } from './session.js';
@@ -113,6 +114,57 @@ describe('buildSessionGrant — core (path + ttl)', () => {
     expect(plan.coreActions[1]?.type).toBe('set_key_permission');
   });
 
+  it('skips set_key_permission for an owner app session and keeps the local expiry', () => {
+    const now = 1_700_000_000_000;
+    const plan = buildSessionGrant({
+      network: 'mainnet',
+      accountId: 'alice.near',
+      sessionPublicKey: 'ed25519:s2',
+      contract: 'core',
+      path: 'alice.near/',
+      ttlMs: 60 * 60 * 1000,
+      functionCallKey: { allowanceYocto: '250000000000000000000000' },
+      now,
+    });
+
+    expect(plan.expiresAtMs).toBe(now + 60 * 60 * 1000);
+    expect(plan.coreActions).toEqual([]);
+  });
+
+  it('keeps a storage deposit on an owner path and still skips the permission write', () => {
+    const plan = buildSessionGrant({
+      network: 'mainnet',
+      accountId: 'alice.near',
+      sessionPublicKey: 'ed25519:s2',
+      contract: 'core',
+      path: 'alice.near/profile',
+      storageDepositYocto: '100000000000000000000000',
+      functionCallKey: { allowanceYocto: '0' },
+    });
+    expect(plan.coreActions).toEqual([
+      {
+        type: 'set',
+        data: { 'storage/deposit': { amount: '100000000000000000000000' } },
+      },
+    ]);
+  });
+
+  it('keeps set_key_permission for a cross-account grant', () => {
+    const plan = buildSessionGrant({
+      network: 'mainnet',
+      accountId: 'alice.near',
+      sessionPublicKey: 'ed25519:s2',
+      contract: 'core',
+      path: 'bob.near/',
+      ttlMs: 60 * 60 * 1000,
+      functionCallKey: { allowanceYocto: '1' },
+      now: 1_700_000_000_000,
+    });
+    expect(plan.coreActions.map((action) => action.type)).toEqual([
+      'set_key_permission',
+    ]);
+  });
+
   it('requires path for core', () => {
     expect(() =>
       buildSessionGrant({
@@ -123,6 +175,17 @@ describe('buildSessionGrant — core (path + ttl)', () => {
         functionCallKey: { allowanceYocto: '0' },
       })
     ).toThrow(SessionScopeError);
+  });
+});
+
+describe('isOwnerAccountScope', () => {
+  it('matches the signer account tree only', () => {
+    expect(isOwnerAccountScope('alice.near', 'alice.near/')).toBe(true);
+    expect(isOwnerAccountScope('alice.near', 'alice.near/profile')).toBe(true);
+    expect(isOwnerAccountScope('Alice.near', 'alice.near/')).toBe(true);
+    expect(isOwnerAccountScope('alice.near', 'apps/myapp/')).toBe(false);
+    expect(isOwnerAccountScope('alice.near', 'bob.near/')).toBe(false);
+    expect(isOwnerAccountScope('alice.near', 'alice.near.evil')).toBe(false);
   });
 });
 
@@ -288,6 +351,16 @@ describe('buildSessionRevoke', () => {
         expires_at: '0',
       },
     ]);
+  });
+
+  it('does not clear a permission row for an owner app key', () => {
+    const plan = buildSessionRevoke({
+      publicKey: 'ed25519:s1',
+      contract: 'core',
+      path: 'alice.near/',
+      accountId: 'alice.near',
+    });
+    expect(plan.coreActions).toEqual([]);
   });
 
   it('requires path for core', () => {

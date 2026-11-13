@@ -1,3 +1,21 @@
+const APP_ACCESS_JARGON =
+  /\b(gas|tgas|on-chain|on chain|contract|yocto|execute_admin|transaction hash)\b/i;
+
+/**
+ * Toast copy for App access failures. User cancel stays quiet.
+ * Never surfaces the raw wallet or chain message.
+ */
+export function mapAppAccessError(
+  error: unknown,
+  fallback: string
+): string | null {
+  if (isWalletUserCancellation(error)) return null;
+  if (APP_ACCESS_JARGON.test(fallback)) {
+    return "Couldn't add app access. Try again in a moment.";
+  }
+  return fallback;
+}
+
 export function isWalletUserCancellation(error: unknown): boolean {
   if (!(error instanceof Error)) {
     if (typeof error === 'string') {

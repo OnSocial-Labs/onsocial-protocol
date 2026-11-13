@@ -1,6 +1,5 @@
 import type { NearConnector_ConnectOptions } from '@hot-labs/near-connect';
 import {
-  bootstrapSession,
   generateEd25519Key,
   localStorageKeyStore,
   nearConnectAdapter,
@@ -12,6 +11,7 @@ import {
   sessionId,
   type FunctionCallKeyLimits,
   type GeneratedSessionKey,
+  type NearAction,
   type Session,
   type StoredSession,
 } from '@onsocial/sdk/advanced';
@@ -90,23 +90,74 @@ function coreContractIdForNetwork(): string | undefined {
   return resolveContractId(ACTIVE_NEAR_NETWORK, 'core');
 }
 
+interface AppSessionKeySpec {
+  contractId: string;
+  publicKey: string;
+  methodNames: string[];
+  allowanceYocto: string | null;
+}
+
+/** One description of the owner app key. Connect and settings both use it. */
+function appSessionKeySpec(
+  sessionKey: GeneratedSessionKey,
+  allowanceYocto: string | null
+): AppSessionKeySpec | null {
+  const contractId = coreContractIdForNetwork();
+  if (!contractId) return null;
+  return {
+    contractId,
+    publicKey: sessionKey.publicKey,
+    methodNames: ['execute'],
+    allowanceYocto,
+  };
+}
+
 /** Wallet connect options that add the session key in the same sheet. */
 export function appSessionConnectOptions(
   pendingSessionKey: GeneratedSessionKey,
   allowanceYocto: string = FUNCTION_CALL_KEY_ALLOWANCE_YOCTO
 ): NearConnector_ConnectOptions | null {
-  const coreContractId = coreContractIdForNetwork();
-  if (!coreContractId) {
-    return null;
-  }
+  const spec = appSessionKeySpec(pendingSessionKey, allowanceYocto);
+  if (!spec || spec.allowanceYocto == null) return null;
 
   return {
     addFunctionCallKey: {
-      contractId: coreContractId,
-      publicKey: pendingSessionKey.publicKey,
-      allowMethods: { anyMethod: false, methodNames: ['execute'] },
-      gasAllowance: { kind: 'limited', amount: allowanceYocto },
+      contractId: spec.contractId,
+      publicKey: spec.publicKey,
+      allowMethods: { anyMethod: false, methodNames: spec.methodNames },
+      gasAllowance: { kind: 'limited', amount: spec.allowanceYocto },
     },
+  };
+}
+
+/** AddKey for an already-connected wallet. No permission write. */
+export function appSessionAddKeyTransaction(
+  accountId: string,
+  sessionKey: GeneratedSessionKey,
+  allowanceYocto: string | null
+): { receiverId: string; actions: NearAction[] } | null {
+  const spec = appSessionKeySpec(sessionKey, allowanceYocto);
+  if (!spec) return null;
+
+  return {
+    receiverId: accountId,
+    actions: [
+      {
+        type: 'AddKey',
+        params: {
+          publicKey: spec.publicKey,
+          accessKey: {
+            permission: {
+              receiverId: spec.contractId,
+              methodNames: spec.methodNames,
+              ...(spec.allowanceYocto != null
+                ? { allowance: spec.allowanceYocto }
+                : {}),
+            },
+          },
+        },
+      },
+    ],
   };
 }
 
@@ -371,9 +422,70 @@ export type AppSocialSessionTxResult = {
 };
 
 /**
- * Renew an expired (or re-attach a missing-on-chain) session using the same
- * key material. When the FunctionCall key is still on the account, skips
- * AddKey and only refreshes the core permission TTL — no orphan keys.
+ * AddKey when the key is missing, then persist. Same tail as onboarding.
+ * An owner key that is already on the account only refreshes local expiry.
+ */
+async function commitOwnerAppAccess(input: {
+  accountId: string;
+  sessionKey: GeneratedSessionKey;
+  submitAddKey?: () => Promise<unknown>;
+}): Promise<{ ready: boolean; grantResult?: unknown }> {
+  if (
+    await sessionKeyValidOnChain(input.accountId, input.sessionKey.publicKey)
+  ) {
+    await persistAppSessionAfterSignIn(input.accountId, input.sessionKey);
+    return { ready: true };
+  }
+
+  if (!input.submitAddKey) return { ready: false };
+
+  const grantResult = await input.submitAddKey();
+  const landed = await waitForSessionKeyOnChain(
+    input.accountId,
+    input.sessionKey.publicKey
+  );
+  if (!landed) return { ready: false, grantResult };
+
+  await persistAppSessionAfterSignIn(input.accountId, input.sessionKey);
+  return { ready: true, grantResult };
+}
+
+async function sendOwnerAppAccessKey(input: {
+  accountId: string;
+  wallet: NearWalletBase;
+  sessionKey: GeneratedSessionKey;
+  allowanceYocto: string | null;
+}): Promise<AppSocialSessionTxResult> {
+  const adapter = nearConnectAdapter(input.wallet, input.accountId, {
+    network: ACTIVE_NEAR_NETWORK,
+  });
+  const committed = await commitOwnerAppAccess({
+    accountId: input.accountId,
+    sessionKey: input.sessionKey,
+    submitAddKey: async () => {
+      const transaction = appSessionAddKeyTransaction(
+        input.accountId,
+        input.sessionKey,
+        input.allowanceYocto
+      );
+      if (!transaction) {
+        throw new Error('App access is not available on this network.');
+      }
+      return adapter.signAndSendTransactions({
+        transactions: [transaction],
+      });
+    },
+  });
+  return {
+    ready: committed.ready,
+    txHashes: extractNearTransactionHashes(committed.grantResult),
+  };
+}
+
+/**
+ * Renew an expired session with the same key. When that key is still on the
+ * account, refresh local expiry only. Otherwise send AddKey. Never a
+ * permission write.
  */
 export async function renewAppSocialSession(input: {
   accountId: string;
@@ -399,7 +511,9 @@ export async function renewAppSocialSession(input: {
     input.accountId,
     sessionKey.publicKey
   );
-  await fundAppSessionIfNeeded(input.accountId);
+  if (!onChain) {
+    await fundAppSessionIfNeeded(input.accountId);
+  }
   const allowanceYocto = onChain
     ? await resolveOnChainSessionAllowanceYocto(
         input.accountId,
@@ -407,34 +521,18 @@ export async function renewAppSocialSession(input: {
       )
     : await resolveAppSessionKeyAllowanceYocto(input.accountId);
 
-  const adapter = nearConnectAdapter(input.wallet, input.accountId, {
-    network: ACTIVE_NEAR_NETWORK,
-  });
-
-  let grantResult: unknown;
-  await bootstrapSession({
-    ...appSessionBootstrapInput(
-      input.accountId,
-      appSessionFunctionCallKey(allowanceYocto)
-    ),
-    wallet: adapter,
+  const result = await sendOwnerAppAccessKey({
     accountId: input.accountId,
+    wallet: input.wallet,
     sessionKey,
-    skipAddKey: onChain,
-    onGrantResult: (result) => {
-      grantResult = result;
-    },
+    allowanceYocto,
   });
   clearStoredPendingSessionKey(input.accountId);
-  return {
-    ready: Boolean(await restoreAppSocialSession(input.accountId)),
-    txHashes: extractNearTransactionHashes(grantResult),
-  };
+  return result;
 }
 
 /**
- * Explicit Allow access — wallet grant via bootstrap plan (AddKey + permission).
- * Prefer this from App access UI so confirmations can link Nearblocks.
+ * Explicit Allow access. One AddKey, then the same persist path as onboarding.
  */
 export async function grantAppSocialSession(input: {
   accountId: string;
@@ -463,29 +561,16 @@ export async function grantAppSocialSession(input: {
   const allowanceYocto = await resolveAppSessionKeyAllowanceYocto(
     input.accountId
   );
-
-  const adapter = nearConnectAdapter(input.wallet, input.accountId, {
-    network: ACTIVE_NEAR_NETWORK,
-  });
-
-  let grantResult: unknown;
-  await bootstrapSession({
-    ...appSessionBootstrapInput(
-      input.accountId,
-      appSessionFunctionCallKey(allowanceYocto)
-    ),
-    wallet: adapter,
+  const result = await sendOwnerAppAccessKey({
     accountId: input.accountId,
+    wallet: input.wallet,
     sessionKey: pendingSessionKey,
-    onGrantResult: (result) => {
-      grantResult = result;
-    },
+    allowanceYocto,
   });
-  clearStoredPendingSessionKey(input.accountId);
-  return {
-    ready: Boolean(await restoreAppSocialSession(input.accountId)),
-    txHashes: extractNearTransactionHashes(grantResult),
-  };
+  if (result.ready) {
+    clearStoredPendingSessionKey(input.accountId);
+  }
+  return result;
 }
 
 export async function resolveAppSessionPlan(
@@ -516,7 +601,7 @@ async function persistAppSessionAfterSignIn(
   );
   if (allowanceYocto === null) {
     throw new Error(
-      'Session key is not on-chain yet. Connect your wallet and approve the session key, then try again.'
+      'App access is not on this device yet. Try again in a moment.'
     );
   }
 
@@ -540,9 +625,11 @@ export async function completeAppSessionAfterConnect(
     return;
   }
 
-  if (await waitForSessionKeyOnChain(accountId, pendingSessionKey.publicKey)) {
-    await persistAppSessionAfterSignIn(accountId, pendingSessionKey);
-  }
+  await commitOwnerAppAccess({
+    accountId,
+    sessionKey: pendingSessionKey,
+    submitAddKey: async () => undefined,
+  });
 }
 
 export interface AppSessionBootstrapHooks {
@@ -593,9 +680,15 @@ export async function bootstrapAppSocialSession(
     return false;
   }
 
-  hooks?.onWalletPrompt?.();
-  await connectWithOptions(addKeyOptions);
-  hooks?.onConfirming?.();
-  await completeAppSessionAfterConnect(accountId, pendingSessionKey);
-  return Boolean(await restoreAppSocialSession(accountId));
+  const committed = await commitOwnerAppAccess({
+    accountId,
+    sessionKey: pendingSessionKey,
+    submitAddKey: async () => {
+      hooks?.onWalletPrompt?.();
+      const result = await connectWithOptions(addKeyOptions);
+      hooks?.onConfirming?.();
+      return result;
+    },
+  });
+  return committed.ready && Boolean(await restoreAppSocialSession(accountId));
 }

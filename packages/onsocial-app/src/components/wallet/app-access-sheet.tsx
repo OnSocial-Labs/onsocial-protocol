@@ -29,7 +29,7 @@ import {
   accountNeedsAppSessionSponsor,
   fundAppSessionIfNeeded,
 } from '@/lib/welcome-near';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import { mapAppAccessError } from '@/lib/wallet-errors';
 
 interface AppAccessSheetProps {
   open: boolean;
@@ -46,7 +46,7 @@ function shortenSessionKey(publicKey: string): string {
 
 /**
  * Nested account sheet — OnSocial session key status + allow / renew / remove.
- * Log out stays separate (disconnect only); this owns on-chain DeleteKey.
+ * Log out stays separate (disconnect only); this owns DeleteKey.
  * Expired renew reuses the same FunctionCall key (no orphan AddKey).
  */
 export function AppAccessSheet({
@@ -143,6 +143,21 @@ export function AppAccessSheet({
         return;
       }
 
+      if (result.txHashes.length === 0) {
+        setTxResult({
+          type: 'success',
+          msg: renewing
+            ? txToastSuccess.appAccessRenewed
+            : txToastSuccess.appAccessAllowed,
+        });
+        await resumeSocialSession({
+          renewIfExpired: false,
+          bootstrapIfMissing: false,
+        });
+        await refreshStatus();
+        return;
+      }
+
       setTxResult(sessionPendingFeedback('confirming'));
       const confirmed = await trackTransaction({
         txHashes: result.txHashes,
@@ -155,7 +170,7 @@ export function AppAccessSheet({
         failureMessage: txToastError.allowAppAccessFailed,
       });
       if (!confirmed) {
-        // Bootstrap already wrote local metadata; drop it if chain failed.
+        // The session store already wrote local metadata; drop it if confirmation failed.
         await clearAppSocialSession(signerId);
         clearSocialSessionLocal();
         await refreshStatus();
@@ -169,17 +184,12 @@ export function AppAccessSheet({
       });
       await refreshStatus();
     } catch (error) {
-      if (isWalletUserCancellation(error)) {
+      const msg = mapAppAccessError(error, txToastError.allowAppAccessFailed);
+      if (!msg) {
         setTxResult(null);
         return;
       }
-      setTxResult({
-        type: 'error',
-        msg:
-          error instanceof Error
-            ? error.message
-            : txToastError.allowAppAccessFailed,
-      });
+      setTxResult({ type: 'error', msg });
     } finally {
       setPending(false);
     }
@@ -219,14 +229,9 @@ export function AppAccessSheet({
       setConfirmRemove(false);
       if (!confirmed) return;
     } catch (error) {
-      if (isWalletUserCancellation(error)) return;
-      setTxResult({
-        type: 'error',
-        msg:
-          error instanceof Error
-            ? error.message
-            : txToastError.removeAppAccessFailed,
-      });
+      const msg = mapAppAccessError(error, txToastError.removeAppAccessFailed);
+      if (!msg) return;
+      setTxResult({ type: 'error', msg });
     } finally {
       setPending(false);
     }

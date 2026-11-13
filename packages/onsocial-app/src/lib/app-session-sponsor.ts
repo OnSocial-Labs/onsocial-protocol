@@ -19,6 +19,14 @@ export const SPONSORED_SESSION_KEY_ALLOWANCE_YOCTO =
 /** Liquid balance the backend treats as enough to skip another drip. */
 export const WELCOME_NEAR_THRESHOLD_YOCTO = 13_000_000_000_000_000_000_000n;
 const FULL_ALLOWANCE_HEADROOM_YOCTO = 5_000_000_000_000_000_000_000n;
+/**
+ * Access-key storage plus AddKey gas. The gift leftover
+ * (threshold − sponsored allowance) covers this. It does not cover the
+ * old 100 TGas permission write.
+ */
+export const ADD_KEY_FEE_HEADROOM_YOCTO = 2_000_000_000_000_000_000_000n;
+/** 100 TGas at the minimum gas price (10^8 yoctoNEAR per gas). */
+export const PERMISSION_WRITE_GAS_YOCTO = 10_000_000_000_000_000_000_000n;
 
 export function accountNeedsSessionSponsor(
   liquidYocto: bigint | null
