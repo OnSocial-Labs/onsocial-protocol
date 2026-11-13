@@ -27,7 +27,6 @@ import {
   __peekPendingDmRotationForTests,
   __resetDmKeyMemoryForTests,
   acknowledgeDmRecoveryCode,
-  clearDmKeysLocal,
   ensureDmKeys,
   getStoredDmIdentity,
   hasDmPasskeyEnrolled,

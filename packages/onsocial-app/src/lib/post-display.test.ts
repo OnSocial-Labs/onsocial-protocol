@@ -8,7 +8,6 @@ import {
   formatWritingShelfTimestamp,
   parseDropPaintSnapshot,
   parsePostCollectionEmbed,
-  parsePostPollEmbed,
   parsePostText,
   postFeedBodyOverflows,
   postFeedPreviewLimit,

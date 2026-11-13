@@ -37,12 +37,10 @@ function DiscoverNavLink({
 }
 
 export function DiscoverProfilesLink({
-  accountId,
   tab = 'profiles',
   variant = 'accent',
   ariaLabel = 'Discover profiles',
 }: {
-  accountId: string;
   tab?: 'profiles' | 'daos';
   variant?: 'accent' | 'chrome';
   ariaLabel?: string;
@@ -81,10 +79,9 @@ export function StandingDiscoverLink({
   /** @deprecated Discover opens in the tab. The sheet stays underneath. */
   closeOverlay?: boolean;
 }) {
-  const { accountId, isDaoSubject } = useStandingPanel();
+  const { isDaoSubject } = useStandingPanel();
   return (
     <DiscoverProfilesLink
-      accountId={accountId}
       tab={isDaoSubject ? 'daos' : 'profiles'}
       variant={variant}
       ariaLabel={discoverLabel(isDaoSubject)}

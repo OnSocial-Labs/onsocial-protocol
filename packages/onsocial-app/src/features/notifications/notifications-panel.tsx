@@ -134,15 +134,19 @@ export function NotificationsPanel() {
   }, [accountId, items, nextCursor, tab]);
 
   useEffect(() => {
+    // Copy both at setup. React clears a rendered node's ref before this
+    // passive cleanup, and the memory object is only mutated in place.
+    const scrollRoot = scrollRootRef.current;
+    const scrollMemory = scrollMemoryRef.current;
     return () => {
       // Session restore is All-tab scoped; Mentions rows would paint wrong.
       if (tabRef.current !== 'all') return;
-      const live = scrollRootRef.current?.scrollTop ?? 0;
+      const live = scrollRoot?.scrollTop ?? 0;
       writeActivityInboxSession({
         accountId: accountIdRef.current,
         items: itemsRef.current,
         nextCursor: nextCursorRef.current,
-        scrollTop: scrollTopToPersist(scrollMemoryRef.current, live),
+        scrollTop: scrollTopToPersist(scrollMemory, live),
       });
     };
   }, []);

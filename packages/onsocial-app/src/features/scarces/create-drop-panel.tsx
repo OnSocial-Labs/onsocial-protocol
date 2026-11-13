@@ -1803,6 +1803,7 @@ export function CreateDropPanel() {
   }, [
     template.label,
     template.unit,
+    template.requiresAccessEnd,
     isAudio,
     musicFormat,
     trackFiles.length,

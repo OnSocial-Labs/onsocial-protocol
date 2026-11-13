@@ -128,6 +128,10 @@ import {
   showMessagesPeopleSection,
   showMessagesSearchEmpty,
 } from '@/features/messages/messages-inbox-search';
+import {
+  claimOlderMessagesLoad,
+  releaseOlderMessagesLoad,
+} from '@/features/messages/messages-older-load';
 import { useMessagesInboxSearch } from '@/features/messages/use-messages-inbox-search';
 import { DmUnlockPanel } from '@/features/messages/dm-unlock-panel';
 import {
@@ -241,13 +245,17 @@ export function MessagesPanel() {
   }, [accountId, inboxPreviewByThread]);
 
   useEffect(() => {
+    // Copy both at setup. React clears a rendered node's ref before this
+    // passive cleanup, and the memory object is only mutated in place.
+    const scrollRoot = scrollRootRef.current;
+    const scrollMemory = scrollMemoryRef.current;
     return () => {
-      const live = scrollRootRef.current?.scrollTop ?? 0;
+      const live = scrollRoot?.scrollTop ?? 0;
       writeMessagesInboxSession({
         accountId: accountIdRef.current,
         threads: threadsRef.current,
         inboxPreviewByThread: inboxPreviewByThreadRef.current,
-        scrollTop: scrollTopToPersist(scrollMemoryRef.current, live),
+        scrollTop: scrollTopToPersist(scrollMemory, live),
       });
     };
   }, []);
@@ -989,7 +997,7 @@ export function MessagesPanel() {
       clearSearch();
       void openThread(buildDmThreadId(accountId, target));
     },
-    [accountId, clearSearch, messagingBlockedReason, openThread]
+    [accountId, clearSearch, openThread]
   );
 
   const handleOutgoingStart = useCallback(
@@ -1514,10 +1522,15 @@ export function MessagesPanel() {
     router.replace(messagesPath());
   }, [router]);
 
+  const loadingOlderRef = useRef(false);
   const loadOlderMessages = useCallback(async () => {
-    if (!activeThreadId || !accountId || loadingOlder) return;
+    if (!activeThreadId || !accountId) return;
+    if (!claimOlderMessagesLoad(loadingOlderRef)) return;
     const oldest = messagesRef.current?.[0];
-    if (!oldest) return;
+    if (!oldest) {
+      releaseOlderMessagesLoad(loadingOlderRef);
+      return;
+    }
     pinThreadToLatestRef.current = false;
     setLoadingOlder(true);
     try {
@@ -1556,6 +1569,7 @@ export function MessagesPanel() {
       );
       setErrorSource('older');
     } finally {
+      releaseOlderMessagesLoad(loadingOlderRef);
       setLoadingOlder(false);
     }
   }, [accountId, activeThreadId, decryptMessages, isCurrentAccount, withAuth]);

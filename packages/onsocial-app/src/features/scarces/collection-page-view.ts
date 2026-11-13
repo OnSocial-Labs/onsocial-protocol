@@ -248,3 +248,48 @@ export function seedCollectionViewFromNowPlaying(
     royalty: null,
   };
 }
+
+/**
+ * Manifesto identity for the collection writing hydrate.
+ * Null means there is nothing to fetch. Price, supply, and cover are omitted
+ * so a soft catalog refresh does not start another fetch.
+ */
+export function collectionWritingHydrateKey(
+  view: Pick<
+    CollectionView,
+    | 'collectionId'
+    | 'kind'
+    | 'writingManifestCid'
+    | 'sourcePostPath'
+    | 'readables'
+    | 'bookPdf'
+  > | null
+): string | null {
+  if (!view) return null;
+  if (view.readables.length > 0 || view.bookPdf) return null;
+  const kind = (view.kind ?? '').trim().toLowerCase();
+  const manifest = view.writingManifestCid?.trim() ?? '';
+  const source = view.sourcePostPath?.trim() ?? '';
+  if (kind !== 'writing' && !manifest && !source) return null;
+  return [view.collectionId, kind, manifest, source].join('\0');
+}
+
+/** Paint hydrated chapters onto the current view, or leave it untouched. */
+export function mergeHydratedWriting<T extends CollectionView>(
+  prev: T | null,
+  next: Pick<
+    CollectionView,
+    'collectionId' | 'readables' | 'bookPdf' | 'writingFormat' | 'textAlign'
+  >
+): T | null {
+  if (!prev || prev.collectionId !== next.collectionId) return prev;
+  if (prev.readables.length > 0 || prev.bookPdf) return prev;
+  if (next.readables.length === 0 && !next.bookPdf) return prev;
+  return {
+    ...prev,
+    readables: next.readables,
+    bookPdf: next.bookPdf,
+    writingFormat: next.writingFormat ?? prev.writingFormat,
+    textAlign: next.textAlign ?? prev.textAlign,
+  };
+}
