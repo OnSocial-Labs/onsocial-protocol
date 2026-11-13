@@ -1,62 +1,54 @@
 ## 1. best-in-class call
 
-The second AddKey is inherent to this design. A NEAR function-call key has one `receiverId` and a list of method names for that receiver only. The app session key is created for `core.onsocial.testnet` and method `execute` (`app-social-session.ts`, store `onsocial.app.session.`). The boost sponsor looks up a different key, contract `token`, store `onsocial.app.boost-sponsor.`, and `ensureBoostSponsorSession` calls `bootstrapSession` when that token key is missing. `planToWalletTransactions` puts an `AddKey` on the user account whose `receiverId` is `token.onsocial.testnet` and whose only method is `ft_transfer_call`. The core key cannot sign that delegate. The protocol checks the signing key’s receiver against the delegate’s inner receiver. A “multi-method” key can name several methods on one contract. It cannot name core and the token.
+The second AddKey is inherent to the 749 design, and that design cannot succeed on chain.
 
-Removing the second prompt means not using a second function-call key.
+A NEAR function-call key has one receiver. App access is a key for `core.onsocial.testnet` and `execute`. A sponsored boost signed a delegate whose inner receiver is `token.onsocial.testnet` and whose method is `ft_transfer_call`, with a deposit of 1 yocto. `greenghost.onsocial.testnet` added that token key in `7ZvhgZWg9nDo6Ni7GvReeYWaA9ZRNAhNgocTBP7XxucB` at 20:33:19 UTC, then the relayer submitted four delegates (`7jTpSajp…`, `DiFfQfhG…`, `9LVr4343…`, `eKnR9uQ3Gy8bS3B1pCTY8q2GeVnSSpnF8tPsFFtmt3G`). Each `EXPERIMENTAL_tx_status` is `Failure` / `ActionError` / `DelegateActionAccessKeyError::DepositWithFunctionCall`. The protocol rejects any action with a deposit signed by a function-call key. `ft_transfer_call` requires 1 yocto. An FC key on the token cannot sign it. The 749 tests signed the delegate in process and never applied that chain rule.
 
-- Keep the wallet `ft_transfer_call` the sheet already sends. One confirm, the person pays the fee. That is the fallback already in `runBoostTransaction`. It is not gasless.
-- Sign the delegate with the wallet’s existing full-access key and let the relayer broadcast it. No new key. The sheet’s wallet surface is `signAndSendTransaction` / `signAndSendTransactions`. Those send. This repo does not have a sign-only delegate on that wallet. Do not assume one.
-- Do not route the transfer through `core.execute`. The token would see core as the sender, not the person.
+After a `reverted` attempt the sheet set “Could not commit SOCIAL.” and returned. It did not fall through to the wallet transfer. Commit was broken for everyone on testnet: AddKey, then that toast.
 
-The toast “Could not commit SOCIAL.” is not evidence of a particular chain error. That sentence is `txToastError.commitBoostFailed`. `sponsorBoostLock` returning `reverted` sets it and returns before the wallet transfer, and it drops the `RelayExecutionError` message. `trackTransaction` uses the same sentence when a sent transaction does not confirm. A thrown `Error` from the wallet uses `cause.message` instead, so a raw wallet rejection is a worse fit for this exact text.
+This hotfix deletes that path. Commit and Increase send the same wallet `ft_transfer_call` they sent before 749. No token session key is created.
 
-Do not pick a chain cause yet. The next change, if one is written, is a log line with a stable code and the relayer or chain message. Not a second-key redesign, and not a guessed allow-list or drip fix.
+A later gasless design, not built here, has two real options.
+
+The wallet signs the delegate with its full-access key, and the relayer only submits it. `@hot-labs/near-connect` 0.11.4 exposes `NearWalletBase.signDelegateActions`. Injected, sandboxed, and parent-frame wallets forward that call. The feature flag is per manifest, loaded from `https://raw.githubusercontent.com/hot-dao/near-selector/refs/heads/main/repository/manifest.json` (fetched 2026-11-13). These manifests set `signDelegateActions: true`: HOT Wallet (Android, iOS, Chrome, Firefox, Telegram), Meteor (web, Chrome, Android, iOS), Intear, Ledger, NEAR Mobile (Android, iOS), and near-cli. MyNearWallet, OKX, Nightly, Hana, Unity, WalletConnect, and Trezu do not. The in-package `NearWalletsPopup` debug manifest also sets the flag. That is not a production wallet. The Android report fits HOT, Meteor, or NEAR Mobile, which do advertise the method. The sheet today only calls `signAndSendTransaction`.
+
+The other option is a contract method that locks without a 1 yocto deposit. Boost lock today is only `ft_on_transfer` after `ft_transfer_call`. There is no zero-deposit lock. That would be a new contract method. It is not in this change.
+
+A function-call key with several method names still has one receiver. It cannot replace the full-access signature.
 
 ## 2. alignment map
 
-Second key:
+Removed from the client:
 
-- App access: `packages/onsocial-app/src/lib/app-social-session.ts`. Contract `core`, method `execute`, prefix `onsocial.app.session.`.
-- Boost key: `packages/onsocial-app/src/lib/boost-sponsor.ts` `ensureBoostSponsorSession`. Contract `token`, method `ft_transfer_call`, prefix `onsocial.app.boost-sponsor.`. Allowance `1000000000000000000000` (0.001 NEAR).
-- Wallet transaction: `packages/onsocial-sdk/src/advanced/bootstrap.ts` `planToWalletTransactions`. Non-core grant is one `AddKey` and no `execute_admin`.
-- Sheet: `packages/onsocial-app/src/features/boost/portfolio-boost-sheet.tsx` `handleCommit` passes `sponsor`, then `runBoostTransaction`.
+- `packages/onsocial-app/src/lib/boost-sponsor.ts` and its test. That was the token `AddKey`.
+- `os.boost.commitLock`, `relaySignedFunctionCall`, and `BoostSponsorLimitError`.
+- The `sponsor` branch in `portfolio-boost-sheet.tsx` `runBoostTransaction`, including the `reverted` return that skipped the wallet.
 
-Toast:
+Commit again matches Collect, Renew, Extend, and Unlock: `wallet.signAndSendTransaction`, then `trackTransaction` with `txToastSuccess.boostCommitted` and `txToastError.commitBoostFailed`.
 
-- Reverted sponsor: `setTxResult({ type: 'error', msg: input.failureMessage })` and return. Commit’s `failureMessage` is `txToastError.commitBoostFailed`.
-- Shared catch, used only when the sponsor attempt throws out or the later wallet call throws: `cause.message`, or `failureMessage` when the throw is not an `Error`.
-- Chain wait: `trackTransaction` with the same `failureMessage`.
+Kept:
 
-Sponsored neighbours, not this failure:
-
-- Welcome drip: `fundAppSessionIfNeeded` in `welcome-near.ts`, called before the token `AddKey` only when liquid NEAR is under `WELCOME_NEAR_THRESHOLD_YOCTO` (0.013 NEAR). The copy module says the gift has no line of its own. No account id was available, so the drip was not checked for this person.
-- Session sponsor: `app-session-sponsor.ts` and the access sheet. Different key, different toast.
-- Rewards relayer: `execute_rewards` is a private shaped call. Boost uses `/relay/delegate` → `/execute_delegate`.
+- Relayer allow-list and `validate_delegate_actions` in `packages/onsocial-relayer/src/boost_sponsor.rs`. Nothing in the app posts that delegate now.
+- The guard on `Session.signDelegate`: a session without `canAttachDeposit` cannot sign a deposit. The new test is `rejects an ft_transfer_call delegate signed by a function-call key` in `session.test.ts`.
 
 ## 3. near idioms
 
-`AccessKeyPermission::FunctionCall` is one receiver plus method names. The delegate inner receiver for a boost lock is `token.onsocial.testnet`. The predecessor of `ft_transfer_call` must be the token holder. A core-scoped key fails that check on chain even if the relayer allow-list would accept the receiver.
-
-The attached deposit is 1 yoctoNEAR. The relayer pays the fee. The 0.001 NEAR allowance on the new key is locked on the account at `AddKey`, on top of the access-key record. Whether the runtime also bills that allowance for prepaid gas was not re-checked against a live receipt. Do not treat it as the cause.
+`DelegateActionAccessKeyError::DepositWithFunctionCall` is the runtime rule. A function-call key may sign a 0-deposit call. It may not sign `ft_transfer_call`, because NEP-141 requires 1 yocto. The relayer paying the fee does not change the signer’s key class. A full-access key may sign the deposit. The relayer can still pay the outer transaction if that signature is a delegate and not a broadcast.
 
 ## 4. side effects
 
-Deploy Testnet run [43496811496](https://github.com/OnSocial-Labs/onsocial-protocol/actions/runs/43496811496) is the merge `93589f89`, and it was green. It recreated `relayer-0` and `relayer-1`.
+The relayer validator stays. It is unused by the app after this hotfix. It should stay until a full-access delegate is actually sent: it is the check that the transfer is one `ft_transfer_call` to the boost contract. Removing it now does not fix commit, and it would drop that check for a later gasless path. Do not treat it as live product behavior.
 
-`GET https://testnet.onsocial.id/relay/health` at 2026-11-13 20:35 UTC returned both replicas. Each listed `allowed_contracts` as `core.onsocial.testnet`, `scarces.onsocial.testnet`, `rewards.onsocial.testnet`, `token.onsocial.testnet`. Uptimes were about 1935s and 1947s, which matches the 20:03 UTC recreate. `requests` was 1 on one replica and 3 on the other. Health does not increment that counter. Some execute calls landed after boot. They cannot be tied to this person. Container logs were not reachable from here. SSH to the host was not available.
+`token.onsocial.testnet` remains on the deployed testnet allow-list. That was not the failure.
 
-A missing `token.onsocial.testnet` allow-list is ruled out for this deploy. The chain reason for the toast is not.
+People who already approved the token `AddKey` still have that key on the account. This change does not delete it.
 
 `RELAYER_API_KEY` still fails open when empty. This note does not change that.
 
-No code change in this brief. No second-key removal. No guessed patch.
+No layout change.
 
 ## 5. shipped
 
-Findings only.
+Commit and Increase are wallet transactions again. The app does not create a token session key. A function-call session that tries to sign `ft_transfer_call` with a deposit is rejected in `Session.signDelegate` before a nonce is spent.
 
-The second AddKey is the token function-call key. It is a separate grant from app access because a function-call key has one receiver. That part is confirmed from the code, not from logs.
-
-The toast text is the existing commit failure line. The reverted sponsor path sets it and discards the underlying message. That hiding is confirmed. The reason the relay or the chain rejected the commit is not. The live allow-list includes the token, so that particular guess is out.
-
-Next patch, when one is written: log a stable code plus the relayer or chain message before the sheet replaces it with “Could not commit SOCIAL.” Do not redesign the key until that message exists.
+`Session.signDelegate` rejects the 1 yocto `ft_transfer_call` and leaves the nonce at 1. SDK session, boost, and session-bridge tests: 51 passed.

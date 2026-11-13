@@ -296,7 +296,14 @@ export class Session {
     }
   }
 
-  /** Signs a delegate for one or more inner actions and advances the nonce. */
+  /**
+   * Signs a delegate for one or more inner actions and advances the nonce.
+   *
+   * A function-call key cannot attach a deposit. NEAR rejects that signature
+   * on chain as `DelegateActionAccessKeyError::DepositWithFunctionCall`.
+   * `ft_transfer_call` needs 1 yocto, so it cannot be signed by this key.
+   * Pass `canAttachDeposit` only for a full-access signer.
+   */
   async signDelegate(
     actions: DelegateInnerAction[],
     opts: {
@@ -304,6 +311,12 @@ export class Session {
       receiverId?: string;
     }
   ): Promise<{ base64: string; nonce: number }> {
+    if (!this.canAttachDeposit && actions.some(delegateActionHasDeposit)) {
+      throw new NeedsWalletConfirmationError(
+        'A function-call key cannot sign an action with a deposit',
+        'attached_deposit_required'
+      );
+    }
     const nonce = this.nonce++;
     const { base64 } = await buildSignedDelegate({
       senderId: this.accountId,
@@ -394,6 +407,13 @@ export class Session {
     };
     await this.persistence.store.set(this.persistence.sessionId, next);
   }
+}
+
+function delegateActionHasDeposit(action: DelegateInnerAction): boolean {
+  if (action.type !== 'FunctionCall' && action.type !== 'Transfer') {
+    return false;
+  }
+  return BigInt(action.deposit) > 0n;
 }
 
 /** Builds the revoke plan for a session key. */

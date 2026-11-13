@@ -175,6 +175,31 @@ describe('Session runtime', () => {
     expect(session.currentNonce).toBe(251_173_172_000_001);
   });
 
+  it('rejects an ft_transfer_call delegate signed by a function-call key', async () => {
+    const session = new Session({
+      network: 'testnet',
+      accountId: 'alice.testnet',
+      contract: 'token',
+      key: fakeKey('ed25519:11111111111111111111111111111111'),
+    });
+
+    await expect(
+      session.signDelegate(
+        [
+          {
+            type: 'FunctionCall',
+            methodName: 'ft_transfer_call',
+            args: '{}',
+            gas: '80000000000000',
+            deposit: '1',
+          },
+        ],
+        { maxBlockHeight: 1n }
+      )
+    ).rejects.toMatchObject({ reason: 'attached_deposit_required' });
+    expect(session.currentNonce).toBe(1);
+  });
+
   it('rejects attached deposits for FunctionCall-key sessions', async () => {
     const session = new Session({
       network: 'mainnet',
