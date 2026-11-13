@@ -30,6 +30,18 @@ const config = [
       'no-unused-vars': 'off',
       'react/no-unescaped-entities': 'off',
       '@next/next/no-img-element': 'off',
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'next/font/google',
+              message:
+                'Vendor the woff2 and use next/font/local. Google font fetches fail the production build when fonts.googleapis.com is unreachable.',
+            },
+          ],
+        },
+      ],
     },
   },
 ];

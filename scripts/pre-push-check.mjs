@@ -309,6 +309,8 @@ function runSubstreamsSinkValidation() {
 }
 
 function main() {
+  run('node scripts/check-no-google-fonts.mjs');
+
   const diffBase = getPushDiffBase();
   const changedFiles = getChangedFiles(diffBase);
   const affected = getAffectedPackages(changedFiles);

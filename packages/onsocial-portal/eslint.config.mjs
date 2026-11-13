@@ -21,6 +21,18 @@ const config = [
   {
     rules: {
       'no-unused-vars': 'off',
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'next/font/google',
+              message:
+                'Vendor the woff2 and use next/font/local. Google font fetches fail the production build when fonts.googleapis.com is unreachable.',
+            },
+          ],
+        },
+      ],
       'react/no-unescaped-entities': 'off',
       // Allow setState in effects for data-fetching patterns (fetch → setState)
       'react-hooks/set-state-in-effect': 'warn',

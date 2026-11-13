@@ -1,90 +1,19 @@
 import type { Metadata, Viewport } from 'next';
-import localFont from 'next/font/local';
-import {
-  Caveat,
-  IBM_Plex_Sans,
-  JetBrains_Mono,
-  Newsreader,
-  Public_Sans,
-  Space_Grotesk,
-} from 'next/font/google';
 import { ONSOCIAL_BRAND_TAGLINE } from '@onsocial/ui';
 import { AppProviders } from '@/components/providers/app-providers';
 import { ThemeInitScript } from '@/components/theme-init-script';
 import { appleStartupImages } from '@/lib/apple-startup-images';
 import { THEME_BAR_DARK, THEME_BAR_LIGHT } from '@/lib/theme-init';
+import {
+  caveat,
+  ericaType,
+  ibmPlexSans,
+  jetbrainsMono,
+  newsreader,
+  publicSans,
+  spaceGrotesk,
+} from './fonts';
 import './globals.css';
-
-// The woff2 is served by us (next/font downloads it at build and hosts the
-// file). Devices do not need the face installed — same path DM Sans used.
-// `optional` uses the file on first paint when the preload is ready, and
-// never swaps a line onto the metric stand-in after paint. `swap` paints
-// that stand-in (adjusted Arial) and then replaces it, which is the random
-// date face.
-const publicSans = Public_Sans({
-  subsets: ['latin'],
-  variable: '--font-public-sans',
-  display: 'optional',
-  adjustFontFallback: true,
-  weight: 'variable',
-  preload: true,
-});
-
-const ibmPlexSans = IBM_Plex_Sans({
-  subsets: ['latin'],
-  variable: '--font-ibm-plex-sans',
-  display: 'optional',
-  adjustFontFallback: true,
-  weight: ['400', '500', '600', '700'],
-});
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ['latin'],
-  variable: '--font-space-grotesk',
-  display: 'optional',
-  adjustFontFallback: true,
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  variable: '--font-jetbrains-mono',
-  display: 'optional',
-  adjustFontFallback: true,
-});
-
-const newsreader = Newsreader({
-  subsets: ['latin'],
-  variable: '--font-newsreader',
-  display: 'optional',
-  adjustFontFallback: true,
-  weight: ['400', '500', '600'],
-});
-
-const caveat = Caveat({
-  subsets: ['latin'],
-  variable: '--font-caveat',
-  display: 'optional',
-  adjustFontFallback: true,
-  weight: ['400', '500', '600', '700'],
-});
-
-const ericaType = localFont({
-  src: [
-    {
-      path: '../../public/fonts/erica-type/erika_type-webfont.woff',
-      weight: '400',
-      style: 'normal',
-    },
-    {
-      path: '../../public/fonts/erica-type/erika_type_b-webfont.woff',
-      weight: '700',
-      style: 'normal',
-    },
-  ],
-  variable: '--font-erica-type',
-  display: 'optional',
-  adjustFontFallback: 'Arial',
-});
 
 export const metadata: Metadata = {
   title: 'OnSocial',
