@@ -10,7 +10,9 @@ import {
 } from 'next/font/google';
 import { ONSOCIAL_BRAND_TAGLINE } from '@onsocial/ui';
 import { AppProviders } from '@/components/providers/app-providers';
+import { GateReturnScript } from '@/components/gate/gate-return-script';
 import { ThemeInitScript } from '@/components/theme-init-script';
+import { THEME_BAR_DARK, THEME_BAR_LIGHT } from '@/lib/theme-init';
 import './globals.css';
 
 // The woff2 is served by us (next/font downloads it at build and hosts the
@@ -117,7 +119,10 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#0c0d10',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: THEME_BAR_LIGHT },
+    { media: '(prefers-color-scheme: dark)', color: THEME_BAR_DARK },
+  ],
   colorScheme: 'dark light',
 };
 
@@ -135,6 +140,7 @@ export default function RootLayout({
     >
       <body className={publicSans.className} suppressHydrationWarning>
         <ThemeInitScript />
+        <GateReturnScript />
         <AppProviders>{children}</AppProviders>
       </body>
     </html>

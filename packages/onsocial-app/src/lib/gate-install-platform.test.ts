@@ -75,7 +75,9 @@ describe('gate button contract', () => {
     const gate = css.slice(gateStart, gateEnd);
     expect(gate).toContain('min-height: 0');
     expect(gate).toContain('var(--gate-viewport-height, 100dvh)');
+    expect(gate).toContain('env(safe-area-inset-top, 0px)');
     expect(gate).toContain('env(safe-area-inset-bottom, 0px)');
+    expect(gate).not.toContain('gate-fade');
     expect(gate).toContain('var(--os-dock-clearance-gap)');
     expect(gate).toContain('var(--os-icon-hit)');
     expect(gate).toContain('touch-action: pan-y');

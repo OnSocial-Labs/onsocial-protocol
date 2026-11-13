@@ -43,12 +43,12 @@ export function ThemeToggle() {
   );
 
   const apply = useCallback((next: ThemeChoice) => {
-    document.documentElement.setAttribute('data-theme', next);
     try {
       window.localStorage.setItem(THEME_STORAGE_KEY, next);
     } catch {
       // ignore persistence failures
     }
+    document.documentElement.setAttribute('data-theme', next);
     window.dispatchEvent(new Event(THEME_EVENT));
   }, []);
 

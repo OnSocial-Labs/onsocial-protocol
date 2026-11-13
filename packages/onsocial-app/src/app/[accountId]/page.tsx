@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { PortfolioAccountFace } from '@/components/portfolio/portfolio-account-face';
+import { PortfolioShellPending } from '@/components/portfolio/portfolio-shell';
 import {
   ProtocolFacePair,
   ProtocolFacePairFallback,
@@ -69,7 +70,9 @@ export default async function AccountPage({
   const kind = resolveProtocolFaceDaoKind(accountId);
   if (!sibling || !kind) {
     return (
-      <PortfolioAccountFace accountId={accountId} search={search} strict />
+      <Suspense fallback={<PortfolioShellPending pageAccountId={accountId} />}>
+        <PortfolioAccountFace accountId={accountId} search={search} strict />
+      </Suspense>
     );
   }
 
@@ -94,10 +97,12 @@ export default async function AccountPage({
   );
 
   return (
-    <ProtocolFacePair
-      activeAccountId={accountId}
-      governance={kind === 'governance' ? activeFace : siblingFace}
-      treasury={kind === 'treasury' ? activeFace : siblingFace}
-    />
+    <Suspense fallback={<PortfolioShellPending pageAccountId={accountId} />}>
+      <ProtocolFacePair
+        activeAccountId={accountId}
+        governance={kind === 'governance' ? activeFace : siblingFace}
+        treasury={kind === 'treasury' ? activeFace : siblingFace}
+      />
+    </Suspense>
   );
 }

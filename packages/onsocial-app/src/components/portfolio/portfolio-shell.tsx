@@ -11,7 +11,10 @@ import { MoodThemeProvider } from '@onsocial/ui';
 import { PortfolioHeroTop } from '@/components/portfolio/portfolio-hero-top';
 import { useProtocolFacePairActiveAccount } from '@/components/portfolio/protocol-face-pair';
 import { useRegisterOsPortalHost } from '@/contexts/os-portal-host-context';
-import { portfolioMoodShellStyle } from '@/lib/moods/resolve';
+import {
+  portfolioMoodShellStyle,
+  resolvePortfolioMood,
+} from '@/lib/moods/resolve';
 import type {
   PageAvatarMode,
   PublicPageConfig,
@@ -121,5 +124,29 @@ export function PortfolioShell({
         </div>
       </main>
     </MoodThemeProvider>
+  );
+}
+
+/** Shell frame while the account route is still loading. Same card, no second tree. */
+export function PortfolioShellPending({
+  pageAccountId,
+}: {
+  pageAccountId: string;
+}) {
+  return (
+    <PortfolioShell
+      pageAccountId={pageAccountId}
+      mood={resolvePortfolioMood({})}
+      config={{}}
+    >
+      <section className="portfolio-identity" aria-busy="true">
+        <span className="sr-only">Loading face</span>
+        <span className="portfolio-avatar standing-row-shimmer" />
+        <div className="portfolio-identity-copy">
+          <div className="standing-row-shimmer standing-row-shimmer-line" />
+          <div className="standing-row-shimmer standing-row-shimmer-line-sm" />
+        </div>
+      </section>
+    </PortfolioShell>
   );
 }

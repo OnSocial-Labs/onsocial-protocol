@@ -3520,16 +3520,6 @@ a.os-surface-row,
   }
 }
 
-@keyframes gate-fade {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
 @keyframes mood-finish-gold-name-glow {
   0% {
     background-position: 22% 42%;
@@ -4572,6 +4562,14 @@ a.os-surface-row,
   }
 }
 
+/* Light desktop gutters. A white column on --bg disappears. */
+@media (min-width: 640px) {
+  html[data-theme='light'],
+  html[data-theme='light'] body {
+    background-color: hsl(var(--border));
+  }
+}
+
 /* ─── Gate (landing / shared center layout) ────────────── */
 
 @layer components {
@@ -4615,7 +4613,7 @@ a.os-surface-row,
     min-height: 0;
     box-sizing: border-box;
     padding:
-      var(--os-gutter)
+      max(var(--os-gutter), env(safe-area-inset-top, 0px))
       max(var(--os-gutter), env(safe-area-inset-right, 0px))
       var(--os-gutter)
       max(var(--os-gutter), env(safe-area-inset-left, 0px));
@@ -4629,10 +4627,7 @@ a.os-surface-row,
     width: 96px;
     height: 96px;
     color: rgb(var(--fg-rgb) / 0.88);
-    animation:
-      gate-fade var(--os-motion-overlay, 320ms)
-        var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1)) both,
-      breathe 6s ease-in-out infinite;
+    animation: breathe 6s ease-in-out infinite;
   }
 
   @media (min-width: 640px) {
@@ -4660,9 +4655,6 @@ a.os-surface-row,
     display: flex;
     justify-content: center;
     margin-top: 2.5rem;
-    animation: gate-fade var(--os-motion-overlay, 320ms)
-      var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1))
-      var(--os-motion-micro, 120ms) both;
   }
 
   /* The wheel lives in the scroll region and shrinks before it can meet the actions.
@@ -4784,9 +4776,6 @@ a.os-surface-row,
       max(var(--os-gutter), env(safe-area-inset-left, 0px));
     box-sizing: border-box;
     pointer-events: none;
-    animation: gate-fade var(--os-motion-overlay, 320ms)
-      var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1))
-      var(--os-motion-micro, 120ms) both;
   }
 
   .gate-install-slot {
@@ -9307,6 +9296,10 @@ a.os-surface-row,
     border-radius: 50%;
     object-fit: cover;
     overflow: hidden;
+  }
+
+  .portfolio-avatar.standing-row-shimmer {
+    border-radius: 50%;
   }
 
   .portfolio-avatar-img {
