@@ -48,6 +48,8 @@ The 44px hit layer extends above the pill into empty face space. It does not ext
 
 Before this change, full-load CLS on `/@alice.testnet` signed in as alice.testnet was 0, 0, 0 on desktop 1440×900, 0, 0, 0 on iPhone 13, and 0, 0, 0 on Pixel 7. The stack on that face ends well above the chevron, so the hook’s margin stayed empty. The jump the hook can still produce is the tall-face case, which the CSS slot replaces.
 
+The launcher grip drag on `/home` was already racing `os-launcher-sheet-in` on main; the spec now waits until that enter state is gone and the grip is inside the viewport.
+
 ## 5. shipped
 
 The control is a 24×14 pill (`border-radius: 9999px`, padding 0) with the dock frost on `::before` (`blur(20px) saturate(1.3)`). The glyph box is 12px, opacity 0.78, stroke 2px. The hit layer measures 44×44. Inline `margin-top` on `.portfolio-identity` stays empty. Open page is still the accessible name, with the same 2px/4px focus ring.

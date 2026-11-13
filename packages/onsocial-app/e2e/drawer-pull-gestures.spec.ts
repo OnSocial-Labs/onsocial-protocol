@@ -87,6 +87,31 @@ async function mouseDrag(page: Page, locator: Locator, dy: number) {
   await page.mouse.up();
 }
 
+/** The launcher grip is off the bottom edge until `os-launcher-sheet-in` ends. */
+async function waitForLauncherSheetSettled(page: Page, launcher: Locator) {
+  const grip = launcher.getByRole('button', { name: 'Drag down to close' });
+  await expect
+    .poll(
+      async () => {
+        const entering = await launcher.evaluate((el) =>
+          el.classList.contains('is-enter')
+        );
+        if (entering) return false;
+        const box = await grip.boundingBox();
+        const viewport = page.viewportSize();
+        if (!box || !viewport) return false;
+        return (
+          box.x >= 0 &&
+          box.y >= 0 &&
+          box.x + box.width <= viewport.width &&
+          box.y + box.height <= viewport.height
+        );
+      },
+      { timeout: E2E_CHROME_TIMEOUT_MS }
+    )
+    .toBe(true);
+}
+
 test.describe('drawer pull gestures', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
@@ -310,6 +335,7 @@ test.describe('drawer pull gestures', () => {
     await page.getByRole('button', { name: 'Open launcher' }).click();
     const launcher = page.getByRole('dialog', { name: 'OnSocial launcher' });
     await expect(launcher).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await waitForLauncherSheetSettled(page, launcher);
     const grip = launcher.getByRole('button', { name: 'Drag down to close' });
     await mouseDrag(page, grip, 280);
     await expect(launcher).toBeHidden();
