@@ -489,13 +489,7 @@ export { RpcModule, RpcError } from './modules/rpc.js';
 export type { NearProviderOptions, RpcResponse } from './modules/rpc.js';
 export { TokenModule } from './modules/token.js';
 export type { FtMetadata, FtStorageBalance } from './modules/token.js';
-export {
-  BOOST_LOCK_GAS,
-  BOOST_SPONSOR_LIMIT,
-  BoostModule,
-  BoostSponsorLimitError,
-  isBoostSponsorLimitError,
-} from './modules/boost.js';
+export { BoostModule } from './modules/boost.js';
 export type {
   BoostAccountView,
   BoostContractStats,

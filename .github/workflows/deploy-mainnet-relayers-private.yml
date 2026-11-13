@@ -38,7 +38,7 @@ name: Deploy Mainnet Relayers (Private)
       allowed_contracts:
         description: 'Comma-separated mainnet allowlist'
         required: true
-        default: 'rewards.onsocial.near,token.onsocial.near'
+        default: 'rewards.onsocial.near'
 
 env:
   REGISTRY: ghcr.io

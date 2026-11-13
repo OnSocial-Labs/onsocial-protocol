@@ -83,30 +83,6 @@ pub struct Config {
         deserialize_with = "deserialize_allowed_contracts"
     )]
     pub allowed_contracts: Vec<String>,
-
-    /// SOCIAL NEP-141 account. Sponsored `ft_transfer_call` is only accepted
-    /// when the delegate receiver is this account.
-    #[serde(default = "defaults::token_contract_id")]
-    pub token_contract_id: String,
-
-    /// Boost account that a sponsored `ft_transfer_call` may name as
-    /// `receiver_id`.
-    #[serde(default = "defaults::boost_contract_id")]
-    pub boost_contract_id: String,
-
-    /// Sponsored boosts one account may take per clock hour. Default is 6.
-    #[serde(default = "defaults::boost_sponsor_hourly_limit")]
-    pub boost_sponsor_hourly_limit: u32,
-
-    /// Prepaid gas the whole relayer may sponsor for boosts per UTC day,
-    /// in yoctoNEAR. Default is 1 NEAR.
-    #[serde(default = "defaults::boost_sponsor_daily_spend_yocto")]
-    pub boost_sponsor_daily_spend_yocto: String,
-
-    /// YoctoNEAR charged per gas unit when drawing the daily boost budget.
-    /// Default is the common minimum gas price, 10^8.
-    #[serde(default = "defaults::boost_sponsor_gas_price_yocto")]
-    pub boost_sponsor_gas_price_yocto: String,
 }
 
 impl Default for Config {
@@ -132,11 +108,6 @@ impl Default for Config {
             rewards_contract_id: defaults::rewards_contract_id(),
             social_spend_contract_id: defaults::social_spend_contract_id(),
             allowed_contracts: defaults::allowed_contracts(),
-            token_contract_id: defaults::token_contract_id(),
-            boost_contract_id: defaults::boost_contract_id(),
-            boost_sponsor_hourly_limit: defaults::boost_sponsor_hourly_limit(),
-            boost_sponsor_daily_spend_yocto: defaults::boost_sponsor_daily_spend_yocto(),
-            boost_sponsor_gas_price_yocto: defaults::boost_sponsor_gas_price_yocto(),
         }
     }
 }
@@ -397,68 +368,14 @@ mod defaults {
 
     pub(super) fn allowed_contracts_for_network(network: &str) -> Vec<String> {
         if network.contains("mainnet") {
-            vec!["rewards.onsocial.near".into(), "token.onsocial.near".into()]
+            vec!["rewards.onsocial.near".into()]
         } else {
             vec![
                 "core.onsocial.testnet".into(),
                 "scarces.onsocial.testnet".into(),
                 "rewards.onsocial.testnet".into(),
-                "token.onsocial.testnet".into(),
             ]
         }
-    }
-
-    pub fn token_contract_id() -> String {
-        std::env::var("RELAYER_TOKEN_CONTRACT_ID")
-            .ok()
-            .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| token_contract_id_for_network(&network()))
-    }
-
-    pub(super) fn token_contract_id_for_network(network: &str) -> String {
-        if network.contains("mainnet") {
-            "token.onsocial.near".into()
-        } else {
-            "token.onsocial.testnet".into()
-        }
-    }
-
-    pub fn boost_contract_id() -> String {
-        std::env::var("RELAYER_BOOST_CONTRACT_ID")
-            .ok()
-            .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| boost_contract_id_for_network(&network()))
-    }
-
-    pub(super) fn boost_contract_id_for_network(network: &str) -> String {
-        if network.contains("mainnet") {
-            "boost.onsocial.near".into()
-        } else {
-            "boost.onsocial.testnet".into()
-        }
-    }
-
-    pub fn boost_sponsor_hourly_limit() -> u32 {
-        std::env::var("RELAYER_BOOST_SPONSOR_HOURLY_LIMIT")
-            .ok()
-            .filter(|value| !value.trim().is_empty())
-            .and_then(|value| value.parse().ok())
-            .filter(|limit| *limit > 0)
-            .unwrap_or(crate::boost_sponsor::DEFAULT_HOURLY_LIMIT)
-    }
-
-    pub fn boost_sponsor_daily_spend_yocto() -> String {
-        std::env::var("RELAYER_BOOST_SPONSOR_DAILY_SPEND_YOCTO")
-            .ok()
-            .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| crate::boost_sponsor::DEFAULT_FLEET_DAILY_SPEND_YOCTO.to_string())
-    }
-
-    pub fn boost_sponsor_gas_price_yocto() -> String {
-        std::env::var("RELAYER_BOOST_SPONSOR_GAS_PRICE_YOCTO")
-            .ok()
-            .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| crate::boost_sponsor::DEFAULT_GAS_PRICE_YOCTO.to_string())
     }
 }
 
@@ -544,22 +461,13 @@ mod tests {
         assert!(contracts
             .iter()
             .any(|contract| contract == "rewards.onsocial.testnet"));
-        assert!(contracts
-            .iter()
-            .any(|contract| contract == "token.onsocial.testnet"));
     }
 
     #[test]
-    fn default_mainnet_allowlist_is_rewards_and_the_social_token() {
+    fn default_allowed_contracts_only_include_rewards_on_mainnet() {
         let contracts = defaults::allowed_contracts_for_network("mainnet");
 
-        assert_eq!(
-            contracts,
-            vec![
-                "rewards.onsocial.near".to_string(),
-                "token.onsocial.near".to_string()
-            ]
-        );
+        assert_eq!(contracts, vec!["rewards.onsocial.near".to_string()]);
     }
 
     #[test]
@@ -571,26 +479,6 @@ mod tests {
         assert_eq!(
             defaults::rewards_contract_id_for_network("testnet"),
             "rewards.onsocial.testnet"
-        );
-    }
-
-    #[test]
-    fn default_token_and_boost_contracts_track_network() {
-        assert_eq!(
-            defaults::token_contract_id_for_network("mainnet"),
-            "token.onsocial.near"
-        );
-        assert_eq!(
-            defaults::token_contract_id_for_network("testnet"),
-            "token.onsocial.testnet"
-        );
-        assert_eq!(
-            defaults::boost_contract_id_for_network("mainnet"),
-            "boost.onsocial.near"
-        );
-        assert_eq!(
-            defaults::boost_contract_id_for_network("testnet"),
-            "boost.onsocial.testnet"
         );
     }
 

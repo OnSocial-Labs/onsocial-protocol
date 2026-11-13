@@ -2,38 +2,8 @@
 // OnSocial SDK — boost module (boost contract view reads)
 // ---------------------------------------------------------------------------
 
-import {
-  buildBoostLockMsg,
-  encodeBoostFtMsg,
-  type BoostLockPeriod,
-} from '../advanced/boost-msg.js';
-import type { Session } from '../advanced/session.js';
-import { resolveContractId } from '../internal/contracts.js';
-import { OnSocialError, type HttpClient } from '../internal/http.js';
-import { relaySignedFunctionCall } from '../internal/session-bridge.js';
-import type { RelayResponse } from '../types.js';
+import type { HttpClient } from '../internal/http.js';
 import type { FtStorageBalance } from './token.js';
-
-/** Stable relayer refusal when a boost sponsorship limit is hit. */
-export const BOOST_SPONSOR_LIMIT = 'BOOST_SPONSOR_LIMIT';
-
-/** Prepaid gas for a boost lock `ft_transfer_call`. Matches the app sheet. */
-export const BOOST_LOCK_GAS = '80000000000000';
-
-export class BoostSponsorLimitError extends Error {
-  readonly code = BOOST_SPONSOR_LIMIT;
-  constructor() {
-    super(BOOST_SPONSOR_LIMIT);
-    this.name = 'BoostSponsorLimitError';
-  }
-}
-
-export function isBoostSponsorLimitError(error: unknown): boolean {
-  if (error instanceof BoostSponsorLimitError) return true;
-  return (
-    error instanceof OnSocialError && error.message === BOOST_SPONSOR_LIMIT
-  );
-}
 
 /** Per-account boost view as returned by `get_account`. */
 export interface BoostAccountView {
@@ -154,49 +124,6 @@ export class BoostModule {
   /** How many new users the contract can still auto-register for free. */
   async getStorageSubsidyAvailable(): Promise<number> {
     return this._http.get<number>(`/data/boost-storage-subsidy-available`);
-  }
-
-  /**
-   * Lock SOCIAL into boost through the gateway relayer.
-   *
-   * The session key must be permitted to call `ft_transfer_call` on the
-   * SOCIAL token. The relayer pays the fee. A sponsorship limit throws
-   * `BoostSponsorLimitError` so the caller can fall back to a wallet
-   * transaction. A chain revert is not a limit refusal.
-   */
-  async commitLock(input: {
-    session: Session;
-    amountYocto: string;
-    months: BoostLockPeriod;
-    gas?: string;
-  }): Promise<RelayResponse> {
-    if (!/^\d+$/.test(input.amountYocto) || BigInt(input.amountYocto) <= 0n) {
-      throw new Error('amount must be a positive integer yocto amount');
-    }
-    const tokenContractId = resolveContractId(this._http.network, 'token');
-    const boostContractId = resolveContractId(this._http.network, 'boost');
-    try {
-      return await relaySignedFunctionCall(this._http, input.session, {
-        receiverId: tokenContractId,
-        methodName: 'ft_transfer_call',
-        argsJson: JSON.stringify({
-          receiver_id: boostContractId,
-          amount: input.amountYocto,
-          msg: encodeBoostFtMsg(buildBoostLockMsg(input.months)),
-        }),
-        gas: input.gas ?? BOOST_LOCK_GAS,
-        depositYocto: '1',
-        wait: true,
-      });
-    } catch (error) {
-      if (
-        isBoostSponsorLimitError(error) &&
-        !(error instanceof BoostSponsorLimitError)
-      ) {
-        throw new BoostSponsorLimitError();
-      }
-      throw error;
-    }
   }
 
   /** Returns the NEP-145 storage balance, or `null` if unregistered. */
