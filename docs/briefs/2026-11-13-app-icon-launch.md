@@ -36,6 +36,6 @@ Maskable glyphs measure at half the canvas and inside the safe-zone circle. `any
 
 Chromium, 390×844, the real theme script: a standalone light-mode phone with nothing stored painted `data-theme=dark`, canvas `rgb(0, 0, 0)`, and both `theme-color` metas `#0c0d10`. The same case on the previous script painted light, canvas `rgb(255, 255, 255)`, and left the media colors. A normal light tab still paints light and leaves both media colors. `navigator.standalone` with nothing stored paints dark. A stored light choice in standalone still paints light.
 
-`pnpm check:push` exited 0. App lint was 0 errors (37 existing warnings). Unit tests were 504 files and 3519 tests. The production build compiled. Playwright was 365 passed, 4 flaky, 1 skipped. The flakes are the open-drop supply locator, the launcher grip drag, and two portfolio identity locators that match two nodes. The retry passes.
+`pnpm check:push` exited 0 after the startup list was cut to the sourced sizes. App lint was 0 errors (37 existing warnings). Unit tests were 504 files and 3519 tests. The production build compiled. Playwright was 368 passed, 1 flaky, 1 skipped. The flake is the writing-state chevron on the summon dock, which matches two nodes. The retry passes.
 
 Screenshots: `/opt/cursor/artifacts/pwa-icons/`.
