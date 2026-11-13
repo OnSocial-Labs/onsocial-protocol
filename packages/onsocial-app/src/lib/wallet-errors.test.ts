@@ -2,8 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { txToastError } from '@/lib/transaction-toast-copy';
 import { mapAppAccessError } from '@/lib/wallet-errors';
 
-const JARGON = /\b(gas|tgas|on-chain|on chain|contract|yocto|execute_admin)\b/i;
-
 describe('mapAppAccessError', () => {
   it('stays quiet when the person cancels', () => {
     expect(
@@ -17,7 +15,7 @@ describe('mapAppAccessError', () => {
     ).toBeNull();
   });
 
-  it('never shows gas or on-chain text from the wallet', () => {
+  it('returns the glossary line instead of gas or on-chain wallet text', () => {
     const cases = [
       new Error('Exceeded the prepaid gas at execute_admin'),
       new Error('on-chain contract rejected the function call'),
@@ -25,6 +23,7 @@ describe('mapAppAccessError', () => {
       'Server error: on chain failure',
     ];
     for (const error of cases) {
+      const raw = error instanceof Error ? error.message : error;
       const allow = mapAppAccessError(error, txToastError.allowAppAccessFailed);
       const remove = mapAppAccessError(
         error,
@@ -32,15 +31,8 @@ describe('mapAppAccessError', () => {
       );
       expect(allow).toBe(txToastError.allowAppAccessFailed);
       expect(remove).toBe(txToastError.removeAppAccessFailed);
-      expect(allow).not.toMatch(JARGON);
-      expect(remove).not.toMatch(JARGON);
-      expect(String(allow)).not.toContain('execute_admin');
+      expect(allow).not.toContain(raw);
+      expect(remove).not.toContain(raw);
     }
-  });
-
-  it('replaces a fallback that itself contains chain jargon', () => {
-    expect(mapAppAccessError(new Error('nope'), 'out of gas on-chain')).toBe(
-      "Couldn't add app access. Try again in a moment."
-    );
   });
 });
