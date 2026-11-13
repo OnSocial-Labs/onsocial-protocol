@@ -31,7 +31,12 @@ export function AppAccessBanner() {
       title={copy.title}
       body={copy.body}
       footer={
-        <OsSheetActions layout="row" tone="frosted-primary" borderless>
+        <OsSheetActions
+          layout="row"
+          tone="frosted-primary"
+          size="sm"
+          borderless
+        >
           <OsSheetAction
             type="button"
             variant="primary"

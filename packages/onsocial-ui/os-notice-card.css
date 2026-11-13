@@ -146,6 +146,13 @@
   color: var(--protocol-amber-ink);
 }
 
+/* Drawer notice — same shape and inset as `.os-surface-panel`. */
+[data-app-access-banner].os-notice-card {
+  border-radius: var(--os-surface-radius-row);
+  gap: var(--os-surface-stack-gap);
+  padding: var(--os-surface-pad-block) var(--os-surface-pad-inline);
+}
+
 .os-notice-card-toggle {
   display: flex;
   align-items: flex-start;

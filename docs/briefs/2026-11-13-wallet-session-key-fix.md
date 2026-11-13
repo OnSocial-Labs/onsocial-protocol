@@ -39,7 +39,7 @@ Notice cards in the repo (`OsNoticeCard`):
 - Log out, in this same account family (`account-card-parts.tsx`): `align="start"`, no `shell`, no icon, title + body, footer `OsSheetActions layout="row" tone="frosted-primary" borderless`. Pending dots on the commit button. Cancel is `disabled` while that runs. Focus, hover, and press come from `OsSheetAction` (`:focus-visible` uses `--os-focus-ring`, `:active` and `:disabled` are in `os-sheet-action.css`).
 - Profile load error (`profile-editor-load-error.tsx`): `align="center"`, `shell`, one primary in a stack, no icon. Different surface.
 
-Neither notice carries an icon. The banner's card contains no `svg`. It uses the log-out structure: start align, no shell, the same footer. Spacing is the kit card (`.os-notice-card` gap `0.7rem`, pad `0.9rem 0.9rem 0.75rem`), not a second pad. The only added rule is `.os-notice-card--attention`: fill `--protocol-amber-bg`, title and body `--protocol-amber-ink`. Those tokens swap under `[data-theme='dark']` (`protocol.css`). `--protocol-amber` stays the hue; ink is the text color because the hue fails contrast on a light surface. The resting button is `os-sheet-action os-sheet-action--primary is-ready` and is not `disabled`. While the grant runs it is `pending` and `disabled` together, which is the kit dots state. Focus, press, and disabled styling stay in `os-sheet-action.css` (`:focus-visible` uses `--os-focus-ring`). No new pressed, focus, or loading styles.
+Neither notice carries an icon. The banner's card contains no `svg`. It uses the log-out structure: start align, no shell, the same footer. Log out keeps the kit notice pad. The drawer banner uses the wallet card's surface tokens: radius `--os-surface-radius-row`, padding `--os-surface-pad-block` and `--os-surface-pad-inline`, gap `--os-surface-stack-gap`. The wallet zone reads those same tokens, including the short-height override. The only color rule is `.os-notice-card--attention`: fill `--protocol-amber-bg`, title and body `--protocol-amber-ink`. Those tokens swap under `[data-theme='dark']` (`protocol.css`). `--protocol-amber` stays the hue; ink is the text color because the hue fails contrast on a light surface. The action group is `OsSheetActions` `size="sm"` (the kit's 1.65rem compact pill, used by market Buy and guild Join). The resting button is `os-sheet-action os-sheet-action--primary is-ready` and is not `disabled`. While the grant runs it is `pending` and `disabled` together, which is the kit dots state. Focus, press, and disabled styling stay in `os-sheet-action.css` (`:focus-visible` uses `--os-focus-ring`). No new pressed, focus, or loading styles.
 
 Re-scan after the edits: community handoff still calls `grantCommunityAppSession` → `buildSessionGrant` with `apps/<id>/`, so that grant still emits AddKey and `set_key_permission`. Portal welcome-near is a separate helper and was not retargeted. Switch wallet still calls `connect({})` with no key. An already connected `connect()` still resumes through `ensureSocialSession` and does not bundle into that resume.
 
@@ -67,11 +67,13 @@ The banner sits in the drawer body, above the Wallet balance, and does not cover
 
 Opened with no extra scroll, after the enter animation, with the balance settled (`0` SOCIAL and the empty hint). Chrome, Safari, and Brave agree on each device. The banner does not overlap the balance, the close button, or the grip. The Account row sits inside the panel. The body does not scroll. The panel bottom is 1px past the layout viewport from the hosted `inset: -1px`.
 
-iPhone (layout viewport 390×664). Grip 42×4 at (174, 74), close 38×38 at (341, 90), banner 368×152 at (11, 141), balance value 15×40 at (20, 323), wallet zone 368×282 at (11, 300), Account row 368×66 at (11, 590) ending at 656. The banner bottom (292) is above the wallet zone.
+The banner and the wallet zone share x, width, radius (`13.6px`, `--os-surface-radius-row`), and padding. Allow access is the `sm` pill, 27px tall. Get SOCIAL stays 52px.
 
-Samsung (360×800). Banner 338×152 at (11, 256). Account row ends at 792. Panel ends at 801.
+iPhone (layout viewport 390×664, under 42rem so the short pad applies: `7.2px 8.8px`). Grip 42×4 at (174, 117), close 38×38 at (341, 133), banner 368×109 at (11, 183), wallet zone 368×282 at (11, 300), Allow access 350×27, Account row 368×66 at (11, 590) ending at 656.
 
-Pixel (412×839). Banner 390×133 at (11, 313). The wider line is one row, so the card is 19px shorter. Account row ends at 831. Panel ends at 840.
+Samsung (360×800, pad `8.8px 10.4px`). Banner 338×114 at (11, 293), wallet zone the same x and width at y 417. Account row ends at 792. Panel ends at 801.
+
+Pixel (412×839). Banner 390×95 at (11, 351). The wider line is one row, so the card is shorter. Account row ends at 831. Panel ends at 840.
 
 Light ink is `rgb(180, 83, 9)` (`--protocol-amber-ink` `#b45309`) on `rgba(251, 191, 36, 0.1)`. Dark is `rgb(251, 191, 36)` on `rgba(251, 191, 36, 0.12)`.
 
@@ -109,6 +111,6 @@ Route tests: a funded first visit with no stored hint bundles; an unfunded first
 
 Banner copy tests: hidden while unsettled, Allow when missing, Renew when expired, hidden when active.
 
-The drawer uses the tall hug cap so the Account row stays in the first paint. The notice uses the kit pad, ink on the title and the body, and `disabled` while the grant is pending. Screenshots are the 18 device shots plus the dark iPhone Chrome shot. The branch against `main` is 47 files, +1636 / −230.
+The drawer uses the tall hug cap so the Account row stays in the first paint. The notice uses the wallet card's radius, padding, and gap tokens, ink on the title and the body, `OsSheetActions` `size="sm"`, and `disabled` while the grant is pending. Screenshots are the 18 device shots plus the dark iPhone Chrome shot. The branch against the merge base is 49 files, +1659 / −239.
 
 `pnpm check:push` ran through the pre-push hook, not `--no-verify`. The Job 2 hook (head `44001a85`) passed with Playwright 383 passed, 5 flaky, 1 skipped. The Job 3 hook passed with 508 test files, 3544 unit tests, and Playwright 389 passed, 1 flaky, 1 skipped. The banner and audit hook (head `fc7e3e01`) passed with 509 test files, 3547 unit tests, and Playwright 387 passed, 3 flaky, 1 skipped. The flakes are the collection supply line, a home refresh, and the organisation location drawer. Retries passed.

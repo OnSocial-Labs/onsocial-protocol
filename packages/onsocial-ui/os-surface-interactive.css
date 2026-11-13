@@ -106,6 +106,10 @@
     --os-chrome-glyph-size: 1.5rem;
     --os-surface-radius-row: 0.85rem;
     --os-surface-radius-tile: 0.85rem;
+    /* Inset card — wallet zone and the drawer attention notice share these. */
+    --os-surface-pad-inline: 0.65rem;
+    --os-surface-pad-block: 0.55rem;
+    --os-surface-stack-gap: 0.5rem;
     /* Guild-search / Market / Drops catalog cover scale. */
     --os-catalog-cover: 4.85rem;
     --os-catalog-cover-sm: 5.5rem;

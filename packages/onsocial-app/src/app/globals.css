@@ -19076,6 +19076,9 @@ a.os-surface-row,
   @media (max-height: 42rem) {
     .account-card {
       gap: 0.5rem;
+      --os-surface-stack-gap: 0.4rem;
+      --os-surface-pad-block: 0.45rem;
+      --os-surface-pad-inline: 0.55rem;
     }
   }
 
@@ -19083,8 +19086,8 @@ a.os-surface-row,
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    padding: 0.55rem 0.65rem;
+    gap: var(--os-surface-stack-gap);
+    padding: var(--os-surface-pad-block) var(--os-surface-pad-inline);
     overflow: hidden;
     isolation: isolate;
     /* Mood wash: unlayered block near file end (beats .os-surface-panel). */
@@ -19113,13 +19116,6 @@ a.os-surface-row,
   .account-card-wallet-zone > * {
     position: relative;
     z-index: 1;
-  }
-
-  @media (max-height: 42rem) {
-    .account-card-wallet-zone {
-      gap: 0.4rem;
-      padding: 0.45rem 0.55rem;
-    }
   }
 
   .account-wallet-hero {
