@@ -34,6 +34,17 @@ This branch does not change that token, the dock, the pill, the sheet padding, o
 
 Every one of those is hosted, so a change to non-hosted `.glass-sheet-root` padding does not move them. The logged-out gate uses `--gate-viewport-height`, a different token, and a frame fix would leave it alone. `useKeyboardDrawerFrame` still runs inside every `GlassSheet`. This branch does not change it. Keyboard open still means a real overlap, not a toolbar.
 
+Location with the keyboard up is a different sheet from the page drawer. `ProfileLocationControl` opens an `OsHugSheet` (a `GlassSheet` hug) over `OsPageSheet` in `app-profile-editor-sheet.tsx`. The row that shows through is that editor, not the portfolio face. The hug’s bottom, while the keyboard is open, comes from one of these. No fix until a readout picks one.
+
+1. `readKeyboardDrawerMetrics` in `keyboard-drawer-frame.ts`. Lift is `innerHeight - visualViewport.height - visualViewport.offsetTop`. The pin runs only when that lift is at least 64 (`keyboardUp` in `useKeyboardDrawerFrame`). Below that, the effect calls `applyKeyboardRootFrame(root, null)` and the hug keeps its CSS box. If Brave shrinks `innerHeight` along with the visual viewport, lift stays under 64 even though the keyboard is up, and the sheet never leaves the layout bottom.
+2. The CSS box the pin clears back to. A hosted hug is `inset: -1px` inside the portfolio frame. That frame’s height is `--portfolio-viewport-height` (`gate-viewport.ts`: `offsetTop + visualViewport.height`). A non-hosted hug is `inset: 0` on the layout viewport. Either bottom is the layout edge, not the keyboard, when the pin is off.
+3. `visualKeyboardFrame` when the pin does run. A fixed root uses `top: offsetTop` and `height: visualViewport.height`, so its bottom is the visual bottom. A hosted root is absolute. If its parent is already on screen, the function returns `top: 0` and `height: min(visualViewport.height, parentHeight)`, and the comment there says `offsetTop` is not added. `keyboardRootFrameStyle` writes that box as `bottom: auto`. The sheet then ends `offsetTop` pixels above the visual bottom.
+4. `settleKeyboardDrawerMetrics` and `settleVisualKeyboardFrame`. Both keep the previous box when the height changes by less than 64. A keyboard resize that Brave reports as a small height change never replaces the closed frame.
+5. `keyboardOpen` on the same hook is `lift > 0`, which is not the pin. It only adds `.is-keyboard-open`, which sets the root’s padding-bottom to 0 and the footer pad to `--os-sheet-footer-pad-bottom-keyboard` (0.45rem). That shortens the inside of the sheet. It does not move the root’s bottom, so it cannot by itself uncover the editor below the root.
+6. `usePageKeyboardLift` on the profile editor, with no `pinRoot`. Its `keyboardOpen` is also `lift > 0`. It sets `--os-keyboard-lift` on `.profile-edit-sheet-panel`. That moves the editor’s own footer. It does not position the location hug. The editor is what shows in the strip.
+
+The readout that decides this is `measuredLift`, `visualViewport.offsetTop`, `visualViewport.height`, `innerHeight`, `keyboardOpen`, and the location sheet’s root and panel bottoms against the keyboard.
+
 ## 3. near idioms
 
 No wallet, account, contract, gas, or storage change. The readout is a temporary diagnostic. Its only new word is Copy, on that panel. No glossary term. The drawer’s own names are unchanged.
@@ -54,7 +65,7 @@ Temporary, remove before merge:
 
 Against `main` this branch is a readout and this brief. No production layout file changes. The keyboard-threshold and toolbar-token attempt is reverted, including its screenshots.
 
-No fix. The cause cannot be confirmed from the code alone, so nothing speculative was left in `gate-viewport.ts`, `glass-sheet.css`, or the keyboard frame. The keyboard-threshold and toolbar-token attempt is reverted, including its screenshots. The size of a fix was not the reason it was left out. A longer change would ship if the trace named one inset. It names the frame height, and then stops, because Brave’s reported heights are not in the source.
+No fix. The cause cannot be confirmed from the code alone, so nothing speculative was left in `gate-viewport.ts`, `glass-sheet.css`, or the keyboard frame. The Location sheet with the keyboard up is the same: the candidates are listed above, and none of them is changed until a readout picks one. The keyboard-threshold and toolbar-token attempt is reverted, including its screenshots. The size of a fix was not the reason it was left out. A longer change would ship if the trace named one inset. It names the frame height, and then stops, because Brave’s reported heights are not in the source.
 
 The temporary readout lists `innerHeight`, `innerWidth`, `clientHeight`, visual viewport height / offsetTop / pageTop / scale, screen height and availHeight, device pixel ratio, safe-area top and bottom, `100vh` / `100svh` / `100lvh` / `100dvh`, standalone, a short user agent, Brave (`navigator.brave`, then `isBrave()` when it exists), `--portfolio-dock-bottom`, `--portfolio-viewport-height`, measured lift, keyboard lift, keyboard-open, and when a drawer is open the root, panel, footer, and dock boxes plus root and footer padding-bottom and the gap under the panel. Copy writes that snapshot as JSON.
 
