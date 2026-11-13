@@ -99,23 +99,24 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          key: playwright-${{ runner.os }}-chromium-webkit-${{ hashFiles('pnpm-lock.yaml') }}
 
-      - name: Install Playwright Chromium
+      - name: Install Playwright Chromium and WebKit
         run: |
           set -euo pipefail
           # Google Chrome apt mirrors occasionally hash-mismatch on Actions.
           # Retry --with-deps, then fall back to browser-only install (deps are
           # usually already present on ubuntu-26.04 / warm runners).
+          # WebKit is required by the portfolio pill and Writing regressions.
           for attempt in 1 2 3; do
-            if pnpm --filter @onsocial/app exec playwright install --with-deps chromium; then
+            if pnpm --filter @onsocial/app exec playwright install --with-deps chromium webkit; then
               exit 0
             fi
             echo "playwright install --with-deps failed (attempt ${attempt}); retrying…"
             sleep $((attempt * 5))
           done
-          echo "Falling back to playwright install chromium (no apt deps)"
-          pnpm --filter @onsocial/app exec playwright install chromium
+          echo "Falling back to playwright install chromium webkit (no apt deps)"
+          pnpm --filter @onsocial/app exec playwright install chromium webkit
 
       - name: Run e2e
         run: pnpm --filter @onsocial/app test:e2e
