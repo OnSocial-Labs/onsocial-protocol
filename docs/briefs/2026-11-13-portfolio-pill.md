@@ -58,4 +58,4 @@ Browser and phone: the pill sits centered on the dock, clear of the grip, and th
 
 CLS on `/@alice.testnet` signed in as alice.testnet, three runs each. Before: desktop 0, 0, 0; iPhone 13 0, 0, 0; Pixel 7 0, 0, 0. After: desktop 0, 0, 0; iPhone 13 0, 0, 0; Pixel 7 0, 0, 0. On that face the old hook never wrote a margin, because the stack ends above the chevron. The jump it could still write is gone with the hook.
 
-`pnpm check:push` is recorded when it exits.
+`pnpm check:push` exited 0. App lint and typecheck passed. Unit tests were 503 files and 3512 tests. The production build compiled. Playwright was 365 passed, 5 flaky, 2 skipped. The flaky cases are the tucked chevron, the chevron hidden while writing, the launcher grip drag, the standing globe, and the organisation location drawer. Each retry passed. They see two docks or two identities in the same moment, the skeleton and the resolved face.
