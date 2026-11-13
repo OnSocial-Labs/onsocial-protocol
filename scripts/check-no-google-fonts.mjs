@@ -4,9 +4,11 @@
  * Those imports download from fonts.googleapis.com during `next build`.
  */
 import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const roots = ['packages'];
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const roots = [join(root, 'packages')];
 const hits = [];
 
 function walk(dir) {
