@@ -36,19 +36,27 @@ const APPLE_FRACTION = 0.55;
 const STARTUP_FRACTION = 0.24;
 
 /**
- * Portrait sizes still installed in 2026. One row per distinct
- * (css width, css height, pixel ratio). Display Zoom and landscape are
- * omitted on purpose. Pixel size is css × ratio.
+ * Portrait startup sizes from `@vite-pwa/assets-generator`
+ * `appleSplashScreenSizes`, which cites Apple's HIG device screen
+ * dimensions. One row per distinct (css width, css height, pixel ratio).
+ * Pixel size is css × ratio. Display Zoom and landscape are not included.
+ *
+ * https://github.com/vite-pwa/assets-generator/blob/main/src/splash.ts
+ *
+ * iPhone Duo is not in that list or in the HIG device tables, so it is
+ * not here. The M4 iPad Pro point sizes (1032×1376 and 834×1210) are
+ * not in that list either; the HIG live-activity table still lists
+ * 1366×1024 and 1194×834.
  */
 const STARTUP_DEVICES = [
   {
-    label: 'iPhone 16 Pro Max, 17 Pro Max, 18 Pro Max',
+    label: 'iPhone 16 Pro Max, 17 Pro Max',
     cssWidth: 440,
     cssHeight: 956,
     ratio: 3,
   },
   {
-    label: 'iPhone 16 Pro, 17, 17 Pro, 18 Pro',
+    label: 'iPhone 16 Pro, 17, 17 Pro',
     cssWidth: 402,
     cssHeight: 874,
     ratio: 3,
@@ -73,7 +81,7 @@ const STARTUP_DEVICES = [
     ratio: 3,
   },
   {
-    label: 'iPhone 12, 13, 13 Pro, 14, 16e, 17e',
+    label: 'iPhone 12, 12 Pro, 13, 13 Pro, 14, 16e',
     cssWidth: 390,
     cssHeight: 844,
     ratio: 3,
@@ -91,45 +99,21 @@ const STARTUP_DEVICES = [
     ratio: 3,
   },
   { label: 'iPhone 11, XR', cssWidth: 414, cssHeight: 896, ratio: 2 },
-  { label: 'iPhone SE (2nd and 3rd)', cssWidth: 375, cssHeight: 667, ratio: 2 },
-  { label: 'iPhone Duo outer', cssWidth: 466, cssHeight: 678, ratio: 3 },
-  { label: 'iPhone Duo inner', cssWidth: 626, cssHeight: 890, ratio: 3 },
-  {
-    label: 'iPad Pro 13-inch (M4 and later)',
-    cssWidth: 1032,
-    cssHeight: 1376,
-    ratio: 2,
-  },
-  {
-    label: 'iPad Pro 11-inch (M4 and later)',
-    cssWidth: 834,
-    cssHeight: 1210,
-    ratio: 2,
-  },
+  { label: 'iPhone SE 4.7-inch', cssWidth: 375, cssHeight: 667, ratio: 2 },
   {
     label: 'iPad Pro 12.9-inch, iPad Air 13-inch',
     cssWidth: 1024,
     cssHeight: 1366,
     ratio: 2,
   },
+  { label: 'iPad Pro 11-inch', cssWidth: 834, cssHeight: 1194, ratio: 2 },
   {
-    label: 'iPad Pro 11-inch (1st through 4th generation)',
-    cssWidth: 834,
-    cssHeight: 1194,
-    ratio: 2,
-  },
-  {
-    label: 'iPad Air 11-inch, iPad 10th and 11th generation',
+    label: 'iPad Air 11-inch, iPad Air 10.9-inch, iPad 11-inch',
     cssWidth: 820,
     cssHeight: 1180,
     ratio: 2,
   },
-  {
-    label: 'iPad mini (6th and 7th)',
-    cssWidth: 744,
-    cssHeight: 1133,
-    ratio: 2,
-  },
+  { label: 'iPad mini 8.3-inch', cssWidth: 744, cssHeight: 1133, ratio: 2 },
 ];
 
 function glyphFromSvg(svg) {
