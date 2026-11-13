@@ -34,10 +34,10 @@ export type E2eGraphGuild = 'empty' | 'missing' | 'member' | 'banned' | 'owner';
 export type E2eGraphMarket = 'shop' | 'shop-empty' | 'live-first' | 'window';
 export type E2eGraphDrop = 'default' | 'held' | 'missing';
 export type E2eGraphDrops = 'covers' | 'events' | 'window';
-export type E2eGraphWriting = 'shelf' | 'reader';
+export type E2eGraphWriting = 'shelf' | 'reader' | 'empty';
 export type E2eGraphArticles = 'list' | 'window';
-/** SSR profile shell fixture — `banner` carries a CDN banner image. */
-export type E2eGraphProfile = 'banner';
+/** SSR profile shell fixture — `banner` carries a CDN banner image. `links` is a face with social icons. */
+export type E2eGraphProfile = 'banner' | 'links';
 export type E2eDropCollectionId =
   | 'night-drive'
   | 'chapter-one'
@@ -130,13 +130,13 @@ export function parseE2eGraphCookie(
     parsed.drops = drops;
   }
   const writing = params.get('writing');
-  if (writing === 'shelf' || writing === 'reader') {
+  if (writing === 'shelf' || writing === 'reader' || writing === 'empty') {
     parsed.writing = writing;
   }
   const articles = params.get('articles');
   if (articles === 'list' || articles === 'window') parsed.articles = articles;
   const profile = params.get('profile');
-  if (profile === 'banner') parsed.profile = profile;
+  if (profile === 'banner' || profile === 'links') parsed.profile = profile;
   return parsed;
 }
 
@@ -144,7 +144,7 @@ export function isE2eWritingShelfCookie(
   value: string | null | undefined
 ): boolean {
   const writing = parseE2eGraphCookie(value).writing;
-  return writing === 'shelf' || writing === 'reader';
+  return writing === 'shelf' || writing === 'reader' || writing === 'empty';
 }
 
 export function serializeE2eGraphCookie(opts: E2eGraphCookieValue): string {
@@ -687,6 +687,31 @@ export function e2eGuildCurrentRows(
  * `profilesCurrent` field rows for the banner profile fixture — enough for
  * `rowsToProfile` to materialise name + banner (image kind via ipfs://).
  */
+/** Face with social icons and a long bio, so the links sit on the pill. */
+export function e2eProfileLinkRows(accountId: string) {
+  const row = (field: string, value: string) => ({
+    accountId,
+    field,
+    value,
+    blockHeight: 1,
+    blockTimestamp: 1,
+    operation: 'add' as const,
+  });
+  return [
+    row('name', 'Link Face'),
+    row('avatar', `ipfs://${E2E_PROFILE_BANNER_CID}`),
+    row('bio', 'A line of the face above the social links. '.repeat(8)),
+    row(
+      'links',
+      JSON.stringify({
+        github: 'onsocial',
+        twitter: 'onsocial',
+        telegram: 'onsocial',
+      })
+    ),
+  ];
+}
+
 export function e2eProfileBannerRows() {
   return [
     {
@@ -1130,6 +1155,7 @@ function e2eWritingArticleRow(opts: {
 function e2eWritingRows(writing: E2eGraphWriting | undefined) {
   if (writing === 'reader') return e2eWritingReaderRows();
   if (writing === 'shelf') return e2eWritingShelfRows();
+  if (writing === 'empty') return [];
   return null;
 }
 
@@ -1439,6 +1465,45 @@ export function resolveE2eGraphStub(opts: {
 
   if (parsed.profile === 'banner' && isProfileGetQuery(opts.query)) {
     return { data: { profilesCurrent: e2eProfileBannerRows() } };
+  }
+  if (parsed.profile === 'links' && isProfileGetQuery(opts.query)) {
+    const id =
+      typeof variables.id === 'string' && variables.id.trim()
+        ? variables.id
+        : E2E_PROFILE_ACCOUNT;
+    return { data: { profilesCurrent: e2eProfileLinkRows(id) } };
+  }
+  if (parsed.profile === 'links' && opts.query.includes('query PageConfig(')) {
+    return { data: { pagesCurrent: [] } };
+  }
+  if (parsed.profile === 'links' && opts.query.includes('query ProfileLookup(')) {
+    const id =
+      typeof variables.id === 'string' && variables.id.trim()
+        ? variables.id
+        : E2E_PROFILE_ACCOUNT;
+    return {
+      data: {
+        profileSearch: [
+          {
+            accountId: id,
+            name: 'Link Face',
+            bio: 'A line of the face above the social links.',
+            avatar: null,
+            banner: null,
+            standingCount: 12,
+            standingWithCount: 4,
+            mutualStandingCount: 2,
+            endorsementsReceivedCount: 3,
+            endorsementsGivenCount: 1,
+            firstProfileTimestamp: 1_700_000_000_000,
+            lastProfileBlock: 1,
+            lastProfileTimestamp: 1_700_000_000_000,
+            lastActivityBlock: 1,
+          },
+        ],
+        profileKinds: [],
+      },
+    };
   }
 
   if (parsed.guild && isGroupsByIdsQuery(opts.query)) {

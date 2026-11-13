@@ -12,11 +12,19 @@ export const gateViewportScript = `(function(){
   root.dataset.gateViewport = '1';
   function sync(){
     var vv = window.visualViewport;
-    var height = vv && vv.height ? vv.height : window.innerHeight;
+    var layout = window.innerHeight || 0;
+    var height = vv && vv.height ? vv.height : layout;
     if (!height) return;
     var offset = vv ? vv.offsetTop || 0 : 0;
+    /* The portfolio frame and the fixed dock share this edge. 100dvh can
+       extend past the visual bottom on Android (URL bar, gesture bar, standalone),
+       which left the face slot below the pill. */
+    var visualBottom = offset + height;
+    var lift = Math.max(0, Math.round(layout - visualBottom));
     root.style.setProperty('--gate-viewport-height', Math.round(height) + 'px');
     root.style.setProperty('--gate-viewport-offset', Math.round(offset) + 'px');
+    root.style.setProperty('--portfolio-viewport-height', Math.round(visualBottom) + 'px');
+    root.style.setProperty('--portfolio-dock-bottom', lift + 'px');
     var standalone = false;
     try {
       standalone = window.matchMedia('(display-mode: standalone)').matches

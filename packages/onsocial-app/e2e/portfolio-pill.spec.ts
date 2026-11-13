@@ -4,6 +4,10 @@ import {
   dismissNextDevOverlay,
   gotoApp,
 } from './helpers';
+import {
+  setE2eGraphProfile,
+  setE2eGraphWriting,
+} from './helpers/e2e-graph';
 
 type FaceProbe = {
   first: number | null;
@@ -149,6 +153,7 @@ test.describe('portfolio swipe-up pill', () => {
   });
 
   test('stays off writing and another user’s writing', async ({ page }) => {
+    await setE2eGraphWriting(page, 'shelf');
     await gotoApp(page, '/@alice.testnet?shelf=/writing');
     await page.waitForURL(/\/@alice\.testnet\/writing\/?$/, {
       timeout: E2E_CHROME_TIMEOUT_MS,
@@ -198,5 +203,175 @@ test.describe('portfolio swipe-up pill', () => {
     await expect(
       page.getByRole('button', { name: 'Open page', exact: true })
     ).toHaveCount(0);
+  });
+});
+
+const LINKED_PHONES = [
+  { name: 'iPhone', width: 390, height: 844 },
+  { name: 'Samsung', width: 360, height: 780 },
+  { name: 'Pixel', width: 412, height: 915 },
+] as const;
+
+async function stubShorterVisualViewport(page: Page): Promise<void> {
+  await page.addInitScript(`(() => {
+    var lift = 56;
+    var real = window.visualViewport;
+    var vv = {
+      get height() { return Math.max(320, (window.innerHeight || 0) - lift); },
+      get width() { return window.innerWidth || 0; },
+      offsetTop: 0,
+      offsetLeft: 0,
+      pageTop: 0,
+      pageLeft: 0,
+      scale: 1,
+      addEventListener: function (type, fn) {
+        if (real && real.addEventListener) real.addEventListener(type, fn);
+      },
+      removeEventListener: function (type, fn) {
+        if (real && real.removeEventListener) real.removeEventListener(type, fn);
+      }
+    };
+    try {
+      Object.defineProperty(window, 'visualViewport', {
+        configurable: true,
+        get: function () { return vv; }
+      });
+    } catch (error) {}
+  })();`);
+}
+
+async function openLinkedFace(
+  page: Page,
+  viewport: { width: number; height: number }
+): Promise<void> {
+  await page.setViewportSize(viewport);
+  await page.addInitScript(`(() => {
+    try {
+      localStorage.setItem('onsocial.app.wallet.accountId', 'alice.testnet');
+    } catch (error) {}
+  })();`);
+  await setE2eGraphProfile(page, 'links');
+  await setE2eGraphWriting(page, 'empty');
+  await gotoApp(page, '/@alice.testnet');
+  await dismissNextDevOverlay(page);
+  await expect(page.locator('.portfolio-link')).toHaveCount(3, {
+    timeout: E2E_CHROME_TIMEOUT_MS,
+  });
+  await expect(
+    page.getByRole('button', { name: 'Open page', exact: true })
+  ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+}
+
+async function measurePillAgainstFace(page: Page): Promise<{
+  hits: string[];
+  pillTop: number;
+  linksBottom: number;
+  frameBottom: number;
+  dockBottom: number;
+  dockVar: string;
+}> {
+  return page.evaluate(() => {
+    const pill = document.querySelector('button.portfolio-page-chevron');
+    const links = document.querySelector('.portfolio-links');
+    const frame = document.querySelector('.portfolio-frame');
+    const dock = document.querySelector('.portfolio-summon-dock');
+    if (
+      !(pill instanceof HTMLElement) ||
+      !(links instanceof HTMLElement) ||
+      !(frame instanceof HTMLElement) ||
+      !(dock instanceof HTMLElement)
+    ) {
+      throw new Error('missing pill face');
+    }
+    const previous = pill.style.visibility;
+    pill.style.visibility = 'hidden';
+    const box = pill.getBoundingClientRect();
+    const hits = new Set<string>();
+    const seen = (el: Element | null) => {
+      const face = el?.closest(
+        '.portfolio-link, .portfolio-bio, .portfolio-name, .portfolio-handle, .portfolio-links, .portfolio-identity'
+      );
+      if (face) hits.add(face.className.toString());
+    };
+    for (let y = box.top + 1; y < box.bottom - 1; y += 3) {
+      for (let x = box.left + 1; x < box.right - 1; x += 6) {
+        seen(document.elementFromPoint(x, y));
+      }
+    }
+    pill.style.visibility = previous;
+    return {
+      hits: [...hits],
+      pillTop: box.top,
+      linksBottom: links.getBoundingClientRect().bottom,
+      frameBottom: frame.getBoundingClientRect().bottom,
+      dockBottom: dock.getBoundingClientRect().bottom,
+      dockVar: getComputedStyle(document.documentElement)
+        .getPropertyValue('--portfolio-dock-bottom')
+        .trim(),
+    };
+  });
+}
+
+test.describe('portfolio pill clears social links', () => {
+  for (const phone of LINKED_PHONES) {
+    test(`does not cover links, bio, or identity on ${phone.name} @webkit`, async ({
+      page,
+    }) => {
+      await openLinkedFace(page, phone);
+      const measured = await measurePillAgainstFace(page);
+      expect(measured.hits).toEqual([]);
+      expect(Math.abs(measured.frameBottom - measured.dockBottom)).toBeLessThan(
+        2
+      );
+    });
+  }
+
+  test('keeps the same edge when the visual viewport is shorter @webkit', async ({
+    page,
+  }) => {
+    await stubShorterVisualViewport(page);
+    await openLinkedFace(page, { width: 360, height: 780 });
+    const measured = await measurePillAgainstFace(page);
+    expect(measured.hits).toEqual([]);
+    expect(measured.dockVar).toBe('56px');
+    expect(Math.abs(measured.frameBottom - measured.dockBottom)).toBeLessThan(
+      2
+    );
+    expect(measured.dockBottom).toBeLessThan(780 - 40);
+  });
+
+  test('keeps links clear in standalone display mode @webkit', async ({
+    page,
+  }) => {
+    await page.addInitScript(`(() => {
+      var real = window.matchMedia.bind(window);
+      window.matchMedia = function (query) {
+        if (String(query).indexOf('display-mode: standalone') !== -1) {
+          return {
+            matches: true,
+            media: String(query),
+            addListener: function () {},
+            removeListener: function () {},
+            addEventListener: function () {},
+            removeEventListener: function () {},
+            dispatchEvent: function () { return false; },
+            onchange: null
+          };
+        }
+        return real(query);
+      };
+    })();`);
+    await openLinkedFace(page, { width: 412, height: 915 });
+    const standalone = await page.evaluate(() => ({
+      media: window.matchMedia('(display-mode: standalone)').matches,
+      attr: document.documentElement.hasAttribute('data-pwa-standalone'),
+    }));
+    expect(standalone.media).toBe(true);
+    expect(standalone.attr).toBe(true);
+    const measured = await measurePillAgainstFace(page);
+    expect(measured.hits).toEqual([]);
+    expect(Math.abs(measured.frameBottom - measured.dockBottom)).toBeLessThan(
+      2
+    );
   });
 });

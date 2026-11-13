@@ -272,13 +272,13 @@ function runAppPlaywright() {
   console.log('\n=== @onsocial/app Playwright (cloud gate = App CI e2e) ===');
   try {
     run(
-      'pnpm --filter @onsocial/app exec playwright install --with-deps chromium'
+      'pnpm --filter @onsocial/app exec playwright install --with-deps chromium webkit'
     );
   } catch {
     console.log(
-      'playwright install --with-deps failed; falling back to chromium-only'
+      'playwright install --with-deps failed; falling back without system packages'
     );
-    run('pnpm --filter @onsocial/app exec playwright install chromium');
+    run('pnpm --filter @onsocial/app exec playwright install chromium webkit');
   }
   run('pnpm --filter @onsocial/app test:e2e', {
     env: {

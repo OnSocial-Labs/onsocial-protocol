@@ -1020,8 +1020,8 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
    face enters from the card edge, not the browser gutter. */
 .protocol-face-pair {
   position: relative;
-  height: 100dvh;
-  max-height: 100dvh;
+  height: var(--portfolio-viewport-height, 100dvh);
+  max-height: var(--portfolio-viewport-height, 100dvh);
   overflow: hidden;
 }
 
@@ -5102,9 +5102,19 @@ a.os-surface-row,
   .portfolio-frame {
     position: relative;
     display: flex;
-    height: 100dvh;
-    max-height: 100dvh;
-    min-height: 100dvh;
+    /* Same bottom edge as the fixed dock. Fallback is dvh before the
+       viewport script publishes the visual bottom. */
+    height: var(--portfolio-viewport-height, 100dvh);
+    max-height: var(--portfolio-viewport-height, 100dvh);
+    min-height: var(--portfolio-viewport-height, 100dvh);
+    --portfolio-pill-footprint: calc(
+      var(--portfolio-face-clearance) + var(--portfolio-shelf-pull) +
+        var(--portfolio-shelf-meta-gap)
+    );
+    --portfolio-face-slot-size: calc(
+      var(--os-dock-height) + var(--os-dock-bottom-offset) +
+        env(safe-area-inset-bottom, 0px) + var(--portfolio-pill-footprint)
+    );
     flex-direction: column;
     isolation: isolate;
     /* Face is a locked card. The page drawer owns scrolling. */
@@ -7806,17 +7816,13 @@ a.os-surface-row,
       var(--mood-transition-ease);
   }
 
-  /* Same shape as dock clearance, plus the pill footprint (height + gap +
-     ring) and the shelf pulls that hang the last line into that inset.
-     The slot is outside the clip, so nothing paints under the pill. */
+  /* Outside the clip. Height is the dock chrome plus --portfolio-pill-footprint,
+     and the frame bottom is the dock's bottom, so the pill cannot drift
+     onto the links when the visual viewport lifts the fixed dock. */
   .portfolio-face-slot {
     flex: 0 0 auto;
     width: 100%;
-    height: calc(
-      var(--portfolio-dock-clearance) - var(--os-dock-clearance-gap) +
-        var(--portfolio-shelf-pull) + var(--portfolio-shelf-meta-gap) +
-        var(--portfolio-face-clearance)
-    );
+    height: var(--portfolio-face-slot-size);
   }
 
   /* Pages that hide the pill do not keep its slot. The route sets the
@@ -15643,7 +15649,7 @@ a.os-surface-row,
   .portfolio-summon-dock {
     position: fixed;
     left: 50%;
-    bottom: 0;
+    bottom: var(--portfolio-dock-bottom, 0px);
     z-index: 40;
     display: flex;
     flex-direction: column;
