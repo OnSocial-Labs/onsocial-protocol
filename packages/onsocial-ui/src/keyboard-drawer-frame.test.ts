@@ -6,6 +6,7 @@ import {
   keyboardFrameTop,
   keyboardRootFrameStyle,
   keyboardSeatPx,
+  keyboardViewportOpen,
   pageKeyboardLiftStyle,
   settleKeyboardDrawerMetrics,
   settleVisualKeyboardFrame,
@@ -17,6 +18,14 @@ describe('keyboardDrawerFrameStyle', () => {
     expect(
       keyboardDrawerFrameStyle({ isMobile: true, height: 700, lift: 0 })
     ).toBeUndefined();
+  });
+
+  it('ignores a browser toolbar under the keyboard slop', () => {
+    expect(keyboardViewportOpen({ isMobile: true, lift: 56 })).toBe(false);
+    expect(
+      keyboardDrawerFrameStyle({ isMobile: true, height: 700, lift: 56 })
+    ).toBeUndefined();
+    expect(keyboardViewportOpen({ isMobile: true, lift: 64 })).toBe(true);
   });
 
   it('sits the drawer on the keys and caps it at the visible screen', () => {
@@ -297,5 +306,14 @@ describe('pageKeyboardLiftStyle', () => {
     expect(
       pageKeyboardLiftStyle({ isMobile: true, height: 380, lift: 320 }, 0)
     ).toEqual({ '--os-keyboard-lift': '0px' });
+  });
+
+  it('stays unset for a toolbar gap under the keyboard slop', () => {
+    expect(
+      pageKeyboardLiftStyle({ isMobile: true, height: 760, lift: 56 }, 56)
+    ).toBeUndefined();
+    expect(
+      pageKeyboardLiftStyle({ isMobile: true, height: 700, lift: 64 }, 64)
+    ).toEqual({ '--os-keyboard-lift': '64px' });
   });
 });

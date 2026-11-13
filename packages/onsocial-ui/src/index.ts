@@ -305,6 +305,7 @@ export {
   keyboardSheetMargin,
   pageKeyboardLiftStyle,
   KEYBOARD_VIEWPORT_SLOP_PX,
+  keyboardViewportOpen,
   keyboardFrameNeedsSeat,
   keyboardFrameTop,
   keyboardRootFrameStyle,
