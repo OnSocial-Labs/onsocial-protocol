@@ -10739,6 +10739,41 @@ a.os-surface-row,
     pointer-events: none;
   }
 
+  /* Writing stays in the tree. Visitors do not see it until an article exists.
+     The owner attribute is set before paint, so this does not pop in. */
+  .portfolio-writing-slot {
+    display: contents;
+  }
+
+  html:not([data-portfolio-owner='1'])
+    .portfolio-writing-slot[data-articles='false'],
+  html:not([data-portfolio-owner='1'])
+    .portfolio-writing-slot[data-articles='unknown'] {
+    display: none;
+  }
+
+  html:not([data-portfolio-owner='1'])
+    .portfolio-depth-links[data-articles='false']:not(
+      :has(> .portfolio-about-link)
+    ),
+  html:not([data-portfolio-owner='1'])
+    .portfolio-depth-links[data-articles='unknown']:not(
+      :has(> .portfolio-about-link)
+    ) {
+    display: none;
+  }
+
+  html:not([data-portfolio-owner='1'])
+    .portfolio-about-closer:not(
+      :has(a.portfolio-about-link:not(.portfolio-writing-entry))
+    ):has(.portfolio-writing-slot[data-articles='false']),
+  html:not([data-portfolio-owner='1'])
+    .portfolio-about-closer:not(
+      :has(a.portfolio-about-link:not(.portfolio-writing-entry))
+    ):has(.portfolio-writing-slot[data-articles='unknown']) {
+    display: none;
+  }
+
   .portfolio-about-link:hover,
   .portfolio-about-link:focus-visible {
     color: var(--protocol-green-hover, var(--protocol-green, #00ec97));

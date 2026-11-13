@@ -68,6 +68,8 @@ interface PortfolioIdentityProps {
   openJobs?: JobSearchRow[];
   /** Standing offers already known with the shell. */
   initialOffers?: OfferRecord[];
+  /** First Writing window. Null when that read failed. */
+  articlePresence?: boolean | null;
 }
 
 export function PortfolioIdentity({
@@ -89,6 +91,7 @@ export function PortfolioIdentity({
   incomingStandingCount = 0,
   openJobs = [],
   initialOffers = [],
+  articlePresence = null,
 }: PortfolioIdentityProps) {
   const moodPreview = usePortfolioMoodPreviewOptional();
   const mood = moodPreview?.effectiveMood ?? savedMood;
@@ -227,7 +230,11 @@ export function PortfolioIdentity({
             moodId={mood.id}
           />
         ) : null}
-        <PortfolioDepthLinks accountId={accountId} showAbout={showAbout} />
+        <PortfolioDepthLinks
+          accountId={accountId}
+          showAbout={showAbout}
+          articlePresence={articlePresence}
+        />
         <PortfolioIdentityGestures
           pageAccountId={accountId}
           profileName={profileName}

@@ -14,7 +14,9 @@ import {
   resolveComposerArticle,
   resolvePostCardOpenHref,
   resolveWritingEmptyState,
+  shouldRedirectVisitorFromEmptyWriting,
   shouldShowWritingLink,
+  writingArticlesAttr,
   shouldShowWritingSearch,
   resolveWritingListQuery,
   resolveWritingShelfCount,
@@ -335,6 +337,50 @@ describe('shouldShowWritingLink', () => {
     expect(shouldShowWritingLink({ isOwner: false, hasArticles: true })).toBe(
       true
     );
+  });
+});
+
+describe('writingArticlesAttr', () => {
+  it('keeps an unknown count distinct from a confirmed zero', () => {
+    expect(writingArticlesAttr(null)).toBe('unknown');
+    expect(writingArticlesAttr(false)).toBe('false');
+    expect(writingArticlesAttr(true)).toBe('true');
+  });
+});
+
+describe('shouldRedirectVisitorFromEmptyWriting', () => {
+  it('sends visitors off a confirmed empty shelf and keeps the owner', () => {
+    expect(
+      shouldRedirectVisitorFromEmptyWriting({
+        isOwner: false,
+        articlesKnown: true,
+        articleCount: 0,
+      })
+    ).toBe(true);
+    expect(
+      shouldRedirectVisitorFromEmptyWriting({
+        isOwner: true,
+        articlesKnown: true,
+        articleCount: 0,
+      })
+    ).toBe(false);
+  });
+
+  it('stays on the shelf while the count is unknown or articles exist', () => {
+    expect(
+      shouldRedirectVisitorFromEmptyWriting({
+        isOwner: false,
+        articlesKnown: false,
+        articleCount: 0,
+      })
+    ).toBe(false);
+    expect(
+      shouldRedirectVisitorFromEmptyWriting({
+        isOwner: false,
+        articlesKnown: true,
+        articleCount: 2,
+      })
+    ).toBe(false);
   });
 });
 

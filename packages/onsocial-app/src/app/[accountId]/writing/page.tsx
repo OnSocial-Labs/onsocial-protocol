@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { PortfolioWritingScreen } from '@/components/portfolio/portfolio-writing-screen';
 import { loadPortfolioWritingPage } from '@/lib/load-portfolio-writing';
+import { visitorEmptyWritingRedirectScript } from '@/lib/writing-shelf-redirect';
 
 type WritingPageProps = {
   params: Promise<{ accountId: string }>;
@@ -22,16 +23,32 @@ export async function generateMetadata({
 export default async function PortfolioWritingPage({
   params,
 }: WritingPageProps) {
-  const { mood, articles, accountId, titleLabel, avatarUrl, coverHints } =
-    await loadPortfolioWritingPage(params);
+  const {
+    mood,
+    articles,
+    articlesKnown,
+    accountId,
+    titleLabel,
+    avatarUrl,
+    coverHints,
+  } = await loadPortfolioWritingPage(params);
   return (
-    <PortfolioWritingScreen
-      mood={mood}
-      accountId={accountId}
-      titleLabel={titleLabel}
-      avatarUrl={avatarUrl}
-      articles={articles}
-      coverHints={coverHints}
-    />
+    <>
+      {articlesKnown && articles.length === 0 ? (
+        <script
+          dangerouslySetInnerHTML={{
+            __html: visitorEmptyWritingRedirectScript(accountId),
+          }}
+        />
+      ) : null}
+      <PortfolioWritingScreen
+        mood={mood}
+        accountId={accountId}
+        titleLabel={titleLabel}
+        avatarUrl={avatarUrl}
+        articles={articles}
+        coverHints={coverHints}
+      />
+    </>
   );
 }

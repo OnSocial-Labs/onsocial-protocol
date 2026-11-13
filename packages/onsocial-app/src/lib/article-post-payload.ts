@@ -290,6 +290,27 @@ export function shouldShowWritingLink(opts: {
   return opts.hasArticles === true;
 }
 
+/** Server presence, painted before the wallet snapshot arrives. */
+export function writingArticlesAttr(
+  hasArticles: boolean | null
+): 'true' | 'false' | 'unknown' {
+  if (hasArticles === true) return 'true';
+  if (hasArticles === false) return 'false';
+  return 'unknown';
+}
+
+/**
+ * A confirmed empty shelf is not a place for a visitor.
+ * An unknown count stays on the shelf (the previous behaviour).
+ */
+export function shouldRedirectVisitorFromEmptyWriting(opts: {
+  isOwner: boolean;
+  articlesKnown: boolean;
+  articleCount: number;
+}): boolean {
+  return opts.articlesKnown && opts.articleCount === 0 && !opts.isOwner;
+}
+
 export function articleCoverUrl(value: string): string | null {
   const stills = postStillImages(parsePostMedia(value));
   const still = stills[0]?.url?.trim() || null;
