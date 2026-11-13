@@ -6,6 +6,7 @@ import {
   FULL_SESSION_KEY_ALLOWANCE_YOCTO,
   PERMISSION_WRITE_GAS_YOCTO,
   resolveAppConnectRoute,
+  walletMayBundleSessionKey,
   SPONSORED_SESSION_KEY_ALLOWANCE_YOCTO,
   WELCOME_NEAR_THRESHOLD_YOCTO,
   accountNeedsSessionSponsor,
@@ -99,6 +100,30 @@ describe('resolveAppConnectRoute', () => {
     ).toEqual({ bundleSessionKey: false, openingToast: 'setup' });
   });
 
+  it('bundles a funded first visit with no stored hint', () => {
+    expect(
+      resolveAppConnectRoute({
+        ...pending,
+        forcePicker: false,
+        hasStoredHint: false,
+        alreadyConnected: false,
+        needsSponsor: false,
+      })
+    ).toEqual({ bundleSessionKey: true, openingToast: 'wallet' });
+  });
+
+  it('does not bundle an unfunded first visit', () => {
+    expect(
+      resolveAppConnectRoute({
+        ...pending,
+        forcePicker: false,
+        hasStoredHint: false,
+        alreadyConnected: false,
+        needsSponsor: true,
+      })
+    ).toEqual({ bundleSessionKey: false, openingToast: 'none' });
+  });
+
   it('does not bundle a key into the switch-wallet picker', () => {
     expect(
       resolveAppConnectRoute({
@@ -109,5 +134,31 @@ describe('resolveAppConnectRoute', () => {
         needsSponsor: false,
       })
     ).toEqual({ bundleSessionKey: false, openingToast: 'none' });
+  });
+});
+
+describe('walletMayBundleSessionKey', () => {
+  it('lets a returning connect rely on the wallet list filter', () => {
+    expect(
+      walletMayBundleSessionKey({
+        hasStoredHint: true,
+        walletSupportsFunctionCallKey: false,
+      })
+    ).toBe(true);
+  });
+
+  it('bundles a first visit only when the chosen wallet can add the key', () => {
+    expect(
+      walletMayBundleSessionKey({
+        hasStoredHint: false,
+        walletSupportsFunctionCallKey: true,
+      })
+    ).toBe(true);
+    expect(
+      walletMayBundleSessionKey({
+        hasStoredHint: false,
+        walletSupportsFunctionCallKey: false,
+      })
+    ).toBe(false);
   });
 });

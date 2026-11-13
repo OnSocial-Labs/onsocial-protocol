@@ -23,7 +23,10 @@ import {
   resolveAppSessionPlan,
   restoreAppSocialSession,
 } from '@/lib/app-social-session';
-import { resolveAppConnectRoute } from '@/lib/app-session-sponsor';
+import {
+  resolveAppConnectRoute,
+  walletMayBundleSessionKey,
+} from '@/lib/app-session-sponsor';
 import {
   sessionPendingFeedback,
   txToastSession,
@@ -36,8 +39,10 @@ import { clearAppGatewayAuth } from '@/lib/app-gateway-auth';
 import { invalidateAppSocialSessionCache } from '@/lib/app-social-session-cache';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import {
+  createE2eFirstConnectConnector,
   createE2eMockWallet,
   readE2eAuthSessionEnabled,
+  readE2eFirstConnectEnabled,
   readE2eMockSignerEnabled,
 } from '@/lib/e2e-mock-signer';
 import { readE2eWalletAccountId } from '@/lib/e2e-wallet-account';
@@ -131,19 +136,32 @@ function pickRestoredAccountId(
   return accounts.length === 1 ? accounts[0].accountId : null;
 }
 
-async function resolveBundledAppConnect(
-  storedHint: string | null,
-  forcePicker: boolean
-) {
-  if (forcePicker || !storedHint) return null;
+async function peekWalletAccount(
+  wallet: NearWalletBase
+): Promise<string | null> {
+  try {
+    const accounts = await wallet.getAccounts({ network: ACTIVE_NEAR_NETWORK });
+    const accountId = accounts[0]?.accountId?.trim();
+    return accountId || null;
+  } catch {
+    return null;
+  }
+}
 
-  const plan = await resolveAppSessionPlan(storedHint);
+async function resolveBundledAppConnect(
+  accountId: string | null,
+  forcePicker: boolean,
+  hasStoredHint: boolean
+) {
+  if (forcePicker || !accountId) return null;
+
+  const plan = await resolveAppSessionPlan(accountId);
   const needsSponsor = plan.sessionReady
     ? false
-    : await accountNeedsAppSessionSponsor(storedHint);
+    : await accountNeedsAppSessionSponsor(accountId);
   const route = resolveAppConnectRoute({
     forcePicker,
-    hasStoredHint: true,
+    hasStoredHint,
     alreadyConnected: false,
     sessionReady: plan.sessionReady,
     needsSponsor,
@@ -151,7 +169,7 @@ async function resolveBundledAppConnect(
   });
   if (!route.bundleSessionKey || !plan.pendingSessionKey) return null;
 
-  const allowanceYocto = await resolveAppSessionKeyAllowanceYocto(storedHint);
+  const allowanceYocto = await resolveAppSessionKeyAllowanceYocto(accountId);
   const options = appSessionConnectOptions(
     plan.pendingSessionKey,
     allowanceYocto
@@ -332,14 +350,16 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const connector = new NearConnector({
-      network,
-      footerBranding: {
-        heading: 'OnSocial',
-        link: 'https://onsocial.id',
-        linkText: 'onsocial.id',
-      },
-    });
+    const connector = readE2eFirstConnectEnabled()
+      ? (createE2eFirstConnectConnector() as unknown as NearConnector)
+      : new NearConnector({
+          network,
+          footerBranding: {
+            heading: 'OnSocial',
+            link: 'https://onsocial.id',
+            linkText: 'onsocial.id',
+          },
+        });
     connectorRef.current = connector;
 
     connector.on('wallet:signIn', (event) => {
@@ -424,11 +444,8 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
 
     const storedHint = readStoredWalletAccountId();
     const connectPromise = (async () => {
-      const bundled = await resolveBundledAppConnect(storedHint, false);
-      if (bundled) {
-        setIsBootstrappingSession(true);
-        showSessionPending('wallet');
-      }
+      let bundled: Awaited<ReturnType<typeof resolveBundledAppConnect>> = null;
+      let bundledAccountId: string | null = storedHint;
 
       let signedInAccounts: Array<{ accountId: string }> = [];
       const captureSignIn = (event: {
@@ -439,7 +456,43 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       connector.once('wallet:signIn', captureSignIn);
 
       try {
-        const connectedWallet = await connector.connect(bundled?.options ?? {});
+        let connectedWallet: NearWalletBase;
+        if (storedHint) {
+          bundled = await resolveBundledAppConnect(storedHint, false, true);
+          if (bundled) {
+            setIsBootstrappingSession(true);
+            showSessionPending('wallet');
+          }
+          connectedWallet = await connector.connect(bundled?.options ?? {});
+        } else {
+          // The account id is not stored yet. The wallet names it, when it
+          // will, after the picker and before sign-in. No name means sign in
+          // without the key so an empty account can still connect.
+          const walletId = await connector.selectWallet();
+          const preview = await connector.wallet(walletId);
+          const peeked = await peekWalletAccount(preview);
+          const supportsKey =
+            preview.manifest?.features?.signInWithFunctionCallKey === true;
+          if (
+            peeked &&
+            walletMayBundleSessionKey({
+              hasStoredHint: false,
+              walletSupportsFunctionCallKey: supportsKey,
+            })
+          ) {
+            bundled = await resolveBundledAppConnect(peeked, false, false);
+            bundledAccountId = peeked;
+          }
+          if (bundled) {
+            setIsBootstrappingSession(true);
+            showSessionPending('wallet');
+          }
+          connectedWallet = await connector.connect({
+            walletId,
+            ...(bundled?.options ?? {}),
+          });
+        }
+
         const accounts =
           signedInAccounts.length > 0
             ? signedInAccounts
@@ -455,7 +508,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
         setAccountId(nextAccountId);
         writeStoredWalletAccountId(nextAccountId);
 
-        if (bundled && nextAccountId === storedHint) {
+        if (bundled && nextAccountId === bundledAccountId) {
           showSessionPending('confirming');
           await completeAppSessionAfterConnect(
             nextAccountId,

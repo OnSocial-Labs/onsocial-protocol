@@ -7,8 +7,10 @@
  * that can already lock 0.25 NEAR keeps the full allowance.
  *
  * The gift and the user's AddKey are two signers. They cannot be one
- * transaction. A known funded account approves the key inside the first
- * connect. An empty account connects first so the gift has a destination.
+ * transaction. A funded account approves the key inside the first connect,
+ * including a first visit whose wallet already names that account. An empty
+ * account connects first so the gift has a destination. A first visit whose
+ * wallet will not name an account before sign-in also connects first.
  */
 
 export const FULL_SESSION_KEY_ALLOWANCE_YOCTO =
@@ -76,11 +78,26 @@ export function resolveAppConnectRoute(
     };
   }
 
-  const bundleSessionKey =
-    !input.forcePicker && input.hasStoredHint && !input.needsSponsor;
+  // The drip and AddKey are different signers. Never bundle into an
+  // unfunded sign-in, or into the switch-wallet picker. A funded account
+  // bundles even on a first visit (no stored hint).
+  const bundleSessionKey = !input.forcePicker && !input.needsSponsor;
 
   return {
     bundleSessionKey,
     openingToast: bundleSessionKey ? 'wallet' : 'none',
   };
+}
+
+/**
+ * A returning connect lets the wallet list hide wallets that cannot add the
+ * key during sign-in. A first visit has already picked a wallet, so that
+ * wallet itself has to support the feature.
+ */
+export function walletMayBundleSessionKey(input: {
+  hasStoredHint: boolean;
+  walletSupportsFunctionCallKey: boolean;
+}): boolean {
+  if (input.hasStoredHint) return true;
+  return input.walletSupportsFunctionCallKey;
 }
