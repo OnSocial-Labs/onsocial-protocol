@@ -298,12 +298,16 @@ export function useDiscoverProfiles(
     });
   }, [craft, face, hasMore, industry, normalizedQuery, profiles, tab]);
   useEffect(() => {
+    // Copy both at setup. React clears a rendered node's ref before this
+    // passive cleanup, and the memory object is only mutated in place.
+    const scrollRoot = scrollRootRef?.current ?? null;
+    const scrollMemory = scrollMemoryRef.current;
     return () => {
-      const live = readElementScrollTop(scrollRootRef?.current);
+      const live = readElementScrollTop(scrollRoot);
       const tabScroll = rememberDiscoverTabScroll(
         tabScrollRef.current,
         tabRef.current,
-        scrollTopToPersist(scrollMemoryRef.current, live)
+        scrollTopToPersist(scrollMemory, live)
       );
       writeDiscoverListSession({
         sessionKey: sessionKeyRef.current,

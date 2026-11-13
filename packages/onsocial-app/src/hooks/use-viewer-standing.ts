@@ -33,6 +33,7 @@ import {
 } from '@/lib/viewer-standing-global';
 import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import { snapshotForGeneration } from '@/lib/ledger-generation';
 
 export function useViewerStanding(listAccountId: string) {
   const {
@@ -53,11 +54,18 @@ export function useViewerStanding(listAccountId: string) {
   }, []);
 
   const standingLedger = useMemo(
-    () => new Map(getGlobalViewerStandingLedger()),
+    () =>
+      snapshotForGeneration(
+        standingSyncVersion,
+        () => new Map(getGlobalViewerStandingLedger())
+      ),
     [standingSyncVersion]
   );
   const standingPendingIds = useMemo(
-    () => copyGlobalStandingPendingTargets(),
+    () =>
+      snapshotForGeneration(standingSyncVersion, () =>
+        copyGlobalStandingPendingTargets()
+      ),
     [standingSyncVersion]
   );
 

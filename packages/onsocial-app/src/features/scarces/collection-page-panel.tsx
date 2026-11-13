@@ -4,6 +4,7 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useEffectEvent,
   useMemo,
   useRef,
   useState,
@@ -72,6 +73,8 @@ import {
   collectionShowCommerceMeter,
   collectionShowInlineTracks,
   collectionUseFirst,
+  collectionWritingHydrateKey,
+  mergeHydratedWriting,
   peekHoldsCollection,
   peekHoldsCollectionForDropPage,
   peekOwnedTokenForCollection,
@@ -427,44 +430,27 @@ export function CollectionPagePanel({
   }, [collectionId, initial, refreshKey]);
 
   // SSR shell often skips client catalog refresh — still hydrate writing chapters.
-  useEffect(() => {
-    if (!view) return;
-    if (view.readables.length > 0 || view.bookPdf) return;
-    const kind = (view.kind ?? '').trim().toLowerCase();
-    if (
-      kind !== 'writing' &&
-      !view.writingManifestCid?.trim() &&
-      !view.sourcePostPath?.trim()
-    ) {
-      return;
-    }
-    let cancelled = false;
-    void hydrateWritingManifest(view).then((next) => {
-      if (cancelled) return;
-      if (next.readables.length === 0 && !next.bookPdf) return;
-      setView((prev) => {
-        if (!prev || prev.collectionId !== next.collectionId) return prev;
-        if (prev.readables.length > 0 || prev.bookPdf) return prev;
-        return {
-          ...prev,
-          readables: next.readables,
-          bookPdf: next.bookPdf,
-          writingFormat: next.writingFormat ?? prev.writingFormat,
-          textAlign: next.textAlign ?? prev.textAlign,
-        };
+  // The key is the manifesto identity. useEffectEvent reads the latest view
+  // when that key changes, so a supply or price refresh does not refetch.
+  const writingHydrateKey = collectionWritingHydrateKey(view);
+  const hydrateWritingChapters = useEffectEvent(
+    (isCancelled: () => boolean) => {
+      if (!view || collectionWritingHydrateKey(view) == null) return;
+      void hydrateWritingManifest(view).then((next) => {
+        if (isCancelled()) return;
+        setView((prev) => mergeHydratedWriting(prev, next));
       });
-    });
+    }
+  );
+
+  useEffect(() => {
+    if (writingHydrateKey == null) return;
+    let cancelled = false;
+    hydrateWritingChapters(() => cancelled);
     return () => {
       cancelled = true;
     };
-  }, [
-    view?.collectionId,
-    view?.kind,
-    view?.writingManifestCid,
-    view?.sourcePostPath,
-    view?.readables.length,
-    view?.bookPdf,
-  ]);
+  }, [writingHydrateKey]);
 
   useEffect(() => {
     // SSR already seeded activity for first paint — refetch only after mint.

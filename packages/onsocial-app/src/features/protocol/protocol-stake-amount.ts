@@ -116,6 +116,18 @@ export function formatProtocolStakeCooldownRemainingMs(
   return `${totalDays}d left`;
 }
 
+/**
+ * Clock sample for one stake-sheet recompute.
+ * `tick` is the open sheet's minute counter. A finite tick does not shift
+ * the clock: the memo samples `nowMs` (default `Date.now()`) on every run,
+ * including when eligibility changes between ticks. The counter is an input
+ * so the minute interval recomputes the cooldown line.
+ */
+export function stakeCooldownNowMs(tick: number, nowMs = Date.now()): number {
+  if (!Number.isSafeInteger(tick) || tick < 0) return nowMs;
+  return nowMs;
+}
+
 export function formatProtocolStakeCooldownRemaining(
   cooldownEndsAtNs: string,
   nowMs = Date.now()

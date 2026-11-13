@@ -59,4 +59,24 @@ describe('list scroll restore', () => {
     memory.pending = null;
     expect(scrollTopToPersist(memory, 0)).toBe(0);
   });
+
+  it('reads the node copied at effect setup after the ref is cleared', () => {
+    const node = scroller({
+      scrollHeight: 4000,
+      clientHeight: 800,
+      scrollTop: 480,
+    });
+    const memory = createListScrollMemory(0);
+    memory.userAdjusted = true;
+    memory.pending = null;
+    memory.landed = 480;
+    const capturedNode = node;
+    const capturedMemory = memory;
+    capturedMemory.landed = 480;
+    const cleared = { current: null as HTMLElement | null };
+    expect(scrollTopToPersist(capturedMemory, capturedNode.scrollTop)).toBe(
+      480
+    );
+    expect(scrollTopToPersist(memory, cleared.current?.scrollTop ?? 0)).toBe(0);
+  });
 });

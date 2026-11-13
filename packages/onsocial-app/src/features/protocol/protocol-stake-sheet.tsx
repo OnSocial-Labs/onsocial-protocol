@@ -21,6 +21,7 @@ import {
   protocolStakeActionBlocked,
   protocolStakeAmountError,
   protocolStakeAmountMeta,
+  stakeCooldownNowMs,
   protocolStakeProgress,
   protocolStakeQuickFill,
   protocolStakeShowsAmountField,
@@ -219,7 +220,7 @@ export function ProtocolStakeSheet({
         isInCooldown: Boolean(eligibility?.isInCooldown),
         nextActionTimestamp: eligibility?.nextActionTimestamp,
         cooldownRemainingNs: eligibility?.cooldownRemainingNs,
-        nowMs: Date.now(),
+        nowMs: stakeCooldownNowMs(cooldownTick),
       }),
     [
       cooldownTick,
