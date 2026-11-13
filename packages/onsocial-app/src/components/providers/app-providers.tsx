@@ -1,6 +1,5 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { AppSocialBalanceProvider } from '@/contexts/app-social-balance-context';
 import { AppRewardsProvider } from '@/contexts/app-rewards-context';
 import { Suspense, useEffect } from 'react';
@@ -40,20 +39,12 @@ import { AppSmoothScrollProvider } from '@/components/providers/app-smooth-scrol
 import { NetworkStandingHandoffHost } from '@/components/panels/network-standing-handoff-host';
 import { FeedSessionHost } from '@/components/providers/feed-session-host';
 import { probeOsCardHost } from '@/lib/os-card-host';
+import { ViewportDebugOverlay } from '@/components/viewport-debug/viewport-debug-overlay';
 import { PwaProvider } from '@/components/providers/pwa-provider';
 import { markAppHydrated } from '@/lib/e2e-portfolio-ready';
 import { WebPushProvider } from '@/components/providers/web-push-provider';
 import { GlassSheetPortalProvider } from '@onsocial/ui';
 import { SingleMediaPlaybackHost } from '@/components/providers/single-media-playback-host';
-
-/** Temporary. Remove with the viewport debug overlay before merge. */
-const ViewportDebugOverlay = dynamic(
-  () =>
-    import('@/components/viewport-debug/viewport-debug-overlay').then(
-      (mod) => mod.ViewportDebugOverlay
-    ),
-  { ssr: false }
-);
 
 /** Remount the join/claim ledger when the wallet account changes. */
 function SeasonParticipationGate({ children }: { children: React.ReactNode }) {
@@ -122,9 +113,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                                                     <BoostSheetDeepLink />
                                                     <RallySheetDeepLink />
                                                   </Suspense>
-                                                  <Suspense fallback={null}>
-                                                    <ViewportDebugOverlay />
-                                                  </Suspense>
+                                                  <ViewportDebugOverlay />
                                                   <AppAccountSheetHost />
                                                 </WebPushProvider>
                                               </NotificationsHost>
