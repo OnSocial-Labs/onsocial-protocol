@@ -121,7 +121,7 @@ describe('coalesceFeedThreads', () => {
       {
         posts: [bobsPost],
         standingPeek: aliceFollowUp,
-        standingCoilTail: true,
+        standingHidden: [aliceReply],
       },
     ]);
   });

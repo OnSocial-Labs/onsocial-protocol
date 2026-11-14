@@ -423,7 +423,7 @@
 
 /*
  * Home chip rail — nav-band seat (beats `.os-app-chrome-rail` 1.85rem).
- * On tuck: zero rail + header pad + body inset (freeze alone left a strip).
+ * On tuck: rail, header pad, body inset, and frost all clear — full bleed feed.
  */
 .os-app-screen[data-compact-chrome='true'] .home-feed-compact-chrome {
   min-height: var(--os-app-screen-nav-row-height, 2.35rem);
@@ -441,6 +441,8 @@
   overflow: hidden;
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: 0;
+  /* No residual chrome box — a few px of pad still painted the frost plate. */
+  min-height: 0;
 }
 
 .os-app-screen[data-glass-chrome='true']:has(
@@ -450,6 +452,19 @@
   > .os-app-screen-body {
   padding-top: env(safe-area-inset-top, 0px);
   scroll-padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Header frost + screen-top scrim — both off while the home rail is tucked. */
+.os-app-screen[data-glass-chrome='true']:has(
+    .home-feed-compact-chrome.is-scroll-hidden
+  )
+  > .os-app-screen-column
+  > .os-app-screen-header::before,
+.os-app-screen[data-glass-chrome='true']:has(
+    .home-feed-compact-chrome.is-scroll-hidden
+  )::before {
+  opacity: 0;
+  content: none;
 }
 
 /*
@@ -1128,9 +1143,15 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
 }
 
 .os-app-screen--embedded {
-  /* Overlay screens portal inside the underlay OsAppScreen — do not inherit
-     Discover / Home chrome height as a second header pad. */
-  --os-screen-chrome-height: 0px;
+  /*
+   * Overlay screens portal inside the underlay OsAppScreen — do not inherit
+   * Discover / Home chrome height as a second header pad. `initial` is the
+   * guaranteed-invalid custom property so body `var(--os-screen-chrome-height,
+   * var(--os-app-screen-chrome-height))` uses the compact fallback until
+   * OsAppScreen measures. `0px` was a real value and left content flush under
+   * the glass header for a frame before sync.
+   */
+  --os-screen-chrome-height: initial;
 }
 
 .glass-sheet-panel.guild-composer-sheet-panel
@@ -3487,22 +3508,12 @@ a.os-surface-row,
 }
 
 /*
- * App-to-app hop — subtle fade on the (app) template, keyed per pathname.
- * Opacity-only: transform would re-contain the fixed dock mid-animation.
+ * Route hop. Same fade as page sheets (`glass-sheet-appear`,
+ * --os-motion-appear). Opacity only — a transform re-contains the fixed dock.
  */
-@keyframes os-page-enter {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
 @media (prefers-reduced-motion: no-preference) {
   .os-page-enter {
-    animation: os-page-enter var(--os-motion-chrome, 220ms)
+    animation: glass-sheet-appear var(--os-motion-appear, 280ms)
       var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1));
   }
 }
@@ -10136,10 +10147,7 @@ a.os-surface-row,
   button.portfolio-hiring:hover,
   button.portfolio-hiring:focus-visible,
   .portfolio-hiring-apply-action:hover .portfolio-hiring-apply-arrow,
-  .portfolio-hiring-apply-action:focus-visible .portfolio-hiring-apply-arrow,
-  .os-app-screen[data-glass-chrome='true']
-    > .os-app-screen-column
-    > .os-app-screen-header.is-elevated::before {
+  .portfolio-hiring-apply-action:focus-visible .portfolio-hiring-apply-arrow {
     opacity: 1;
   }
 
@@ -14317,10 +14325,10 @@ a.os-surface-row,
   }
 
   /*
-   * Elevate frost — glass-sheet style: translucent fill on a frost layer so
-   * copy stays sharp and feed/banner show through (not a solid slab).
-   * The layer is always mounted; opacity snaps with scroll so a flick does
-   * not outrun the blur (a 220ms fade left a clear bar over content).
+   * Chrome frost plate — translucent fill so copy stays sharp and feed shows
+   * through. Immersive starts clear (hero media) and hardens on scroll.
+   * Glass chrome stays frosted: scrollTop / rail-tuck must not outrun React
+   * elevate or leave cards sharp under the bar for a frame.
    */
   .os-app-screen[data-immersive-header='true']
     > .os-app-screen-column
@@ -14336,7 +14344,6 @@ a.os-surface-row,
     > .os-app-screen-header::before {
     content: '';
     position: absolute;
-    inset: 0;
     z-index: 0;
     pointer-events: none;
     /*
@@ -14346,16 +14353,36 @@ a.os-surface-row,
      */
     background: rgb(var(--bg-rgb) / 0.72);
     backdrop-filter: blur(20px) saturate(1.3);
+  }
+
+  .os-app-screen[data-immersive-header='true']
+    > .os-app-screen-column
+    > .os-app-screen-header::before {
+    inset: 0;
     opacity: 0;
   }
 
+  /* Tracks the header box so rail tuck shrinks the plate with the controls. */
+  .os-app-screen[data-glass-chrome='true']
+    > .os-app-screen-column
+    > .os-app-screen-header::before {
+    inset: 0;
+    opacity: 1;
+  }
+
+  .os-app-screen[data-glass-chrome='true']:has(
+      .home-feed-compact-chrome.is-scroll-hidden
+    )
+    > .os-app-screen-column
+    > .os-app-screen-header::before {
+    opacity: 0;
+    content: none;
+  }
+
   /*
-   * Shared chrome glass screens (Home / Market / Discover / Guilds index):
-   * the header — nav row plus toolbar pill bars — overlays the scroller, the
-   * body offsets content by the measured resting chrome height
-   * (--os-screen-chrome-height, set by OsAppScreen), and content slides
-   * under the same frost recipe once scrolled. Scroll tuck freezes that var
-   * (search / toolbar); Home’s full chip-rail tuck also zeros body pad in CSS.
+   * Shared chrome glass screens (Home / Market / Discover / Guilds / Post):
+   * header overlays the scroller; body offsets by resting chrome height.
+   * Frost is always on; tuck collapses header + body pad together under it.
    */
   .os-app-screen[data-glass-chrome='true']
     > .os-app-screen-column
@@ -14363,6 +14390,7 @@ a.os-surface-row,
     position: absolute;
     inset: 0 0 auto;
     z-index: var(--os-chrome-header-z);
+    overflow: hidden;
     background: transparent;
   }
 
@@ -18653,10 +18681,14 @@ a.os-surface-row,
     transition: opacity 150ms ease;
   }
 
-  .standing-toggle-state--hover,
+  .standing-toggle-state--hover {
+    opacity: 0;
+  }
+
+  /* Collectibles owns its own chrome glass — no shared header frost plate. */
   .os-app-screen[data-glass-chrome='true']:has(.collectibles-chrome-glass)
     > .os-app-screen-column
-    > .os-app-screen-header.is-elevated::before {
+    > .os-app-screen-header::before {
     opacity: 0;
   }
 
@@ -32506,7 +32538,7 @@ a.os-surface-row,
   }
 
   /*
-   * Page appear — same opacity pop as compose OsPageSheet (`appear`).
+   * Page appear — same fade as page sheets (`--os-motion-appear`).
    * Portals into the registered OsPortalHost (`.app-surface` card). Absolute
    * fill when nested so the layer is clipped to the phone card; body fallback
    * stays fixed.
@@ -32519,8 +32551,8 @@ a.os-surface-row,
     max-width: none;
     transform: none;
     opacity: 0;
-    transition: opacity var(--os-motion-sheet, 280ms)
-      var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1));
+    transition: opacity var(--os-motion-appear, 280ms)
+      var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1));
     /* Above create-drop drawers; below art overlay zoom. */
     pointer-events: none;
   }
@@ -39425,16 +39457,6 @@ a.os-surface-row,
     }
   }
 
-  .post-thread-block--standing-coil .post-thread-more-coil {
-    bottom: 0.35rem;
-  }
-
-  .post-thread-more--coil-tail {
-    padding: 0 0 0.35rem
-      calc(var(--os-avatar-feed, 2.5rem) + var(--os-media-copy-gap, 0.55rem));
-    min-height: 1.1rem;
-  }
-
   .post-thread-item--cont {
     --thread-pad-top: 0.42rem;
   }
@@ -39510,7 +39532,7 @@ a.os-surface-row,
     text-align: left;
     padding: 0 0.35rem 0.32rem
       calc(var(--os-avatar-feed, 2.5rem) + var(--os-media-copy-gap, 0.55rem));
-    /* Size/weight/color: feed-meta.css (same as Show more / #$@). */
+    /* Size is the @id. Weight/color: feed-meta.css (same as Show more). */
     text-decoration: none;
     -webkit-tap-highlight-color: transparent;
   }
@@ -39615,6 +39637,10 @@ a.os-surface-row,
   .guild-thread-root > .post-card {
     margin: 0;
     padding: var(--os-post-open-pad-top, 0.35rem) 0;
+    /* Same edge as `.post-thread-item > .post-card` — adding the rail class
+       must not drop a 1px border and nudge the avatar left. */
+    border-width: 0;
+    box-shadow: inset 0 0 0 var(--os-post-card-edge, 1px) transparent;
   }
 
   /*
@@ -47989,4 +48015,6 @@ button.portfolio-page-chevron.glass-sheet-icon-action:focus-visible {
 .guilds-page > .post-row-skeleton-list .post-card--skeleton {
   margin: 0;
   padding: var(--os-post-open-pad-top, 0.35rem) 0;
+  border-width: 0;
+  box-shadow: inset 0 0 0 var(--os-post-card-edge, 1px) transparent;
 }

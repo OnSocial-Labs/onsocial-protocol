@@ -10,24 +10,8 @@ import {
 import type { ThreadSheetContext } from '@/lib/guild-thread-card-context';
 import { isAppPostSheetHref } from '@/lib/post-routes';
 
-/** Expand control for a folded stretch of a reply thread. */
-export function ThreadFoldButton({
-  children,
-  onClick,
-}: {
-  children: ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button type="button" className="post-thread-more" onClick={onClick}>
-      <span className="post-thread-more-coil" aria-hidden />
-      {children}
-    </button>
-  );
-}
-
 /**
- * One card-tap opener for the feed fold and the standing coil.
+ * One card-tap opener for a thread fold.
  * The permalink stays for modified clicks and direct loads.
  */
 function ThreadPostLink({
@@ -92,26 +76,3 @@ export function ThreadFoldLink({
   );
 }
 
-/**
- * Coil-only link to the rest of a thread (Standing peek / link-out).
- * Primary taps open the thread sheet over the feed — same as a card-body tap.
- */
-export function ThreadCoilTailLink({
-  href,
-  root = null,
-  context = null,
-}: {
-  href: string;
-  root?: PostRow | null;
-  context?: ThreadSheetContext | null;
-}) {
-  return (
-    <ThreadPostLink
-      href={href}
-      root={root}
-      context={context}
-      className="post-thread-more post-thread-more--coil-tail"
-      ariaLabel="Open the rest of this thread"
-    />
-  );
-}

@@ -34,6 +34,7 @@ import {
 } from '@onsocial/ui';
 import { StandingIdentity } from '@/components/profile/standing-identity';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { StandingListLoadMoreFooter } from '@/components/panels/standing-list-load-more-footer';
@@ -1310,7 +1311,7 @@ export function LeaderboardSheet({
         backdropLabel="Close leaderboard"
         moodId={viewerMoodId ?? undefined}
         moodStyle={viewerMoodStyle}
-        panelClassName="leaderboard-page-sheet"
+        panelClassName="leaderboard-page-sheet os-page-chrome-appear"
         bodyClassName="leaderboard-page-body"
         header={null}
         footer={
@@ -1421,34 +1422,36 @@ export function LeaderboardSheet({
             </div>
           }
         >
-          <div className="leaderboard-sheet-content">
-            <div
-              ref={setPagerNode}
-              className="leaderboard-pager os-scrollbar-none"
-              onScroll={handlePagerScroll}
-            >
-              {LEADERBOARD_TRACKS.map((item) => (
-                <LeaderboardTrackPage
-                  key={item.id}
-                  track={item.id}
-                  active={track === item.id}
-                  trackCache={cache[item.id]}
-                  pageError={pageErrors[item.id] ?? null}
-                  pinned={track === item.id && stickyViewer != null}
-                  viewerAccountId={viewerId}
-                  isConnected={isConnected}
-                  onNavigate={handleRowNavigate}
-                  onOpenFacts={setFactsEntry}
-                  onAppend={appendPage}
-                  onRetry={retryTrack}
-                  onPinnedChange={onPinnedChange}
-                  onScrollTop={onScrollTop}
-                  registerScroll={registerScroll}
-                  registerViewerRow={registerViewerRow}
-                />
-              ))}
+          <OsPageBodyAppear>
+            <div className="leaderboard-sheet-content">
+              <div
+                ref={setPagerNode}
+                className="leaderboard-pager os-scrollbar-none"
+                onScroll={handlePagerScroll}
+              >
+                {LEADERBOARD_TRACKS.map((item) => (
+                  <LeaderboardTrackPage
+                    key={item.id}
+                    track={item.id}
+                    active={track === item.id}
+                    trackCache={cache[item.id]}
+                    pageError={pageErrors[item.id] ?? null}
+                    pinned={track === item.id && stickyViewer != null}
+                    viewerAccountId={viewerId}
+                    isConnected={isConnected}
+                    onNavigate={handleRowNavigate}
+                    onOpenFacts={setFactsEntry}
+                    onAppend={appendPage}
+                    onRetry={retryTrack}
+                    onPinnedChange={onPinnedChange}
+                    onScrollTop={onScrollTop}
+                    registerScroll={registerScroll}
+                    registerViewerRow={registerViewerRow}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
+          </OsPageBodyAppear>
         </OsAppScreen>
       </OsPageSheet>
 

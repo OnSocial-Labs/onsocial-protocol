@@ -38,7 +38,8 @@
   --os-motion-chip: 160ms; /* chip + small state color */
   --os-motion-chrome: 220ms; /* chrome morphs (rails, pills, pads) */
   --os-motion-dock: 260ms; /* dock tuck / reveal */
-  --os-motion-sheet: 280ms; /* slide-overs, appear sheets */
+  /* Full-surface fade: route hop, page sheets, slide-overs. Softer than a slide. */
+  --os-motion-appear: 280ms;
   --os-motion-overlay: 320ms; /* bottom sheets, launcher */
   --os-motion-ease-out: cubic-bezier(
     0.2,

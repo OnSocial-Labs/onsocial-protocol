@@ -14,7 +14,7 @@
  * Commerce / buy-sell stay hard protocol green elsewhere — not these tokens.
  *
  * Composer textarea + backdrop stay 300 in globals so the caret aligns.
- * Thread fold uses the same 300 / AA and body size as Show more.
+ * Thread fold uses the same 300 / AA as Show more, at the @id size.
  *
  * Text that changes color stays in the scroll layer. A graphics layer is
  * for a picture, a video, or something that moves (`.post-media-strip`).
@@ -88,10 +88,13 @@
   );
 }
 
-/* Thread fold label — same size as Show more / Read more. */
-:is(button, a).post-thread-more:not(.post-thread-more--coil-tail) {
-  font-size: var(--os-post-body-size, 1rem);
-  line-height: var(--os-post-body-leading, 1.5);
+/* Thread fold label — same size as the account id. */
+:is(button, a).post-thread-more {
+  font-size: var(
+    --os-identity-meta-size,
+    var(--os-identity-handle-size, 0.875rem)
+  );
+  line-height: 1.5;
   letter-spacing: normal;
 }
 

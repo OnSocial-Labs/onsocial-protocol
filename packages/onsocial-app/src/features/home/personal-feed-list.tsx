@@ -310,7 +310,7 @@ export function PersonalFeedList({
       ) : null}
       {feedBlocks
         .slice(start, end)
-        .map(({ posts, standingPeek, standingCoilTail }, sliceIndex) => {
+        .map(({ posts, standingPeek, standingHidden }, sliceIndex) => {
           const blockIndex = start + sliceIndex;
           const key = blockKeys[blockIndex]!;
           return (
@@ -335,7 +335,7 @@ export function PersonalFeedList({
               <FeedThreadBlock
                 block={posts}
                 standingPeek={standingPeek}
-                standingCoilTail={standingCoilTail}
+                standingHidden={standingHidden}
                 postAuthorProfiles={postAuthorProfiles}
                 quotedPosts={quotedPosts}
                 engagement={engagement}

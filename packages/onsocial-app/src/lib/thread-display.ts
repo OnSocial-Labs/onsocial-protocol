@@ -48,12 +48,11 @@ export type ThreadReplyRow =
  * - Then each branch (someone else's reply), divider-separated: the branch
  *   post plus at most ONE reply from its conversation line (the root
  *   author's response when present). Longer exchanges fold behind a spring
- *   coil `Show N more` row that expands in place.
+ *   coil that opens the next reply's post page.
  */
 export function buildReplyRows(
   nodes: ThreadNode[],
-  rootAuthor: string | undefined,
-  expandedBranches: ReadonlySet<string>
+  rootAuthor: string | undefined
 ): ThreadReplyRow[] {
   const rows: ThreadReplyRow[] = [];
 
@@ -96,11 +95,6 @@ export function buildReplyRows(
     if (line.length === 0) return;
 
     const branchKey = postKey(branch.post);
-    if (expandedBranches.has(branchKey)) {
-      for (const node of line) pushPost(node.post, true);
-      return;
-    }
-
     pushPost(line[0]!.post, true);
     const hiddenCount = line.length - 1;
     if (hiddenCount > 0) {

@@ -25,6 +25,7 @@ import {
   resolveGlassSheetZIndex,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { PostQuotesTrackHostProvider } from '@/features/home/post-quotes-track-host';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { accountIdsEqual } from '@/lib/account-match';
@@ -72,6 +73,7 @@ import {
 } from '@/lib/sheet-z';
 import { PostLayerOwnerZProvider } from '@/features/home/post-layer-owner-z';
 import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
+import { seedPostAuthorProfilesFromFeed } from '@/hooks/use-post-author-profiles';
 import { threadContentPath, warmThreadOpen } from '@/lib/thread-first-page';
 import {
   appendTrailEntry,
@@ -427,6 +429,16 @@ function PostThreadSheet({
   const [quotesTrackHost, setQuotesTrackHost] = useState<HTMLDivElement | null>(
     null
   );
+  // Header paints with the sheet; the body soft-appears once the post is ready.
+  // Key the ready flag to the layer so a new post never inherits the previous
+  // ready frame (that flash sat under the glass header).
+  const layerKey = `${layer.kind}:${layer.groupId ?? ''}:${layer.accountId}:${layer.postId}${
+    layer.kind === 'quotes' ? `:${layer.tab}` : ''
+  }`;
+  const [paintedForKey, setPaintedForKey] = useState<string | null>(
+    quotes ? layerKey : null
+  );
+  const threadPainted = quotes || paintedForKey === layerKey;
   const title = quotes ? POST_REACH_TITLE : 'Post';
   const guildCard =
     layer.kind === 'post' && layer.groupId
@@ -443,6 +455,14 @@ function PostThreadSheet({
         : null,
     [layer]
   );
+  useEffect(() => {
+    if (threadPainted || quotes) return;
+    const timer = window.setTimeout(() => setPaintedForKey(layerKey), 2000);
+    return () => window.clearTimeout(timer);
+  }, [quotes, threadPainted, layerKey]);
+  const noteThreadPainted = useCallback(() => {
+    setPaintedForKey(layerKey);
+  }, [layerKey]);
 
   useLayoutEffect(() => {
     if (!parked) return;
@@ -543,7 +563,7 @@ function PostThreadSheet({
         keepDock
         moodId={moodId}
         moodStyle={moodStyle}
-        panelClassName="post-thread-sheet-panel"
+        panelClassName="post-thread-sheet-panel os-page-chrome-appear"
         bodyClassName="post-thread-sheet-body"
         rootClassName={parked ? 'post-thread-sheet-parked' : undefined}
         lockScroll={!parked}
@@ -583,45 +603,49 @@ function PostThreadSheet({
               </OsIconAction>
             }
           >
-            <PostQuotesTrackHostProvider
-              value={quotes ? quotesTrackHost : null}
-            >
-              {layer.kind === 'quotes' ? (
-                <PostQuotesPanel
-                  key={`${layer.groupId ?? ''}:${layer.accountId}:${layer.postId}:${layer.tab}`}
-                  author={layer.accountId}
-                  postId={layer.postId}
-                  embedded
-                  initialTab={layer.tab}
-                />
-              ) : layer.groupId ? (
-                <LiveGuildPostPanel
-                  key={`${layer.groupId}:${layer.accountId}:${layer.postId}`}
-                  groupId={layer.groupId}
-                  author={layer.accountId}
-                  postId={layer.postId}
-                  initial={
-                    layer.root
-                      ? seedGuildThread(layer.root, layer.rootEngagement)
-                      : null
-                  }
-                  embedded
-                  replyDockEnabled={open && !parked}
-                  showGuildLine={guildCard?.showGuildLine ?? true}
-                  showChannel={guildCard?.showChannel ?? true}
-                  sheetContext={layer.context}
-                />
-              ) : (
-                <LivePersonalPostPanel
-                  key={`${layer.accountId}:${layer.postId}`}
-                  author={layer.accountId}
-                  postId={layer.postId}
-                  initial={initial}
-                  embedded
-                  replyDockEnabled={open && !parked}
-                />
-              )}
-            </PostQuotesTrackHostProvider>
+            <OsPageBodyAppear ready={threadPainted}>
+              <PostQuotesTrackHostProvider
+                value={quotes ? quotesTrackHost : null}
+              >
+                {layer.kind === 'quotes' ? (
+                  <PostQuotesPanel
+                    key={`${layer.groupId ?? ''}:${layer.accountId}:${layer.postId}:${layer.tab}`}
+                    author={layer.accountId}
+                    postId={layer.postId}
+                    embedded
+                    initialTab={layer.tab}
+                  />
+                ) : layer.groupId ? (
+                  <LiveGuildPostPanel
+                    key={`${layer.groupId}:${layer.accountId}:${layer.postId}`}
+                    groupId={layer.groupId}
+                    author={layer.accountId}
+                    postId={layer.postId}
+                    initial={
+                      layer.root
+                        ? seedGuildThread(layer.root, layer.rootEngagement)
+                        : null
+                    }
+                    embedded
+                    replyDockEnabled={open && !parked}
+                    showGuildLine={guildCard?.showGuildLine ?? true}
+                    showChannel={guildCard?.showChannel ?? true}
+                    sheetContext={layer.context}
+                    onThreadPainted={noteThreadPainted}
+                  />
+                ) : (
+                  <LivePersonalPostPanel
+                    key={`${layer.accountId}:${layer.postId}`}
+                    author={layer.accountId}
+                    postId={layer.postId}
+                    initial={initial}
+                    embedded
+                    replyDockEnabled={open && !parked}
+                    onThreadPainted={noteThreadPainted}
+                  />
+                )}
+              </PostQuotesTrackHostProvider>
+            </OsPageBodyAppear>
           </OsAppScreen>
         </div>
       </OsPageSheet>
@@ -876,6 +900,10 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
             }
           : null;
       if (!parsed) return false;
+      if (root) {
+        // Feed already painted this face — keep it for the sheet's first frame.
+        seedPostAuthorProfilesFromFeed([root], { notify: true });
+      }
       warmThreadOpen(
         threadContentPath(parsed),
         parsed.groupId ? 'guild' : 'personal'

@@ -368,7 +368,8 @@ export function resolveBackdropEnterStyle(input: {
 
 /**
  * Opaque page sheets skip the scrim at rest. While `appear` is running the
- * panel is still transparent — keep drawer-grade dim/blur underneath.
+ * panel is still transparent — hold a solid page cover underneath (CSS), not
+ * the drawer backdrop fade that starts clear and flashes the underlay.
  */
 export function pageTransitionScrimActive(input: {
   opaquePage: boolean;

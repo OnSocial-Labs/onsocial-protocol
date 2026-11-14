@@ -25,6 +25,7 @@ import {
   type ChoiceOption,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { SUPPORT_GUILD_CONNECT_CTA } from '@/features/guilds/support-guild-voice';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -567,7 +568,7 @@ export function GuildEditSheet({
         zIndex={GUILD_EDIT_Z}
         ariaLabelledBy={titleId}
         backdropLabel="Close"
-        panelClassName={`guild-edit-sheet-panel${
+        panelClassName={`guild-edit-sheet-panel os-page-chrome-appear${
           keyboardOpen ? ' is-keyboard-open is-page-keyboard' : ''
         }`}
         panelStyle={panelStyle}
@@ -594,6 +595,7 @@ export function GuildEditSheet({
         <span id={titleId} className="sr-only">
           Edit guild
         </span>
+        <OsPageBodyAppear>
         {loadState === 'missing' ? (
           <div className="guild-state-card">
             <p>We could not find this guild yet.</p>
@@ -865,6 +867,7 @@ export function GuildEditSheet({
             />
           </form>
         ) : null}
+        </OsPageBodyAppear>
         </OsAppScreen>
       </OsPageSheet>
       <DiscardConfirmSheet

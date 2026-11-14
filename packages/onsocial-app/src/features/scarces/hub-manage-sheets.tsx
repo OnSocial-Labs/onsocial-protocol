@@ -23,6 +23,7 @@ import {
   useDiscardConfirm,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import {
   ProfileAccountSearchPicks,
   profileAccountSearchActive,
@@ -168,7 +169,7 @@ function HubManageSheetChrome({
         zIndex={HUB_MANAGE_Z}
         ariaLabelledBy={titleId}
         backdropLabel="Close"
-        panelClassName={`hub-manage-sheet-panel${
+        panelClassName={`hub-manage-sheet-panel os-page-chrome-appear${
           keyboardOpen ? ' is-keyboard-open is-page-keyboard' : ''
         }`}
         panelStyle={panelStyle}
@@ -200,7 +201,9 @@ function HubManageSheetChrome({
           <span id={titleId} className="sr-only">
             {title}
           </span>
-          <div className="hub-manage-sheet-main">{children}</div>
+          <OsPageBodyAppear>
+            <div className="hub-manage-sheet-main">{children}</div>
+          </OsPageBodyAppear>
         </OsAppScreen>
       </OsPageSheet>
       <DiscardConfirmSheet

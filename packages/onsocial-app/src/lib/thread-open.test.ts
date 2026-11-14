@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { registerAppLenis } from './app-lenis-registry';
 import { planThreadLoad, scrollOpenedPostUnderHeader } from './thread-open';
 
 describe('planThreadLoad', () => {
@@ -51,6 +52,34 @@ describe('scrollOpenedPostUnderHeader', () => {
     expect(scrollOpenedPostUnderHeader(post as unknown as HTMLElement)).toBe(
       false
     );
+  });
+
+  it('cancels an in-flight smooth scroll before sticking the post', () => {
+    const calls: number[] = [];
+    const scroller = {
+      scrollTop: 0,
+      getBoundingClientRect: () => ({ top: 80 }),
+    };
+    const lenis = {
+      scroll: 0,
+      resize() {
+        this.scroll = scroller.scrollTop;
+      },
+      scrollTo(target: number) {
+        calls.push(target);
+        this.scroll = target;
+      },
+    };
+    registerAppLenis(scroller as unknown as HTMLElement, lenis);
+    const post = {
+      closest: () => scroller,
+      getBoundingClientRect: () => ({ top: 640 }),
+    };
+    expect(scrollOpenedPostUnderHeader(post as unknown as HTMLElement)).toBe(
+      true
+    );
+    expect(calls).toEqual([559, 560]);
+    expect(scroller.scrollTop).toBe(560);
   });
 
   it('leaves the scroll alone when the post is already under the header', () => {

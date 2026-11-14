@@ -60,6 +60,7 @@ import {
 } from '@/features/guilds/composer-thread-beat';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { scarceNestZIndex } from '@/features/scarces/scarce-overlay-z';
 import {
   focusComposerField,
@@ -1566,7 +1567,7 @@ export function ComposerSheet({
         moodId={viewerMoodId ?? undefined}
         moodStyle={viewerMoodStyle}
         panelStyle={keyboardStyle}
-        panelClassName={`guild-composer-sheet-panel${
+        panelClassName={`guild-composer-sheet-panel os-page-chrome-appear${
           keyboardOpen ? ' is-keyboard-open' : ''
         }`}
         bodyClassName="guild-composer-sheet-body"
@@ -1622,6 +1623,7 @@ export function ComposerSheet({
           moodId={viewerMoodId}
           moodStyle={viewerMoodStyle}
         >
+          <OsPageBodyAppear>
           <form
             id={formId}
             key={formKey}
@@ -1743,6 +1745,7 @@ export function ComposerSheet({
             ) : null}
             {error ? <p className="guild-form-error">{error}</p> : null}
           </form>
+          </OsPageBodyAppear>
         </OsAppScreen>
       </OsPageSheet>
       <ComposerDropPicker

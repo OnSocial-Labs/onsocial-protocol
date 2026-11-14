@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { PostRow, ThreadNode } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
@@ -44,11 +51,14 @@ import {
   submitPersonalRepost,
   submitPersonalUnrepost,
 } from '@/features/home/submit-personal-post';
-import { ThreadFoldButton } from '@/features/home/thread-fold-button';
+import { ThreadFoldLink } from '@/features/home/thread-fold-button';
 import { dispatchPersonalQuoteConfirmed } from '@/features/scarces/drop-compose-host';
 import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
-import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
+import {
+  seedPostAuthorProfilesFromFeed,
+  usePostAuthorProfiles,
+} from '@/hooks/use-post-author-profiles';
 import {
   EMPTY_POST_ENGAGEMENT,
   usePostEngagement,
@@ -181,6 +191,8 @@ interface LivePersonalPostPanelProps {
   hideRootMedia?: boolean;
   /** False while the drawer is closing or no longer the screen in front. */
   replyDockEnabled?: boolean;
+  /** Sheet appear waits until the opened post is on screen. */
+  onThreadPainted?: () => void;
 }
 
 interface PersonalConversation {
@@ -196,8 +208,10 @@ export function LivePersonalPostPanel({
   embedded = false,
   hideRootMedia = false,
   replyDockEnabled = true,
+  onThreadPainted,
 }: LivePersonalPostPanelProps) {
   seedScarceEmbedsFromSsr(initial?.scarceEmbeds);
+  if (initial?.root) seedPostAuthorProfilesFromFeed([initial.root]);
   const { accountId, isConnected, connect } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
@@ -270,9 +284,6 @@ export function LivePersonalPostPanel({
   const [modalPending, setModalPending] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [replySort, setReplySort] = useState<ThreadReplySort>('relevant');
-  const [expandedBranches, setExpandedBranches] = useState<Set<string>>(
-    () => new Set()
-  );
   const [hasMoreReplies, setHasMoreReplies] = useState(
     () => seeded?.hasMoreReplies ?? false
   );
@@ -286,11 +297,7 @@ export function LivePersonalPostPanel({
   const paintedKeyRef = useRef<string | null>(seeded ? rootPath : null);
   const treePosts = useMemo(() => flattenTreePosts(replyTree), [replyTree]);
   const replyRows = useMemo(() => {
-    const rows = buildReplyRows(
-      replyTree,
-      conversation.root?.accountId,
-      expandedBranches
-    );
+    const rows = buildReplyRows(replyTree, conversation.root?.accountId);
     const lastPostRow = [...rows]
       .reverse()
       .find((row): row is Extract<(typeof rows)[number], { kind: 'post' }> => {
@@ -304,7 +311,7 @@ export function LivePersonalPostPanel({
       });
     }
     return rows;
-  }, [replyTree, conversation.root, expandedBranches, localReplies, treePosts]);
+  }, [replyTree, conversation.root, localReplies, treePosts]);
   const replyFocusKey = useMemo(
     () =>
       replyRows
@@ -333,9 +340,21 @@ export function LivePersonalPostPanel({
     ],
     [conversation.root, replyRows, quotes]
   );
-  const ancestorChain = useAncestorChain(conversation.root?.parentPath);
-  const hasParent = ancestorChain.length > 0;
-  useLandOpenedPost(openedPostRef, conversation.root?.postId, hasParent);
+  const parentPath = conversation.root?.parentPath;
+  const ancestorChain = useAncestorChain(parentPath);
+  // parentPath is known before ancestors paint — keep the opened card on the
+  // thread edge from first paint so the face does not shift when parents land.
+  const hasParent = Boolean(parentPath);
+  const hasAncestorRows = ancestorChain.length > 0;
+  useLandOpenedPost(
+    openedPostRef,
+    conversation.root?.postId,
+    hasAncestorRows
+  );
+  useLayoutEffect(() => {
+    if (loadState !== 'ready' || !conversation.root) return;
+    onThreadPainted?.();
+  }, [conversation.root, loadState, onThreadPainted]);
   const engagementPosts = useMemo(
     () => [...ancestorChain, ...threadPosts],
     [ancestorChain, threadPosts]
@@ -904,18 +923,14 @@ export function LivePersonalPostPanel({
         (row.hiddenCount === 1
           ? 'Show 1 more reply'
           : `Show ${row.hiddenCount} more replies`);
+      const target = row.hidden[0];
       const foldKey = threadReplyRowKey(row);
+      if (!target) return null;
       return (
         <div key={foldKey} ref={registerReplyRow(foldKey)}>
-          <ThreadFoldButton
-            onClick={() =>
-              setExpandedBranches((current) =>
-                new Set(current).add(row.branchKey)
-              )
-            }
-          >
+          <ThreadFoldLink href={postThreadPath(target)} root={target}>
             {foldLabel}
-          </ThreadFoldButton>
+          </ThreadFoldLink>
         </div>
       );
     }
@@ -1079,7 +1094,7 @@ export function LivePersonalPostPanel({
                 .filter(Boolean)
                 .join(' ')}
             >
-              <ThreadRail up={hasParent} down={rootContinued} />
+              <ThreadRail up={hasAncestorRows} down={rootContinued} />
               <PostCard
                 post={conversation.root}
                 authorProfile={postAuthorProfiles[conversation.root.accountId]}
