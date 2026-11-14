@@ -6,6 +6,7 @@ import {
   type PointerEvent,
   type ReactNode,
 } from 'react';
+import { IpfsImg } from '@onsocial/ui';
 import {
   MEDIA_FRAME_PAN_CENTER,
   mediaFramePanStyle,
@@ -148,8 +149,7 @@ export function MediaFramePanSurface({
       onPointerCancel={endGesture}
       style={{ touchAction: disabled ? undefined : 'none' }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- editor draft / IPFS preview */}
-      <img
+      <IpfsImg
         ref={imgRef}
         src={src}
         srcSet={srcSet}

@@ -4,12 +4,12 @@ import { dismissNextDevOverlay, gotoApp } from './helpers';
 /**
  * Fans roster windowing — the gesture roster (post likes, album fans, event
  * guests) shares the feed-window core with the social lists and the DM
- * inbox: past the row threshold (30), far rows collapse into spacer divs
- * and rematerialize on scroll back. One stubbed post with 44 likers crosses
- * it inside the hug sheet's own scroll body.
+ * inbox: past the row threshold, far rows collapse into spacer divs
+ * and rematerialize on scroll back. One stubbed post with enough likers
+ * clears the ~2.4k overscan inside the hug sheet's own scroll body.
  */
 
-const FAN_COUNT = 44;
+const FAN_COUNT = 80;
 const fanId = (index: number) =>
   `fan${String(index).padStart(2, '0')}.testnet`;
 const fanName = (index: number) => `Fan ${String(index).padStart(2, '0')}`;
@@ -182,8 +182,8 @@ test.describe('fans roster windowing', () => {
 
     await expect(row(0)).toBeVisible({ timeout: 30_000 });
 
-    // 44 fans cross the threshold — once the window engages, rows away from
-    // the sheet body's viewport collapse into a bottom spacer.
+    // Enough fans cross the overscan — once the window engages, rows away
+    // from the sheet body's viewport collapse into a bottom spacer.
     await expect
       .poll(renderedRowCount, { timeout: 15_000 })
       .toBeLessThan(FAN_COUNT);
