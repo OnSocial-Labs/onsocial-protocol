@@ -1,12 +1,14 @@
 import localFont from 'next/font/local';
 import './public-sans-ext.css';
 
+// swap is the next/font default: a late file still replaces the fallback on this visit.
+// Only the body face is preloaded. The others swap in on the visit that uses them.
+
 const publicSans = localFont({
   src: './public-sans-latin.woff2',
   weight: '100 900',
   style: 'normal',
   variable: '--font-public-sans',
-  display: 'optional',
   preload: true,
   adjustFontFallback: 'Arial',
   declarations: [
@@ -23,8 +25,7 @@ const ibmPlexSans = localFont({
   weight: '400 700',
   style: 'normal',
   variable: '--font-ibm-plex-sans',
-  display: 'optional',
-  preload: true,
+  preload: false,
   adjustFontFallback: 'Arial',
   declarations: [
     { prop: 'font-stretch', value: '100%' },
@@ -41,8 +42,7 @@ const spaceGrotesk = localFont({
   weight: '300 700',
   style: 'normal',
   variable: '--font-space-grotesk',
-  display: 'optional',
-  preload: true,
+  preload: false,
   adjustFontFallback: 'Arial',
   declarations: [
     {
@@ -58,8 +58,7 @@ const jetbrainsMono = localFont({
   weight: '100 800',
   style: 'normal',
   variable: '--font-jetbrains-mono',
-  display: 'optional',
-  preload: true,
+  preload: false,
   adjustFontFallback: 'Arial',
   declarations: [
     {
@@ -75,8 +74,7 @@ const newsreader = localFont({
   weight: '400 600',
   style: 'normal',
   variable: '--font-newsreader',
-  display: 'optional',
-  preload: true,
+  preload: false,
   adjustFontFallback: 'Times New Roman',
   declarations: [
     {
@@ -92,8 +90,7 @@ const caveat = localFont({
   weight: '400 700',
   style: 'normal',
   variable: '--font-caveat',
-  display: 'optional',
-  preload: true,
+  preload: false,
   adjustFontFallback: 'Arial',
   declarations: [
     {
@@ -118,7 +115,7 @@ const ericaType = localFont({
     },
   ],
   variable: '--font-erica-type',
-  display: 'optional',
+  preload: false,
   adjustFontFallback: 'Arial',
 });
 
