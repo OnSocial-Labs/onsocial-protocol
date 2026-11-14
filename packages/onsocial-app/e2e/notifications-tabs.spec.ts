@@ -206,7 +206,7 @@ test.describe('activity inbox tabs', () => {
         await route.fulfill({
           status: 500,
           contentType: 'application/json',
-          body: JSON.stringify({ error: 'bad query' }),
+          body: JSON.stringify({ error: 'Failed to list notifications' }),
         });
         return;
       }
@@ -225,7 +225,7 @@ test.describe('activity inbox tabs', () => {
       timeout: 30_000,
     });
     await page.getByRole('tab', { name: 'Mentions' }).click();
-    await expect(page.getByText('Could not load activity.')).toBeVisible({
+    await expect(page.getByText('Failed to list notifications')).toBeVisible({
       timeout: 15_000,
     });
     const settled = mentionLists;
