@@ -174,6 +174,66 @@ test.describe('activity inbox tabs', () => {
     await seedAuthenticatedNotifications(page);
   });
 
+  test('a failed Mentions load does not retry', async ({ page }) => {
+    let mentionLists = 0;
+    await page.route('**/api/onapi/developer/notifications**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.pathname.endsWith('/count')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            recipient: NOTIFICATIONS_E2E_ACCOUNT,
+            unread: 0,
+          }),
+        });
+        return;
+      }
+      if (url.pathname.endsWith('/push/status')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            configured: false,
+            enabled: false,
+            subscriptionCount: 0,
+          }),
+        });
+        return;
+      }
+      if (url.searchParams.get('type') === 'mention,reply') {
+        mentionLists += 1;
+        await route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: 'bad query' }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          notifications: [appEventNotification],
+          nextCursor: null,
+        }),
+      });
+    });
+
+    await page.goto('/notifications', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('First update', { exact: true })).toBeVisible({
+      timeout: 30_000,
+    });
+    await page.getByRole('tab', { name: 'Mentions' }).click();
+    await expect(page.getByText('Could not load activity.')).toBeVisible({
+      timeout: 15_000,
+    });
+    const settled = mentionLists;
+    expect(settled).toBeGreaterThan(0);
+    await page.waitForTimeout(1500);
+    expect(mentionLists).toBe(settled);
+  });
+
   test('switches between All and Mentions with a scoped type filter', async ({
     page,
   }) => {

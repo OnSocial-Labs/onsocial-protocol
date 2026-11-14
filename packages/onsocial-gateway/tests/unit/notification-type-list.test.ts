@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { parseTypeList } from '../../src/services/notifications/index.js';
+import {
+  notificationTypeFilterClause,
+  parseTypeList,
+} from '../../src/services/notifications/index.js';
 
 describe('parseTypeList', () => {
   it('parses a single include type', () => {
@@ -21,5 +24,28 @@ describe('parseTypeList', () => {
   it('returns an empty list when unset', () => {
     expect(parseTypeList(undefined)).toEqual([]);
     expect(parseTypeList('')).toEqual([]);
+  });
+});
+
+describe('notificationTypeFilterClause', () => {
+  it('combines a type filter and an exclude filter on one field', () => {
+    const clause = notificationTypeFilterClause(
+      ['mention', 'reply'],
+      ['dm', 'reward_claimed']
+    );
+    expect(clause).toBe(
+      'notificationType: { _in: $includeTypes, _nin: $excludeTypes }'
+    );
+    expect(clause?.match(/notificationType/g)).toHaveLength(1);
+  });
+
+  it('keeps a lone include or exclude', () => {
+    expect(notificationTypeFilterClause(['mention'], [])).toBe(
+      'notificationType: { _in: $includeTypes }'
+    );
+    expect(notificationTypeFilterClause([], ['dm'])).toBe(
+      'notificationType: { _nin: $excludeTypes }'
+    );
+    expect(notificationTypeFilterClause([], [])).toBeNull();
   });
 });

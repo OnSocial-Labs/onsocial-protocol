@@ -84,6 +84,21 @@ export function parseExcludeTypes(raw?: string | null): string[] {
 /** Comma-separated `type` → unique kinds to include (e.g. `mention,reply`). */
 export const parseTypeList = parseExcludeTypes;
 
+/**
+ * One `notificationType` comparison. Hasura rejects a where object that
+ * names that field twice, which is what separate `_in` and `_nin` lines do.
+ */
+export function notificationTypeFilterClause(
+  included: readonly string[],
+  excluded: readonly string[]
+): string | null {
+  const comparisons: string[] = [];
+  if (included.length > 0) comparisons.push('_in: $includeTypes');
+  if (excluded.length > 0) comparisons.push('_nin: $excludeTypes');
+  if (comparisons.length === 0) return null;
+  return `notificationType: { ${comparisons.join(', ')} }`;
+}
+
 interface NotificationStore {
   list(params: NotificationListParams): Promise<NotificationListResult>;
   countUnread(
@@ -275,12 +290,8 @@ class HasuraNotificationStore implements NotificationStore {
     if (params.read !== undefined) {
       whereFields.push('read: { _eq: $read }');
     }
-    if (included.length > 0) {
-      whereFields.push('notificationType: { _in: $includeTypes }');
-    }
-    if (excluded.length > 0) {
-      whereFields.push('notificationType: { _nin: $excludeTypes }');
-    }
+    const typeClause = notificationTypeFilterClause(included, excluded);
+    if (typeClause) whereFields.push(typeClause);
 
     if (eventTypeFilter) {
       whereFields.push('context: { _contains: $eventContext }');
@@ -395,12 +406,8 @@ class HasuraNotificationStore implements NotificationStore {
     if (eventTypeFilter) {
       whereFields.push('context: { _contains: $eventContext }');
     }
-    if (included.length > 0) {
-      whereFields.push('notificationType: { _in: $includeTypes }');
-    }
-    if (excluded.length > 0) {
-      whereFields.push('notificationType: { _nin: $excludeTypes }');
-    }
+    const typeClause = notificationTypeFilterClause(included, excluded);
+    if (typeClause) whereFields.push(typeClause);
 
     const countVarDecls = [
       '$owner: String!',
@@ -500,13 +507,13 @@ class HasuraNotificationStore implements NotificationStore {
       'recipient: { _eq: $recipient }',
       'read: { _eq: false }',
     ];
+    const typeClause = notificationTypeFilterClause(included, excluded);
+    if (typeClause) markAllFilters.push(typeClause);
     if (included.length > 0) {
       markAllDecls.push('$includeTypes: [String!]!');
-      markAllFilters.push('notificationType: { _in: $includeTypes }');
     }
     if (excluded.length > 0) {
       markAllDecls.push('$excludeTypes: [String!]!');
-      markAllFilters.push('notificationType: { _nin: $excludeTypes }');
     }
     const mutation = params.all
       ? `mutation(${markAllDecls.join(', ')}) {
