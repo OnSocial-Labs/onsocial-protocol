@@ -315,6 +315,7 @@ export {
   settleKeyboardDrawerMetrics,
   settleVisualKeyboardFrame,
   useKeyboardDrawerFrame,
+  virtualKeyboardSeatActive,
   visualKeyboardFrame,
   type KeyboardDrawerMetrics,
 } from './keyboard-drawer-frame.js';

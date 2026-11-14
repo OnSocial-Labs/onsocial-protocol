@@ -7,6 +7,7 @@ import {
   readKeyboardDrawerMetrics,
   readKeyboardVisibleBottom,
   settleKeyboardDrawerMetrics,
+  virtualKeyboardSeatActive,
   visualKeyboardFrame,
 } from '@onsocial/ui';
 import { useEffect, useState, type CSSProperties } from 'react';
@@ -182,9 +183,12 @@ export function useVisualViewportSheetMetrics(
 
     ensureVirtualKeyboardOverlay();
     const sync = () => {
-      setMetrics((current) =>
-        settleKeyboardDrawerMetrics(current, readMetrics())
-      );
+      setMetrics((current) => {
+        const next = readMetrics();
+        // Brave/Chrome IME geometry is exact — skip suggestion-bar settle.
+        if (virtualKeyboardSeatActive()) return next;
+        return settleKeyboardDrawerMetrics(current, next);
+      });
     };
 
     const viewport = window.visualViewport;
