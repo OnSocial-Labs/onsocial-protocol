@@ -115,6 +115,8 @@ export interface OsAppScreenProps {
   style?: CSSProperties;
   /** Nested in OsPageSheet / overlay — skip summon launcher + flat host fill. */
   embedded?: boolean;
+  /** Opt the body out of Lenis (native overflow only). Rare — home stays on Lenis. */
+  nativeScroll?: boolean;
   /** Extra class on the root `.os-app-screen`. */
   className?: string;
   children: ReactNode;
@@ -149,6 +151,7 @@ export function OsAppScreen({
   moodStyle,
   style,
   embedded = false,
+  nativeScroll = false,
   className,
   children,
 }: OsAppScreenProps) {
@@ -300,6 +303,7 @@ export function OsAppScreen({
         <main
           ref={setBodyRef}
           className="os-app-screen-body os-stable-scroll"
+          data-native-scroll={nativeScroll ? '' : undefined}
           // Lenis may add `lenis` before nested hydration finishes.
           suppressHydrationWarning
         >

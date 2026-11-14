@@ -13,12 +13,14 @@ import {
   clearThreadFirstPageCache,
   directReplyPageHasMore,
   directRepliesToTree,
+  enrichPaintedReplyTree,
   graftVisibleReplies,
   shouldPaintDirectReplies,
   startThreadFirstPage,
   THREAD_REPLY_FIRST_PAGE,
   threadContentPath,
 } from '@/lib/thread-first-page';
+import { leafThreadNode } from '@/lib/thread-display';
 
 function reply(postId: string): PostRow {
   return {
@@ -93,6 +95,22 @@ describe('thread first page', () => {
       { ...reply('later'), parentPath: 'bob.near/post/one' },
     ]);
     expect(walked[0]?.replies[0]?.post.postId).toBe('line');
+  });
+
+  it('enriches painted directs with walked children without reshuffling', () => {
+    const painted = directRepliesToTree([reply('one'), reply('two')]);
+    const nested = { ...reply('nested'), parentPath: 'bob.near/post/one' };
+    const walked = [
+      { ...painted[1]!, replies: [] },
+      {
+        ...painted[0]!,
+        replies: [leafThreadNode(nested, 'bob.near/post/nested')],
+      },
+    ];
+    const next = enrichPaintedReplyTree(painted, walked);
+    expect(next.map((node) => node.post.postId)).toEqual(['one', 'two']);
+    expect(next[0]?.replies[0]?.post.postId).toBe('nested');
+    expect(next[1]?.replies).toEqual([]);
   });
 
   it('uses the group content path for a guild post', () => {

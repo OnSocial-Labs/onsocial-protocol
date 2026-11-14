@@ -305,12 +305,12 @@ export function AppDateSheet({
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
+      chrome="choice"
       label={label}
       copy={draftDate ? formatDayLabel(draftDate) : undefined}
       closeAriaLabel={`Close ${label.toLowerCase()} picker`}
       backdropLabel={`Close ${label.toLowerCase()} picker`}
       zIndex={zIndex}
-      stack="overlay"
       titleId={titleId}
       panelClassName="drop-schedule-sheet-panel os-sheet-cap-tall"
       bodyClassName="drop-schedule-sheet-body"

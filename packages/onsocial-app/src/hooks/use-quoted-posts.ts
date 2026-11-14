@@ -21,6 +21,11 @@ const QUOTED_POST_CACHE_CAP = 200;
 const quotedPostCache = new Map<string, PostRow | null>();
 const quotedPostInFlight = new Map<string, Promise<PostRow | null>>();
 
+/** True once a path has finished a resolve attempt (hit or miss). */
+export function hasQuotedPostCacheEntry(refPath: string): boolean {
+  return quotedPostCache.has(refPath);
+}
+
 /** LRU write: refresh recency on hit, evict oldest (Map insertion order). */
 function cacheQuotedPost(refPath: string, post: PostRow | null): void {
   if (quotedPostCache.has(refPath)) quotedPostCache.delete(refPath);
@@ -205,12 +210,32 @@ export function useQuotedPosts(posts: PostRow[]) {
 const ANCESTOR_CHAIN_CAP = 12;
 const NO_ANCESTORS: PostRow[] = [];
 
+export type AncestorChainState = {
+  ancestors: PostRow[];
+  ready: boolean;
+};
+
+/** Normalize hook result (and a stale HMR array) into a stable chain state. */
+export function asAncestorChainState(
+  value: AncestorChainState | PostRow[] | null | undefined
+): AncestorChainState {
+  if (Array.isArray(value)) {
+    return { ancestors: value, ready: true };
+  }
+  if (value && Array.isArray(value.ancestors)) {
+    return { ancestors: value.ancestors, ready: Boolean(value.ready) };
+  }
+  return { ancestors: NO_ANCESTORS, ready: false };
+}
+
 /**
  * Walk reply parent edges up to the conversation root (full thread
  * context). Returns ancestors oldest-first; empty while loading or when the
  * post has no parent. Capped to keep pathological chains bounded.
  */
-export function useAncestorChain(parentPath: string | undefined): PostRow[] {
+export function useAncestorChain(
+  parentPath: string | undefined
+): AncestorChainState {
   // Keyed by path so a stale chain never renders under a different post.
   const [resolved, setResolved] = useState<{
     path: string;
@@ -239,7 +264,12 @@ export function useAncestorChain(parentPath: string | undefined): PostRow[] {
     };
   }, [parentPath]);
 
-  return parentPath && resolved?.path === parentPath
-    ? resolved.posts
-    : NO_ANCESTORS;
+  if (!parentPath) return { ancestors: NO_ANCESTORS, ready: true };
+  if (resolved?.path !== parentPath) {
+    return { ancestors: NO_ANCESTORS, ready: false };
+  }
+  return {
+    ancestors: Array.isArray(resolved.posts) ? resolved.posts : NO_ANCESTORS,
+    ready: true,
+  };
 }

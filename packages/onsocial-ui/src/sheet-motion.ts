@@ -324,8 +324,9 @@ export function resetSheetMotionState(): void {
 /**
  * Two surfaces:
  * - Drawers (`sheet`) always slide. Replace holds the slot; the next slides in.
- * - Pages (`page`) always appear. Compose / editors.
- * - Covers (`overlay`) fade when something is already open.
+ * - Pages (`page`) always appear. Compose / editors / post thread.
+ * - Covers (`overlay`) always slide too (menus / choice drawers over a page).
+ *   Cover op still parks them on top without a stack push.
  * Screens do not pick a third motion.
  */
 export function resolveSheetMotion(input: {
@@ -341,7 +342,7 @@ export function resolveSheetMotion(input: {
 }): { presentation: SheetMotion; op: SheetOp } {
   const otherBase = input.otherBaseSheets ?? input.otherSheetsOpen;
   const kind = input.kind ?? 'sheet';
-  // Drawers never fade — appear is pages and covers only.
+  // Drawers never fade — appear is pages only.
   const requested =
     kind === 'sheet' && input.requested === 'appear'
       ? 'enter'
@@ -353,7 +354,7 @@ export function resolveSheetMotion(input: {
   if (input.stack === 'overlay') {
     const cover = input.otherSheetsOpen > 0;
     return {
-      presentation: cover ? 'appear' : 'enter',
+      presentation: 'enter',
       op: cover ? 'cover' : 'present',
     };
   }

@@ -74,6 +74,7 @@ export function ProfileLocationControl({
       <OsHugSheet
         open={open}
         onClose={() => setOpen(false)}
+        chrome="choice"
         label="Location"
         closeAriaLabel="Close location"
         backdropLabel="Close location"
@@ -94,9 +95,9 @@ export function ProfileLocationControl({
           </OsSheetFooter>
         }
       >
+        <p className="os-choice-sheet-hint">Where you are based.</p>
         <div className="account-editor-org-meta-field">
           <label className="guild-field" htmlFor={`${formId}-input`}>
-            <span>Based in</span>
             <input
               id={`${formId}-input`}
               className={osFieldBorderedClassName}
@@ -104,6 +105,7 @@ export function ProfileLocationControl({
               maxLength={PROFILE_LOCATION_MAX}
               autoComplete="address-level2"
               placeholder="Based in"
+              aria-label="Based in"
               disabled={disabled}
               onPointerDown={focusFieldStill}
               onChange={(event) =>

@@ -201,9 +201,7 @@ function ActivityFeedIdentity({
   const { name, handle } = standingIdentityLabel(accountId, profileName);
   return (
     <>
-      <span className="post-identity-name-marks">
-        <ProtocolNameTrailing accountId={accountId} />
-      </span>
+      <ProtocolNameTrailing accountId={accountId} />
       {name ? (
         <span className="post-identity-handle" title={`@${handle}`}>
           @{handle}

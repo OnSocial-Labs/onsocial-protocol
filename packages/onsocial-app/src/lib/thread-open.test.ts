@@ -1,6 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { registerAppLenis } from './app-lenis-registry';
-import { planThreadLoad, scrollOpenedPostUnderHeader } from './thread-open';
+import {
+  compensateOpenedPostAboveShift,
+  planThreadLoad,
+  scrollOpenedPostUnderHeader,
+  threadContentInset,
+} from './thread-open';
 
 describe('planThreadLoad', () => {
   it('keeps a seeded thread in the background, including a second setup', () => {
@@ -11,7 +16,7 @@ describe('planThreadLoad', () => {
     expect(again.background).toBe(true);
   });
 
-  it('shows the skeleton once for a cold thread, then keeps it painted', () => {
+  it('marks a cold thread as not yet painted, then keeps it painted', () => {
     const key = 'alice.near/post/2';
     const first = planThreadLoad(null, key);
     expect(first.background).toBe(false);
@@ -29,13 +34,14 @@ describe('planThreadLoad', () => {
 });
 
 describe('scrollOpenedPostUnderHeader', () => {
-  it('scrolls the thread body so the opened post sits under the header', () => {
+  it('scrolls so the avatar sits under the header', () => {
     const scroller = {
       scrollTop: 0,
       getBoundingClientRect: () => ({ top: 80 }),
     };
     const post = {
       closest: () => scroller,
+      querySelector: () => null,
       getBoundingClientRect: () => ({ top: 640 }),
     };
     expect(scrollOpenedPostUnderHeader(post as unknown as HTMLElement)).toBe(
@@ -47,6 +53,7 @@ describe('scrollOpenedPostUnderHeader', () => {
   it('does nothing when the post is outside a thread scroller', () => {
     const post = {
       closest: () => null,
+      querySelector: () => null,
       getBoundingClientRect: () => ({ top: 0 }),
     };
     expect(scrollOpenedPostUnderHeader(post as unknown as HTMLElement)).toBe(
@@ -54,7 +61,7 @@ describe('scrollOpenedPostUnderHeader', () => {
     );
   });
 
-  it('cancels an in-flight smooth scroll before sticking the post', () => {
+  it('adopts Lenis with stop/start before sticking the post', () => {
     const calls: number[] = [];
     const scroller = {
       scrollTop: 0,
@@ -63,6 +70,8 @@ describe('scrollOpenedPostUnderHeader', () => {
     const lenis = {
       limit: Number.POSITIVE_INFINITY,
       scroll: 0,
+      stop: vi.fn(),
+      start: vi.fn(),
       resize() {
         this.scroll = scroller.scrollTop;
       },
@@ -74,27 +83,125 @@ describe('scrollOpenedPostUnderHeader', () => {
     registerAppLenis(scroller as unknown as HTMLElement, lenis);
     const post = {
       closest: () => scroller,
+      querySelector: () => null,
       getBoundingClientRect: () => ({ top: 640 }),
     };
     expect(scrollOpenedPostUnderHeader(post as unknown as HTMLElement)).toBe(
       true
     );
-    expect(calls).toEqual([559, 560]);
+    expect(lenis.stop).toHaveBeenCalledOnce();
+    expect(calls).toEqual([560]);
+    expect(lenis.start).toHaveBeenCalledOnce();
     expect(scroller.scrollTop).toBe(560);
   });
 
-  it('leaves the scroll alone when the post is already under the header', () => {
+  it('leaves the scroll alone when the avatar is already under the header', () => {
     const scroller = {
       scrollTop: 120,
       getBoundingClientRect: () => ({ top: 80 }),
     };
     const post = {
       closest: () => scroller,
+      querySelector: () => null,
       getBoundingClientRect: () => ({ top: 80 }),
     };
     expect(scrollOpenedPostUnderHeader(post as unknown as HTMLElement)).toBe(
       true
     );
     expect(scroller.scrollTop).toBe(120);
+  });
+
+  it('pins by avatar, not the card wrapper top', () => {
+    const scroller = {
+      scrollTop: 0,
+      getBoundingClientRect: () => ({ top: 80 }),
+    };
+    const page = {
+      getBoundingClientRect: () => ({ top: 80 }),
+    };
+    const card = {};
+    const face = {
+      getBoundingClientRect: () => ({ top: 200 }),
+      closest: (selector: string) => (selector === '.post-card' ? card : null),
+    };
+    const post = {
+      closest: (selector: string) => {
+        if (selector === '.os-app-screen-body') return scroller;
+        if (selector === '.os-app-chrome-page') return page;
+        return null;
+      },
+      querySelector: () => face,
+      getBoundingClientRect: () => ({ top: 160 }),
+    };
+    const previous = globalThis.getComputedStyle;
+    globalThis.getComputedStyle = ((el: { paddingTop?: string }) => {
+      if (el === card) return { paddingTop: '12px' } as CSSStyleDeclaration;
+      if (el === page) return { paddingTop: '0px' } as CSSStyleDeclaration;
+      return { paddingTop: '0px' } as CSSStyleDeclaration;
+    }) as typeof getComputedStyle;
+    try {
+      expect(scrollOpenedPostUnderHeader(post as unknown as HTMLElement)).toBe(
+        true
+      );
+      // face 200 − (scroller 80 + page 0 + card 12) = 108
+      expect(scroller.scrollTop).toBe(108);
+    } finally {
+      globalThis.getComputedStyle = previous;
+    }
+  });
+});
+
+describe('compensateOpenedPostAboveShift', () => {
+  it('bumps scroll by above-growth so a long ancestor does not shove the avatar', () => {
+    let scrollTop = 200;
+    const scroller = {
+      get scrollTop() {
+        return scrollTop;
+      },
+      set scrollTop(value: number) {
+        scrollTop = value;
+      },
+      getBoundingClientRect: () => ({ top: 80 }),
+    };
+    const post = {
+      closest: () => scroller,
+      querySelector: () => null,
+      getBoundingClientRect: () => ({ top: 120 }),
+    };
+    compensateOpenedPostAboveShift(
+      post as unknown as HTMLElement,
+      scroller as unknown as HTMLElement,
+      200
+    );
+    expect(scrollTop).toBe(240);
+  });
+});
+
+describe('threadContentInset', () => {
+  it('uses live page geometry so root and reply share one seat', () => {
+    const scroller = {
+      scrollTop: 40,
+      getBoundingClientRect: () => ({ top: 100 }),
+    };
+    const page = {
+      getBoundingClientRect: () => ({ top: 180 }),
+    };
+    const post = {
+      closest: (selector: string) =>
+        selector === '.os-app-chrome-page' ? page : scroller,
+    };
+    const previous = globalThis.getComputedStyle;
+    globalThis.getComputedStyle = (() =>
+      ({ paddingTop: '8px' }) as CSSStyleDeclaration) as typeof getComputedStyle;
+    try {
+      expect(
+        threadContentInset(
+          scroller as unknown as HTMLElement,
+          post as unknown as HTMLElement
+        )
+      ).toBe(180 - 100 + 40 + 8);
+    } finally {
+      globalThis.getComputedStyle = previous;
+    }
   });
 });

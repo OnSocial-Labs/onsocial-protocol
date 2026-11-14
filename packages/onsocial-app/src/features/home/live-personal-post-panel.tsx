@@ -3,7 +3,6 @@
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -13,6 +12,7 @@ import type { PostRow, ThreadNode } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsHeaderBack } from '@/components/app/os-header-back';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -41,7 +41,7 @@ import {
   type ComposerMode,
   type ComposerSubmit,
 } from '@/features/guilds/guild-composer-sheet';
-import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
+import { PostCard, postKey } from '@/features/home/post-card';
 import { ThreadRail } from '@/features/home/thread-rail';
 import { ThreadDiscoverPeek } from '@/features/home/thread-discover-peek';
 import { ThreadRepliesSortButton } from '@/features/home/thread-replies-sort';
@@ -53,7 +53,10 @@ import {
 } from '@/features/home/submit-personal-post';
 import { ThreadFoldLink } from '@/features/home/thread-fold-button';
 import { dispatchPersonalQuoteConfirmed } from '@/features/scarces/drop-compose-host';
-import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
+import {
+  scarceEmbedsForOpenRoot,
+  seedScarceEmbedsFromSsr,
+} from '@/features/scarces/scarce-embed-ledger';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import {
   seedPostAuthorProfilesFromFeed,
@@ -64,11 +67,16 @@ import {
   usePostEngagement,
 } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
-import { useLandOpenedPost } from '@/hooks/use-land-opened-post';
+import { useThreadLandAppear } from '@/hooks/use-land-opened-post';
 import { useThreadFocusReply } from '@/hooks/use-thread-focus-reply';
-import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
+import {
+  asAncestorChainState,
+  useAncestorChain,
+  useQuotedPosts,
+} from '@/hooks/use-quoted-posts';
 import {
   directRepliesToTree,
+  enrichPaintedReplyTree,
   graftVisibleReplies,
   shouldPaintDirectReplies,
   startThreadFirstPage,
@@ -189,8 +197,15 @@ interface LivePersonalPostPanelProps {
   embedded?: boolean;
   /** Hide root photo / video — the enlarge film already shows it. */
   hideRootMedia?: boolean;
+  /**
+   * Under-header pin. Off for media-band / hug embeds — those have no
+   * `.os-app-screen-body` seat (land there scrolled the wrong surface).
+   */
+  landSeat?: boolean;
   /** False while the drawer is closing or no longer the screen in front. */
   replyDockEnabled?: boolean;
+  /** Covered trail sheet — freeze land/scroll for identity back. */
+  parked?: boolean;
   /** Sheet appear waits until the opened post is on screen. */
   onThreadPainted?: () => void;
 }
@@ -207,7 +222,9 @@ export function LivePersonalPostPanel({
   initial = null,
   embedded = false,
   hideRootMedia = false,
+  landSeat = true,
   replyDockEnabled = true,
+  parked = false,
   onThreadPainted,
 }: LivePersonalPostPanelProps) {
   seedScarceEmbedsFromSsr(initial?.scarceEmbeds);
@@ -262,16 +279,21 @@ export function LivePersonalPostPanel({
   const [replyTree, setReplyTree] = useState<ThreadNode[]>(
     () => seeded?.replyTree ?? []
   );
-  /*
-   * Discover-peek gate. Until the first reply page resolves we cannot know
-   * whether replies exist — mounting the peek in that window flashes a
-   * "More from …" card that the incoming replies then replace. A cache hit
-   * or a permalink that already fetched the page counts as resolved.
-   */
+  /** First reply page ready — appear waits on this; graft/tree enrich after. */
   const [repliesResolved, setRepliesResolved] = useState(
     () =>
       sessionSeed.fromCache || Boolean(sessionSeed.data?.directRepliesResolved)
   );
+  /**
+   * Empty-tail gate for More from. Appear does not wait — but peek must not
+   * mount until share counts are known, or View quotes arriving unmounts it
+   * and the tail jumps.
+   */
+  const [shareTailReady, setShareTailReady] = useState(
+    () => sessionSeed.fromCache
+  );
+  const firstPagePaintedRef = useRef(sessionSeed.fromCache);
+  const hasMoreRepliesRef = useRef(Boolean(seeded?.hasMoreReplies));
   const [localReplies, setLocalReplies] = useState<PostRow[]>([]);
   const [localQuotes, setLocalQuotes] = useState<PostRow[]>([]);
   const [modalTarget, setModalTarget] = useState<PostRow | null>(null);
@@ -341,20 +363,10 @@ export function LivePersonalPostPanel({
     [conversation.root, replyRows, quotes]
   );
   const parentPath = conversation.root?.parentPath;
-  const ancestorChain = useAncestorChain(parentPath);
-  // parentPath is known before ancestors paint — keep the opened card on the
-  // thread edge from first paint so the face does not shift when parents land.
+  const { ancestors: ancestorChain, ready: ancestorsReady } =
+    asAncestorChainState(useAncestorChain(parentPath));
   const hasParent = Boolean(parentPath);
   const hasAncestorRows = ancestorChain.length > 0;
-  useLandOpenedPost(
-    openedPostRef,
-    conversation.root?.postId,
-    hasAncestorRows
-  );
-  useLayoutEffect(() => {
-    if (loadState !== 'ready' || !conversation.root) return;
-    onThreadPainted?.();
-  }, [conversation.root, loadState, onThreadPainted]);
   const engagementPosts = useMemo(
     () => [...ancestorChain, ...threadPosts],
     [ancestorChain, threadPosts]
@@ -409,6 +421,40 @@ export function LivePersonalPostPanel({
   const quoteTotal = Math.max(rootEngagement?.quoteCount ?? 0, quotes.length);
   const repostTotal = Math.max(0, rootEngagement?.repostCount ?? 0);
   const shareRow = resolveThreadShareRow(quoteTotal, repostTotal);
+  // Quotes fetch + root engagement both feed shareRow — wait for both before
+  // More from so a late repost count cannot unmount the peek.
+  const rootEngagementKey = conversation.root
+    ? postKey(conversation.root)
+    : null;
+  const emptyTailReady =
+    shareTailReady &&
+    (rootEngagementKey == null ||
+      Boolean(
+        seeded?.engagement?.[rootEngagementKey] ||
+          engagement[rootEngagementKey]
+      ));
+  const { landSettled } = useThreadLandAppear({
+    openedPostRef,
+    postId: conversation.root?.postId,
+    hasParent,
+    ancestorsReady,
+    loadReady: loadState === 'ready',
+    hasRoot: Boolean(conversation.root),
+    tailReady: repliesResolved,
+    pinKey: ancestorsReady
+      ? ancestorChain.map((post) => post.postId).join('\n')
+      : '',
+    parked,
+    landSeat,
+    onThreadPainted,
+  });
+  const permalinkReady =
+    loadState === 'missing' ||
+    loadState === 'error' ||
+    (loadState === 'ready' &&
+      Boolean(conversation.root) &&
+      landSettled &&
+      repliesResolved);
   const sortedReplyRows = useMemo(
     () => sortThreadReplyRows(replyRows, replySort, engagement),
     [replyRows, replySort, engagement]
@@ -470,33 +516,35 @@ export function LivePersonalPostPanel({
         const firstPagePromise = paintDirect
           ? startThreadFirstPage(rootPath)
           : null;
-        const restPromise = Promise.allSettled([
-          fetchPersonalPost({ author, postId }),
-          client.query.threads.quotes(author, postId, {
-            limit: QUOTE_PAGE_SIZE,
-            order: 'desc',
-          }),
-          client.query.threads.treeByPath(rootPath, {
-            depth: REPLY_TREE_DEPTH,
-            includeQuotes: false,
-            replyLimit: REPLY_PAGE_SIZE,
-            maxNodes: REPLY_TREE_MAX_NODES,
-          }),
-        ]);
+        // First reply page gates appear; quote/tree soft-fill after.
+        const rootPromise = fetchPersonalPost({ author, postId });
+        const quotesPromise = client.query.threads.quotes(author, postId, {
+          limit: QUOTE_PAGE_SIZE,
+          order: 'desc',
+        });
+        const treePromise = client.query.threads.treeByPath(rootPath, {
+          depth: REPLY_TREE_DEPTH,
+          includeQuotes: false,
+          replyLimit: REPLY_PAGE_SIZE,
+          maxNodes: REPLY_TREE_MAX_NODES,
+        });
 
         if (firstPagePromise) {
           try {
             const first = await firstPagePromise;
             if (refreshRequestIdRef.current !== requestId) return;
             if (!paginatedRef.current) {
-              const replyTree = directRepliesToTree(first.replies);
+              const pageTree = directRepliesToTree(first.replies);
               setConversation((current) => ({
                 ...current,
                 replies: first.replies,
               }));
-              setReplyTree(replyTree);
+              setReplyTree(pageTree);
               setHasMoreReplies(first.hasMore);
+              hasMoreRepliesRef.current = first.hasMore;
+              firstPagePaintedRef.current = true;
               setRepliesResolved(true);
+              // Graft soft-fills nested lines after appear — don't block hero.
               const visiblePaths = visibleReplyPaths(first.replies);
               if (visiblePaths.length > 0) {
                 void client.query.threads
@@ -509,35 +557,35 @@ export function LivePersonalPostPanel({
                     );
                   })
                   .catch(() => {
-                    // The tree walk still fills the line.
+                    // Tree walk below still fills the line.
                   });
               }
-              const root = seeded?.root ?? null;
-              if (root) {
+              const seedRoot = seeded?.root ?? null;
+              if (seedRoot) {
                 writeThreadSession(rootPath, {
-                  root,
+                  root: seedRoot,
                   replies: first.replies,
                   quotes: seeded?.quotes ?? [],
-                  replyTree,
+                  replyTree: pageTree,
                   hasMoreReplies: first.hasMore,
                   engagement: engagementLatestRef.current,
-                  scarceEmbeds: {},
+                  scarceEmbeds: scarceEmbedsForOpenRoot(seedRoot),
                 });
               }
             }
           } catch {
-            // The tree walk below still resolves the thread.
+            // Root + tree walk below still resolve the thread.
           }
         }
 
-        const [rootResult, quotesResult, treeResult] = await restPromise;
+        let root: PostRow | null;
+        try {
+          root = await rootPromise;
+        } catch (cause) {
+          throw cause;
+        }
         if (refreshRequestIdRef.current !== requestId) return;
 
-        if (rootResult.status === 'rejected') {
-          throw rootResult.reason;
-        }
-
-        const root = rootResult.value;
         if (!root && !options.background) {
           const indexed = await fetchIndexedPost({ author, postId });
           if (indexed?.groupId) {
@@ -551,6 +599,22 @@ export function LivePersonalPostPanel({
         if (options.background && !root) {
           return;
         }
+
+        setConversation((current) => ({
+          ...current,
+          root,
+        }));
+        setRepliesResolved(true);
+        if (!options.background) {
+          setLoadState(root ? 'ready' : 'missing');
+        }
+
+        const [quotesResult, treeResult] = await Promise.allSettled([
+          quotesPromise,
+          treePromise,
+        ]);
+        if (refreshRequestIdRef.current !== requestId) return;
+
         const fetchedQuotes =
           quotesResult.status === 'fulfilled' ? quotesResult.value : [];
         const treeOk = treeResult.status === 'fulfilled';
@@ -565,39 +629,60 @@ export function LivePersonalPostPanel({
         );
 
         if (!options.background || !paginatedRef.current) {
+          const keepFirstPage =
+            treeOk && firstPagePaintedRef.current && !paginatedRef.current;
           setConversation((current) => ({
-            root,
-            replies: treeOk
-              ? fetchedTree.map((node) => node.post)
-              : current.replies,
+            root: current.root ?? root,
+            replies: keepFirstPage
+              ? current.replies
+              : treeOk
+                ? fetchedTree.map((node) => node.post)
+                : current.replies,
             quotes: fetchedQuotes,
           }));
           if (treeOk) {
-            setReplyTree(fetchedTree);
-            setHasMoreReplies(fetchedTree.length >= REPLY_PAGE_SIZE);
-            if (root) {
-              writeThreadSession(rootPath, {
-                root,
-                replies: fetchedTree.map((node) => node.post),
-                quotes: fetchedQuotes,
-                replyTree: fetchedTree,
-                hasMoreReplies: fetchedTree.length >= REPLY_PAGE_SIZE,
-                engagement: engagementLatestRef.current,
-                // Scarce embeds only ever seed from SSR; the ledger refetches.
-                scarceEmbeds: {},
+            if (keepFirstPage) {
+              // Enrich in place — never replace the painted first page order.
+              setReplyTree((current) => {
+                const next = enrichPaintedReplyTree(current, fetchedTree);
+                if (root) {
+                  writeThreadSession(rootPath, {
+                    root,
+                    replies: next.map((node) => node.post),
+                    quotes: fetchedQuotes,
+                    replyTree: next,
+                    hasMoreReplies: hasMoreRepliesRef.current,
+                    engagement: engagementLatestRef.current,
+                    scarceEmbeds: scarceEmbedsForOpenRoot(root),
+                  });
+                }
+                return next;
               });
+            } else {
+              setReplyTree(fetchedTree);
+              const more = fetchedTree.length >= REPLY_PAGE_SIZE;
+              setHasMoreReplies(more);
+              hasMoreRepliesRef.current = more;
+              if (root) {
+                writeThreadSession(rootPath, {
+                  root,
+                  replies: fetchedTree.map((node) => node.post),
+                  quotes: fetchedQuotes,
+                  replyTree: fetchedTree,
+                  hasMoreReplies: more,
+                  engagement: engagementLatestRef.current,
+                  scarceEmbeds: scarceEmbedsForOpenRoot(root),
+                });
+              }
             }
           }
         }
-        setRepliesResolved(true);
-
-        if (!options.background) {
-          setLoadState(root ? 'ready' : 'missing');
-        }
+        setShareTailReady(true);
       } catch (cause) {
         if (options.background) return;
         if (refreshRequestIdRef.current !== requestId) return;
         setRepliesResolved(true);
+        setShareTailReady(true);
         setLoadState('error');
         setError(
           cause instanceof Error ? cause.message : 'Could not load post thread.'
@@ -978,9 +1063,23 @@ export function LivePersonalPostPanel({
             actionHref={postThreadPath(row.post)}
             menuZIndex={nestMenuZ}
             showRelationBadge={false}
+            authorProfiles={postAuthorProfiles}
             className={
               row.connectedToPrevious ? 'post-card--chain-cont' : undefined
             }
+            quotedPost={
+              row.post.refPath ? quotedPosts[row.post.refPath] : undefined
+            }
+            quotedAuthorProfile={
+              row.post.refPath
+                ? postAuthorProfiles[
+                    quotedPosts[row.post.refPath]?.accountId ?? ''
+                  ]
+                : undefined
+            }
+            quotedHref={quotedHrefFor(
+              row.post.refPath ? quotedPosts[row.post.refPath] : undefined
+            )}
             engagement={engagement[postKey(row.post)] ?? EMPTY_POST_ENGAGEMENT}
             reactionPending={isReactionPending(row.post)}
             savePending={isSavePending(row.post)}
@@ -1008,8 +1107,6 @@ export function LivePersonalPostPanel({
     <div
       className={hideRootMedia ? 'feed-media-thread-embed' : GUILDS_PAGE_CLASS}
     >
-      {loadState === 'loading' ? <PostRowSkeleton rows={4} /> : null}
-
       {loadState === 'missing' ? (
         <section className="guild-state-card">
           <p>We could not find this post in the indexed feed yet.</p>
@@ -1029,13 +1126,15 @@ export function LivePersonalPostPanel({
           className={`guild-thread-column${rootContinued ? ' is-continued' : ''}`}
         >
           <div className="guild-thread-context">
-            {ancestorChain.map((ancestor, index) => (
-              <div
-                className={`guild-thread-ancestor post-thread-item post-thread-item--down${index > 0 ? ' post-thread-item--up' : ''}`}
-                key={postKey(ancestor)}
-                data-thread-focus-reply={ancestor.postId}
-                data-thread-focus-key={postKey(ancestor)}
-              >
+            {hasAncestorRows ? (
+              <div className="guild-thread-ancestors">
+                {ancestorChain.map((ancestor, index) => (
+                  <div
+                    className={`guild-thread-ancestor post-thread-item post-thread-item--down${index > 0 ? ' post-thread-item--up' : ''}`}
+                    key={postKey(ancestor)}
+                    data-thread-focus-reply={ancestor.postId}
+                    data-thread-focus-key={postKey(ancestor)}
+                  >
                 <ThreadRail up={index > 0} down />
                 <PostCard
                   post={ancestor}
@@ -1079,8 +1178,10 @@ export function LivePersonalPostPanel({
                     void castVote(post, optionIndex);
                   }}
                 />
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : null}
 
             <div
               ref={openedPostRef}
@@ -1189,13 +1290,11 @@ export function LivePersonalPostPanel({
             ) : null}
             {replyListRows.length > 0 ? (
               replyListRows.slice(replyWindowStart, replyWindowEnd)
-            ) : !repliesResolved ? (
-              // Reply-shaped placeholders — incoming replies never shove content.
-              <PostRowSkeleton rows={2} />
-            ) : !shareRow ? (
+            ) : emptyTailReady && !shareRow ? (
               <ThreadDiscoverPeek
                 author={author}
                 excludePostId={postId}
+                armed={repliesResolved}
                 authorProfiles={postAuthorProfiles}
                 menuZIndex={nestMenuZ}
                 onReply={replyHandler}
@@ -1288,7 +1387,9 @@ export function LivePersonalPostPanel({
       backFallbackHref={APP_HOME_PATH}
       leading={<OsHeaderBack fallbackHref={APP_HOME_PATH} />}
     >
-      {thread}
+      <OsPageBodyAppear ready={permalinkReady}>
+        {thread}
+      </OsPageBodyAppear>
       {composer}
     </OsAppScreen>
   );

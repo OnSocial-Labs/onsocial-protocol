@@ -541,6 +541,7 @@ function DropTimePickerSheet({
       open={open}
       onClose={onClose}
       onClosed={onClosed}
+      chrome="choice"
       label="Time"
       copy={`${formatTimeChip(draft)} · local`}
       closeAriaLabel="Close time"
@@ -920,6 +921,7 @@ function DropSaleWindowDraftBody({
         open={open}
         onClose={onRequestClose}
         onClosed={onClosed}
+        chrome="choice"
         label={title}
         copy={
           keepingClear
@@ -931,7 +933,6 @@ function DropSaleWindowDraftBody({
         closeAriaLabel="Close"
         backdropLabel={`Close ${title.toLowerCase()} picker`}
         zIndex={zIndex}
-        stack="overlay"
         titleId={titleId}
         panelClassName="drop-schedule-sheet-panel os-sheet-cap-tall"
         bodyClassName="drop-schedule-sheet-body"

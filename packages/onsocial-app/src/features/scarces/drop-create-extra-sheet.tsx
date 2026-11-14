@@ -62,6 +62,7 @@ export function DropCreateExtraSheet({
 
   return (
     <OsHugSheet
+      key={openEpoch}
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}

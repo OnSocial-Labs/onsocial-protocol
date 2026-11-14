@@ -1,3 +1,5 @@
+'use client';
+
 import type { MouseEvent, ReactNode } from 'react';
 import Link from 'next/link';
 import { MessageFillIcon } from '@onsocial/ui';
@@ -25,8 +27,9 @@ interface PostIdentityMetaProps {
   trailing?: ReactNode;
   className?: string;
   /**
-   * `inline` (feed): Name @handle · time
-   * `stacked` (open post): Name, then @handle below — time rendered under the body.
+   * `inline` (feed): Name marks @handle · time
+   * `stacked` (open post): standing-style cluster — avatar + name marks +
+   * @handle in one hover hit; ⋮ stays on the name row.
    */
   layout?: 'inline' | 'stacked';
 }
@@ -75,8 +78,10 @@ export function PostIdentityMeta({
     </span>
   );
 
-  const marksNode = (
-    <span className="post-identity-name-marks">
+  // Same as standing-row-name-row: name + trailing marks, marks hug the name.
+  const nameAndMarks = (
+    <span className="post-identity-name-cluster">
+      <span className="post-identity-name-wrap">{nameNode}</span>
       <ProtocolNameTrailing accountId={accountId} />
     </span>
   );
@@ -131,26 +136,64 @@ export function PostIdentityMeta({
     </>
   ) : null;
 
-  const inlineNames = (
+  const channelNode = roomLabel ? (
+    <span className="post-identity-channel">
+      <MessageFillIcon className="post-identity-channel-icon" aria-hidden />
+      <span className="post-identity-channel-label">{roomLabel}</span>
+    </span>
+  ) : null;
+
+  if (stacked) {
+    // One profile hit like standing: avatar + name/marks + @id hover together.
+    const stackedBody = (
+      <span className="post-identity-stack">
+        {nameAndMarks}
+        {handleNode}
+      </span>
+    );
+    const profile = sharedProfileHref ? (
+      <Link
+        href={sharedProfileHref}
+        className="post-card-identity"
+        scroll={false}
+        aria-label={`View ${name}, ${handleLabel}`}
+      >
+        {avatar}
+        {stackedBody}
+      </Link>
+    ) : (
+      <div className="post-card-identity">
+        {avatar}
+        {stackedBody}
+      </div>
+    );
+
+    return (
+      <div
+        className={`post-identity post-identity--stacked${
+          className ? ` ${className}` : ''
+        }`}
+      >
+        <div className="post-identity-row">
+          {profile}
+          {trailing ? (
+            <span className="post-identity-spacer" aria-hidden />
+          ) : null}
+          {trailing}
+        </div>
+        {channelNode}
+      </div>
+    );
+  }
+
+  const inlineCluster = (
     <span className="post-identity-inline-cluster">
-      {nameNode}
-      {marksNode}
+      {nameAndMarks}
       {handleNode}
       {sharedProfileHref ? null : timeWithSep}
     </span>
   );
 
-  const stackedNames = (
-    <span className="post-identity-main post-identity-main--stacked">
-      <span className="post-identity-name-cluster">
-        {nameNode}
-        {marksNode}
-      </span>
-      {handleNode}
-    </span>
-  );
-
-  const names = stacked ? stackedNames : inlineNames;
   const profileCluster = sharedProfileHref ? (
     <Link
       href={sharedProfileHref}
@@ -159,20 +202,14 @@ export function PostIdentityMeta({
       aria-label={`View ${name}, ${handleLabel}`}
     >
       {avatar}
-      {names}
+      {inlineCluster}
     </Link>
-  ) : stacked ? (
-    names
   ) : (
-    <div className="post-identity-main">{names}</div>
+    <div className="post-identity-main">{inlineCluster}</div>
   );
 
   return (
-    <div
-      className={`post-identity${stacked ? ' post-identity--stacked' : ''}${
-        className ? ` ${className}` : ''
-      }`}
-    >
+    <div className={`post-identity${className ? ` ${className}` : ''}`}>
       <div className="post-identity-row">
         {profileCluster}
         {sharedProfileHref && timeWithSep ? (
@@ -183,12 +220,7 @@ export function PostIdentityMeta({
         ) : null}
         {trailing}
       </div>
-      {roomLabel ? (
-        <span className="post-identity-channel">
-          <MessageFillIcon className="post-identity-channel-icon" aria-hidden />
-          <span className="post-identity-channel-label">{roomLabel}</span>
-        </span>
-      ) : null}
+      {channelNode}
     </div>
   );
 }

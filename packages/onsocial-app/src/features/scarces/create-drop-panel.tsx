@@ -2671,24 +2671,28 @@ export function CreateDropPanel() {
     if (perWalletInput !== maxPerWallet) setMaxPerWallet(perWalletInput);
   }, [perWalletInput, maxPerWallet]);
 
+  // Focus after the reveal settles so the keyboard does not yank the layout.
   useEffect(() => {
     if (!descriptionOpen) return;
-    descriptionRef.current?.focus();
+    const timer = window.setTimeout(() => descriptionRef.current?.focus(), 360);
+    return () => window.clearTimeout(timer);
   }, [descriptionOpen]);
 
+  // Focus after the choice slide (~320ms) so the keyboard does not yank mid-enter.
   useEffect(() => {
-    if (extraSheet !== 'dropId') return;
-    dropIdRef.current?.focus();
-  }, [extraSheet]);
-
-  useEffect(() => {
-    if (extraSheet !== 'series') return;
-    seriesFieldRef.current?.focus();
-  }, [extraSheet]);
-
-  useEffect(() => {
-    if (extraSheet !== 'place') return;
-    placeFieldRef.current?.focus();
+    if (
+      extraSheet !== 'dropId' &&
+      extraSheet !== 'series' &&
+      extraSheet !== 'place'
+    ) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      if (extraSheet === 'dropId') dropIdRef.current?.focus();
+      else if (extraSheet === 'series') seriesFieldRef.current?.focus();
+      else placeFieldRef.current?.focus();
+    }, 360);
+    return () => window.clearTimeout(timer);
   }, [extraSheet]);
 
   return (
@@ -4101,8 +4105,7 @@ export function CreateDropPanel() {
         onDone={() => setExtraSheet(null)}
       >
         {extraSheet === 'dropId' ? (
-          <div className="guild-field">
-            <span>Drop ID</span>
+          <label className="guild-field" htmlFor={fieldId('id')}>
             <input
               id={fieldId('id')}
               ref={dropIdRef}
@@ -4117,16 +4120,18 @@ export function CreateDropPanel() {
                     : 'genesis-prints')
               }
               maxLength={32}
+              disabled={pending}
+              autoComplete="off"
+              aria-label="Drop ID"
               className={osFieldBorderedClassName}
             />
             {collectionId ? (
               <small>Public link: {collectionPath(collectionId)}</small>
             ) : null}
-          </div>
+          </label>
         ) : null}
         {extraSheet === 'series' ? (
-          <div className="guild-field">
-            <span>Series</span>
+          <label className="guild-field" htmlFor={fieldId('series')}>
             <input
               id={fieldId('series')}
               ref={seriesFieldRef}
@@ -4135,9 +4140,11 @@ export function CreateDropPanel() {
               placeholder="Ink Studies"
               maxLength={48}
               disabled={pending}
+              autoComplete="off"
+              aria-label="Series"
               className={osFieldBorderedClassName}
             />
-          </div>
+          </label>
         ) : null}
         {extraSheet === 'facets' && createFacetMedium ? (
           <DropFacetsEditor
@@ -4160,6 +4167,7 @@ export function CreateDropPanel() {
             onCustomRoyaltyChange={setCustomRoyaltyInput}
             onCustomToggle={setIsCustomRoyalty}
             splitZIndex={SHEET_Z.nested}
+            hideLabel
           />
         ) : null}
         {extraSheet === 'saleRules' ? (
@@ -4328,7 +4336,6 @@ export function CreateDropPanel() {
         ) : null}
         {extraSheet === 'place' ? (
           <label className="guild-field" htmlFor={fieldId('place')}>
-            <span>{isTicket ? 'Location' : 'Place'}</span>
             <input
               id={fieldId('place')}
               ref={placeFieldRef}
@@ -4338,6 +4345,7 @@ export function CreateDropPanel() {
               maxLength={64}
               placeholder="Lisbon, ETH Denver…"
               autoComplete="off"
+              aria-label={isTicket ? 'Location' : 'Place'}
               onChange={(event) => setPlaceDraft(event.target.value)}
             />
             {normalizePlaceSlug(placeDraft) ? (

@@ -7,19 +7,19 @@ import { NOTIFICATIONS_E2E_ACCOUNT } from './helpers/notifications-auth';
 
 /**
  * DM inbox windowing — the conversation list shares the feed-window core
- * with the feed, thread panels, and notifications: past the row threshold
- * (30), far rows collapse into spacer divs and rematerialize on scroll back.
- * The gateway list is cursor-less, so one stubbed inbox of 44 threads
- * crosses it.
+ * with the feed, thread panels, and notifications: past the row threshold,
+ * far rows collapse into spacer divs and rematerialize on scroll back.
+ * The gateway list is cursor-less, so one stubbed inbox clears the ~2.4k
+ * overscan.
  */
 
-const THREAD_COUNT = 44;
+const THREAD_COUNT = 80;
 const peerId = (index: number) =>
   `peer${String(index).padStart(2, '0')}.testnet`;
 const threadId = (index: number) =>
   `${NOTIFICATIONS_E2E_ACCOUNT}::${peerId(index)}`;
 
-// Newest first, minutes apart — peer00 at the head, peer43 at the tail.
+// Newest first, minutes apart — peer00 at the head, peer79 at the tail.
 const inboxThreads = Array.from({ length: THREAD_COUNT }, (_, index) => ({
   threadId: threadId(index),
   peerAccountId: peerId(index),
@@ -154,8 +154,8 @@ test.describe('DM inbox windowing', () => {
 
     await expect(row(0)).toBeVisible({ timeout: 30_000 });
 
-    // 44 threads cross the threshold — once the window engages, rows away
-    // from the viewport collapse into a bottom spacer.
+    // Enough threads cross the overscan — once the window engages, rows
+    // away from the viewport collapse into a bottom spacer.
     await expect
       .poll(renderedRowCount, { timeout: 15_000 })
       .toBeLessThan(THREAD_COUNT);

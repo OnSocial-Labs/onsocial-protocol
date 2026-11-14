@@ -1,6 +1,13 @@
 'use client';
 
-import { Suspense, useId, useMemo, type CSSProperties } from 'react';
+import {
+  Suspense,
+  useCallback,
+  useId,
+  useMemo,
+  useState,
+  type CSSProperties,
+} from 'react';
 import type {
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent,
@@ -8,16 +15,18 @@ import type {
 import dynamic from 'next/dynamic';
 import type { PostRow } from '@onsocial/sdk';
 import { GlassSheet, SheetHeader } from '@onsocial/ui';
-import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { useFeedThreadBand } from '@/features/home/use-feed-thread-band';
+import { scarceEmbedsForOpenRoot } from '@/features/scarces/scarce-embed-ledger';
 import type { PersonalPostPageData } from '@/lib/load-personal-post-page';
 
+// No loading skeleton — body stays opacity 0 until onThreadPainted.
 const LivePersonalPostPanel = dynamic(
   () =>
     import('@/features/home/live-personal-post-panel').then(
       (mod) => mod.LivePersonalPostPanel
     ),
-  { ssr: false, loading: () => <PostThreadPageSkeleton /> }
+  { ssr: false }
 );
 
 function seedEmbeddedThread(root: PostRow): PersonalPostPageData {
@@ -28,7 +37,7 @@ function seedEmbeddedThread(root: PostRow): PersonalPostPageData {
     replyTree: [],
     hasMoreReplies: false,
     engagement: {},
-    scarceEmbeds: {},
+    scarceEmbeds: scarceEmbedsForOpenRoot(root),
   };
 }
 
@@ -63,6 +72,13 @@ export function FeedMediaThreadSheet({
   onClose: () => void;
 }) {
   const titleId = useId();
+  const paintKey = `${author}:${postId}`;
+  // Key mismatch already gates appear — no reset effect (set-state-in-effect).
+  const [paintedForKey, setPaintedForKey] = useState<string | null>(null);
+  const threadPainted = paintedForKey === paintKey;
+  const noteThreadPainted = useCallback(() => {
+    setPaintedForKey(paintKey);
+  }, [paintKey]);
   const initial = useMemo(
     () => (initialRoot ? seedEmbeddedThread(initialRoot) : null),
     [initialRoot]
@@ -105,15 +121,19 @@ export function FeedMediaThreadSheet({
         </div>
       }
     >
-      <Suspense fallback={<PostThreadPageSkeleton />}>
-        <LivePersonalPostPanel
-          author={author}
-          postId={postId}
-          initial={initial}
-          embedded
-          hideRootMedia
-        />
-      </Suspense>
+      <OsPageBodyAppear ready={threadPainted}>
+        <Suspense fallback={null}>
+          <LivePersonalPostPanel
+            author={author}
+            postId={postId}
+            initial={initial}
+            embedded
+            hideRootMedia
+            landSeat={false}
+            onThreadPainted={noteThreadPainted}
+          />
+        </Suspense>
+      </OsPageBodyAppear>
     </GlassSheet>
   );
 }

@@ -83,6 +83,103 @@ async function installKeyboardViewport(page: Page): Promise<void> {
   });
 }
 
+/**
+ * Brave / Chromium tab shape: visualViewport stays full height while the
+ * Virtual Keyboard API reports the real key top. Without VK seating the
+ * drawer ends above a gap; with it the root bottom sits on the keys.
+ */
+async function installBraveVirtualKeyboard(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const vvListeners = new Map<string, Set<EventListener>>();
+    let offsetTop = 0;
+    let height = window.innerHeight;
+    const viewport = {
+      get offsetTop() {
+        return offsetTop;
+      },
+      get offsetLeft() {
+        return 0;
+      },
+      get height() {
+        return height;
+      },
+      get width() {
+        return window.innerWidth;
+      },
+      get pageTop() {
+        return offsetTop;
+      },
+      get pageLeft() {
+        return 0;
+      },
+      get scale() {
+        return 1;
+      },
+      addEventListener(type: string, listener: EventListener) {
+        const set = vvListeners.get(type) ?? new Set<EventListener>();
+        set.add(listener);
+        vvListeners.set(type, set);
+      },
+      removeEventListener(type: string, listener: EventListener) {
+        vvListeners.get(type)?.delete(listener);
+      },
+    };
+    Object.defineProperty(window, 'visualViewport', {
+      configurable: true,
+      get: () => viewport,
+    });
+
+    const geometryListeners = new Set<EventListener>();
+    let overlaysContent = false;
+    let boundingRect = { x: 0, y: 0, width: 0, height: 0 };
+    const virtualKeyboard = {
+      get overlaysContent() {
+        return overlaysContent;
+      },
+      set overlaysContent(value: boolean) {
+        overlaysContent = Boolean(value);
+      },
+      get boundingRect() {
+        return { ...boundingRect };
+      },
+      addEventListener(type: string, listener: EventListener) {
+        if (type === 'geometrychange') geometryListeners.add(listener);
+      },
+      removeEventListener(type: string, listener: EventListener) {
+        geometryListeners.delete(listener);
+      },
+    };
+    Object.defineProperty(navigator, 'virtualKeyboard', {
+      configurable: true,
+      get: () => virtualKeyboard,
+    });
+
+    (
+      window as unknown as {
+        __setBraveKeyboard?: (next: { keyTop: number }) => void;
+      }
+    ).__setBraveKeyboard = (next) => {
+      overlaysContent = true;
+      const keyTop = Math.max(0, Math.round(next.keyTop));
+      boundingRect = {
+        x: 0,
+        y: keyTop,
+        width: window.innerWidth,
+        height: Math.max(0, window.innerHeight - keyTop),
+      };
+      // Tab browser: VV does not shrink — only VK knows the keys.
+      offsetTop = 0;
+      height = window.innerHeight;
+      for (const listener of geometryListeners) {
+        listener(new Event('geometrychange'));
+      }
+      for (const listener of vvListeners.get('resize') ?? []) {
+        listener(new Event('resize'));
+      }
+    };
+  });
+}
+
 async function stubProfileEditor(
   page: Page,
   kind: 'person' | 'org'
@@ -164,11 +261,29 @@ async function readFrame(page: Page, panelSelector: string) {
     const screenRect = screen?.getBoundingClientRect();
     return {
       rootTop: rootRect?.top ?? null,
+      rootBottom: rootRect?.bottom ?? null,
       rootHeight: rootRect?.height ?? null,
       screenTop: screenRect?.top ?? null,
       scrollY: window.scrollY,
     };
   }, panelSelector);
+}
+
+async function setBraveKeyboard(
+  page: Page,
+  input: { keyTop: number }
+): Promise<void> {
+  await page.evaluate(async (next) => {
+    const set = (
+      window as unknown as {
+        __setBraveKeyboard?: (value: { keyTop: number }) => void;
+      }
+    ).__setBraveKeyboard;
+    if (!set) throw new Error('brave keyboard shim missing');
+    set(next);
+    await new Promise((resolve) => window.requestAnimationFrame(resolve));
+    await new Promise((resolve) => window.requestAnimationFrame(resolve));
+  }, input);
 }
 
 for (const profile of PROFILES) {
@@ -265,6 +380,35 @@ for (const profile of PROFILES) {
       expect(linkFrame.scrollY).toBe(0);
       await page.screenshot({
         path: `/opt/cursor/artifacts/add-link-field-${profile.name}.png`,
+        fullPage: true,
+      });
+    });
+
+    test('Virtual Keyboard overlay seats the Location drawer on the keys', async ({
+      page,
+    }) => {
+      await installBraveVirtualKeyboard(page);
+      await stubProfileEditor(page, 'person');
+      await openEditor(page);
+      const editor = page.getByRole('dialog', { name: 'Edit profile' });
+      await editor.getByRole('button', { name: 'Location, Based in' }).click();
+      const drawer = page.getByRole('dialog', { name: 'Location' });
+      await expect(drawer).toBeVisible({ timeout: 15_000 });
+      const field = drawer.getByRole('textbox', { name: 'Based in' });
+      await field.click();
+
+      const keyTop = await page.evaluate(() =>
+        Math.max(280, window.innerHeight - 320)
+      );
+      await setBraveKeyboard(page, { keyTop });
+
+      // Hug choice drawers sit on the bottom of the pinned root — flush to keys.
+      const box = await drawer.boundingBox();
+      expect(box).not.toBeNull();
+      const bottom = (box?.y ?? 0) + (box?.height ?? 0);
+      expect(Math.abs(bottom - keyTop)).toBeLessThan(12);
+      await page.screenshot({
+        path: `/opt/cursor/artifacts/location-vk-flush-${profile.name}.png`,
         fullPage: true,
       });
     });

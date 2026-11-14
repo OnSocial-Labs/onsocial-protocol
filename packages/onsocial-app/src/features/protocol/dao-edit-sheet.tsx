@@ -33,7 +33,6 @@ import { DaoPageSlideOverScreen } from '@/features/protocol/dao-page-slide-over-
 import { DaoLookPreview } from '@/features/protocol/dao-look-preview';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
 import { ProfileAboutEditorSheet } from '@/components/wallet/profile-about-editor-sheet';
-import type { ProfileAboutPhotoDraft } from '@/components/wallet/profile-about-photos-editor';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -57,8 +56,11 @@ import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll
 import { usePageKeyboardLift } from '@/hooks/use-page-keyboard-lift';
 import { useDaoPageCapability } from '@/hooks/use-dao-page-capability';
 import { bumpDaoWorkspacePrefetch } from '@/lib/dao-workspace-prefetch';
+import { isMediaFramePanCentered } from '@/lib/media-frame-pan';
+import { prepareProfileAboutPhotosForSave } from '@/lib/prepare-profile-editor-media';
 import { prepareSquareOpaqueJpeg } from '@/lib/prepare-square-opaque-jpeg';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
+import type { ProfileAboutPhotoDraft } from '@/lib/profile-about-photos';
 import {
   PROFILE_LINK_EDITOR_FIELDS,
   normalizeProfileLinksInput,
@@ -219,7 +221,10 @@ export function DaoEditSheet({
         normalizeProfileLeadInput(lead) !==
           normalizeProfileLeadInput(baseline.lead) ||
         aboutAlign !== baseline.aboutAlign ||
-        photos.some((photo) => Boolean(photo.file)) ||
+        photos.some(
+          (photo) =>
+            Boolean(photo.file) || !isMediaFramePanCentered(photo.pan)
+        ) ||
         !profileAboutPhotoRefsEqual(
           photos.map((photo) => photo.ref.trim()).filter(Boolean),
           baseline.photos.map((photo) => photo.ref)
@@ -427,12 +432,15 @@ export function DaoEditSheet({
 
       const normalizedLinks = normalizeProfileLinksInput(links, undefined);
       const { accountId: signerId, wallet } = await getSigningWallet();
+      const preparedPhotos = await prepareProfileAboutPhotosForSave(photos);
       const photoRefs: string[] = [];
-      for (const photo of photos) {
-        if (photo.file) {
-          const uploaded = await client.storage.upload(photo.file);
+      for (let index = 0; index < preparedPhotos.photos.length; index += 1) {
+        const file = preparedPhotos.photoFiles[index];
+        const photo = preparedPhotos.photos[index];
+        if (file) {
+          const uploaded = await client.storage.upload(file);
           photoRefs.push(formatProfileMediaRef(uploaded));
-        } else if (photo.ref.trim()) {
+        } else if (photo?.ref.trim()) {
           photoRefs.push(photo.ref.trim());
         }
       }

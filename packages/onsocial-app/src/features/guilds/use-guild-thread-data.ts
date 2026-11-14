@@ -30,11 +30,13 @@ import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-cli
 import type { PostEngagementMap } from '@/lib/feed-paint-hydrate';
 import {
   directRepliesToTree,
+  enrichPaintedReplyTree,
   graftVisibleReplies,
   shouldPaintDirectReplies,
   startThreadFirstPage,
   visibleReplyPaths,
 } from '@/lib/thread-first-page';
+import { scarceEmbedsForOpenRoot } from '@/features/scarces/scarce-embed-ledger';
 import { planThreadLoad } from '@/lib/thread-open';
 import {
   readGuildThreadSession,
@@ -92,6 +94,8 @@ export function useGuildThreadData({
   error: string | null;
   /** False until the first tree fetch resolves — gates the discover peek. */
   repliesResolved: boolean;
+  /** Empty-tail gate for More from — share counts known before peek mounts. */
+  shareTailReady: boolean;
   /** Engagement the panel's `usePostEngagement` should seed from. */
   seededEngagement: PostEngagementMap | null;
   conversation: GroupConversation;
@@ -163,16 +167,20 @@ export function useGuildThreadData({
   const [replyTree, setReplyTree] = useState<ThreadNode[]>(
     () => seeded?.replyTree ?? []
   );
-  /*
-   * Discover-peek gate. Until the first reply page resolves we cannot know
-   * whether replies exist — mounting the peek in that window flashes a
-   * "More from …" card that the incoming replies then replace. A cache hit
-   * or a permalink that already fetched the page counts as resolved.
-   */
+  /** First reply page ready — appear waits on this; graft/tree enrich after. */
   const [repliesResolved, setRepliesResolved] = useState(
     () =>
       sessionSeed.fromCache || Boolean(sessionSeed.data?.directRepliesResolved)
   );
+  /**
+   * Empty-tail gate for More from. Appear does not wait — peek must not mount
+   * until share counts are known, or View quotes arriving unmounts it.
+   */
+  const [shareTailReady, setShareTailReady] = useState(
+    () => sessionSeed.fromCache
+  );
+  const firstPagePaintedRef = useRef(sessionSeed.fromCache);
+  const hasMoreRepliesRef = useRef(Boolean(seeded?.hasMoreReplies));
   const [localReplies, setLocalReplies] = useState<PostRow[]>([]);
   const [localQuotes, setLocalQuotes] = useState<PostRow[]>([]);
   const [guildStructure, setGuildStructure] =
@@ -234,20 +242,19 @@ export function useGuildThreadData({
         const firstPagePromise = paintDirect
           ? startThreadFirstPage(rootPath)
           : null;
-        const restPromise = Promise.allSettled([
-          client.query.groups.post(postRef),
-          client.query.groups.quotes(postRef, {
-            limit: QUOTE_PAGE_SIZE,
-            order: 'desc',
-          }),
-          client.query.groups.threadTree(postRef, {
-            depth: REPLY_TREE_DEPTH,
-            includeQuotes: false,
-            replyLimit: REPLY_PAGE_SIZE,
-            maxNodes: REPLY_TREE_MAX_NODES,
-          }),
-          client.groups.getConfig(groupId),
-        ]);
+        // First reply page gates appear; quotes/tree/config soft-fill after.
+        const rootPromise = client.query.groups.post(postRef);
+        const quotesPromise = client.query.groups.quotes(postRef, {
+          limit: QUOTE_PAGE_SIZE,
+          order: 'desc',
+        });
+        const treePromise = client.query.groups.threadTree(postRef, {
+          depth: REPLY_TREE_DEPTH,
+          includeQuotes: false,
+          replyLimit: REPLY_PAGE_SIZE,
+          maxNodes: REPLY_TREE_MAX_NODES,
+        });
+        const configPromise = client.groups.getConfig(groupId);
 
         if (firstPagePromise) {
           try {
@@ -262,6 +269,8 @@ export function useGuildThreadData({
               }));
               setReplyTree(pageTree);
               setHasMoreReplies(first.hasMore);
+              hasMoreRepliesRef.current = first.hasMore;
+              firstPagePaintedRef.current = true;
               setRepliesResolved(true);
               const visiblePaths = visibleReplyPaths(first.replies);
               if (visiblePaths.length > 0) {
@@ -276,13 +285,13 @@ export function useGuildThreadData({
                     );
                   })
                   .catch(() => {
-                    // The tree walk still fills the line.
+                    // Tree walk below still fills the line.
                   });
               }
-              const root = seeded?.root ?? null;
-              if (root) {
+              const seedRoot = seeded?.root ?? null;
+              if (seedRoot) {
                 writeGuildThreadSession(rootPath, {
-                  root,
+                  root: seedRoot,
                   replies: first.replies,
                   quotes: seeded?.quotes ?? [],
                   replyTree: pageTree,
@@ -291,30 +300,44 @@ export function useGuildThreadData({
                   memberDriven: seeded?.memberDriven ?? false,
                   accessGated: seeded?.accessGated ?? false,
                   engagement: engagementLatestRef?.current ?? {},
-                  scarceEmbeds: {},
+                  scarceEmbeds: scarceEmbedsForOpenRoot(seedRoot),
                 });
               }
             }
           } catch {
-            // The tree walk below still resolves the thread.
+            // Root + tree walk below still resolve the thread.
           }
         }
 
-        const [rootResult, quotesResult, treeResult, configResult] =
-          await restPromise;
-
+        let root: Awaited<typeof rootPromise>;
+        try {
+          root = await rootPromise;
+        } catch (cause) {
+          throw cause;
+        }
         if (threadKeyRef.current !== threadKey) return;
         if (refreshRequestIdRef.current !== requestId) return;
 
-        if (rootResult.status === 'rejected') {
-          throw rootResult.reason;
-        }
-
-        const root = rootResult.value;
         // Soft refresh must not blank a painted SSR thread on a null miss.
         if (options.background && !root) {
           return;
         }
+
+        setConversation((current) => ({
+          ...current,
+          root,
+        }));
+        setRepliesResolved(true);
+        if (!options.background) {
+          setLoadState(root ? 'ready' : 'missing');
+        }
+
+        const [quotesResult, treeResult, configResult] = await Promise.allSettled(
+          [quotesPromise, treePromise, configPromise]
+        );
+        if (threadKeyRef.current !== threadKey) return;
+        if (refreshRequestIdRef.current !== requestId) return;
+
         const fetchedQuotes =
           quotesResult.status === 'fulfilled' ? quotesResult.value : [];
         const treeOk = treeResult.status === 'fulfilled';
@@ -331,20 +354,36 @@ export function useGuildThreadData({
         // Once the user paginated past the first page, a background
         // first-page fetch would discard loaded pages — reconcile only.
         // A failed walk keeps the direct page already on screen.
+        const keepFirstPage =
+          treeOk && firstPagePaintedRef.current && !paginatedRef.current;
+        let sessionTree: ThreadNode[] | null = null;
         if (!options.background || !paginatedRef.current) {
           setConversation((current) => ({
-            root,
-            replies: treeOk
-              ? fetchedTree.map((node) => node.post)
-              : current.replies,
+            root: current.root ?? root,
+            replies: keepFirstPage
+              ? current.replies
+              : treeOk
+                ? fetchedTree.map((node) => node.post)
+                : current.replies,
             quotes: fetchedQuotes,
           }));
           if (treeOk) {
-            setReplyTree(fetchedTree);
-            setHasMoreReplies(fetchedTree.length >= REPLY_PAGE_SIZE);
             setLoadMoreError(null);
+            if (keepFirstPage) {
+              setReplyTree((current) => {
+                sessionTree = enrichPaintedReplyTree(current, fetchedTree);
+                return sessionTree;
+              });
+            } else {
+              setReplyTree(fetchedTree);
+              sessionTree = fetchedTree;
+              const more = fetchedTree.length >= REPLY_PAGE_SIZE;
+              setHasMoreReplies(more);
+              hasMoreRepliesRef.current = more;
+            }
           }
         }
+        setShareTailReady(true);
 
         const rawConfig =
           configResult.status === 'fulfilled' ? configResult.value : null;
@@ -363,13 +402,20 @@ export function useGuildThreadData({
           setMemberDriven(false);
         }
 
-        if (treeOk && root && (!options.background || !paginatedRef.current)) {
+        if (
+          treeOk &&
+          root &&
+          sessionTree &&
+          (!options.background || !paginatedRef.current)
+        ) {
           writeGuildThreadSession(rootPath, {
             root,
-            replies: fetchedTree.map((node) => node.post),
+            replies: sessionTree.map((node) => node.post),
             quotes: fetchedQuotes,
-            replyTree: fetchedTree,
-            hasMoreReplies: fetchedTree.length >= REPLY_PAGE_SIZE,
+            replyTree: sessionTree,
+            hasMoreReplies: keepFirstPage
+              ? hasMoreRepliesRef.current
+              : sessionTree.length >= REPLY_PAGE_SIZE,
             guildName:
               rawConfig && typeof rawConfig.name === 'string'
                 ? rawConfig.name
@@ -382,15 +428,8 @@ export function useGuildThreadData({
               ? rawConfig.is_private === true || rawConfig.isPrivate === true
               : guildMetaRef.current.accessGated,
             engagement: engagementLatestRef?.current ?? {},
-            // Scarce embeds only ever seed from SSR; the ledger refetches.
-            scarceEmbeds: {},
+            scarceEmbeds: scarceEmbedsForOpenRoot(root),
           });
-        }
-        setRepliesResolved(true);
-
-        // Thread/conversation first; compose affordances hydrate with viewer.
-        if (!options.background) {
-          setLoadState(root ? 'ready' : 'missing');
         }
 
         if (accountId && rawConfig) {
@@ -453,6 +492,7 @@ export function useGuildThreadData({
         if (threadKeyRef.current !== threadKey) return;
         if (refreshRequestIdRef.current !== requestId) return;
         setRepliesResolved(true);
+        setShareTailReady(true);
         setLoadState('error');
         setError(guildThreadLoadError(cause));
       }
@@ -583,6 +623,7 @@ export function useGuildThreadData({
     loadState,
     error,
     repliesResolved,
+    shareTailReady,
     seededEngagement: seeded?.engagement ?? null,
     conversation,
     replyTree,

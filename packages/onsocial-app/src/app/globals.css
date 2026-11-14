@@ -1701,6 +1701,35 @@ button.market-listing-title-link {
 }
 
 /*
+ * Screen-header glyphs — full ink like About / Edit profile. Unlayered so
+ * it beats glass-sheet.css’s quiet 0.72 (drawer × stays dimmed).
+ */
+.os-app-screen[data-immersive-header='true']
+  > .os-app-screen-column
+  > .os-app-screen-header:not(.is-elevated)
+  .glass-sheet-icon-action
+  > .mage-stroke-icon,
+.os-app-screen[data-immersive-header='true']
+  > .os-app-screen-column
+  > .os-app-screen-header:not(.is-elevated)
+  .glass-sheet-icon-action
+  > svg {
+  color: var(--app-on-media-ink);
+  opacity: 1;
+}
+
+.os-app-screen[data-glass-chrome='true']
+  .os-app-screen-nav-row
+  .glass-sheet-icon-action
+  > .mage-stroke-icon,
+.os-app-screen[data-glass-chrome='true']
+  .os-app-screen-nav-row
+  .glass-sheet-icon-action
+  > svg {
+  opacity: 1;
+}
+
+/*
  * Post header Back is the full 2.35rem nav slot with no disc. Photo, video,
  * audio, and the reader keep the frost circle centered in that same slot.
  * The listen player does not — its header is the Post header.
@@ -1766,9 +1795,16 @@ button.market-listing-title-link {
   > .os-app-screen-column
   > .os-app-screen-header
   .glass-sheet-icon-action
+  > *,
+.portfolio-writing-article-screen[data-immersive-header='true']
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action
   > * {
   position: relative;
   z-index: 1;
+  color: var(--app-on-media-ink);
+  opacity: 1;
 }
 
 .feed-photo-slide .os-media-face-close .glass-sheet-close-icon,
@@ -1887,6 +1923,8 @@ button.market-listing-title-link {
 .feed-article-slide .os-app-screen-actions .post-card-menu-trigger > * {
   position: relative;
   z-index: 1;
+  color: var(--app-on-media-ink);
+  opacity: 1;
 }
 
 .feed-article-slide .os-app-screen-actions,
@@ -2162,12 +2200,14 @@ button.market-listing-title-link {
 
 .guild-edit-slide .os-app-screen-heading,
 .hub-manage-slide .os-app-screen-heading {
+  --os-profile-edit-title-pill-pad-x: 0.72rem;
   flex: 0 1 auto;
   align-self: center;
   width: fit-content;
   min-width: 0;
   max-width: calc(100% - 3.6rem);
-  padding: 0.28rem 0.72rem;
+  margin-left: calc(-1 * var(--os-profile-edit-title-pill-pad-x));
+  padding: 0.28rem var(--os-profile-edit-title-pill-pad-x);
   border-radius: 9999px;
   background: var(--app-scrim-media);
   color: var(--app-on-media-ink);
@@ -2194,9 +2234,30 @@ button.market-listing-title-link {
   padding: 0;
 }
 
+/*
+ * Slide-overs sit at inset -1px for the card hairline; page sheets (Edit /
+ * Post / Writings) sit at 0. Nudge About’s header pad so chevron + title
+ * land on that same grid — look unchanged, spacing only.
+ */
 .portfolio-frame > .os-slide-over.profile-about-edit-slide,
 .app-surface > .os-slide-over.profile-about-edit-slide {
   inset: -1px;
+}
+
+.portfolio-frame
+  > .os-slide-over.profile-about-edit-slide
+  > .os-app-screen-column
+  > .os-app-screen-header,
+.app-surface
+  > .os-slide-over.profile-about-edit-slide
+  > .os-app-screen-column
+  > .os-app-screen-header {
+  padding: calc(
+      env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y, 0.3rem) + 1px
+    )
+    calc(max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px)) + 1px)
+    var(--os-app-chrome-pad-y, 0.3rem)
+    calc(max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px)) + 1px);
 }
 
 .profile-edit-slide > .os-app-screen-column > .os-app-screen-header,
@@ -2215,21 +2276,22 @@ button.market-listing-title-link {
 .profile-edit-slide .os-app-screen-nav-row {
   position: relative;
   align-items: center;
-  height: var(--os-nav-band, 2.35rem);
-  min-height: var(--os-nav-band, 2.35rem);
-  max-height: var(--os-nav-band, 2.35rem);
+  height: var(--os-app-screen-nav-row-height, var(--os-nav-band, 2.35rem));
+  min-height: var(--os-app-screen-nav-row-height, var(--os-nav-band, 2.35rem));
+  max-height: var(--os-app-screen-nav-row-height, var(--os-nav-band, 2.35rem));
 }
 
 .profile-edit-slide .os-app-screen-nav-row .glass-sheet-icon-action {
-  flex: 0 0 var(--os-nav-band, 2.35rem);
-  width: var(--os-nav-band, 2.35rem);
-  height: var(--os-nav-band, 2.35rem);
-  min-width: var(--os-nav-band, 2.35rem);
-  min-height: var(--os-nav-band, 2.35rem);
+  flex: 0 0 var(--os-app-screen-nav-row-height, var(--os-nav-band, 2.35rem));
+  width: var(--os-app-screen-nav-row-height, var(--os-nav-band, 2.35rem));
+  height: var(--os-app-screen-nav-row-height, var(--os-nav-band, 2.35rem));
+  min-width: var(--os-app-screen-nav-row-height, var(--os-nav-band, 2.35rem));
+  min-height: var(--os-app-screen-nav-row-height, var(--os-nav-band, 2.35rem));
   margin: 0;
 }
 
 .profile-edit-slide .os-app-screen-heading {
+  --os-profile-edit-title-pill-pad-x: 0.72rem;
   position: static;
   transform: none;
   flex: 0 1 auto;
@@ -2237,8 +2299,9 @@ button.market-listing-title-link {
   width: fit-content;
   min-width: 0;
   max-width: calc(100% - 3.6rem);
-  margin: 0;
-  padding: 0.28rem 0.72rem;
+  /* Pill stays; pull the word onto the Post / Writings title start. */
+  margin: 0 0 0 calc(-1 * var(--os-profile-edit-title-pill-pad-x));
+  padding: 0.28rem var(--os-profile-edit-title-pill-pad-x);
   border-radius: 9999px;
   background: var(--app-scrim-media);
   color: var(--app-on-media-ink);
@@ -9567,11 +9630,14 @@ a.os-surface-row,
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(
-      135deg,
-      rgb(var(--fg-rgb) / 0.12),
-      rgb(var(--fg-rgb) / 0.05)
-    );
+    /* Opaque plate — same as edit profile; cover must not show through. */
+    background:
+      linear-gradient(
+        135deg,
+        rgb(var(--fg-rgb) / 0.1),
+        rgb(var(--fg-rgb) / 0.04)
+      ),
+      var(--portfolio-avatar-ring, var(--mood-bg, var(--bg)));
     color: rgb(var(--fg-rgb) / 0.72);
     font-size: calc(var(--portfolio-avatar-size) * 0.28);
     font-weight: 600;
@@ -9908,58 +9974,12 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.4);
   }
 
-  .account-editor-about-photos {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.35rem;
-    width: 100%;
-    margin-top: 0.55rem;
-  }
-
-  .account-editor-about-photos-label {
-    margin: 0;
-    font-size: var(--os-stamp-size, 0.75rem);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    color: rgb(var(--fg-rgb) / 0.55);
-  }
-
-  .account-editor-about-photos-list {
-    display: grid;
-    gap: 0.4rem;
-    width: 100%;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .account-editor-about-photos-list[data-count='2'],
-  .account-editor-about-photos-list[data-count='3'] {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .account-editor-about-photos-list[data-count='3'] > :first-child,
   .post-row-skeleton-media--collage-3
     .post-row-skeleton-media-cell:first-child {
     grid-column: 1 / -1;
   }
 
-  .account-editor-about-photos-list li {
-    position: relative;
-    overflow: hidden;
-    border-radius: 0.65rem;
-    background: rgb(var(--fg-rgb) / 0.04);
-  }
-
-  .account-editor-about-photos-list li.is-dragging {
-    opacity: 0.55;
-  }
-
-  .account-editor-about-photos-list li.is-drop-target {
-    box-shadow: 0 0 0 2px rgb(var(--fg-rgb) / 0.28);
-  }
-
+  /* About studio drag handle — shared with print/film chrome. */
   .account-editor-about-photos-drag {
     position: absolute;
     top: 0.35rem;
@@ -9984,35 +10004,6 @@ a.os-surface-row,
 
   .account-editor-about-photos-drag:active {
     cursor: grabbing;
-  }
-
-  .account-editor-about-photos-list img {
-    display: block;
-    width: 100%;
-    aspect-ratio: 4 / 3;
-    object-fit: cover;
-  }
-
-  .account-editor-about-photos-list[data-count='1'] img,
-  .account-editor-about-photos-list[data-count='3'] > :first-child img {
-    aspect-ratio: 16 / 9;
-  }
-
-  .account-editor-about-photos-add {
-    margin: 0;
-    padding: 0;
-    border: 0;
-    background: none;
-    font-size: var(--os-control-label-compact-size, 0.8125rem);
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    color: rgb(var(--fg-rgb) / 0.62);
-    cursor: pointer;
-  }
-
-  .account-editor-about-photos-add:hover,
-  .account-editor-about-photos-add:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.88);
   }
 
   .portfolio-handle-marks {
@@ -14150,16 +14141,16 @@ a.os-surface-row,
     --os-screen-body-inset: var(--os-screen-body-pad-top)
       var(--os-screen-body-pad-x) var(--os-screen-body-pad-bottom);
     /*
-     * Open Post page face, under the shared body pad. The root card uses
-     * 0.35rem (not the feed card's 0.68rem), then the 1px card edge and the
-     * avatar's 0.05rem nudge. Composer first rows share this sum.
+     * Pin: Home chrome → first avatar. Open Post matches the feed card pad
+     * (detail has border-width 0 — do not add edge again). Compose adds the
+     * avatar nudge the feed link carries.
      */
-    --os-post-open-pad-top: 0.35rem;
+    --os-feed-card-pad-y: 0.68rem;
     --os-post-avatar-nudge: 0.05rem;
     --os-post-card-edge: 1px;
+    --os-post-open-pad-top: var(--os-feed-card-pad-y);
     --os-composer-first-pad-top: calc(
-      var(--os-post-open-pad-top) + var(--os-post-avatar-nudge) +
-        var(--os-post-card-edge)
+      var(--os-feed-card-pad-y) + var(--os-post-avatar-nudge)
     );
     position: relative;
     height: 100dvh;
@@ -20615,6 +20606,9 @@ a.os-surface-row,
   .account-editor-avatar-backdrop {
     position: absolute;
     inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     overflow: hidden;
     border-radius: inherit;
   }
@@ -20699,7 +20693,10 @@ a.os-surface-row,
 
   .account-editor-avatar-wrap {
     position: relative;
+    z-index: 4;
     flex-shrink: 0;
+    width: var(--account-editor-avatar-size);
+    height: var(--account-editor-avatar-size);
     pointer-events: auto;
   }
 
@@ -20750,21 +20747,26 @@ a.os-surface-row,
   .account-editor-avatar {
     position: relative;
     z-index: 4;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: var(--account-editor-avatar-size);
-    height: var(--account-editor-avatar-size);
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
     padding: 0;
     border: 0;
     border-radius: 9999px;
-    overflow: visible;
-    background: linear-gradient(
-      135deg,
-      rgb(var(--fg-rgb) / 0.12),
-      rgb(var(--fg-rgb) / 0.05)
-    );
+    overflow: hidden;
+    /*
+     * Opaque plate first — a translucent wash alone lets the cover show
+     * through an empty mark. Photo covers this when present.
+     */
+    background:
+      linear-gradient(
+        135deg,
+        rgb(var(--fg-rgb) / 0.1),
+        rgb(var(--fg-rgb) / 0.04)
+      ),
+      var(--account-editor-avatar-ring, var(--mood-bg, var(--bg)));
+    /* Ring paints outside the box — layout size stays the wrap. */
     box-shadow: 0 0 0 3px
       var(--account-editor-avatar-ring, var(--mood-bg, var(--bg)));
     pointer-events: auto;
@@ -20786,19 +20788,45 @@ a.os-surface-row,
     pointer-events: auto;
   }
 
-  /* Card + banner — profile grey border (live portfolio Card). */
-  .account-editor-cover-stage.has-media .account-editor-avatar {
-    box-sizing: border-box;
+  /* Match live portfolio: grey edge on banner, ring cutout otherwise. */
+  .profile-edit-slide .account-editor-cover-stage.has-media .account-editor-avatar {
     border: 3px solid rgb(var(--fg-rgb) / 0.1);
     box-shadow: none;
   }
 
-  /* Minimal — no avatar halo (matches live portfolio mood-only face). */
   .profile-edit-slide[data-mood]
     .account-editor-cover-stage:not(.has-media)
     .account-editor-avatar {
-    border: none;
     box-shadow: none;
+  }
+
+  /* Banner fill — never contribute to document flow. */
+  .profile-edit-slide
+    .account-editor-banner-button.profile-editor-media-host
+    > .profile-editor-media-backdrop,
+  .profile-edit-slide
+    .account-editor-banner-button.profile-editor-media-host
+    > .media-frame-pan-surface {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .profile-edit-slide
+    .account-editor-banner-button
+    .media-frame-pan-surface
+    > img,
+  .profile-edit-slide
+    .account-editor-avatar
+    .media-frame-pan-surface
+    > img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    object-fit: cover;
   }
 
   .account-editor-avatar-fallback {
@@ -20937,16 +20965,6 @@ a.os-surface-row,
     outline: none;
   }
 
-  .account-editor-about-hint {
-    margin: 0.28rem 0 0;
-    font-size: var(--os-stamp-size, 0.75rem);
-    font-weight: 500;
-    letter-spacing: 0.01em;
-    line-height: 1.35;
-    text-align: center;
-    color: rgb(var(--fg-rgb) / 0.38);
-  }
-
   .account-editor-about-trigger {
     display: flex;
     flex-direction: column;
@@ -21016,31 +21034,13 @@ a.os-surface-row,
   }
 
   .profile-about-edit-body--studio .account-editor-topics-face,
-  .profile-about-edit-body--studio .account-editor-topics-list.portfolio-topics,
-  .profile-about-edit-body--studio .account-editor-about-photos {
+  .profile-about-edit-body--studio .account-editor-topics-list.portfolio-topics {
     align-items: stretch;
     justify-content: flex-start;
     text-align: start;
     margin-inline: 0;
     max-width: none;
     width: 100%;
-  }
-
-  .profile-about-edit-body--studio .account-editor-about-photos-label,
-  .profile-about-edit-body--studio .account-editor-about-hint {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-
-  .profile-about-edit-body--studio .account-editor-about-photos {
-    margin-top: 0;
   }
 
   .profile-about-edit-body--studio .account-editor-bio-shell,
@@ -21264,7 +21264,8 @@ a.os-surface-row,
     padding-bottom: 1rem;
   }
 
-  .profile-about-edit-studio.portfolio-about[data-has-print='true'] {
+  /* Editor always reserves print + two film cells — add/remove never reflows. */
+  .profile-about-edit-studio.portfolio-about {
     max-width: 38rem;
   }
 
@@ -21278,32 +21279,64 @@ a.os-surface-row,
     opacity: 0.55;
   }
 
-  .profile-about-edit-studio .portfolio-about-print.is-selected,
-  .profile-about-edit-film-item.is-selected {
-    box-shadow: 0 0 0 2px rgb(var(--fg-rgb) / 0.42);
-  }
-
-  .profile-about-edit-still-hit {
-    appearance: none;
+  .profile-about-edit-pan {
     position: absolute;
     inset: 0;
     z-index: 1;
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .profile-about-edit-pan.is-dragging {
+    cursor: grabbing;
+  }
+
+  .profile-about-edit-pan .portfolio-about-shot,
+  .profile-about-edit-pan .portfolio-about-film-shot {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .profile-about-edit-slot-add {
+    appearance: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
     margin: 0;
-    padding: 0;
-    border: 0;
+    padding: 0.75rem;
+    border: 1px dashed rgb(var(--fg-rgb) / 0.18);
     border-radius: inherit;
-    background: transparent;
+    background: rgb(var(--fg-rgb) / 0.025);
+    color: rgb(var(--fg-rgb) / 0.4);
+    font-family: var(--font-space-grotesk), system-ui, sans-serif;
+    font-size: var(--os-stamp-size, 0.75rem);
+    font-weight: 600;
+    letter-spacing: 0.02em;
     cursor: pointer;
   }
 
-  .profile-about-edit-still-hit:disabled {
+  .profile-about-edit-slot-add:hover,
+  .profile-about-edit-slot-add:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.62);
+    border-color: rgb(var(--fg-rgb) / 0.3);
+    background: rgb(var(--fg-rgb) / 0.045);
+    outline: none;
+  }
+
+  .profile-about-edit-slot-add:disabled {
+    opacity: 0.45;
     cursor: default;
   }
 
-  .profile-about-edit-still-hit:focus-visible {
-    outline: none;
-    box-shadow: inset 0 0 0 2px
-      color-mix(in srgb, var(--protocol-blue) 45%, transparent);
+  .profile-about-edit-film-item {
+    position: relative;
+    aspect-ratio: 2 / 1;
   }
 
   .profile-about-edit-media-chrome {
@@ -21351,14 +21384,6 @@ a.os-surface-row,
       .portfolio-about-print.is-dragging
       .profile-about-edit-media-chrome
       .account-editor-about-photos-remove,
-    .profile-about-edit-studio
-      .portfolio-about-print.is-selected
-      .profile-about-edit-media-chrome
-      .account-editor-about-photos-drag,
-    .profile-about-edit-studio
-      .portfolio-about-print.is-selected
-      .profile-about-edit-media-chrome
-      .account-editor-about-photos-remove,
     .profile-about-edit-film-item:hover
       .profile-about-edit-media-chrome
       .account-editor-about-photos-drag,
@@ -21375,12 +21400,6 @@ a.os-surface-row,
       .profile-about-edit-media-chrome
       .account-editor-about-photos-drag,
     .profile-about-edit-film-item.is-dragging
-      .profile-about-edit-media-chrome
-      .account-editor-about-photos-remove,
-    .profile-about-edit-film-item.is-selected
-      .profile-about-edit-media-chrome
-      .account-editor-about-photos-drag,
-    .profile-about-edit-film-item.is-selected
       .profile-about-edit-media-chrome
       .account-editor-about-photos-remove,
     .scarce-clip-player:hover .scarce-clip-cover-chrome,
@@ -21419,96 +21438,10 @@ a.os-surface-row,
   .profile-about-edit-studio
     .portfolio-about-print.is-dragging
     .profile-about-edit-role,
-  .profile-about-edit-studio
-    .portfolio-about-print.is-selected
-    .profile-about-edit-role,
   .profile-about-edit-film-item:hover .profile-about-edit-role,
   .profile-about-edit-film-item:focus-within .profile-about-edit-role,
-  .profile-about-edit-film-item.is-dragging .profile-about-edit-role,
-  .profile-about-edit-film-item.is-selected .profile-about-edit-role {
+  .profile-about-edit-film-item.is-dragging .profile-about-edit-role {
     opacity: 1;
-  }
-
-  .profile-about-edit-print-ghost,
-  .profile-about-edit-film-add {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
-    width: 100%;
-    margin: 0;
-    padding: 0.75rem;
-    border: 1px dashed rgb(var(--fg-rgb) / 0.18);
-    background: rgb(var(--fg-rgb) / 0.025);
-    color: rgb(var(--fg-rgb) / 0.4);
-    font-family: var(--font-space-grotesk), system-ui, sans-serif;
-    font-size: var(--os-stamp-size, 0.75rem);
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    cursor: pointer;
-  }
-
-  /* Collapsed (no print) — quiet text, not a forced print column. */
-  .profile-about-edit-print-ghost {
-    appearance: none;
-    width: auto;
-    max-width: max-content;
-    margin-top: 0.15rem;
-    padding: 0.1rem 0;
-    border: 0;
-    background: transparent;
-    color: var(--portfolio-about-quiet, rgb(var(--fg-rgb) / 0.42));
-    font-size: clamp(0.62rem, 5.4cqi, 0.8rem);
-    font-weight: 500;
-    letter-spacing: 0.01em;
-    line-height: 1.35;
-    justify-content: flex-start;
-    opacity: 0.72;
-  }
-
-  .profile-about-edit-film-add {
-    border-radius: 0.65rem;
-  }
-
-  .profile-about-edit-film-add.is-solo {
-    aspect-ratio: 2 / 1;
-    min-height: 5.5rem;
-  }
-
-  .profile-about-edit-film-add.is-companion {
-    aspect-ratio: auto;
-    min-height: 2.75rem;
-    margin-top: -0.55rem;
-  }
-
-  .profile-about-edit-print-ghost:hover,
-  .profile-about-edit-print-ghost:focus-visible,
-  .profile-about-edit-film-add:hover,
-  .profile-about-edit-film-add:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.62);
-    opacity: 1;
-  }
-
-  .profile-about-edit-film-add:hover,
-  .profile-about-edit-film-add:focus-visible {
-    border-color: rgb(var(--fg-rgb) / 0.3);
-    background: rgb(var(--fg-rgb) / 0.045);
-  }
-
-  .profile-about-edit-print-ghost:focus-visible,
-  .profile-about-edit-film-add:focus-visible {
-    outline: none;
-    box-shadow: var(
-      --os-focus-ring,
-      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
-    );
-    border-radius: 0.25rem;
-  }
-
-  .profile-about-edit-print-ghost:disabled,
-  .profile-about-edit-film-add:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
   }
 
   .profile-about-edit-lead-ghost {
@@ -22909,17 +22842,24 @@ a.os-surface-row,
   }
 
   /*
-   * Skip layout/paint for offscreen feed blocks. Cards are heavy subtrees
-   * (media, observers, overlay sheets) and the list is unbounded; `auto`
-   * remembers each block's rendered height so the scrollbar stays stable.
-   * Paint containment clips anything past this box. Inline pad matches
-   * the standing-row hover bleed.
+   * Home feed scroller — Lenis stays on; browser overflow-anchor off so
+   * window spacers + feed anchors own stability (no triple-correct jiggle).
+   */
+  .os-app-screen-body:has(.home-feed) {
+    overflow-anchor: none;
+  }
+
+  /*
+   * Feed blocks. Windowed lists own offscreen via spacers — never use a flat
+   * 20rem CV guess (that made scroll-back content "appear" on desktop).
+   * Small unwindowed lists still skip paint with a text-row intrinsic.
    */
   .home-feed-block {
     content-visibility: auto;
-    contain-intrinsic-size: auto 20rem;
+    contain-intrinsic-size: auto 17.5rem;
     margin-inline: -0.25rem;
     padding-inline: 0.25rem;
+    overflow-anchor: none;
   }
 
   /*
@@ -23337,7 +23277,7 @@ a.os-surface-row,
     align-items: flex-start;
     gap: var(--os-media-copy-gap, 0.55rem);
     margin: 0 -0.25rem;
-    padding: 0.68rem 0.25rem;
+    padding: var(--os-feed-card-pad-y, 0.68rem) 0.25rem;
     border: var(--os-post-card-edge, 1px) solid transparent;
     border-radius: 0.9rem;
     background: transparent;
@@ -23663,7 +23603,8 @@ a.os-surface-row,
     min-width: 0;
     flex: 1;
     flex-direction: column;
-    gap: 0.2rem;
+    /* Byline → body — tight like standing head / X; menu must not loft this. */
+    gap: 0.12rem;
     /*
      * Text stays in the scroll layer. A column translateZ re-rounds glyphs
      * when hover changes their ink, so labels jump with the scroll fraction.
@@ -23684,7 +23625,8 @@ a.os-surface-row,
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
-    align-items: center;
+    /* Top-align with avatar — center was dropping inline names below stacked. */
+    align-items: flex-start;
     /* Tight Name @id · time; spacer owns the run to ⋮. */
     gap: 0.28rem;
     width: 100%;
@@ -23710,29 +23652,48 @@ a.os-surface-row,
     overflow: hidden;
   }
 
-  /* Open post root: name on its own line, @account under it. */
-  .post-identity-main--stacked {
-    flex-direction: column;
-    flex-wrap: nowrap;
-    align-items: flex-start;
-    gap: 0.05rem;
-    overflow: visible;
-  }
-
-  .post-identity--stacked .post-identity-name {
+  /*
+   * Open post: standing-style profile hit — avatar + name/marks + @id in
+   * one `.post-card-identity` (shared hover). ⋮ stays outside on the name row.
+   */
+  .post-identity--stacked .post-identity-row > .post-card-identity {
+    flex: 1 1 0;
     min-width: 0;
     max-width: 100%;
+    align-items: flex-start;
+    overflow: hidden;
   }
 
-  .post-identity--stacked .post-identity-handle {
-    flex: 0 1 auto;
+  .post-identity--stacked .post-identity-stack {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-width: 0;
     max-width: 100%;
+    gap: 0.05rem;
+  }
+
+  .post-identity--stacked .post-identity-name-cluster {
+    flex: 0 1 auto;
+    width: 100%;
+  }
+
+  .post-identity--stacked .post-identity-stack > .post-identity-handle {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-size: var(--os-identity-meta-size, 0.875rem);
     font-weight: var(--os-identity-handle-weight, 400);
     line-height: 1.45;
     color: var(--os-identity-handle);
-    text-decoration: none;
-    transition: color 160ms ease;
+  }
+
+  /* Optical mid of the name line — does not grow the row (menu hugs hit). */
+  .post-identity-trailing,
+  .post-identity-time-slot {
+    align-self: center;
   }
 
   .post-card-detail-time {
@@ -23752,18 +23713,59 @@ a.os-surface-row,
     margin-top: 0.35rem;
   }
 
+  /*
+   * Standing parity (`.standing-row-name-row`): name shrinks, marks hug it
+   * at `gap: 0.3em` — never grow the name box (that shoved icons to the end).
+   */
   .post-identity-name-cluster {
-    display: inline-flex;
+    display: flex;
     flex: 0 1 auto;
     flex-wrap: nowrap;
     align-items: center;
     gap: 0.3em;
     min-width: 0;
     max-width: 100%;
+    overflow: hidden;
     font-size: var(--os-identity-name-size, 0.9375rem);
     font-weight: var(--os-identity-name-weight, 600);
     letter-spacing: -0.01em;
     line-height: 1.5;
+  }
+
+  .post-identity-inline-cluster > .post-identity-name-cluster {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+
+  .post-identity-name-wrap {
+    display: block;
+    flex: 0 1 auto;
+    min-width: 3ch;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .post-identity-name-wrap .post-identity-name {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 1em;
+    font-weight: inherit;
+    letter-spacing: inherit;
+    line-height: inherit;
+  }
+
+  .post-identity-name-cluster > .protocol-identity-mark-cluster,
+  .post-identity-name-cluster > .protocol-identity-mark {
+    flex: 0 0 auto;
+    line-height: 1;
+  }
+
+  .post-identity-name-cluster .protocol-identity-mark-glyph {
+    transform: translateY(0.05em);
   }
 
   /* Feed: Name marks @handle · time — one hugging row. */
@@ -23780,17 +23782,6 @@ a.os-surface-row,
     font-weight: var(--os-identity-name-weight, 600);
     letter-spacing: -0.01em;
     line-height: 1.5;
-  }
-
-  .post-identity-inline-cluster .post-identity-name,
-  .post-identity-name-cluster .post-identity-name {
-    flex: 0 1 auto;
-    /* Keep a readable stub when the root font is enlarged — never crush to 0. */
-    min-width: 3ch;
-    font-size: 1em;
-    font-weight: inherit;
-    letter-spacing: inherit;
-    line-height: inherit;
   }
 
   .post-identity-inline-cluster .post-identity-handle {
@@ -23843,31 +23834,7 @@ a.os-surface-row,
     text-decoration: none;
   }
 
-  .post-identity-name-marks {
-    display: inline-flex;
-    flex: 0 0 auto;
-    flex-wrap: nowrap;
-    align-items: center;
-    gap: 0.18em;
-    line-height: 1;
-  }
-
-  .post-identity-name-marks .protocol-identity-mark-cluster {
-    align-items: center;
-    line-height: 1;
-  }
-
-  .post-identity-name-marks .protocol-identity-mark {
-    line-height: 1;
-    pointer-events: auto;
-  }
-
-  .post-identity-name-marks .protocol-identity-mark-glyph {
-    transform: translateY(0.05em);
-  }
-
   .post-identity-name {
-    flex: 0 1 auto;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -23900,46 +23867,6 @@ a.os-surface-row,
   .post-identity-main > .post-identity-inline-cluster {
     flex: 0 1 auto;
     min-width: 0;
-  }
-
-  /* Keep open-post identity stacked after the shared feed rules above. */
-  .post-identity--stacked .post-identity-row {
-    align-items: flex-start;
-  }
-
-  .post-identity--stacked .post-identity-main--stacked {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.05rem;
-  }
-
-  .post-identity--stacked .post-identity-name,
-  .post-identity--stacked .post-identity-handle {
-    display: block;
-    flex: none;
-    width: auto;
-    max-width: 100%;
-    overflow: visible;
-    overflow-wrap: anywhere;
-    text-overflow: clip;
-    white-space: normal;
-  }
-
-  /* Keep marks beside the name on open-post stacked layout. */
-  .post-identity--stacked .post-identity-name-cluster {
-    display: inline-flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    max-width: 100%;
-  }
-
-  .post-identity--stacked .post-identity-name-cluster .post-identity-name {
-    display: block;
-    flex: 0 1 auto;
-    min-width: 0;
-    width: auto;
-    max-width: 100%;
   }
 
   a.post-identity-time:hover,
@@ -24082,10 +24009,15 @@ a.os-surface-row,
     z-index: 0;
   }
 
-  /* Plain button — do not use glass-sheet-icon-action (2.75rem lofts the row). */
+  /* Hug the ⋮ hit — SVG attrs / line-box must not loft the identity → body gap. */
   .post-card-menu {
     position: relative;
+    display: flex;
     flex: 0 0 auto;
+    align-items: center;
+    width: var(--os-menu-hit-size, 1.35rem);
+    height: var(--os-menu-hit-size, 1.35rem);
+    line-height: 0;
     z-index: 2;
   }
 
@@ -24098,23 +24030,27 @@ a.os-surface-row,
     position: relative;
     z-index: 0;
     display: inline-flex;
+    flex: 0 0 auto;
     align-items: center;
     justify-content: center;
     width: var(--os-menu-hit-size, 1.35rem);
     height: var(--os-menu-hit-size, 1.35rem);
     margin: 0;
     padding: 0;
+    overflow: hidden;
     border: 0;
     border-radius: 0.25rem;
     background: transparent;
     color: rgb(var(--fg-rgb));
     cursor: pointer;
+    line-height: 0;
   }
 
   .post-card-menu-icon {
     display: block;
     width: var(--os-menu-glyph-size, 1.125rem);
     height: var(--os-menu-glyph-size, 1.125rem);
+    flex: 0 0 auto;
     opacity: 0.42;
     transition: opacity 160ms ease;
   }
@@ -25681,6 +25617,7 @@ a.os-surface-row,
     flex-wrap: wrap;
     gap: 0.35rem;
     margin-top: 0.35rem;
+    overflow-anchor: none;
   }
 
   .post-card-scarce-cta--sold,
@@ -39408,7 +39345,7 @@ a.os-surface-row,
   .post-thread-more {
     --thread-avatar: var(--os-avatar-feed, 2.5rem);
     --thread-rail-width: 2px;
-    --thread-pad-top: 0.68rem;
+    --thread-pad-top: var(--os-feed-card-pad-y, 0.68rem);
     --thread-face-offset: var(--os-post-avatar-nudge, 0.05rem);
     --thread-rail-gap: 0.2rem;
     --thread-rail-color: rgb(var(--fg-rgb) / 0.12);
@@ -39580,13 +39517,37 @@ a.os-surface-row,
      The rail column stays the face width; only the pad differs. */
   .guild-thread-ancestor.post-thread-item,
   .guild-thread-root.post-thread-item {
-    --thread-pad-top: 0.35rem;
+    --thread-pad-top: var(--os-post-open-pad-top);
   }
 
   .guild-thread-column {
     display: flex;
     flex-direction: column;
     gap: 0.85rem;
+    /* Soft-fill / hydrate must not re-anchor scroll (refresh jump up). */
+    overflow-anchor: none;
+  }
+
+  /* Root and the continuing reply share one stroke. Sort sits in the copy column. */
+  .guild-thread-column.is-continued {
+    gap: 0;
+  }
+
+  .guild-thread-column.is-continued > .divider-detail {
+    width: auto;
+    margin-left: calc(
+      var(--os-avatar-feed, 2.5rem) + var(--os-media-copy-gap, 0.55rem)
+    );
+  }
+
+  .thread-controls-row.is-continued {
+    margin: 0;
+    padding-left: calc(
+      var(--os-avatar-feed, 2.5rem) + var(--os-media-copy-gap, 0.55rem)
+    );
+    --thread-avatar: var(--os-avatar-feed, 2.5rem);
+    --thread-rail-width: 2px;
+    --thread-rail-color: rgb(var(--fg-rgb) / 0.12);
   }
 
   /* Root and the continuing reply share one stroke. Sort sits in the copy column. */
@@ -39631,11 +39592,18 @@ a.os-surface-row,
     z-index: auto;
     padding: 0.15rem 0 0.35rem;
     background: none;
+    /* One membership control tall — pending ACL keeps the seat. */
+    min-height: calc(2.25rem + 0.5rem);
+  }
+
+  .guild-thread-join-dock.is-with-post.is-pending {
+    visibility: hidden;
+    pointer-events: none;
   }
 
   .guild-thread-root > .post-card {
     margin: 0;
-    padding: var(--os-post-open-pad-top, 0.35rem) 0;
+    padding: var(--os-post-open-pad-top) 0;
     /* Same edge as `.post-thread-item > .post-card` — adding the rail class
        must not drop a 1px border and nudge the avatar left. */
     border-width: 0;
@@ -39931,13 +39899,12 @@ a.os-surface-row,
   }
 
   /*
-   * Compose thread rail — the same avatar column as `.thread-rail-col`.
-   * The opening beat uses the Post page's face pad
-   * (`--os-composer-first-pad-top`) so the avatar clears the header by
-   * the same amount. That pad sits above the face, so the plus under
-   * the beat does not jump. Continuation uses feed `--cont` pad-top
-   * (0.42rem); down-rows use the feed card pad-bottom (0.68rem) so the
-   * rail has room between avatars.
+   * Compose thread rail — same avatar column as `.thread-rail-col`.
+   * Opening beat uses `--os-composer-first-pad-top` (Home face pin) so the
+   * avatar clears the header by the same amount. That pad sits above the
+   * face, so the plus under the beat does not jump. Continuation uses feed
+   * `--cont` pad-top (0.42rem); down-rows use the feed card pad-bottom so
+   * the rail has room between avatars.
    */
   .guild-composer-thread {
     display: flex;
@@ -39949,7 +39916,8 @@ a.os-surface-row,
     --thread-avatar: var(--os-avatar-feed, 2.5rem);
     --thread-rail-width: 2px;
     --thread-pad-top: var(--os-composer-first-pad-top);
-    --thread-face-offset: 0;
+    /* Unitless 0 breaks calc() with rem — rail height collapses to 0. */
+    --thread-face-offset: 0px;
     --thread-rail-gap: 0.2rem;
     --thread-rail-color: rgb(var(--fg-rgb) / 0.12);
     padding-top: var(--thread-pad-top);
@@ -39962,7 +39930,7 @@ a.os-surface-row,
   }
 
   .guild-composer-thread-item.is-down {
-    padding-bottom: 0.68rem;
+    padding-bottom: var(--os-feed-card-pad-y, 0.68rem);
   }
 
   /* Same gap main measured on the row: 0.2rem under the avatar circle. */
@@ -40108,11 +40076,13 @@ a.os-surface-row,
   .guild-composer-reply-flow {
     display: flex;
     flex-direction: column;
-    gap: 0.55rem;
+    /* Match bridge so the stroke meets the continue row. */
+    gap: 0.35rem;
   }
 
   /* Same column metrics as `.post-card` / `.post-card-copy`. */
   .guild-composer-reply-target,
+  .guild-composer-reply-continue,
   .guild-composer-self {
     position: relative;
     display: flex;
@@ -40123,12 +40093,28 @@ a.os-surface-row,
   .guild-composer-reply-target {
     --thread-avatar: var(--os-avatar-feed, 2.5rem);
     --thread-rail-width: 2px;
-    --thread-face-offset: 0;
+    --thread-face-offset: 0px;
     --thread-rail-gap: 0.2rem;
     --thread-rail-color: rgb(var(--fg-rgb) / 0.12);
     --thread-pad-top: var(--os-composer-first-pad-top);
     padding-top: var(--thread-pad-top);
-    padding-bottom: 0.35rem;
+    padding-bottom: 0;
+  }
+
+  .guild-composer-reply-continue {
+    --thread-avatar: var(--os-avatar-feed, 2.5rem);
+    --thread-rail-width: 2px;
+    --thread-face-offset: 0px;
+    --thread-rail-gap: 0.2rem;
+    --thread-rail-color: rgb(var(--fg-rgb) / 0.12);
+    /* Cont pad — up stroke needs pad > gap or height collapses. */
+    --thread-pad-top: 0.42rem;
+    padding-top: var(--thread-pad-top);
+  }
+
+  .guild-composer-reply-continue > .guild-composer-self {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   /* Quote / single beat — no thread item, so the face pad lives on the row. */
@@ -40875,12 +40861,14 @@ a.os-surface-row,
     display: flex;
     flex-direction: column;
     gap: 0;
+    /* Graft / More-from soft-fill must not yank the scroller. */
+    overflow-anchor: none;
   }
 
   /*
    * One controls row under the divider — `Replies ▾` sort left,
    * `View quotes ›` or `View reposts ›` right. Quiet chrome:
-   * muted ink, fg on hover.
+   * muted ink, fg on hover. No nested appear — OsPageBodyAppear owns fade.
    */
   .thread-controls-row {
     position: relative;
@@ -40888,13 +40876,13 @@ a.os-surface-row,
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
+    /* One control-seat tall — idle stays reserved so the tail never jumps. */
+    min-height: calc(0.9rem + var(--os-stamp-size, 0.75rem));
     margin: 0.1rem 0 0.35rem;
   }
 
   .thread-controls-row.is-idle {
-    height: 0;
-    margin: 0;
-    overflow: hidden;
+    visibility: hidden;
     pointer-events: none;
   }
 
@@ -40979,8 +40967,21 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.35);
   }
 
+  /* Soft-fill under appear — opacity only; never reserve a seat. */
   .thread-discover-peek {
     margin-top: 0.35rem;
+    overflow-anchor: none;
+    opacity: 0;
+    animation: glass-sheet-appear var(--os-motion-appear, 280ms)
+      var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1))
+      forwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .thread-discover-peek {
+      opacity: 1;
+      animation: none;
+    }
   }
 
   .thread-discover-peek-title {
@@ -42371,6 +42372,18 @@ a.os-surface-row,
  */
 .feed-photo-thread-body.os-hug-sheet-body {
   padding-bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
+}
+
+/*
+ * Band stacks scrim + frost at ~0.56 each — content read as a black cover.
+ * Own the fill on the panel frost; keep scrim as a light enter wash only.
+ */
+.feed-photo-thread-panel {
+  --glass-sheet-body-opacity: 0.92;
+}
+
+.feed-photo-thread-sheet > .glass-sheet-band-scrim {
+  background: rgb(var(--bg-rgb) / 0.28);
 }
 
 /*
@@ -48013,7 +48026,7 @@ button.portfolio-page-chevron.glass-sheet-icon-action:focus-visible {
 /* Post page skeleton. Unlayered so it beats the feed card's negative margin. */
 .guilds-page > .post-row-skeleton-list .post-card--skeleton {
   margin: 0;
-  padding: var(--os-post-open-pad-top, 0.35rem) 0;
+  padding: var(--os-post-open-pad-top) 0;
   border-width: 0;
   box-shadow: inset 0 0 0 var(--os-post-card-edge, 1px) transparent;
 }

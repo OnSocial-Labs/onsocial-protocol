@@ -1,8 +1,11 @@
 'use client';
 
 import {
+  ensureVirtualKeyboardOverlay,
   keyboardFrameTop,
   keyboardSeatPx,
+  readKeyboardDrawerMetrics,
+  readKeyboardVisibleBottom,
   settleKeyboardDrawerMetrics,
   visualKeyboardFrame,
 } from '@onsocial/ui';
@@ -50,12 +53,11 @@ export function readScreenKeyboardSeat(
   node: HTMLElement | null
 ): number {
   const rect = node?.getBoundingClientRect();
-  const visual = window.visualViewport;
   return keyboardSeatPx({
     lift,
     rootBottom: rect ? rect.bottom : null,
     rootHeight: rect ? rect.height : 0,
-    visualBottom: visual ? visual.offsetTop + visual.height : 0,
+    visualBottom: readKeyboardVisibleBottom(),
   });
 }
 
@@ -72,6 +74,7 @@ export function useMeasuredKeyboardSeat(active: boolean, lift: number): number {
 
   useEffect(() => {
     if (!active || lift <= 0 || typeof window === 'undefined') return;
+    ensureVirtualKeyboardOverlay();
     const measure = () => {
       const next = readScreenKeyboardSeat(lift, screenForKeyboardSeat());
       setMeasured((current) =>
@@ -82,11 +85,24 @@ export function useMeasuredKeyboardSeat(active: boolean, lift: number): number {
     };
     const frame = window.requestAnimationFrame(measure);
     const visual = window.visualViewport;
+    const virtualKeyboard = (
+      navigator as Navigator & {
+        virtualKeyboard?: {
+          addEventListener(type: 'geometrychange', listener: () => void): void;
+          removeEventListener(
+            type: 'geometrychange',
+            listener: () => void
+          ): void;
+        };
+      }
+    ).virtualKeyboard;
     visual?.addEventListener('resize', measure);
+    virtualKeyboard?.addEventListener('geometrychange', measure);
     window.addEventListener('resize', measure);
     return () => {
       window.cancelAnimationFrame(frame);
       visual?.removeEventListener('resize', measure);
+      virtualKeyboard?.removeEventListener('geometrychange', measure);
       window.removeEventListener('resize', measure);
     };
   }, [active, lift]);
@@ -94,8 +110,6 @@ export function useMeasuredKeyboardSeat(active: boolean, lift: number): number {
   if (!active || lift <= 0) return 0;
   return measured && measured.lift === lift ? measured.seat : lift;
 }
-
-const MOBILE_MAX_WIDTH_PX = 767;
 
 export interface VisualViewportSheetMetrics {
   /** Pixels of layout viewport covered below the visual viewport (keyboard). */
@@ -143,35 +157,11 @@ export function correctedFrameTop(input: {
 
 /** Keyboard overlap with the layout viewport. Same pixels drawers use. */
 export function readKeyboardOverlapPx(): number {
-  if (typeof window === 'undefined') return 0;
-  const viewport = window.visualViewport;
-  if (!viewport) return 0;
-  return Math.max(
-    0,
-    Math.round(window.innerHeight - viewport.height - viewport.offsetTop)
-  );
+  return readKeyboardDrawerMetrics().lift;
 }
 
 function readMetrics(): VisualViewportSheetMetrics {
-  if (typeof window === 'undefined') return IDLE;
-
-  const isMobile = window.matchMedia(
-    `(max-width: ${MOBILE_MAX_WIDTH_PX}px)`
-  ).matches;
-  const viewport = window.visualViewport;
-  if (!isMobile || !viewport) {
-    return {
-      lift: 0,
-      height: isMobile ? window.innerHeight : 0,
-      isMobile,
-    };
-  }
-
-  return {
-    lift: readKeyboardOverlapPx(),
-    height: Math.round(viewport.height),
-    isMobile: true,
-  };
+  return readKeyboardDrawerMetrics();
 }
 
 /**
@@ -190,6 +180,7 @@ export function useVisualViewportSheetMetrics(
       return;
     }
 
+    ensureVirtualKeyboardOverlay();
     const sync = () => {
       setMetrics((current) =>
         settleKeyboardDrawerMetrics(current, readMetrics())
@@ -197,13 +188,26 @@ export function useVisualViewportSheetMetrics(
     };
 
     const viewport = window.visualViewport;
+    const virtualKeyboard = (
+      navigator as Navigator & {
+        virtualKeyboard?: {
+          addEventListener(type: 'geometrychange', listener: () => void): void;
+          removeEventListener(
+            type: 'geometrychange',
+            listener: () => void
+          ): void;
+        };
+      }
+    ).virtualKeyboard;
     viewport?.addEventListener('resize', sync);
+    virtualKeyboard?.addEventListener('geometrychange', sync);
     window.addEventListener('resize', sync);
     // Defer initial read so we don't sync setState in the effect body.
     const frame = window.requestAnimationFrame(sync);
     return () => {
       window.cancelAnimationFrame(frame);
       viewport?.removeEventListener('resize', sync);
+      virtualKeyboard?.removeEventListener('geometrychange', sync);
       window.removeEventListener('resize', sync);
     };
   }, [active]);

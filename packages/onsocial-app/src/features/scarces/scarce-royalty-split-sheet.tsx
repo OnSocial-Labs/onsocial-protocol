@@ -237,6 +237,7 @@ export function ScarceRoyaltySplitSheet({
         open={open}
         onClose={onClose}
         onClosed={onClosed}
+        chrome="choice"
         label="Royalty split"
         copy={`Share of the ${totalLabel}% resale cut`}
         closeAriaLabel="Close royalty split"
@@ -279,7 +280,6 @@ export function ScarceRoyaltySplitSheet({
             clearAriaLabel="Clear royalty search"
             chrome="sheet"
             className="collection-allowlist-search"
-            autoFocus
           />
 
           {draft.length > 0 ? (
@@ -434,6 +434,7 @@ export function ScarceRoyaltySplitSheet({
       <OsHugSheet
         open={editingShare != null && editingFace != null}
         onClose={closeEdit}
+        chrome="choice"
         label="Share"
         {...(confirmingRemove ? { copy: 'Confirm removal' } : {})}
         closeAriaLabel="Close share"

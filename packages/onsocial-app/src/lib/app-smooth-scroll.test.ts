@@ -60,7 +60,9 @@ describe('app smooth scroll', () => {
     expect(shouldBindAppSmoothScrollRoot(false, 'scroll')).toBe(true);
     expect(shouldBindAppSmoothScrollRoot(false, 'hidden')).toBe(false);
     expect(shouldBindAppSmoothScrollRoot(true, 'auto')).toBe(false);
+    expect(shouldBindAppSmoothScrollRoot(false, 'auto', true)).toBe(false);
     expect(provider).toContain('shouldBindAppSmoothScrollRoot');
+    expect(provider).toContain('data-native-scroll');
   });
 
   it('keeps Lenis off the leaderboard pager host', () => {

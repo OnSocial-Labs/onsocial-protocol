@@ -1644,7 +1644,10 @@ export function ComposerSheet({
                   post={target}
                   authorProfile={targetAuthorProfile}
                 />
-                {renderBeat(threadBeats[0] ?? emptySheetBeat(), 0)}
+                <div className="guild-composer-reply-continue">
+                  <ThreadRail up />
+                  {renderBeat(threadBeats[0] ?? emptySheetBeat(), 0)}
+                </div>
               </div>
             ) : canComposeThread ? (
               <div

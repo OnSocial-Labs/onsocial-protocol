@@ -6,7 +6,10 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { pollIndexConfirm } from '@/lib/index-confirm-poll';
-import { subscribePersonalQuoteConfirmed } from '@/features/scarces/drop-compose-host';
+import {
+  subscribePersonalQuoteConfirmed,
+  subscribePersonalReplyConfirmed,
+} from '@/features/scarces/drop-compose-host';
 import { recordViewerAmplifyConfirmed } from '@/lib/home-feed-amplify-epoch';
 import { postKey } from '@/lib/post-display';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
@@ -287,18 +290,17 @@ export function usePostEngagement(
   );
 
   useEffect(() => {
-    if (targets.length === 0) return;
+    if (targets.length === 0) {
+      return;
+    }
+
+    const targetKeys = targets.map((t) => t.key);
 
     // SSR already seeded public counts — skip one duplicate until wallet/viewer,
     // but only when the seed covers these exact rows (snapshot restores can swap them).
     if (ssrSkipRef.current && !accountId) {
       ssrSkipRef.current = false;
-      if (
-        seededEngagementCoversTargets(
-          initialRef.current,
-          targets.map((t) => t.key)
-        )
-      ) {
+      if (seededEngagementCoversTargets(initialRef.current, targetKeys)) {
         return;
       }
     }
@@ -635,10 +637,6 @@ export function usePostEngagement(
     });
   }, []);
 
-  useEffect(() => {
-    return subscribePersonalQuoteConfirmed(confirmQuote);
-  }, [confirmQuote]);
-
   const confirmReply = useCallback((post: PostRow) => {
     const key = postKey(post);
     setEngagement((current) => {
@@ -653,6 +651,17 @@ export function usePostEngagement(
       };
     });
   }, []);
+
+  useEffect(() => {
+    const offQuote = subscribePersonalQuoteConfirmed(confirmQuote);
+    const offReply = subscribePersonalReplyConfirmed(({ parent }) => {
+      confirmReply(parent);
+    });
+    return () => {
+      offQuote();
+      offReply();
+    };
+  }, [confirmQuote, confirmReply]);
 
   /* Stable identities (read via ref): these run once per card per render,
    * so a changing function identity would defeat memoized cards. */
@@ -703,7 +712,5 @@ export function usePostEngagement(
     confirmAmplify,
     confirmRepost,
     confirmUnrepost,
-    confirmQuote,
-    confirmReply,
   };
 }

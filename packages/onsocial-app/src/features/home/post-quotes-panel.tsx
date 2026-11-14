@@ -14,9 +14,11 @@ import type { PostRow, ReposterRow } from '@onsocial/sdk';
 import { Divider, RepeatIcon } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
+import { PostCard, postKey } from '@/features/home/post-card';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
+import { adoptAppLenisScroll } from '@/lib/app-lenis-registry';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import {
   EMPTY_POST_ENGAGEMENT,
@@ -56,6 +58,8 @@ interface PostQuotesPanelProps {
   embedded?: boolean;
   /** Reposts-only rows open this screen already on Reposts. */
   initialTab?: QuotesTab;
+  /** Sheet appear waits until quotes/reposts (or error) can paint. */
+  onThreadPainted?: () => void;
 }
 
 function contentPathFor(root: PostRow): string {
@@ -71,6 +75,7 @@ export function PostQuotesPanel({
   initial = null,
   embedded = false,
   initialTab = 'quotes',
+  onThreadPainted,
 }: PostQuotesPanelProps) {
   seedScarceEmbedsFromSsr(initial?.scarceEmbeds);
   const { setTxResult } = useAppTransactionFeedback();
@@ -323,6 +328,27 @@ export function PostQuotesPanel({
     thumb.style.transform = `translate3d(${left}px, ${first.offsetTop}px, 0)`;
   }, [activeTab]);
 
+  // Hold opacity 0 through fetch — never paint a quotes skeleton.
+  const pageReady =
+    loadState === 'missing' ||
+    loadState === 'error' ||
+    (loadState === 'ready' && Boolean(root));
+
+  useLayoutEffect(() => {
+    if (!pageReady) return;
+    // Open at the top — nested Lenis roots can keep a stale mid-list target
+    // across the opacity hold (main reset the sheet body; quotes scroll here).
+    for (const node of [
+      quotesScrollRef.current,
+      repostersScrollRef.current,
+    ]) {
+      if (!node) continue;
+      node.scrollTop = 0;
+      adoptAppLenisScroll(node);
+    }
+    onThreadPainted?.();
+  }, [onThreadPainted, pageReady]);
+
   useLayoutEffect(() => {
     if (loadState !== 'ready') return;
     const sync = () => {
@@ -428,8 +454,6 @@ export function PostQuotesPanel({
           : `${GUILDS_PAGE_CLASS} post-quotes-screen`
       }
     >
-      {loadState === 'loading' ? <PostRowSkeleton rows={4} /> : null}
-
       {loadState === 'missing' ? (
         <section className="guild-state-card">
           <p>We could not find this post in the indexed feed yet.</p>
@@ -690,7 +714,7 @@ export function PostQuotesPanel({
       toolbar={loadState === 'ready' && root ? track : undefined}
       backFallbackHref={backHref}
     >
-      {body}
+      <OsPageBodyAppear ready={pageReady}>{body}</OsPageBodyAppear>
     </OsAppScreen>
   );
 }

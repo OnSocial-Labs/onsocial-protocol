@@ -60,9 +60,11 @@ export function ProfileTopicsEditor({
   );
   const masthead = variant === 'masthead';
 
+  // Focus after the choice slide (~320ms) so the keyboard does not yank mid-enter.
   useEffect(() => {
     if (!writeOpen) return;
-    window.setTimeout(() => writeInputRef.current?.focus(), 0);
+    const timer = window.setTimeout(() => writeInputRef.current?.focus(), 360);
+    return () => window.clearTimeout(timer);
   }, [writeOpen]);
 
   const openPicker = () => {
@@ -222,6 +224,7 @@ export function ProfileTopicsEditor({
       <OsHugSheet
         open={writeOpen}
         onClose={() => setWriteOpen(false)}
+        chrome="choice"
         label="Your craft"
         closeAriaLabel="Close craft"
         backdropLabel="Close craft"
@@ -244,9 +247,9 @@ export function ProfileTopicsEditor({
       >
         <div className="account-editor-org-meta-field">
           <label className="guild-field" htmlFor={`${writeFormId}-input`}>
-            <span>Craft</span>
             <input
               ref={writeInputRef}
+              aria-label="Craft"
               id={`${writeFormId}-input`}
               className={osFieldBorderedClassName}
               value={writeDraft}

@@ -23,7 +23,6 @@ import {
 import {
   ChevronLeftIcon,
   DiscardConfirmSheet,
-  IpfsImg,
   ipfsImgSrcSet,
   OsIconAction,
   OsPageSheet,
@@ -36,6 +35,7 @@ import {
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
+import { MediaFramePanSurface } from '@/components/media/media-frame-pan-surface';
 import { ProfileEditorLoadError } from '@/components/wallet/profile-editor-load-error';
 import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor-loading-skeleton';
 import { ProfileAboutEditorSheet } from '@/components/wallet/profile-about-editor-sheet';
@@ -44,7 +44,6 @@ import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
 import { ProfileLocationControl } from '@/components/wallet/profile-location-control';
 import { ProfileOrgMetaEditor } from '@/components/wallet/profile-org-meta-editor';
 import { ProfileOffersEditor } from '@/components/profile/profile-offers-editor';
-import type { ProfileAboutPhotoDraft } from '@/components/wallet/profile-about-photos-editor';
 import {
   scrollMobileFieldIntoView,
   useMobileFieldFocusScroll,
@@ -57,14 +56,25 @@ import {
   type ProfileEditorSnapshot,
 } from '@/hooks/use-app-profile-editor';
 import {
+  MEDIA_FRAME_PAN_CENTER,
+  type MediaFramePan,
+} from '@/lib/media-frame-pan';
+import {
   isProfileEditorDirty,
   normalizeProfileEditorName,
 } from '@/lib/profile-editor-dirty';
+import {
+  prepareProfileAboutPhotosForSave,
+  prepareProfileAvatarForSave,
+  prepareProfileBannerForSave,
+} from '@/lib/prepare-profile-editor-media';
 import {
   PAGE_LINK_NOTE_MAX,
   pruneLinkNotes,
   sanitizeLinkNotes,
 } from '@/lib/page-launch-config';
+import { preserveSheetScroll } from '@/lib/preserve-sheet-scroll';
+import type { ProfileAboutPhotoDraft } from '@/lib/profile-about-photos';
 import {
   FACE_BIO_LIMIT_WARN,
   FACE_BIO_WRAP_CHARS,
@@ -105,6 +115,8 @@ import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 const MOBILE_MAX_WIDTH_PX = 767;
 const PROFILE_NAME_MAX = 50;
 const PROFILE_NAME_LIMIT_WARN = 40;
+const PROFILE_EDIT_SCROLL_ROOT =
+  '.profile-edit-slide .os-app-screen-body';
 
 const PROFILE_BANNER_ACCEPT =
   'image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm';
@@ -163,6 +175,8 @@ function profileDraftChanged(
     websites: PortfolioWebsiteDraft[];
     avatarFile: File | null;
     bannerFile: File | null;
+    avatarPan: MediaFramePan;
+    bannerPan: MediaFramePan;
     avatarRemoved: boolean;
     bannerRemoved: boolean;
     isDao: boolean;
@@ -195,6 +209,8 @@ function profileDraftChanged(
         ),
     avatarFile: draft.avatarFile,
     bannerFile: draft.bannerFile,
+    avatarPan: draft.avatarPan,
+    bannerPan: draft.bannerPan,
     avatarRemoved: draft.avatarRemoved,
     bannerRemoved: draft.bannerRemoved,
     isDao: draft.isDao,
@@ -271,6 +287,12 @@ export function AppProfileEditorSheet({
   >({});
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [avatarPan, setAvatarPan] = useState<MediaFramePan>(
+    MEDIA_FRAME_PAN_CENTER
+  );
+  const [bannerPan, setBannerPan] = useState<MediaFramePan>(
+    MEDIA_FRAME_PAN_CENTER
+  );
   const [avatarRemoved, setAvatarRemoved] = useState(false);
   const [bannerRemoved, setBannerRemoved] = useState(false);
   const [seedKey, setSeedKey] = useState<string | null>(null);
@@ -307,6 +329,8 @@ export function AppProfileEditorSheet({
         websites,
         avatarFile,
         bannerFile,
+        avatarPan,
+        bannerPan,
         avatarRemoved,
         bannerRemoved,
         isDao: isDaoAccount,
@@ -339,6 +363,8 @@ export function AppProfileEditorSheet({
       setLinkFieldErrors({});
       setAvatarFile(null);
       setBannerFile(null);
+      setAvatarPan(MEDIA_FRAME_PAN_CENTER);
+      setBannerPan(MEDIA_FRAME_PAN_CENTER);
       setAvatarRemoved(false);
       setBannerRemoved(false);
     }
@@ -417,14 +443,18 @@ export function AppProfileEditorSheet({
           ),
       avatarFile,
       bannerFile,
+      avatarPan,
+      bannerPan,
       avatarRemoved,
       bannerRemoved,
       isDao: isDaoAccount,
     });
   }, [
     avatarFile,
+    avatarPan,
     avatarRemoved,
     bannerFile,
+    bannerPan,
     bannerRemoved,
     aboutBio,
     lead,
@@ -612,6 +642,23 @@ export function AppProfileEditorSheet({
     }
 
     try {
+      const preparedAvatar = await prepareProfileAvatarForSave({
+        file: avatarFile,
+        displayUrl: displayAvatarUrl,
+        pan: avatarPan,
+        removed: avatarRemoved,
+      });
+      const preparedBanner = await prepareProfileBannerForSave({
+        file: bannerFile,
+        displayUrl:
+          displayBannerMedia?.kind === 'image' ? displayBannerMedia.url : null,
+        pan: bannerPan,
+        removed: bannerRemoved,
+        isVideo: displayBannerMedia?.kind === 'video' || Boolean(
+          bannerFile?.type.startsWith('video/')
+        ),
+      });
+      const preparedPhotos = await prepareProfileAboutPhotosForSave(photos);
       const result = await saveProfile({
         name,
         location,
@@ -622,10 +669,12 @@ export function AppProfileEditorSheet({
         lead: lead.trim(),
         aboutAlign,
         tags,
-        photos,
-        photoFiles: photos.map((photo) => photo.file ?? null),
-        avatar: avatarFile,
-        banner: bannerFile,
+        photos: preparedPhotos.photos,
+        photoFiles: preparedPhotos.photoFiles,
+        avatar:
+          preparedAvatar === undefined ? avatarFile : preparedAvatar,
+        banner:
+          preparedBanner === undefined ? bannerFile : preparedBanner,
         removeAvatar: avatarRemoved,
         removeBanner: bannerRemoved,
         links,
@@ -672,15 +721,21 @@ export function AppProfileEditorSheet({
   const openBannerPicker = () => bannerInputRef.current?.click();
 
   const handleRemoveAvatar = () => {
-    setAvatarFile(null);
-    setAvatarRemoved(true);
-    if (avatarInputRef.current) avatarInputRef.current.value = '';
+    preserveSheetScroll(PROFILE_EDIT_SCROLL_ROOT, () => {
+      setAvatarFile(null);
+      setAvatarPan(MEDIA_FRAME_PAN_CENTER);
+      setAvatarRemoved(true);
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+    });
   };
 
   const handleRemoveBanner = () => {
-    setBannerFile(null);
-    setBannerRemoved(true);
-    if (bannerInputRef.current) bannerInputRef.current.value = '';
+    preserveSheetScroll(PROFILE_EDIT_SCROLL_ROOT, () => {
+      setBannerFile(null);
+      setBannerPan(MEDIA_FRAME_PAN_CENTER);
+      setBannerRemoved(true);
+      if (bannerInputRef.current) bannerInputRef.current.value = '';
+    });
   };
 
   const formReady = Boolean(snapshot && seedKey === loadKey);
@@ -798,15 +853,13 @@ export function AppProfileEditorSheet({
                           displayBannerMedia ? ' has-media' : ''
                         }`}
                       >
-                        <button
-                          type="button"
-                          className="profile-editor-media-backdrop account-editor-banner-backdrop"
-                          onClick={openBannerPicker}
-                          aria-label={
-                            displayBannerMedia ? 'Change banner' : 'Add banner'
-                          }
-                        >
-                          {displayBannerMedia?.kind === 'video' ? (
+                        {displayBannerMedia?.kind === 'video' ? (
+                          <button
+                            type="button"
+                            className="profile-editor-media-backdrop account-editor-banner-backdrop"
+                            onClick={openBannerPicker}
+                            aria-label="Change banner"
+                          >
                             <video
                               src={displayBannerMedia.url}
                               poster={displayBannerMedia.poster}
@@ -817,29 +870,47 @@ export function AppProfileEditorSheet({
                               autoPlay
                               aria-hidden
                             />
-                          ) : displayBannerMedia ? (
-                            <IpfsImg
-                              src={displayBannerMedia.url}
-                              srcSet={bannerSrcSet}
-                              sizes={
-                                bannerSrcSet ? APP_COLUMN_HERO_SIZES : undefined
-                              }
-                              alt=""
-                              className="account-editor-banner-image"
+                            <span
+                              className="account-editor-banner-overlay has-media"
+                              aria-hidden
                             />
-                          ) : (
+                          </button>
+                        ) : displayBannerMedia?.kind === 'image' ? (
+                          <MediaFramePanSurface
+                            src={displayBannerMedia.url}
+                            srcSet={bannerSrcSet}
+                            sizes={
+                              bannerSrcSet ? APP_COLUMN_HERO_SIZES : undefined
+                            }
+                            pan={bannerPan}
+                            onPanChange={setBannerPan}
+                            onTap={openBannerPicker}
+                            disabled={saving}
+                            className="account-editor-banner-backdrop"
+                            imgClassName="account-editor-banner-image"
+                          >
+                            <span
+                              className="account-editor-banner-overlay has-media"
+                              aria-hidden
+                            />
+                          </MediaFramePanSurface>
+                        ) : (
+                          <button
+                            type="button"
+                            className="profile-editor-media-backdrop account-editor-banner-backdrop"
+                            onClick={openBannerPicker}
+                            aria-label="Add banner"
+                          >
                             <span
                               className="account-editor-banner-empty"
                               aria-hidden
                             />
-                          )}
-                          <span
-                            className={`account-editor-banner-overlay${
-                              displayBannerMedia ? ' has-media' : ''
-                            }`}
-                            aria-hidden
-                          />
-                        </button>
+                            <span
+                              className="account-editor-banner-overlay"
+                              aria-hidden
+                            />
+                          </button>
+                        )}
                         <ProfileEditorMediaToolbar
                           layout="banner"
                           corner="bottom"
@@ -874,51 +945,54 @@ export function AppProfileEditorSheet({
                               isDaoAccount
                             )}
                           >
-                            <button
-                              type="button"
-                              className="profile-editor-media-backdrop account-editor-avatar-backdrop"
-                              onClick={() => avatarInputRef.current?.click()}
-                              aria-label={
-                                displayAvatarUrl ? 'Change photo' : 'Add photo'
-                              }
-                            >
-                              {displayAvatarUrl ? (
-                                <IpfsImg
-                                  src={displayAvatarUrl}
-                                  srcSet={avatarSrcSet}
-                                  sizes={
-                                    avatarSrcSet ? EDITOR_MARK_SIZES : undefined
-                                  }
-                                  alt=""
-                                  className="account-editor-avatar-image"
+                            {displayAvatarUrl ? (
+                              <MediaFramePanSurface
+                                src={displayAvatarUrl}
+                                srcSet={avatarSrcSet}
+                                sizes={
+                                  avatarSrcSet ? EDITOR_MARK_SIZES : undefined
+                                }
+                                pan={avatarPan}
+                                onPanChange={setAvatarPan}
+                                onTap={() => avatarInputRef.current?.click()}
+                                disabled={saving}
+                                className="account-editor-avatar-backdrop"
+                                imgClassName="account-editor-avatar-image"
+                              >
+                                <span
+                                  className="profile-editor-media-overlay account-editor-avatar-overlay has-media"
+                                  aria-hidden
                                 />
-                              ) : (
+                              </MediaFramePanSurface>
+                            ) : (
+                              <button
+                                type="button"
+                                className="profile-editor-media-backdrop account-editor-avatar-backdrop"
+                                onClick={() => avatarInputRef.current?.click()}
+                                aria-label="Add photo"
+                              >
                                 <span
                                   className="account-editor-avatar-fallback"
                                   aria-hidden
                                 >
                                   {avatarInitial}
                                 </span>
-                              )}
-                              <span
-                                className={`profile-editor-media-overlay account-editor-avatar-overlay${
-                                  displayAvatarUrl ? ' has-media' : ''
-                                }`}
-                                aria-hidden
-                              />
-                            </button>
-                            <ProfileEditorMediaToolbar
-                              layout="avatar"
-                              removeLabel={
-                                displayAvatarUrl ? 'Remove photo' : undefined
-                              }
-                              onRemove={
-                                displayAvatarUrl
-                                  ? handleRemoveAvatar
-                                  : undefined
-                              }
-                            />
+                                <span
+                                  className="profile-editor-media-overlay account-editor-avatar-overlay"
+                                  aria-hidden
+                                />
+                              </button>
+                            )}
                           </div>
+                          <ProfileEditorMediaToolbar
+                            layout="avatar"
+                            removeLabel={
+                              displayAvatarUrl ? 'Remove photo' : undefined
+                            }
+                            onRemove={
+                              displayAvatarUrl ? handleRemoveAvatar : undefined
+                            }
+                          />
                         </div>
 
                         <div className="account-editor-identity-copy">
@@ -1101,9 +1175,12 @@ export function AppProfileEditorSheet({
                 className="account-editor-file-input"
                 onChange={(event) => {
                   const file = event.target.files?.[0] ?? null;
-                  setAvatarFile(file);
-                  if (file) setAvatarRemoved(false);
                   event.target.value = '';
+                  preserveSheetScroll(PROFILE_EDIT_SCROLL_ROOT, () => {
+                    setAvatarFile(file);
+                    setAvatarPan(MEDIA_FRAME_PAN_CENTER);
+                    if (file) setAvatarRemoved(false);
+                  });
                 }}
               />
               <input
@@ -1113,9 +1190,12 @@ export function AppProfileEditorSheet({
                 className="account-editor-file-input"
                 onChange={(event) => {
                   const file = event.target.files?.[0] ?? null;
-                  setBannerFile(file);
-                  if (file) setBannerRemoved(false);
                   event.target.value = '';
+                  preserveSheetScroll(PROFILE_EDIT_SCROLL_ROOT, () => {
+                    setBannerFile(file);
+                    setBannerPan(MEDIA_FRAME_PAN_CENTER);
+                    if (file) setBannerRemoved(false);
+                  });
                 }}
               />
             </form>

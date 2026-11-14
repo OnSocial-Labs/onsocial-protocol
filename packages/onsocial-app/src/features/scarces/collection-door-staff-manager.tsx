@@ -320,6 +320,7 @@ export function CollectionDoorStaffManager({
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
+      chrome="choice"
       label={voice === 'redeem' ? 'Redeem staff' : 'Door staff'}
       copy={
         voice === 'redeem'
@@ -388,7 +389,6 @@ export function CollectionDoorStaffManager({
           clearAriaLabel="Clear staff search"
           chrome="sheet"
           className="collection-allowlist-search"
-          autoFocus
         />
 
         {loadError ? (

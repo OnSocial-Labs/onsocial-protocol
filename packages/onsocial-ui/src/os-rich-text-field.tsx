@@ -54,17 +54,26 @@ function markdownToEditorHtml(markdown: string): string {
 }
 
 /**
- * Bold / italic use `extendEmptyMarkRange`. A caret inside a mark has an
- * empty range, and the default toggle only clears the stored mark. The next
- * selection step drops stored marks, `isActive` reads the document again,
- * and the button lights back up.
- * A list that is already on lifts instead of nesting another list.
- * A heading that is already on returns to a paragraph.
+ * Inline marks (Docs / Notion):
+ * - Selection → toggle only that span (add or strip).
+ * - Caret → set/unset stored marks for the next characters. Never
+ *   `extendEmptyMarkRange` — that stripped the whole bold run when turning
+ *   Bold off after typing. Existing text stays; select it to change it.
+ * List / heading: lift or paragraph when already on.
  */
 export function runRichTextTool(editor: Editor, tool: OsRichTextTool): void {
   const chain = () => editor.chain().focus();
   if (tool === 'bold' || tool === 'italic') {
-    chain().toggleMark(tool, {}, { extendEmptyMarkRange: true }).run();
+    const { empty } = editor.state.selection;
+    if (!empty) {
+      chain().toggleMark(tool).run();
+      return;
+    }
+    if (editor.isActive(tool)) {
+      chain().unsetMark(tool).run();
+      return;
+    }
+    chain().setMark(tool).run();
     return;
   }
   if (tool === 'list') {

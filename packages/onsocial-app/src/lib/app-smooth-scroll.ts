@@ -89,12 +89,17 @@ export function isAppSmoothScrollLocked(dataset: {
 const PROTOCOL_FACE_OVERLAY =
   '.glass-sheet-root, .os-slide-over, [data-os-slide-over="true"], .dao-proposals-page';
 
-/** Hidden shells must not take the wheel from the list inside them. */
+/**
+ * Hidden shells must not take the wheel from the list inside them.
+ * `nativeScroll` opts a body out of Lenis when a surface truly needs
+ * browser overflow alone (rare — home feed stays on Lenis).
+ */
 export function shouldBindAppSmoothScrollRoot(
   isPagerHost: boolean,
-  overflowY: string
+  overflowY: string,
+  nativeScroll = false
 ): boolean {
-  if (isPagerHost) return false;
+  if (isPagerHost || nativeScroll) return false;
   return overflowY === 'auto' || overflowY === 'scroll';
 }
 

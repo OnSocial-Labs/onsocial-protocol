@@ -46,7 +46,10 @@ export async function openEndorsementsPanelLoggedOut(page: Page) {
   await waitForPortfolioClientReady(page);
 
   const missing = page.getByRole('heading', { name: 'Account not found' });
-  const identity = page.locator('.portfolio-identity');
+  const identity = page
+    .getByRole('main')
+    .locator('.portfolio-identity')
+    .first();
   if (
     (await missing.isVisible().catch(() => false)) &&
     !(await identity.isVisible().catch(() => false))

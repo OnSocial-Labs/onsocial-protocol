@@ -33,6 +33,12 @@ describe('feed window row estimates', () => {
     }
     expect(feedWindowRowEstimatePx(true)).toBe(FEED_WINDOW_POLL_ESTIMATE_PX);
     expect(feedWindowRowEstimatePx(false)).toBe(FEED_WINDOW_ESTIMATE_PX);
+    expect(feedWindowRowEstimatePx('media')).toBeGreaterThan(
+      FEED_WINDOW_ESTIMATE_PX
+    );
+    expect(feedWindowRowEstimatePx('quote')).toBeGreaterThan(
+      FEED_WINDOW_ESTIMATE_PX
+    );
   });
 
   it('resolves a per-row estimate on the same path as the default', () => {

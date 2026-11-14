@@ -74,6 +74,25 @@ export function graftVisibleReplies(
   });
 }
 
+/**
+ * After the first direct page is on screen, the full walk must not replace
+ * it — that reshuffles visible rows after appear. Keep painted order; attach
+ * richer walked children under matching paths.
+ */
+export function enrichPaintedReplyTree(
+  painted: ThreadNode[],
+  walked: ThreadNode[]
+): ThreadNode[] {
+  if (painted.length === 0) return walked;
+  if (walked.length === 0) return painted;
+  const walkedByPath = new Map(walked.map((node) => [node.path, node]));
+  return painted.map((node) => {
+    const richer = walkedByPath.get(node.path);
+    if (!richer || richer.replies.length === 0) return node;
+    return { ...node, replies: richer.replies };
+  });
+}
+
 export function threadContentPath(input: {
   accountId: string;
   postId: string;

@@ -170,7 +170,7 @@ describe('resolveSheetMotion', () => {
     });
   });
 
-  it('fades a cover when another sheet is open', () => {
+  it('slides a cover over an open page like a menu drawer', () => {
     expect(
       resolveSheetMotion({
         ...base,
@@ -178,7 +178,7 @@ describe('resolveSheetMotion', () => {
         otherSheetsOpen: 1,
         claimedReplace: true,
       })
-    ).toEqual({ presentation: 'appear', op: 'cover' });
+    ).toEqual({ presentation: 'enter', op: 'cover' });
   });
 
   it('slides a cover that is the first sheet', () => {

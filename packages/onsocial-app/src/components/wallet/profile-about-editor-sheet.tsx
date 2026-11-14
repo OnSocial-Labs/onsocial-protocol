@@ -25,11 +25,11 @@ import {
   type ProfileAboutAlign,
 } from '@onsocial/sdk';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { MediaFramePanSurface } from '@/components/media/media-frame-pan-surface';
 import { PortfolioAboutIndustry } from '@/components/portfolio/portfolio-identity-topics';
 import { ProfileEssayFormatToolbar } from '@/components/profile/profile-essay-format-toolbar';
 import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-textarea';
 import { ProfileTopicsEditor } from '@/components/wallet/profile-topics-editor';
-import type { ProfileAboutPhotoDraft } from '@/components/wallet/profile-about-photos-editor';
 import {
   scrollMobileFieldIntoView,
   useMobileFieldFocusScroll,
@@ -42,6 +42,10 @@ import {
   type PageScrollSnap,
 } from '@/lib/hold-page-scroll';
 import {
+  MEDIA_FRAME_PAN_CENTER,
+  type MediaFramePan,
+} from '@/lib/media-frame-pan';
+import {
   PROFILE_BIO_LIMIT_WARN,
   PROFILE_BIO_MAX,
 } from '@/lib/profile-bio-face';
@@ -51,9 +55,14 @@ import {
   isProfileAboutPhotoFile,
   moveProfileAboutPhoto,
   profileAboutPhotoKey,
-  swapProfileAboutPhoto,
+  type ProfileAboutPhotoDraft,
 } from '@/lib/profile-about-photos';
+import { preserveSheetScroll } from '@/lib/preserve-sheet-scroll';
 import { SHEET_Z } from '@/lib/sheet-z';
+
+const ABOUT_FILM_SLOTS = PROFILE_ABOUT_PHOTOS_MAX - 1;
+const ABOUT_EDIT_SCROLL_ROOT =
+  '.profile-about-edit-slide .os-app-screen-body';
 
 export function ProfileAboutEditorSheet({
   open,
@@ -101,6 +110,7 @@ export function ProfileAboutEditorSheet({
   const aboutBioRef = useRef<HTMLDivElement>(null);
   const leadRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const replaceIndexRef = useRef<number | null>(null);
   const photoItemRefs = useRef<Array<HTMLLIElement | HTMLElement | null>>([]);
   const photosRef = useRef(photos);
   const dragRef = useRef<{ from: number } | null>(null);
@@ -112,7 +122,6 @@ export function ProfileAboutEditorSheet({
     null
   );
   const [leadOpen, setLeadOpen] = useState(false);
-  const [selectedPhoto, setSelectedPhoto] = useState<number | null>(null);
   const scrollFieldIntoView = useMobileFieldFocusScroll();
   const pageSnapRef = useRef<PageScrollSnap | null>(null);
   const pinAboutRoot = useCallback(
@@ -147,6 +156,10 @@ export function ProfileAboutEditorSheet({
     Boolean(industryLabel) || (showCrafts && tags.length > 0);
   const print = photos[0] ?? null;
   const film = photos.slice(1);
+  const filmSlots: Array<ProfileAboutPhotoDraft | null> = Array.from(
+    { length: ABOUT_FILM_SLOTS },
+    (_, index) => film[index] ?? null
+  );
   const atMax = photos.length >= PROFILE_ABOUT_PHOTOS_MAX;
   const canReorder = !disabled && photos.length > 1;
   const hasPrint = Boolean(print);
@@ -178,26 +191,10 @@ export function ProfileAboutEditorSheet({
   const handleClose = () => {
     setEditingField(null);
     setLeadOpen(false);
-    setSelectedPhoto(null);
     prevLeadOpenRef.current = false;
     onClose();
   };
 
-  const handlePhotoActivate = (index: number) => {
-    if (disabled || photos.length < 2) return;
-    if (selectedPhoto === null) {
-      setSelectedPhoto(index);
-      return;
-    }
-    if (selectedPhoto === index) {
-      setSelectedPhoto(null);
-      return;
-    }
-    const next = swapProfileAboutPhoto(photosRef.current, selectedPhoto, index);
-    photosRef.current = next;
-    onPhotosChange(next);
-    setSelectedPhoto(null);
-  };
   const blurRich = (
     event: FocusEvent<HTMLDivElement>,
     value: string,
@@ -230,30 +227,59 @@ export function ProfileAboutEditorSheet({
   const handleAdd = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
     event.target.value = '';
-    if (!file || disabled || atMax || !isProfileAboutPhotoFile(file)) return;
+    const replaceIndex = replaceIndexRef.current;
+    replaceIndexRef.current = null;
+    if (!file || disabled || !isProfileAboutPhotoFile(file)) return;
     const url = URL.createObjectURL(file);
-    onPhotosChange([
-      ...photos,
-      {
-        key: `local:${crypto.randomUUID()}`,
-        ref: `local:${file.name}`,
-        url,
-        file,
-      },
-    ]);
+    const nextPhoto: ProfileAboutPhotoDraft = {
+      key: `local:${crypto.randomUUID()}`,
+      ref: `local:${file.name}`,
+      url,
+      file,
+      pan: MEDIA_FRAME_PAN_CENTER,
+    };
+    preserveSheetScroll(ABOUT_EDIT_SCROLL_ROOT, () => {
+      if (
+        replaceIndex != null &&
+        replaceIndex >= 0 &&
+        replaceIndex < photosRef.current.length
+      ) {
+        const removed = photosRef.current[replaceIndex];
+        if (removed?.file && removed.url.startsWith('blob:')) {
+          URL.revokeObjectURL(removed.url);
+        }
+        const next = photosRef.current.map((photo, index) =>
+          index === replaceIndex ? nextPhoto : photo
+        );
+        photosRef.current = next;
+        onPhotosChange(next);
+        return;
+      }
+      if (atMax) return;
+      const next = [...photosRef.current, nextPhoto];
+      photosRef.current = next;
+      onPhotosChange(next);
+    });
   };
 
   const handleRemove = (index: number) => {
     if (disabled) return;
-    const next = photos.filter((_, itemIndex) => itemIndex !== index);
-    const removed = photos[index];
-    if (removed?.file && removed.url.startsWith('blob:')) {
-      URL.revokeObjectURL(removed.url);
-    }
-    if (selectedPhoto === index) setSelectedPhoto(null);
-    else if (selectedPhoto !== null && selectedPhoto > index) {
-      setSelectedPhoto(selectedPhoto - 1);
-    }
+    preserveSheetScroll(ABOUT_EDIT_SCROLL_ROOT, () => {
+      const next = photos.filter((_, itemIndex) => itemIndex !== index);
+      const removed = photos[index];
+      if (removed?.file && removed.url.startsWith('blob:')) {
+        URL.revokeObjectURL(removed.url);
+      }
+      onPhotosChange(next);
+    });
+  };
+
+  const setPhotoPan = (index: number, pan: MediaFramePan) => {
+    if (disabled) return;
+    const next = photosRef.current.map((photo, photoIndex) =>
+      photoIndex === index ? { ...photo, pan } : photo
+    );
+    photosRef.current = next;
     onPhotosChange(next);
   };
 
@@ -302,10 +328,15 @@ export function ProfileAboutEditorSheet({
     setDragFrom(over);
   };
 
-  const openFilePicker = useCallback(() => {
-    if (disabled || atMax) return;
-    fileInputRef.current?.click();
-  }, [atMax, disabled]);
+  const openFilePicker = useCallback(
+    (replaceIndex?: number) => {
+      if (disabled) return;
+      if (replaceIndex == null && atMax) return;
+      replaceIndexRef.current = replaceIndex ?? null;
+      fileInputRef.current?.click();
+    },
+    [atMax, disabled]
+  );
 
   const photoControls = (index: number, role: 'print' | 'film'): ReactNode => (
     <div className="profile-about-edit-media-chrome">
@@ -350,7 +381,7 @@ export function ProfileAboutEditorSheet({
     <OsSlideOverScreen
       open={open}
       onClose={handleClose}
-      title="About"
+      title="Edit about"
       closeAriaLabel="Back"
       closeIcon={
         <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
@@ -392,50 +423,50 @@ export function ProfileAboutEditorSheet({
         <div className="account-editor-form-main profile-edit-form-main">
           <article
             className="portfolio-about profile-about-edit-studio"
-            data-has-print={hasPrint ? 'true' : 'false'}
+            data-has-print="true"
             data-has-type="true"
-            data-has-film={hasFilm ? 'true' : 'false'}
+            data-has-film="true"
             data-has-film-lead={
               showLeadEditor && hasLeadCopy ? 'true' : 'false'
             }
           >
             <div className="portfolio-about-spread">
-              {print ? (
-                <figure
-                  className={`portfolio-about-print profile-about-edit-print${
-                    dragFrom === 0 ? ' is-dragging' : ''
-                  }${selectedPhoto === 0 ? ' is-selected' : ''}`}
-                  ref={(node) => {
-                    photoItemRefs.current[0] = node;
-                  }}
-                  aria-label="Print"
-                >
+              <figure
+                className={`portfolio-about-print profile-about-edit-print${
+                  dragFrom === 0 ? ' is-dragging' : ''
+                }${!print ? ' is-empty' : ''}`}
+                ref={(node) => {
+                  photoItemRefs.current[0] = node;
+                }}
+                aria-label="Print"
+              >
+                {print ? (
+                  <>
+                    <span className="profile-about-edit-role" aria-hidden>
+                      Print
+                    </span>
+                    <MediaFramePanSurface
+                      src={print.url}
+                      pan={print.pan ?? MEDIA_FRAME_PAN_CENTER}
+                      onPanChange={(next) => setPhotoPan(0, next)}
+                      onTap={() => openFilePicker(0)}
+                      disabled={disabled}
+                      className="profile-about-edit-pan"
+                      imgClassName="portfolio-about-shot is-in"
+                    />
+                    {photoControls(0, 'print')}
+                  </>
+                ) : (
                   <button
                     type="button"
-                    className="profile-about-edit-still-hit"
-                    disabled={disabled || photos.length < 2}
-                    aria-pressed={selectedPhoto === 0}
-                    aria-label={
-                      selectedPhoto === null
-                        ? 'Select print to swap'
-                        : selectedPhoto === 0
-                          ? 'Deselect print'
-                          : 'Swap with print'
-                    }
-                    onClick={() => handlePhotoActivate(0)}
-                  />
-                  <span className="profile-about-edit-role" aria-hidden>
-                    Print
-                  </span>
-                  <img
-                    alt=""
-                    className="portfolio-about-shot is-in"
-                    src={print.url}
-                    draggable={false}
-                  />
-                  {photoControls(0, 'print')}
-                </figure>
-              ) : null}
+                    className="profile-about-edit-slot-add"
+                    disabled={disabled || atMax}
+                    onClick={() => openFilePicker()}
+                  >
+                    Add print
+                  </button>
+                )}
+              </figure>
 
               <div className="portfolio-about-type">
                 <header className="portfolio-about-masthead">
@@ -458,16 +489,6 @@ export function ProfileAboutEditorSheet({
                     />
                   ) : null}
                 </header>
-                {!hasPrint ? (
-                  <button
-                    type="button"
-                    className="profile-about-edit-print-ghost"
-                    disabled={disabled || atMax}
-                    onClick={openFilePicker}
-                  >
-                    Add print
-                  </button>
-                ) : null}
               </div>
             </div>
 
@@ -524,70 +545,61 @@ export function ProfileAboutEditorSheet({
               </button>
             )}
 
-            {hasFilm ? (
-              <ul
-                className="portfolio-about-film profile-about-edit-film"
-                data-count={String(film.length)}
-              >
-                {film.map((still, filmIndex) => {
-                  const index = filmIndex + 1;
+            <ul
+              className="portfolio-about-film profile-about-edit-film"
+              data-count={String(ABOUT_FILM_SLOTS)}
+            >
+              {filmSlots.map((still, filmIndex) => {
+                const index = filmIndex + 1;
+                if (!still) {
                   return (
                     <li
-                      key={profileAboutPhotoKey(still, index)}
-                      ref={(node) => {
-                        photoItemRefs.current[index] = node;
-                      }}
-                      className={[
-                        'profile-about-edit-film-item',
-                        dragFrom === index ? 'is-dragging' : '',
-                        selectedPhoto === index ? 'is-selected' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
+                      key={`film-slot-${filmIndex}`}
+                      className="profile-about-edit-film-item is-empty"
                       aria-label={`Film ${filmIndex + 1}`}
                     >
                       <button
                         type="button"
-                        className="profile-about-edit-still-hit"
-                        disabled={disabled || photos.length < 2}
-                        aria-pressed={selectedPhoto === index}
-                        aria-label={
-                          selectedPhoto === null
-                            ? `Select film ${filmIndex + 1} to swap`
-                            : selectedPhoto === index
-                              ? `Deselect film ${filmIndex + 1}`
-                              : `Swap with film ${filmIndex + 1}`
-                        }
-                        onClick={() => handlePhotoActivate(index)}
-                      />
-                      <span className="profile-about-edit-role" aria-hidden>
-                        Film
-                      </span>
-                      <img
-                        alt=""
-                        className="portfolio-about-film-shot"
-                        src={still.url}
-                        draggable={false}
-                      />
-                      {photoControls(index, 'film')}
+                        className="profile-about-edit-slot-add"
+                        disabled={disabled || !canAddFilm}
+                        onClick={() => openFilePicker()}
+                      >
+                        Add film
+                      </button>
                     </li>
                   );
-                })}
-              </ul>
-            ) : null}
-
-            {canAddFilm ? (
-              <button
-                type="button"
-                className={`profile-about-edit-film-add${
-                  hasFilm ? ' is-companion' : ' is-solo'
-                }`}
-                disabled={disabled}
-                onClick={openFilePicker}
-              >
-                Add film
-              </button>
-            ) : null}
+                }
+                return (
+                  <li
+                    key={profileAboutPhotoKey(still, index)}
+                    ref={(node) => {
+                      photoItemRefs.current[index] = node;
+                    }}
+                    className={[
+                      'profile-about-edit-film-item',
+                      dragFrom === index ? 'is-dragging' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    aria-label={`Film ${filmIndex + 1}`}
+                  >
+                    <span className="profile-about-edit-role" aria-hidden>
+                      Film
+                    </span>
+                    <MediaFramePanSurface
+                      src={still.url}
+                      pan={still.pan ?? MEDIA_FRAME_PAN_CENTER}
+                      onPanChange={(next) => setPhotoPan(index, next)}
+                      onTap={() => openFilePicker(index)}
+                      disabled={disabled}
+                      className="profile-about-edit-pan"
+                      imgClassName="portfolio-about-film-shot"
+                    />
+                    {photoControls(index, 'film')}
+                  </li>
+                );
+              })}
+            </ul>
 
             <section
               className="portfolio-about-essay portfolio-about-rest profile-about-edit-section profile-about-edit-section--story"

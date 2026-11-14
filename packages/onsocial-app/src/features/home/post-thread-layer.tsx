@@ -27,6 +27,7 @@ import {
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { PostQuotesTrackHostProvider } from '@/features/home/post-quotes-track-host';
+import { scarceEmbedsForOpenRoot } from '@/features/scarces/scarce-embed-ledger';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { accountIdsEqual } from '@/lib/account-match';
 import { portfolioSwipeOpensPage } from '@/lib/portfolio-feed-reveal';
@@ -40,6 +41,7 @@ import {
   setMediaFacesHeld,
   setMediaFacesYielded,
 } from '@/lib/media-face-session';
+import { adoptAppLenisScroll } from '@/lib/app-lenis-registry';
 import { postKey } from '@/lib/post-display';
 import {
   guildThreadCardContext,
@@ -72,7 +74,6 @@ import {
   SHEET_Z,
 } from '@/lib/sheet-z';
 import { PostLayerOwnerZProvider } from '@/features/home/post-layer-owner-z';
-import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
 import { seedPostAuthorProfilesFromFeed } from '@/hooks/use-post-author-profiles';
 import { threadContentPath, warmThreadOpen } from '@/lib/thread-first-page';
 import {
@@ -87,12 +88,13 @@ import {
   walkBackOneStep,
 } from './post-thread-stack';
 
+// No loading skeleton — OsPageBodyAppear stays opacity 0 until land paints.
 const LivePersonalPostPanel = dynamic(
   () =>
     import('@/features/home/live-personal-post-panel').then(
       (mod) => mod.LivePersonalPostPanel
     ),
-  { ssr: false, loading: () => <PostThreadPageSkeleton /> }
+  { ssr: false }
 );
 
 const CollectionPagePanel = dynamic(
@@ -108,7 +110,7 @@ const LiveGuildPostPanel = dynamic(
     import('@/features/guilds/live-guild-post-panel').then(
       (mod) => mod.LiveGuildPostPanel
     ),
-  { ssr: false, loading: () => <PostThreadPageSkeleton /> }
+  { ssr: false }
 );
 
 const PostQuotesPanel = dynamic(
@@ -151,6 +153,7 @@ function getPostLayerPopGuard(): PostLayerPopGuard {
   return guard;
 }
 
+/** Parked sheets must stay invisible even if a later rule fights the class. */
 function ensurePostThreadParkedStyle(): void {
   if (typeof document === 'undefined') return;
   if (document.getElementById('post-thread-sheet-parked-style')) return;
@@ -325,7 +328,7 @@ function seedGuildThread(
     memberDriven: false,
     accessGated: false,
     engagement: rootEngagement ? { [postKey(root)]: rootEngagement } : {},
-    scarceEmbeds: {},
+    scarceEmbeds: scarceEmbedsForOpenRoot(root),
   };
 }
 
@@ -340,7 +343,7 @@ function seedEmbeddedThread(
     replyTree: [],
     hasMoreReplies: false,
     engagement: rootEngagement ? { [postKey(root)]: rootEngagement } : {},
-    scarceEmbeds: {},
+    scarceEmbeds: scarceEmbedsForOpenRoot(root),
   };
 }
 
@@ -429,16 +432,14 @@ function PostThreadSheet({
   const [quotesTrackHost, setQuotesTrackHost] = useState<HTMLDivElement | null>(
     null
   );
-  // Header paints with the sheet; the body soft-appears once the post is ready.
-  // Key the ready flag to the layer so a new post never inherits the previous
-  // ready frame (that flash sat under the glass header).
+  // Body appear waits on paint (`onThreadPainted`); key so a new layer never
+  // inherits the previous ready frame. Quotes wait the same — no skeleton.
   const layerKey = `${layer.kind}:${layer.groupId ?? ''}:${layer.accountId}:${layer.postId}${
     layer.kind === 'quotes' ? `:${layer.tab}` : ''
   }`;
-  const [paintedForKey, setPaintedForKey] = useState<string | null>(
-    quotes ? layerKey : null
-  );
-  const threadPainted = quotes || paintedForKey === layerKey;
+  // Key mismatch already gates appear — no reset effect (set-state-in-effect).
+  const [paintedForKey, setPaintedForKey] = useState<string | null>(null);
+  const threadPainted = paintedForKey === layerKey;
   const title = quotes ? POST_REACH_TITLE : 'Post';
   const guildCard =
     layer.kind === 'post' && layer.groupId
@@ -455,11 +456,6 @@ function PostThreadSheet({
         : null,
     [layer]
   );
-  useEffect(() => {
-    if (threadPainted || quotes) return;
-    const timer = window.setTimeout(() => setPaintedForKey(layerKey), 2000);
-    return () => window.clearTimeout(timer);
-  }, [quotes, threadPainted, layerKey]);
   const noteThreadPainted = useCallback(() => {
     setPaintedForKey(layerKey);
   }, [layerKey]);
@@ -467,6 +463,7 @@ function PostThreadSheet({
   useLayoutEffect(() => {
     if (!parked) return;
     ensurePostThreadParkedStyle();
+    // Class + inject hide the root. Here: inert, hush media, scroll isolation.
     let hushed = false;
     let sheetRoot: HTMLElement | null = null;
     const hush = (node: HTMLMediaElement) => {
@@ -491,12 +488,8 @@ function PostThreadSheet({
       const root = bodyRef.current?.closest('.glass-sheet-root');
       if (!(root instanceof HTMLElement)) return;
       sheetRoot = root;
-      if (root.style.visibility !== 'hidden') {
-        root.style.visibility = 'hidden';
-        root.style.pointerEvents = 'none';
-        root.setAttribute('aria-hidden', 'true');
-        root.inert = true;
-      }
+      root.setAttribute('aria-hidden', 'true');
+      root.inert = true;
       if (hushed) return;
       hushed = true;
       root.querySelectorAll('video, audio').forEach((node) => {
@@ -507,9 +500,7 @@ function PostThreadSheet({
       root.addEventListener('play', quiet, true);
     };
     apply();
-    // Re-apply only when a top-level portal root mounts/unmounts (this
-    // sheet's glass root re-mounting resets the inline hide + play hush).
-    // Subtree-wide observation ran `apply` on every feed DOM mutation.
+    // Portal remount only — not every feed mutation.
     const observer = new MutationObserver(apply);
     observer.observe(document.body, { childList: true });
     window.addEventListener('wheel', allowScroll, true);
@@ -521,18 +512,32 @@ function PostThreadSheet({
       const root = sheetRoot;
       if (root instanceof HTMLElement) {
         root.removeEventListener('play', quiet, true);
-        root.style.visibility = '';
-        root.style.pointerEvents = '';
         root.removeAttribute('aria-hidden');
         root.inert = false;
       }
     };
   }, [parked]);
 
+  // Same as main: a new layer opens at scroll 0 (land re-pins posts after).
   useLayoutEffect(() => {
     const screen = bodyRef.current?.querySelector('.os-app-screen-body');
-    if (screen instanceof HTMLElement) screen.scrollTop = 0;
+    if (!(screen instanceof HTMLElement)) return;
+    screen.scrollTop = 0;
+    adoptAppLenisScroll(screen);
   }, [layer.accountId, layer.kind, layer.postId]);
+
+  // Quotes scroll in nested page roots (body is overflow:hidden). Reset once
+  // the list paints — Lenis can otherwise keep a stale mid-list target.
+  useLayoutEffect(() => {
+    if (layer.kind !== 'quotes' || !threadPainted) return;
+    const fill = bodyRef.current;
+    if (!fill) return;
+    for (const node of fill.querySelectorAll('.post-quotes-page-scroll')) {
+      if (!(node instanceof HTMLElement)) continue;
+      node.scrollTop = 0;
+      adoptAppLenisScroll(node);
+    }
+  }, [layer.accountId, layer.kind, layer.postId, threadPainted]);
 
   const openProfileFromPost = (event: ReactMouseEvent) => {
     if (!isUnmodifiedPrimaryClick(event)) return;
@@ -614,6 +619,7 @@ function PostThreadSheet({
                     postId={layer.postId}
                     embedded
                     initialTab={layer.tab}
+                    onThreadPainted={noteThreadPainted}
                   />
                 ) : layer.groupId ? (
                   <LiveGuildPostPanel
@@ -628,6 +634,7 @@ function PostThreadSheet({
                     }
                     embedded
                     replyDockEnabled={open && !parked}
+                    parked={parked}
                     showGuildLine={guildCard?.showGuildLine ?? true}
                     showChannel={guildCard?.showChannel ?? true}
                     sheetContext={layer.context}
@@ -641,6 +648,7 @@ function PostThreadSheet({
                     initial={initial}
                     embedded
                     replyDockEnabled={open && !parked}
+                    parked={parked}
                     onThreadPainted={noteThreadPainted}
                   />
                 )}
@@ -794,7 +802,10 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       underlayPathRef.current = null;
       setUnderlayPath(null);
       underlayScrollRef.current = null;
-      if (saved?.el.isConnected) saved.el.scrollTop = saved.top;
+      if (saved?.el.isConnected) {
+        saved.el.scrollTop = saved.top;
+        adoptAppLenisScroll(saved.el);
+      }
       if (typeof window === 'undefined') return;
       getPostLayerPopGuard().depth = 0;
       if (historyHasPostLayer()) {
@@ -1264,6 +1275,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       underlayScrollRef.current = null;
       if (saved?.el.isConnected) {
         saved.el.scrollTop = saved.top;
+        adoptAppLenisScroll(saved.el);
       }
     }
     if (typeof window !== 'undefined') {

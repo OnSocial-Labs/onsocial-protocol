@@ -78,6 +78,8 @@ export function useThreadFocusReply(
       if (!id) return;
       pendingPostIdRef.current = id;
       setPendingPostId(id);
+      // New target — drop any prior pulse so the find effect can run again.
+      setHighlightKey(null);
       onFocusReplyRef.current?.();
     },
     []
@@ -88,21 +90,26 @@ export function useThreadFocusReply(
     [highlightKey]
   );
 
+  // Find + scroll. Retries when the reply list remounts (deep-link / confirm).
+  // Once highlighting, leave the pulse alone — reconcile must not tear it down.
   useEffect(() => {
-    const targetId = pendingPostIdRef.current;
-    if (!targetId || !ready) return;
+    if (!pendingPostId || !ready || highlightKey) return;
 
     let attempts = 0;
-    let highlightTimer: number | undefined;
+    let retryTimer: number | undefined;
+    let cancelled = false;
 
     const tryFocus = () => {
+      if (cancelled) return;
+      const targetId = pendingPostIdRef.current;
+      if (!targetId) return;
       const node = document.querySelector<HTMLElement>(
         `[data-thread-focus-reply="${CSS.escape(targetId)}"]`
       );
       if (!node) {
         attempts += 1;
         if (attempts < SCROLL_MAX_ATTEMPTS) {
-          window.setTimeout(tryFocus, SCROLL_RETRY_MS);
+          retryTimer = window.setTimeout(tryFocus, SCROLL_RETRY_MS);
         } else {
           pendingPostIdRef.current = null;
           setPendingPostId(null);
@@ -110,33 +117,33 @@ export function useThreadFocusReply(
         return;
       }
 
-      pendingPostIdRef.current = null;
       node.scrollIntoView({ block: 'center', behavior: 'smooth' });
       const key = node.dataset.threadFocusKey?.trim() || null;
-      if (key) {
-        setHighlightKey(key);
-      }
-      /*
-       * Keep pending through the smooth scroll + pulse: the reply window
-       * pins the target row mounted while pending, and releasing mid-scroll
-       * could unmount the row the browser is animating toward. The window
-       * re-engages around the landed row once the highlight lifts.
-       */
-      highlightTimer = window.setTimeout(() => {
-        setHighlightKey(null);
+      if (key) setHighlightKey(key);
+      else {
+        pendingPostIdRef.current = null;
         setPendingPostId(null);
-      }, HIGHLIGHT_MS);
+      }
     };
 
     tryFocus();
 
     return () => {
-      if (highlightTimer) {
-        window.clearTimeout(highlightTimer);
-        setPendingPostId(null);
-      }
+      cancelled = true;
+      if (retryTimer) window.clearTimeout(retryTimer);
     };
-  }, [ready, replyPresenceKey]);
+  }, [ready, replyPresenceKey, pendingPostId, highlightKey]);
+
+  // Pulse lifetime — independent of replyPresenceKey / reconcile churn.
+  useEffect(() => {
+    if (!highlightKey) return;
+    const timer = window.setTimeout(() => {
+      setHighlightKey(null);
+      pendingPostIdRef.current = null;
+      setPendingPostId(null);
+    }, HIGHLIGHT_MS);
+    return () => window.clearTimeout(timer);
+  }, [highlightKey]);
 
   return { requestFocus, isHighlighted, pendingPostId };
 }

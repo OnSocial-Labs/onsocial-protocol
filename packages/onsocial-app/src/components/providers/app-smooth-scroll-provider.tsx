@@ -92,7 +92,8 @@ function bindAppSmoothScrollRoots(): () => void {
     const canScroll = (element: HTMLElement) =>
       shouldBindAppSmoothScrollRoot(
         isAppSmoothScrollPagerHost(element),
-        getComputedStyle(element).overflowY
+        getComputedStyle(element).overflowY,
+        element.hasAttribute('data-native-scroll')
       );
 
     for (const [element, unbind] of instances) {

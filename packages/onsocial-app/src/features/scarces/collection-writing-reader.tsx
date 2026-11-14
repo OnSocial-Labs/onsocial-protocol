@@ -657,9 +657,7 @@ export function CollectionWritingReader({
               <span className="os-media-face-identity-copy">
                 <span className="os-media-face-identity-name-row">
                   <span className="os-media-face-identity-name">{creatorLabel}</span>
-                  <span className="post-identity-name-marks">
-                    <ProtocolNameTrailing accountId={creatorId} />
-                  </span>
+                  <ProtocolNameTrailing accountId={creatorId} />
                 </span>
                 <span className="os-media-face-identity-handle">@{creatorId}</span>
               </span>

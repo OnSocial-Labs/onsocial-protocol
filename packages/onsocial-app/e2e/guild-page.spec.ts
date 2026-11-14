@@ -485,7 +485,7 @@ test.describe('guild page', () => {
     await shareChip.click();
 
     const shareDialog = page.getByRole('dialog', { name: 'Who can share' });
-    await expect(shareDialog).toHaveAttribute('data-presentation', 'appear');
+    await expect(shareDialog).toHaveAttribute('data-presentation', 'enter');
     await expect(shareDialog).toHaveAttribute('data-stack-op', 'cover');
     await expect(sheet).toHaveAttribute('data-presentation', 'enter');
     await expect(sheet).toHaveAttribute('data-stack-op', 'present');
@@ -527,7 +527,7 @@ test.describe('guild page', () => {
     await sheet.getByRole('button', { name: 'Close add room' }).click();
     const discard = page.getByRole('dialog', { name: 'Discard changes?' });
     await expect(discard).toBeVisible();
-    await expect(discard).toHaveAttribute('data-presentation', 'appear');
+    await expect(discard).toHaveAttribute('data-presentation', 'enter');
     await expect(discard).toHaveAttribute('data-stack-op', 'cover');
     await discard
       .locator('button.os-sheet-action', { hasText: 'Keep editing' })
@@ -792,7 +792,7 @@ test.describe('guild page', () => {
     await editor.getByRole('textbox').fill('Shipping Room');
     await editor.getByRole('button', { name: 'Feed tab: In feed' }).click();
     const feedTab = page.getByRole('dialog', { name: 'Feed tab' });
-    await expect(feedTab).toHaveAttribute('data-presentation', 'appear');
+    await expect(feedTab).toHaveAttribute('data-presentation', 'enter');
     await expect(feedTab).toHaveAttribute('data-stack-op', 'cover');
     await feedTab.getByRole('option', { name: /In feed/ }).click();
     await expect(feedTab).toHaveCount(0);
@@ -800,7 +800,7 @@ test.describe('guild page', () => {
     await editor.getByRole('button', { name: 'Close add room' }).click();
     const abandon = page.getByRole('dialog', { name: 'Discard changes?' });
     await expect(abandon).toBeVisible();
-    await expect(abandon).toHaveAttribute('data-presentation', 'appear');
+    await expect(abandon).toHaveAttribute('data-presentation', 'enter');
     await expect(abandon).toHaveAttribute('data-stack-op', 'cover');
     await abandon
       .locator('button.os-sheet-action', { hasText: 'Keep editing' })
@@ -862,7 +862,7 @@ test.describe('guild page', () => {
     await rooms.getByRole('button', { name: 'Close', exact: true }).click();
     const discard = page.getByRole('dialog', { name: 'Discard changes?' });
     await expect(discard).toBeVisible();
-    await expect(discard).toHaveAttribute('data-presentation', 'appear');
+    await expect(discard).toHaveAttribute('data-presentation', 'enter');
     await expect(discard).toHaveAttribute('data-stack-op', 'cover');
     await discard
       .locator('button.os-sheet-action', { hasText: 'Keep editing' })

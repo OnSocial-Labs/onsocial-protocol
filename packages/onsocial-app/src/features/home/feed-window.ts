@@ -4,18 +4,37 @@
  * height cache. The hook in `use-feed-window.ts` wires this to the DOM.
  */
 
-/** Matches the `.home-feed-block` contain-intrinsic-size fallback (20rem). */
-export const FEED_WINDOW_ESTIMATE_PX = 320;
+/** Text-only row fallback when nothing is measured yet. */
+export const FEED_WINDOW_ESTIMATE_PX = 280;
+/** Compact 4:3 media + identity + actions. */
+export const FEED_WINDOW_MEDIA_ESTIMATE_PX = 480;
+/** Quote inset under a text/media card. */
+export const FEED_WINDOW_QUOTE_ESTIMATE_PX = 420;
 /**
- * Poll feed blocks measure 214–245px. The generic estimate overshoots that
- * range, so the first height correction is large. Midpoint of the measured
- * range — the only poll estimate, shared by every windowed feed.
+ * Poll feed blocks measure 214–245px. Midpoint of the measured range —
+ * shared by every windowed feed.
  */
 export const FEED_WINDOW_POLL_ESTIMATE_PX = Math.round((214 + 245) / 2);
 
-/** Fallback height for one row. Poll rows use the tighter measured estimate. */
-export function feedWindowRowEstimatePx(isPollRow: boolean): number {
-  return isPollRow ? FEED_WINDOW_POLL_ESTIMATE_PX : FEED_WINDOW_ESTIMATE_PX;
+export type FeedWindowRowKind = 'text' | 'media' | 'quote' | 'poll';
+
+/** Typed unmeasured-row height — keeps spacers closer to real desktop rows. */
+export function feedWindowRowEstimatePx(
+  kind: FeedWindowRowKind | boolean
+): number {
+  // Legacy boolean: true = poll (personalFeedBlockIsPollRow callers).
+  if (kind === true) return FEED_WINDOW_POLL_ESTIMATE_PX;
+  if (kind === false) return FEED_WINDOW_ESTIMATE_PX;
+  switch (kind) {
+    case 'poll':
+      return FEED_WINDOW_POLL_ESTIMATE_PX;
+    case 'media':
+      return FEED_WINDOW_MEDIA_ESTIMATE_PX;
+    case 'quote':
+      return FEED_WINDOW_QUOTE_ESTIMATE_PX;
+    default:
+      return FEED_WINDOW_ESTIMATE_PX;
+  }
 }
 
 /**
@@ -34,10 +53,16 @@ export function feedWindowEstimateAt(
   }
   return FEED_WINDOW_ESTIMATE_PX;
 }
-/** Rendered slack each side of the viewport — about two mobile screens. */
-export const FEED_WINDOW_OVERSCAN_PX = 1600;
-/** Below this many blocks, rendering everything is cheaper than windowing. */
-export const FEED_WINDOW_MIN_COUNT = 30;
+/**
+ * Rendered slack each side of the viewport — ~1.5 desktop viewports so
+ * scroll-back remounts stay off the fold.
+ */
+export const FEED_WINDOW_OVERSCAN_PX = 2400;
+/**
+ * Window once the first page is on screen. Was 30 (above page size 24), so
+ * the first page never windowed and CV placeholders jiggled on scroll-back.
+ */
+export const FEED_WINDOW_MIN_COUNT = 12;
 /** Defensive cap on persisted height entries (session storage quota). */
 export const FEED_WINDOW_SIZE_PERSIST_LIMIT = 400;
 
