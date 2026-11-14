@@ -39940,6 +39940,18 @@ a.os-surface-row,
     padding-bottom: 0.68rem;
   }
 
+  /* Same gap main measured on the row: 0.2rem under the avatar circle. */
+  .guild-composer-thread-item > .thread-rail-col.is-down::after {
+    top: calc(
+      var(--thread-pad-top) + var(--thread-avatar) + var(--thread-rail-gap)
+    );
+    bottom: auto;
+    height: calc(
+      100% - var(--thread-pad-top) - var(--thread-avatar) -
+        var(--thread-rail-gap)
+    );
+  }
+
   /* Next post sits on the rail, under the writing. An article folds it away. */
   .guild-composer-thread-add {
     display: grid;
