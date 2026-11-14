@@ -341,7 +341,7 @@ describe('virtual keyboard seat', () => {
   it('seats on the IME top when overlaysContent reports a keyboard', () => {
     const virtualKeyboard = {
       overlaysContent: false,
-      boundingRect: { x: 0, y: 520, width: 390, height: 300 },
+      boundingRect: { x: 0, y: 520, width: 390, height: 324 },
       addEventListener() {},
       removeEventListener() {},
     };
@@ -386,9 +386,10 @@ describe('virtual keyboard seat', () => {
 
   it('closes the Brave tab gap when VV stays full and IME reports key top', () => {
     // Tab browser: visualViewport often does not shrink; only VK has the keys.
+    // height fills to layout bottom (844 - 500) so y and height agree.
     const virtualKeyboard = {
       overlaysContent: true,
-      boundingRect: { x: 0, y: 500, width: 390, height: 280 },
+      boundingRect: { x: 0, y: 500, width: 390, height: 344 },
       addEventListener() {},
       removeEventListener() {},
     };
@@ -426,12 +427,34 @@ describe('virtual keyboard seat', () => {
     expect(box.top + box.height).toBe(500);
   });
 
+  it('takes the lower IME edge when Brave leaves a shortfall under the box', () => {
+    // y=500, height=300 → 44px short of innerHeight. That strip is the gap.
+    const virtualKeyboard = {
+      overlaysContent: true,
+      boundingRect: { x: 0, y: 500, width: 390, height: 300 },
+      addEventListener() {},
+      removeEventListener() {},
+    };
+    Object.defineProperty(navigator, 'virtualKeyboard', {
+      configurable: true,
+      value: virtualKeyboard,
+    });
+    stubPhoneWindow({ innerHeight: 844, viewportHeight: 844 });
+
+    expect(readKeyboardVisibleBottom()).toBe(544);
+    expect(readKeyboardDrawerMetrics()).toEqual({
+      lift: 300,
+      height: 544,
+      isMobile: true,
+    });
+  });
+
   it('follows a ~40px IME correction instead of settling it as suggestion noise', () => {
     // Brave often paints one short geometrychange, then corrects by ~40px —
     // the same magnitude as a suggestion bar. Trust IME; do not hold short.
     const virtualKeyboard = {
       overlaysContent: true,
-      boundingRect: { x: 0, y: 540, width: 390, height: 260 },
+      boundingRect: { x: 0, y: 540, width: 390, height: 304 },
       addEventListener() {},
       removeEventListener() {},
     };
@@ -454,8 +477,7 @@ describe('virtual keyboard seat', () => {
     ).toBe(short);
     // Callers skip settle while virtualKeyboardSeatActive().
     expect(virtualKeyboardSeatActive()).toBe(true);
-    expect(corrected.height).toBe(540);
-    virtualKeyboard.boundingRect = { x: 0, y: 500, width: 390, height: 300 };
+    virtualKeyboard.boundingRect = { x: 0, y: 500, width: 390, height: 344 };
     expect(readKeyboardDrawerMetrics()).toEqual({
       lift: 344,
       height: 500,

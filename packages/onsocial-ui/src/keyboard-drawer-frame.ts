@@ -102,7 +102,13 @@ export function readKeyboardVisibleBottom(): number {
   if (keyboard?.overlaysContent) {
     const rect = keyboard.boundingRect;
     if (rect && rect.height >= KEYBOARD_VIEWPORT_SLOP_PX) {
-      return Math.round(rect.y);
+      // `y` is the key top when the IME box fills to the layout bottom.
+      // When Brave leaves a shortfall under the box (toolbar / first paint),
+      // `innerHeight - height` is the real key top — take the lower edge.
+      const fromY = rect.y > 0 ? Math.round(rect.y) : 0;
+      const fromHeight = Math.round(window.innerHeight - rect.height);
+      if (fromY > 0 && fromHeight > 0) return Math.max(fromY, fromHeight);
+      return fromY || fromHeight;
     }
   }
   const viewport = window.visualViewport;
@@ -167,11 +173,11 @@ export function readKeyboardDrawerMetrics(): KeyboardDrawerMetrics {
 
   ensureVirtualKeyboardOverlay();
   if (virtualKeyboardSeatActive()) {
-    const vkInset = readVirtualKeyboardInset();
     const keyTop = readKeyboardVisibleBottom();
     const offsetTop = Math.round(viewport.offsetTop);
     const height = Math.max(0, keyTop - offsetTop);
-    return { lift: vkInset, height, isMobile: true };
+    const lift = Math.max(0, Math.round(window.innerHeight - keyTop));
+    return { lift, height, isMobile: true };
   }
 
   const lift = Math.max(
@@ -411,7 +417,11 @@ function parentVisualTop(node: HTMLElement): number {
   return parent.getBoundingClientRect().top;
 }
 
-/** Write the box, then pull the sheet back if that top missed the visual screen. */
+/**
+ * Write the box, correct a missed top, then stretch height so the root
+ * bottom lands on the IME top. Brave can leave a ~40px strip when CSS top
+ * / height and the painted box disagree — measuring closes it.
+ */
 function commitVisibleBox(
   node: HTMLElement,
   box: VisualKeyboardBox
@@ -422,9 +432,21 @@ function commitVisibleBox(
     frameTop: node.getBoundingClientRect().top,
     parentTop: parentVisualTop(node),
   });
-  if (top === box.top) return box;
-  const next = { top, height: box.height };
-  applyKeyboardRootFrame(node, next);
+  let next = top === box.top ? box : { top, height: box.height };
+  if (top !== box.top) applyKeyboardRootFrame(node, next);
+
+  const keyTop = readKeyboardVisibleBottom();
+  if (keyTop > 0) {
+    const rect = node.getBoundingClientRect();
+    const bottom = Math.round(rect.bottom);
+    if (Math.abs(bottom - keyTop) >= 2) {
+      const height = Math.max(0, keyTop - Math.round(rect.top));
+      if (height !== next.height) {
+        next = { top: next.top, height };
+        applyKeyboardRootFrame(node, next);
+      }
+    }
+  }
   return next;
 }
 

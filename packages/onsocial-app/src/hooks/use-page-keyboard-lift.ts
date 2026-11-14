@@ -4,6 +4,7 @@ import {
   keyboardFrameTop,
   keyboardSeatPx,
   readKeyboardDrawerMetrics,
+  readKeyboardVisibleBottom,
   settleVisualKeyboardFrame,
   virtualKeyboardSeatActive,
   visualKeyboardFrame,
@@ -118,7 +119,7 @@ export function usePageKeyboardLift(
         : settleVisualKeyboardFrame(pinned, proposedBox);
       node.style.top = `${proposed.top}px`;
       node.style.height = `${proposed.height}px`;
-      const next = {
+      let next = {
         top: keyboardFrameTop({
           appliedTop: proposed.top,
           frameTop: node.getBoundingClientRect().top,
@@ -127,6 +128,18 @@ export function usePageKeyboardLift(
         height: proposed.height,
       };
       if (next.top !== proposed.top) node.style.top = `${next.top}px`;
+      // Same flush drawers use — painted bottom must meet the IME top.
+      const keyTop = readKeyboardVisibleBottom();
+      if (keyTop > 0) {
+        const painted = node.getBoundingClientRect();
+        if (Math.abs(Math.round(painted.bottom) - keyTop) >= 2) {
+          next = {
+            top: next.top,
+            height: Math.max(0, keyTop - Math.round(painted.top)),
+          };
+          node.style.height = `${next.height}px`;
+        }
+      }
       setPinned((current) =>
         current && current.top === next.top && current.height === next.height
           ? current
