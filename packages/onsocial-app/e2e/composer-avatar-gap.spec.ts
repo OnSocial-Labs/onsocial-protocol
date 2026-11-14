@@ -118,9 +118,10 @@ test('composer first avatar matches the Post page gap', async ({ page }) => {
     const second = items[1];
     if (!first || !second) return null;
     const avatar = first.querySelector('.guild-composer-row-avatar');
-    if (!avatar) return null;
+    const rail = first.querySelector('.thread-rail-col.is-down');
+    if (!avatar || !rail) return null;
     const pad = Number.parseFloat(getComputedStyle(first).paddingTop);
-    const railTop = Number.parseFloat(getComputedStyle(first, '::after').top);
+    const railTop = Number.parseFloat(getComputedStyle(rail, '::after').top);
     const avatarHeight = avatar.getBoundingClientRect().height;
     return {
       secondPad: Number.parseFloat(getComputedStyle(second).paddingTop),
