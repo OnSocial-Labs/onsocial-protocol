@@ -84,16 +84,14 @@ export function ThreadDiscoverPeek({
   const [quoteSettled, setQuoteSettled] = useState(true);
 
   useEffect(() => {
-    if (!armed) {
-      setSettled(false);
-      setQuoteSettled(true);
-      setPeek(null);
-      return;
-    }
+    // Render already returns null when !armed; leave stale peek until re-arm.
+    if (!armed) return;
     let cancelled = false;
+    /* eslint-disable react-hooks/set-state-in-effect -- clear prior peek before async fetch so a new author never paints the old card */
     setSettled(false);
     setQuoteSettled(true);
     setPeek(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
     const client = createReadOnlyOnSocialClient();
     (async () => {
       const ownPage = await client.query.feed
@@ -136,11 +134,8 @@ export function ThreadDiscoverPeek({
     : undefined;
 
   useEffect(() => {
-    if (!peek) {
-      setQuoteSettled(true);
-      return;
-    }
-    if (!peekNeedsQuotedBody(peek.post)) {
+    if (!peek || !peekNeedsQuotedBody(peek.post)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- quote gate: no body to wait on
       setQuoteSettled(true);
       return;
     }

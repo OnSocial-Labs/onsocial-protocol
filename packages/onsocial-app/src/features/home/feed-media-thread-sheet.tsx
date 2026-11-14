@@ -4,7 +4,6 @@ import {
   Suspense,
   useCallback,
   useId,
-  useLayoutEffect,
   useMemo,
   useState,
   type CSSProperties,
@@ -74,10 +73,8 @@ export function FeedMediaThreadSheet({
 }) {
   const titleId = useId();
   const paintKey = `${author}:${postId}`;
+  // Key mismatch already gates appear — no reset effect (set-state-in-effect).
   const [paintedForKey, setPaintedForKey] = useState<string | null>(null);
-  useLayoutEffect(() => {
-    setPaintedForKey(null);
-  }, [paintKey]);
   const threadPainted = paintedForKey === paintKey;
   const noteThreadPainted = useCallback(() => {
     setPaintedForKey(paintKey);

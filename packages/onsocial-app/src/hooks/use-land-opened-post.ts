@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -108,7 +109,9 @@ function useLandOpenedPost(
   parked = false
 ) {
   const onSettledRef = useRef(onSettled);
-  onSettledRef.current = onSettled;
+  useEffect(() => {
+    onSettledRef.current = onSettled;
+  });
   const settledOnceRef = useRef(false);
   const scrollerRef = useRef<HTMLElement | null>(null);
   const releaseHoldRef = useRef<(() => void) | null>(null);

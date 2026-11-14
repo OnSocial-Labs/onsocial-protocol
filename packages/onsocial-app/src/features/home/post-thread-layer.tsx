@@ -437,10 +437,8 @@ function PostThreadSheet({
   const layerKey = `${layer.kind}:${layer.groupId ?? ''}:${layer.accountId}:${layer.postId}${
     layer.kind === 'quotes' ? `:${layer.tab}` : ''
   }`;
+  // Key mismatch already gates appear — no reset effect (set-state-in-effect).
   const [paintedForKey, setPaintedForKey] = useState<string | null>(null);
-  useLayoutEffect(() => {
-    setPaintedForKey(null);
-  }, [layerKey]);
   const threadPainted = paintedForKey === layerKey;
   const title = quotes ? POST_REACH_TITLE : 'Post';
   const guildCard =
