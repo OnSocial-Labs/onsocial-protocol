@@ -1,4 +1,4 @@
-import { getAppLenis } from '@/lib/app-lenis-registry';
+import { adoptAppLenisScroll } from '@/lib/app-lenis-registry';
 
 /** Ignore subpixel noise. A real dock move is larger than this. */
 const DOCK_RISE_SLOP_PX = 0.5;
@@ -33,18 +33,7 @@ export function nextScrollerTop(
 }
 
 function adoptLenis(root: HTMLElement) {
-  const smooth = getAppLenis(root);
-  if (!smooth) return;
-  smooth.resize();
-  const top = root.scrollTop;
-  // An in-flight glide would put the old target back on the next frame.
-  if (smooth.scroll === top) {
-    smooth.scrollTo(top > 0 ? top - 1 : top + 1, {
-      immediate: true,
-      force: true,
-    });
-  }
-  smooth.scrollTo(top, { immediate: true, force: true });
+  adoptAppLenisScroll(root);
 }
 
 /**

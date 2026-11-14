@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import { PostCard, postKey } from '@/features/home/post-card';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
@@ -12,8 +12,13 @@ import {
   usePostEngagement,
 } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
+import {
+  hasQuotedPostCacheEntry,
+  useQuotedPosts,
+} from '@/hooks/use-quoted-posts';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { isRepostRefType } from '@/lib/post-relation';
 import { displayName } from '@/lib/profile-display';
 import { postThreadPath } from '@/lib/post-routes';
 
@@ -27,11 +32,21 @@ function postIdsEqual(left: string, right: string): boolean {
   }
 }
 
+function peekNeedsQuotedBody(post: PostRow): boolean {
+  const path = post.refPath?.trim();
+  return Boolean(path) && !isRepostRefType(post.refType);
+}
+
 interface ThreadDiscoverPeekProps {
   /** Thread root author — "More from {author}" is tried first. */
   author: string;
   /** The post being viewed — never peek itself. */
   excludePostId: string;
+  /**
+   * False while replies are still resolving — do not fetch yet. Parent
+   * mounts this once so the peek never remounts across reply soft-fill.
+   */
+  armed?: boolean;
   /** Profiles already loaded by the thread (avoids a duplicate author fetch). */
   authorProfiles?: Record<string, PostAuthorProfile | undefined>;
   /** Keep ⋮ and share drawers above the open post sheet. */
@@ -45,14 +60,13 @@ interface ThreadDiscoverPeekProps {
 }
 
 /**
- * Empty-thread tail: one quiet post instead of "No replies yet." chrome.
- * Author's latest root first; falls back to a global recent post. Renders
- * nothing until a peek resolves — no skeleton, no layout shift.
- * Parent thread panels already draw the detail Divider above this section.
+ * Empty-thread tail. Null until ready + quote settled (no seat). Soft-fills
+ * below the hero appear with the shared opacity motion.
  */
 export function ThreadDiscoverPeek({
   author,
   excludePostId,
+  armed = true,
   authorProfiles,
   menuZIndex,
   onReply,
@@ -66,9 +80,20 @@ export function ThreadDiscoverPeek({
   const [peek, setPeek] = useState<{ post: PostRow; own: boolean } | null>(
     null
   );
+  const [settled, setSettled] = useState(false);
+  const [quoteSettled, setQuoteSettled] = useState(true);
 
   useEffect(() => {
+    if (!armed) {
+      setSettled(false);
+      setQuoteSettled(true);
+      setPeek(null);
+      return;
+    }
     let cancelled = false;
+    setSettled(false);
+    setQuoteSettled(true);
+    setPeek(null);
     const client = createReadOnlyOnSocialClient();
     (async () => {
       const ownPage = await client.query.feed
@@ -78,7 +103,10 @@ export function ThreadDiscoverPeek({
         (row) => !postIdsEqual(row.postId, excludePostId)
       );
       if (own) {
-        if (!cancelled) setPeek({ post: own, own: true });
+        if (!cancelled) {
+          setPeek({ post: own, own: true });
+          setSettled(true);
+        }
         return;
       }
       const globalPage = await client.query.feed
@@ -91,14 +119,60 @@ export function ThreadDiscoverPeek({
             postIdsEqual(row.postId, excludePostId)
           )
       );
-      if (other && !cancelled) setPeek({ post: other, own: false });
+      if (!cancelled) {
+        if (other) setPeek({ post: other, own: false });
+        setSettled(true);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [author, excludePostId]);
+  }, [armed, author, excludePostId]);
 
-  const profileIds = peek ? [peek.post.accountId] : [];
+  const peekPosts = useMemo(() => (peek ? [peek.post] : []), [peek]);
+  const quotedPosts = useQuotedPosts(peekPosts);
+  const quotedPost = peek?.post.refPath
+    ? quotedPosts[peek.post.refPath]
+    : undefined;
+
+  useEffect(() => {
+    if (!peek) {
+      setQuoteSettled(true);
+      return;
+    }
+    if (!peekNeedsQuotedBody(peek.post)) {
+      setQuoteSettled(true);
+      return;
+    }
+    const path = peek.post.refPath!.trim();
+    if (quotedPost || hasQuotedPostCacheEntry(path)) {
+      setQuoteSettled(true);
+      return;
+    }
+    setQuoteSettled(false);
+    let cancelled = false;
+    let frames = 0;
+    const poll = () => {
+      if (cancelled) return;
+      if (hasQuotedPostCacheEntry(path) || frames > 120) {
+        setQuoteSettled(true);
+        return;
+      }
+      frames += 1;
+      requestAnimationFrame(poll);
+    };
+    requestAnimationFrame(poll);
+    return () => {
+      cancelled = true;
+    };
+  }, [peek, quotedPost]);
+
+  const profileIds = useMemo(() => {
+    const ids: string[] = [];
+    if (peek) ids.push(peek.post.accountId);
+    if (quotedPost) ids.push(quotedPost.accountId);
+    return ids;
+  }, [peek, quotedPost]);
   const fetchedProfiles = usePostAuthorProfiles(profileIds);
   const onEngagementError = (message: string) =>
     setTxResult({ type: 'error', msg: message });
@@ -109,19 +183,23 @@ export function ThreadDiscoverPeek({
     isReactionPending,
     isSavePending,
     isSharePending,
-  } = usePostEngagement(peek ? [peek.post] : [], {
+  } = usePostEngagement(peekPosts, {
     onError: onEngagementError,
   });
   const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(
-    peek ? [peek.post] : [],
+    peekPosts,
     { onError: onEngagementError }
   );
 
-  if (!peek) return null;
+  if (!armed || !settled || !quoteSettled || !peek) return null;
 
   const post = peek.post;
   const profile =
     authorProfiles?.[post.accountId] ?? fetchedProfiles[post.accountId];
+  const quotedAuthorProfile = quotedPost
+    ? (authorProfiles?.[quotedPost.accountId] ??
+      fetchedProfiles[quotedPost.accountId])
+    : undefined;
   const name = displayName(post.accountId, profile?.displayName);
 
   return (
@@ -135,6 +213,9 @@ export function ThreadDiscoverPeek({
         actionHref={postThreadPath(post)}
         preferActionHref
         showRelationBadge={false}
+        quotedPost={quotedPost}
+        quotedAuthorProfile={quotedAuthorProfile}
+        quotedHref={quotedPost ? postThreadPath(quotedPost) : undefined}
         {...(menuZIndex != null ? { menuZIndex } : {})}
         engagement={engagement[postKey(post)] ?? EMPTY_POST_ENGAGEMENT}
         reactionPending={isReactionPending(post)}

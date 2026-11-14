@@ -97,8 +97,8 @@ export interface OsHugSheetProps {
   peekRatio?: number;
   presentation?: GlassSheetPresentation;
   /**
-   * `overlay` fades while another sheet is open. Choice chrome does this
-   * on its own. `auto` always slides — replace holds the slot and slides in.
+   * `overlay` — cover on top (choice chrome default); always slides.
+   * `auto` — stack push/replace; always slides.
    */
   stack?: SheetStackRole;
   /** Optional fixed title id when the host also references it. */

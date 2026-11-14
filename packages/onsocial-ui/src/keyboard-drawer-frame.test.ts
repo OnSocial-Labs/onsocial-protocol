@@ -1,12 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   correctedKeyboardSeat,
+  ensureVirtualKeyboardOverlay,
   keyboardDrawerFrameStyle,
   keyboardFrameNeedsSeat,
   keyboardFrameTop,
   keyboardRootFrameStyle,
   keyboardSeatPx,
   pageKeyboardLiftStyle,
+  readKeyboardDrawerMetrics,
+  readKeyboardVisibleBottom,
+  readVirtualKeyboardInset,
   settleKeyboardDrawerMetrics,
   settleVisualKeyboardFrame,
   visualKeyboardFrame,
@@ -297,5 +301,127 @@ describe('pageKeyboardLiftStyle', () => {
     expect(
       pageKeyboardLiftStyle({ isMobile: true, height: 380, lift: 320 }, 0)
     ).toEqual({ '--os-keyboard-lift': '0px' });
+  });
+});
+
+describe('virtual keyboard seat', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    Reflect.deleteProperty(navigator, 'virtualKeyboard');
+  });
+
+  function stubPhoneWindow(input: {
+    innerHeight: number;
+    viewportHeight: number;
+    offsetTop?: number;
+  }) {
+    const visualViewport = {
+      height: input.viewportHeight,
+      offsetTop: input.offsetTop ?? 0,
+      addEventListener() {},
+      removeEventListener() {},
+    };
+    const matchMedia = vi.fn().mockReturnValue({ matches: true });
+    vi.stubGlobal('window', {
+      innerHeight: input.innerHeight,
+      visualViewport,
+      matchMedia,
+    });
+    vi.stubGlobal('innerHeight', input.innerHeight);
+    vi.stubGlobal('visualViewport', visualViewport);
+    vi.stubGlobal('matchMedia', matchMedia);
+  }
+
+  it('returns no IME inset without the Virtual Keyboard API', () => {
+    expect(readVirtualKeyboardInset()).toBe(0);
+    expect(ensureVirtualKeyboardOverlay()).toBe(false);
+  });
+
+  it('seats on the IME top when overlaysContent reports a keyboard', () => {
+    const virtualKeyboard = {
+      overlaysContent: false,
+      boundingRect: { x: 0, y: 520, width: 390, height: 300 },
+      addEventListener() {},
+      removeEventListener() {},
+    };
+    Object.defineProperty(navigator, 'virtualKeyboard', {
+      configurable: true,
+      value: virtualKeyboard,
+    });
+    stubPhoneWindow({ innerHeight: 844, viewportHeight: 844 });
+
+    expect(ensureVirtualKeyboardOverlay()).toBe(true);
+    expect(virtualKeyboard.overlaysContent).toBe(true);
+    expect(readVirtualKeyboardInset()).toBe(324);
+    expect(readKeyboardVisibleBottom()).toBe(520);
+    expect(readKeyboardDrawerMetrics()).toEqual({
+      lift: 324,
+      height: 520,
+      isMobile: true,
+    });
+  });
+
+  it('falls back to visualViewport when the IME is closed', () => {
+    const virtualKeyboard = {
+      overlaysContent: true,
+      boundingRect: { x: 0, y: 0, width: 0, height: 0 },
+      addEventListener() {},
+      removeEventListener() {},
+    };
+    Object.defineProperty(navigator, 'virtualKeyboard', {
+      configurable: true,
+      value: virtualKeyboard,
+    });
+    stubPhoneWindow({ innerHeight: 844, viewportHeight: 520 });
+
+    expect(readVirtualKeyboardInset()).toBe(0);
+    expect(readKeyboardVisibleBottom()).toBe(520);
+    expect(readKeyboardDrawerMetrics()).toEqual({
+      lift: 324,
+      height: 520,
+      isMobile: true,
+    });
+  });
+
+  it('closes the Brave tab gap when VV stays full and IME reports key top', () => {
+    // Tab browser: visualViewport often does not shrink; only VK has the keys.
+    const virtualKeyboard = {
+      overlaysContent: true,
+      boundingRect: { x: 0, y: 500, width: 390, height: 280 },
+      addEventListener() {},
+      removeEventListener() {},
+    };
+    Object.defineProperty(navigator, 'virtualKeyboard', {
+      configurable: true,
+      value: virtualKeyboard,
+    });
+    stubPhoneWindow({ innerHeight: 844, viewportHeight: 844 });
+
+    const vvOnlyLift = 844 - 844 - 0;
+    expect(vvOnlyLift).toBe(0);
+    expect(readKeyboardDrawerMetrics()).toEqual({
+      lift: 344,
+      height: 500,
+      isMobile: true,
+    });
+    expect(readKeyboardVisibleBottom()).toBe(500);
+
+    // Same flush assert the Playwright Location drawer checks: root bottom = key top.
+    const metrics = readKeyboardDrawerMetrics();
+    const box = visualKeyboardFrame({
+      position: 'fixed',
+      parentTop: 0,
+      parentHeight: 844,
+      offsetTop: 0,
+      visualHeight: metrics.height,
+    });
+    const root = keyboardRootFrameStyle(box);
+    expect(root).toEqual({
+      top: '0px',
+      height: '500px',
+      bottom: 'auto',
+      paddingBottom: 0,
+    });
+    expect(box.top + box.height).toBe(500);
   });
 });

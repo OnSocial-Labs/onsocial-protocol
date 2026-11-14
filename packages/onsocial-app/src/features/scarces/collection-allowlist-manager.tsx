@@ -1040,6 +1040,7 @@ function CollectionAllowlistSheet({
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
+      chrome="choice"
       label="Allowlist"
       copy={headerCopy}
       closeAriaLabel="Close allowlist"
@@ -1103,7 +1104,6 @@ function CollectionAllowlistSheet({
           ariaLabel="Search profiles to add to the allowlist"
           chrome="sheet"
           className="collection-allowlist-search"
-          autoFocus
         />
 
         {selectedFaces.length > 0 ? (
@@ -1462,6 +1462,7 @@ function CollectionAllowlistSheet({
     <OsHugSheet
       open={editingFace != null}
       onClose={closeEditSheet}
+      chrome="choice"
       label="Mint cap"
       {...(confirmingRemove ? { copy: 'Confirm removal' } : {})}
       closeAriaLabel="Close mint cap"

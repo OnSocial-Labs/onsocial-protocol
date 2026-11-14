@@ -3,7 +3,6 @@
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -13,6 +12,7 @@ import type { PostRow } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsHeaderBack } from '@/components/app/os-header-back';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -41,7 +41,7 @@ import {
   writeDockExpandSeed,
   writeWriteDockDraft,
 } from '@/lib/os-write-dock-draft';
-import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
+import { PostCard, postKey } from '@/features/home/post-card';
 import { ThreadRail } from '@/features/home/thread-rail';
 import { ThreadDiscoverPeek } from '@/features/home/thread-discover-peek';
 import { ThreadRepliesSortButton } from '@/features/home/thread-replies-sort';
@@ -89,9 +89,13 @@ import {
   usePostEngagement,
 } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
-import { useLandOpenedPost } from '@/hooks/use-land-opened-post';
+import { useThreadLandAppear } from '@/hooks/use-land-opened-post';
 import { useThreadFocusReply } from '@/hooks/use-thread-focus-reply';
-import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
+import {
+  asAncestorChainState,
+  useAncestorChain,
+  useQuotedPosts,
+} from '@/hooks/use-quoted-posts';
 import { collectRelationTargetAccountIds } from '@/lib/post-relation';
 import { postQuotesPath } from '@/lib/post-routes';
 import {
@@ -152,6 +156,8 @@ interface LiveGuildPostPanelProps {
   embedded?: boolean;
   /** False while the sheet is parked under a profile. */
   replyDockEnabled?: boolean;
+  /** Covered trail sheet — freeze land/scroll for identity back. */
+  parked?: boolean;
   /** Muted guild name above the author. Off when this guild is already the screen. */
   showGuildLine?: boolean;
   /** Room line on the opened post. Off inside one room. */
@@ -205,6 +211,7 @@ export function LiveGuildPostPanel({
   initial = null,
   embedded = false,
   replyDockEnabled = true,
+  parked = false,
   showGuildLine = true,
   showChannel: showRoom = true,
   sheetContext = null,
@@ -241,6 +248,7 @@ export function LiveGuildPostPanel({
     loadState,
     error,
     repliesResolved,
+    shareTailReady,
     seededEngagement,
     conversation,
     replyTree,
@@ -345,21 +353,11 @@ export function LiveGuildPostPanel({
   );
   // Full ancestor chain up to the conversation root, oldest first.
   const parentPath = conversation.root?.parentPath;
-  const ancestorChain = useAncestorChain(parentPath);
-  // parentPath is known before ancestors paint — keep the opened card on the
-  // thread edge from first paint so the face does not shift when parents land.
+  const { ancestors: ancestorChain, ready: ancestorsReady } =
+    asAncestorChainState(useAncestorChain(parentPath));
   const hasParent = Boolean(parentPath);
   const hasAncestorRows = ancestorChain.length > 0;
   const openedPostRef = useRef<HTMLDivElement>(null);
-  useLandOpenedPost(
-    openedPostRef,
-    conversation.root?.postId,
-    hasAncestorRows
-  );
-  useLayoutEffect(() => {
-    if (loadState !== 'ready' || !conversation.root) return;
-    onThreadPainted?.();
-  }, [conversation.root, loadState, onThreadPainted]);
   const engagementPosts = useMemo(
     () => [...ancestorChain, ...threadPosts],
     [ancestorChain, threadPosts]
@@ -413,6 +411,36 @@ export function LiveGuildPostPanel({
   const quoteTotal = Math.max(rootEngagement?.quoteCount ?? 0, quotes.length);
   const repostTotal = Math.max(0, rootEngagement?.repostCount ?? 0);
   const shareRow = resolveThreadShareRow(quoteTotal, repostTotal);
+  const rootEngagementKey = conversation.root
+    ? postKey(conversation.root)
+    : null;
+  const emptyTailReady =
+    shareTailReady &&
+    (rootEngagementKey == null ||
+      Boolean(
+        seededEngagement?.[rootEngagementKey] || engagement[rootEngagementKey]
+      ));
+  const { landSettled } = useThreadLandAppear({
+    openedPostRef,
+    postId: conversation.root?.postId,
+    hasParent,
+    ancestorsReady,
+    loadReady: loadState === 'ready',
+    hasRoot: Boolean(conversation.root),
+    tailReady: repliesResolved,
+    pinKey: ancestorsReady
+      ? ancestorChain.map((post) => post.postId).join('\n')
+      : '',
+    parked,
+    onThreadPainted,
+  });
+  const permalinkReady =
+    loadState === 'missing' ||
+    loadState === 'error' ||
+    (loadState === 'ready' &&
+      Boolean(conversation.root) &&
+      landSettled &&
+      repliesResolved);
   const sortedReplyRows = useMemo(
     () => sortThreadReplyRows(replyRows, replySort, engagement),
     [replyRows, replySort, engagement]
@@ -1002,9 +1030,23 @@ export function LiveGuildPostPanel({
             )}
             // Position under the root already says "reply".
             showRelationBadge={false}
+            authorProfiles={postAuthorProfiles}
             className={
               row.connectedToPrevious ? 'post-card--chain-cont' : undefined
             }
+            quotedPost={
+              row.post.refPath ? quotedPosts[row.post.refPath] : undefined
+            }
+            quotedAuthorProfile={
+              row.post.refPath
+                ? postAuthorProfiles[
+                    quotedPosts[row.post.refPath]?.accountId ?? ''
+                  ]
+                : undefined
+            }
+            quotedHref={quotedHrefFor(
+              row.post.refPath ? quotedPosts[row.post.refPath] : undefined
+            )}
             engagement={engagement[postKey(row.post)]}
             reactionPending={isReactionPending(row.post)}
             savePending={isSavePending(row.post)}
@@ -1028,17 +1070,8 @@ export function LiveGuildPostPanel({
     );
   });
 
-  const threadScreen = (
-    <OsAppScreen
-      title="Post"
-      glassChrome
-      compactChrome
-      backFallbackHref={guildPath(groupId)}
-      leading={<OsHeaderBack fallbackHref={guildPath(groupId)} />}
-    >
+  const threadBody = (
       <div className={GUILDS_PAGE_CLASS}>
-        {loadState === 'loading' ? <PostRowSkeleton rows={4} /> : null}
-
         {loadState === 'missing' ? (
           <section className="guild-state-card">
             <p>We could not find this guild post in the indexed feed yet.</p>
@@ -1058,65 +1091,69 @@ export function LiveGuildPostPanel({
             className={`guild-thread-column${rootContinued ? ' is-continued' : ''}`}
           >
             <div className="guild-thread-context">
-              {ancestorChain.map((ancestor, index) => (
-                <div
-                  className={`guild-thread-ancestor post-thread-item post-thread-item--down${index > 0 ? ' post-thread-item--up' : ''}`}
-                  key={postKey(ancestor)}
-                >
-                  <ThreadRail up={index > 0} down />
-                  <PostCard
-                    post={ancestor}
-                    authorProfile={postAuthorProfiles[ancestor.accountId]}
-                    videoSoundControl
-                    sheetContext={sheetContext}
-                    actionHref={guildPostPath(
-                      groupId,
-                      ancestor.accountId,
-                      ancestor.postId
-                    )}
-                    returnToPost
-                    // Top of chain keeps its context line if truncated.
-                    showRelationBadge={index === 0}
-                    authorProfiles={postAuthorProfiles}
-                    quotedPost={
-                      ancestor.refPath
-                        ? quotedPosts[ancestor.refPath]
-                        : undefined
-                    }
-                    quotedAuthorProfile={
-                      ancestor.refPath
-                        ? postAuthorProfiles[
-                            quotedPosts[ancestor.refPath]?.accountId ?? ''
-                          ]
-                        : undefined
-                    }
-                    quotedHref={quotedHrefFor(
-                      ancestor.refPath
-                        ? quotedPosts[ancestor.refPath]
-                        : undefined
-                    )}
-                    engagement={
-                      engagement[postKey(ancestor)] ?? EMPTY_POST_ENGAGEMENT
-                    }
-                    reactionPending={isReactionPending(ancestor)}
-                    savePending={isSavePending(ancestor)}
-                    sharePending={isSharePending(ancestor)}
-                    onToggleReaction={toggleReaction}
-                    onToggleSave={toggleSave}
-                    onAmplifyConfirmed={confirmAmplify}
-                    onReply={replyHandler}
-                    onExpandReply={expandReply}
-                    onQuote={quoteHandler}
-                    onRepost={repostHandler}
-                    onUndoRepost={undoRepostHandler}
-                    pollTally={pollTallyFor(ancestor)}
-                    pollVotePending={isPollVotePending(ancestor)}
-                    onPollVote={(post, optionIndex) => {
-                      void castVote(post, optionIndex);
-                    }}
-                  />
+              {hasAncestorRows ? (
+                <div className="guild-thread-ancestors">
+                  {ancestorChain.map((ancestor, index) => (
+                    <div
+                      className={`guild-thread-ancestor post-thread-item post-thread-item--down${index > 0 ? ' post-thread-item--up' : ''}`}
+                      key={postKey(ancestor)}
+                    >
+                      <ThreadRail up={index > 0} down />
+                      <PostCard
+                        post={ancestor}
+                        authorProfile={postAuthorProfiles[ancestor.accountId]}
+                        videoSoundControl
+                        sheetContext={sheetContext}
+                        actionHref={guildPostPath(
+                          groupId,
+                          ancestor.accountId,
+                          ancestor.postId
+                        )}
+                        returnToPost
+                        // Top of chain keeps its context line if truncated.
+                        showRelationBadge={index === 0}
+                        authorProfiles={postAuthorProfiles}
+                        quotedPost={
+                          ancestor.refPath
+                            ? quotedPosts[ancestor.refPath]
+                            : undefined
+                        }
+                        quotedAuthorProfile={
+                          ancestor.refPath
+                            ? postAuthorProfiles[
+                                quotedPosts[ancestor.refPath]?.accountId ?? ''
+                              ]
+                            : undefined
+                        }
+                        quotedHref={quotedHrefFor(
+                          ancestor.refPath
+                            ? quotedPosts[ancestor.refPath]
+                            : undefined
+                        )}
+                        engagement={
+                          engagement[postKey(ancestor)] ?? EMPTY_POST_ENGAGEMENT
+                        }
+                        reactionPending={isReactionPending(ancestor)}
+                        savePending={isSavePending(ancestor)}
+                        sharePending={isSharePending(ancestor)}
+                        onToggleReaction={toggleReaction}
+                        onToggleSave={toggleSave}
+                        onAmplifyConfirmed={confirmAmplify}
+                        onReply={replyHandler}
+                        onExpandReply={expandReply}
+                        onQuote={quoteHandler}
+                        onRepost={repostHandler}
+                        onUndoRepost={undoRepostHandler}
+                        pollTally={pollTallyFor(ancestor)}
+                        pollVotePending={isPollVotePending(ancestor)}
+                        onPollVote={(post, optionIndex) => {
+                          void castVote(post, optionIndex);
+                        }}
+                      />
+                    </div>
+                  ))}
                 </div>
-              ))}
+              ) : null}
 
               <div
                 ref={openedPostRef}
@@ -1230,8 +1267,16 @@ export function LiveGuildPostPanel({
             ) : null}
 
             <div className="guild-connected-stack" ref={replyStackRef}>
-              {joinControl && replyListRows.length === 0 && !shareRow ? (
-                <div className="guild-thread-join-dock is-with-post">
+              {/* Reserve Join seat until ACL resolves — no post-appear shove. */}
+              {replyListRows.length === 0 &&
+              !shareRow &&
+              (joinControl || !viewerAccessResolved) ? (
+                <div
+                  className={`guild-thread-join-dock is-with-post${
+                    joinControl ? '' : ' is-pending'
+                  }`}
+                  aria-hidden={joinControl ? undefined : true}
+                >
                   {joinControl}
                 </div>
               ) : null}
@@ -1244,13 +1289,11 @@ export function LiveGuildPostPanel({
               ) : null}
               {replyListRows.length > 0 ? (
                 replyListRows.slice(replyWindowStart, replyWindowEnd)
-              ) : !repliesResolved ? (
-                // Reply-shaped placeholders — incoming replies never shove content.
-                <PostRowSkeleton rows={2} />
-              ) : !shareRow ? (
+              ) : emptyTailReady && !shareRow ? (
                 <ThreadDiscoverPeek
                   author={author}
                   excludePostId={postId}
+                  armed={repliesResolved}
                   authorProfiles={postAuthorProfiles}
                   onReply={replyHandler}
                   onExpandReply={expandReply}
@@ -1282,6 +1325,10 @@ export function LiveGuildPostPanel({
           <div className="guild-thread-join-dock">{joinControl}</div>
         ) : null}
       </div>
+  );
+
+  const threadChrome = (
+    <>
       {modalTarget ? (
         <ComposerSheet
           key={`${postKey(modalTarget)}:${modalSeed.files
@@ -1334,9 +1381,28 @@ export function LiveGuildPostPanel({
         />
       ) : null}
       {membershipDrawer}
-    </OsAppScreen>
+    </>
   );
 
-  if (embedded) return threadScreen.props.children;
-  return threadScreen;
+  if (embedded) {
+    return (
+      <>
+        {threadBody}
+        {threadChrome}
+      </>
+    );
+  }
+
+  return (
+    <OsAppScreen
+      title="Post"
+      glassChrome
+      compactChrome
+      backFallbackHref={guildPath(groupId)}
+      leading={<OsHeaderBack fallbackHref={guildPath(groupId)} />}
+    >
+      <OsPageBodyAppear ready={permalinkReady}>{threadBody}</OsPageBodyAppear>
+      {threadChrome}
+    </OsAppScreen>
+  );
 }

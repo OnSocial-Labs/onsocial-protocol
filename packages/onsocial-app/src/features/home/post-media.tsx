@@ -56,30 +56,40 @@ function mediaImgSizes(size: PostMediaSize, collage: boolean): string {
   return collage ? IMG_SIZES_TILE : IMG_SIZES_SINGLE;
 }
 
+/** Survives window remount so scroll-back does not re-fade known media. */
+const feedMediaResolvedSrcs = new Set<string>();
+
 /**
  * Fade a feed image or video in once it can paint. Cached files resolve on
- * bind so a reload does not flash the skeleton again.
+ * bind; a session Set keeps remounts from flashing opacity 0 again.
  */
 export function useFeedMediaResolved(src: string) {
-  const [resolved, setResolved] = useState(false);
+  const [resolved, setResolved] = useState(() => feedMediaResolvedSrcs.has(src));
   const [trackedSrc, setTrackedSrc] = useState(src);
   if (trackedSrc !== src) {
     setTrackedSrc(src);
-    setResolved(false);
+    setResolved(feedMediaResolvedSrcs.has(src));
   }
   const markResolved = useCallback(() => {
+    feedMediaResolvedSrcs.add(src);
     setResolved(true);
-  }, []);
+  }, [src]);
   const bind = useCallback(
     (node: HTMLImageElement | HTMLVideoElement | null) => {
       if (!node) return;
       if (node instanceof HTMLImageElement) {
-        if (node.complete && node.naturalWidth > 0) setResolved(true);
+        if (node.complete && node.naturalWidth > 0) {
+          feedMediaResolvedSrcs.add(src);
+          setResolved(true);
+        }
         return;
       }
-      if (node.readyState >= 1) setResolved(true);
+      if (node.readyState >= 1) {
+        feedMediaResolvedSrcs.add(src);
+        setResolved(true);
+      }
     },
-    []
+    [src]
   );
 
   return { resolved, markResolved, bind };

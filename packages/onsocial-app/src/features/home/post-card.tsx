@@ -1282,9 +1282,7 @@ function PostCardImpl({
         <span className="os-media-face-identity-copy">
           <span className="os-media-face-identity-name-row">
             <span className="os-media-face-identity-name">{name}</span>
-            <span className="post-identity-name-marks">
-              <ProtocolNameTrailing accountId={post.accountId} />
-            </span>
+            <ProtocolNameTrailing accountId={post.accountId} />
           </span>
           <span className="os-media-face-identity-handle">
             @{post.accountId}

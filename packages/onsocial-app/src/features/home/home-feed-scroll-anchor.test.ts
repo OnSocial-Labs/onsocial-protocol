@@ -117,44 +117,27 @@ describe('restoreFeedAnchor', () => {
       order.push('scroll');
       expect(root.scrollTop).toBe(340);
     });
-    vi.spyOn(smoothScroll, 'getAppLenis').mockReturnValue({
+    smoothScroll.registerAppLenis(root, {
       limit: 5000,
       scroll: 0,
       resize: () => {
         order.push('resize');
       },
       scrollTo,
+      stop: () => {
+        order.push('stop');
+      },
+      start: () => {
+        order.push('start');
+      },
     });
     restoreFeedAnchor(root, { key: 'a/2', top: -140 });
-    expect(order).toEqual(['resize', 'scroll']);
+    expect(order).toEqual(['stop', 'resize', 'scroll', 'start']);
     expect(scrollTo).toHaveBeenCalledWith(340, {
       immediate: true,
       force: true,
     });
-  });
-
-  it('cancels an in-flight smooth scroll that already matches the correction', () => {
-    const root = fakeRoot(100, [
-      fakeBlock({ top: 300, height: 200, key: 'a/2' }),
-    ]);
-    const scrollTo = vi.fn();
-    vi.spyOn(smoothScroll, 'getAppLenis').mockReturnValue({
-      limit: 5000,
-      get scroll() {
-        return root.scrollTop;
-      },
-      resize() {},
-      scrollTo,
-    });
-    restoreFeedAnchor(root, { key: 'a/2', top: -140 });
-    expect(scrollTo).toHaveBeenNthCalledWith(1, 339, {
-      immediate: true,
-      force: true,
-    });
-    expect(scrollTo).toHaveBeenNthCalledWith(2, 340, {
-      immediate: true,
-      force: true,
-    });
+    smoothScroll.unregisterAppLenis(root);
   });
 
   it('leaves the smooth-scroll layer untouched when it is off', () => {
@@ -162,11 +145,9 @@ describe('restoreFeedAnchor', () => {
       fakeBlock({ top: 300, height: 200, key: 'a/2' }),
     ]);
     const scrollTo = vi.fn();
-    vi.spyOn(smoothScroll, 'getAppLenis').mockReturnValue(null);
     restoreFeedAnchor(root, { key: 'a/2', top: -140 });
     expect(root.scrollTop).toBe(340);
     expect(scrollTo).not.toHaveBeenCalled();
-    expect(smoothScroll.getAppLenis).toHaveBeenCalledWith(root);
   });
 
   it('does not sync the smooth-scroll layer for sub-pixel drift', () => {
@@ -174,7 +155,7 @@ describe('restoreFeedAnchor', () => {
       fakeBlock({ top: -39.5, height: 200, key: 'a/2' }),
     ]);
     const scrollTo = vi.fn();
-    vi.spyOn(smoothScroll, 'getAppLenis').mockReturnValue({
+    smoothScroll.registerAppLenis(steady, {
       limit: 5000,
       scroll: 0,
       resize: vi.fn(),
@@ -183,6 +164,7 @@ describe('restoreFeedAnchor', () => {
     restoreFeedAnchor(steady, { key: 'a/2', top: -140 });
     expect(steady.scrollTop).toBe(0);
     expect(scrollTo).not.toHaveBeenCalled();
+    smoothScroll.unregisterAppLenis(steady);
   });
 });
 

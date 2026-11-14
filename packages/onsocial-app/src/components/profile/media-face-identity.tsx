@@ -54,9 +54,7 @@ export function MediaFaceIdentity({
       <span className="os-media-face-identity-copy">
         <span className="os-media-face-identity-name-row">
           <span className="os-media-face-identity-name">{name}</span>
-          <span className="post-identity-name-marks">
-            <ProtocolNameTrailing accountId={accountId} />
-          </span>
+          <ProtocolNameTrailing accountId={accountId} />
         </span>
         <span className="os-media-face-identity-handle">@{accountId}</span>
       </span>

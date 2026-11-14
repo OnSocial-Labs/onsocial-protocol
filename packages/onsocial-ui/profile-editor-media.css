@@ -11,14 +11,20 @@
 }
 
 .profile-editor-media-host--avatar {
-  overflow: visible;
+  overflow: hidden;
 }
 
 .profile-editor-media-host--avatar.profile-editor-media-host--squircle {
   border-radius: 1rem;
 }
 
-.profile-editor-media-host--avatar .profile-editor-media-backdrop {
+/* Fill the mark — never contribute to flow (add/remove must not reflow). */
+.profile-editor-media-host--avatar > .profile-editor-media-backdrop,
+.profile-editor-media-host--avatar > .media-frame-pan-surface {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   border-radius: inherit;
 }
@@ -91,9 +97,10 @@
   pointer-events: none;
 }
 
+/* Stay inset — hanging off the mark expands scroll overflow and jumps the page. */
 .profile-editor-media-toolbar--avatar .os-media-dismiss {
-  top: -0.2rem;
-  right: -0.2rem;
+  top: 0.15rem;
+  right: 0.15rem;
 }
 
 .profile-editor-media-toolbar--bottom .os-media-dismiss {
@@ -150,6 +157,31 @@
   position: absolute;
   inset: 0;
   background: rgb(var(--fg-rgb) / 0.06);
+}
+
+/* Cover pan inside avatar / banner hosts. */
+.profile-editor-media-host .media-frame-pan-surface {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.profile-editor-media-host .media-frame-pan-surface.is-dragging {
+  cursor: grabbing;
+}
+
+.profile-editor-media-host .media-frame-pan-surface > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
 }
 
 .dark .profile-editor-media-empty-fill,

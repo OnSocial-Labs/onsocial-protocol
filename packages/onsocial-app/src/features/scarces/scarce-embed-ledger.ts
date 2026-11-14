@@ -60,6 +60,16 @@ export function getScarceEmbedOverride(key: string): PostScarceEmbed | null {
   return overrides.get(key) ?? null;
 }
 
+/** Feed ledger → sheet/session seed so CTA chrome does not remount empty. */
+export function scarceEmbedsForOpenRoot(input: {
+  accountId: string;
+  postId: string;
+}): Record<string, PostScarceEmbed> {
+  const key = postScarceKey(input.accountId, input.postId);
+  const embed = overrides.get(key) ?? ssrSeeds.get(key);
+  return embed ? { [key]: embed } : {};
+}
+
 export function setScarceEmbedOverride(
   key: string,
   embed: PostScarceEmbed

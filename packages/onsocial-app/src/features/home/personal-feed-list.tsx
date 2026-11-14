@@ -2,7 +2,6 @@
 
 import {
   useCallback,
-  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -19,7 +18,6 @@ import { postKey } from '@/features/home/post-card';
 import type { PersonalPostSubmitResult } from '@/features/home/submit-personal-post';
 import type { WriteDockSubmit } from '@/contexts/compose-launcher-context';
 import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
-import { subscribePersonalReplyConfirmed } from '@/features/scarces/drop-compose-host';
 import {
   seedPostAuthorProfilesFromFeed,
   usePostAuthorProfiles,
@@ -77,14 +75,14 @@ interface PersonalFeedListProps {
 }
 
 /**
- * A single poll card (including a bare repost of one) is shorter than the
- * generic row estimate. Threads, peeks, and media rows stay on that estimate.
+ * Typed spacer estimate for one feed block. Polls are short; media / quote
+ * rows are taller — a flat 320px estimate jiggled desktop scroll-back.
  */
-export function personalFeedBlockIsPollRow(
+export function personalFeedBlockEstimateKind(
   block: { posts: PostRow[]; standingPeek?: PostRow },
   quotedPosts: Record<string, PostRow>
-): boolean {
-  if (block.posts.length !== 1 || block.standingPeek) return false;
+): 'text' | 'media' | 'quote' | 'poll' {
+  if (block.posts.length !== 1 || block.standingPeek) return 'text';
   const post = block.posts[0]!;
   const quoted = post.refPath ? quotedPosts[post.refPath] : undefined;
   const repostOriginal =
@@ -92,8 +90,18 @@ export function personalFeedBlockIsPollRow(
       ? quoted
       : undefined;
   const card = repostOriginal ?? post;
-  if (parsePostMedia(card.value).length > 0) return false;
-  return parsePostPollEmbed(card.value) != null;
+  if (parsePostMedia(card.value).length > 0) return 'media';
+  if (parsePostPollEmbed(card.value) != null) return 'poll';
+  if (post.refPath?.trim() && !isRepostRefType(post.refType)) return 'quote';
+  return 'text';
+}
+
+/** @deprecated Prefer {@link personalFeedBlockEstimateKind}. */
+export function personalFeedBlockIsPollRow(
+  block: { posts: PostRow[]; standingPeek?: PostRow },
+  quotedPosts: Record<string, PostRow>
+): boolean {
+  return personalFeedBlockEstimateKind(block, quotedPosts) === 'poll';
 }
 
 /** Shared home/profile feed rendering — thread blocks + quote insets + polls. */
@@ -198,7 +206,6 @@ export function PersonalFeedList({
     confirmAmplify,
     confirmRepost,
     confirmUnrepost,
-    confirmReply,
   } = usePostEngagement(engagementPosts, {
     initial: initialEngagement,
     onError: onEngagementError,
@@ -209,12 +216,6 @@ export function PersonalFeedList({
       onError: onEngagementError,
     }
   );
-
-  useEffect(() => {
-    return subscribePersonalReplyConfirmed(({ parent }) => {
-      confirmReply(parent);
-    });
-  }, [confirmReply]);
 
   /*
    * Stable per-card callbacks — the engagement map changes identity on every
@@ -281,7 +282,9 @@ export function PersonalFeedList({
   const rowEstimates = useMemo(
     () =>
       feedBlocks.map((block) =>
-        feedWindowRowEstimatePx(personalFeedBlockIsPollRow(block, quotedPosts))
+        feedWindowRowEstimatePx(
+          personalFeedBlockEstimateKind(block, quotedPosts)
+        )
       ),
     [feedBlocks, quotedPosts]
   );

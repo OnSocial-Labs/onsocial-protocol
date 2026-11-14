@@ -23,6 +23,7 @@ import {
   translateFeedWindowRange,
   type FeedWindowRange,
 } from '@/features/home/feed-window';
+import { adoptAppLenisScroll } from '@/lib/app-lenis-registry';
 import {
   captureVisibleFeedAnchor,
   restoreFeedAnchor,
@@ -87,9 +88,8 @@ export type UseFeedWindowResult = {
 
 /**
  * Windows a keyed feed list: renders only the rows near the viewport plus
- * spacers standing in for the rest. First render always paints everything
- * (SSR/hydration parity); the window engages after mount once the scroll
- * root and first measurements land.
+ * spacers standing in for the rest. SSR paints the first page; after mount
+ * the window engages once the scroll root exists (minCount ≈ first page).
  *
  * Scroll stability: a height change above the viewport is captured as a
  * feed anchor before the re-render and restored before paint, so media
@@ -312,7 +312,10 @@ export function useFeedWindow({
         viewportHeight: node.clientHeight,
         maxScroll: Math.max(0, node.scrollHeight - node.clientHeight),
       });
-      if (node.scrollTop !== top) node.scrollTop = top;
+      if (node.scrollTop !== top) {
+        node.scrollTop = top;
+        adoptAppLenisScroll(node);
+      }
       syncRange();
       return true;
     },

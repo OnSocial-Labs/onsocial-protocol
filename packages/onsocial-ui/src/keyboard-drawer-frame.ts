@@ -27,6 +27,80 @@ export interface KeyboardDrawerMetrics {
 
 const IDLE: KeyboardDrawerMetrics = { lift: 0, height: 0, isMobile: false };
 
+/** Chromium Virtual Keyboard API — exact IME rect when overlaysContent is on. */
+interface VirtualKeyboardLike {
+  overlaysContent: boolean;
+  boundingRect: { x: number; y: number; width: number; height: number };
+  addEventListener(
+    type: 'geometrychange',
+    listener: EventListenerOrEventListenerObject
+  ): void;
+  removeEventListener(
+    type: 'geometrychange',
+    listener: EventListenerOrEventListenerObject
+  ): void;
+}
+
+let virtualKeyboardOverlayArmed = false;
+
+function getVirtualKeyboard(): VirtualKeyboardLike | null {
+  if (typeof navigator === 'undefined') return null;
+  const keyboard = (
+    navigator as Navigator & { virtualKeyboard?: VirtualKeyboardLike }
+  ).virtualKeyboard;
+  return keyboard ?? null;
+}
+
+/**
+ * Opt into overlay IME so `boundingRect` is the real key top (Chromium /
+ * Brave tab). Idempotent. No-op on Safari / unsupported browsers.
+ */
+export function ensureVirtualKeyboardOverlay(): boolean {
+  const keyboard = getVirtualKeyboard();
+  if (!keyboard) return false;
+  if (virtualKeyboardOverlayArmed && keyboard.overlaysContent) return true;
+  try {
+    keyboard.overlaysContent = true;
+    virtualKeyboardOverlayArmed = true;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * IME height in CSS px from the Virtual Keyboard API when overlaying.
+ * Prefer this over visualViewport lift — VV often stops at browser chrome.
+ */
+export function readVirtualKeyboardInset(): number {
+  const keyboard = getVirtualKeyboard();
+  if (!keyboard?.overlaysContent) return 0;
+  const rect = keyboard.boundingRect;
+  if (!rect || rect.height < 1) return 0;
+  // Key top → layout bottom. Prefer y so a short height cannot leave a gap.
+  if (rect.y > 0) {
+    return Math.max(0, Math.round(window.innerHeight - rect.y));
+  }
+  return Math.max(0, Math.round(rect.height));
+}
+
+/**
+ * Visible bottom edge above the keys (layout coordinates).
+ * Virtual Keyboard `boundingRect.y` when overlaying; else visualViewport.
+ */
+export function readKeyboardVisibleBottom(): number {
+  const keyboard = getVirtualKeyboard();
+  if (keyboard?.overlaysContent) {
+    const rect = keyboard.boundingRect;
+    if (rect && rect.height >= KEYBOARD_VIEWPORT_SLOP_PX) {
+      return Math.round(rect.y);
+    }
+  }
+  const viewport = window.visualViewport;
+  if (!viewport) return window.innerHeight;
+  return Math.round(viewport.offsetTop + viewport.height);
+}
+
 /**
  * Keep the last settled frame while the keyboard is up and the viewport
  * only jitters. A caret pan changes `offsetTop`, which moves the computed
@@ -68,7 +142,11 @@ export function keyboardFrameNeedsSeat(
   return metricsChanged;
 }
 
-function readKeyboardDrawerMetrics(): KeyboardDrawerMetrics {
+/**
+ * One seat for drawers and docks.
+ * Prefer Virtual Keyboard IME geometry when overlaying; else visualViewport.
+ */
+export function readKeyboardDrawerMetrics(): KeyboardDrawerMetrics {
   if (typeof window === 'undefined') return IDLE;
   const isMobile = window.matchMedia(
     `(max-width: ${MOBILE_MAX_WIDTH_PX}px)`
@@ -77,6 +155,16 @@ function readKeyboardDrawerMetrics(): KeyboardDrawerMetrics {
   if (!isMobile || !viewport) {
     return { lift: 0, height: isMobile ? window.innerHeight : 0, isMobile };
   }
+
+  ensureVirtualKeyboardOverlay();
+  const vkInset = readVirtualKeyboardInset();
+  if (vkInset >= KEYBOARD_VIEWPORT_SLOP_PX) {
+    const keyTop = readKeyboardVisibleBottom();
+    const offsetTop = Math.round(viewport.offsetTop);
+    const height = Math.max(0, keyTop - offsetTop);
+    return { lift: vkInset, height, isMobile: true };
+  }
+
   const lift = Math.max(
     0,
     Math.round(window.innerHeight - viewport.height - viewport.offsetTop)
@@ -394,6 +482,7 @@ export function useKeyboardDrawerFrame(
 
   useLayoutEffect(() => {
     if (!active || typeof window === 'undefined') return;
+    ensureVirtualKeyboardOverlay();
     const sync = (reason: 'scroll' | 'layout') => {
       const raw = readKeyboardDrawerMetrics();
       const settled = settleKeyboardDrawerMetrics(
@@ -409,6 +498,7 @@ export function useKeyboardDrawerFrame(
         Boolean(viewport);
       // One visible box for the open surface and the page behind it.
       // A paste pan or a lower field (url keyboard) must not become CSS top.
+      // `settled.height` is IME-aware (Virtual Keyboard) or VV fallback.
       if (keyboardUp && viewport) {
         const fixed =
           !root || window.getComputedStyle(root).position === 'fixed';
@@ -425,7 +515,7 @@ export function useKeyboardDrawerFrame(
                   parentTop: parentRect?.top ?? 0,
                   parentHeight: parentRect?.height ?? 0,
                   offsetTop: viewport.offsetTop,
-                  visualHeight: viewport.height,
+                  visualHeight: settled.height,
                 })
               );
         if (root) {
@@ -470,7 +560,7 @@ export function useKeyboardDrawerFrame(
       }
       if (!keyboardFrameNeedsSeat(reason, metricsChanged)) return;
       const rect = root?.getBoundingClientRect();
-      const visibleBottom = viewport ? viewport.offsetTop + viewport.height : 0;
+      const visibleBottom = readKeyboardVisibleBottom();
       const rootSeat = keyboardSeatPx({
         lift: settled.lift,
         rootBottom: rect ? rect.bottom : null,
@@ -489,15 +579,18 @@ export function useKeyboardDrawerFrame(
       setFrame(next);
     };
     const viewport = window.visualViewport;
+    const virtualKeyboard = getVirtualKeyboard();
     const onLayout = () => sync('layout');
     const onScroll = () => sync('scroll');
     // Resize is the keyboard. Scroll is a caret or paste pan. The frame
     // keeps its top through that pan so the page is not pushed down.
+    // geometrychange is the Chromium IME rect (Brave tab / Chrome).
     const onFocus = () => {
       window.requestAnimationFrame(onLayout);
     };
     viewport?.addEventListener('resize', onLayout);
     viewport?.addEventListener('scroll', onScroll);
+    virtualKeyboard?.addEventListener('geometrychange', onLayout);
     window.addEventListener('resize', onLayout);
     document.addEventListener('focusin', onFocus);
     sync('layout');
@@ -506,6 +599,7 @@ export function useKeyboardDrawerFrame(
       window.cancelAnimationFrame(frameId);
       viewport?.removeEventListener('resize', onLayout);
       viewport?.removeEventListener('scroll', onScroll);
+      virtualKeyboard?.removeEventListener('geometrychange', onLayout);
       window.removeEventListener('resize', onLayout);
       document.removeEventListener('focusin', onFocus);
       if (mode === 'drawer') {

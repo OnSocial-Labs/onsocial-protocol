@@ -174,6 +174,54 @@ describe('isProfileEditorDirty', () => {
     ).toBe(true);
   });
 
+  it('is dirty when avatar or banner cover pan moves', () => {
+    const snapshot = baseSnapshot();
+    expect(
+      isProfileEditorDirty(
+        dirtyInput(snapshot, { avatarPan: { x: 20, y: 50 } })
+      )
+    ).toBe(true);
+    expect(
+      isProfileEditorDirty(
+        dirtyInput(snapshot, { bannerPan: { x: 50, y: 12 } })
+      )
+    ).toBe(true);
+  });
+
+  it('is dirty when bannerMedia-only hero is removed or panned', () => {
+    const snapshot = baseSnapshot({
+      bannerUrl: null,
+      bannerMedia: { kind: 'image', url: 'https://cdn.example/banner.png' },
+    });
+    expect(
+      isProfileEditorDirty(dirtyInput(snapshot, { bannerRemoved: true }))
+    ).toBe(true);
+    expect(
+      isProfileEditorDirty(
+        dirtyInput(snapshot, { bannerPan: { x: 50, y: 10 } })
+      )
+    ).toBe(true);
+  });
+
+  it('is dirty when an About photo cover pan moves', () => {
+    const snapshot = baseSnapshot({
+      photos: [{ ref: 'ipfs://one', url: 'https://cdn.example/one.jpg' }],
+    });
+    expect(
+      isProfileEditorDirty(
+        dirtyInput(snapshot, {
+          photos: [
+            {
+              ref: 'ipfs://one',
+              url: 'https://cdn.example/one.jpg',
+              pan: { x: 30, y: 50 },
+            },
+          ],
+        })
+      )
+    ).toBe(true);
+  });
+
   it('is dirty when About photos are reordered', () => {
     const snapshot = baseSnapshot({
       photos: [

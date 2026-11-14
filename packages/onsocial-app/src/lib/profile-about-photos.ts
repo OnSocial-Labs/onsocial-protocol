@@ -1,3 +1,4 @@
+import type { MediaFramePan } from '@/lib/media-frame-pan';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
 
 /** About gallery — wide / pair / trio. */
@@ -16,6 +17,13 @@ export const PROFILE_ABOUT_PHOTO_ACCEPT =
 export type ProfileAboutPhoto = {
   ref: string;
   url: string;
+};
+
+/** Editor draft — local file + cover pan (baked on save). */
+export type ProfileAboutPhotoDraft = ProfileAboutPhoto & {
+  file?: File | null;
+  key?: string;
+  pan?: MediaFramePan;
 };
 
 /** Chain-stored `profile/photos` — strings only, max 3. */

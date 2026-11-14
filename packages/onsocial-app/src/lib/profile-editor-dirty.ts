@@ -7,6 +7,10 @@ import {
   type ProfileKind,
 } from '@onsocial/sdk';
 import type { ProfileEditorSnapshot } from '@/hooks/use-app-profile-editor';
+import {
+  isMediaFramePanCentered,
+  type MediaFramePan,
+} from '@/lib/media-frame-pan';
 import { linkNotesEqual, pruneLinkNotes } from '@/lib/page-launch-config';
 import {
   profileAboutPhotoRefsEqual,
@@ -52,12 +56,14 @@ export function isProfileEditorContentDirty(input: {
   aboutAlign: ProfileAboutAlign;
   links: ProfileLinksInput;
   tags: string[];
-  photos: ProfileAboutPhoto[];
+  photos: Array<ProfileAboutPhoto & { pan?: MediaFramePan }>;
   photoFiles: Array<File | null>;
   avatarFile: File | null;
   bannerFile: File | null;
   avatarRemoved: boolean;
   bannerRemoved: boolean;
+  avatarPan?: MediaFramePan | null;
+  bannerPan?: MediaFramePan | null;
   /** Protocol DAO workspace — industry is a face field, kind is not a pick. */
   isDao?: boolean;
   /** Portfolio website list. Omitted on DAO editors, which keep one website field. */
@@ -68,11 +74,30 @@ export function isProfileEditorContentDirty(input: {
     return true;
   }
 
+  if (
+    !input.avatarRemoved &&
+    input.snapshot.avatarUrl &&
+    !isMediaFramePanCentered(input.avatarPan)
+  ) {
+    return true;
+  }
+
+  if (
+    !input.bannerRemoved &&
+    (input.snapshot.bannerUrl || input.snapshot.bannerMedia) &&
+    !isMediaFramePanCentered(input.bannerPan)
+  ) {
+    return true;
+  }
+
   if (input.avatarRemoved && input.snapshot.avatarUrl) {
     return true;
   }
 
-  if (input.bannerRemoved && input.snapshot.bannerUrl) {
+  if (
+    input.bannerRemoved &&
+    (input.snapshot.bannerUrl || input.snapshot.bannerMedia)
+  ) {
     return true;
   }
 
@@ -138,6 +163,10 @@ export function isProfileEditorContentDirty(input: {
     return true;
   }
 
+  if (input.photos.some((photo) => !isMediaFramePanCentered(photo.pan))) {
+    return true;
+  }
+
   if (
     !profileAboutPhotoRefsEqual(
       input.photos.map((photo) => photo.ref),
@@ -183,7 +212,7 @@ export function isProfileEditorDirty(input: {
   aboutAlign: ProfileAboutAlign;
   links: ProfileLinksInput;
   tags: string[];
-  photos: ProfileAboutPhoto[];
+  photos: Array<ProfileAboutPhoto & { pan?: MediaFramePan }>;
   photoFiles: Array<File | null>;
   linkNotes: Record<string, string>;
   websites?: PortfolioWebsiteDraft[];
@@ -192,6 +221,8 @@ export function isProfileEditorDirty(input: {
   bannerFile: File | null;
   avatarRemoved: boolean;
   bannerRemoved: boolean;
+  avatarPan?: MediaFramePan | null;
+  bannerPan?: MediaFramePan | null;
   isDao?: boolean;
 }): boolean {
   if (isProfileEditorContentDirty(input)) {

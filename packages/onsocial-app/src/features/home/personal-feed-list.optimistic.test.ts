@@ -3,6 +3,7 @@ import type { PostRow } from '@onsocial/sdk';
 import { postContentPath } from '@onsocial/sdk';
 import {
   insertOptimisticFeedPost,
+  personalFeedBlockEstimateKind,
   personalFeedBlockIsPollRow,
   shouldPrependOptimisticFeedPost,
 } from './personal-feed-list';
@@ -164,6 +165,28 @@ describe('personalFeedBlockIsPollRow', () => {
       )
     ).toBe(true);
     expect(personalFeedBlockIsPollRow({ posts: [shell] }, {})).toBe(false);
+  });
+
+  it('types media and quote rows above the text estimate', () => {
+    const withPhoto: PostRow = {
+      ...row('alice.near', 'photo'),
+      value: JSON.stringify({
+        text: 'hi',
+        media: ['https://example.test/a.jpg'],
+      }),
+    };
+    expect(
+      personalFeedBlockEstimateKind({ posts: [withPhoto] }, {})
+    ).toBe('media');
+    const withQuote: PostRow = {
+      ...row('alice.near', 'cite'),
+      refType: 'quote',
+      refPath: 'bob.near/post/1',
+      value: JSON.stringify({ text: 'citing' }),
+    };
+    expect(
+      personalFeedBlockEstimateKind({ posts: [withQuote] }, {})
+    ).toBe('quote');
   });
 
   it('keeps threads and media rows on the generic estimate', () => {

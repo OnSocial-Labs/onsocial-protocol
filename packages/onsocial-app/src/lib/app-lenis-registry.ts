@@ -14,7 +14,24 @@ export type AppLenisScroll = {
   readonly scroll: number;
   resize: () => void;
   scrollTo: (target: number, options?: AppLenisScrollToOptions) => void;
+  /** Cancel in-flight wheel coast before an immediate adopt. */
+  stop?: () => void;
+  start?: () => void;
 };
+
+/**
+ * Sync Lenis to the element's current scrollTop without the ±1 cancel nudge
+ * (that read as desktop jiggle). stop → resize → immediate scrollTo → start.
+ */
+export function adoptAppLenisScroll(root: HTMLElement): void {
+  const smooth = getAppLenis(root);
+  if (!smooth) return;
+  const top = root.scrollTop;
+  smooth.stop?.();
+  smooth.resize();
+  smooth.scrollTo(top, { immediate: true, force: true });
+  smooth.start?.();
+}
 
 const byElement = new WeakMap<HTMLElement, AppLenisScroll>();
 
