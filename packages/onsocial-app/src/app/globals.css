@@ -44,8 +44,7 @@
   src: url('/fonts/erica-type/erika_type-webfont.woff') format('woff');
   font-weight: 400;
   font-style: normal;
-  /* Same file next/font preloads. optional: no swap after paint. */
-  font-display: optional;
+  font-display: swap;
 }
 
 @font-face {
@@ -53,7 +52,7 @@
   src: url('/fonts/erica-type/erika_type_b-webfont.woff') format('woff');
   font-weight: 700;
   font-style: normal;
-  font-display: optional;
+  font-display: swap;
 }
 
 @font-face {
@@ -61,7 +60,7 @@
   src: url('/fonts/erica-type/erika_type-webfont.woff') format('woff');
   font-weight: 400;
   font-style: normal;
-  font-display: optional;
+  font-display: swap;
 }
 
 @font-face {
@@ -69,7 +68,7 @@
   src: url('/fonts/erica-type/erika_type_b-webfont.woff') format('woff');
   font-weight: 700;
   font-style: normal;
-  font-display: optional;
+  font-display: swap;
 }
 
 /*
@@ -39551,6 +39550,28 @@ a.os-surface-row,
     --thread-rail-color: rgb(var(--fg-rgb) / 0.12);
   }
 
+  /* Root and the continuing reply share one stroke. Sort sits in the copy column. */
+  .guild-thread-column.is-continued {
+    gap: 0;
+  }
+
+  .guild-thread-column.is-continued > .divider-detail {
+    width: auto;
+    margin-left: calc(
+      var(--os-avatar-feed, 2.5rem) + var(--os-media-copy-gap, 0.55rem)
+    );
+  }
+
+  .thread-controls-row.is-continued {
+    margin: 0;
+    padding-left: calc(
+      var(--os-avatar-feed, 2.5rem) + var(--os-media-copy-gap, 0.55rem)
+    );
+    --thread-avatar: var(--os-avatar-feed, 2.5rem);
+    --thread-rail-width: 2px;
+    --thread-rail-color: rgb(var(--fg-rgb) / 0.12);
+  }
+
   .guild-thread-join-dock {
     position: sticky;
     bottom: 0;
@@ -39879,7 +39900,11 @@ a.os-surface-row,
 
   /*
    * Compose thread rail — same avatar column as `.thread-rail-col`.
-   * Opening beat uses `--os-composer-first-pad-top` (Home face pin).
+   * Opening beat uses `--os-composer-first-pad-top` (Home face pin) so the
+   * avatar clears the header by the same amount. That pad sits above the
+   * face, so the plus under the beat does not jump. Continuation uses feed
+   * `--cont` pad-top (0.42rem); down-rows use the feed card pad-bottom so
+   * the rail has room between avatars.
    */
   .guild-composer-thread {
     display: flex;
