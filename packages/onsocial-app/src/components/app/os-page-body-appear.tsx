@@ -1,11 +1,14 @@
 'use client';
 
-import { useLayoutEffect, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 /**
  * Soft-appear for OsPageSheet body under stable chrome (back + title).
  * Pair the panel with `os-page-chrome-appear`. Omit `ready` to appear on mount;
  * pass `ready` when the body waits on a seed or fetch.
+ *
+ * Unmanaged mounts with `is-ready` so the CSS keyframe runs on insert.
+ * Managed waits for `ready` before applying the class.
  */
 export function OsPageBodyAppear({
   ready,
@@ -16,12 +19,7 @@ export function OsPageBodyAppear({
   children: ReactNode;
   className?: string;
 }) {
-  const managed = ready !== undefined;
-  const [autoReady, setAutoReady] = useState(false);
-  useLayoutEffect(() => {
-    if (!managed) setAutoReady(true);
-  }, [managed]);
-  const isReady = managed ? Boolean(ready) : autoReady;
+  const isReady = ready === undefined ? true : Boolean(ready);
 
   return (
     <div
