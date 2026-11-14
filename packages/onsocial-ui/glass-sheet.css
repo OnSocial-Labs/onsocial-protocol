@@ -154,6 +154,11 @@
   padding: 0;
 }
 
+/* Opaque pages need no frost bleed — flush so chrome lines up with the card. */
+.glass-sheet-root--hosted[data-surface='page'] {
+  inset: 0;
+}
+
 .glass-sheet-root--hosted .glass-sheet-panel {
   max-width: none;
   width: 100%;
@@ -199,6 +204,7 @@
   }
 }
 
+/* Shared full-surface fade. The route hop uses this name too. */
 @keyframes glass-sheet-appear {
   from {
     opacity: 0;
@@ -228,6 +234,20 @@
 .glass-sheet-root[data-stack-op='replace'] .glass-sheet-backdrop,
 .glass-sheet-root[data-sheet-leaving='true'] .glass-sheet-backdrop {
   animation: none;
+}
+
+/*
+ * Opaque page appear — solid cover for the whole fade. The drawer backdrop
+ * animation starts at opacity 0; with a soft page fade that left the
+ * underlay readable until the panel caught up.
+ */
+.glass-sheet-root[data-surface='page'][data-presentation='appear']
+  > .glass-sheet-backdrop {
+  animation: none;
+  opacity: 1;
+  background: var(--bg, rgb(var(--bg-rgb)));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .glass-sheet-panel {
@@ -441,8 +461,8 @@
 .glass-sheet-panel[data-presentation='appear'] {
   transform: none;
   opacity: 0;
-  transition: opacity var(--os-motion-sheet, 280ms)
-    var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1));
+  transition: opacity var(--os-motion-appear, 280ms)
+    var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
 
 .glass-sheet-panel[data-presentation='appear'].is-open {
@@ -451,9 +471,42 @@
 }
 
 .glass-sheet-panel[data-presentation='appear'].is-open.glass-sheet-panel--enter {
-  animation: glass-sheet-appear var(--os-motion-sheet, 280ms)
-    var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1)) forwards;
+  animation: glass-sheet-appear var(--os-motion-appear, 280ms)
+    var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1)) forwards;
   transition: none;
+}
+
+/*
+ * Page chrome stays (back + title). Put `os-page-chrome-appear` on the panel
+ * and wrap the body in `.os-page-body-appear` (see OsPageBodyAppear).
+ */
+.glass-sheet-panel.os-page-chrome-appear[data-presentation='appear'],
+.glass-sheet-panel.os-page-chrome-appear[data-presentation='appear'].is-open,
+.glass-sheet-panel.os-page-chrome-appear[data-presentation='appear'].is-open.glass-sheet-panel--enter {
+  opacity: 1;
+  animation: none;
+  transition: none;
+}
+
+.os-page-body-appear {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+  opacity: 0;
+}
+
+.os-page-body-appear.is-ready {
+  animation: glass-sheet-appear var(--os-motion-appear, 280ms)
+    var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1)) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .os-page-body-appear {
+    opacity: 1;
+    animation: none;
+  }
 }
 
 .glass-sheet-panel[data-presentation='appear'].is-open.glass-sheet-panel--enter.is-dragging,

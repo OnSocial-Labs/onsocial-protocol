@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
@@ -35,10 +42,11 @@ import {
   writeWriteDockDraft,
 } from '@/lib/os-write-dock-draft';
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
+import { ThreadRail } from '@/features/home/thread-rail';
 import { ThreadDiscoverPeek } from '@/features/home/thread-discover-peek';
 import { ThreadRepliesSortButton } from '@/features/home/thread-replies-sort';
 import { ThreadViewQuotesRow } from '@/features/home/thread-view-quotes-row';
-import { ThreadFoldButton } from '@/features/home/thread-fold-button';
+import { ThreadFoldLink } from '@/features/home/thread-fold-button';
 import { postMetaFromText } from '@/features/home/post-mentions';
 import { placesMetaFromComposer } from '@/lib/post-place';
 import { dispatchPersonalQuoteConfirmed } from '@/features/scarces/drop-compose-host';
@@ -72,7 +80,10 @@ import {
 } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useUserStorageBalance } from '@/hooks/use-user-storage-balance';
-import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
+import {
+  seedPostAuthorProfilesFromFeed,
+  usePostAuthorProfiles,
+} from '@/hooks/use-post-author-profiles';
 import {
   EMPTY_POST_ENGAGEMENT,
   usePostEngagement,
@@ -103,6 +114,7 @@ import {
   buildReplyRows,
   flattenTreePosts,
   threadReplyRowKey,
+  threadRootContinued,
   withoutIndexedPosts,
   type ThreadReplyRow,
 } from '@/lib/thread-display';
@@ -146,6 +158,8 @@ interface LiveGuildPostPanelProps {
   showChannel?: boolean;
   /** Passed to posts opened from this thread. */
   sheetContext?: ThreadSheetContext | null;
+  /** Sheet appear waits until the opened post is on screen. */
+  onThreadPainted?: () => void;
 }
 
 function GuildThreadLoadMoreFooter({
@@ -194,8 +208,10 @@ export function LiveGuildPostPanel({
   showGuildLine = true,
   showChannel: showRoom = true,
   sheetContext = null,
+  onThreadPainted,
 }: LiveGuildPostPanelProps) {
   seedScarceEmbedsFromSsr(initial?.scarceEmbeds);
+  if (initial?.root) seedPostAuthorProfilesFromFeed([initial.root]);
   const {
     accountId,
     isConnected,
@@ -270,9 +286,6 @@ export function LiveGuildPostPanel({
   const [modalPending, setModalPending] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [replySort, setReplySort] = useState<ThreadReplySort>('relevant');
-  const [expandedBranches, setExpandedBranches] = useState<Set<string>>(
-    () => new Set()
-  );
   const channelTitleById = useMemo(() => {
     if (!guildStructure) return {};
     const titles: Record<string, string> = {};
@@ -286,11 +299,7 @@ export function LiveGuildPostPanel({
   // Author's thread + folded branches as display rows, with chain-confirmed
   // local replies appended until the indexer catches up.
   const replyRows = useMemo(() => {
-    const rows = buildReplyRows(
-      replyTree,
-      conversation.root?.accountId,
-      expandedBranches
-    );
+    const rows = buildReplyRows(replyTree, conversation.root?.accountId);
     const lastPostRow = [...rows]
       .reverse()
       .find((row): row is Extract<ThreadReplyRow, { kind: 'post' }> => {
@@ -304,7 +313,7 @@ export function LiveGuildPostPanel({
       });
     }
     return rows;
-  }, [replyTree, conversation.root, expandedBranches, localReplies, treePosts]);
+  }, [replyTree, conversation.root, localReplies, treePosts]);
   const replyFocusKey = useMemo(
     () =>
       replyRows
@@ -335,10 +344,22 @@ export function LiveGuildPostPanel({
     [conversation.root, replyRows, quotes]
   );
   // Full ancestor chain up to the conversation root, oldest first.
-  const ancestorChain = useAncestorChain(conversation.root?.parentPath);
-  const hasParent = ancestorChain.length > 0;
+  const parentPath = conversation.root?.parentPath;
+  const ancestorChain = useAncestorChain(parentPath);
+  // parentPath is known before ancestors paint — keep the opened card on the
+  // thread edge from first paint so the face does not shift when parents land.
+  const hasParent = Boolean(parentPath);
+  const hasAncestorRows = ancestorChain.length > 0;
   const openedPostRef = useRef<HTMLDivElement>(null);
-  useLandOpenedPost(openedPostRef, conversation.root?.postId, hasParent);
+  useLandOpenedPost(
+    openedPostRef,
+    conversation.root?.postId,
+    hasAncestorRows
+  );
+  useLayoutEffect(() => {
+    if (loadState !== 'ready' || !conversation.root) return;
+    onThreadPainted?.();
+  }, [conversation.root, loadState, onThreadPainted]);
   const engagementPosts = useMemo(
     () => [...ancestorChain, ...threadPosts],
     [ancestorChain, threadPosts]
@@ -898,6 +919,11 @@ export function LiveGuildPostPanel({
     />
   );
 
+  const rootContinued = threadRootContinued(
+    conversation.root?.accountId,
+    sortedReplyRows
+  );
+
   const replyListRows = sortedReplyRows.map((row, index) => {
     if (row.kind === 'more') {
       const foldLabel =
@@ -908,18 +934,22 @@ export function LiveGuildPostPanel({
         (row.hiddenCount === 1
           ? 'Show 1 more reply'
           : `Show ${row.hiddenCount} more replies`);
+      const target = row.hidden[0];
       const foldKey = threadReplyRowKey(row);
+      if (!target) return null;
       return (
         <div key={foldKey} ref={registerReplyRow(foldKey)}>
-          <ThreadFoldButton
-            onClick={() =>
-              setExpandedBranches((current) =>
-                new Set(current).add(row.branchKey)
-              )
-            }
+          <ThreadFoldLink
+            href={guildPostPath(
+              target.groupId ?? groupId,
+              target.accountId,
+              target.postId
+            )}
+            root={target}
+            context={sheetContext}
           >
             {foldLabel}
-          </ThreadFoldButton>
+          </ThreadFoldLink>
         </div>
       );
     }
@@ -929,11 +959,14 @@ export function LiveGuildPostPanel({
       next !== undefined &&
       (next.kind === 'more' ||
         (next.kind === 'post' && next.connectedToPrevious));
+    const continuesRoot = rootContinued && index === 0;
     const itemClassName = [
       'post-thread-item',
       row.connectedToPrevious
         ? 'post-thread-item--up post-thread-item--cont'
-        : '',
+        : continuesRoot
+          ? 'post-thread-item--up'
+          : '',
       connectedToNext ? 'post-thread-item--down' : '',
       threadFocus.isHighlighted(row.post)
         ? 'post-thread-item--focus-reply'
@@ -953,6 +986,10 @@ export function LiveGuildPostPanel({
           data-thread-focus-reply={row.post.postId}
           data-thread-focus-key={postKey(row.post)}
         >
+          <ThreadRail
+            up={row.connectedToPrevious || continuesRoot}
+            down={connectedToNext}
+          />
           <PostCard
             post={row.post}
             authorProfile={postAuthorProfiles[row.post.accountId]}
@@ -1017,13 +1054,16 @@ export function LiveGuildPostPanel({
         ) : null}
 
         {loadState === 'ready' && conversation.root ? (
-          <section className="guild-thread-column">
+          <section
+            className={`guild-thread-column${rootContinued ? ' is-continued' : ''}`}
+          >
             <div className="guild-thread-context">
               {ancestorChain.map((ancestor, index) => (
                 <div
                   className={`guild-thread-ancestor post-thread-item post-thread-item--down${index > 0 ? ' post-thread-item--up' : ''}`}
                   key={postKey(ancestor)}
                 >
+                  <ThreadRail up={index > 0} down />
                   <PostCard
                     post={ancestor}
                     authorProfile={postAuthorProfiles[ancestor.accountId]}
@@ -1081,8 +1121,16 @@ export function LiveGuildPostPanel({
               <div
                 ref={openedPostRef}
                 data-thread-opened-post={conversation.root.postId}
-                className={`guild-thread-root${hasParent ? ' post-thread-item post-thread-item--up' : ''}`}
+                className={[
+                  'guild-thread-root',
+                  hasParent || rootContinued ? 'post-thread-item' : '',
+                  hasParent ? 'post-thread-item--up' : '',
+                  rootContinued ? 'post-thread-item--down' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
               >
+                <ThreadRail up={hasAncestorRows} down={rootContinued} />
                 <PostCard
                   post={conversation.root}
                   authorProfile={
@@ -1154,8 +1202,9 @@ export function LiveGuildPostPanel({
               <div
                 className={`thread-controls-row${
                   replyListRows.length > 0 || shareRow ? '' : ' is-idle'
-                }`}
+                }${rootContinued ? ' is-continued' : ''}`}
               >
+                {rootContinued ? <ThreadRail through /> : null}
                 {replyListRows.length > 0 ? (
                   <ThreadRepliesSortButton
                     sort={replySort}

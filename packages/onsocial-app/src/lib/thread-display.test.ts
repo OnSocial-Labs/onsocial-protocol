@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { PostRow } from '@onsocial/sdk';
 import { postKey } from '@/lib/post-display';
-import { threadReplyRowKey, type ThreadReplyRow } from './thread-display';
+import {
+  threadReplyRowKey,
+  threadRootContinued,
+  type ThreadReplyRow,
+} from './thread-display';
 
 function post(accountId: string, postId: string): PostRow {
   return { accountId, postId, value: '', blockHeight: 0, blockTimestamp: 0 };
@@ -27,5 +31,23 @@ describe('threadReplyRowKey', () => {
     };
     expect(threadReplyRowKey(row)).toBe('more-a.near:p1');
     expect(threadReplyRowKey(row)).not.toBe(postKey(post('a.near', 'p1')));
+  });
+});
+
+describe('threadRootContinued', () => {
+  const reply = (accountId: string): ThreadReplyRow => ({
+    kind: 'post',
+    post: post(accountId, 'r1'),
+    connectedToPrevious: false,
+  });
+
+  it('continues when the first reply is the opened author', () => {
+    expect(threadRootContinued('a.near', [reply('a.near')])).toBe(true);
+  });
+
+  it('does not continue into another author branch', () => {
+    expect(threadRootContinued('a.near', [reply('b.near')])).toBe(false);
+    expect(threadRootContinued('a.near', [])).toBe(false);
+    expect(threadRootContinued(undefined, [reply('a.near')])).toBe(false);
   });
 });

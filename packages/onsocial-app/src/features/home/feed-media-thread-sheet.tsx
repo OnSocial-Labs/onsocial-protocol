@@ -8,7 +8,7 @@ import type {
 import dynamic from 'next/dynamic';
 import type { PostRow } from '@onsocial/sdk';
 import { GlassSheet, SheetHeader } from '@onsocial/ui';
-import { PostRowSkeleton } from '@/features/home/post-skeleton';
+import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
 import { useFeedThreadBand } from '@/features/home/use-feed-thread-band';
 import type { PersonalPostPageData } from '@/lib/load-personal-post-page';
 
@@ -17,7 +17,7 @@ const LivePersonalPostPanel = dynamic(
     import('@/features/home/live-personal-post-panel').then(
       (mod) => mod.LivePersonalPostPanel
     ),
-  { ssr: false, loading: () => <PostRowSkeleton rows={2} /> }
+  { ssr: false, loading: () => <PostThreadPageSkeleton /> }
 );
 
 function seedEmbeddedThread(root: PostRow): PersonalPostPageData {
@@ -105,7 +105,7 @@ export function FeedMediaThreadSheet({
         </div>
       }
     >
-      <Suspense fallback={<PostRowSkeleton rows={2} />}>
+      <Suspense fallback={<PostThreadPageSkeleton />}>
         <LivePersonalPostPanel
           author={author}
           postId={postId}

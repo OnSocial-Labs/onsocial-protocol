@@ -71,8 +71,8 @@ export type CoalescedFeedBlock = {
   posts: PostRow[];
   /** Standing lens: one peek reply chained after `posts` (not part of fold math). */
   standingPeek?: PostRow;
-  /** Standing lens: zigzag coil after the peek reply — rest lives on thread page. */
-  standingCoilTail?: boolean;
+  /** Replies skipped between `posts` and `standingPeek`. */
+  standingHidden?: PostRow[];
 };
 
 function standingChainNewestTimestamp(chain: PostRow[]): number {
@@ -104,7 +104,9 @@ function mergeStandingAttachment(
 
   block.standingPeek = newest;
   if (chain.length > 1) {
-    block.standingCoilTail = true;
+    block.standingHidden = chain.slice(0, -1);
+  } else {
+    delete block.standingHidden;
   }
 }
 
@@ -137,8 +139,8 @@ function tryMergeStandingIntoBlock(
  *   They surface as the parent's reply count and live on the thread page,
  *   so conversations don't flood the feed.
  * - Standing lens: one stood-with reply chains after the native block; when
- *   several stood-with accounts reply, the newest reply wins; longer
- *   self-threads show only the newest reply plus a coil link-out.
+ *   several stood-with accounts reply, the newest reply wins; a longer
+ *   self-thread keeps the skipped replies for the fold between them.
  * - A self-reply whose parent isn't on this page stays a single-post block
  *   with its `Replying to @x` context line.
  *

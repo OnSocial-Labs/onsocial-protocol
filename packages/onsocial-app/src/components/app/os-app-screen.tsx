@@ -98,7 +98,10 @@ export interface OsAppScreenProps {
    * inbox / thread). OR'd with body scrollTop for glass frost elevation.
    */
   glassScrollElevated?: boolean;
-  /** Keep glass frost on without waiting for scroll (Messages-style panes). */
+  /**
+   * Force `is-elevated` without waiting for scroll (Messages panes).
+   * Glass frost itself is always on via CSS; this is for elevate-only chrome.
+   */
   glassChromeAlwaysElevated?: boolean;
   /**
    * Mood wash in the app column (`data-mood` + CSS vars).
@@ -202,7 +205,10 @@ export function OsAppScreen({
     const body = bodyRef.current;
     if (!body) return;
     const syncElevated = () => {
-      setGlassElevated(body.scrollTop > 8 || glassScrollElevated);
+      const next = body.scrollTop > 8 || glassScrollElevated;
+      // Class before React paint — land / fast flick must not show a clear bar.
+      headerRef.current?.classList.toggle('is-elevated', next);
+      setGlassElevated((prev) => (prev === next ? prev : next));
     };
     syncElevated();
     body.addEventListener('scroll', syncElevated, { passive: true });

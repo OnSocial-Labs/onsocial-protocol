@@ -55,6 +55,11 @@ export interface OsPageSheetProps {
   keepDock?: boolean;
   /** When false, the page under the sheet can still scroll. Default true. */
   lockScroll?: boolean;
+  /**
+   * Hold the appear until the first real frame is painted (seeded post page).
+   * The page cover stays up; the fade starts on the finished content.
+   */
+  deferEnter?: boolean;
 }
 
 /**
@@ -84,6 +89,7 @@ export function OsPageSheet({
   rootClassName,
   keepDock = false,
   lockScroll = true,
+  deferEnter = false,
 }: OsPageSheetProps) {
   useScrollLock(open && lockScroll);
 
@@ -112,6 +118,7 @@ export function OsPageSheet({
       panelClassName={cn(osPageSheetPanelClassName, panelClassName)}
       rootClassName={rootClassName}
       keepDock={keepDock}
+      deferEnter={deferEnter}
       {...(mergedPanelStyle ? { panelStyle: mergedPanelStyle } : {})}
       {...(moodStyle ? { moodStyle } : {})}
       {...(moodId ? { moodId } : {})}

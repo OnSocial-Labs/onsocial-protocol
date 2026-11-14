@@ -145,7 +145,7 @@ describe('page drawer feed inset', () => {
       /--thread-avatar:\s*var\(--os-avatar-feed,\s*2\.5rem\);/
     );
     expect(globalsCss).toMatch(
-      /--thread-rail-x:\s*calc\(var\(--thread-avatar\)\s*\/\s*2\);/
+      /\.thread-rail-col \{[^}]*width:\s*var\(--thread-avatar/
     );
     expect(globalsCss).toMatch(/--os-dock-height:\s*3\.25rem;/);
     expect(globalsCss).toMatch(/--os-icon-hit:\s*3\.25rem;/);

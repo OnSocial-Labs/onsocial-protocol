@@ -4,6 +4,7 @@ import { useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import { OsPageSheet } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OverlayGlassHeader } from '@/components/overlay/overlay-glass-header';
 import {
   PortfolioWritingList,
@@ -78,7 +79,7 @@ export function WritingShelfOpening() {
             ariaLabelledBy="overlay-title"
             backdropLabel="Close panel"
             keepDock
-            panelClassName="portfolio-writing-sheet-panel"
+            panelClassName="portfolio-writing-sheet-panel os-page-chrome-appear"
             header={<OverlayGlassHeader panelKey="writing" />}
           >
             <div className="overlay-panel-outlet">
@@ -103,29 +104,31 @@ export function WritingShelfOpening() {
                   />
                 }
               >
-                {articles ? (
-                  <PortfolioWritingList
-                    accountId={face.accountId}
-                    titleLabel={titleLabel}
-                    avatarUrl={face.avatarUrl}
-                    articles={articles}
-                    query=""
-                    showSearch={false}
-                    onOpenArticle={(post) => {
-                      rememberEssayReopen({
-                        accountId: post.accountId,
-                        postId: post.postId,
-                      });
-                    }}
-                  />
-                ) : (
-                  <WritingShelfFrame hidden>
-                    <div className="portfolio-writing-pending">
-                      <span className="standing-row-shimmer portfolio-writing-pending-row" />
-                      <span className="standing-row-shimmer portfolio-writing-pending-row" />
-                    </div>
-                  </WritingShelfFrame>
-                )}
+                <OsPageBodyAppear>
+                  {articles ? (
+                    <PortfolioWritingList
+                      accountId={face.accountId}
+                      titleLabel={titleLabel}
+                      avatarUrl={face.avatarUrl}
+                      articles={articles}
+                      query=""
+                      showSearch={false}
+                      onOpenArticle={(post) => {
+                        rememberEssayReopen({
+                          accountId: post.accountId,
+                          postId: post.postId,
+                        });
+                      }}
+                    />
+                  ) : (
+                    <WritingShelfFrame hidden>
+                      <div className="portfolio-writing-pending">
+                        <span className="standing-row-shimmer portfolio-writing-pending-row" />
+                        <span className="standing-row-shimmer portfolio-writing-pending-row" />
+                      </div>
+                    </WritingShelfFrame>
+                  )}
+                </OsPageBodyAppear>
               </OsAppScreen>
             </div>
           </OsPageSheet>

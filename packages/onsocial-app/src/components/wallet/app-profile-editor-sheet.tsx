@@ -35,6 +35,7 @@ import {
   useDiscardConfirm,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { ProfileEditorLoadError } from '@/components/wallet/profile-editor-load-error';
 import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor-loading-skeleton';
 import { ProfileAboutEditorSheet } from '@/components/wallet/profile-about-editor-sheet';
@@ -737,7 +738,7 @@ export function AppProfileEditorSheet({
         backdropLabel="Close"
         moodId={viewerMoodId ?? undefined}
         moodStyle={viewerMoodStyle}
-        panelClassName={`profile-edit-sheet-panel${
+        panelClassName={`profile-edit-sheet-panel os-page-chrome-appear${
           keyboardOpen ? ' is-keyboard-open is-page-keyboard' : ''
         }`}
         panelStyle={panelStyle}
@@ -764,6 +765,7 @@ export function AppProfileEditorSheet({
           <span id={titleId} className="sr-only">
             Edit profile
           </span>
+          <OsPageBodyAppear>
           {formReady ? (
             <form
               id={formId}
@@ -1125,6 +1127,7 @@ export function AppProfileEditorSheet({
               onRetry={() => void loadProfile()}
             />
           )}
+          </OsPageBodyAppear>
         </OsAppScreen>
       </OsPageSheet>
       <DiscardConfirmSheet

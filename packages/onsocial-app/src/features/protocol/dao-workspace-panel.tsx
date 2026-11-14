@@ -17,6 +17,7 @@ import {
   replaceSheet,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { SECONDARY_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
 import { useFeedWindow } from '@/features/home/use-feed-window';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -2069,7 +2070,7 @@ export function DaoWorkspacePanel({
           backdropLabel={sheet.closeAriaLabel ?? 'Back from proposals'}
           moodId={pageMood.moodId ?? undefined}
           moodStyle={pageMood.moodStyle}
-          panelClassName={sheet.className ?? 'dao-proposals-page'}
+          panelClassName={`${sheet.className ?? 'dao-proposals-page'} os-page-chrome-appear`}
           bodyClassName={sheet.contentClassName ?? 'dao-proposals-page-body'}
           header={null}
         >
@@ -2106,7 +2107,7 @@ export function DaoWorkspacePanel({
             <span id={titleId} className="sr-only">
               {inProposalDetail ? detailTitle : sheetTitle}
             </span>
-            {workspace}
+            <OsPageBodyAppear>{workspace}</OsPageBodyAppear>
           </OsAppScreen>
         </OsPageSheet>
       ) : (

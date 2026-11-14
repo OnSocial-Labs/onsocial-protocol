@@ -1,14 +1,11 @@
 'use client';
 
-import { useState } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import type { WriteDockSubmit } from '@/contexts/compose-launcher-context';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import { PostCard, postKey } from '@/features/home/post-card';
-import {
-  ThreadCoilTailLink,
-  ThreadFoldButton,
-} from '@/features/home/thread-fold-button';
+import { ThreadRail } from '@/features/home/thread-rail';
+import { ThreadFoldLink } from '@/features/home/thread-fold-button';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import {
   EMPTY_POST_ENGAGEMENT,
@@ -62,8 +59,8 @@ interface FeedThreadBlockProps {
   onUndoRepost?: (post: PostRow) => void;
   /** Standing lens — peek reply after the native chain (outside fold math). */
   standingPeek?: PostRow;
-  /** Standing lens — coil after the peek reply when more posts exist in thread. */
-  standingCoilTail?: boolean;
+  /** Replies skipped between the native chain and `standingPeek`. */
+  standingHidden?: PostRow[];
 }
 
 interface BlockRow {
@@ -113,11 +110,9 @@ export function FeedThreadBlock({
   onRepost,
   onUndoRepost,
   standingPeek,
-  standingCoilTail = false,
+  standingHidden,
 }: FeedThreadBlockProps) {
-  const [expanded, setExpanded] = useState(false);
-  const collapsed = !expanded && block.length > BLOCK_MAX_UNCOLLAPSED;
-  const hiddenCount = collapsed ? block.length - 1 - BLOCK_TAIL_VISIBLE : 0;
+  const collapsed = block.length > BLOCK_MAX_UNCOLLAPSED;
   const foldLabel = collapsed
     ? resolveThreadFoldLabel(block.slice(1, block.length - BLOCK_TAIL_VISIBLE), {
         noun: 'post',
@@ -125,8 +120,12 @@ export function FeedThreadBlock({
         profiles: postAuthorProfiles,
       })
     : null;
-  const coilTailHref =
-    standingCoilTail && standingPeek ? postThreadPath(standingPeek) : undefined;
+  const standingTarget = standingHidden?.[0];
+  const standingFoldLabel = standingHidden?.length
+    ? resolveThreadFoldLabel(standingHidden, {
+        profiles: postAuthorProfiles,
+      })
+    : null;
 
   const toRow = (
     post: PostRow,
@@ -159,7 +158,7 @@ export function FeedThreadBlock({
     ? {
         post: standingPeek,
         up: true,
-        down: Boolean(standingCoilTail),
+        down: false,
         first: false,
       }
     : null;
@@ -195,6 +194,7 @@ export function FeedThreadBlock({
 
     return (
       <div key={postKey(post)} className={itemClassName}>
+        <ThreadRail up={up} down={down} />
         <PostCard
           post={card}
           authorProfile={postAuthorProfiles[card.accountId]}
@@ -245,31 +245,28 @@ export function FeedThreadBlock({
   };
 
   return (
-    <div
-      className={
-        standingCoilTail
-          ? 'post-thread-block post-thread-block--standing-coil'
-          : 'post-thread-block'
-      }
-    >
+    <div className="post-thread-block">
       {head.map(renderRow)}
-      {collapsed ? (
-        <ThreadFoldButton onClick={() => setExpanded(true)}>
-          {foldLabel ??
-            (hiddenCount === 1
-              ? 'Show 1 earlier post in thread'
-              : `Show ${hiddenCount} earlier posts in thread`)}
-        </ThreadFoldButton>
+      {collapsed && block[0] && foldLabel ? (
+        <ThreadFoldLink
+          href={resolveThreadHref(block[0], groupId)}
+          root={block[0]}
+          context={sheetContext}
+        >
+          {foldLabel}
+        </ThreadFoldLink>
       ) : null}
       {tail.map(renderRow)}
-      {standingPeekRow ? renderRow(standingPeekRow) : null}
-      {coilTailHref ? (
-        <ThreadCoilTailLink
-          href={coilTailHref}
-          root={standingPeek}
+      {standingTarget && standingFoldLabel ? (
+        <ThreadFoldLink
+          href={resolveThreadHref(standingTarget, groupId)}
+          root={standingTarget}
           context={sheetContext}
-        />
+        >
+          {standingFoldLabel}
+        </ThreadFoldLink>
       ) : null}
+      {standingPeekRow ? renderRow(standingPeekRow) : null}
     </div>
   );
 }

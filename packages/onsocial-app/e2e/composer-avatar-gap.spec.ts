@@ -118,14 +118,17 @@ test('composer first avatar matches the Post page gap', async ({ page }) => {
     const second = items[1];
     if (!first || !second) return null;
     const avatar = first.querySelector('.guild-composer-row-avatar');
-    if (!avatar) return null;
-    const pad = Number.parseFloat(getComputedStyle(first).paddingTop);
-    const railTop = Number.parseFloat(getComputedStyle(first, '::after').top);
-    const avatarHeight = avatar.getBoundingClientRect().height;
+    const rail = first.querySelector('.thread-rail-col.is-down');
+    if (!avatar || !rail) return null;
+    const avatarBox = avatar.getBoundingClientRect();
+    const railBox = rail.getBoundingClientRect();
+    const strokeTop =
+      railBox.top +
+      Number.parseFloat(getComputedStyle(rail, '::after').top);
     return {
       secondPad: Number.parseFloat(getComputedStyle(second).paddingTop),
       expectedSecondPad: 0.42 * font,
-      railGap: railTop - pad - avatarHeight,
+      railGap: strokeTop - avatarBox.bottom,
       expectedRailGap: 0.2 * font,
     };
   });

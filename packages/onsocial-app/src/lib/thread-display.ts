@@ -10,6 +10,19 @@ export function threadReplyRowKey(row: ThreadReplyRow): string {
   return row.kind === 'more' ? `more-${row.branchKey}` : postKey(row.post);
 }
 
+/** The opened post continues into its first reply when that reply is the author's. */
+export function threadRootContinued(
+  rootAuthorId: string | undefined,
+  rows: readonly ThreadReplyRow[]
+): boolean {
+  const first = rows[0];
+  return (
+    rootAuthorId != null &&
+    first?.kind === 'post' &&
+    first.post.accountId === rootAuthorId
+  );
+}
+
 /** Display row on a thread page: a post, or a per-branch fold control. */
 export type ThreadReplyRow =
   | {
@@ -35,12 +48,11 @@ export type ThreadReplyRow =
  * - Then each branch (someone else's reply), divider-separated: the branch
  *   post plus at most ONE reply from its conversation line (the root
  *   author's response when present). Longer exchanges fold behind a spring
- *   coil `Show N more` row that expands in place.
+ *   coil that opens the next reply's post page.
  */
 export function buildReplyRows(
   nodes: ThreadNode[],
-  rootAuthor: string | undefined,
-  expandedBranches: ReadonlySet<string>
+  rootAuthor: string | undefined
 ): ThreadReplyRow[] {
   const rows: ThreadReplyRow[] = [];
 
@@ -83,11 +95,6 @@ export function buildReplyRows(
     if (line.length === 0) return;
 
     const branchKey = postKey(branch.post);
-    if (expandedBranches.has(branchKey)) {
-      for (const node of line) pushPost(node.post, true);
-      return;
-    }
-
     pushPost(line[0]!.post, true);
     const hiddenCount = line.length - 1;
     if (hiddenCount > 0) {

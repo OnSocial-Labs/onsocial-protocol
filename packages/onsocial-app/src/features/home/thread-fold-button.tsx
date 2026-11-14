@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import {
   isUnmodifiedPrimaryClick,
@@ -10,59 +10,69 @@ import {
 import type { ThreadSheetContext } from '@/lib/guild-thread-card-context';
 import { isAppPostSheetHref } from '@/lib/post-routes';
 
-/** Expand control for a folded stretch of a reply thread. */
-export function ThreadFoldButton({
-  children,
-  onClick,
-}: {
-  children: ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button type="button" className="post-thread-more" onClick={onClick}>
-      <span className="post-thread-more-coil" aria-hidden />
-      {children}
-    </button>
-  );
-}
-
 /**
- * Coil-only link to the rest of a thread (Standing peek / link-out).
- * Primary taps open the thread sheet over the feed — same as a card-body
- * tap; the href stays for modified clicks and direct loads.
+ * One card-tap opener for a thread fold.
+ * The permalink stays for modified clicks and direct loads.
  */
-export function ThreadCoilTailLink({
+function ThreadPostLink({
   href,
-  root = null,
+  root,
   context = null,
+  className,
+  ariaLabel,
+  children,
 }: {
   href: string;
-  /** Peek post — paints the sheet instantly, same as a card tap. */
   root?: PostRow | null;
-  /** Feed the coil was opened from. */
   context?: ThreadSheetContext | null;
+  className: string;
+  ariaLabel?: string;
+  children?: ReactNode;
 }) {
   const { openPostThread } = usePostThreadLayer();
+  const open = () => {
+    if (!isAppPostSheetHref(href)) return false;
+    return openPostThread({ href, root, context });
+  };
   return (
     <Link
       href={href}
-      className="post-thread-more post-thread-more--coil-tail"
+      className={className}
       scroll={false}
-      aria-label="Open the rest of this thread"
-      onClick={(event) => {
+      aria-label={ariaLabel}
+      onClick={(event: MouseEvent<HTMLAnchorElement>) => {
         if (!isUnmodifiedPrimaryClick(event)) return;
-        if (!isAppPostSheetHref(href)) return;
-        if (!openPostThread({ href, root, context })) return;
+        if (!open()) return;
         event.preventDefault();
         event.stopPropagation();
       }}
       onNavigate={(event) => {
-        if (!isAppPostSheetHref(href)) return;
-        if (!openPostThread({ href, root, context })) return;
+        if (!open()) return;
         event.preventDefault();
       }}
     >
       <span className="post-thread-more-coil" aria-hidden />
+      {children}
     </Link>
   );
 }
+
+/** Feed fold. Opens the first post of the chain the same way a card does. */
+export function ThreadFoldLink({
+  href,
+  root,
+  context = null,
+  children,
+}: {
+  href: string;
+  root: PostRow;
+  context?: ThreadSheetContext | null;
+  children: ReactNode;
+}) {
+  return (
+    <ThreadPostLink href={href} root={root} context={context} className="post-thread-more">
+      {children}
+    </ThreadPostLink>
+  );
+}
+

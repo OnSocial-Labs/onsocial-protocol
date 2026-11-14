@@ -9,45 +9,60 @@ const feedBlock = readFileSync(
   join(here, '../guilds/feed-thread-block.tsx'),
   'utf8'
 );
-
-const foldButton = source.slice(
-  source.indexOf('export function ThreadFoldButton'),
-  source.indexOf('export function ThreadCoilTailLink')
+const personalPanel = readFileSync(
+  join(here, 'live-personal-post-panel.tsx'),
+  'utf8'
 );
-const coilTail = source.slice(source.indexOf('export function ThreadCoilTailLink'));
+const guildPanel = readFileSync(
+  join(here, '../guilds/live-guild-post-panel.tsx'),
+  'utf8'
+);
 
-describe('ThreadCoilTailLink', () => {
+const postLink = source.slice(
+  source.indexOf('function ThreadPostLink'),
+  source.indexOf('export function ThreadFoldLink')
+);
+
+describe('ThreadPostLink', () => {
   it('opens the thread sheet on primary taps, like a card-body tap', () => {
-    expect(coilTail).toContain('usePostThreadLayer');
-    expect(coilTail).toContain('isUnmodifiedPrimaryClick(event)');
-    expect(coilTail).toContain('isAppPostSheetHref(href)');
-    expect(coilTail).toContain('openPostThread({ href, root, context })');
-    expect(coilTail).toContain('event.preventDefault();');
-    expect(coilTail).toContain('onNavigate={');
-  });
-
-  it('keeps the zigzag coil and the permalink fallback', () => {
-    expect(coilTail).toContain('className="post-thread-more-coil"');
-    expect(coilTail).toContain('post-thread-more--coil-tail');
-    expect(coilTail).toContain('href={href}');
-    expect(coilTail).toContain('aria-label="Open the rest of this thread"');
-  });
-
-  it('takes the peek post and feed context for instant sheet paint', () => {
-    expect(coilTail).toContain('root?: PostRow | null');
-    expect(coilTail).toContain('context?: ThreadSheetContext | null');
-    expect(feedBlock).toMatch(
-      /<ThreadCoilTailLink[\s\S]*?root=\{standingPeek\}[\s\S]*?context=\{sheetContext\}/
-    );
+    expect(postLink).toContain('usePostThreadLayer');
+    expect(postLink).toContain('isUnmodifiedPrimaryClick(event)');
+    expect(postLink).toContain('isAppPostSheetHref(href)');
+    expect(postLink).toContain('openPostThread({ href, root, context })');
+    expect(postLink).toContain('event.preventDefault();');
+    expect(postLink).toContain('onNavigate={');
+    expect(source.match(/openPostThread\(/g)).toHaveLength(1);
   });
 });
 
-describe('ThreadFoldButton', () => {
-  it('stays an in-place expander with no sheet navigation', () => {
-    expect(foldButton).not.toContain('usePostThreadLayer');
-    expect(foldButton).not.toContain('openPostThread');
-    expect(foldButton).not.toContain('isAppPostSheetHref');
-    expect(foldButton).toContain('<button');
-    expect(foldButton).toContain('post-thread-more-coil');
+describe('reply fold', () => {
+  it('opens the folded reply on its post page', () => {
+    for (const panel of [personalPanel, guildPanel]) {
+      expect(panel).toContain('ThreadFoldLink');
+      expect(panel).toContain('row.hidden[0]');
+      expect(panel).not.toContain('setExpandedBranches');
+      expect(panel).not.toContain('ThreadFoldButton');
+    }
+    expect(personalPanel).toContain('href={postThreadPath(target)}');
+    expect(guildPanel).toContain('context={sheetContext}');
+  });
+});
+
+describe('ThreadFoldLink', () => {
+  const foldLink = source.slice(source.indexOf('export function ThreadFoldLink'));
+
+  it('opens the first post of the chain through the shared opener', () => {
+    expect(foldLink).toContain('<ThreadPostLink');
+    expect(foldLink).not.toContain('openPostThread');
+    expect(feedBlock).toContain('ThreadFoldLink');
+    expect(feedBlock).not.toContain('ThreadCoilTailLink');
+    expect(feedBlock).not.toContain('Show 1 earlier post');
+    expect(feedBlock).not.toContain('setExpanded(true)');
+    expect(feedBlock).toMatch(
+      /<ThreadFoldLink[\s\S]*?root=\{block\[0\]\}[\s\S]*?context=\{sheetContext\}/
+    );
+    expect(feedBlock).toMatch(
+      /standingFoldLabel[\s\S]*<ThreadFoldLink[\s\S]*?root=\{standingTarget\}[\s\S]*?context=\{sheetContext\}[\s\S]*standingPeekRow/
+    );
   });
 });

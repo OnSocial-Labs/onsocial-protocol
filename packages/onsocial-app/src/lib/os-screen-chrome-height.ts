@@ -1,11 +1,8 @@
 /**
  * Glass chrome inset sync — measure resting header height into
  * `--os-screen-chrome-height`, and freeze that value while scroll-tuck is
- * visual-only so body padding / catch-up chips do not jump.
- *
- * Home’s full chip-rail tuck zeros the body inset in CSS
- * (`:has(.home-feed-compact-chrome.is-scroll-hidden)`); this helper stays
- * on the freeze path for every tucked rail.
+ * visual-only (search / chip rails). Home’s full rail tuck also collapses
+ * body pad in CSS; freeze still covers search-tuck and other rails.
  *
  * Prefer `data-os-chrome-tucked` (set by screen / toolbar rails). Class
  * sniffing remains a fallback for older markup.

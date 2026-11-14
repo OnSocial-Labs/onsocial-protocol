@@ -38,6 +38,7 @@ import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { ProfileEssayFormatToolbar } from '@/components/profile/profile-essay-format-toolbar';
 import { composerCommitCopy } from '@/features/guilds/composer-commit-copy';
+import { ThreadRail } from '@/features/home/thread-rail';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerProfileShellContext } from '@/contexts/viewer-profile-shell-context';
 import { useViewerWalletMoodVars } from '@/hooks/use-viewer-wallet-mood-vars';
@@ -59,6 +60,7 @@ import {
 } from '@/features/guilds/composer-thread-beat';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { scarceNestZIndex } from '@/features/scarces/scarce-overlay-z';
 import {
   focusComposerField,
@@ -359,6 +361,7 @@ function ReplyTargetPreview({
 
   return (
     <div className="guild-composer-reply-target">
+      <ThreadRail down bridge />
       <AccountAvatar
         accountId={post.accountId}
         kind={authorProfile?.kind}
@@ -1564,7 +1567,7 @@ export function ComposerSheet({
         moodId={viewerMoodId ?? undefined}
         moodStyle={viewerMoodStyle}
         panelStyle={keyboardStyle}
-        panelClassName={`guild-composer-sheet-panel${
+        panelClassName={`guild-composer-sheet-panel os-page-chrome-appear${
           keyboardOpen ? ' is-keyboard-open' : ''
         }`}
         bodyClassName="guild-composer-sheet-body"
@@ -1620,6 +1623,7 @@ export function ComposerSheet({
           moodId={viewerMoodId}
           moodStyle={viewerMoodStyle}
         >
+          <OsPageBodyAppear>
           <form
             id={formId}
             key={formKey}
@@ -1663,6 +1667,13 @@ export function ComposerSheet({
                       .filter(Boolean)
                       .join(' ')}
                   >
+                    <ThreadRail
+                      up={index > 0}
+                      down={
+                        index < threadBeats.length - 1 ||
+                        (showThreadPlus && index === threadBeats.length - 1)
+                      }
+                    />
                     {renderBeat(row, index)}
                   </div>
                 ))}
@@ -1734,6 +1745,7 @@ export function ComposerSheet({
             ) : null}
             {error ? <p className="guild-form-error">{error}</p> : null}
           </form>
+          </OsPageBodyAppear>
         </OsAppScreen>
       </OsPageSheet>
       <ComposerDropPicker
