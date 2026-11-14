@@ -85,6 +85,15 @@ export function readVirtualKeyboardInset(): number {
 }
 
 /**
+ * True when Chromium/Brave IME geometry is the seat source.
+ * Those reads are exact — do not run them through suggestion-bar settle
+ * (a ~40px first-paint correction looks identical to a suggestion twitch).
+ */
+export function virtualKeyboardSeatActive(): boolean {
+  return readVirtualKeyboardInset() >= KEYBOARD_VIEWPORT_SLOP_PX;
+}
+
+/**
  * Visible bottom edge above the keys (layout coordinates).
  * Virtual Keyboard `boundingRect.y` when overlaying; else visualViewport.
  */
@@ -157,8 +166,8 @@ export function readKeyboardDrawerMetrics(): KeyboardDrawerMetrics {
   }
 
   ensureVirtualKeyboardOverlay();
-  const vkInset = readVirtualKeyboardInset();
-  if (vkInset >= KEYBOARD_VIEWPORT_SLOP_PX) {
+  if (virtualKeyboardSeatActive()) {
+    const vkInset = readVirtualKeyboardInset();
     const keyTop = readKeyboardVisibleBottom();
     const offsetTop = Math.round(viewport.offsetTop);
     const height = Math.max(0, keyTop - offsetTop);
@@ -485,10 +494,12 @@ export function useKeyboardDrawerFrame(
     ensureVirtualKeyboardOverlay();
     const sync = (reason: 'scroll' | 'layout') => {
       const raw = readKeyboardDrawerMetrics();
-      const settled = settleKeyboardDrawerMetrics(
-        frameRef.current.metrics,
-        raw
-      );
+      // Virtual Keyboard geometry is the key top — trust every tick. VV
+      // settle still absorbs caret pans and suggestion-bar noise.
+      const trustIme = virtualKeyboardSeatActive();
+      const settled = trustIme
+        ? raw
+        : settleKeyboardDrawerMetrics(frameRef.current.metrics, raw);
       const metricsChanged = settled !== frameRef.current.metrics;
       const root = rootRef?.current ?? null;
       const viewport = window.visualViewport;
@@ -505,19 +516,19 @@ export function useKeyboardDrawerFrame(
         const parentRect = fixed
           ? null
           : (root.offsetParent as HTMLElement | null)?.getBoundingClientRect();
+        const proposed = visualKeyboardFrame({
+          position: fixed ? 'fixed' : 'absolute',
+          parentTop: parentRect?.top ?? 0,
+          parentHeight: parentRect?.height ?? 0,
+          offsetTop: viewport.offsetTop,
+          visualHeight: settled.height,
+        });
         let nextBox =
           mode === 'page' && activeDrawerBox
             ? activeDrawerBox
-            : settleVisualKeyboardFrame(
-                frameRef.current.box,
-                visualKeyboardFrame({
-                  position: fixed ? 'fixed' : 'absolute',
-                  parentTop: parentRect?.top ?? 0,
-                  parentHeight: parentRect?.height ?? 0,
-                  offsetTop: viewport.offsetTop,
-                  visualHeight: settled.height,
-                })
-              );
+            : trustIme
+              ? proposed
+              : settleVisualKeyboardFrame(frameRef.current.box, proposed);
         if (root) {
           // Before paint. React's style commit is the frame the strip shows on.
           nextBox = commitVisibleBox(root, nextBox);

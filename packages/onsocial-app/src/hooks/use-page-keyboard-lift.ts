@@ -3,7 +3,9 @@
 import {
   keyboardFrameTop,
   keyboardSeatPx,
+  readKeyboardDrawerMetrics,
   settleVisualKeyboardFrame,
+  virtualKeyboardSeatActive,
   visualKeyboardFrame,
 } from '@onsocial/ui';
 import {
@@ -96,19 +98,24 @@ export function usePageKeyboardLift(
         setPinned(null);
         return;
       }
+      // Same seat drawers use: Virtual Keyboard height on Brave/Chrome,
+      // visualViewport fallback elsewhere. Raw VV height stays full in a
+      // Brave tab, so the format row never rose with the keys.
+      const metrics = readKeyboardDrawerMetrics();
+      const trustIme = virtualKeyboardSeatActive();
       const fixed = window.getComputedStyle(node).position === 'fixed';
       const parent = fixed ? null : (node.offsetParent as HTMLElement | null);
       const parentRect = parent?.getBoundingClientRect();
-      const proposed = settleVisualKeyboardFrame(
-        pinned,
-        visualKeyboardFrame({
-          position: fixed ? 'fixed' : 'absolute',
-          parentTop: parentRect?.top ?? 0,
-          parentHeight: parentRect?.height ?? 0,
-          offsetTop: visual.offsetTop,
-          visualHeight: visual.height,
-        })
-      );
+      const proposedBox = visualKeyboardFrame({
+        position: fixed ? 'fixed' : 'absolute',
+        parentTop: parentRect?.top ?? 0,
+        parentHeight: parentRect?.height ?? 0,
+        offsetTop: visual.offsetTop,
+        visualHeight: metrics.height > 0 ? metrics.height : visual.height,
+      });
+      const proposed = trustIme
+        ? proposedBox
+        : settleVisualKeyboardFrame(pinned, proposedBox);
       node.style.top = `${proposed.top}px`;
       node.style.height = `${proposed.height}px`;
       const next = {
@@ -129,14 +136,27 @@ export function usePageKeyboardLift(
     measure();
     const frame = window.requestAnimationFrame(measure);
     const visual = window.visualViewport;
+    const virtualKeyboard = (
+      navigator as Navigator & {
+        virtualKeyboard?: {
+          addEventListener(type: 'geometrychange', listener: () => void): void;
+          removeEventListener(
+            type: 'geometrychange',
+            listener: () => void
+          ): void;
+        };
+      }
+    ).virtualKeyboard;
     visual?.addEventListener('resize', measure);
     visual?.addEventListener('scroll', measure);
+    virtualKeyboard?.addEventListener('geometrychange', measure);
     window.addEventListener('resize', measure);
     window.addEventListener('scroll', measure, { passive: true });
     return () => {
       window.cancelAnimationFrame(frame);
       visual?.removeEventListener('resize', measure);
       visual?.removeEventListener('scroll', measure);
+      virtualKeyboard?.removeEventListener('geometrychange', measure);
       window.removeEventListener('resize', measure);
       window.removeEventListener('scroll', measure);
     };
