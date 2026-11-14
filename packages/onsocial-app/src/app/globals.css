@@ -44,8 +44,7 @@
   src: url('/fonts/erica-type/erika_type-webfont.woff') format('woff');
   font-weight: 400;
   font-style: normal;
-  /* Same file next/font preloads. optional: no swap after paint. */
-  font-display: optional;
+  font-display: swap;
 }
 
 @font-face {
@@ -53,7 +52,7 @@
   src: url('/fonts/erica-type/erika_type_b-webfont.woff') format('woff');
   font-weight: 700;
   font-style: normal;
-  font-display: optional;
+  font-display: swap;
 }
 
 @font-face {
@@ -61,7 +60,7 @@
   src: url('/fonts/erica-type/erika_type-webfont.woff') format('woff');
   font-weight: 400;
   font-style: normal;
-  font-display: optional;
+  font-display: swap;
 }
 
 @font-face {
@@ -69,7 +68,7 @@
   src: url('/fonts/erica-type/erika_type_b-webfont.woff') format('woff');
   font-weight: 700;
   font-style: normal;
-  font-display: optional;
+  font-display: swap;
 }
 
 /*
