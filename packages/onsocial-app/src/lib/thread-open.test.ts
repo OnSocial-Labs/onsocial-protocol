@@ -61,6 +61,7 @@ describe('scrollOpenedPostUnderHeader', () => {
       getBoundingClientRect: () => ({ top: 80 }),
     };
     const lenis = {
+      limit: Number.POSITIVE_INFINITY,
       scroll: 0,
       resize() {
         this.scroll = scroller.scrollTop;
