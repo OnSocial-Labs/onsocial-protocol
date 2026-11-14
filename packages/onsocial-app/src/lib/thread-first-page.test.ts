@@ -20,6 +20,7 @@ import {
   THREAD_REPLY_FIRST_PAGE,
   threadContentPath,
 } from '@/lib/thread-first-page';
+import { leafThreadNode } from '@/lib/thread-display';
 
 function reply(postId: string): PostRow {
   return {
@@ -103,7 +104,7 @@ describe('thread first page', () => {
       { ...painted[1]!, replies: [] },
       {
         ...painted[0]!,
-        replies: [{ post: nested, path: 'bob.near/post/nested', replies: [] }],
+        replies: [leafThreadNode(nested, 'bob.near/post/nested')],
       },
     ];
     const next = enrichPaintedReplyTree(painted, walked);

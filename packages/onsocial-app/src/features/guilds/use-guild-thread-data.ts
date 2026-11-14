@@ -94,6 +94,8 @@ export function useGuildThreadData({
   error: string | null;
   /** False until the first tree fetch resolves — gates the discover peek. */
   repliesResolved: boolean;
+  /** Empty-tail gate for More from — share counts known before peek mounts. */
+  shareTailReady: boolean;
   /** Engagement the panel's `usePostEngagement` should seed from. */
   seededEngagement: PostEngagementMap | null;
   conversation: GroupConversation;
