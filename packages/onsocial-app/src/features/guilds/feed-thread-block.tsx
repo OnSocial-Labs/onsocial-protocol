@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import type { WriteDockSubmit } from '@/contexts/compose-launcher-context';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import { PostCard, postKey } from '@/features/home/post-card';
+import { ThreadRail } from '@/features/home/thread-rail';
 import {
   ThreadCoilTailLink,
-  ThreadFoldButton,
+  ThreadFoldLink,
 } from '@/features/home/thread-fold-button';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import {
@@ -115,9 +115,7 @@ export function FeedThreadBlock({
   standingPeek,
   standingCoilTail = false,
 }: FeedThreadBlockProps) {
-  const [expanded, setExpanded] = useState(false);
-  const collapsed = !expanded && block.length > BLOCK_MAX_UNCOLLAPSED;
-  const hiddenCount = collapsed ? block.length - 1 - BLOCK_TAIL_VISIBLE : 0;
+  const collapsed = block.length > BLOCK_MAX_UNCOLLAPSED;
   const foldLabel = collapsed
     ? resolveThreadFoldLabel(block.slice(1, block.length - BLOCK_TAIL_VISIBLE), {
         noun: 'post',
@@ -195,6 +193,7 @@ export function FeedThreadBlock({
 
     return (
       <div key={postKey(post)} className={itemClassName}>
+        <ThreadRail up={up} down={down} />
         <PostCard
           post={card}
           authorProfile={postAuthorProfiles[card.accountId]}
@@ -253,13 +252,14 @@ export function FeedThreadBlock({
       }
     >
       {head.map(renderRow)}
-      {collapsed ? (
-        <ThreadFoldButton onClick={() => setExpanded(true)}>
-          {foldLabel ??
-            (hiddenCount === 1
-              ? 'Show 1 earlier post in thread'
-              : `Show ${hiddenCount} earlier posts in thread`)}
-        </ThreadFoldButton>
+      {collapsed && block[0] && foldLabel ? (
+        <ThreadFoldLink
+          href={resolveThreadHref(block[0], groupId)}
+          root={block[0]}
+          context={sheetContext}
+        >
+          {foldLabel}
+        </ThreadFoldLink>
       ) : null}
       {tail.map(renderRow)}
       {standingPeekRow ? renderRow(standingPeekRow) : null}

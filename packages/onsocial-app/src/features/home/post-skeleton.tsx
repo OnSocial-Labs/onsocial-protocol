@@ -1,5 +1,7 @@
 'use client';
 
+import { GUILDS_PAGE_CLASS } from '@/lib/os-chrome-page';
+
 export type PostSkeletonFrame =
   | 'text'
   | 'single'
@@ -53,6 +55,15 @@ function PostSkeletonMedia({ frame }: { frame: PostSkeletonFrame }) {
           className="standing-row-shimmer post-row-skeleton-media-cell"
         />
       ))}
+    </div>
+  );
+}
+
+/** Sheet and route loading — same page inset the opened post uses. */
+export function PostThreadPageSkeleton({ rows = 2 }: { rows?: number }) {
+  return (
+    <div className={GUILDS_PAGE_CLASS}>
+      <PostRowSkeleton rows={rows} />
     </div>
   );
 }

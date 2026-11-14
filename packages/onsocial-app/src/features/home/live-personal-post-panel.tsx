@@ -35,6 +35,7 @@ import {
   type ComposerSubmit,
 } from '@/features/guilds/guild-composer-sheet';
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
+import { ThreadRail } from '@/features/home/thread-rail';
 import { ThreadDiscoverPeek } from '@/features/home/thread-discover-peek';
 import { ThreadRepliesSortButton } from '@/features/home/thread-replies-sort';
 import { ThreadViewQuotesRow } from '@/features/home/thread-view-quotes-row';
@@ -101,6 +102,7 @@ import {
   flattenTreePosts,
   leafThreadNode,
   threadReplyRowKey,
+  threadRootContinued,
   withoutIndexedPosts,
 } from '@/lib/thread-display';
 import { useFeedWindow } from '@/features/home/use-feed-window';
@@ -887,6 +889,11 @@ export function LivePersonalPostPanel({
     },
   });
 
+  const rootContinued = threadRootContinued(
+    conversation.root?.accountId,
+    sortedReplyRows
+  );
+
   const replyListRows = sortedReplyRows.map((row, index) => {
     if (row.kind === 'more') {
       const foldLabel =
@@ -918,11 +925,14 @@ export function LivePersonalPostPanel({
       next !== undefined &&
       (next.kind === 'more' ||
         (next.kind === 'post' && next.connectedToPrevious));
+    const continuesRoot = rootContinued && index === 0;
     const itemClassName = [
       'post-thread-item',
       row.connectedToPrevious
         ? 'post-thread-item--up post-thread-item--cont'
-        : '',
+        : continuesRoot
+          ? 'post-thread-item--up'
+          : '',
       connectedToNext ? 'post-thread-item--down' : '',
       threadFocus.isHighlighted(row.post)
         ? 'post-thread-item--focus-reply'
@@ -942,6 +952,10 @@ export function LivePersonalPostPanel({
           data-thread-focus-reply={row.post.postId}
           data-thread-focus-key={postKey(row.post)}
         >
+          <ThreadRail
+            up={row.connectedToPrevious || continuesRoot}
+            down={connectedToNext}
+          />
           <PostCard
             post={row.post}
             authorProfile={postAuthorProfiles[row.post.accountId]}
@@ -996,7 +1010,9 @@ export function LivePersonalPostPanel({
       ) : null}
 
       {loadState === 'ready' && conversation.root ? (
-        <section className="guild-thread-column">
+        <section
+          className={`guild-thread-column${rootContinued ? ' is-continued' : ''}`}
+        >
           <div className="guild-thread-context">
             {ancestorChain.map((ancestor, index) => (
               <div
@@ -1005,6 +1021,7 @@ export function LivePersonalPostPanel({
                 data-thread-focus-reply={ancestor.postId}
                 data-thread-focus-key={postKey(ancestor)}
               >
+                <ThreadRail up={index > 0} down />
                 <PostCard
                   post={ancestor}
                   authorProfile={postAuthorProfiles[ancestor.accountId]}
@@ -1053,8 +1070,16 @@ export function LivePersonalPostPanel({
             <div
               ref={openedPostRef}
               data-thread-opened-post={conversation.root.postId}
-              className={`guild-thread-root${hasParent ? ' post-thread-item post-thread-item--up' : ''}`}
+              className={[
+                'guild-thread-root',
+                hasParent || rootContinued ? 'post-thread-item' : '',
+                hasParent ? 'post-thread-item--up' : '',
+                rootContinued ? 'post-thread-item--down' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
             >
+              <ThreadRail up={hasParent} down={rootContinued} />
               <PostCard
                 post={conversation.root}
                 authorProfile={postAuthorProfiles[conversation.root.accountId]}
@@ -1113,8 +1138,9 @@ export function LivePersonalPostPanel({
           <div
             className={`thread-controls-row${
               replyListRows.length > 0 || shareRow ? '' : ' is-idle'
-            }`}
+            }${rootContinued ? ' is-continued' : ''}`}
           >
+            {rootContinued ? <ThreadRail through /> : null}
             {replyListRows.length > 0 ? (
               <ThreadRepliesSortButton
                 sort={replySort}

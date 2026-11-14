@@ -39370,23 +39370,22 @@ a.os-surface-row,
   }
 
   /* ── Thread rail ─────────────────────────────────────────
-     One coordinate system for every connected post. Segments are drawn on
-     the row wrapper (not the card), so consecutive rows meet exactly at
-     their shared boundary and the rail is straight by construction.
-     The card's negative margin cancels its padding-left, but its 1px
-     transparent border still shifts the avatar 1px right and 1px down —
-     the 1px terms below fold that in so the rail is dead-centre on the
-     avatar and the gaps above/below the circle are identical. */
+     One column, the face width, on the row. The stroke is centred in that
+     column. Consecutive rows meet at the shared boundary. The thread card
+     draws its border as an inset shadow so the face stays on the column. */
   .post-thread-item,
   .post-thread-more {
-    /* Face size + rail x follow --os-avatar-feed (same lg everywhere).
-       2px rail left at half-face; card's 1px border shifts the centre +1px. */
     --thread-avatar: var(--os-avatar-feed, 2.5rem);
-    --thread-rail-x: calc(var(--thread-avatar) / 2);
+    --thread-rail-width: 2px;
     --thread-pad-top: 0.68rem;
-    /* Breathing room between rail ends and the avatar circle. */
+    --thread-face-offset: var(--os-post-avatar-nudge, 0.05rem);
     --thread-rail-gap: 0.2rem;
     --thread-rail-color: rgb(var(--fg-rgb) / 0.12);
+  }
+
+  .post-thread-item > .post-card {
+    border-width: 0;
+    box-shadow: inset 0 0 0 var(--os-post-card-edge, 1px) transparent;
   }
 
   .post-thread-item {
@@ -39440,33 +39439,59 @@ a.os-surface-row,
     --thread-pad-top: 0.42rem;
   }
 
-  .post-thread-item--up::before,
-  .post-thread-item--down::after {
-    content: '';
+  .thread-rail-col {
     position: absolute;
-    z-index: 1;
-    left: var(--thread-rail-x);
-    width: 2px;
-    border-radius: 9999px;
-    background: var(--thread-rail-color);
+    z-index: 0;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: var(--thread-avatar, var(--os-avatar-feed, 2.5rem));
     pointer-events: none;
   }
 
-  /* Row top → just above the avatar (1px = card border-top). */
-  .post-thread-item--up::before {
+  .thread-rail-col.is-up::before,
+  .thread-rail-col.is-down::after,
+  .thread-rail-col.is-through::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    width: var(--thread-rail-width, 2px);
+    transform: translateX(-50%);
+    border-radius: 9999px;
+    background: var(--thread-rail-color, rgb(var(--fg-rgb) / 0.12));
+  }
+
+  /* Row top → just above the avatar. */
+  .thread-rail-col.is-up::before {
     top: 0;
     height: calc(
-      var(--thread-pad-top) + 0.05rem + 1px - var(--thread-rail-gap)
+      var(--thread-pad-top, 0.68rem) +
+        var(--thread-face-offset, var(--os-post-avatar-nudge, 0.05rem)) -
+        var(--thread-rail-gap, 0.2rem)
     );
   }
 
-  /* Just below the avatar → row bottom (1px = card border-top). */
-  .post-thread-item--down::after {
+  /* Just below the avatar → row bottom. */
+  .thread-rail-col.is-down::after {
     top: calc(
-      var(--thread-pad-top) + 0.05rem + var(--thread-avatar) + 1px +
-        var(--thread-rail-gap)
+      var(--thread-pad-top, 0.68rem) +
+        var(--thread-face-offset, var(--os-post-avatar-nudge, 0.05rem)) +
+        var(--thread-avatar, var(--os-avatar-feed, 2.5rem)) +
+        var(--thread-rail-gap, 0.2rem)
     );
     bottom: 0;
+  }
+
+  /* Reply target reaches the beat under it. */
+  .thread-rail-col.is-down.is-bridge::after {
+    bottom: -0.35rem;
+  }
+
+  /* Chrome between two connected posts — the stroke keeps going. */
+  .thread-rail-col.is-through::before {
+    top: -1px;
+    bottom: 0;
+    height: auto;
   }
 
   /* Tighter continuation rows inside a connected block. */
@@ -39498,10 +39523,10 @@ a.os-surface-row,
   /* Spring coil rail — CSS mask (white stroke, alpha). No SVG ids / patterns. */
   .post-thread-more-coil {
     position: absolute;
-    left: calc(var(--thread-rail-x) - 3px);
+    left: 0;
     top: 0.08rem;
     bottom: 0.18rem;
-    width: 8px;
+    width: var(--thread-avatar);
     pointer-events: none;
     background: var(--thread-rail-color);
     -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='10' viewBox='0 0 8 10'%3E%3Cpath d='M4 0C6.8 1.5 6.8 3.5 4 5C1.2 6.5 1.2 8.5 4 10' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
@@ -39530,8 +39555,8 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.72);
   }
 
-  /* Thread context cards use 0.35rem top padding and zero side margins —
-     the avatar centre still follows --thread-rail-x, only the pad differs. */
+  /* Thread context cards use 0.35rem top padding and zero side margins.
+     The rail column stays the face width; only the pad differs. */
   .guild-thread-ancestor.post-thread-item,
   .guild-thread-root.post-thread-item {
     --thread-pad-top: 0.35rem;
@@ -39541,6 +39566,28 @@ a.os-surface-row,
     display: flex;
     flex-direction: column;
     gap: 0.85rem;
+  }
+
+  /* Root and the continuing reply share one stroke. Sort sits in the copy column. */
+  .guild-thread-column.is-continued {
+    gap: 0;
+  }
+
+  .guild-thread-column.is-continued > .divider-detail {
+    width: auto;
+    margin-left: calc(
+      var(--os-avatar-feed, 2.5rem) + var(--os-media-copy-gap, 0.55rem)
+    );
+  }
+
+  .thread-controls-row.is-continued {
+    margin: 0;
+    padding-left: calc(
+      var(--os-avatar-feed, 2.5rem) + var(--os-media-copy-gap, 0.55rem)
+    );
+    --thread-avatar: var(--os-avatar-feed, 2.5rem);
+    --thread-rail-width: 2px;
+    --thread-rail-color: rgb(var(--fg-rgb) / 0.12);
   }
 
   .guild-thread-join-dock {
@@ -39859,9 +39906,7 @@ a.os-surface-row,
   }
 
   /*
-   * Compose thread rail — same tokens as `.post-thread-item`, without the
-   * feed card's 1px transparent border (that border is why the feed rail
-   * sits at `--thread-rail-x` instead of `--thread-rail-x - 1px`).
+   * Compose thread rail — the same avatar column as `.thread-rail-col`.
    * The opening beat uses the Post page's face pad
    * (`--os-composer-first-pad-top`) so the avatar clears the header by
    * the same amount. That pad sits above the face, so the plus under
@@ -39877,8 +39922,9 @@ a.os-surface-row,
   .guild-composer-thread-item {
     position: relative;
     --thread-avatar: var(--os-avatar-feed, 2.5rem);
-    --thread-rail-x: calc(var(--thread-avatar) / 2);
+    --thread-rail-width: 2px;
     --thread-pad-top: var(--os-composer-first-pad-top);
+    --thread-face-offset: 0;
     --thread-rail-gap: 0.2rem;
     --thread-rail-color: rgb(var(--fg-rgb) / 0.12);
     padding-top: var(--thread-pad-top);
@@ -39892,30 +39938,6 @@ a.os-surface-row,
 
   .guild-composer-thread-item.is-down {
     padding-bottom: 0.68rem;
-  }
-
-  .guild-composer-thread-item.is-down::after,
-  .guild-composer-thread-item.is-up::before {
-    content: '';
-    position: absolute;
-    z-index: 1;
-    left: calc(var(--thread-rail-x) - 1px);
-    width: 2px;
-    border-radius: 9999px;
-    background: var(--thread-rail-color);
-    pointer-events: none;
-  }
-
-  .guild-composer-thread-item.is-up::before {
-    top: 0;
-    height: calc(var(--thread-pad-top) - var(--thread-rail-gap));
-  }
-
-  .guild-composer-thread-item.is-down::after {
-    top: calc(
-      var(--thread-pad-top) + var(--thread-avatar) + var(--thread-rail-gap)
-    );
-    bottom: 0;
   }
 
   /* Next post sits on the rail, under the writing. An article folds it away. */
@@ -40063,8 +40085,10 @@ a.os-surface-row,
 
   .guild-composer-reply-target {
     --thread-avatar: var(--os-avatar-feed, 2.5rem);
-    --thread-rail-x: calc(var(--thread-avatar) / 2);
+    --thread-rail-width: 2px;
+    --thread-face-offset: 0;
     --thread-rail-gap: 0.2rem;
+    --thread-rail-color: rgb(var(--fg-rgb) / 0.12);
     --thread-pad-top: var(--os-composer-first-pad-top);
     padding-top: var(--thread-pad-top);
     padding-bottom: 0.35rem;
@@ -40073,20 +40097,6 @@ a.os-surface-row,
   /* Quote / single beat — no thread item, so the face pad lives on the row. */
   .guild-composer-sheet-form > .guild-composer-self {
     padding-top: var(--os-composer-first-pad-top);
-  }
-
-  /* Same compose-thread math: 2px rail centred on the lg avatar, 0.2rem gap. */
-  .guild-composer-reply-target::after {
-    content: '';
-    position: absolute;
-    left: calc(var(--thread-rail-x) - 1px);
-    top: calc(
-      var(--thread-pad-top) + var(--thread-avatar) + var(--thread-rail-gap)
-    );
-    bottom: -0.35rem;
-    width: 2px;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.12);
   }
 
   .guild-composer-row-avatar {
@@ -47961,4 +47971,10 @@ button.portfolio-page-chevron.glass-sheet-icon-action:focus-visible {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
+}
+
+/* Post page skeleton. Unlayered so it beats the feed card's negative margin. */
+.guilds-page > .post-row-skeleton-list .post-card--skeleton {
+  margin: 0;
+  padding: var(--os-post-open-pad-top, 0.35rem) 0;
 }

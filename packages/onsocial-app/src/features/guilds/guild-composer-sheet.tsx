@@ -38,6 +38,7 @@ import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { ProfileEssayFormatToolbar } from '@/components/profile/profile-essay-format-toolbar';
 import { composerCommitCopy } from '@/features/guilds/composer-commit-copy';
+import { ThreadRail } from '@/features/home/thread-rail';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerProfileShellContext } from '@/contexts/viewer-profile-shell-context';
 import { useViewerWalletMoodVars } from '@/hooks/use-viewer-wallet-mood-vars';
@@ -359,6 +360,7 @@ function ReplyTargetPreview({
 
   return (
     <div className="guild-composer-reply-target">
+      <ThreadRail down bridge />
       <AccountAvatar
         accountId={post.accountId}
         kind={authorProfile?.kind}
@@ -1663,6 +1665,13 @@ export function ComposerSheet({
                       .filter(Boolean)
                       .join(' ')}
                   >
+                    <ThreadRail
+                      up={index > 0}
+                      down={
+                        index < threadBeats.length - 1 ||
+                        (showThreadPlus && index === threadBeats.length - 1)
+                      }
+                    />
                     {renderBeat(row, index)}
                   </div>
                 ))}

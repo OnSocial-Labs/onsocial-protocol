@@ -10,6 +10,19 @@ export function threadReplyRowKey(row: ThreadReplyRow): string {
   return row.kind === 'more' ? `more-${row.branchKey}` : postKey(row.post);
 }
 
+/** The opened post continues into its first reply when that reply is the author's. */
+export function threadRootContinued(
+  rootAuthorId: string | undefined,
+  rows: readonly ThreadReplyRow[]
+): boolean {
+  const first = rows[0];
+  return (
+    rootAuthorId != null &&
+    first?.kind === 'post' &&
+    first.post.accountId === rootAuthorId
+  );
+}
+
 /** Display row on a thread page: a post, or a per-branch fold control. */
 export type ThreadReplyRow =
   | {

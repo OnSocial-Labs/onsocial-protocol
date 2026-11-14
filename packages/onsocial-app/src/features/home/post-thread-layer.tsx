@@ -71,7 +71,7 @@ import {
   SHEET_Z,
 } from '@/lib/sheet-z';
 import { PostLayerOwnerZProvider } from '@/features/home/post-layer-owner-z';
-import { PostRowSkeleton } from '@/features/home/post-skeleton';
+import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
 import { threadContentPath, warmThreadOpen } from '@/lib/thread-first-page';
 import {
   appendTrailEntry,
@@ -90,7 +90,7 @@ const LivePersonalPostPanel = dynamic(
     import('@/features/home/live-personal-post-panel').then(
       (mod) => mod.LivePersonalPostPanel
     ),
-  { ssr: false, loading: () => <PostRowSkeleton rows={2} /> }
+  { ssr: false, loading: () => <PostThreadPageSkeleton /> }
 );
 
 const CollectionPagePanel = dynamic(
@@ -106,7 +106,7 @@ const LiveGuildPostPanel = dynamic(
     import('@/features/guilds/live-guild-post-panel').then(
       (mod) => mod.LiveGuildPostPanel
     ),
-  { ssr: false, loading: () => <PostRowSkeleton rows={2} /> }
+  { ssr: false, loading: () => <PostThreadPageSkeleton /> }
 );
 
 const PostQuotesPanel = dynamic(
