@@ -91,21 +91,14 @@ export function readCssKeyboardInsetHeight(): number {
  * IME height in CSS px from the Virtual Keyboard API when overlaying.
  * Prefer this over visualViewport lift — VV often stops at browser chrome.
  *
- * Prefer `env(keyboard-inset-height)` when the browser reports it (compose /
- * Chrome docs path). Fall back to `boundingRect` key-top math.
+ * Do not prefer `env(keyboard-inset-height)` alone — on Brave it can include
+ * chrome above the keys, so the hug seats on that strip. Derive inset from
+ * the lower key-top edge (see `readKeyboardVisibleBottom`).
  */
 export function readVirtualKeyboardInset(): number {
-  const keyboard = getVirtualKeyboard();
-  if (!keyboard?.overlaysContent) return 0;
-  const cssInset = readCssKeyboardInsetHeight();
-  if (cssInset >= KEYBOARD_VIEWPORT_SLOP_PX) return cssInset;
-  const rect = keyboard.boundingRect;
-  if (!rect || rect.height < 1) return 0;
-  // Key top → layout bottom. Matches keyboard-inset-height when bottom is 0.
-  if (rect.y > 0) {
-    return Math.max(0, Math.round(window.innerHeight - rect.y));
-  }
-  return Math.max(0, Math.round(rect.height));
+  const keyTop = readKeyboardVisibleBottomFromIme();
+  if (keyTop == null) return 0;
+  return Math.max(0, Math.round(window.innerHeight - keyTop));
 }
 
 /**
@@ -118,14 +111,37 @@ export function virtualKeyboardSeatActive(): boolean {
 }
 
 /**
+ * IME key top in layout coordinates, or null when the overlay IME is idle.
+ * Take the *lower* edge of `y` and `innerHeight - height` (and CSS inset).
+ * Brave often reports a short box that stops on a chrome strip; the lower
+ * edge closes through that strip onto the keys. Preferring CSS env alone
+ * seated the drawer on the strip.
+ */
+function readKeyboardVisibleBottomFromIme(): number | null {
+  const keyboard = getVirtualKeyboard();
+  if (!keyboard?.overlaysContent) return null;
+  const rect = keyboard.boundingRect;
+  const tops: number[] = [];
+  if (rect && rect.height >= KEYBOARD_VIEWPORT_SLOP_PX) {
+    if (rect.y > 0) tops.push(Math.round(rect.y));
+    tops.push(Math.round(window.innerHeight - rect.height));
+  }
+  const cssInset = readCssKeyboardInsetHeight();
+  if (cssInset >= KEYBOARD_VIEWPORT_SLOP_PX) {
+    tops.push(Math.round(window.innerHeight - cssInset));
+  }
+  if (tops.length === 0) return null;
+  return Math.max(...tops);
+}
+
+/**
  * Visible bottom edge above the keys (layout coordinates).
- * Prefer the CSS/IME inset (same source as compose’s `--os-keyboard-lift`);
- * else visualViewport.
+ * IME lower edge when overlaying; else visualViewport.
  */
 export function readKeyboardVisibleBottom(): number {
-  const inset = readVirtualKeyboardInset();
-  if (inset >= KEYBOARD_VIEWPORT_SLOP_PX) {
-    return Math.max(0, Math.round(window.innerHeight - inset));
+  const imeTop = readKeyboardVisibleBottomFromIme();
+  if (imeTop != null && window.innerHeight - imeTop >= KEYBOARD_VIEWPORT_SLOP_PX) {
+    return imeTop;
   }
   const viewport = window.visualViewport;
   if (!viewport) return window.innerHeight;

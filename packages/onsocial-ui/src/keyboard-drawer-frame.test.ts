@@ -443,9 +443,10 @@ describe('virtual keyboard seat', () => {
     expect(hosted.top + hosted.height).toBe(500);
   });
 
-  it('seats on the key top when the IME rect leaves room under the box', () => {
-    // y=500, height=300 → 44px under the box is below the keys, not a gap to
-    // cover. Chrome docs seat on the key top (y) / keyboard-inset-height+bottom.
+  it('closes through a Brave chrome strip when the IME box stops short', () => {
+    // y=500, height=300 → 44px under the box. Seating on y alone left the
+    // drawer flush with that strip; the lower edge (innerHeight - height)
+    // is the real key top.
     const virtualKeyboard = {
       overlaysContent: true,
       boundingRect: { x: 0, y: 500, width: 390, height: 300 },
@@ -458,10 +459,10 @@ describe('virtual keyboard seat', () => {
     });
     stubPhoneWindow({ innerHeight: 844, viewportHeight: 844 });
 
-    expect(readKeyboardVisibleBottom()).toBe(500);
+    expect(readKeyboardVisibleBottom()).toBe(544);
     expect(readKeyboardDrawerMetrics()).toEqual({
-      lift: 344,
-      height: 500,
+      lift: 300,
+      height: 544,
       isMobile: true,
     });
   });
