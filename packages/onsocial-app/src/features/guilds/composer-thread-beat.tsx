@@ -169,10 +169,7 @@ export function ComposerThreadBeat({
             />
           </div>
         ) : null}
-        <div
-          className="guild-composer-beat-body"
-          {...(rowCanArticle ? { 'data-article-align': row.articleAlign } : {})}
-        >
+        <div className="guild-composer-beat-body">
           {rowCanArticle ? (
             <label className="guild-composer-article-field">
               <span className="sr-only">Article title</span>
@@ -216,28 +213,30 @@ export function ComposerThreadBeat({
             />
           ) : null}
           {rowCanArticle ? (
-            <ProfileBioRichTextarea
-              className="guild-composer-article-body"
-              placeholder={COMPOSER_ARTICLE_PLACEHOLDER}
-              ariaLabel={
-                canComposeThread && beatCount > 1
-                  ? `Post ${index + 1}`
-                  : COMPOSER_ARTICLE_PLACEHOLDER
-              }
-              value={row.text}
-              maxLength={POST_TEXT_MAX_LENGTH}
-              disabled={pending}
-              rows={10}
-              codeBlocks
-              chromePortal={focused ? formatChromePortal : null}
-              onChange={(value) => onPatch({ text: value })}
-              onFocus={(event) => {
-                onFocusBeat();
-                onArticleBodyFocus?.();
-                onScrollField(event);
-              }}
-              onBlur={(event) => onArticleBodyBlur?.(event)}
-            />
+            <div data-about-align={row.articleAlign}>
+              <ProfileBioRichTextarea
+                className="guild-composer-article-body"
+                placeholder={COMPOSER_ARTICLE_PLACEHOLDER}
+                ariaLabel={
+                  canComposeThread && beatCount > 1
+                    ? `Post ${index + 1}`
+                    : COMPOSER_ARTICLE_PLACEHOLDER
+                }
+                value={row.text}
+                maxLength={POST_TEXT_MAX_LENGTH}
+                disabled={pending}
+                rows={10}
+                codeBlocks
+                chromePortal={focused ? formatChromePortal : null}
+                onChange={(value) => onPatch({ text: value })}
+                onFocus={(event) => {
+                  onFocusBeat();
+                  onArticleBodyFocus?.();
+                  onScrollField(event);
+                }}
+                onBlur={(event) => onArticleBodyBlur?.(event)}
+              />
+            </div>
           ) : (
             <ComposerHashtagTextarea
               textareaRef={focused ? textareaRef : undefined}

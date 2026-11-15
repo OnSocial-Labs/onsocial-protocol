@@ -1,0 +1,80 @@
+/**
+ * Document essay / article align. Host sets `data-about-align`
+ * (`left` | `center` | `justify`) on the writing surface — not on a
+ * wrapper that also holds the title. Left is the default (no rule).
+ * Title and code stay start outside these selectors.
+ */
+
+/* TipTap compose / About edit + plain textarea preview */
+[data-about-align='center'] :is(
+  .account-editor-bio--wysiwyg,
+  .account-editor-bio--wysiwyg p,
+  .account-editor-bio--wysiwyg h3,
+  .account-editor-bio--wysiwyg li,
+  .ProseMirror,
+  .guild-composer-input,
+  .guild-composer-input-backdrop
+) {
+  text-align: center;
+}
+
+[data-about-align='justify'] :is(
+  .account-editor-bio--wysiwyg,
+  .account-editor-bio--wysiwyg p,
+  .account-editor-bio--wysiwyg h3,
+  .account-editor-bio--wysiwyg li,
+  .ProseMirror,
+  .guild-composer-input,
+  .guild-composer-input-backdrop
+) {
+  text-align: justify;
+  text-align-last: start;
+}
+
+[data-about-align='center'] :is(
+  .account-editor-bio--wysiwyg ul,
+  .account-editor-bio--wysiwyg ol
+) {
+  list-style-position: inside;
+  padding-inline-start: 0;
+  text-align: center;
+}
+
+/* Writing drop / issue / book markdown reader */
+.collection-writing-markdown[data-about-align='center'] :is(p, h1, h2, h3, h4, li) {
+  text-align: center;
+}
+
+.collection-writing-markdown[data-about-align='center'] :is(ul, ol) {
+  list-style-position: inside;
+  padding-inline-start: 0;
+}
+
+.collection-writing-markdown[data-about-align='justify'] :is(p, h1, h2, h3, h4, li) {
+  text-align: justify;
+  text-align-last: start;
+}
+
+/* Live About / Writing shelf essay blocks */
+.portfolio-about-rest[data-about-align='center']
+  :is(.portfolio-about-bio, .portfolio-about-heading, .portfolio-about-list) {
+  text-align: center;
+  margin-inline: auto;
+}
+
+.portfolio-about-rest[data-about-align='center'] .portfolio-about-list {
+  display: inline-block;
+  text-align: start;
+}
+
+.portfolio-about-rest[data-about-align='justify']
+  :is(.portfolio-about-bio, .portfolio-about-heading, .portfolio-about-list) {
+  text-align: justify;
+  text-align-last: start;
+}
+
+/* Code / snippets never inherit essay align */
+[data-about-align] :is(pre, pre code) {
+  text-align: left;
+  text-align-last: auto;
+}

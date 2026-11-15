@@ -11,6 +11,7 @@
 @import '@onsocial/ui/os-choice-drawer.css';
 @import '@onsocial/ui/os-field.css';
 @import '@onsocial/ui/os-rich-text-field.css';
+@import '@onsocial/ui/os-essay-align.css';
 
 @source "../../../onsocial-ui/src/**/*.{js,ts,jsx,tsx}";
 

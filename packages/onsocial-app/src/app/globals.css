@@ -29,6 +29,7 @@
 @import '@onsocial/ui/os-sheet-facts.css';
 @import '@onsocial/ui/os-proposal-card.css';
 @import '@onsocial/ui/os-rich-text-field.css';
+@import '@onsocial/ui/os-essay-align.css';
 @import './transaction-feedback-toast.css';
 /* After Tailwind — feed @#$ / Show more weights (see file comment). */
 @import './feed-meta.css';
@@ -11321,25 +11322,6 @@ a.os-surface-row,
     width: 100%;
   }
 
-  .portfolio-about-rest[data-about-align='center'] .portfolio-about-bio,
-  .portfolio-about-rest[data-about-align='center'] .portfolio-about-heading,
-  .portfolio-about-rest[data-about-align='center'] .portfolio-about-list {
-    text-align: center;
-    margin-inline: auto;
-  }
-
-  .portfolio-about-rest[data-about-align='center'] .portfolio-about-list {
-    display: inline-block;
-    text-align: start;
-  }
-
-  .portfolio-about-rest[data-about-align='justify'] .portfolio-about-bio,
-  .portfolio-about-rest[data-about-align='justify'] .portfolio-about-heading,
-  .portfolio-about-rest[data-about-align='justify'] .portfolio-about-list {
-    text-align: justify;
-    text-align-last: start;
-  }
-
   .portfolio-about-rest .portfolio-about-bio,
   .portfolio-about-rest .portfolio-about-heading,
   .portfolio-about-rest .portfolio-about-list {
@@ -21610,61 +21592,6 @@ a.os-surface-row,
   }
 
   .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='center']
-    .account-editor-bio-shell--about
-    .account-editor-bio,
-  .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='center']
-    .account-editor-bio-shell--about
-    .account-editor-bio--wysiwyg,
-  .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='center']
-    .account-editor-bio-shell--about
-    .tiptap,
-  .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='center']
-    .account-editor-bio-shell--about
-    .ProseMirror,
-  .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='center']
-    .account-editor-bio--wysiwyg
-    p,
-  .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='center']
-    .account-editor-bio--wysiwyg
-    h3 {
-    text-align: center !important;
-  }
-
-  .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='justify']
-    .account-editor-bio-shell--about
-    .account-editor-bio,
-  .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='justify']
-    .account-editor-bio-shell--about
-    .account-editor-bio--wysiwyg,
-  .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='justify']
-    .account-editor-bio-shell--about
-    .tiptap,
-  .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='justify']
-    .account-editor-bio-shell--about
-    .ProseMirror,
-  .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='justify']
-    .account-editor-bio--wysiwyg
-    p,
-  .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='justify']
-    .account-editor-bio--wysiwyg
-    h3 {
-    text-align: justify !important;
-    text-align-last: start;
-  }
-
-  .profile-about-edit-studio
     .profile-about-edit-section--story
     .account-editor-bio--wysiwyg
     h3 {
@@ -21675,7 +21602,6 @@ a.os-surface-row,
     font-weight: 650;
     letter-spacing: -0.024em;
     color: inherit;
-    text-align: start;
     text-wrap: pretty;
     overflow-wrap: anywhere;
   }
@@ -21685,7 +21611,6 @@ a.os-surface-row,
     .account-editor-bio--wysiwyg
     p {
     margin: 0;
-    text-align: start;
   }
 
   .profile-about-edit-studio
@@ -21734,7 +21659,6 @@ a.os-surface-row,
     color: inherit;
     list-style-type: disc;
     list-style-position: outside;
-    text-align: start;
   }
 
   .profile-about-edit-studio
@@ -21745,7 +21669,6 @@ a.os-surface-row,
     margin: 0;
     padding-left: 0.15em;
     overflow-wrap: anywhere;
-    text-align: start;
   }
 
   .profile-about-edit-studio
@@ -21899,14 +21822,12 @@ a.os-surface-row,
     margin: 0.15rem 0;
     padding-left: 1.25rem;
     list-style: disc;
-    text-align: left;
   }
 
   .account-editor-bio--wysiwyg ol {
     margin: 0.15rem 0;
     padding-left: 1.25rem;
     list-style: decimal;
-    text-align: left;
   }
 
   .account-editor-bio--wysiwyg li {
@@ -31317,30 +31238,6 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.82);
   }
 
-  .collection-writing-markdown[data-about-align='center'] p,
-  .collection-writing-markdown[data-about-align='center'] h1,
-  .collection-writing-markdown[data-about-align='center'] h2,
-  .collection-writing-markdown[data-about-align='center'] h3,
-  .collection-writing-markdown[data-about-align='center'] h4,
-  .collection-writing-markdown[data-about-align='center'] li {
-    text-align: center;
-  }
-
-  .collection-writing-markdown[data-about-align='center'] ul,
-  .collection-writing-markdown[data-about-align='center'] ol {
-    list-style-position: inside;
-    padding-inline-start: 0;
-  }
-
-  .collection-writing-markdown[data-about-align='justify'] p,
-  .collection-writing-markdown[data-about-align='justify'] h1,
-  .collection-writing-markdown[data-about-align='justify'] h2,
-  .collection-writing-markdown[data-about-align='justify'] h3,
-  .collection-writing-markdown[data-about-align='justify'] h4,
-  .collection-writing-markdown[data-about-align='justify'] li {
-    text-align: justify;
-  }
-
   .collection-writing-markdown > :first-child {
     margin-top: 0;
   }
@@ -40674,27 +40571,10 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.52);
   }
 
-  /* Live article align preview — the body tracks the tool. The title stays left. */
-  .guild-composer-beat-body[data-article-align='center'] .guild-composer-input,
-  .guild-composer-beat-body[data-article-align='center']
-    .guild-composer-input-backdrop,
-  .guild-composer-beat-body[data-article-align='center'] .ProseMirror {
-    text-align: center;
-  }
-
-  .guild-composer-beat-body[data-article-align='justify'] .guild-composer-input,
-  .guild-composer-beat-body[data-article-align='justify']
-    .guild-composer-input-backdrop,
-  .guild-composer-beat-body[data-article-align='justify'] .ProseMirror {
-    text-align: justify;
-    text-align-last: start;
-  }
-
-  /* Snippet lines scroll; TipTap's `.ProseMirror pre` would wrap them. */
+  /* Snippet lines scroll; TipTap's `.ProseMirror pre` would wrap them.
+     Essay align for code is owned by `@onsocial/ui/os-essay-align.css`. */
   .guild-composer-beat-body .ProseMirror pre,
   .guild-composer-beat-body .ProseMirror pre code {
-    text-align: left;
-    text-align-last: auto;
     white-space: pre;
     overflow-wrap: normal;
     word-break: normal;
