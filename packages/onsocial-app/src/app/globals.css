@@ -34388,7 +34388,8 @@ a.os-surface-row,
     padding-bottom: calc(
       var(--os-keyboard-lift, 0px) + var(--os-screen-footer-band)
     );
-    scroll-padding-bottom: var(--os-screen-footer-band);
+    /* Band + caret tear-drop so the drop does not ride the format strip. */
+    scroll-padding-bottom: calc(var(--os-screen-footer-band) + 2.25rem);
   }
 
   .profile-about-edit-slide[data-screen-footer='true'] {
@@ -39486,14 +39487,15 @@ a.os-surface-row,
   }
 
   /*
-   * Keyboard — footer is still in-flow and already grew for format + tools.
-   * Only a meet gap; do not re-clear the chrome heights (that stacked tall).
+   * Keyboard — footer is in-flow (layout already reserved). Pad stays a meet
+   * gap; scroll-padding clears the iOS/Android caret tear-drop so it does not
+   * sit on the format / Post strips while text scrolls under them.
    */
   .guild-composer-sheet-panel:has(.guild-composer-sheet-footer.is-keyboard-open)
     .os-app-screen--embedded
     .os-app-screen-body {
     padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem);
-    scroll-padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem);
+    scroll-padding-bottom: 2.25rem;
   }
 
   .guild-composer-sheet-panel

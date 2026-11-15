@@ -4,6 +4,8 @@ import { useCallback, type FocusEventHandler } from 'react';
 
 const MOBILE_MAX_WIDTH_PX = 767;
 const KEYBOARD_SCROLL_RETRY_MS = 280;
+/** iOS/Android caret tear-drop hangs below the line — keep it off strip chrome. */
+const CARET_DROP_CLEARANCE_PX = 36;
 
 /** Nearest overflow scroller that actually moves (composer sheet body, etc.). */
 export function nearestScrollContainer(
@@ -200,7 +202,15 @@ function keyboardChromeTop(element: HTMLElement): number | null {
   const host = element.closest('.is-keyboard-open');
   if (!host || typeof host.querySelector !== 'function') return null;
   const footer = host.querySelector(
-    '.profile-edit-sheet-footer, .guild-edit-sheet-footer, .hub-manage-sheet-footer, .os-app-screen-footer, .os-sheet-footer'
+    [
+      '.guild-composer-sheet-footer',
+      '.glass-sheet-footer',
+      '.profile-edit-sheet-footer',
+      '.guild-edit-sheet-footer',
+      '.hub-manage-sheet-footer',
+      '.os-app-screen-footer',
+      '.os-sheet-footer',
+    ].join(', ')
   );
   if (!footer || !('getBoundingClientRect' in footer)) return null;
   const rect = (footer as HTMLElement).getBoundingClientRect();
@@ -230,9 +240,13 @@ export function scrollMobileFieldIntoView(element: HTMLElement | null) {
       const headerBottom = overlayHeaderBottom(element);
       const topLimit =
         Math.max(scrollerRect.top, headerBottom ?? scrollerRect.top) + 12;
-      let bottomLimit = Math.min(scrollerRect.bottom, viewBottom) - 12;
+      let bottomLimit =
+        Math.min(scrollerRect.bottom, viewBottom) - CARET_DROP_CLEARANCE_PX;
       if (chromeTop != null) {
-        bottomLimit = Math.min(bottomLimit, chromeTop - 12);
+        bottomLimit = Math.min(
+          bottomLimit,
+          chromeTop - CARET_DROP_CLEARANCE_PX
+        );
       }
       if (rect.bottom > bottomLimit) {
         scroller.scrollTop += rect.bottom - bottomLimit;
