@@ -26,6 +26,10 @@ copyPdfWorker();
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   distDir: process.env.NEXT_DIST_DIR || '.next',
+  experimental: {
+    // Off: background prefetch re-requests the same hrefs in a loop.
+    optimisticRouting: false,
+  },
   serverExternalPackages: ['@onsocial/sdk', 'pdfjs-dist'],
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
   // Turbopack is the default bundler in Next.js 16
