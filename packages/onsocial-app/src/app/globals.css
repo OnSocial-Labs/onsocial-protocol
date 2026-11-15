@@ -34384,8 +34384,8 @@ a.os-surface-row,
     right: auto;
     width: min(100%, var(--os-column-width));
     bottom: var(--os-keyboard-lift, 0px);
-    padding: 0 max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px)) 0
-      max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
+    /* Edge-flush format strip — same resting seat (no gutter inset). */
+    padding: 0;
     transform: translateX(-50%);
     transition: none;
   }
@@ -34395,20 +34395,31 @@ a.os-surface-row,
     padding: 0;
   }
 
-  .profile-about-edit-slide.is-keyboard-open[data-os-slide-over='true']
-    .os-app-screen-body {
-    padding-bottom: calc(
-      var(--os-keyboard-lift, 0px) + var(--os-screen-footer-band)
-    );
-    scroll-padding-bottom: calc(
-      var(--os-screen-footer-band) + var(--os-caret-drop-clearance, 2.75rem)
-    );
-  }
-
   .profile-about-edit-slide[data-screen-footer='true'] {
     --os-screen-footer-band: calc(
       var(--os-format-strip-height, var(--os-dock-height, 3.25rem)) +
         var(--os-dock-clearance-gap, 1.1rem)
+    );
+  }
+
+  /*
+   * About format strip only — scroll-pad = strip + tear-drop, not the
+   * band's clearance gap (that over-cleared and bounced the page).
+   */
+  .profile-about-edit-slide[data-screen-footer='true'][data-os-slide-over='true']
+    .os-app-screen-body,
+  .profile-about-edit-slide.is-keyboard-open[data-os-slide-over='true']
+    .os-app-screen-body {
+    scroll-padding-bottom: calc(
+      var(--os-format-strip-height, var(--os-dock-height, 3.25rem)) +
+        var(--os-caret-drop-clearance, 2.75rem)
+    );
+  }
+
+  .profile-about-edit-slide.is-keyboard-open[data-os-slide-over='true']
+    .os-app-screen-body {
+    padding-bottom: calc(
+      var(--os-keyboard-lift, 0px) + var(--os-screen-footer-band)
     );
   }
 
@@ -39578,15 +39589,14 @@ a.os-surface-row,
   }
 
   /*
-   * Compose rails — `--os-writing-footer-pad-block` like About footer-inner.
-   * Format fill off (in-flow). Keyboard: flush (pad 0).
+   * Compose rails — format strip edge-flush like About (pad 0 inline).
+   * Post tools keep gutter. Keyboard: block pad 0, format still flush.
    */
   .guild-composer-sheet-footer {
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    padding: var(--os-writing-footer-pad-block, 0.55rem)
-      var(--os-sheet-footer-pad-inline, var(--os-gutter, 0.75rem))
+    padding: var(--os-writing-footer-pad-block, 0.55rem) 0
       var(
         --os-sheet-footer-pad-bottom,
         calc(0.55rem + env(safe-area-inset-bottom, 0px))
@@ -39600,8 +39610,7 @@ a.os-surface-row,
   }
 
   .guild-composer-sheet-footer.is-keyboard-open {
-    padding: 0 max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px)) 0
-      max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
+    padding: 0;
   }
 
   .guild-composer-sheet-footer > .profile-about-edit-format-toolbar,
@@ -39614,7 +39623,7 @@ a.os-surface-row,
     z-index: 1;
   }
 
-  /* Format strip — dock hit, same icons as Edit About. */
+  /* Format strip — dock hit, edge-flush like Edit About. */
   .guild-composer-sheet-footer > .profile-about-edit-format-toolbar {
     flex: 0 0 var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
     height: var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
@@ -39622,12 +39631,20 @@ a.os-surface-row,
     max-height: var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
   }
 
-  /* Post tools — nav-band rail under the format strip. */
+  /* Post tools — nav-band rail; gutter matches sheet body. */
   .guild-composer-sheet-footer > .guild-composer-toolbar {
     flex: 0 0 var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
     height: var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
     min-height: var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
     max-height: var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
+    padding-inline: max(
+      var(--os-sheet-footer-pad-inline, var(--os-gutter, 0.75rem)),
+      env(safe-area-inset-left, 0px)
+    )
+      max(
+        var(--os-sheet-footer-pad-inline, var(--os-gutter, 0.75rem)),
+        env(safe-area-inset-right, 0px)
+      );
   }
 
   .guild-composer-toolbar {

@@ -203,28 +203,29 @@ function overlayHeaderBottom(element: HTMLElement): number | null {
   return rect.bottom;
 }
 
-const WRITING_FOOTER_SELECTORS = [
-  '.guild-composer-sheet-footer',
-  '.glass-sheet-footer',
-  '.profile-edit-sheet-footer',
-  '.guild-edit-sheet-footer',
-  '.hub-manage-sheet-footer',
-  '.os-app-screen-footer',
-  '.os-sheet-footer',
-].join(', ');
-
 /**
  * Top of the absolute format / Save bar. About's strip overlays the body
  * scroller even when the keyboard class is off — fold against that chrome
- * whenever the writing footer is mounted.
+ * whenever the writing footer is mounted. Compose is in-flow (no fold).
  */
 function writingChromeTop(element: HTMLElement): number | null {
   if (typeof element.closest !== 'function') return null;
   const host =
-    element.closest('.is-keyboard-open') ??
-    element.closest('.profile-about-edit-slide[data-screen-footer="true"]');
+    element.closest('.profile-about-edit-slide[data-screen-footer="true"]') ??
+    element.closest('.is-keyboard-open');
   if (!host || typeof host.querySelector !== 'function') return null;
-  const footer = host.querySelector(WRITING_FOOTER_SELECTORS);
+  // About first — absolute strip. Other keyboard hosts use their CTA footer.
+  const footer = host.querySelector(
+    [
+      '.os-app-screen-footer',
+      '.guild-composer-sheet-footer',
+      '.glass-sheet-footer',
+      '.profile-edit-sheet-footer',
+      '.guild-edit-sheet-footer',
+      '.hub-manage-sheet-footer',
+      '.os-sheet-footer',
+    ].join(', ')
+  );
   if (!footer || !('getBoundingClientRect' in footer)) return null;
   const rect = (footer as HTMLElement).getBoundingClientRect();
   if (rect.height < 1) return null;
@@ -309,10 +310,9 @@ export function scrollMobileFieldIntoView(
 }
 
 /**
- * Absolute writing footers (About format strip) overlay the scroller — focus
- * alone cannot keep the tear-drop clear while the user scrolls or drags.
- * Compose's in-flow footer does not need this; field-local keepComposerCaret
- * is enough there.
+ * Absolute writing footers (About format strip) overlay the scroller.
+ * Nudge only on selectionchange — never on scroll, or the page bounces off
+ * the strip and the user cannot scroll. Compose stays in-flow and needs none.
  */
 export function useWritingCaretChromeGuard(
   scrollerRef: RefObject<HTMLElement | null>,
@@ -344,10 +344,8 @@ export function useWritingCaretChromeGuard(
     };
 
     document.addEventListener('selectionchange', nudge);
-    scroller.addEventListener('scroll', nudge, { passive: true });
     return () => {
       document.removeEventListener('selectionchange', nudge);
-      scroller.removeEventListener('scroll', nudge);
       if (raf) window.cancelAnimationFrame(raf);
     };
   }, [enabled, scrollerRef]);

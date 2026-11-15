@@ -1,12 +1,26 @@
 /**
  * Document essay / article align. Host sets `data-about-align`
  * (`left` | `center` | `justify`) on the writing surface — not on a
- * wrapper that also holds the title. Left is explicit so a prior
- * center/justify cannot stick via inheritance. Title stays outside.
+ * wrapper that also holds the title. Left is explicit so center/justify
+ * cannot stick. Title stays outside these selectors.
  */
 
+[data-about-align] {
+  --os-essay-align: start;
+  --os-essay-align-last: auto;
+}
+
+[data-about-align='center'] {
+  --os-essay-align: center;
+}
+
+[data-about-align='justify'] {
+  --os-essay-align: justify;
+  --os-essay-align-last: start;
+}
+
 /* TipTap compose / About edit + plain textarea preview */
-[data-about-align='left']
+[data-about-align]
   :is(
     .account-editor-bio--wysiwyg,
     .account-editor-bio--wysiwyg p,
@@ -16,36 +30,8 @@
     .guild-composer-input,
     .guild-composer-input-backdrop
   ) {
-  text-align: start;
-  text-align-last: auto;
-}
-
-[data-about-align='center']
-  :is(
-    .account-editor-bio--wysiwyg,
-    .account-editor-bio--wysiwyg p,
-    .account-editor-bio--wysiwyg h3,
-    .account-editor-bio--wysiwyg li,
-    .ProseMirror,
-    .guild-composer-input,
-    .guild-composer-input-backdrop
-  ) {
-  text-align: center;
-  text-align-last: auto;
-}
-
-[data-about-align='justify']
-  :is(
-    .account-editor-bio--wysiwyg,
-    .account-editor-bio--wysiwyg p,
-    .account-editor-bio--wysiwyg h3,
-    .account-editor-bio--wysiwyg li,
-    .ProseMirror,
-    .guild-composer-input,
-    .guild-composer-input-backdrop
-  ) {
-  text-align: justify;
-  text-align-last: start;
+  text-align: var(--os-essay-align);
+  text-align-last: var(--os-essay-align-last);
 }
 
 [data-about-align='left']
@@ -63,20 +49,13 @@
 }
 
 /* Writing drop / issue / book markdown reader */
-.collection-writing-markdown[data-about-align='left']
-  :is(p, h1, h2, h3, h4, li) {
-  text-align: start;
-  text-align-last: auto;
+.collection-writing-markdown[data-about-align] :is(p, h1, h2, h3, h4, li) {
+  text-align: var(--os-essay-align);
+  text-align-last: var(--os-essay-align-last);
 }
 
 .collection-writing-markdown[data-about-align='left'] :is(ul, ol) {
   list-style-position: outside;
-}
-
-.collection-writing-markdown[data-about-align='center']
-  :is(p, h1, h2, h3, h4, li) {
-  text-align: center;
-  text-align-last: auto;
 }
 
 .collection-writing-markdown[data-about-align='center'] :is(ul, ol) {
@@ -84,18 +63,17 @@
   padding-inline-start: 0;
 }
 
-.collection-writing-markdown[data-about-align='justify']
-  :is(p, h1, h2, h3, h4, li) {
-  text-align: justify;
-  text-align-last: start;
+/* Live About / Writing shelf essay blocks */
+.portfolio-about-rest[data-about-align]
+  :is(.portfolio-about-bio, .portfolio-about-heading, .portfolio-about-list) {
+  text-align: var(--os-essay-align);
+  text-align-last: var(--os-essay-align-last);
+  margin-inline: 0;
 }
 
-/* Live About / Writing shelf essay blocks */
-.portfolio-about-rest[data-about-align='left']
+.portfolio-about-rest[data-about-align='center']
   :is(.portfolio-about-bio, .portfolio-about-heading, .portfolio-about-list) {
-  text-align: start;
-  text-align-last: auto;
-  margin-inline: 0;
+  margin-inline: auto;
 }
 
 .portfolio-about-rest[data-about-align='left'] .portfolio-about-list {
@@ -103,23 +81,9 @@
   text-align: start;
 }
 
-.portfolio-about-rest[data-about-align='center']
-  :is(.portfolio-about-bio, .portfolio-about-heading, .portfolio-about-list) {
-  text-align: center;
-  text-align-last: auto;
-  margin-inline: auto;
-}
-
 .portfolio-about-rest[data-about-align='center'] .portfolio-about-list {
   display: inline-block;
   text-align: start;
-}
-
-.portfolio-about-rest[data-about-align='justify']
-  :is(.portfolio-about-bio, .portfolio-about-heading, .portfolio-about-list) {
-  text-align: justify;
-  text-align-last: start;
-  margin-inline: 0;
 }
 
 /* Code / snippets never inherit essay align */
