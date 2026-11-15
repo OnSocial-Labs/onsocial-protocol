@@ -5,8 +5,14 @@ export class WalletPickerTimeoutError extends Error {
   }
 }
 
-export function walletMismatchInfoMessage(accountId: string): string {
-  return `Connected as @${accountId}. Check and tap again.`;
+export function walletMismatchInfoMessage(
+  accountId: string,
+  actionLabel: string
+): { title: string; msg: string } {
+  return {
+    title: `Now using @${accountId}`,
+    msg: `Tap ${actionLabel} again to continue.`,
+  };
 }
 
 export function isWalletUserCancellation(error: unknown): boolean {

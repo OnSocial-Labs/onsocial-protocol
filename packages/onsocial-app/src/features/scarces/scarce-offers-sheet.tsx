@@ -54,6 +54,10 @@ function formatNearLabel(near: string): string {
   return `${n.toLocaleString('en-US', { maximumFractionDigits: 4 })} NEAR`;
 }
 
+function acceptActionLabel(amountNear: string | null | undefined): string {
+  return amountNear ? `Accept · ${formatNearLabel(amountNear)}` : 'Accept';
+}
+
 /** Owner sheet: review and accept open offers on an owned scarce. */
 export function ScarceOffersSheet({
   open,
@@ -169,7 +173,10 @@ export function ScarceOffersSheet({
         if (cause instanceof WalletConnectedReviewError) {
           setTxResult({
             type: 'info',
-            msg: walletMismatchInfoMessage(cause.accountId),
+            ...walletMismatchInfoMessage(
+              cause.accountId,
+              acceptActionLabel(offer.amountNear)
+            ),
           });
           return;
         }
@@ -206,7 +213,7 @@ export function ScarceOffersSheet({
       primaryType: 'button',
       primaryLabel: isConnected
         ? canPickOffer
-          ? `Accept · ${formatNearLabel(selectedOffer.amountNear)}`
+          ? acceptActionLabel(selectedOffer.amountNear)
           : 'Accept'
         : 'Connect',
       primaryPendingLabel: isConnected ? 'Accepting…' : 'Connecting…',

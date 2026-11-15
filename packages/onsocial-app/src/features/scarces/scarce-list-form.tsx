@@ -643,23 +643,23 @@ export function ScarceListForm({
               ? 'Enter a royalty between 0 and 50%.'
               : null;
 
+  const listActionLabel =
+    commerceMode === 'drop'
+      ? attachCollectionId
+        ? 'Attach Drop'
+        : 'Create Drop'
+      : 'List on Market';
   const footerState = useMemo((): CommerceSheetFooterState => {
     const isDrop = commerceMode === 'drop';
     return {
       visible: true,
-      primaryLabel: isConnected
-        ? isDrop
-          ? attachCollectionId
-            ? 'Attach Drop'
-            : 'Create Drop'
-          : 'List on Market'
-        : 'Connect',
+      primaryLabel: isConnected ? listActionLabel : 'Connect',
       primaryPendingLabel: isDrop ? 'Creating Drop…' : 'Listing…',
       canSubmit: isConnected ? canSubmit : true,
       pending,
       disabled: pending || (isConnected && !canSubmit),
     };
-  }, [attachCollectionId, canSubmit, commerceMode, isConnected, pending]);
+  }, [canSubmit, commerceMode, isConnected, listActionLabel, pending]);
 
   useSyncCommerceSheetFooter(footerState, onFooterStateChange);
 
@@ -843,7 +843,7 @@ export function ScarceListForm({
       if (cause instanceof WalletConnectedReviewError) {
         setTxResult({
           type: 'info',
-          msg: walletMismatchInfoMessage(cause.accountId),
+          ...walletMismatchInfoMessage(cause.accountId, listActionLabel),
         });
         return;
       }

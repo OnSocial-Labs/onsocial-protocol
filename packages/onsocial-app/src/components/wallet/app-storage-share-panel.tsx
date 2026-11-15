@@ -236,7 +236,10 @@ export function AppStorageSharePanel({
       if (err instanceof WalletConnectedReviewError) {
         setTxResult({
           type: 'info',
-          msg: walletMismatchInfoMessage(err.accountId),
+          ...walletMismatchInfoMessage(
+            err.accountId,
+            needsFunding ? 'Fund share pool' : 'Add to share pool'
+          ),
         });
         return;
       }
@@ -278,7 +281,7 @@ export function AppStorageSharePanel({
       if (err instanceof WalletConnectedReviewError) {
         setTxResult({
           type: 'info',
-          msg: walletMismatchInfoMessage(err.accountId),
+          ...walletMismatchInfoMessage(err.accountId, 'Share storage'),
         });
         return;
       }

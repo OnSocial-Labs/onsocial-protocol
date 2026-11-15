@@ -256,7 +256,10 @@ export function AppThankTokenSheet({
         if (cause instanceof WalletConnectedReviewError) {
           setTxResult({
             type: 'info',
-            msg: walletMismatchInfoMessage(cause.accountId),
+            ...walletMismatchInfoMessage(
+              cause.accountId,
+              recipients.length > 0 ? `Thank ${recipients.length}` : 'Thank'
+            ),
           });
           return;
         }

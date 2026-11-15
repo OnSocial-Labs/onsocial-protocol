@@ -247,7 +247,7 @@ function PortfolioDaoOrgChromeInner({
       if (cause instanceof WalletConnectedReviewError) {
         setTxResult({
           type: 'info',
-          msg: walletMismatchInfoMessage(cause.accountId),
+          ...walletMismatchInfoMessage(cause.accountId, 'Propose'),
         });
       } else if (!isWalletUserCancellation(cause)) {
         setTxResult({

@@ -342,7 +342,10 @@ export function GuildGroupStorageSheet({
       if (err instanceof WalletConnectedReviewError) {
         setTxResult({
           type: 'info',
-          msg: walletMismatchInfoMessage(err.accountId),
+          ...walletMismatchInfoMessage(
+            err.accountId,
+            needsFunding ? 'Fund guild pool' : 'Add to guild pool'
+          ),
         });
         return;
       }
@@ -391,7 +394,12 @@ export function GuildGroupStorageSheet({
       if (err instanceof WalletConnectedReviewError) {
         setTxResult({
           type: 'info',
-          msg: walletMismatchInfoMessage(err.accountId),
+          ...walletMismatchInfoMessage(
+            err.accountId,
+            readyRecipients.length > 1
+              ? `Add storage · ${readyRecipients.length}`
+              : 'Add storage'
+          ),
         });
         return;
       }
@@ -437,7 +445,7 @@ export function GuildGroupStorageSheet({
       if (err instanceof WalletConnectedReviewError) {
         setTxResult({
           type: 'info',
-          msg: walletMismatchInfoMessage(err.accountId),
+          ...walletMismatchInfoMessage(err.accountId, 'Save default'),
         });
         return;
       }
@@ -479,7 +487,7 @@ export function GuildGroupStorageSheet({
       if (err instanceof WalletConnectedReviewError) {
         setTxResult({
           type: 'info',
-          msg: walletMismatchInfoMessage(err.accountId),
+          ...walletMismatchInfoMessage(err.accountId, 'Turn off default'),
         });
         return;
       }
@@ -521,7 +529,7 @@ export function GuildGroupStorageSheet({
       if (err instanceof WalletConnectedReviewError) {
         setTxResult({
           type: 'info',
-          msg: walletMismatchInfoMessage(err.accountId),
+          ...walletMismatchInfoMessage(err.accountId, 'Remove'),
         });
         return;
       }

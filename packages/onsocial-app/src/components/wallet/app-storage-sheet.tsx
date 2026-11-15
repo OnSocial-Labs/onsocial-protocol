@@ -395,7 +395,10 @@ export function AppStorageSheet({
       if (err instanceof WalletConnectedReviewError) {
         setTxResult({
           type: 'info',
-          msg: walletMismatchInfoMessage(err.accountId),
+          ...walletMismatchInfoMessage(
+            err.accountId,
+            view === 'deposit' ? 'Add NEAR' : 'Withdraw NEAR'
+          ),
         });
         return;
       }

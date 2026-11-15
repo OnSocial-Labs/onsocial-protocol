@@ -821,14 +821,13 @@ export function ScarceBuyForm({
       cancelled = true;
     };
   }, [nearDepositYocto, payWithToken, selectedPayToken, viewerAccountId]);
-  const showFooterPrice = unitDollarLabel
-    ? isConnected && (isLazyBuy || isDropBuy || isMarketBuy)
-    : isConnected && ((isDropBuy && isPaidMint) || (isMarketBuy && isPaidAsk));
-  const primaryLabelWithPrice = showFooterPrice
-    ? `${primaryActionLabel} · ${formatScarceBuyPrice(totalPriceNear) || '—'}`
-    : isConnected
-      ? primaryActionLabel
-      : 'Connect';
+  const connectedPrimaryLabel =
+    (unitDollarLabel
+      ? isLazyBuy || isDropBuy || isMarketBuy
+      : (isDropBuy && isPaidMint) || (isMarketBuy && isPaidAsk))
+      ? `${primaryActionLabel} · ${formatScarceBuyPrice(totalPriceNear) || '—'}`
+      : primaryActionLabel;
+  const primaryLabelWithPrice = isConnected ? connectedPrimaryLabel : 'Connect';
 
   const dollarCheckoutBlocked = dollarSticker != null && dollarOracle == null;
   const dollarPricePending =
@@ -913,7 +912,10 @@ export function ScarceBuyForm({
       if (cause instanceof WalletConnectedReviewError) {
         setTxResult({
           type: 'info',
-          msg: walletMismatchInfoMessage(cause.accountId),
+          ...walletMismatchInfoMessage(
+            cause.accountId,
+            ownManageKind === 'delist' ? 'Delist' : 'Cancel listing'
+          ),
         });
         return;
       }
@@ -1455,7 +1457,7 @@ export function ScarceBuyForm({
       if (cause instanceof WalletConnectedReviewError) {
         setTxResult({
           type: 'info',
-          msg: walletMismatchInfoMessage(cause.accountId),
+          ...walletMismatchInfoMessage(cause.accountId, connectedPrimaryLabel),
         });
         return;
       }

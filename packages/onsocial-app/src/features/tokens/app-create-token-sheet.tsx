@@ -335,7 +335,7 @@ export function AppCreateTokenSheet({
           setPhase('idle');
           setTxResult({
             type: 'info',
-            msg: walletMismatchInfoMessage(cause.accountId),
+            ...walletMismatchInfoMessage(cause.accountId, 'Create'),
           });
           return;
         }

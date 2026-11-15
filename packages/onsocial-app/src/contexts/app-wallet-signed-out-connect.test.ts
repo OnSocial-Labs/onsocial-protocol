@@ -1633,10 +1633,15 @@ describe('signed-out wallet picker', () => {
   });
 
   it('renders an info toast as neutral status and leaves the other types', async () => {
-    const info = 'Connected as @bob.near. Check and tap again.';
+    const info = {
+      type: 'info' as const,
+      title: 'Now using @bob.near',
+      msg: 'Tap Buy again to continue.',
+    };
     function toast(result: {
       type: 'success' | 'error' | 'info';
       msg: string;
+      title?: string;
     }) {
       return createElement(TransactionFeedbackToast, {
         result,
@@ -1651,12 +1656,19 @@ describe('signed-out wallet picker', () => {
     });
     expect(statusNode().props.className).toContain('is-success');
     expect(collectText(renderer!.root)).toContain('Saved.');
+    expect(
+      renderer!.root.findAll(
+        (node) =>
+          typeof node.props?.className === 'string' &&
+          node.props.className.includes('app-tx-toast-title')
+      ).length
+    ).toBe(0);
     await act(async () => {
       renderer = create(toast({ type: 'error', msg: 'Failed.' }));
     });
     expect(statusNode().props.className).toContain('is-error');
     await act(async () => {
-      renderer = create(toast({ type: 'info', msg: info }));
+      renderer = create(toast(info));
     });
     const status = statusNode();
     expect(status.props['aria-live']).toBe('polite');
@@ -1677,7 +1689,16 @@ describe('signed-out wallet picker', () => {
           node.props.className.includes('app-tx-toast-icon--error')
       ).length
     ).toBe(0);
-    expect(collectText(renderer!.root)).toContain(info);
+    const text = collectText(renderer!.root);
+    expect(text).toContain(info.title);
+    expect(text).toContain(info.msg);
+    expect(
+      renderer!.root.findAll(
+        (node) =>
+          typeof node.props?.className === 'string' &&
+          node.props.className.includes('app-tx-toast-title')
+      ).length
+    ).toBeGreaterThan(0);
   });
 
   it('returns the create-token step thread to idle and shows the info toast', async () => {
@@ -1722,9 +1743,8 @@ describe('signed-out wallet picker', () => {
         (node) => node.props?.['aria-label'] === 'Sign in your wallet'
       ).length
     ).toBe(0);
-    expect(text).toContain(
-      'Connected as @bob.onsocial.testnet. Check and tap again.'
-    );
+    expect(text).toContain('Now using @bob.onsocial.testnet');
+    expect(text).toContain('Tap Create again to continue.');
   }, 12000);
 
   it('keeps the timeout toast after a bundled dock connect', async () => {
@@ -1833,7 +1853,7 @@ describe('signed-out wallet picker', () => {
   });
 
   it('shows an info toast when buy, list, or accept-offer mismatches', async () => {
-    const info = 'Connected as @bob.near. Check and tap again.';
+    const title = 'Now using @bob.near';
     const footer = { current: null };
     await mountPaidBuy('seller.near', footer);
     window.localStorage.setItem(APP_WALLET_ACCOUNT_KEY, 'alice.near');
@@ -1851,7 +1871,10 @@ describe('signed-out wallet picker', () => {
     await act(async () => {
       await Promise.resolve();
     });
-    expect(collectText(renderer!.root)).toContain(info);
+    expect(collectText(renderer!.root)).toContain(title);
+    expect(collectText(renderer!.root)).toContain(
+      'Tap Buy · 1 NEAR again to continue.'
+    );
     expect(signCallCount()).toBe(0);
 
     act(() => {
@@ -1886,7 +1909,10 @@ describe('signed-out wallet picker', () => {
     await act(async () => {
       await Promise.resolve();
     });
-    expect(collectText(renderer!.root)).toContain(info);
+    expect(collectText(renderer!.root)).toContain(title);
+    expect(collectText(renderer!.root)).toContain(
+      'Tap Create Drop again to continue.'
+    );
 
     act(() => {
       renderer?.unmount();
@@ -1949,7 +1975,10 @@ describe('signed-out wallet picker', () => {
     await act(async () => {
       await Promise.resolve();
     });
-    expect(collectText(renderer!.root)).toContain(info);
+    expect(collectText(renderer!.root)).toContain(title);
+    expect(collectText(renderer!.root)).toContain(
+      'Tap Accept · 1 NEAR again to continue.'
+    );
     expect(signCallCount()).toBe(0);
   }, 20000);
 });
