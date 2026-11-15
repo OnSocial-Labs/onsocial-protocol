@@ -139,6 +139,8 @@
   box-sizing: border-box;
 }
 
+/* Header text commits (`.os-header-commit`) — Post, Publish, New … creates. */
+
 /* Same side inset as the slide header. The shared slide body pads the sides to 0. */
 .collection-door-log-slide .os-slide-over-content.collection-door-log,
 .event-guests-slide .os-slide-over-content.event-guests {
@@ -630,6 +632,48 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   min-width: 0;
   width: auto;
   flex-shrink: 0;
+}
+
+/*
+ * Unlayered — beats UI `.standing-row` flex. Identity stays main|aside;
+ * `.standing-row-ledger` spans under Stand (avatar-lg inset = copy start).
+ */
+.standing-row--ledger {
+  --os-standing-ledger-inset: calc(2.5rem + var(--os-media-copy-gap, 0.55rem));
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'main aside'
+    'ledger ledger';
+  gap: 0 0.55rem;
+  align-items: start;
+}
+
+.standing-row--ledger > .standing-row-hit {
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+}
+
+.standing-row--ledger .standing-row-main {
+  grid-area: main;
+}
+
+.standing-row--ledger .standing-row-aside {
+  grid-area: aside;
+}
+
+.standing-row--ledger .standing-row-ledger {
+  grid-area: ledger;
+  min-width: 0;
+  padding-inline-start: var(--os-standing-ledger-inset);
+}
+
+.standing-row--ledger:has(> .standing-row-hit) .standing-row-main,
+.standing-row--ledger:has(> .standing-row-hit) .standing-row-ledger {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
 }
 
 /* Allowlist / door staff / royalty split — material only; width from GlassSheet. */
@@ -2693,24 +2737,31 @@ button.post-media-tile {
   border-radius: inherit;
 }
 
-/* Create-drop header Start pill — same compact family as the market Buy pill. */
-.drop-create-header-cta.os-sheet-actions--row-compact {
+/*
+ * Header text commit — Post, Publish / Generate, New drop / event / hub / …
+ * One size class; mood fill stays on `.guild-composer-header-post` only.
+ */
+.os-header-commit.os-sheet-actions--row-compact {
   flex-shrink: 0;
   width: auto;
   min-width: 4.5rem;
   gap: 0;
 }
 
-.drop-create-header-cta.os-sheet-actions--row-compact .os-sheet-action {
+.os-header-commit.os-sheet-actions--sm .os-sheet-action,
+.os-header-commit.os-sheet-actions--sm .os-sheet-action--primary {
   flex: 0 0 auto;
-  width: 100%;
+  width: auto;
   min-width: 0;
+  min-height: 0;
+  border-width: 0;
+  padding: 0.4rem 0.85rem;
+  font-size: var(--os-identity-meta-size, 0.875rem);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
 }
 
-/* Dimensions come from OsSheetActions size="sm"; slots own width only. */
-
-/* Composer dock Post — unlayered so row-compact stays pill-sized. */
-/* Proposal card vote chips — unlayered so they beat os-sheet-action row-compact. */
 /* Pending-count candy badge — solid purple + dark on-accent ink (the soft
    purple fails contrast with white text in both themes). */
 .guild-manage-menu-badge {
@@ -2744,21 +2795,6 @@ button.post-media-tile {
 .guild-composer-toolbar-post.os-sheet-actions--row-compact {
   width: auto;
   gap: 0;
-}
-
-/* Same height and type as the Post / Article chips in this row. */
-.guild-composer-header-post.os-sheet-actions--sm .os-sheet-action,
-.guild-composer-header-post.os-sheet-actions--sm .os-sheet-action--primary {
-  flex: 0 0 auto;
-  width: auto;
-  min-width: 0;
-  min-height: 0;
-  border-width: 0;
-  padding: 0.4rem 0.85rem;
-  font-size: var(--os-identity-meta-size, 0.875rem);
-  font-weight: 600;
-  line-height: 1.2;
-  letter-spacing: -0.015em;
 }
 
 /*
@@ -2839,11 +2875,26 @@ button.post-media-tile {
   padding-bottom: 0;
 }
 
-.account-editor-banner-button .profile-editor-media-size-hint--dock,
-.guild-look-preview-banner .profile-editor-media-size-hint--dock,
-.hub-look-preview-banner .profile-editor-media-size-hint--dock,
-.dao-look-preview-cover .profile-editor-media-size-hint--dock {
+.account-editor-banner-button .profile-editor-media-size-hint--dock {
   z-index: 4;
+}
+
+/*
+ * Hub / guild look — logo overlaps the banner. Center the empty hint so it
+ * never covers the mark.
+ */
+.hub-look-preview-banner-hint,
+.guild-look-preview-banner-hint {
+  position: absolute;
+  left: 50%;
+  right: auto;
+  top: 50%;
+  bottom: auto;
+  z-index: 2;
+  max-width: none;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
 }
 
 .glass-sheet-panel.customize-sheet-panel,
@@ -8662,6 +8713,13 @@ a.os-surface-row,
     text-align: right;
   }
 
+  .portfolio-boost-sheet-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    min-width: 0;
+  }
+
   .portfolio-boost-network-block {
     display: flex;
     flex-direction: column;
@@ -8690,11 +8748,24 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.55);
   }
 
+  .portfolio-boost-network-value-seat {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 0.82rem;
+  }
+
   .portfolio-boost-network-value {
+    display: block;
+    min-width: 2.6rem;
+    min-height: 0.82rem;
     font-size: var(--os-control-label-compact-size, 0.8125rem);
     font-weight: 600;
-    font-variant-numeric: normal;
+    font-variant-numeric: tabular-nums;
     letter-spacing: -0.02em;
+    line-height: 0.82rem;
   }
 
   .portfolio-boost-shimmer-network {
@@ -18551,10 +18622,13 @@ a.os-surface-row,
 
   .standing-row-metrics {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 0.25rem 0.4rem;
     margin-top: 0.45rem;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 600;
     font-variant-numeric: normal;
@@ -18767,6 +18841,8 @@ a.os-surface-row,
 
   .standing-row-bio {
     display: block;
+    min-width: 0;
+    max-width: 100%;
     margin-top: 0.2rem;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -20511,9 +20587,8 @@ a.os-surface-row,
 
   .account-editor-banner-wrap .profile-editor-media-size-hint--dock,
   .account-editor-banner-button .profile-editor-media-size-hint--dock,
-  .guild-look-preview-banner .profile-editor-media-size-hint--dock,
-  .hub-look-preview-banner .profile-editor-media-size-hint--dock,
-  .dao-look-preview-cover .profile-editor-media-size-hint--dock {
+  .hub-look-preview-banner-hint,
+  .guild-look-preview-banner-hint {
     color: rgb(var(--fg-rgb) / 0.42);
   }
 
@@ -23550,8 +23625,8 @@ a.os-surface-row,
   }
 
   /*
-   * Open post: standing-style profile hit — avatar + name/marks + @id in
-   * one `.post-card-identity` (shared hover). ⋮ stays outside on the name row.
+   * Open post: standing main|aside — identity fills to Stand/⋮ (no feed
+   * spacer). Avatar stays absolute in the copy gutter.
    */
   .post-identity--stacked .post-identity-row > .post-card-identity {
     flex: 1 1 0;
@@ -23587,10 +23662,14 @@ a.os-surface-row,
     color: var(--os-identity-handle);
   }
 
-  /* Optical mid of the name line — does not grow the row (menu hugs hit). */
+  /* Feed byline: mid on the single line. Open post: name-line top. */
   .post-identity-trailing,
   .post-identity-time-slot {
     align-self: center;
+  }
+
+  .post-identity--stacked .post-identity-trailing {
+    align-self: flex-start;
   }
 
   .post-card-detail-time {
@@ -28153,7 +28232,7 @@ a.os-surface-row,
   }
 
   .collectibles-play-title-row.collection-title-row {
-    align-items: center;
+    align-items: flex-start;
     gap: 0.65rem;
     margin: 0.15rem 0 0;
     width: 100%;
@@ -28336,7 +28415,7 @@ a.os-surface-row,
 
   .held-edition-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 0.75rem;
     padding: 0.8rem 0;
@@ -31883,21 +31962,30 @@ a.os-surface-row,
     color: var(--os-surface-muted);
   }
 
-  /* ── Start a drop form ─── */
+  /* ── New drop form ─── */
 
   .drop-create-form,
   .drop-studio,
+  .hub-create-form,
   .guild-create-form {
     display: flex;
     flex-direction: column;
     gap: 1.15rem;
   }
 
+  .dao-create-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
   /* Create / edit forms: plain label stacks — kill guild-field card chrome. */
   .drop-create-form .guild-field,
   .drop-create-extra-sheet-body .guild-field,
   .drop-studio .guild-field,
+  .hub-create-form .guild-field,
   .guild-create-form .guild-field,
+  .dao-create-form .guild-field,
   .guild-edit-form .guild-field,
   .hub-manage-form .guild-field,
   .guild-add-member-sheet .guild-field,
@@ -31925,6 +32013,7 @@ a.os-surface-row,
 
   /* Plain type-ins wear .os-field-bordered on the control; layout only here. */
   .drop-create-form .guild-field > textarea,
+  .hub-create-form .guild-field > textarea,
   .guild-create-form .guild-field > textarea,
   .hub-manage-form .guild-field > textarea {
     min-height: 5rem;
@@ -31932,7 +32021,9 @@ a.os-surface-row,
   }
 
   .drop-create-form .guild-field > input,
+  .hub-create-form .guild-field > input,
   .guild-create-form .guild-field > input,
+  .dao-create-form .guild-field > input,
   .hub-manage-form .guild-field > input,
   .token-create-form .guild-field > input {
     width: 100%;
@@ -32889,14 +32980,28 @@ a.os-surface-row,
   }
 
   /*
-   * Hub manage / series edit workspaces — form inset matches former
-   * GlassSheet body; footer owns its own pad (see .hub-manage-sheet-footer).
+   * Hub manage / series edit — body pad 0 like Edit profile so face covers
+   * start under absolute glass chrome. Field inset lives on the form
+   * (see .hub-manage-sheet-footer for footer pad). Edit DAO uses
+   * profile-edit-slide, not hub-manage.
    */
   .hub-manage-slide .os-app-screen-body,
   .glass-sheet-panel.hub-manage-sheet-panel
     .hub-manage-slide
-    .os-app-screen-body {
-    padding: 0.35rem var(--os-screen-body-pad-x, 0.75rem) 1.35rem;
+    .os-app-screen-body,
+  .os-slide-over.hub-manage-slide > .os-app-screen-column > .os-app-screen-body {
+    padding: 0;
+    scroll-padding-top: 0;
+  }
+
+  /* One inset layer — form owns pad; face banners bleed past it. */
+  .hub-manage-slide .hub-manage-form {
+    padding: 0 var(--os-screen-body-pad-x, 0.75rem) 1.35rem;
+  }
+
+  .hub-manage-slide
+    .os-slide-over-content.hub-manage-slide-body {
+    padding-top: 0;
   }
 
   /*
@@ -34235,7 +34340,7 @@ a.os-surface-row,
   }
 
   /*
-   * Guild edit workspace — full-bleed banner; fields pad themselves.
+   * Guild edit — form-main pads fields; face banner bleeds past that pad.
    * Footer pad stays on .guild-edit-sheet-footer.
    */
   .guild-edit-slide .os-app-screen-body,
@@ -34306,14 +34411,17 @@ a.os-surface-row,
     font-family: var(--app-font-sans);
   }
 
-  .profile-edit-slide .account-editor-hero {
+  /* Edit profile / Edit DAO / Create DAO — one portfolio face scale. */
+  .profile-edit-slide .account-editor-hero,
+  .dao-create-form .account-editor-hero {
     --account-editor-avatar-size: 5.5rem;
     --account-editor-hero-height: min(34svh, 17rem);
     --account-editor-card-identity-lift: 0.75rem;
   }
 
   @media (max-height: 42rem) {
-    .profile-edit-slide .account-editor-hero {
+    .profile-edit-slide .account-editor-hero,
+    .dao-create-form .account-editor-hero {
       --account-editor-hero-height: min(30svh, 14rem);
       --account-editor-card-identity-lift: 0.65rem;
     }
@@ -34328,7 +34436,8 @@ a.os-surface-row,
     padding-top: 0.72rem;
   }
 
-  .profile-edit-slide .account-editor-cover-stage {
+  .profile-edit-slide .account-editor-cover-stage,
+  .dao-create-form .account-editor-cover-stage {
     border-radius: 0;
     transform: none;
   }
@@ -34361,7 +34470,7 @@ a.os-surface-row,
   }
 
   /*
-   * Slide-over pages (DAO edit, series edit) keep the full page too.
+   * Slide-over pages (DAO Boost, series edit) keep the full page too.
    * The action is absolute, so it rises with bottom rather than margin.
    * The inset lives in the footer, the same 0.45rem as Transfer scarce.
    */
@@ -36328,25 +36437,26 @@ a.os-surface-row,
     row-gap: 0.35rem;
   }
 
-  /* Clear = small text action on the Filter title; X stays alone on the right. */
-  .market-filter-sheet-panel .glass-sheet-header-title-row {
-    display: flex;
-    align-items: baseline;
-    gap: 0.4rem;
-    min-width: 0;
-  }
-
-  .market-filter-sheet-panel
-    .glass-sheet-header-title-row
-    .glass-sheet-header-title {
+  /*
+   * Filter Clear — trailing text before ✕, midlined with the Filter title.
+   * Unlayered twin below beats @onsocial/ui header flex if needed.
+   */
+  .market-filter-clear {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    box-sizing: content-box;
     margin: 0;
-  }
-
-  .market-filter-title-clear {
-    margin: 0;
-    padding: 0;
     border: 0;
     background: transparent;
+    padding: calc(
+        (
+            var(--os-app-screen-nav-row-height, var(--os-nav-band, 2.35rem)) -
+              (var(--os-title-size, 1.05rem) * 1.2)
+          ) / 2
+      )
+      0 0;
+    height: calc(var(--os-title-size, 1.05rem) * 1.2);
     font: inherit;
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 600;
@@ -36356,8 +36466,8 @@ a.os-surface-row,
     cursor: pointer;
   }
 
-  .market-filter-title-clear:hover,
-  .market-filter-title-clear:focus-visible {
+  .market-filter-clear:hover,
+  .market-filter-clear:focus-visible {
     color: var(--os-surface-emphasis);
     outline: none;
   }
@@ -36924,6 +37034,10 @@ a.os-surface-row,
     gap: 1.35rem;
   }
 
+  /*
+   * Title|trail on one band. Party + deal under the title, Buy/Mint beside
+   * the party — never under the CTA (that dropped the byline).
+   */
   .market-listing-row.drops-discovery-row {
     align-items: flex-start;
     text-decoration: none;
@@ -36932,21 +37046,81 @@ a.os-surface-row,
     padding: 0.85rem 0.25rem;
   }
 
+  .drops-discovery-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.12rem;
+    min-width: 0;
+  }
+
+  .drops-discovery-top {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--os-media-copy-gap, 0.55rem);
+    min-width: 0;
+    width: 100%;
+  }
+
+  .drops-discovery-top .drops-discovery-head {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  /* Title shares the band with time/⋮ — two lines for long Yours slugs. */
+  .drops-discovery-top .market-listing-title,
+  .drops-discovery-top .market-listing-title .market-listing-title-link {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: normal;
+  }
+
+  .drops-discovery-top .market-listing-action-col {
+    padding-top: 0;
+  }
+
+  /* Stamp sits in the title’s first-line box; ⋮ tops with the title.
+   * Centering the stamp on the taller menu dropped dates ~4px. */
+  .drops-discovery-top .drops-discovery-head-trail {
+    align-items: flex-start;
+  }
+
+  .drops-discovery-top .drops-discovery-head-trail .market-listing-meta-right {
+    display: inline-flex;
+    align-items: center;
+    height: calc(var(--os-identity-name-size, 0.9375rem) * 1.25);
+    line-height: 1;
+  }
+
+  .drops-discovery-ledger {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--os-media-copy-gap, 0.55rem);
+    min-width: 0;
+    width: 100%;
+  }
+
+  .drops-discovery-stack {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: 0.12rem;
+    min-width: 0;
+  }
+
+  .drops-discovery-ledger > .market-listing-action-col {
+    padding-top: 0;
+  }
+
   /* Inherit Market cover scale; reset border/shadow for Drops chrome. */
   .drops-discovery-row .drops-discovery-thumb.market-listing-thumb {
     border: 0;
     border-radius: var(--os-catalog-cover-radius);
     outline: none;
     box-shadow: none;
-  }
-
-  .drops-discovery-copy {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 0.12rem;
-    min-width: 0;
-    flex: 1;
   }
 
   .drops-discovery-row .market-listing-head.drops-discovery-head {
@@ -37264,7 +37438,7 @@ a.os-surface-row,
   }
 
   .drops-discovery-fans-facepile .guild-facepile-avatar {
-    box-shadow: 0 0 0 1.5px rgb(var(--bg-rgb));
+    border-width: 1.5px;
   }
 
   .drops-discovery-fans-facepile .guild-facepile-avatar:not(:first-child),
@@ -37346,10 +37520,11 @@ a.os-surface-row,
   }
 
   /* Above the stretched link, so Show pass, Buy, and the clock stay tappable. */
-  .market-listing-row:has(.market-listing-row-open)
-    > .market-listing-action-col {
+  /* Trail + CTA stay clickable when nested under body (title|trail band). */
+  .market-listing-row:has(.market-listing-row-open) .market-listing-action-col {
     position: relative;
     z-index: 1;
+    pointer-events: auto;
   }
 
   .market-listing-row:has(.market-listing-row-open) .drops-discovery-party,
@@ -37534,6 +37709,10 @@ a.os-surface-row,
     width: max-content;
     max-width: 100%;
     padding-top: 0.05rem;
+  }
+
+  .market-listing-action-col.is-empty {
+    display: none;
   }
 
   .market-listing-action-col
@@ -38061,18 +38240,6 @@ a.os-surface-row,
     padding-top: 0;
   }
 
-  .guild-members-sheet-panel
-    .glass-sheet-header-title-row
-    > .glass-sheet-icon-action {
-    margin-inline-start: 0;
-  }
-
-  .guild-members-sheet-panel
-    .glass-sheet-header-title-row
-    > .guild-members-add {
-    margin-inline-start: auto;
-  }
-
   .guild-members-sheet-body {
     padding: 0.2rem var(--os-sheet-pad-inline, 0.75rem)
       var(--os-sheet-footer-pad-bottom);
@@ -38144,18 +38311,20 @@ a.os-surface-row,
   }
 
   .guild-edit-form-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
     background: transparent;
+    padding: 0
+      max(var(--os-screen-body-pad-x, 0.75rem), env(safe-area-inset-right, 0px))
+      1rem
+      max(var(--os-screen-body-pad-x, 0.75rem), env(safe-area-inset-left, 0px));
   }
 
-  /* Banner bleeds; identity pad matches live guild hero + screen body. */
   .guild-edit-fields {
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
-    padding: 0.15rem
-      max(var(--os-screen-body-pad-x, 0.75rem), env(safe-area-inset-right, 0px))
-      1rem
-      max(var(--os-screen-body-pad-x, 0.75rem), env(safe-area-inset-left, 0px));
   }
 
   .guild-edit-title-row {
@@ -38163,48 +38332,12 @@ a.os-surface-row,
     align-items: center;
     gap: 0.55rem;
     min-width: 0;
-    margin-top: 0.55rem;
-  }
-
-  .guild-edit-badge-slot {
-    position: relative;
-    flex-shrink: 0;
-  }
-
-  .guild-edit-badge-picker {
-    position: relative;
-    flex-shrink: 0;
-    width: 2.75rem;
-    height: 2.75rem;
-    overflow: visible;
-    border-radius: 0.72rem;
-    background: rgb(var(--fg-rgb) / 0.06);
-  }
-
-  .guild-edit-badge-backdrop {
-    overflow: hidden;
-    border-radius: inherit;
-  }
-
-  .guild-edit-badge-picker img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .guild-edit-badge-empty {
-    display: grid;
-    place-items: center;
-    width: 100%;
-    height: 100%;
-    color: rgb(var(--fg-rgb) / 0.45);
-    font-size: 1.15rem;
-    font-weight: 600;
-    line-height: 1;
   }
 
   .guild-edit-title-row .guild-edit-name {
     margin-top: 0;
+    flex: 1;
+    min-width: 0;
   }
 
   .guild-edit-fields > .guild-edit-meta {
@@ -38226,26 +38359,6 @@ a.os-surface-row,
 
   .guild-edit-fields > .guild-edit-access {
     margin-top: 0.25rem;
-  }
-
-  .guild-edit-hero
-    .account-editor-banner-button.guild-hero-cover--fallback
-    .account-editor-banner-empty {
-    background: transparent;
-  }
-
-  .guild-edit-hero .account-editor-banner-button.guild-hero-cover--fallback {
-    background:
-      radial-gradient(
-        circle at var(--guild-fallback-spot-x) var(--guild-fallback-spot-y),
-        color-mix(in srgb, var(--guild-fallback-accent) 28%, transparent),
-        transparent 62%
-      ),
-      linear-gradient(
-        180deg,
-        rgb(var(--fg-rgb) / 0.07),
-        rgb(var(--fg-rgb) / 0.03)
-      );
   }
 
   .guild-edit-name {
@@ -39046,7 +39159,7 @@ a.os-surface-row,
     align-items: center;
   }
 
-  /* Overlapping stack — page-background ring separates the circles. */
+  /* Overlapping stack — one bg gasket (kills profile-avatar hairline gap). */
   .guild-facepile-avatar:not(:first-child),
   .guild-facepile-avatar-shimmer:not(:first-child),
   .guild-facepile-slot.is-empty:not(:first-child) {
@@ -39062,18 +39175,21 @@ a.os-surface-row,
   }
 
   .guild-facepile-avatar {
-    box-shadow: 0 0 0 2px rgb(var(--bg-rgb));
+    border: 2px solid rgb(var(--bg-rgb));
+    box-shadow: none;
   }
 
   .guild-facepile-slot.is-empty {
     border-radius: 9999px;
     visibility: hidden; /* reserves space, no visual */
-    box-shadow: 0 0 0 2px rgb(var(--bg-rgb));
+    border: 2px solid rgb(var(--bg-rgb));
+    box-shadow: none;
   }
 
   .guild-facepile-avatar-shimmer {
     border-radius: 9999px;
-    box-shadow: 0 0 0 2px rgb(var(--bg-rgb));
+    border: 2px solid rgb(var(--bg-rgb));
+    box-shadow: none;
   }
 
   .guild-facepile-count {
@@ -39806,7 +39922,7 @@ a.os-surface-row,
     min-width: 4.5rem;
   }
 
-  .os-app-screen-actions .guild-composer-header-post {
+  .os-app-screen-actions .os-header-commit {
     margin-left: 0;
     align-self: center;
   }
@@ -41611,7 +41727,7 @@ a.os-surface-row,
   .endorsement-focus-supporter-faces .guild-facepile-avatar {
     width: 0.85rem;
     height: 0.85rem;
-    box-shadow: 0 0 0 1.5px rgb(var(--bg-rgb));
+    border-width: 1.5px;
   }
 
   .endorsement-focus-supporter-faces .guild-facepile-avatar:not(:first-child) {
@@ -44743,14 +44859,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   align-items: center;
 }
 
-.dao-edit-hero {
-  margin-bottom: 0.85rem;
-}
-
-.dao-edit-hero .dao-look-preview {
-  margin-bottom: 0.55rem;
-}
-
 .dao-edit-publish {
   width: 100%;
   margin-top: 0.55rem;
@@ -45037,9 +45145,24 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 }
 
 .dao-create-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
+  /* Face hero meets glass chrome — same as Edit DAO / Edit profile. */
+  padding-top: 0;
+}
+
+.hub-create-form,
+.guild-create-form {
+  padding-top: 0;
+}
+
+/* Create page — bleed hero to the chrome edges (edit sheet body is already 0). */
+.dao-create-form .account-editor-hero {
+  width: calc(100% + (2 * var(--os-screen-body-pad-x, 0.75rem)));
+  max-width: none;
+  margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.75rem));
+}
+
+.dao-create-form .dao-create-deal {
+  margin: 0;
 }
 
 .dao-create-form .dao-create-publish {
@@ -45075,94 +45198,31 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   resize: none;
 }
 
-/* Compact portfolio-face mimic on Create DAO. Cover, then square crest
-   overlapping it — same place as the DAO page. Do not restyle
-   .portfolio-hero or .portfolio-avatar. */
-.dao-look-preview {
-  position: relative;
-}
-
-.dao-look-preview-cover {
-  position: relative;
-  height: 5.25rem;
-  border-radius: 0.9rem;
-  overflow: hidden;
-  background: rgb(var(--fg-rgb) / 0.06);
-}
-
-.dao-look-preview-cover-hit {
-  width: 100%;
-  height: 100%;
-}
-
-.dao-look-preview-cover-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.dao-look-preview-face {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  justify-content: center;
-  width: 100%;
-  margin-top: -1.7rem;
-}
-
-.dao-look-preview-crest {
-  width: 4.25rem;
-  height: 4.25rem;
-  overflow: visible;
-  border-radius: 1rem;
-  background: rgb(var(--bg-rgb) / 1);
-  box-shadow: 0 0 0 0.18rem rgb(var(--bg-rgb) / 1);
-}
-
-.dao-look-preview-crest-hit {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  border-radius: inherit;
-}
-
-.dao-look-preview-crest-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.dao-look-preview-crest-empty {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  font-size: 1.4rem;
-  font-weight: 600;
-  line-height: 1;
-  color: rgb(var(--fg-rgb) / 0.45);
-}
-
-/* Compact hub-page mimic on Open a hub / Edit look. Unlayered so the overlap
-   wins on the create form. Do not restyle .app-hub-cover. */
+/* Hub look — live app-hub-cover scale (create + edit). Do not restyle .app-hub-cover. */
 .hub-look-preview {
-  /* In-flow logo; the form gap is the space down to Name. */
   position: relative;
+  --look-preview-face-bleed: var(--os-screen-body-pad-x, 0.75rem);
 }
 
 .hub-look-preview-banner {
   position: relative;
-  height: 5.25rem;
-  border-radius: 0.9rem;
+  width: calc(100% + (2 * var(--look-preview-face-bleed)));
+  max-width: none;
+  margin-inline: calc(-1 * var(--look-preview-face-bleed));
+  height: calc(env(safe-area-inset-top, 0px) + clamp(6.75rem, 24vw, 9.25rem));
+  border-radius: 0;
   overflow: hidden;
   background: rgb(var(--fg-rgb) / 0.06);
 }
 
 .hub-look-preview-banner-hit {
+  width: 100%;
+  height: 100%;
+}
+
+.hub-look-preview-banner > .media-frame-pan-surface {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
 }
@@ -45173,31 +45233,64 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   object-fit: cover;
 }
 
+.hub-look-preview-banner .media-frame-pan-surface > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+}
+
 .hub-look-preview-head {
+  /* Above banner empty-hint (z 2) so the mark never sits under “Photo or video”. */
   position: relative;
-  z-index: 1;
+  z-index: 3;
   width: fit-content;
-  margin-top: -1.7rem;
-  margin-left: 0.7rem;
+  margin-top: -2.1rem;
+  margin-left: 0;
 }
 
 .hub-look-preview-logo {
-  width: 4.25rem;
-  height: 4.25rem;
-  border-radius: 1.05rem;
+  /* Visible so the dismiss chip isn’t clipped; image clips on the hit/pan surface. */
+  position: relative;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 1.1rem;
+  overflow: visible;
   background: rgb(var(--bg-rgb) / 1);
-  box-shadow: 0 0 0 0.18rem rgb(var(--bg-rgb) / 1);
+  box-shadow: 0 0 0 0.2rem rgb(var(--bg-rgb) / 1);
 }
 
 .hub-look-preview-logo-hit {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.hub-look-preview-logo > .media-frame-pan-surface {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .hub-look-preview-logo-image {
   width: 100%;
   height: 100%;
+  object-fit: cover;
+}
+
+.hub-look-preview-logo .media-frame-pan-surface > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
   object-fit: cover;
 }
 
@@ -45208,16 +45301,22 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   color: var(--os-surface-muted-strong);
 }
 
-/* Compact guild-page mimic on Create guild. Banner, then badge beside the
-   name input — no logo overlap, no crest. Do not restyle .guild-hero. */
+/* Guild look — live guild-hero-cover scale (create + edit). Badge stays
+   beside the name. Do not restyle .guild-hero. */
 .guild-look-preview {
   position: relative;
+  --look-preview-face-bleed: var(--os-screen-body-pad-x, 0.75rem);
 }
 
 .guild-look-preview-banner {
   position: relative;
-  height: 5.25rem;
-  border-radius: 0.9rem;
+  width: calc(100% + (2 * var(--look-preview-face-bleed)));
+  max-width: none;
+  margin-inline: calc(-1 * var(--look-preview-face-bleed));
+  height: calc(
+    env(safe-area-inset-top, 0px) + clamp(7.25rem, 26vw, 10.25rem)
+  );
+  border-radius: 0;
   overflow: hidden;
   background: rgb(var(--fg-rgb) / 0.06);
 }
@@ -45227,9 +45326,25 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   height: 100%;
 }
 
+.guild-look-preview-banner > .media-frame-pan-surface {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
 .guild-look-preview-banner-image {
   width: 100%;
   height: 100%;
+  object-fit: cover;
+}
+
+.guild-look-preview-banner .media-frame-pan-surface > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
   object-fit: cover;
 }
 
@@ -45247,9 +45362,11 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 }
 
 .guild-look-preview-badge {
+  position: relative;
   flex-shrink: 0;
   width: 2.75rem;
   height: 2.75rem;
+  overflow: hidden;
   border-radius: 0.72rem;
   background: rgb(var(--fg-rgb) / 0.06);
 }
@@ -45264,9 +45381,25 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   border-radius: inherit;
 }
 
+.guild-look-preview-badge > .media-frame-pan-surface {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
 .guild-look-preview-badge-image {
   width: 100%;
   height: 100%;
+  object-fit: cover;
+}
+
+.guild-look-preview-badge .media-frame-pan-surface > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
   object-fit: cover;
 }
 
@@ -45297,54 +45430,12 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   color: var(--protocol-red);
 }
 
-.dao-create-facts {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.7rem 0.8rem;
-  border: 1px solid rgb(var(--fg-rgb) / 0.1);
-  border-radius: 0.85rem;
-  background: rgb(var(--fg-rgb) / 0.03);
-}
-
-.dao-create-facts-title {
+.dao-create-policy {
   margin: 0;
-  font-size: var(--os-stamp-size, 0.75rem);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgb(var(--fg-rgb) / 0.48);
 }
 
-.dao-create-facts-list {
-  margin: 0;
-  padding-left: 1.1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  font-size: var(--os-identity-meta-size, 0.875rem);
-  line-height: 1.4;
-  color: rgb(var(--fg-rgb) / 0.72);
-}
-
-.dao-create-links {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-.dao-create-links-toggle {
-  align-self: flex-start;
-  border: 0;
-  padding: 0;
-  background: transparent;
-  font: inherit;
-  font-size: var(--os-control-label-compact-size, 0.8125rem);
-  font-weight: 650;
-  color: rgb(var(--fg-rgb) / 0.72);
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 0.15em;
+.dao-create-policy .os-sheet-facts-section {
+  padding-block: 0.15rem 0.25rem;
 }
 
 .dao-create-toggle {

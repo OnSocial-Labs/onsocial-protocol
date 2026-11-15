@@ -1,10 +1,7 @@
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { APP_HOME_PATH } from '@/lib/app-routes';
 import { MARKET_INDEX_PAGE_CLASS } from '@/lib/os-chrome-page';
-import {
-  MarketLoadingActions,
-  MarketSearchHeading,
-} from '@/features/market/market-heading';
+import { MarketSearchHeading } from '@/features/market/market-heading';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { MarketListingToolbar } from '@/features/market/market-listing-toolbar';
 import {
@@ -33,7 +30,6 @@ export function MarketLoadingScreen({
       backFallbackHref={APP_HOME_PATH}
       glassChrome
       heading={<MarketSearchHeading interactive={false} />}
-      actions={<MarketLoadingActions />}
       toolbar={
         <MarketListingToolbar
           inert

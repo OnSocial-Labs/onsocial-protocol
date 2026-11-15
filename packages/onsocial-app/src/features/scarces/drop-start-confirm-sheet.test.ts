@@ -4,7 +4,7 @@ import { dropStartConfirmCopy } from '@/features/scarces/drop-start-confirm-shee
 describe('dropStartConfirmCopy', () => {
   it('speaks start, not list', () => {
     expect(dropStartConfirmCopy('review').title).toBe('Drop summary');
-    expect(dropStartConfirmCopy('review').primaryLabel).toBe('Start drop');
+    expect(dropStartConfirmCopy('review').primaryLabel).toBe('Publish');
     expect(dropStartConfirmCopy('ready')).toEqual({
       title: 'Ready to start',
       status: 'Media ready — confirm in your wallet to start.',

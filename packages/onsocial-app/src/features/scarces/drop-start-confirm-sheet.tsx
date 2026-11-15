@@ -61,7 +61,7 @@ export function dropStartConfirmCopy(
       primaryLabel: 'Confirm in wallet',
     };
   }
-  return { title: 'Drop summary', status: null, primaryLabel: 'Start drop' };
+  return { title: 'Drop summary', status: null, primaryLabel: 'Publish' };
 }
 export function DropStartConfirmSheet({
   open,

@@ -91,7 +91,11 @@ export function SeriesShopRow({
           <p className="market-listing-meta">{metaBits.join(' · ')}</p>
         </div>
       </Link>
-      <div className="market-listing-action-col collectibles-holding-action-col">
+      <div
+        className={`market-listing-action-col collectibles-holding-action-col${
+          !clock && action !== 'Collect' ? ' is-empty' : ''
+        }`}
+      >
         {clock ? (
           <time
             className="market-listing-meta-right"

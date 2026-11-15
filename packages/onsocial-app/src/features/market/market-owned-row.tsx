@@ -234,138 +234,150 @@ export function MarketOwnedRow({
           {thumb}
         </div>
       )}
-      <div className="market-listing-copy drops-discovery-copy">
-        <div className="market-listing-head drops-discovery-head">
-          <p className="market-listing-title">{title}</p>
+      <div className="drops-discovery-body">
+        <div className="drops-discovery-top">
+          <div className="market-listing-head drops-discovery-head">
+            <p className="market-listing-title">{title}</p>
+          </div>
+          <div className="market-listing-action-col drops-discovery-action-col">
+            <div className="drops-discovery-head-trail">
+              {clock ? (
+                <time
+                  className="market-listing-meta-right"
+                  {...socialTimeProps(clock.atMs)}
+                >
+                  {clock.label}
+                </time>
+              ) : null}
+              <CollectiblesHoldingRowMenu
+                item={item}
+                showOpenInMarket={false}
+                onList={() => onSell(item)}
+                onTransfer={onTransfer ? () => onTransfer(item) : undefined}
+                onDelisted={onChanged}
+              />
+            </div>
+          </div>
         </div>
-        {authorId ? (
-          <DiscoveryPartyStack
-            accountId={authorId}
-            displayName={authorDisplayName}
-            avatarUrl={authorAvatarUrl}
-            lead="by"
-          />
-        ) : null}
-        <p className="market-listing-meta market-listing-meta--price">
-          {showPrice ? (
-            <span className="market-listing-price">
-              {auction ? 'Reserve · ' : ''}
-              {dollarStickerLabel(item.listedUsdE6) ??
-                `${formatPriceNear(item.listedPriceNear!)} NEAR`}
-            </span>
+        <div className="drops-discovery-ledger">
+          <div className="drops-discovery-stack">
+            {authorId ? (
+              <DiscoveryPartyStack
+                accountId={authorId}
+                displayName={authorDisplayName}
+                avatarUrl={authorAvatarUrl}
+                lead="by"
+              />
+            ) : null}
+            <p className="market-listing-meta market-listing-meta--price">
+              {showPrice ? (
+                <span className="market-listing-price">
+                  {auction ? 'Reserve · ' : ''}
+                  {dollarStickerLabel(item.listedUsdE6) ??
+                    `${formatPriceNear(item.listedPriceNear!)} NEAR`}
+                </span>
+              ) : null}
+              {statusBit ? (
+                <span className="market-listing-own">
+                  {showPrice ? ' · ' : ''}
+                  {statusBit}
+                </span>
+              ) : null}
+              {showOffers ? (
+                <span className="market-listing-own">
+                  {showPrice || statusBit ? ' · ' : ''}
+                  {offerCount === 1
+                    ? `Offer ${formatPriceNear(highestOfferNear!)} NEAR`
+                    : `${offerCount} offers · top ${formatPriceNear(highestOfferNear!)} NEAR`}
+                </span>
+              ) : null}
+            </p>
+          </div>
+          {opensPass || showOffers || needsSettle || showPostCompose ? (
+            <div className="market-listing-action-col drops-discovery-action-col">
+              {opensPass ? (
+                <OsRowAction
+                  className="collectibles-holding-action"
+                  aria-label={`${useAction} ${item.title}`}
+                  onClick={openPass}
+                >
+                  {useAction}
+                </OsRowAction>
+              ) : null}
+              {showOffers ? (
+                <OsSheetActions
+                  layout="row-compact"
+                  tone="frosted-primary"
+                  size="sm"
+                  borderless
+                  className="market-listing-action"
+                >
+                  <OsSheetAction
+                    type="button"
+                    variant="primary"
+                    ready
+                    aria-label={offersAriaLabel}
+                    onClick={() => onOffers?.(item)}
+                  >
+                    {offersLabel}
+                  </OsSheetAction>
+                </OsSheetActions>
+              ) : null}
+              {needsSettle ? (
+                <OsSheetActions
+                  layout="row-compact"
+                  tone="frosted-primary"
+                  size="sm"
+                  borderless
+                  className="market-listing-action"
+                >
+                  <OsSheetAction
+                    type="button"
+                    variant={showOffers ? 'ghost' : 'primary'}
+                    ready={!settlePending}
+                    pending={settlePending}
+                    pendingLabel="Settling…"
+                    onClick={() => onSettle?.(item)}
+                  >
+                    Complete
+                  </OsSheetAction>
+                </OsSheetActions>
+              ) : null}
+              {showPostCompose ? (
+                <OsSheetActions
+                  layout="row-compact"
+                  tone="frosted-primary"
+                  size="sm"
+                  borderless
+                  className="market-listing-action"
+                >
+                  <OsSheetAction
+                    type="button"
+                    variant="ghost"
+                    ready
+                    onClick={() => {
+                      const collectionId = item.collectionId?.trim() || '';
+                      requestDropCompose({
+                        ...(collectionId ? { collectionId } : {}),
+                        tokenId: item.tokenId,
+                        title: item.title,
+                        ...(item.mediaUrl ? { mediaUrl: item.mediaUrl } : {}),
+                        ...(item.mediumKind
+                          ? { mediumKind: item.mediumKind }
+                          : {}),
+                        ...(item.sourcePostPath
+                          ? { sourcePostPath: item.sourcePostPath }
+                          : {}),
+                      });
+                    }}
+                  >
+                    Post
+                  </OsSheetAction>
+                </OsSheetActions>
+              ) : null}
+            </div>
           ) : null}
-          {statusBit ? (
-            <span className="market-listing-own">
-              {showPrice ? ' · ' : ''}
-              {statusBit}
-            </span>
-          ) : null}
-          {showOffers ? (
-            <span className="market-listing-own">
-              {showPrice || statusBit ? ' · ' : ''}
-              {offerCount === 1
-                ? `Offer ${formatPriceNear(highestOfferNear!)} NEAR`
-                : `${offerCount} offers · top ${formatPriceNear(highestOfferNear!)} NEAR`}
-            </span>
-          ) : null}
-        </p>
-      </div>
-      <div className="market-listing-action-col drops-discovery-action-col">
-        <div className="drops-discovery-head-trail">
-          {clock ? (
-            <time
-              className="market-listing-meta-right"
-              {...socialTimeProps(clock.atMs)}
-            >
-              {clock.label}
-            </time>
-          ) : null}
-          <CollectiblesHoldingRowMenu
-            item={item}
-            showOpenInMarket={false}
-            onList={() => onSell(item)}
-            onTransfer={onTransfer ? () => onTransfer(item) : undefined}
-            onDelisted={onChanged}
-          />
         </div>
-        {opensPass ? (
-          <OsRowAction
-            className="collectibles-holding-action"
-            aria-label={`${useAction} ${item.title}`}
-            onClick={openPass}
-          >
-            {useAction}
-          </OsRowAction>
-        ) : null}
-        {showOffers ? (
-          <OsSheetActions
-            layout="row-compact"
-            tone="frosted-primary"
-            size="sm"
-            borderless
-            className="market-listing-action"
-          >
-            <OsSheetAction
-              type="button"
-              variant="primary"
-              ready
-              aria-label={offersAriaLabel}
-              onClick={() => onOffers?.(item)}
-            >
-              {offersLabel}
-            </OsSheetAction>
-          </OsSheetActions>
-        ) : null}
-        {needsSettle ? (
-          <OsSheetActions
-            layout="row-compact"
-            tone="frosted-primary"
-            size="sm"
-            borderless
-            className="market-listing-action"
-          >
-            <OsSheetAction
-              type="button"
-              variant={showOffers ? 'ghost' : 'primary'}
-              ready={!settlePending}
-              pending={settlePending}
-              pendingLabel="Settling…"
-              onClick={() => onSettle?.(item)}
-            >
-              Complete
-            </OsSheetAction>
-          </OsSheetActions>
-        ) : null}
-        {showPostCompose ? (
-          <OsSheetActions
-            layout="row-compact"
-            tone="frosted-primary"
-            size="sm"
-            borderless
-            className="market-listing-action"
-          >
-            <OsSheetAction
-              type="button"
-              variant="ghost"
-              ready
-              onClick={() => {
-                const collectionId = item.collectionId?.trim() || '';
-                requestDropCompose({
-                  ...(collectionId ? { collectionId } : {}),
-                  tokenId: item.tokenId,
-                  title: item.title,
-                  ...(item.mediaUrl ? { mediaUrl: item.mediaUrl } : {}),
-                  ...(item.mediumKind ? { mediumKind: item.mediumKind } : {}),
-                  ...(item.sourcePostPath
-                    ? { sourcePostPath: item.sourcePostPath }
-                    : {}),
-                });
-              }}
-            >
-              Post
-            </OsSheetAction>
-          </OsSheetActions>
-        ) : null}
       </div>
       {opensPass && passMounted ? (
         <OwnedShowPassSheet

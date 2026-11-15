@@ -12,13 +12,18 @@ import { useRouter } from 'next/navigation';
 import {
   ChevronLeftIcon,
   DiscardConfirmSheet,
+  InfoDrawer,
   OsIconAction,
   QuestionMarkCircleFillIcon,
+  SuffixField,
   osFieldBorderedClassName,
   useDiscardConfirm,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { SuffixField } from '@onsocial/ui';
+import {
+  CreateDisclosure,
+  CreateRevealPanel,
+} from '@/components/create/create-disclosure';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
@@ -40,10 +45,6 @@ import {
   creatorAccessShort,
 } from '@/features/scarces/apps-data';
 import { hubCategoriesMetadataFields } from '@/features/scarces/hub-categories';
-import {
-  HubCreateHelpDrawer,
-  HUB_CREATE_HELP_TITLE,
-} from '@/features/scarces/hub-create-help-drawer';
 import { HubCategoriesEditor } from '@/features/scarces/hub-categories-editor';
 import {
   CommerceSheetFooter,
@@ -52,12 +53,23 @@ import {
 import {
   HUB_CREATE_CONNECT,
   HUB_CREATE_FORM_ID,
+  HUB_CREATE_HELP_DETAIL,
+  HUB_CREATE_HELP_SUMMARY,
+  HUB_CREATE_HELP_TITLE,
   HUB_CREATE_SUBMIT,
   hubCreateAboutToggle,
 } from '@/features/scarces/hub-create-voice';
 import { HubLookPreview } from '@/features/scarces/hub-look-preview';
 import { APP_APPS_PATH, appPath } from '@/lib/app-routes';
+import {
+  MEDIA_FRAME_PAN_CENTER,
+  type MediaFramePan,
+} from '@/lib/media-frame-pan';
 import { HUB_CREATE_FORM_CLASS } from '@/lib/os-create-page';
+import {
+  prepareProfileAvatarForSave,
+  prepareProfileBannerForSave,
+} from '@/lib/prepare-profile-editor-media';
 import { prepareSquareOpaqueJpeg } from '@/lib/prepare-square-opaque-jpeg';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import { normalizeTopicList } from '@/lib/topic-slug';
@@ -117,6 +129,9 @@ export function CreateAppPanel() {
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [logoPan, setLogoPan] = useState<MediaFramePan>(MEDIA_FRAME_PAN_CENTER);
+  const [bannerPan, setBannerPan] =
+    useState<MediaFramePan>(MEDIA_FRAME_PAN_CENTER);
   const [commissionInput, setCommissionInput] = useState('2.5');
   const [creatorAccess, setCreatorAccess] = useState<CreatorAccess>('open');
   const [categories, setCategories] = useState<string[]>([]);
@@ -196,6 +211,7 @@ export function CreateAppPanel() {
       const prepared = await prepareSquareOpaqueJpeg(file);
       setError(null);
       setLogoFile(prepared);
+      setLogoPan(MEDIA_FRAME_PAN_CENTER);
       setLogoPreview((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return URL.createObjectURL(prepared);
@@ -219,6 +235,7 @@ export function CreateAppPanel() {
     }
     setError(null);
     setBannerFile(file);
+    setBannerPan(MEDIA_FRAME_PAN_CENTER);
     setBannerPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return URL.createObjectURL(file);
@@ -227,6 +244,7 @@ export function CreateAppPanel() {
 
   const clearLogo = () => {
     setLogoFile(null);
+    setLogoPan(MEDIA_FRAME_PAN_CENTER);
     setLogoPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
@@ -235,6 +253,7 @@ export function CreateAppPanel() {
 
   const clearBanner = () => {
     setBannerFile(null);
+    setBannerPan(MEDIA_FRAME_PAN_CENTER);
     setBannerPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
@@ -326,12 +345,25 @@ export function CreateAppPanel() {
         const client = createAppScarcesWalletClient(accountId, wallet);
         let image: string | undefined;
         let banner: string | undefined;
-        if (logoFile) {
-          const uploaded = await client.storage.upload(logoFile);
+        const logoPrepared = await prepareProfileAvatarForSave({
+          file: logoFile,
+          displayUrl: logoPreview,
+          pan: logoPan,
+          removed: false,
+        });
+        if (logoPrepared) {
+          const uploaded = await client.storage.upload(logoPrepared);
           image = `ipfs://${uploaded.cid}`;
         }
-        if (bannerFile) {
-          const uploaded = await client.storage.upload(bannerFile);
+        const bannerPrepared = await prepareProfileBannerForSave({
+          file: bannerFile,
+          displayUrl: bannerPreview,
+          pan: bannerPan,
+          removed: false,
+          isVideo: false,
+        });
+        if (bannerPrepared) {
+          const uploaded = await client.storage.upload(bannerPrepared);
           banner = `ipfs://${uploaded.cid}`;
         }
         const metadata = JSON.stringify({
@@ -381,6 +413,10 @@ export function CreateAppPanel() {
       description,
       logoFile,
       bannerFile,
+      logoPreview,
+      bannerPreview,
+      logoPan,
+      bannerPan,
       creatorAccess,
       categories,
       getSigningWallet,
@@ -436,6 +472,10 @@ export function CreateAppPanel() {
           logoUrl={logoPreview}
           name={name}
           disabled={pending}
+          bannerPan={bannerPan}
+          logoPan={logoPan}
+          onBannerPanChange={setBannerPan}
+          onLogoPanChange={setLogoPan}
           onBannerChange={onBannerChange}
           onLogoChange={(event) => {
             void onLogoChange(event);
@@ -494,19 +534,17 @@ export function CreateAppPanel() {
           </small>
         </label>
 
-        <button
-          type="button"
-          className="collection-allowlist-toggle"
-          aria-expanded={aboutOpen}
-          disabled={pending}
-          onClick={() => setAboutOpen((open) => !open)}
-        >
-          {hubCreateAboutToggle({
+        <CreateDisclosure
+          open={aboutOpen}
+          label={hubCreateAboutToggle({
             open: aboutOpen,
             hasText: description.trim().length > 0,
           })}
-        </button>
-        {aboutOpen ? (
+          controlsId={fieldId('about-panel')}
+          disabled={pending}
+          onClick={() => setAboutOpen((open) => !open)}
+        />
+        <CreateRevealPanel open={aboutOpen} id={fieldId('about-panel')}>
           <label className="guild-field" htmlFor={fieldId('description')}>
             <span>About</span>
             <textarea
@@ -524,7 +562,7 @@ export function CreateAppPanel() {
               {description.length}/{MAX_DESCRIPTION}
             </small>
           </label>
-        ) : null}
+        </CreateRevealPanel>
 
         <label className="guild-field" htmlFor={fieldId('commission')}>
           <span>Your commission</span>
@@ -608,7 +646,13 @@ export function CreateAppPanel() {
         title="Discard hub?"
         body="Name, ID, look, and about won’t be saved."
       />
-      <HubCreateHelpDrawer open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <InfoDrawer
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        title={HUB_CREATE_HELP_TITLE}
+        summary={HUB_CREATE_HELP_SUMMARY}
+        detail={HUB_CREATE_HELP_DETAIL}
+      />
     </OsAppScreen>
   );
 }

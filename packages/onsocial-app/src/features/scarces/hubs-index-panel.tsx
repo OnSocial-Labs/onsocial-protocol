@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { Divider, OsIconAction, PlusIcon, SearchIcon } from '@onsocial/ui';
+import { Divider, OsIconAction, SearchIcon } from '@onsocial/ui';
 import {
   LauncherHomeMineStatus,
   LauncherHomeSection,
@@ -25,6 +25,7 @@ import {
   readLauncherMineSession,
   writeLauncherMineSession,
 } from '@/lib/launcher-mine-session';
+import { OsRowAction } from '@/lib/os-row-action';
 
 /**
  * Hubs launcher — one Home: mine (horizontal) + latest drops under a divider.
@@ -105,11 +106,9 @@ export function HubsIndexPanel() {
           <SearchIcon aria-hidden className="glass-sheet-close-icon" />
         </Link>
       </OsIconAction>
-      <OsIconAction asChild ariaLabel="Open a hub">
-        <Link href={APP_APP_CREATE_PATH} scroll={false}>
-          <PlusIcon aria-hidden className="glass-sheet-close-icon" />
-        </Link>
-      </OsIconAction>
+      <OsRowAction className="os-header-commit" href={APP_APP_CREATE_PATH}>
+        New hub
+      </OsRowAction>
     </>
   );
 
@@ -129,7 +128,7 @@ export function HubsIndexPanel() {
             error={loadError}
             onRetry={() => setRetryKey((value) => value + 1)}
             emptyLoggedOut="Connect to see hubs you’ve joined — or tap search to explore."
-            emptyNone="You haven’t joined a hub yet. Tap Search to explore, or + to start one."
+            emptyNone="You haven’t joined a hub yet. Tap Search to explore, or New hub to start one."
             loadingLabel="Loading your hubs…"
             loadingSkeleton={<LauncherMineRailSkeleton count={4} />}
             hasItems={(myHubs?.length ?? 0) > 0}

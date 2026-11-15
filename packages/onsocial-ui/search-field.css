@@ -1,13 +1,17 @@
 /**
  * @onsocial/ui — shared SearchField base styles.
  *
- * SearchField owns one consistent borderless filled surface for both chrome
- * variants (`sheet-control` and `os-floating-panel-search`). Pair with
- * `os-surface-interactive.css` for the fill / text ladder.
+ * One filled pill for `sheet-control` + `os-floating-panel-search`. Leading
+ * glyph: chrome rest 0.72 → full 0.92 on hover/focus. On focus the pill fill
+ * and hint clear (typed text stays full fg); clear × is the trail control.
  */
 
 @layer components {
   .search-field {
+    --os-search-icon-size: 1rem;
+    --os-search-icon-branded: 1.25rem;
+    --os-search-clear-hit: 1.5rem;
+    --os-search-clear-glyph: 0.875rem;
     display: flex;
     align-items: center;
     gap: 0.4rem;
@@ -27,12 +31,6 @@
     cursor: text;
   }
 
-  .search-field-trailing {
-    display: flex;
-    flex-shrink: 0;
-    align-items: center;
-  }
-
   .search-field--branded {
     gap: 0.45rem;
     padding-left: 0.55rem;
@@ -50,25 +48,25 @@
     line-height: 0;
   }
 
+  /* Same ladder as `.glass-sheet-icon-action` — rest 0.72, full 0.92. */
   .search-field-icon {
     display: block;
-    width: 0.9375rem;
-    height: 0.9375rem;
+    width: var(--os-search-icon-size);
+    height: var(--os-search-icon-size);
     flex-shrink: 0;
     color: rgb(var(--fg-rgb));
-    opacity: 0.48;
+    opacity: 0.72;
     transition: opacity 160ms ease;
-  }
-
-  /* Branded prefix — slightly larger; same mute → reveal ladder as default. */
-  .search-field--branded .search-field-icon {
-    width: 1.2rem;
-    height: 1.2rem;
   }
 
   .search-field:hover .search-field-icon,
   .search-field:focus-within .search-field-icon {
-    opacity: 0.72;
+    opacity: 0.92;
+  }
+
+  .search-field--branded .search-field-icon {
+    width: var(--os-search-icon-branded);
+    height: var(--os-search-icon-branded);
   }
 
   /*
@@ -88,41 +86,28 @@
     flex: 1;
     border: none;
     background: transparent;
-    color: var(--os-surface-emphasis, rgb(var(--fg-rgb) / 0.88));
+    color: rgb(var(--fg-rgb));
     font: inherit;
     font-size: var(--os-stamp-size, 0.75rem);
     outline: none;
   }
 
-  /*
-   * Placeholder tracks the leading icon: quieter at rest, lifts on hover /
-   * focus so the field reads as one control.
-   */
   .search-field-input::placeholder {
     color: rgb(var(--fg-rgb) / 0.42);
-    transition: color 160ms ease;
   }
 
-  .search-field:hover .search-field-input::placeholder,
+  /* Instant clear on focus — no fade that could flash a second hint. */
   .search-field:focus-within .search-field-input::placeholder {
-    color: var(--os-surface-muted, rgb(var(--fg-rgb) / 0.55));
-  }
-
-  .search-field-clear-slot {
-    display: flex;
-    width: 1.5rem;
-    height: 1.5rem;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
+    color: transparent;
+    opacity: 0;
   }
 
   .search-field-clear {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.5rem;
-    height: 1.5rem;
+    width: var(--os-search-clear-hit);
+    height: var(--os-search-clear-hit);
     padding: 0;
     border: 0;
     border-radius: 0;
@@ -140,8 +125,8 @@
 
   .search-field-clear-icon {
     display: block;
-    width: 0.875rem;
-    height: 0.875rem;
+    width: var(--os-search-clear-glyph);
+    height: var(--os-search-clear-glyph);
   }
 
   .search-field-clear-icon path {
@@ -150,9 +135,8 @@
 }
 
 /*
- * Keep this unlayered so SearchField's surface wins over host `.sheet-control`
- * and standalone floating-panel primitive styles. Both chrome variants share the
- * OS surface ladder — same fill, type, icon, and placeholder.
+ * Unlayered so surface wins over host `.sheet-control`. Same fill / icon /
+ * placeholder recipe for both chrome variants.
  */
 .search-field.sheet-control,
 .search-field.os-floating-panel-search {
@@ -173,14 +157,13 @@
     box-shadow 160ms ease;
 }
 
+/* Hover strengthens the pill; focus drops fill so typing sits on chrome. */
 .search-field.sheet-control:hover,
-.search-field.sheet-control:focus-within,
-.search-field.os-floating-panel-search:hover,
-.search-field.os-floating-panel-search:focus-within {
+.search-field.os-floating-panel-search:hover {
   border: 0;
   background: color-mix(
     in srgb,
-    var(--glass-surface-os, var(--glass-surface, transparent)) 30%,
+    var(--glass-surface-os, var(--glass-surface, transparent)) 42%,
     var(--os-action-bg-hover, rgb(var(--fg-rgb) / 0.1))
   );
   color: var(--os-surface-emphasis);
@@ -188,6 +171,11 @@
 
 .search-field.sheet-control:focus-within,
 .search-field.os-floating-panel-search:focus-within {
+  border: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  color: var(--os-surface-emphasis);
   outline: none;
   box-shadow: none;
 }
@@ -196,12 +184,15 @@
   .search-field.sheet-control,
   .search-field.os-floating-panel-search,
   .search-field.sheet-control:hover,
-  .search-field.sheet-control:focus-within,
-  .search-field.os-floating-panel-search:hover,
-  .search-field.os-floating-panel-search:focus-within {
+  .search-field.os-floating-panel-search:hover {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     background: var(--os-surface-fill-hover-soft);
+  }
+
+  .search-field.sheet-control:focus-within,
+  .search-field.os-floating-panel-search:focus-within {
+    background: transparent;
   }
 }
 
@@ -213,33 +204,33 @@
   max-height: 1.05rem;
 }
 
-/* Neutralize floating-panel nested overrides so SearchField stays one look. */
 .search-field.os-floating-panel-search .search-field-icon {
-  width: 0.9375rem;
-  height: 0.9375rem;
-  opacity: 0.48;
-  color: inherit;
-}
-
-.search-field.os-floating-panel-search.search-field--branded
-  .search-field-icon {
-  width: 1.2rem;
-  height: 1.2rem;
+  width: var(--os-search-icon-size);
+  height: var(--os-search-icon-size);
+  opacity: 0.72;
+  color: rgb(var(--fg-rgb));
+  transition: opacity 160ms ease;
 }
 
 .search-field.os-floating-panel-search:hover .search-field-icon,
 .search-field.os-floating-panel-search:focus-within .search-field-icon {
-  opacity: 0.72;
+  opacity: 0.92;
+}
+
+.search-field.os-floating-panel-search.search-field--branded
+  .search-field-icon {
+  width: var(--os-search-icon-branded);
+  height: var(--os-search-icon-branded);
 }
 
 .search-field.sheet-control:not(.os-app-screen-search) .search-field-input,
 .search-field.os-floating-panel-search .search-field-input {
-  color: var(--os-surface-emphasis);
+  color: rgb(var(--fg-rgb));
   font-size: var(--os-stamp-size, 0.75rem);
 }
 
 /* 16px — iOS zooms the page when a focused field is under 16px. */
-@media (max-width: 639px) {
+@media (max-width: 767px) {
   .search-field.sheet-control:not(.os-app-screen-search) .search-field-input,
   .search-field.os-floating-panel-search .search-field-input {
     font-size: 16px;
@@ -252,14 +243,11 @@
   color: rgb(var(--fg-rgb) / 0.42);
 }
 
-.search-field.sheet-control:not(.os-app-screen-search):hover
-  .search-field-input::placeholder,
-.search-field.sheet-control:not(.os-app-screen-search):focus-within
-  .search-field-input::placeholder,
-.search-field.os-floating-panel-search:hover .search-field-input::placeholder,
+.search-field.sheet-control:focus-within .search-field-input::placeholder,
 .search-field.os-floating-panel-search:focus-within
   .search-field-input::placeholder {
-  color: var(--os-surface-muted);
+  color: transparent;
+  opacity: 0;
 }
 
 .search-field.sheet-control .search-field-clear,

@@ -73,7 +73,7 @@ export function DaoDiscoverSheet({
       <SearchField
         value={draft}
         onValueChange={setDraft}
-        placeholder="Search account or name"
+        placeholder="Search people"
         ariaLabel="Search Sputnik DAOs"
         clearAriaLabel="Clear DAO search"
         chrome="sheet"

@@ -85,8 +85,8 @@ export function HubSettingsSheet({
       >
         {showOwnerTools ? (
           <OsSurfaceRow
-            label="Edit look"
-            description="Logo, banner, name, categories"
+            label="Edit hub"
+            description="Logo, banner, name, and categories"
             onClick={() => openSheet('look')}
           />
         ) : null}

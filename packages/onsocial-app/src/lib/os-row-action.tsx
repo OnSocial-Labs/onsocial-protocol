@@ -11,7 +11,8 @@ import {
 export const osRowActionClassName = 'os-row-action';
 
 /**
- * Inline row / header chip (Play, Watch, View drop, See all).
+ * Inline row / header chip (Play, See all) and header creates
+ * (`os-header-commit` — New drop / event / hub / guild / DAO).
  * Same borderless `sm` sheet action as Market Buy and `OsEmptyAction`.
  * Do not hand-roll `page-drawer-section-action`.
  */

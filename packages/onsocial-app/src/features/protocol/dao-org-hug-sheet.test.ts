@@ -63,26 +63,37 @@ describe('DAO org hug drawers', () => {
     expect(proposals).not.toContain('leading={null}');
   });
 
-  it('leaves Edit / Boost on the DAO slide-over', () => {
-    expect(edit).toContain('DaoPageSlideOverScreen');
-    expect(edit).toContain('DaoLookPreview');
+  it('leaves Edit on portfolio page sheet; Boost on DAO slide-over', () => {
+    expect(edit).toContain('OsPageSheet');
+    expect(edit).toContain('profile-edit-slide');
+    expect(edit).toContain('PortfolioFaceEditorHero');
+    expect(edit).toContain('useDaoPageMood');
     expect(edit).toContain("DaoEditSheetMode = 'config' | 'social'");
     expect(edit).toContain("mode = 'config'");
     expect(edit).toContain('PROFILE_BIO_MAX');
     expect(edit).toContain('What this DAO stewards');
-    expect(edit).toContain('Publishes as a config proposal');
+    expect(edit).toContain('ChevronLeftIcon');
+    expect(edit).not.toContain('DaoLookPreview');
+    expect(edit).not.toContain('DaoPageSlideOverScreen');
+    expect(edit).not.toContain('dao-edit-slide');
+    expect(edit).not.toContain('Publishes as a config proposal');
     expect(edit).not.toContain('dao-edit-footnote');
-    expect(edit).not.toContain('face shows a short excerpt');
-    expect(edit).not.toContain('Also publish OnSocial profile');
     expect(edit).not.toContain('DaoOrgHugSheet');
     expect(boost).toContain('DaoPageSlideOverScreen');
     expect(boost).not.toContain('DaoOrgHugSheet');
   });
 
-  it('reuses Create DAO look preview for Edit cover + crest', () => {
-    expect(edit).toContain('DaoLookPreview');
+  it('Edit and create DAO share portfolio face hero', () => {
+    const create = readFileSync(
+      join(here, 'dao-create-panel.tsx'),
+      'utf8'
+    );
+    expect(edit).toContain('PortfolioFaceEditorHero');
+    expect(edit).toContain('profileKind="dao"');
     expect(edit).not.toContain('Cover + square crest — same look');
-    expect(globalsCss).toContain('.dao-look-preview-cover');
+    expect(create).toContain('PortfolioFaceEditorHero');
+    expect(create).not.toContain('DaoLookPreview');
+    expect(globalsCss).not.toContain('.dao-look-preview');
     expect(globalsCss).not.toContain('.dao-edit-cover:not(.has-media)');
   });
 

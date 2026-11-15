@@ -9,9 +9,9 @@ import {
   extractNearTransactionHashes,
   nearToYocto,
   viewAccount,
-  yoctoToNear,
 } from '@/lib/app-near-rpc';
 import { isValidNearAccountId } from '@/lib/app-near-account';
+import { formatNearCompact } from '@/lib/format-near-balance';
 import { PROFILE_BIO_MAX } from '@/lib/profile-bio-face';
 import { encodeDaoConfigMetadata } from '@/features/protocol/dao-branding';
 import { daysToProposalPeriodNs } from '@/features/protocol/protocol-policy';
@@ -177,9 +177,14 @@ export function daoCreateAttachYocto(publishSocial: boolean): bigint {
   return create + BigInt(nearToYocto(SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR));
 }
 
-/** Human NEAR for the whisper deal line (`6` / `6.1`). */
+/** Human NEAR for the whisper deal line — same compact as propose shortfall. */
 export function daoCreateAttachNearLabel(publishSocial: boolean): string {
-  return yoctoToNear(String(daoCreateAttachYocto(publishSocial)));
+  return formatNearCompact(daoCreateAttachYocto(publishSocial));
+}
+
+/** Human NEAR shortfall for the create gate hint. */
+export function daoCreateNearShortfallLabel(shortfallYocto: bigint): string {
+  return formatNearCompact(shortfallYocto);
 }
 
 /** Spendable shortfall vs the attach we will send. Null if not short. */
@@ -192,17 +197,19 @@ export function daoCreateNearShortfallYocto(
   return spendableYocto < need ? need - spendableYocto : null;
 }
 
-/** Advanced extras only — whisper already has council + create cost. */
-export function daoFactoryCreatePolicyFacts(): {
-  publicPropose: string;
-  vote: string;
-  bond: string;
-} {
-  return {
-    publicPropose: 'Anyone can propose',
-    vote: '50% majority',
-    bond: `${SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR} NEAR proposal bond`,
-  };
+/** Starter policy on create — quiet Default policy facts, not a proposal card. */
+export function daoFactoryCreatePolicyFacts(): ReadonlyArray<{
+  label: string;
+  value: string;
+}> {
+  return [
+    { label: 'Propose', value: 'Anyone' },
+    { label: 'Vote', value: '50% majority' },
+    {
+      label: 'Bond',
+      value: `${SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR} NEAR`,
+    },
+  ];
 }
 
 /**

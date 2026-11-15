@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Divider, OsIconAction, PlusIcon, SearchIcon } from '@onsocial/ui';
+import { Divider, OsIconAction, SearchIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { LAUNCHER_HOME_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
@@ -39,6 +39,7 @@ import {
   writeLauncherMineSession,
 } from '@/lib/launcher-mine-session';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { OsRowAction } from '@/lib/os-row-action';
 
 const MY_DAOS_SOFT_RETRY_MS = 2500;
 
@@ -241,11 +242,9 @@ export function DaosIndexPanel() {
           <SearchIcon aria-hidden className="glass-sheet-close-icon" />
         </Link>
       </OsIconAction>
-      <OsIconAction asChild ariaLabel="Create DAO">
-        <Link href={daosCreateHref()} scroll={false}>
-          <PlusIcon aria-hidden className="glass-sheet-close-icon" />
-        </Link>
-      </OsIconAction>
+      <OsRowAction className="os-header-commit" href={daosCreateHref()}>
+        New DAO
+      </OsRowAction>
     </>
   );
 
@@ -280,7 +279,7 @@ export function DaosIndexPanel() {
             error={loadError}
             onRetry={() => setRetryKey((value) => value + 1)}
             emptyLoggedOut="Connect to see DAOs you’ve joined — or tap search to explore."
-            emptyNone="You haven’t joined a DAO yet. Tap Search to explore, or + to start one."
+            emptyNone="You haven’t joined a DAO yet. Tap Search to explore, or New DAO to start one."
             loadingLabel="Loading your DAOs…"
             loadingSkeleton={<LauncherMineRailSkeleton count={4} />}
             hasItems={myEntries.length > 0}

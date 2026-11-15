@@ -56,8 +56,10 @@ export interface OsHugSheetProps {
   label: string;
   /** Optional rich title. Defaults to `label`. */
   title?: ReactNode;
-  /** Sibling of the title outside the heading (e.g. Clear). */
+  /** Hugs the title on the same line (rare — prefer `endAccessory`). */
   titleAccessory?: ReactNode;
+  /** Trailing control before close (Filter Clear, Add member). */
+  endAccessory?: ReactNode;
   /**
    * Replaces the default close control (e.g. Market link + close).
    * When set, `showClose` is ignored — include close in `headerActions`.
@@ -127,6 +129,7 @@ export function OsHugSheet({
   label,
   title,
   titleAccessory,
+  endAccessory,
   headerActions,
   copy,
   children,
@@ -198,6 +201,7 @@ export function OsHugSheet({
             className={headerClassName}
             {...(heading.eyebrow ? { eyebrow: heading.eyebrow } : {})}
             {...(titleAccessory ? { titleAccessory } : {})}
+            {...(endAccessory ? { endAccessory } : {})}
             {...(heading.subtitle ? { subtitle: heading.subtitle } : {})}
             {...(headerActions
               ? { actions: headerActions }

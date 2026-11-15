@@ -239,85 +239,35 @@
   max-height: var(--os-app-chrome-nav-height, 2.35rem);
 }
 
-.os-app-chrome-nav-search {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  width: 100%;
-  min-width: 0;
-  height: var(--os-app-chrome-nav-height, 2.35rem);
-  min-height: var(--os-app-chrome-nav-height, 2.35rem);
-  max-height: var(--os-app-chrome-nav-height, 2.35rem);
-  padding-inline: 0.55rem 0.45rem;
-  box-sizing: border-box;
-}
-
 /*
- * Leading hugs mark + divider (no leftover column). Divider stays in the
- * tree when active (hidden) so Done and the hint never slide.
+ * Heading SearchField — taller pill, larger glyph, proportional clear ×.
+ * Leading icon 0.72→0.92; typed text full fg; focus clears fill + hint.
  */
-.os-app-chrome-nav-search-leading {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 0.4rem;
-  width: auto;
-}
-
-.os-app-chrome-nav-search-glyph {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  line-height: 0;
-}
-
-.os-app-chrome-nav-search-trailing {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 2.25rem;
-  min-width: 2.25rem;
-  max-width: 2.25rem;
-}
-
-/* Active: only drop the pill fill — same box, padding, radius, slots. */
-.os-app-chrome-nav-search.search-field.sheet-control[data-search-active='true'] {
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-/*
- * One type recipe for idle + active — same size / line box / placeholder.
- */
-.search-field.sheet-control.os-app-screen-search {
+.search-field.os-app-screen-search {
+  --os-search-icon-size: 1.125rem;
+  --os-search-icon-branded: 1.35rem;
+  --os-search-clear-hit: 1.65rem;
+  --os-search-clear-glyph: 1rem;
   height: var(--os-app-chrome-nav-height, 2.35rem);
   min-height: var(--os-app-chrome-nav-height, 2.35rem);
   max-height: var(--os-app-chrome-nav-height, 2.35rem);
   align-items: center;
 }
 
-.search-field.sheet-control.os-app-screen-search .search-field-core {
+.search-field.os-app-screen-search .search-field-core {
   align-items: center;
   min-height: 0;
   height: 100%;
 }
 
-.search-field.sheet-control.os-app-screen-search .search-field-input,
-.os-app-chrome-nav-search-input {
+.search-field.os-app-screen-search .search-field-input {
   flex: 1;
   min-width: 0;
   margin: 0;
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--os-surface-emphasis, rgb(var(--fg-rgb) / 0.88));
+  color: rgb(var(--fg-rgb));
   font-family: inherit;
   font-size: var(--os-identity-name-size, 0.9375rem);
   font-weight: 400;
@@ -330,16 +280,13 @@
 }
 
 /* 16px — iOS zooms the OS screen when a focused field is under 16px. */
-@media (max-width: 639px) {
-  .search-field.sheet-control.os-app-screen-search .search-field-input,
-  .os-app-chrome-nav-search-input {
+@media (max-width: 767px) {
+  .search-field.os-app-screen-search .search-field-input {
     font-size: 16px;
   }
 }
 
-.search-field.sheet-control.os-app-screen-search
-  .search-field-input::placeholder,
-.os-app-chrome-nav-search-input::placeholder {
+.search-field.os-app-screen-search .search-field-input::placeholder {
   font-family: inherit;
   font-size: inherit;
   font-weight: inherit;
@@ -347,68 +294,26 @@
   line-height: inherit;
   letter-spacing: inherit;
   opacity: 1;
-  color: rgb(var(--fg-rgb) / 0.48);
+  color: rgb(var(--fg-rgb) / 0.42);
 }
 
-.search-field.sheet-control.os-app-screen-search:hover
-  .search-field-input::placeholder,
-.search-field.sheet-control.os-app-screen-search:focus-within
-  .search-field-input::placeholder {
-  color: rgb(var(--fg-rgb) / 0.55);
+.search-field.os-app-screen-search:focus-within .search-field-input::placeholder {
+  color: transparent;
+  opacity: 0;
 }
 
-.search-field.sheet-control.os-app-screen-search.search-field--branded
-  .search-field-divider,
-.os-app-chrome-nav-search .search-field-divider {
+.search-field.os-app-screen-search.search-field--branded .search-field-divider {
   height: 1.25rem;
   min-height: 1.25rem;
   max-height: 1.25rem;
 }
 
-.os-app-chrome-nav-search .search-field-leading {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  line-height: 0;
+.search-field.os-app-screen-search.search-field--branded .search-field-icon {
+  width: var(--os-search-icon-branded);
+  height: var(--os-search-icon-branded);
 }
 
-/* Nav branded icons — full strength; only the hint mute→reveals on hover/focus. */
-.os-app-chrome-nav-search .search-field-icon {
-  display: block;
-  flex-shrink: 0;
-  width: 1.35rem;
-  height: 1.35rem;
-  opacity: 1;
-}
-
-.os-app-chrome-nav-search:hover .search-field-icon,
-.os-app-chrome-nav-search:focus-within .search-field-icon {
-  opacity: 1;
-}
-
-.os-app-chrome-nav-search .discover-nav-search-mark {
-  width: 1.5rem;
-  height: 1.5rem;
-  opacity: 1;
-}
-
-.os-app-chrome-nav-search .glass-sheet-icon-action {
-  flex-shrink: 0;
-  min-width: 2.25rem;
-  min-height: 2.25rem;
-  width: 2.25rem;
-  height: 2.25rem;
-}
-
-.os-app-chrome-nav-search .glass-sheet-icon-action > svg {
-  display: block;
-  flex-shrink: 0;
-  width: var(--os-chrome-glyph-size, 1.5rem);
-  height: var(--os-chrome-glyph-size, 1.5rem);
-}
-
-.os-app-chrome-nav-search-trailing .glass-sheet-icon-action {
-  min-width: 2.25rem;
-  width: 2.25rem;
+.search-field.os-app-screen-search .discover-nav-search-mark {
+  width: 1.45rem;
+  height: 1.45rem;
 }

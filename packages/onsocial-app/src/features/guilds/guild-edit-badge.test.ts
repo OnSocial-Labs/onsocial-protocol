@@ -6,16 +6,14 @@ import { describe, expect, it } from 'vitest';
 const guildsDir = dirname(fileURLToPath(import.meta.url));
 
 describe('guild edit badge media', () => {
-  it('uses the shared profile editor toolbar and overlay', () => {
-    const edit = readFileSync(
-      join(guildsDir, 'guild-edit-sheet.tsx'),
-      'utf8'
-    );
-    expect(edit).toContain('guild-edit-badge-picker profile-editor-media-host');
-    expect(edit).toContain('profile-editor-media-backdrop');
-    expect(edit).toContain('profile-editor-media-overlay');
-    expect(edit).toContain('ProfileEditorMediaToolbar');
-    expect(edit).toContain('layout="avatar"');
+  it('composes GuildBadgeWell (shared look-preview mark)', () => {
+    const edit = readFileSync(join(guildsDir, 'guild-edit-sheet.tsx'), 'utf8');
+    const well = readFileSync(join(guildsDir, 'guild-look-preview.tsx'), 'utf8');
+    expect(edit).toContain('GuildBadgeWell');
+    expect(edit).not.toContain('guild-edit-badge-picker');
     expect(edit).not.toContain('OsFieldRemove');
+    expect(well).toContain('ProfileEditorMediaToolbar');
+    expect(well).toContain('layout="avatar"');
+    expect(well).toContain('profile-editor-media-backdrop');
   });
 });

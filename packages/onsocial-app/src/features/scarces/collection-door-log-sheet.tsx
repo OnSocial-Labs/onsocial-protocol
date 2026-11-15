@@ -188,7 +188,7 @@ export function CollectionDoorLogSheet({
         <OsAppChromeNavSearch
           value={query}
           onValueChange={setQuery}
-          placeholder={redeemVoice ? 'Search redeem log' : 'Search door log'}
+          placeholder="Search log"
           clearAriaLabel={
             redeemVoice ? 'Clear redeem log search' : 'Clear door log search'
           }

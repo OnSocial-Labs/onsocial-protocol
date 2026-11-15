@@ -29,8 +29,14 @@ test.describe('dao create voice', () => {
       page.getByText('Deploys under the network factory')
     ).toHaveCount(0);
     await expect(page.getByText('You get')).toHaveCount(0);
-    await expect(page.getByText('Add links')).toHaveCount(0);
-    await expect(page.getByText('Purpose', { exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Advanced' })).toHaveCount(0);
+    await expect(page.getByText('Default policy', { exact: true })).toBeVisible();
+    await expect(page.getByText('Propose', { exact: true })).toBeVisible();
+    await expect(page.getByText('Anyone', { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Add links', exact: true })
+    ).toBeVisible();
+    await expect(page.getByText('Purpose', { exact: true })).not.toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Add a purpose', exact: true })
     ).toBeVisible();
@@ -44,17 +50,20 @@ test.describe('dao create voice', () => {
     await expect(publish).not.toHaveClass(/account-action-toggle/);
     await expect(page.locator('.os-surface-chip')).toHaveCount(0);
     await expect(page.locator('.os-write-dock-tool')).toHaveCount(0);
-    await expect(page.locator('.dao-look-preview')).toBeVisible();
+    await expect(page.locator('.account-editor-hero')).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Add cover', exact: true })
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Add crest', exact: true })
     ).toBeVisible();
-    await expect(page.locator('.dao-look-preview-crest-empty')).toHaveText('+');
+    await expect(page.locator('.account-editor-avatar-fallback')).toHaveText(
+      '+'
+    );
     await expect(page.locator('.dao-create-name-row')).toHaveCount(0);
-    const cover = page.locator('.dao-look-preview-cover');
-    const crest = page.locator('.dao-look-preview-crest');
+    // Banner band only — cover-stage also wraps the crest overlap.
+    const cover = page.locator('.account-editor-banner-button');
+    const crest = page.locator('.account-editor-avatar');
     const nameField = page.locator('#dao-create-name');
     await expect
       .poll(async () => {
@@ -91,8 +100,10 @@ test.describe('dao create voice', () => {
       page.getByText('You start as council · ~6.1 NEAR', { exact: true })
     ).toBeVisible();
     await expect(page.getByText('Need ~')).toHaveCount(0);
-    await expect(page.getByText(/bond/i)).toHaveCount(0);
-    await expect(page.getByText(/gas/i)).toHaveCount(0);
+    // Deal whisper stays jargon-free; Default policy may still list Bond.
+    const deal = page.locator('.dao-create-deal');
+    await expect(deal.getByText(/bond/i)).toHaveCount(0);
+    await expect(deal.getByText(/gas/i)).toHaveCount(0);
 
     await publish.click();
     await expect(publish).toHaveAttribute('aria-checked', 'false');
@@ -100,9 +111,12 @@ test.describe('dao create voice', () => {
       page.getByText('You start as council · ~6 NEAR', { exact: true })
     ).toBeVisible();
 
-    await page.getByRole('button', { name: 'Advanced', exact: true }).click();
-    await expect(page.getByText('You get')).toBeVisible();
-    await expect(page.getByText('Add links')).toBeVisible();
+    await expect(page.getByText('Default policy', { exact: true })).toBeVisible();
+    await expect(page.getByText('50% majority', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Add links', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Hide links', exact: true })
+    ).toBeVisible();
     await expect(
       page.getByText('You start as council', { exact: true })
     ).toHaveCount(0);
@@ -117,7 +131,7 @@ test.describe('dao create voice', () => {
         mimeType: 'image/png',
         buffer: LOOK_PNG,
       },
-      page.getByRole('button', { name: 'Change cover', exact: true })
+      page.getByRole('button', { name: 'Remove cover' })
     );
     await cover.hover();
     await expect(
@@ -132,7 +146,7 @@ test.describe('dao create voice', () => {
         mimeType: 'image/png',
         buffer: LOOK_PNG,
       },
-      page.getByRole('button', { name: 'Change crest', exact: true })
+      page.getByRole('button', { name: 'Remove crest' })
     );
     await crest.hover();
     await expect(
@@ -156,7 +170,7 @@ test.describe('dao create voice', () => {
     await gotoApp(page, '/daos');
     await expect(page.getByRole('heading', { name: 'DAOs' })).toBeVisible();
     await dismissNextDevOverlay(page);
-    await page.getByRole('link', { name: 'Create DAO' }).click();
+    await page.getByRole('link', { name: 'New DAO', exact: true }).click();
     await page.waitForURL(/\/daos\/create\/?$/, { timeout: 15_000 });
     await expect(
       page.getByRole('heading', { name: 'Create DAO' })

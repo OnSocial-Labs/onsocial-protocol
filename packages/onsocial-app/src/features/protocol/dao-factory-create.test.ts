@@ -13,6 +13,7 @@ import {
   DAO_FACTORY_PURPOSE_MAX,
   DAO_FACTORY_VOTE_THRESHOLD,
   daoCreateAttachNearLabel,
+  daoCreateNearShortfallLabel,
   daoCreateAttachYocto,
   daoCreateNearShortfallYocto,
   encodeDaoFactoryInitArgs,
@@ -108,6 +109,13 @@ describe('dao-factory-create', () => {
       BigInt(nearToYocto(SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR))
     );
     expect(daoCreateNearShortfallYocto(null, true)).toBeNull();
+  });
+
+  it('compacts shortfall for create hints (no raw yocto dump)', () => {
+    const messy =
+      4_781_702_103_671_338_669_091_473n; /* ~4.78 NEAR */
+    expect(daoCreateNearShortfallLabel(messy)).toBe('4.7817');
+    expect(daoCreateNearShortfallLabel(messy)).not.toMatch(/^\d+\.\d{5,}/);
   });
 });
 

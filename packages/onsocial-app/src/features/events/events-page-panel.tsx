@@ -170,57 +170,63 @@ function EventRow({
           <span className="market-listing-thumb-fallback" />
         )}
       </div>
-      <div className="market-listing-copy drops-discovery-copy">
-        <div className="market-listing-head drops-discovery-head">
-          <p className="market-listing-title">{item.title}</p>
+      <div className="drops-discovery-body">
+        <div className="drops-discovery-top">
+          <div className="market-listing-head drops-discovery-head">
+            <p className="market-listing-title">{item.title}</p>
+          </div>
+          <div className="market-listing-action-col events-row-menu-col">
+            <div className="drops-discovery-head-trail">
+              <DropsDiscoveryRowMenu
+                item={item}
+                saved={saved}
+                savePending={savePending}
+                onToggleSave={onToggleSave}
+                onOwnerManaged={onOwnerManaged}
+                voice="event"
+              />
+            </div>
+          </div>
         </div>
-        <DiscoveryPartyStack
-          accountId={item.creatorId}
-          displayName={item.creatorDisplayName}
-          avatarUrl={item.creatorAvatarUrl}
-        />
-        {dealParts.length > 0 || guestLabel ? (
-          <div className="drops-discovery-deal">
-            {dealParts.length > 0 ? (
-              <span className="drops-discovery-deal-bits">
-                {dealParts.map((part, index) => (
-                  <Fragment key={index}>
-                    {index > 0 ? ' · ' : null}
-                    {part}
-                  </Fragment>
-                ))}
-              </span>
-            ) : null}
-            {guestLabel ? (
-              <>
+        <div className="drops-discovery-ledger">
+          <div className="drops-discovery-stack">
+            <DiscoveryPartyStack
+              accountId={item.creatorId}
+              displayName={item.creatorDisplayName}
+              avatarUrl={item.creatorAvatarUrl}
+            />
+            {dealParts.length > 0 || guestLabel ? (
+              <div className="drops-discovery-deal">
                 {dealParts.length > 0 ? (
-                  <span className="drops-discovery-deal-sep" aria-hidden>
-                    {' · '}
+                  <span className="drops-discovery-deal-bits">
+                    {dealParts.map((part, index) => (
+                      <Fragment key={index}>
+                        {index > 0 ? ' · ' : null}
+                        {part}
+                      </Fragment>
+                    ))}
                   </span>
                 ) : null}
-                <button
-                  type="button"
-                  className="events-guest-count"
-                  aria-label={eventGuestCountAria(kind, guestLabel)}
-                  onClick={() => onGuests(item, kind)}
-                >
-                  {guestLabel}
-                </button>
-              </>
+                {guestLabel ? (
+                  <>
+                    {dealParts.length > 0 ? (
+                      <span className="drops-discovery-deal-sep" aria-hidden>
+                        {' · '}
+                      </span>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="events-guest-count"
+                      aria-label={eventGuestCountAria(kind, guestLabel)}
+                      onClick={() => onGuests(item, kind)}
+                    >
+                      {guestLabel}
+                    </button>
+                  </>
+                ) : null}
+              </div>
             ) : null}
           </div>
-        ) : null}
-      </div>
-      <div className="market-listing-action-col events-row-menu-col">
-        <div className="drops-discovery-head-trail">
-          <DropsDiscoveryRowMenu
-            item={item}
-            saved={saved}
-            savePending={savePending}
-            onToggleSave={onToggleSave}
-            onOwnerManaged={onOwnerManaged}
-            voice="event"
-          />
         </div>
       </div>
     </div>
@@ -590,7 +596,11 @@ export function EventsPagePanel({
           }
         />
       }
-      actions={<OsRowAction href={APP_EVENTS_NEW_PATH}>New event</OsRowAction>}
+      actions={
+        <OsRowAction className="os-header-commit" href={APP_EVENTS_NEW_PATH}>
+          New event
+        </OsRowAction>
+      }
       toolbar={
         <OsAppChromeToolbarRail className="market-listing-toolbar">
           <div className="market-listing-filter-stack os-scrollbar-none">
@@ -752,11 +762,11 @@ export function EventsPagePanel({
         onClosed={() => setSheetOpen(false)}
         label="Filter"
         closeAriaLabel="Close filter"
-        titleAccessory={
+        endAccessory={
           styleId || placeId ? (
             <button
               type="button"
-              className="market-filter-title-clear"
+              className="market-filter-clear"
               onClick={() => {
                 setStyleId(null);
                 setPlaceId(null);

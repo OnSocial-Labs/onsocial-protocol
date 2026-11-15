@@ -146,10 +146,10 @@ export function HomeFeedFocusSearch({
         <SearchField
           value={query}
           onValueChange={handleValueChange}
-          placeholder="Search #topics or $tickers"
+          placeholder="#topics · $tickers"
           maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
           clearAriaLabel="Clear feed search"
-          ariaLabel="Search topics or tickers"
+          ariaLabel="Search #topics or $tickers"
           chrome="floating-panel"
           className="home-feed-toolbar-search os-app-screen-search"
           onFocus={() => setFocused(true)}

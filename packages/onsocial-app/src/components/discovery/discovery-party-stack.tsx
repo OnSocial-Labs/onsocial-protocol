@@ -10,18 +10,22 @@ import { fallbackLabel } from '@/lib/profile-display';
  * Creator party chrome for Market / Drops catalog rows —
  * avatar beside the name, @handle under it.
  * “by” / “bought by” sit above the face, in line with the title.
+ * Use `link={false}` when nested inside a row that is already a link.
  */
 export function DiscoveryPartyStack({
   accountId,
   displayName: profileDisplayName,
   avatarUrl,
   lead = 'by',
+  link = true,
 }: {
   accountId: string;
   displayName?: string | null;
   avatarUrl?: string | null;
   /** Quiet line above the face. `false` leaves the name alone. */
   lead?: 'by' | 'bought by' | 'listed by' | false;
+  /** Portfolio link. Off when the row itself is the only hit target. */
+  link?: boolean;
 }) {
   const href = portfolioPath(accountId);
   const handle = fallbackLabel(accountId);
@@ -34,13 +38,9 @@ export function DiscoveryPartyStack({
         : lead
           ? lead
           : null;
-
-  return (
-    <Link
-      href={href}
-      scroll={false}
-      className={`drops-discovery-party${leadText ? ' drops-discovery-party--lead' : ''}`}
-    >
+  const className = `drops-discovery-party${leadText ? ' drops-discovery-party--lead' : ''}`;
+  const face = (
+    <>
       <AccountAvatar
         accountId={accountId}
         src={avatarUrl}
@@ -55,6 +55,16 @@ export function DiscoveryPartyStack({
         <span className="drops-discovery-by">{name}</span>
         <span className="drops-discovery-sub">@{handle}</span>
       </span>
+    </>
+  );
+
+  if (!link) {
+    return <span className={className}>{face}</span>;
+  }
+
+  return (
+    <Link href={href} scroll={false} className={className}>
+      {face}
     </Link>
   );
 }

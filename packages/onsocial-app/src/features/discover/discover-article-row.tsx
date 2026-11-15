@@ -3,9 +3,8 @@
 import type { MouseEvent } from 'react';
 import Link from 'next/link';
 import { HeartIcon } from '@onsocial/ui';
+import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import { PortfolioWritingCover } from '@/components/portfolio/portfolio-writing-cover';
-import { AccountAvatar } from '@/components/profile/account-avatar';
-import { commercePartyLines } from '@/features/scarces/collection-creator-face';
 import type { DiscoverArticleCover } from '@/features/discover/use-discover-article-covers';
 import { formatWritingLikeLabel } from '@/lib/article-post-payload';
 import { StableCount } from '@/components/ui/stable-count';
@@ -18,9 +17,8 @@ import {
 
 /**
  * Essay row for Moving and the Articles list. The thumb is the cover.
- * Name and @id stack beside it, the same way a drop row does.
- * The time sits opposite the title. A quiet heart count is the validation.
- * The row opens the essay.
+ * Title|time on one band; byline + likes full width under the trail.
+ * The row opens the essay — party chrome is not a nested link.
  */
 export function DiscoverArticleRow({
   accountId,
@@ -43,7 +41,6 @@ export function DiscoverArticleRow({
   likeCount?: number;
   onOpen?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) {
-  const party = commercePartyLines(accountId, profileName);
   const issuedAt = blockTimestamp ?? 0;
   const whenIso = issuedAt > 0 ? postTimestampIso(issuedAt) : undefined;
   const likeLabel = formatWritingLikeLabel(likeCount);
@@ -81,39 +78,42 @@ export function DiscoverArticleRow({
           <span className="market-listing-thumb-fallback" />
         )}
       </span>
-      <div className="market-listing-copy drops-discovery-copy">
-        <div className="market-listing-head">
-          <span className="market-listing-title">{title}</span>
+      <div className="drops-discovery-body">
+        <div className="drops-discovery-top">
+          <div className="market-listing-head drops-discovery-head">
+            <span className="market-listing-title">{title}</span>
+          </div>
           {whenIso ? (
-            <time
-              className="market-listing-meta-right"
-              dateTime={whenIso}
-              title={formatPostTimestamp(issuedAt)}
-            >
-              {formatRelativePostTimestamp(issuedAt)}
-            </time>
+            <div className="market-listing-action-col drops-discovery-action-col">
+              <div className="drops-discovery-head-trail">
+                <time
+                  className="market-listing-meta-right"
+                  dateTime={whenIso}
+                  title={formatPostTimestamp(issuedAt)}
+                >
+                  {formatRelativePostTimestamp(issuedAt)}
+                </time>
+              </div>
+            </div>
           ) : null}
         </div>
-        <span className="drops-discovery-party drops-discovery-party--lead">
-          <AccountAvatar
-            accountId={accountId}
-            src={avatarUrl}
-            fallbackInitial={party.name.slice(0, 1)}
-            size="sm"
-            className="drops-discovery-party-avatar"
-          />
-          <span className="drops-discovery-party-stack">
-            <span className="drops-discovery-lead">by</span>
-            <span className="drops-discovery-by">{party.name}</span>
-            <span className="drops-discovery-sub">@{party.handle}</span>
-          </span>
-        </span>
-        {likeLabel ? (
-          <span className="discover-article-likes" aria-label={likeLabel}>
-            <HeartIcon className="discover-article-likes-icon" aria-hidden />
-            <StableCount value={likeCount} />
-          </span>
-        ) : null}
+        <div className="drops-discovery-ledger">
+          <div className="drops-discovery-stack">
+            <DiscoveryPartyStack
+              accountId={accountId}
+              displayName={profileName}
+              avatarUrl={avatarUrl}
+              lead="by"
+              link={false}
+            />
+            {likeLabel ? (
+              <span className="discover-article-likes" aria-label={likeLabel}>
+                <HeartIcon className="discover-article-likes-icon" aria-hidden />
+                <StableCount value={likeCount} />
+              </span>
+            ) : null}
+          </div>
+        </div>
       </div>
     </Link>
   );

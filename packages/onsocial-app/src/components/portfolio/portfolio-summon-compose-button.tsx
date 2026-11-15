@@ -11,7 +11,7 @@ export function composeDockAriaLabel(kind: ComposeKind): string {
     case 'article':
       return 'Write an article';
     case 'drop':
-      return 'Start a drop';
+      return 'New drop';
     case 'mint':
       return 'Mint';
     case 'propose':
