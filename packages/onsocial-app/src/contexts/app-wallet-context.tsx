@@ -11,7 +11,10 @@ import {
   type ReactNode,
 } from 'react';
 import { NearConnector } from '@hot-labs/near-connect';
-import type { NearWalletBase } from '@hot-labs/near-connect';
+import type {
+  NearConnector_ConnectOptions,
+  NearWalletBase,
+} from '@hot-labs/near-connect';
 import type { TransactionFeedback } from '@/components/ui/transaction-feedback-toast';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import {
@@ -94,6 +97,13 @@ interface AppWalletContextType {
   getSigningWallet: (opts?: {
     reviewAfterPicker?: boolean;
   }) => Promise<SigningWallet>;
+  /**
+   * Re-open the connector with options (e.g. addFunctionCallKey) — same
+   * calm wallet sheet as connect's session-key step.
+   */
+  connectWithOptions: (
+    options: NearConnector_ConnectOptions
+  ) => Promise<unknown>;
 }
 
 function readStoredWalletAccountId(): string | null {
@@ -261,6 +271,9 @@ const AppWalletContext = createContext<AppWalletContextType>({
   switchWallet: async () => {},
   disconnect: async () => {},
   getSigningWallet: async () => {
+    throw new Error('AppWalletProvider is not mounted');
+  },
+  connectWithOptions: async () => {
     throw new Error('AppWalletProvider is not mounted');
   },
 });
@@ -870,16 +883,17 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
           ) {
             setIsBootstrappingSession(true);
             try {
-              const { wallet, accountId: signerId } = await getSigningWallet();
-              const renew = await renewAppSocialSession({
-                accountId: signerId,
-                wallet,
+              const connector = connectorRef.current;
+              if (!connector) return false;
+              const ready = await renewAppSocialSession({
+                accountId: nextAccountId,
+                connectWithOptions: (options) => connector.connect(options),
               });
-              setHasSocialSession(renew.ready);
-              if (renew.ready) {
+              setHasSocialSession(ready);
+              if (ready) {
                 invalidateAppSocialSessionCache();
               }
-              return renew.ready;
+              return ready;
             } finally {
               setIsBootstrappingSession(false);
             }
@@ -900,7 +914,18 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
 
       return ensureSocialSession(nextAccountId);
     },
-    [resolvedAccountId, ensureSocialSession, getSigningWallet]
+    [resolvedAccountId, ensureSocialSession]
+  );
+
+  const connectWithOptions = useCallback(
+    async (options: NearConnector_ConnectOptions) => {
+      const connector = connectorRef.current;
+      if (!connector) {
+        throw new Error('Wallet is still loading. Try again in a moment.');
+      }
+      return connector.connect(options);
+    },
+    []
   );
 
   return (
@@ -919,6 +944,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
         switchWallet,
         disconnect,
         getSigningWallet,
+        connectWithOptions,
       }}
     >
       {children}

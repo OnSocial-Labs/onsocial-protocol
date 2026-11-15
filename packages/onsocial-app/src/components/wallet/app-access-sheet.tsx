@@ -20,10 +20,6 @@ import {
 } from '@/lib/app-social-session';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
-import {
-  accountNeedsAppSessionSponsor,
-  fundAppSessionIfNeeded,
-} from '@/lib/welcome-near';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 interface AppAccessSheetProps {
@@ -41,7 +37,8 @@ function shortenSessionKey(publicKey: string): string {
 
 /**
  * Nested account sheet — session key allow / renew / remove.
- * Allow = AddKey (same as connect); button owns wait; toast is success/error.
+ * Allow/renew use connect `addFunctionCallKey` (same calm sheet as connect).
+ * Button owns wait; toast is success/error only.
  */
 export function AppAccessSheet({
   open,
@@ -55,6 +52,7 @@ export function AppAccessSheet({
     resumeSocialSession,
     clearSocialSessionLocal,
     getSigningWallet,
+    connectWithOptions,
   } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [closing, setClosing] = useState(false);
@@ -109,26 +107,18 @@ export function AppAccessSheet({
     if (pending || isBootstrappingSession) return;
     const renewing = lifecycle === 'expired';
     try {
-      const { wallet, accountId: signerId } = await getSigningWallet();
-      if (await accountNeedsAppSessionSponsor(signerId)) {
-        await fundAppSessionIfNeeded(signerId);
-      }
       setPending(true);
-      const result = renewing
+      const ready = renewing
         ? await renewAppSocialSession({
-            accountId: signerId,
-            wallet,
+            accountId,
+            connectWithOptions,
           })
         : await grantAppSocialSession({
-            accountId: signerId,
-            wallet,
+            accountId,
+            connectWithOptions,
           });
 
-      const successMessage = renewing
-        ? txToastSuccess.appAccessRenewed
-        : txToastSuccess.appAccessAllowed;
-
-      if (!result.ready) {
+      if (!ready) {
         setTxResult({
           type: 'error',
           msg: txToastError.allowAppAccessFailed,
@@ -136,22 +126,12 @@ export function AppAccessSheet({
         return;
       }
 
-      if (result.txHashes.length === 0) {
-        setTxResult({ type: 'success', msg: successMessage });
-      } else {
-        const confirmed = await trackTransaction({
-          txHashes: result.txHashes,
-          successMessage,
-          failureMessage: txToastError.allowAppAccessFailed,
-        });
-        if (!confirmed) {
-          await clearAppSocialSession(signerId);
-          clearSocialSessionLocal();
-          await refreshStatus();
-          return;
-        }
-      }
-
+      setTxResult({
+        type: 'success',
+        msg: renewing
+          ? txToastSuccess.appAccessRenewed
+          : txToastSuccess.appAccessAllowed,
+      });
       await resumeSocialSession({
         renewIfExpired: false,
         bootstrapIfMissing: false,
@@ -173,15 +153,14 @@ export function AppAccessSheet({
       setPending(false);
     }
   }, [
-    clearSocialSessionLocal,
-    getSigningWallet,
+    accountId,
+    connectWithOptions,
     isBootstrappingSession,
     lifecycle,
     pending,
     refreshStatus,
     resumeSocialSession,
     setTxResult,
-    trackTransaction,
   ]);
 
   const handleRemove = useCallback(async () => {

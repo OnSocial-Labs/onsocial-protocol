@@ -1,11 +1,9 @@
 import type { NearConnector_ConnectOptions } from '@hot-labs/near-connect';
 import {
-  buildSessionGrant,
   generateEd25519Key,
   localStorageKeyStore,
   nearConnectAdapter,
   persistSessionFromKey,
-  planToWalletTransactions,
   resolveContractId,
   restoreEd25519Key,
   restoreSession,
@@ -365,71 +363,21 @@ export async function revokeAppSocialSession(input: {
   return extractNearTransactionHashes(result);
 }
 
-export type AppSocialSessionTxResult = {
-  ready: boolean;
-  txHashes: string[];
-};
-
-/** AddKey-only wallet tx — same chain effect as connect's addFunctionCallKey. */
-async function signAppSessionAddKey(input: {
-  accountId: string;
-  wallet: NearWalletBase;
-  sessionKey: GeneratedSessionKey;
-  allowanceYocto: string;
-}): Promise<unknown> {
-  const bootstrap = appSessionBootstrapInput(
-    input.accountId,
-    appSessionFunctionCallKey(input.allowanceYocto)
-  );
-  const plan = buildSessionGrant({
-    network: bootstrap.network,
-    accountId: input.accountId,
-    sessionPublicKey: input.sessionKey.publicKey,
-    contract: bootstrap.contract,
-    path: bootstrap.path,
-    ttlMs: bootstrap.ttlMs,
-    functionCallKey: bootstrap.functionCallKey,
-    storageDepositYocto: bootstrap.storageDepositYocto,
-  });
-  const transactions = planToWalletTransactions(plan, {
-    includeCoreActions: false,
-  });
-  const adapter = nearConnectAdapter(input.wallet, input.accountId, {
-    network: ACTIVE_NEAR_NETWORK,
-  });
-  return adapter.signAndSendTransactions({ transactions });
-}
+export type AppSessionConnectFn = (
+  options: NearConnector_ConnectOptions
+) => Promise<unknown>;
 
 /**
- * Wait for AddKey on-chain, then persist — same finish as connect.
- * Keeps the pending key on failure so retry reuses it (no orphan twin).
- */
-async function finishAppSessionAfterAddKey(
-  accountId: string,
-  sessionKey: GeneratedSessionKey,
-  grantResult: unknown
-): Promise<AppSocialSessionTxResult> {
-  const txHashes = extractNearTransactionHashes(grantResult);
-  if (!(await waitForSessionKeyOnChain(accountId, sessionKey.publicKey))) {
-    return { ready: false, txHashes };
-  }
-  await persistAppSessionAfterSignIn(accountId, sessionKey);
-  return {
-    ready: Boolean(await restoreAppSocialSession(accountId)),
-    txHashes,
-  };
-}
-
-/**
- * Renew: on-chain key → local TTL only. Missing key → AddKey, wait, persist.
+ * Renew: on-chain key → local TTL only. Missing key → same
+ * `addFunctionCallKey` connect sheet as first-time Allow / connect.
  */
 export async function renewAppSocialSession(input: {
   accountId: string;
-  wallet: NearWalletBase;
-}): Promise<AppSocialSessionTxResult> {
+  connectWithOptions: AppSessionConnectFn;
+}): Promise<boolean> {
   const stored = await peekStoredAppSocialSession(input.accountId);
   if (!stored?.publicKey || !stored.secretSeedB64u) {
-    return { ready: false, txHashes: [] };
+    return false;
   }
 
   let sessionKey: GeneratedSessionKey;
@@ -440,66 +388,41 @@ export async function renewAppSocialSession(input: {
     });
   } catch {
     await clearAppSocialSession(input.accountId);
-    return { ready: false, txHashes: [] };
+    return false;
   }
 
   if (await sessionKeyValidOnChain(input.accountId, sessionKey.publicKey)) {
     await persistAppSessionAfterSignIn(input.accountId, sessionKey);
-    return { ready: true, txHashes: [] };
+    return true;
   }
 
   await fundAppSessionIfNeeded(input.accountId);
   const allowanceYocto = await resolveAppSessionKeyAllowanceYocto(
     input.accountId
   );
-  const grantResult = await signAppSessionAddKey({
-    accountId: input.accountId,
-    wallet: input.wallet,
-    sessionKey,
-    allowanceYocto,
-  });
-  return finishAppSessionAfterAddKey(input.accountId, sessionKey, grantResult);
+  const addKeyOptions = appSessionConnectOptions(sessionKey, allowanceYocto);
+  if (!addKeyOptions) return false;
+
+  await input.connectWithOptions(addKeyOptions);
+  await completeAppSessionAfterConnect(input.accountId, sessionKey);
+  return Boolean(await restoreAppSocialSession(input.accountId));
 }
 
-/** Allow access — AddKey, wait, persist (no set_key_permission). */
+/** Allow access — same `addFunctionCallKey` path as connect. */
 export async function grantAppSocialSession(input: {
   accountId: string;
-  wallet: NearWalletBase;
-}): Promise<AppSocialSessionTxResult> {
+  connectWithOptions: AppSessionConnectFn;
+}): Promise<boolean> {
   if (await restoreAppSocialSession(input.accountId)) {
     clearStoredPendingSessionKey(input.accountId);
-    return { ready: true, txHashes: [] };
+    return true;
   }
 
   if ((await getAppSocialSessionLifecycle(input.accountId)) === 'expired') {
     return renewAppSocialSession(input);
   }
 
-  const pendingSessionKey = await loadOrCreatePendingSessionKey(
-    input.accountId
-  );
-  if (
-    await sessionKeyValidOnChain(input.accountId, pendingSessionKey.publicKey)
-  ) {
-    await persistAppSessionAfterSignIn(input.accountId, pendingSessionKey);
-    return { ready: true, txHashes: [] };
-  }
-
-  await fundAppSessionIfNeeded(input.accountId);
-  const allowanceYocto = await resolveAppSessionKeyAllowanceYocto(
-    input.accountId
-  );
-  const grantResult = await signAppSessionAddKey({
-    accountId: input.accountId,
-    wallet: input.wallet,
-    sessionKey: pendingSessionKey,
-    allowanceYocto,
-  });
-  return finishAppSessionAfterAddKey(
-    input.accountId,
-    pendingSessionKey,
-    grantResult
-  );
+  return bootstrapAppSocialSession(input.accountId, input.connectWithOptions);
 }
 
 export async function resolveAppSessionPlan(
