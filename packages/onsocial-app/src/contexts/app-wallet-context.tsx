@@ -204,6 +204,10 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
   /** One bootstrap at a time — AddKey must reuse the same pending key. */
   const bootstrapPromiseRef = useRef<Promise<boolean> | null>(null);
   const bootstrappingAccountRef = useRef<string | null>(null);
+  /** First restore attempt finished, including a signed-out visit. */
+  const walletInitDoneRef = useRef(false);
+  /** One in-flight picker from getSigningWallet. Cleared when it settles. */
+  const signingWalletPromiseRef = useRef<Promise<SigningWallet> | null>(null);
   const network = ACTIVE_NEAR_NETWORK;
 
   const clearSessionFeedback = useCallback(() => {
@@ -322,6 +326,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const e2eAccount = readE2eWalletAccountId();
     if (e2eAccount) {
+      walletInitDoneRef.current = true;
       setAccountId(e2eAccount);
       setIsLoading(false);
       if (readE2eAuthSessionEnabled()) {
@@ -385,7 +390,10 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       } catch {
         // not signed in
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) {
+          walletInitDoneRef.current = true;
+          setIsLoading(false);
+        }
       }
     })();
 
@@ -585,55 +593,77 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
   }, [resolvedAccountId]);
 
   const getSigningWallet = useCallback(async (): Promise<SigningWallet> => {
-    const e2eAccount = readE2eWalletAccountId();
-    if (
-      e2eAccount &&
-      (readE2eMockSignerEnabled() || readE2eAuthSessionEnabled())
-    ) {
-      return {
-        wallet: createE2eMockWallet(e2eAccount),
-        accountId: e2eAccount,
-      };
+    if (signingWalletPromiseRef.current) {
+      return signingWalletPromiseRef.current;
     }
 
-    const connector = connectorRef.current;
-    if (!connector) {
-      throw new Error('Wallet is still loading. Try again in a moment.');
-    }
+    const run = (async (): Promise<SigningWallet> => {
+      const e2eAccount = readE2eWalletAccountId();
+      if (
+        e2eAccount &&
+        (readE2eMockSignerEnabled() || readE2eAuthSessionEnabled())
+      ) {
+        return {
+          wallet: createE2eMockWallet(e2eAccount),
+          accountId: e2eAccount,
+        };
+      }
 
-    const preferredAccountId = resolvedAccountId ?? readStoredWalletAccountId();
+      const connector = connectorRef.current;
+      if (!connector) {
+        throw new Error('Wallet is still loading. Try again in a moment.');
+      }
 
-    try {
-      const { wallet: connectedWallet, accounts } =
-        await connector.getConnectedWallet();
+      // A call that started during restore still throws, even if restore
+      // finishes while this attempt is waiting.
+      const initDone = walletInitDoneRef.current;
+      const preferredAccountId =
+        resolvedAccountId ?? readStoredWalletAccountId();
+
+      try {
+        const { wallet: connectedWallet, accounts } =
+          await connector.getConnectedWallet();
+        const pickedAccountId = pickRestoredAccountId(
+          accounts,
+          preferredAccountId
+        );
+        if (connectedWallet && pickedAccountId) {
+          setWallet(connectedWallet);
+          setAccountId(pickedAccountId);
+          writeStoredWalletAccountId(pickedAccountId);
+          return { wallet: connectedWallet, accountId: pickedAccountId };
+        }
+      } catch {
+        if (!initDone) {
+          throw new Error('Wallet is still loading. Try again in a moment.');
+        }
+      }
+
+      const connectedWallet = await connector.connect();
+      const accounts = await connectedWallet.getAccounts({ network });
       const pickedAccountId = pickRestoredAccountId(
         accounts,
         preferredAccountId
       );
-      if (connectedWallet && pickedAccountId) {
-        setWallet(connectedWallet);
-        setAccountId(pickedAccountId);
-        writeStoredWalletAccountId(pickedAccountId);
-        return { wallet: connectedWallet, accountId: pickedAccountId };
+      if (!pickedAccountId) {
+        throw new Error('Select a wallet account and try again.');
       }
-    } catch {
-      if (liveAccountId === undefined) {
-        throw new Error('Wallet is still loading. Try again in a moment.');
+
+      setWallet(connectedWallet);
+      setAccountId(pickedAccountId);
+      writeStoredWalletAccountId(pickedAccountId);
+      return { wallet: connectedWallet, accountId: pickedAccountId };
+    })();
+
+    signingWalletPromiseRef.current = run;
+    try {
+      return await run;
+    } finally {
+      if (signingWalletPromiseRef.current === run) {
+        signingWalletPromiseRef.current = null;
       }
     }
-
-    const connectedWallet = await connector.connect();
-    const accounts = await connectedWallet.getAccounts({ network });
-    const pickedAccountId = pickRestoredAccountId(accounts, preferredAccountId);
-    if (!pickedAccountId) {
-      throw new Error('Select a wallet account and try again.');
-    }
-
-    setWallet(connectedWallet);
-    setAccountId(pickedAccountId);
-    writeStoredWalletAccountId(pickedAccountId);
-    return { wallet: connectedWallet, accountId: pickedAccountId };
-  }, [liveAccountId, resolvedAccountId, network]);
+  }, [resolvedAccountId, network]);
 
   const resumeSocialSession = useCallback(
     async (options?: {
