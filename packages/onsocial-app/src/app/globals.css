@@ -34401,7 +34401,7 @@ a.os-surface-row,
       var(--os-keyboard-lift, 0px) + var(--os-screen-footer-band)
     );
     scroll-padding-bottom: calc(
-      var(--os-screen-footer-band) + var(--os-caret-drop-clearance, 2.25rem)
+      var(--os-screen-footer-band) + var(--os-caret-drop-clearance, 2.75rem)
     );
   }
 
@@ -39480,14 +39480,14 @@ a.os-surface-row,
 
   .guild-composer-sheet-panel .os-app-screen--embedded .os-app-screen-body {
     padding-bottom: var(--os-writing-footer-pad-block, 0.55rem);
-    scroll-padding-bottom: var(--os-caret-drop-clearance, 2.25rem);
+    scroll-padding-bottom: var(--os-caret-drop-clearance, 2.75rem);
   }
 
   .guild-composer-sheet-panel:has(.guild-composer-sheet-footer.is-keyboard-open)
     .os-app-screen--embedded
     .os-app-screen-body {
     padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem);
-    scroll-padding-bottom: var(--os-caret-drop-clearance, 2.25rem);
+    scroll-padding-bottom: var(--os-caret-drop-clearance, 2.75rem);
   }
 
   .guild-composer-sheet-panel
