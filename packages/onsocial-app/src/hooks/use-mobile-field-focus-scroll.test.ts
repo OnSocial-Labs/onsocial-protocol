@@ -336,7 +336,7 @@ describe('scrollMobileFieldIntoView', () => {
 
     scrollMobileFieldIntoView(field);
     // Visible bottom is the keyboard (524) minus caret-drop clearance.
-    expect(scrollTop).toBe(744 - (524 - 44));
+    expect(scrollTop).toBe(744 - (524 - 52));
     expect(scrollIntoView).not.toHaveBeenCalled();
   });
 
@@ -395,7 +395,7 @@ describe('scrollMobileFieldIntoView', () => {
     });
 
     scrollMobileFieldIntoView(field);
-    expect(scrollTop).toBe(744 - (470 - 44));
+    expect(scrollTop).toBe(744 - (470 - 52));
   });
 
   it('clears About absolute format strip without the keyboard class', () => {
@@ -470,8 +470,8 @@ describe('scrollMobileFieldIntoView', () => {
     });
 
     scrollMobileFieldIntoView(field);
-    // Selection bottom (490) must clear strip top (470) by caret-drop (44).
-    expect(scrollTop).toBe(490 - (470 - 44));
+    // Selection bottom (490) must clear strip top (470) by caret-drop (52).
+    expect(scrollTop).toBe(490 - (470 - 52));
   });
 
   it('scrolls the drawer body and leaves the page still', () => {
@@ -517,7 +517,7 @@ describe('scrollMobileFieldIntoView', () => {
 
     scrollMobileFieldIntoView(field);
     expect(scrollIntoView).not.toHaveBeenCalled();
-    expect(state.scrollTop).toBe(20 + (390 - (300 - 44)));
+    expect(state.scrollTop).toBe(20 + (390 - (300 - 52)));
   });
 
   it('keeps a focused line below the overlay header', () => {

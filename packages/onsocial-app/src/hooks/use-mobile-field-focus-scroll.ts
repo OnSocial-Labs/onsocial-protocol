@@ -9,8 +9,24 @@ import {
 
 const MOBILE_MAX_WIDTH_PX = 767;
 const KEYBOARD_SCROLL_RETRY_MS = 280;
-/** Matches `--os-caret-drop-clearance` (2.75rem @ 16px root). */
-const CARET_DROP_CLEARANCE_PX = 44;
+/** Fallback when `--os-caret-drop-clearance` is unset (3.25rem @ 16px). */
+const CARET_DROP_CLEARANCE_PX = 52;
+
+function caretDropClearancePx(): number {
+  if (typeof document === 'undefined' || typeof window === 'undefined') {
+    return CARET_DROP_CLEARANCE_PX;
+  }
+  const raw = window
+    .getComputedStyle(document.documentElement)
+    .getPropertyValue('--os-caret-drop-clearance')
+    .trim();
+  if (!raw) return CARET_DROP_CLEARANCE_PX;
+  const root = parseFloat(
+    window.getComputedStyle(document.documentElement).fontSize || '16'
+  );
+  const n = raw.endsWith('rem') ? parseFloat(raw) * root : parseFloat(raw);
+  return Number.isFinite(n) && n > 0 ? n : CARET_DROP_CLEARANCE_PX;
+}
 
 /** Nearest overflow scroller that actually moves (composer sheet body, etc.). */
 export function nearestScrollContainer(
@@ -260,15 +276,13 @@ export function scrollMobileFieldIntoView(
         : window.innerHeight;
       const chromeTop = writingChromeTop(element);
       const headerBottom = overlayHeaderBottom(element);
+      const dropClearance = caretDropClearancePx();
       const topLimit =
         Math.max(scrollerRect.top, headerBottom ?? scrollerRect.top) + 12;
       let bottomLimit =
-        Math.min(scrollerRect.bottom, viewBottom) - CARET_DROP_CLEARANCE_PX;
+        Math.min(scrollerRect.bottom, viewBottom) - dropClearance;
       if (chromeTop != null) {
-        bottomLimit = Math.min(
-          bottomLimit,
-          chromeTop - CARET_DROP_CLEARANCE_PX
-        );
+        bottomLimit = Math.min(bottomLimit, chromeTop - dropClearance);
       }
       if (rect.bottom > bottomLimit) {
         scroller.scrollTop += rect.bottom - bottomLimit;
