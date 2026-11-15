@@ -136,7 +136,10 @@ function readKeyboardVisibleBottomFromIme(): number | null {
  */
 export function readKeyboardVisibleBottom(): number {
   const imeTop = readKeyboardVisibleBottomFromIme();
-  if (imeTop != null && window.innerHeight - imeTop >= KEYBOARD_VIEWPORT_SLOP_PX) {
+  if (
+    imeTop != null &&
+    window.innerHeight - imeTop >= KEYBOARD_VIEWPORT_SLOP_PX
+  ) {
     return imeTop;
   }
   const viewport = window.visualViewport;
