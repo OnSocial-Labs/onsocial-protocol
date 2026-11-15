@@ -83,7 +83,11 @@ function DiscoverPageScreen({
       toolbar={<DiscoverHeaderTabs />}
     >
       {placeholder ? (
-        <OsAppChromePage className="discover-panel" aria-busy="true">
+        <OsAppChromePage
+          className="discover-panel"
+          aria-busy="true"
+          aria-live="polite"
+        >
           <p className="sr-only">Loading Discover…</p>
           <DiscoverRoutePlaceholder tab={tab} />
         </OsAppChromePage>

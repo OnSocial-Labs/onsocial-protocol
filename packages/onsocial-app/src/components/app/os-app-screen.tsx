@@ -91,6 +91,11 @@ export interface OsAppScreenProps {
    * `headerOwnsConnect` — do not turn the dock off to hide it.
    */
   launcher?: boolean;
+  /**
+   * Replaces the summon launcher. Post loading reserves the reply bar here
+   * so the nav pill does not paint and then jump.
+   */
+  dock?: ReactNode;
   /** Scroll container for nested infinite lists (`.os-app-screen-body`). */
   scrollRootRef?: RefObject<HTMLElement | null>;
   /**
@@ -144,6 +149,7 @@ export function OsAppScreen({
   toolbar,
   footer,
   launcher = true,
+  dock = null,
   scrollRootRef,
   glassScrollElevated = false,
   glassChromeAlwaysElevated = false,
@@ -313,7 +319,7 @@ export function OsAppScreen({
           <div className="os-app-screen-footer">{footer}</div>
         ) : null}
       </div>
-      {embedded || !launcher ? null : <AppShellLauncher />}
+      {embedded ? null : dock != null ? dock : launcher ? <AppShellLauncher /> : null}
     </div>
   );
 
