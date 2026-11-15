@@ -1,29 +1,65 @@
 'use client';
 
-import { Suspense } from 'react';
+import { useRef } from 'react';
 import Link from 'next/link';
-import { OnSocialMark, OsAppChromePage, OsAppChromeToolbarRail } from '@onsocial/ui';
+import {
+  OnSocialMark,
+  OsAppChromePage,
+  OsAppChromeToolbarRail,
+} from '@onsocial/ui';
 import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { CollectiblesNowPlayingDockChip } from '@/components/os/collectibles-now-playing-dock-chip';
 import { DiscoverTabBar } from '@/features/discover/discover-tab-bar';
 import { DiscoverMovingLandingSkeleton } from '@/features/discover/discover-trending-panel';
-import { DiscoverPagePanel } from '@/features/discover/discover-page-panel';
+import { useSummonDockOccupiedHeight } from '@/hooks/use-summon-dock-occupied-height';
+import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { APP_EVENTS_PATH, APP_HOME_PATH } from '@/lib/app-routes';
+import { OsDockPill } from '@/components/wallet/os-dock-pill';
+import { OsDockBackZone } from '@/components/wallet/os-dock-back-zone';
 
 /**
- * Static shell for the suspense boundary. The tabbed panel reads the URL,
- * which cannot run in the prerender itself.
+ * Same rest dock the loaded page paints, including the back segment, so the
+ * 1280 pill does not grow when the route settles. Not interactive.
  */
-function DiscoverLoadingShell() {
+function DiscoverLoadingDock() {
+  const ref = useRef<HTMLDivElement>(null);
+  const { moodId, style } = useViewerDockMood();
+  useSummonDockOccupiedHeight(ref, true);
+  return (
+    <div
+      ref={ref}
+      className="portfolio-summon-dock"
+      data-mood={moodId ?? undefined}
+      style={style}
+      aria-hidden
+      inert
+    >
+      <OsDockPill
+        navBack={<OsDockBackZone fallbackHref={APP_HOME_PATH} />}
+        grip={
+          <span className="portfolio-summon-grip-zone">
+            <span className="portfolio-summon-grip" />
+          </span>
+        }
+        nowPlaying={<CollectiblesNowPlayingDockChip />}
+      />
+    </div>
+  );
+}
+
+/** Cold leave. Chrome and the Moving skeleton only — no fetch, query, or session. */
+export default function DiscoverLoading() {
   return (
     <OsAppScreen
       title="Discover"
       compactChrome
       glassChrome
       scrollTuck="search"
-      dockBack
       leading={null}
+      dockBack
       backFallbackHref={APP_HOME_PATH}
+      dock={<DiscoverLoadingDock />}
       heading={
         <div className="discover-omni-search">
           <OsAppChromeNavSearch
@@ -49,7 +85,11 @@ function DiscoverLoadingShell() {
             onTabChange={() => undefined}
             className="discover-tab-bar--header"
           />
-          <Link href={APP_EVENTS_PATH} scroll={false} className="os-surface-chip">
+          <Link
+            href={APP_EVENTS_PATH}
+            scroll={false}
+            className="os-surface-chip"
+          >
             Events
           </Link>
         </OsAppChromeToolbarRail>
@@ -64,14 +104,5 @@ function DiscoverLoadingShell() {
         <DiscoverMovingLandingSkeleton />
       </OsAppChromePage>
     </OsAppScreen>
-  );
-}
-
-/** Cold leave from another route. The panel paints its own section skeletons. */
-export default function DiscoverLoading() {
-  return (
-    <Suspense fallback={<DiscoverLoadingShell />}>
-      <DiscoverPagePanel placeholder />
-    </Suspense>
   );
 }

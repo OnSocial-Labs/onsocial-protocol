@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  anchorPrefetchDisabled,
   createIntentPrefetchSession,
   type IntentPrefetchKind,
 } from '@/lib/intent-prefetch';
@@ -11,7 +12,8 @@ function linkFromTarget(target: EventTarget | null): HTMLAnchorElement | null {
   if (!(target instanceof Element)) return null;
   const anchor = target.closest('a[href]');
   if (!(anchor instanceof HTMLAnchorElement)) return null;
-  if (anchor.target === '_blank' || anchor.hasAttribute('download')) return null;
+  if (anchor.target === '_blank' || anchor.hasAttribute('download'))
+    return null;
   return anchor;
 }
 
@@ -62,6 +64,7 @@ export function IntentPrefetchHost() {
         kind,
         now: performance.now(),
         keyboard,
+        prefetch: anchorPrefetchDisabled(anchor) ? false : undefined,
       });
     };
 

@@ -1,10 +1,26 @@
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { createIntentPrefetchSession } from '@/lib/intent-prefetch';
+import DiscoverLoading from '@/app/(app)/discover/loading';
+import { PostThreadRouteLoading } from '@/features/home/post-thread-route-loading';
+import {
+  INTENT_PREFETCH_SEEN_CAP,
+  anchorPrefetchDisabled,
+  createIntentPrefetchSession,
+} from '@/lib/intent-prefetch';
 
-const appSrc = join(dirname(fileURLToPath(import.meta.url)), '..');
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: () => undefined, prefetch: () => undefined }),
+  usePathname: () => '/home',
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+vi.mock('@/features/discover/discover-page-panel', () => ({
+  DiscoverPagePanel: () => {
+    throw new Error('loading mounted the live Discover panel');
+  },
+}));
+
 const BASE = 'https://onsocial.test/home';
 
 function session() {
@@ -115,86 +131,142 @@ describe('intent prefetch', () => {
     expect(prefetch).toHaveBeenCalledWith('/discover');
   });
 
-  it('wires pointer enter, touch start, and keyboard focus through one host', () => {
-    const host = readFileSync(
-      join(appSrc, 'components/providers/intent-prefetch-host.tsx'),
-      'utf8'
-    );
-    const providers = readFileSync(
-      join(appSrc, 'components/providers/app-providers.tsx'),
-      'utf8'
-    );
+  it('skips API routes and links that opted out of prefetch', () => {
+    const { prefetch, intent } = session();
 
-    expect(host).toContain('createIntentPrefetchSession');
-    expect(host).toContain("'pointerenter'");
-    expect(host).toContain("'touchstart'");
-    expect(host).toContain("'focus'");
-    expect(host).toContain('noteScroll');
-    expect(host).not.toContain('requestIdleCallback');
-    expect(providers).toContain('<IntentPrefetchHost />');
+    expect(
+      intent.request({
+        href: '/api/profiles',
+        base: BASE,
+        kind: 'pointerenter',
+        now: 1_000,
+        keyboard: false,
+      })
+    ).toBe(false);
+    expect(
+      intent.request({
+        href: '/discover',
+        base: BASE,
+        kind: 'pointerenter',
+        now: 1_100,
+        keyboard: false,
+        prefetch: false,
+      })
+    ).toBe(false);
+    expect(
+      intent.request({
+        href: '/discover',
+        base: BASE,
+        kind: 'touchstart',
+        now: 1_200,
+        keyboard: false,
+      })
+    ).toBe(true);
+
+    expect(prefetch).toHaveBeenCalledTimes(1);
+    expect(prefetch).toHaveBeenCalledWith('/discover');
+  });
+
+  it('reads a prefetch opt-out from the anchor, its props, or the parent fiber', () => {
+    const attribute = {
+      getAttribute: (name: string) => (name === 'prefetch' ? 'false' : null),
+    };
+    const data = {
+      getAttribute: () => null,
+      dataset: { prefetch: 'false' },
+    };
+    const props = {
+      getAttribute: () => null,
+      __reactProps$test: { prefetch: false },
+    };
+    const fiber = {
+      getAttribute: () => null,
+      __reactFiber$test: {
+        memoizedProps: { href: '/writing' },
+        return: { memoizedProps: { prefetch: false, href: '/writing' } },
+      },
+    };
+    const open = { getAttribute: () => null };
+
+    expect(anchorPrefetchDisabled(attribute)).toBe(true);
+    expect(anchorPrefetchDisabled(data)).toBe(true);
+    expect(anchorPrefetchDisabled(props)).toBe(true);
+    expect(anchorPrefetchDisabled(fiber)).toBe(true);
+    expect(anchorPrefetchDisabled(open)).toBe(false);
+  });
+
+  it('forgets seen links when the route changes and caps one route', () => {
+    const { prefetch, intent } = session();
+    const home = {
+      base: BASE,
+      current: '/home',
+      kind: 'pointerenter' as const,
+      keyboard: false,
+    };
+
+    expect(intent.request({ ...home, href: '/discover', now: 1 })).toBe(true);
+    expect(intent.request({ ...home, href: '/discover', now: 2 })).toBe(false);
+    expect(
+      intent.request({
+        ...home,
+        current: '/discover',
+        href: '/discover',
+        now: 3,
+      })
+    ).toBe(false);
+    expect(
+      intent.request({
+        ...home,
+        current: '/discover',
+        href: '/market',
+        now: 4,
+      })
+    ).toBe(true);
+
+    for (let index = 0; index < INTENT_PREFETCH_SEEN_CAP; index += 1) {
+      intent.request({
+        ...home,
+        current: '/market',
+        href: `/room/${index}`,
+        now: 10 + index,
+      });
+    }
+    expect(
+      intent.request({
+        ...home,
+        current: '/market',
+        href: '/room/again',
+        now: 10_000,
+      })
+    ).toBe(true);
+
+    expect(prefetch).toHaveBeenCalledWith('/market');
+    expect(prefetch).toHaveBeenCalledWith('/room/again');
   });
 });
 
 describe('cold route skeletons', () => {
-  it('renders the post thread skeleton on the post routes', () => {
-    const personal = readFileSync(
-      join(appSrc, 'app/[accountId]/posts/[postId]/loading.tsx'),
-      'utf8'
-    );
-    const guild = readFileSync(
-      join(
-        appSrc,
-        'app/(app)/groups/[groupId]/posts/[author]/[postId]/loading.tsx'
-      ),
-      'utf8'
-    );
-    const screen = readFileSync(
-      join(appSrc, 'features/home/post-thread-route-loading.tsx'),
-      'utf8'
+  it('renders the post thread skeleton and an inert reply dock', () => {
+    const html = renderToStaticMarkup(
+      createElement(PostThreadRouteLoading, { backHref: '/home' })
     );
 
-    expect(personal).toContain('PostThreadRouteLoading');
-    expect(guild).toContain('PostThreadRouteLoading');
-    expect(screen).toContain('PostThreadPageSkeleton');
-    expect(screen).toContain('aria-busy="true"');
+    expect(html).toContain('post-card--detail');
+    expect(html).toContain('aria-busy="true"');
+    expect(html).toContain('Loading post');
+    expect(html).toContain('inert=""');
   });
 
-  it('renders Discover through the same panel, then fades that skeleton out', () => {
-    const loading = readFileSync(
-      join(appSrc, 'app/(app)/discover/loading.tsx'),
-      'utf8'
-    );
-    const panel = readFileSync(
-      join(appSrc, 'features/discover/discover-page-panel.tsx'),
-      'utf8'
-    );
-    const css = readFileSync(join(appSrc, 'app/globals.css'), 'utf8');
+  it('renders a presentational Discover shell with the Moving tab and a back seat', () => {
+    const html = renderToStaticMarkup(createElement(DiscoverLoading));
 
-    expect(loading).toContain('DiscoverPagePanel');
-    expect(panel).toContain('OsRouteSettle');
-    expect(panel).toContain('DiscoverMovingLandingSkeleton');
-    expect(css).toContain('.os-route-skeleton.is-done');
-    expect(css).toContain('glass-sheet-appear');
-    expect(css).toContain('prefers-reduced-motion: reduce');
-  });
-
-  it('keeps the reply fade and does not skeleton the open sheet', () => {
-    const personal = readFileSync(
-      join(appSrc, 'features/home/live-personal-post-panel.tsx'),
-      'utf8'
-    );
-    const sheet = readFileSync(
-      join(appSrc, 'features/home/post-thread-layer.tsx'),
-      'utf8'
-    );
-    const embeddedAt = personal.indexOf('if (embedded)');
-    const settleAt = personal.indexOf('<OsRouteSettle');
-
-    expect(embeddedAt).toBeGreaterThan(-1);
-    expect(settleAt).toBeGreaterThan(embeddedAt);
-    expect(personal).toContain('ready={permalinkReady}');
-    expect(personal).toContain('PostThreadPageSkeleton');
-    expect(sheet).not.toContain('PostThreadPageSkeleton');
-    expect(sheet).toContain('OsPageBodyAppear ready={threadPainted}');
+    expect(html).toContain('>Moving<');
+    expect(html).not.toContain('>moving<');
+    expect(html).not.toContain('>Trending<');
+    expect(html).toContain('Loading Discover');
+    expect(html).toContain('discover-trending-section');
+    expect(html).toContain('portfolio-summon-back');
+    expect(html).toContain('inert=""');
+    expect(html).not.toContain('live Discover panel');
   });
 });
