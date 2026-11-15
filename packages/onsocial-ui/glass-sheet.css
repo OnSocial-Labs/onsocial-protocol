@@ -770,6 +770,7 @@
   color: rgb(var(--fg-rgb));
   text-decoration: none;
   cursor: pointer;
+  touch-action: manipulation;
   transition: box-shadow 160ms ease;
 }
 
@@ -786,9 +787,10 @@
   opacity: 0.92;
 }
 
+/* Quiet surface ring — protocol-blue CTA rings are too loud on chrome × / back. */
 .glass-sheet-icon-action:focus-visible {
   outline: none;
-  box-shadow: var(--os-focus-ring, 0 0 0 1px rgb(var(--fg-rgb) / 0.08));
+  box-shadow: 0 0 0 1px var(--os-surface-ring, rgb(var(--fg-rgb) / 0.08));
 }
 
 /* Header / nav action glyphs — same weight as × (--os-chrome-glyph-size). */
