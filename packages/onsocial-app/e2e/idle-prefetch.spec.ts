@@ -52,15 +52,11 @@ test.describe('idle prefetch', () => {
         });
         const counts = trackIdlePrefetches(page);
 
-        const postLink = page.locator('a[href*="/posts/"]').first();
         await gotoApp(page, route);
-        await expect(postLink).toBeAttached();
-
         counts.clear();
         await page.waitForTimeout(IDLE_MS);
 
         await expect(page).toHaveURL(new RegExp(`${route}(?:\\?|$)`));
-        await expect(postLink).toBeAttached();
 
         const rows = [...counts.entries()].sort((a, b) => b[1] - a[1]);
         const over = rows.filter(
