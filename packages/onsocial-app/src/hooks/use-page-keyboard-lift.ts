@@ -99,9 +99,6 @@ export function usePageKeyboardLift(
         setPinned(null);
         return;
       }
-      // Same seat drawers use: Virtual Keyboard height on Brave/Chrome,
-      // visualViewport fallback elsewhere. Raw VV height stays full in a
-      // Brave tab, so the format row never rose with the keys.
       const metrics = readKeyboardDrawerMetrics();
       const trustIme = virtualKeyboardSeatActive();
       const fixed = window.getComputedStyle(node).position === 'fixed';

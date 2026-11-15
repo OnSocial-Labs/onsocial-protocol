@@ -1,14 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   correctedKeyboardSeat,
-  ensureVirtualKeyboardOverlay,
   keyboardDrawerFrameStyle,
   keyboardFrameNeedsSeat,
   keyboardFrameTop,
   keyboardRootFrameStyle,
   keyboardSeatPx,
   pageKeyboardLiftStyle,
-  readCssKeyboardInsetHeight,
   readKeyboardDrawerMetrics,
   readKeyboardVisibleBottom,
   readVirtualKeyboardInset,
@@ -338,10 +336,9 @@ describe('virtual keyboard seat', () => {
 
   it('returns no IME inset without the Virtual Keyboard API', () => {
     expect(readVirtualKeyboardInset()).toBe(0);
-    expect(ensureVirtualKeyboardOverlay()).toBe(false);
   });
 
-  it('does not arm overlaysContent — browser resize seats the drawer', () => {
+  it('seats from visualViewport when overlay IME is off', () => {
     const virtualKeyboard = {
       overlaysContent: false,
       boundingRect: { x: 0, y: 520, width: 390, height: 324 },
@@ -354,9 +351,6 @@ describe('virtual keyboard seat', () => {
     });
     stubPhoneWindow({ innerHeight: 844, viewportHeight: 520 });
 
-    expect(ensureVirtualKeyboardOverlay()).toBe(false);
-    expect(virtualKeyboard.overlaysContent).toBe(false);
-    // Without overlay opt-in, seat from visualViewport (resizes-content).
     expect(readVirtualKeyboardInset()).toBe(0);
     expect(readKeyboardDrawerMetrics()).toEqual({
       lift: 324,
@@ -378,7 +372,6 @@ describe('virtual keyboard seat', () => {
     });
     stubPhoneWindow({ innerHeight: 844, viewportHeight: 844 });
 
-    expect(ensureVirtualKeyboardOverlay()).toBe(true);
     expect(readVirtualKeyboardInset()).toBe(324);
     expect(readKeyboardVisibleBottom()).toBe(520);
     expect(readKeyboardDrawerMetrics()).toEqual({
@@ -427,7 +420,6 @@ describe('virtual keyboard seat', () => {
 
     const vvOnlyLift = 844 - 844 - 0;
     expect(vvOnlyLift).toBe(0);
-    expect(readCssKeyboardInsetHeight()).toBe(0);
     expect(readKeyboardDrawerMetrics()).toEqual({
       lift: 344,
       height: 500,

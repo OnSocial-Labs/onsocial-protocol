@@ -159,22 +159,21 @@ async function installBraveVirtualKeyboard(page: Page): Promise<void> {
         __setBraveKeyboard?: (next: { keyTop: number }) => void;
       }
     ).__setBraveKeyboard = (next) => {
-      overlaysContent = true;
       const keyTop = Math.max(0, Math.round(next.keyTop));
+      // Production path: interactive-widget=resizes-content shrinks VV.
+      offsetTop = 0;
+      height = keyTop;
       boundingRect = {
         x: 0,
         y: keyTop,
         width: window.innerWidth,
         height: Math.max(0, window.innerHeight - keyTop),
       };
-      // Tab browser: VV does not shrink — only VK knows the keys.
-      offsetTop = 0;
-      height = window.innerHeight;
-      for (const listener of geometryListeners) {
-        listener(new Event('geometrychange'));
-      }
       for (const listener of vvListeners.get('resize') ?? []) {
         listener(new Event('resize'));
+      }
+      for (const listener of geometryListeners) {
+        listener(new Event('geometrychange'));
       }
     };
   });

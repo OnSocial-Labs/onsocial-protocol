@@ -49,9 +49,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  // Shrink layout + visual viewports with the IME (Chrome 108+ / Brave).
-  // Do not pair this with virtualKeyboard.overlaysContent — that opts out of
-  // resize and left a Brave-tab gap under drawers. Same as messages + pro apps.
+  // Shrink layout with the IME (Chromium Android). Do not arm overlaysContent.
   interactiveWidget: 'resizes-content',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: THEME_BAR_LIGHT },

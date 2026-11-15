@@ -300,7 +300,6 @@ export {
 } from './choice-drawer.js';
 export { OsSheetFooter, osSheetFooterClassName } from './os-sheet-footer.js';
 export {
-  ensureVirtualKeyboardOverlay,
   keyboardDrawerFrameStyle,
   keyboardSeatPx,
   keyboardSheetMargin,
@@ -311,7 +310,6 @@ export {
   keyboardRootFrameStyle,
   readKeyboardDrawerMetrics,
   readKeyboardVisibleBottom,
-  readCssKeyboardInsetHeight,
   readVirtualKeyboardInset,
   settleKeyboardDrawerMetrics,
   settleVisualKeyboardFrame,

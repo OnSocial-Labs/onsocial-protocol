@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  ensureVirtualKeyboardOverlay,
   keyboardFrameTop,
   keyboardSeatPx,
   readKeyboardDrawerMetrics,
@@ -75,7 +74,6 @@ export function useMeasuredKeyboardSeat(active: boolean, lift: number): number {
 
   useEffect(() => {
     if (!active || lift <= 0 || typeof window === 'undefined') return;
-    ensureVirtualKeyboardOverlay();
     const measure = () => {
       const next = readScreenKeyboardSeat(lift, screenForKeyboardSeat());
       setMeasured((current) =>
@@ -181,11 +179,9 @@ export function useVisualViewportSheetMetrics(
       return;
     }
 
-    ensureVirtualKeyboardOverlay();
     const sync = () => {
       setMetrics((current) => {
         const next = readMetrics();
-        // Brave/Chrome IME geometry is exact — skip suggestion-bar settle.
         if (virtualKeyboardSeatActive()) return next;
         return settleKeyboardDrawerMetrics(current, next);
       });

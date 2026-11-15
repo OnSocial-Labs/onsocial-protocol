@@ -41,8 +41,6 @@ interface VirtualKeyboardLike {
   ): void;
 }
 
-let virtualKeyboardOverlayArmed = false;
-
 function getVirtualKeyboard(): VirtualKeyboardLike | null {
   if (typeof navigator === 'undefined') return null;
   const keyboard = (
@@ -52,44 +50,9 @@ function getVirtualKeyboard(): VirtualKeyboardLike | null {
 }
 
 /**
- * Report whether overlay IME is already active. Do **not** set
- * `overlaysContent = true` — that opts out of browser viewport resize and on
- * Brave leaves keyboard → gap → drawer. Pro apps use
- * `interactive-widget=resizes-content` + visualViewport instead.
- */
-export function ensureVirtualKeyboardOverlay(): boolean {
-  const keyboard = getVirtualKeyboard();
-  if (!keyboard) return false;
-  virtualKeyboardOverlayArmed = Boolean(keyboard.overlaysContent);
-  return virtualKeyboardOverlayArmed;
-}
-
-/**
- * Live `env(keyboard-inset-height)` in CSS px.
- * Chrome docs seat with this. On broken Android VK math it was the inset
- * that still worked while `boundingRect.y` was chrome-offset — Brave tabs
- * can still lag that Chromium fix.
- * @see https://developer.chrome.com/docs/web-platform/virtual-keyboard
- * @see https://www.januschka.com/chromium-android-virtual-keyboard.html
- */
-export function readCssKeyboardInsetHeight(): number {
-  if (typeof document === 'undefined') return 0;
-  const probe = document.createElement('div');
-  probe.style.cssText =
-    'position:fixed;left:0;bottom:0;width:0;height:env(keyboard-inset-height,0px);visibility:hidden;pointer-events:none;';
-  document.documentElement.appendChild(probe);
-  const height = Math.round(probe.getBoundingClientRect().height);
-  probe.remove();
-  return Math.max(0, height);
-}
-
-/**
- * IME height in CSS px from the Virtual Keyboard API when overlaying.
- * Prefer this over visualViewport lift — VV often stops at browser chrome.
- *
- * Do not prefer `env(keyboard-inset-height)` alone — on Brave it can include
- * chrome above the keys, so the hug seats on that strip. Derive inset from
- * the lower key-top edge (see `readKeyboardVisibleBottom`).
+ * IME height when something else already set `overlaysContent`.
+ * The app does not arm overlay mode — root viewport uses
+ * `interactive-widget=resizes-content` and seats from visualViewport.
  */
 export function readVirtualKeyboardInset(): number {
   const keyTop = readKeyboardVisibleBottomFromIme();
@@ -97,46 +60,30 @@ export function readVirtualKeyboardInset(): number {
   return Math.max(0, Math.round(window.innerHeight - keyTop));
 }
 
-/**
- * True when Chromium/Brave IME geometry is the seat source.
- * Those reads are exact — do not run them through suggestion-bar settle
- * (a ~40px first-paint correction looks identical to a suggestion twitch).
- */
+/** True when an active overlay IME rect should skip VV settle. */
 export function virtualKeyboardSeatActive(): boolean {
   return readVirtualKeyboardInset() >= KEYBOARD_VIEWPORT_SLOP_PX;
 }
 
-/**
- * IME key top in layout coordinates, or null when the overlay IME is idle.
- * Take the *lower* edge of `y` and `innerHeight - height` (and CSS inset).
- * Brave often reports a short box that stops on a chrome strip; the lower
- * edge closes through that strip onto the keys. Preferring CSS env alone
- * seated the drawer on the strip.
- */
+/** Overlay IME key top, or null when overlay mode is off / idle. */
 function readKeyboardVisibleBottomFromIme(): number | null {
   const keyboard = getVirtualKeyboard();
   if (!keyboard?.overlaysContent) return null;
   const rect = keyboard.boundingRect;
+  if (!rect || rect.height < KEYBOARD_VIEWPORT_SLOP_PX) return null;
   const tops: number[] = [];
-  if (rect && rect.height >= KEYBOARD_VIEWPORT_SLOP_PX) {
-    if (rect.y > 0) tops.push(Math.round(rect.y));
-    tops.push(Math.round(window.innerHeight - rect.height));
-  }
-  const cssInset = readCssKeyboardInsetHeight();
-  if (cssInset >= KEYBOARD_VIEWPORT_SLOP_PX) {
-    tops.push(Math.round(window.innerHeight - cssInset));
-  }
-  if (tops.length === 0) return null;
+  if (rect.y > 0) tops.push(Math.round(rect.y));
+  tops.push(Math.round(window.innerHeight - rect.height));
   return Math.max(...tops);
 }
 
-/**
- * Visible bottom edge above the keys (layout coordinates).
- * IME lower edge when overlaying; else visualViewport.
- */
+/** Visible bottom above the keys — overlay IME if active, else visualViewport. */
 export function readKeyboardVisibleBottom(): number {
   const imeTop = readKeyboardVisibleBottomFromIme();
-  if (imeTop != null && window.innerHeight - imeTop >= KEYBOARD_VIEWPORT_SLOP_PX) {
+  if (
+    imeTop != null &&
+    window.innerHeight - imeTop >= KEYBOARD_VIEWPORT_SLOP_PX
+  ) {
     return imeTop;
   }
   const viewport = window.visualViewport;
@@ -185,10 +132,7 @@ export function keyboardFrameNeedsSeat(
   return metricsChanged;
 }
 
-/**
- * One seat for drawers and docks.
- * Prefer Virtual Keyboard IME geometry when overlaying; else visualViewport.
- */
+/** One seat for drawers and docks — visualViewport, or overlay IME if active. */
 export function readKeyboardDrawerMetrics(): KeyboardDrawerMetrics {
   if (typeof window === 'undefined') return IDLE;
   const isMobile = window.matchMedia(
@@ -199,7 +143,6 @@ export function readKeyboardDrawerMetrics(): KeyboardDrawerMetrics {
     return { lift: 0, height: isMobile ? window.innerHeight : 0, isMobile };
   }
 
-  ensureVirtualKeyboardOverlay();
   if (virtualKeyboardSeatActive()) {
     const keyTop = readKeyboardVisibleBottom();
     const offsetTop = Math.round(viewport.offsetTop);
@@ -321,10 +264,8 @@ export function visualKeyboardFrame(input: {
   if (fillsVisible) {
     return { top: 0, height: parentHeight };
   }
-  // Hosted sheet already on screen. `visualHeight` from IME metrics is
-  // keyTop - offsetTop — using it alone with top:0 ends the root
-  // `offsetTop` px above the keys (Brave tab URL/caret pan ≈ 40px page
-  // strip). Reach the key top; do not re-apply offsetTop as CSS top.
+  // Hosted card on screen: visualHeight is keyTop - offsetTop. Reach the
+  // key top; do not re-apply offsetTop as CSS top.
   if (parentTop >= -1) {
     const keyTop = visualHeight + offsetTop;
     return { top: 0, height: Math.min(keyTop, parentHeight) };
@@ -376,12 +317,7 @@ export function keyboardFrameTop(input: {
   return Math.max(0, Math.round(input.appliedTop + error));
 }
 
-/**
- * Root box for a drawer while the keyboard is up.
- * Clip to the key top so the backdrop stops with the hug — a full-card root
- * plus `marginBottom: lift` left an opaque scrim strip in the keyboard zone
- * even when the panel seated correctly.
- */
+/** Root box while the keyboard is up — clip to the key top with the hug. */
 export function keyboardRootFrameStyle(
   frame: VisualKeyboardBox
 ): CSSProperties {
@@ -452,12 +388,7 @@ function parentVisualTop(node: HTMLElement): number {
   return parent.getBoundingClientRect().top;
 }
 
-/**
- * Write the box, correct a missed top, then stretch height so the root
- * bottom lands on the IME top. Brave can leave a ~40px paint shortfall when
- * CSS top/height and the painted box disagree — measuring closes it onto
- * the keys (it does not fill under the keys to cover the page).
- */
+/** Write the box, correct top, stretch so the root bottom lands on the keys. */
 function commitVisibleBox(
   node: HTMLElement,
   box: VisualKeyboardBox
@@ -549,11 +480,8 @@ export function useKeyboardDrawerFrame(
 
   useLayoutEffect(() => {
     if (!active || typeof window === 'undefined') return;
-    ensureVirtualKeyboardOverlay();
     const sync = (reason: 'scroll' | 'layout') => {
       const raw = readKeyboardDrawerMetrics();
-      // Virtual Keyboard geometry is the key top — trust every tick. VV
-      // settle still absorbs caret pans and suggestion-bar noise.
       const trustIme = virtualKeyboardSeatActive();
       const settled = trustIme
         ? raw
@@ -565,9 +493,6 @@ export function useKeyboardDrawerFrame(
         settled.isMobile &&
         settled.lift >= KEYBOARD_VIEWPORT_SLOP_PX &&
         Boolean(viewport);
-      // One visible box for the open surface and the page behind it.
-      // A paste pan or a lower field (url keyboard) must not become CSS top.
-      // `settled.height` is IME-aware (Virtual Keyboard) or VV fallback.
       if (keyboardUp && viewport) {
         const fixed =
           !root || window.getComputedStyle(root).position === 'fixed';
@@ -588,8 +513,6 @@ export function useKeyboardDrawerFrame(
               ? proposed
               : settleVisualKeyboardFrame(frameRef.current.box, proposed);
         if (root) {
-          // Clip root (+ backdrop) to the key top. Filling the card and
-          // seating with margin left an opaque scrim strip over the keys.
           nextBox = commitVisibleBox(root, nextBox);
           pinPagesBehindDrawer(root, nextBox);
         }
@@ -652,9 +575,6 @@ export function useKeyboardDrawerFrame(
     const virtualKeyboard = getVirtualKeyboard();
     const onLayout = () => sync('layout');
     const onScroll = () => sync('scroll');
-    // Resize is the keyboard. Scroll is a caret or paste pan. The frame
-    // keeps its top through that pan so the page is not pushed down.
-    // geometrychange is the Chromium IME rect (Brave tab / Chrome).
     const onFocus = () => {
       window.requestAnimationFrame(onLayout);
     };
@@ -722,8 +642,6 @@ export function useKeyboardDrawerFrame(
   const style = useMemo(() => {
     if (mode === 'page') return pageKeyboardLiftStyle(live, liveSeat);
     if (!liveBox) return undefined;
-    // Root (+ backdrop) pin is the seat. Margin stays 0 so we do not paint
-    // an opaque scrim strip under the hug in the keyboard zone.
     return { maxHeight: `${liveBox.height}px`, marginBottom: '0px' };
   }, [live, liveBox, liveSeat, mode]);
   const rootStyle = useMemo(
