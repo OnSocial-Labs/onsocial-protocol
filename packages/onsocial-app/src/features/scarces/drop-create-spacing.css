@@ -25,12 +25,13 @@
 }
 
 /* The reveal clip is always mounted. Gap lives inside it so a closed section sits flush. */
-.drop-create-section:has(> .drop-create-reveal),
-.drop-create-advanced:has(> .drop-create-reveal) {
+.drop-create-section:has(> .create-reveal),
+.drop-create-advanced:has(> .create-reveal) {
   gap: 0;
 }
 
-.drop-create-reveal-body {
+.drop-create-description-reveal .create-reveal-body,
+.drop-create-advanced-reveal .create-reveal-body {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
