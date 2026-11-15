@@ -3686,16 +3686,16 @@ a.os-surface-row,
     /* Dock control box — same on all viewports. Icon hit + primary CTAs lockstep.
        Do not change the bottom offset. */
     --os-dock-height: 3.25rem;
-    /* About format row — dock hit. Compose panel overrides to nav-band. */
+    /* Format strip (About + article compose) — same dock hit. */
     --os-format-strip-height: var(--os-dock-height);
     /* Icon hit box. Glyphs stay on their own size. */
     --os-icon-hit: 3.25rem;
     /* Shared grip bar. Mood finishes that draw their own bar override these. */
     --os-grip-width: 2.625rem;
     --os-grip-thickness: 0.22rem;
-    /* Compact heading / search / compose rails — split from dock (3.25). */
+    /* Compact heading / search / compose Post-tools — split from dock (3.25). */
     --os-nav-band: 2.35rem;
-    /* Compose Post-tools + format rails (About keeps format on dock). */
+    /* Compose Post-tools row only (format strip uses --os-format-strip-height). */
     --os-compose-tools-height: var(--os-nav-band);
     /* About slide-over + compose footer block pad (not commerce 0.45). */
     --os-writing-footer-pad-block: 0.55rem;
@@ -39469,12 +39469,12 @@ a.os-surface-row,
   }
 
   /*
-   * Composer footer is in-flow. Rails = nav-band (About format stays dock).
-   * Body only needs writing-block breath + caret-drop scroll-padding — do not
-   * re-clear the in-flow chrome heights.
+   * Composer footer is in-flow. Format strip = dock (same as About);
+   * Post tools = nav-band. Body only needs writing-block breath + caret-drop
+   * scroll-padding — do not re-clear the in-flow chrome heights.
    */
   .guild-composer-sheet-panel {
-    --os-format-strip-height: var(--os-nav-band, 2.35rem);
+    --os-format-strip-height: var(--os-dock-height, 3.25rem);
     --os-compose-tools-height: var(--os-nav-band, 2.35rem);
   }
 
@@ -39578,8 +39578,8 @@ a.os-surface-row,
   }
 
   /*
-   * Compose rails — `--os-writing-footer-pad-block` like About footer-inner;
-   * equal nav-band rows. Format fill off (in-flow). Keyboard: flush (pad 0).
+   * Compose rails — `--os-writing-footer-pad-block` like About footer-inner.
+   * Format fill off (in-flow). Keyboard: flush (pad 0).
    */
   .guild-composer-sheet-footer {
     display: flex;
@@ -39606,11 +39606,7 @@ a.os-surface-row,
 
   .guild-composer-sheet-footer > .profile-about-edit-format-toolbar,
   .guild-composer-sheet-footer > .guild-composer-toolbar {
-    flex: 0 0 var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
     box-sizing: border-box;
-    height: var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
-    min-height: var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
-    max-height: var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
     overflow: hidden;
     /* Same opaque seat as About — caret/text fade under the rail, not through. */
     background: var(--bg, rgb(var(--bg-rgb)));
@@ -39618,21 +39614,20 @@ a.os-surface-row,
     z-index: 1;
   }
 
-  .guild-composer-sheet-footer
-    .profile-about-edit-format-toolbar
-    .account-editor-bio-tool,
-  .guild-composer-sheet-footer
-    .profile-about-edit-format-toolbar
-    .account-editor-bio-list {
-    width: var(--os-format-strip-height, var(--os-nav-band, 2.35rem));
-    min-width: var(--os-format-strip-height, var(--os-nav-band, 2.35rem));
-    height: var(--os-format-strip-height, var(--os-nav-band, 2.35rem));
-    font-size: 1rem;
+  /* Format strip — dock hit, same icons as Edit About. */
+  .guild-composer-sheet-footer > .profile-about-edit-format-toolbar {
+    flex: 0 0 var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
+    height: var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
+    min-height: var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
+    max-height: var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
   }
 
-  .guild-composer-sheet-footer .profile-align-tool-icon {
-    width: 1.2rem;
-    height: 1.2rem;
+  /* Post tools — nav-band rail under the format strip. */
+  .guild-composer-sheet-footer > .guild-composer-toolbar {
+    flex: 0 0 var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
+    height: var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
+    min-height: var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
+    max-height: var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
   }
 
   .guild-composer-toolbar {
@@ -39740,7 +39735,7 @@ a.os-surface-row,
     height: 1.2rem;
   }
 
-  /* Nav-band hit — same rail as the markdown strip above. */
+  /* Nav-band hit — Post tools under the dock-sized format strip. */
   .guild-composer-toolbar .guild-composer-tool {
     flex-basis: var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
     width: var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));

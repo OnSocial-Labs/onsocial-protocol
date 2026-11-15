@@ -1,11 +1,24 @@
 /**
  * Document essay / article align. Host sets `data-about-align`
  * (`left` | `center` | `justify`) on the writing surface — not on a
- * wrapper that also holds the title. Left is the default (no rule).
- * Title and code stay start outside these selectors.
+ * wrapper that also holds the title. Left is explicit so a prior
+ * center/justify cannot stick via inheritance. Title stays outside.
  */
 
 /* TipTap compose / About edit + plain textarea preview */
+[data-about-align='left'] :is(
+  .account-editor-bio--wysiwyg,
+  .account-editor-bio--wysiwyg p,
+  .account-editor-bio--wysiwyg h3,
+  .account-editor-bio--wysiwyg li,
+  .ProseMirror,
+  .guild-composer-input,
+  .guild-composer-input-backdrop
+) {
+  text-align: start;
+  text-align-last: auto;
+}
+
 [data-about-align='center'] :is(
   .account-editor-bio--wysiwyg,
   .account-editor-bio--wysiwyg p,
@@ -16,6 +29,7 @@
   .guild-composer-input-backdrop
 ) {
   text-align: center;
+  text-align-last: auto;
 }
 
 [data-about-align='justify'] :is(
@@ -31,6 +45,15 @@
   text-align-last: start;
 }
 
+[data-about-align='left'] :is(
+  .account-editor-bio--wysiwyg ul,
+  .account-editor-bio--wysiwyg ol
+) {
+  list-style-position: outside;
+  padding-inline-start: 1.25rem;
+  text-align: start;
+}
+
 [data-about-align='center'] :is(
   .account-editor-bio--wysiwyg ul,
   .account-editor-bio--wysiwyg ol
@@ -41,8 +64,18 @@
 }
 
 /* Writing drop / issue / book markdown reader */
+.collection-writing-markdown[data-about-align='left'] :is(p, h1, h2, h3, h4, li) {
+  text-align: start;
+  text-align-last: auto;
+}
+
+.collection-writing-markdown[data-about-align='left'] :is(ul, ol) {
+  list-style-position: outside;
+}
+
 .collection-writing-markdown[data-about-align='center'] :is(p, h1, h2, h3, h4, li) {
   text-align: center;
+  text-align-last: auto;
 }
 
 .collection-writing-markdown[data-about-align='center'] :is(ul, ol) {
@@ -56,9 +89,22 @@
 }
 
 /* Live About / Writing shelf essay blocks */
+.portfolio-about-rest[data-about-align='left']
+  :is(.portfolio-about-bio, .portfolio-about-heading, .portfolio-about-list) {
+  text-align: start;
+  text-align-last: auto;
+  margin-inline: 0;
+}
+
+.portfolio-about-rest[data-about-align='left'] .portfolio-about-list {
+  display: block;
+  text-align: start;
+}
+
 .portfolio-about-rest[data-about-align='center']
   :is(.portfolio-about-bio, .portfolio-about-heading, .portfolio-about-list) {
   text-align: center;
+  text-align-last: auto;
   margin-inline: auto;
 }
 
@@ -71,6 +117,7 @@
   :is(.portfolio-about-bio, .portfolio-about-heading, .portfolio-about-list) {
   text-align: justify;
   text-align-last: start;
+  margin-inline: 0;
 }
 
 /* Code / snippets never inherit essay align */

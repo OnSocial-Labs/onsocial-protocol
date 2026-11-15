@@ -1,6 +1,11 @@
 'use client';
 
-import { useCallback, type FocusEventHandler } from 'react';
+import {
+  useCallback,
+  useEffect,
+  type FocusEventHandler,
+  type RefObject,
+} from 'react';
 
 const MOBILE_MAX_WIDTH_PX = 767;
 const KEYBOARD_SCROLL_RETRY_MS = 280;
@@ -160,17 +165,22 @@ function focusClientRect(element: HTMLElement): {
 
   if (element.isContentEditable && typeof window.getSelection === 'function') {
     const selection = window.getSelection();
-    const node = selection?.anchorNode;
+    const node = selection?.anchorNode ?? selection?.focusNode;
     if (
       selection &&
       selection.rangeCount > 0 &&
       node &&
       element.contains(node)
     ) {
-      const range = selection.getRangeAt(0);
-      const caret = range.getClientRects()[0] ?? range.getBoundingClientRect();
-      if (caret && caret.height > 0) {
-        return { top: caret.top, bottom: caret.bottom };
+      // Full range — tear-drop rides the end, not the first client rect.
+      const bounds = selection.getRangeAt(0).getBoundingClientRect();
+      if (bounds.width > 0 || bounds.height > 0) {
+        const line =
+          parseFloat(window.getComputedStyle(element).lineHeight) || 22;
+        return {
+          top: bounds.top,
+          bottom: bounds.height > 0 ? bounds.bottom : bounds.top + line,
+        };
       }
     }
   }
@@ -179,10 +189,6 @@ function focusClientRect(element: HTMLElement): {
   return { top: rect.top, bottom: rect.bottom };
 }
 
-/**
- * Top of the lifted Save / format bar, so the caret clears that chrome
- * instead of the layout bottom sitting under the keyboard.
- */
 /** Bottom of the overlay header, so a focused line does not sit on the screen edge. */
 function overlayHeaderBottom(element: HTMLElement): number | null {
   if (typeof element.closest !== 'function') return null;
@@ -197,28 +203,43 @@ function overlayHeaderBottom(element: HTMLElement): number | null {
   return rect.bottom;
 }
 
-function keyboardChromeTop(element: HTMLElement): number | null {
+const WRITING_FOOTER_SELECTORS = [
+  '.guild-composer-sheet-footer',
+  '.glass-sheet-footer',
+  '.profile-edit-sheet-footer',
+  '.guild-edit-sheet-footer',
+  '.hub-manage-sheet-footer',
+  '.os-app-screen-footer',
+  '.os-sheet-footer',
+].join(', ');
+
+/**
+ * Top of the absolute format / Save bar. About's strip overlays the body
+ * scroller even when the keyboard class is off — fold against that chrome
+ * whenever the writing footer is mounted.
+ */
+function writingChromeTop(element: HTMLElement): number | null {
   if (typeof element.closest !== 'function') return null;
-  const host = element.closest('.is-keyboard-open');
+  const host =
+    element.closest('.is-keyboard-open') ??
+    element.closest('.profile-about-edit-slide[data-screen-footer="true"]');
   if (!host || typeof host.querySelector !== 'function') return null;
-  const footer = host.querySelector(
-    [
-      '.guild-composer-sheet-footer',
-      '.glass-sheet-footer',
-      '.profile-edit-sheet-footer',
-      '.guild-edit-sheet-footer',
-      '.hub-manage-sheet-footer',
-      '.os-app-screen-footer',
-      '.os-sheet-footer',
-    ].join(', ')
-  );
+  const footer = host.querySelector(WRITING_FOOTER_SELECTORS);
   if (!footer || !('getBoundingClientRect' in footer)) return null;
   const rect = (footer as HTMLElement).getBoundingClientRect();
   if (rect.height < 1) return null;
   return rect.top;
 }
 
-export function scrollMobileFieldIntoView(element: HTMLElement | null) {
+export type ScrollMobileFieldOptions = {
+  /** Retry after keyboard settle (default true). Guards pass false. */
+  retry?: boolean;
+};
+
+export function scrollMobileFieldIntoView(
+  element: HTMLElement | null,
+  options?: ScrollMobileFieldOptions
+) {
   if (!element || typeof window === 'undefined') {
     return;
   }
@@ -236,7 +257,7 @@ export function scrollMobileFieldIntoView(element: HTMLElement | null) {
       const viewBottom = viewport
         ? viewport.offsetTop + viewport.height
         : window.innerHeight;
-      const chromeTop = keyboardChromeTop(element);
+      const chromeTop = writingChromeTop(element);
       const headerBottom = overlayHeaderBottom(element);
       const topLimit =
         Math.max(scrollerRect.top, headerBottom ?? scrollerRect.top) + 12;
@@ -282,7 +303,54 @@ export function scrollMobileFieldIntoView(element: HTMLElement | null) {
   };
 
   window.requestAnimationFrame(run);
-  window.setTimeout(run, KEYBOARD_SCROLL_RETRY_MS);
+  if (options?.retry !== false) {
+    window.setTimeout(run, KEYBOARD_SCROLL_RETRY_MS);
+  }
+}
+
+/**
+ * Absolute writing footers (About format strip) overlay the scroller — focus
+ * alone cannot keep the tear-drop clear while the user scrolls or drags.
+ * Compose's in-flow footer does not need this; field-local keepComposerCaret
+ * is enough there.
+ */
+export function useWritingCaretChromeGuard(
+  scrollerRef: RefObject<HTMLElement | null>,
+  enabled: boolean
+) {
+  useEffect(() => {
+    if (!enabled) return;
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+
+    let raf = 0;
+    const nudge = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(() => {
+        raf = 0;
+        const active = document.activeElement;
+        if (!(active instanceof HTMLElement) || !scroller.contains(active)) {
+          return;
+        }
+        if (
+          !active.isContentEditable &&
+          active.tagName !== 'TEXTAREA' &&
+          active.tagName !== 'INPUT'
+        ) {
+          return;
+        }
+        scrollMobileFieldIntoView(active, { retry: false });
+      });
+    };
+
+    document.addEventListener('selectionchange', nudge);
+    scroller.addEventListener('scroll', nudge, { passive: true });
+    return () => {
+      document.removeEventListener('selectionchange', nudge);
+      scroller.removeEventListener('scroll', nudge);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
+  }, [enabled, scrollerRef]);
 }
 
 /** Focus a compose field and scroll it above the mobile keyboard. */
