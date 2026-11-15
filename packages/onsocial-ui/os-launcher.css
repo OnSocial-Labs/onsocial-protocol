@@ -236,7 +236,6 @@
   background: transparent;
   touch-action: none;
   cursor: grab;
-  -webkit-tap-highlight-color: transparent;
 }
 
 .os-launcher-drag:active {
@@ -366,7 +365,6 @@
   font: inherit;
   text-decoration: none;
   cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
 }
 
 .os-launcher-item-icon-shell {

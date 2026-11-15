@@ -8,7 +8,7 @@ alwaysApply: true
 
 `pnpm check:push` (`scripts/pre-push-check.mjs`, also `.husky/pre-push`) runs lint/format/build/test for **directly changed** monitored packages, plus indexer checks when those paths change. Cloud agents also run **App Playwright** when App CI paths change (`CURSOR_AGENT=1` or `PRE_PUSH_E2E=1`) — same production `next start` job as GitHub OnSocial App CI. Laptop husky does not — that suite is what painted `main` red when only `check` was green.
 
-**Agents:** follow [cloud-quality-gates.mdc](cloud-quality-gates.mdc) — run `check:push` in **cloud**, then push with `--no-verify` only after that gate is green. Do not thrash the laptop with a second full suite.
+**Agents:** follow [cloud-quality-gates.mdc](cloud-quality-gates.mdc) — ordinary feature work is **implement → push → PR / GitHub CI + preview**. On merge: ensure PR checks are green, then merge — do not re-run `check:push`. Use cloud `check:push` only when asked, or when landing to `main` without PR CI. Do not thrash the laptop with a full suite.
 
 ## When checks apply
 

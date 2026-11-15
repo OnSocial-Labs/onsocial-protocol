@@ -2473,7 +2473,7 @@ button.market-listing-title-link {
 
 .guild-hero-action-icon:focus-visible:not(:disabled) {
   outline: none;
-  box-shadow: var(--os-focus-ring, 0 0 0 1px rgb(var(--fg-rgb) / 0.08));
+  box-shadow: 0 0 0 1px var(--os-surface-ring, rgb(var(--fg-rgb) / 0.08));
 }
 
 .guild-hero-action-icon:disabled {
@@ -9722,7 +9722,6 @@ a.os-surface-row,
     font-size: 1em;
     line-height: 0;
     pointer-events: auto;
-    -webkit-tap-highlight-color: transparent;
   }
 
   .protocol-identity-mark--guardian,
@@ -16024,7 +16023,6 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.78);
     cursor: pointer;
     touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
     transition: color 180ms ease;
   }
 
@@ -16170,7 +16168,6 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.78);
     cursor: pointer;
     touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
     transition: color 180ms ease;
   }
 
@@ -16206,7 +16203,6 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.82);
     cursor: pointer;
     touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
     transition: color 180ms ease;
   }
 
@@ -16329,7 +16325,6 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.78);
     cursor: pointer;
     touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
     transition: color 180ms ease;
   }
 
@@ -16350,7 +16345,6 @@ a.os-surface-row,
     color: inherit;
     cursor: pointer;
     touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
   }
 
   .portfolio-summon-now-playing:focus-visible {
@@ -16718,7 +16712,6 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.58);
     cursor: pointer;
     touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
     transition: color 180ms ease;
   }
 
@@ -16761,7 +16754,6 @@ a.os-surface-row,
     background: transparent;
     cursor: pointer;
     touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
   }
 
   .os-write-dock-send.is-pending:disabled {
@@ -16846,7 +16838,6 @@ a.os-surface-row,
     padding: 0;
     cursor: pointer;
     touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
   }
 
   .os-write-dock-preview-remove {
@@ -24042,7 +24033,6 @@ a.os-surface-row,
     cursor: pointer;
     text-decoration: none;
     touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
   }
 
   .post-card .post-card-show-more:focus-visible,
@@ -24165,7 +24155,6 @@ a.os-surface-row,
     text-decoration: underline;
     text-underline-offset: 0.12em;
     touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
   }
 
   .post-sensitive-gate-reveal:focus-visible {
@@ -33526,7 +33515,6 @@ a.os-surface-row,
     cursor: pointer;
     appearance: none;
     font-size: var(--os-post-body-size, 1rem);
-    -webkit-tap-highlight-color: transparent;
     pointer-events: auto;
     position: relative;
   }
@@ -39330,7 +39318,6 @@ a.os-surface-row,
       calc(var(--os-avatar-feed, 2.5rem) + var(--os-media-copy-gap, 0.55rem));
     /* Size is the @id. Weight/color: feed-meta.css (same as Show more). */
     text-decoration: none;
-    -webkit-tap-highlight-color: transparent;
   }
 
   .post-thread-more:focus-visible {

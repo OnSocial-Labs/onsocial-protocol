@@ -8,6 +8,7 @@
  * Text tokens:     TEMP trial — # / @ / $ / links → green. Keep app CSS aligned.
  *
  * Theme: Portal uses `.dark` on <html>; OnPage uses `data-theme="light|dark"`.
+ * Press/focus: tap-highlight + mouse outline kill live unlayered at file end.
  */
 
 @layer tokens {
@@ -256,4 +257,18 @@
     --portal-red-shadow: var(--protocol-red-shadow);
     --portal-red-glow: var(--protocol-red-glow);
   }
+}
+
+/*
+ * Press chrome (unlayered — wins over Tailwind / token layers).
+ * Square flash on icon taps = WebKit tap highlight. Blue UA outline on
+ * mouse/touch = :focus without :focus-visible. Keyboard rings stay on
+ * :focus-visible (quiet chrome / --os-focus-ring on CTAs).
+ */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
 }
