@@ -1,3 +1,5 @@
+'use client';
+
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { OnSocialMark, OsAppChromePage, OsAppChromeToolbarRail } from '@onsocial/ui';
