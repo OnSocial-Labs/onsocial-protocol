@@ -1,5 +1,5 @@
 ---
-description: Feature PRs use GitHub CI/preview; check:push only before main; local detached app preview
+description: Feature PRs use GitHub CI/preview; merge when PR checks green; local detached app preview
 alwaysApply: true
 ---
 
@@ -16,29 +16,35 @@ For ordinary feature work:
 
 Do **not** run full `pnpm check:push` before every feature PR. Prefer the faster PR → CI → preview loop.
 
+## Merge (locked)
+
+When the user asks to **merge**:
+
+1. Confirm the PR’s **GitHub checks are green** (same CI that already ran on the branch)
+2. Merge the PR
+3. Do **not** re-run `pnpm check:push` here — that duplicates CI and slows merge
+
+If checks are red or still running: wait / fix / re-push, then merge when green. Only run cloud `check:push` on merge when the user explicitly asks for an extra gate, or when landing to `main` **without** a PR that already ran those checks.
+
 ## When to run `pnpm check:push` (cloud)
 
-Run the cloud gate **before promoting / pushing to `main`**, or when the user explicitly asks for a pre-merge gate:
+Rare. Use it when:
 
-1. Run in a **cloud agent** (or cloud shell), **not** a full local suite that thrashing WSL.
-2. Command of record: `pnpm check:push` from repo root (same as husky).
-   - Affected **pnpm packages** only (`packages/onsocial-*` paths in the push diff).
-   - **App Playwright** when App CI paths change (`packages/onsocial-app|ui|sdk|text-card|rpc`, lockfile, or `onsocial-app-ci.yml`) **and** this is a cloud agent (`CURSOR_AGENT=1`) or `PRE_PUSH_E2E=1`. Same job as GitHub **OnSocial App CI / Playwright** (`CI=true`, `next start`). Laptop husky skips it. `PRE_PUSH_E2E=0` skips even in cloud.
-   - **Indexer SQL** when `.sql` / `validate_sql.sh` / SQL fixtures change → Docker Postgres schema + upgrade validation.
-   - **Indexer sink** when `indexers/chain-index/src/**`, `golden_db_fixtures.json`, `check_db_schema_parity.py`, or Cargo lock/manifest change → `check_db_schema_parity.py` + `cargo test golden_db` (catches missing golden fixtures that SQL-only validate misses).
-   - Unpushed local commits are **not** on `origin` yet: push a short-lived `ci/cloud-gate-*` branch first (`--no-verify` only to transfer), run `PRE_PUSH_UPSTREAM=origin/main pnpm check:push` on that branch in cloud (Playwright included for app chrome), then promote to `main`.
-   - App `next build` in cloud needs `ONSOCIAL_API_KEY` set (use a non-secret placeholder like `cloud-check-placeholder` if no secret is available; SSR fetches already soft-catch).
-3. Shared-lib edits (`rpc` / `sdk` / `text-card` / `ui`): use `PRE_PUSH_DEPENDENTS=1 pnpm check:push` in cloud when dependents should be covered before `main`.
-4. Skip package/indexer checks for docs-only, contract-only, or infra-only diffs outside those paths (contracts / relayer stay their own flows).
+- The user explicitly asks for a cloud pre-gate
+- Promoting / pushing to `main` **outside** a PR whose GitHub CI already covered the monitored paths
+- Diagnosing a failure before the next PR push (optional; fixing from CI logs is fine)
 
-## Push to `main` after cloud green
+Command of record when used: `pnpm check:push` from repo root (same as husky).
 
-1. Cloud `check:push` must be green (or N/A for skipped paths) before `main`.
-2. Then `git push` to `main` (or merge the green PR).
-3. **Skip local husky** for that push with `--no-verify` **only** because cloud already ran the same `check:push` (avoids double suite / PC freeze). Say so briefly when pushing.
-4. If cloud fails: fix, re-run cloud check, then push. Never `--no-verify` onto `main` after a failed or skipped cloud gate for monitored paths.
+- Affected **pnpm packages** only (`packages/onsocial-*` paths in the push diff).
+- **App Playwright** when App CI paths change (`packages/onsocial-app|ui|sdk|text-card|rpc`, lockfile, or `onsocial-app-ci.yml`) **and** this is a cloud agent (`CURSOR_AGENT=1`) or `PRE_PUSH_E2E=1`. Same job as GitHub **OnSocial App CI / Playwright** (`CI=true`, `next start`). Laptop husky skips it. `PRE_PUSH_E2E=0` skips even in cloud.
+- **Indexer SQL** when `.sql` / `validate_sql.sh` / SQL fixtures change → Docker Postgres schema + upgrade validation.
+- **Indexer sink** when `indexers/chain-index/src/**`, `golden_db_fixtures.json`, `check_db_schema_parity.py`, or Cargo lock/manifest change → `check_db_schema_parity.py` + `cargo test golden_db`.
+- App `next build` in cloud needs `ONSOCIAL_API_KEY` set (use a non-secret placeholder like `cloud-check-placeholder` if no secret is available; SSR fetches already soft-catch).
+- Shared-lib edits (`rpc` / `sdk` / `text-card` / `ui`): `PRE_PUSH_DEPENDENTS=1` when dependents should be covered in that rare cloud run.
+- Skip package/indexer checks for docs-only, contract-only, or infra-only diffs outside those paths (contracts / relayer stay their own flows).
 
-Feature-branch pushes may use `--no-verify` so CI on the PR owns the gate.
+If a cloud `check:push` was required for a direct `main` push: push with `--no-verify` only after that gate is green (avoids double suite / PC freeze). Feature-branch pushes may always use `--no-verify` so CI on the PR owns the gate.
 
 ## Preview
 
@@ -50,9 +56,10 @@ Feature-branch pushes may use `--no-verify` so CI on the PR owns the gate.
 
 ## Do not
 
+- Re-run `check:push` when the user asks to merge a PR whose GitHub CI is already green.
 - Block every feature PR on a full cloud `check:push` when GitHub CI will run the same paths.
 - Run full local `pnpm --filter @onsocial/app run check` or local `pnpm check:push` as the default pre-push (laptop dies).
-- Double-run: local full check **and** cloud **and** husky for the same change.
+- Double-run: local full check **and** cloud **and** husky / PR CI for the same change.
 - Put contract / relayer / non-substreams Docker work into this pnpm cloud gate unless the user asks.
 - Assume cloud VM edits appear on local `localhost` without `git pull` / checkout of that branch.
 
