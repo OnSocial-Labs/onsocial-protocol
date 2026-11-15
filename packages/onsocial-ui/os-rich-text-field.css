@@ -199,13 +199,18 @@
   background: var(--bg, rgb(var(--bg-rgb)));
 }
 
-.profile-about-edit-format-tools {
+.profile-about-edit-format-tools,
+.profile-about-edit-align-tools {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
   justify-content: flex-start;
   gap: 0;
   min-height: var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
+}
+
+.profile-about-edit-align-tools {
+  margin-left: auto;
 }
 
 .profile-about-edit-format-toolbar .account-editor-bio-tool,
@@ -234,6 +239,13 @@
   margin-left: 0;
 }
 
+.profile-align-tool-icon {
+  display: block;
+  width: 1.36rem;
+  height: 1.36rem;
+  flex-shrink: 0;
+}
+
 .profile-about-edit-format-toolbar .account-editor-bio-tool.is-active {
   background: transparent;
   color: rgb(var(--fg-rgb) / 0.96);
@@ -250,5 +262,6 @@
 .profile-about-edit-format-toolbar .account-editor-bio-chrome,
 .profile-about-edit-format-toolbar .account-editor-bio-chrome--portal {
   justify-content: flex-start;
+  gap: 0;
   margin: 0;
 }
