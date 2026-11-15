@@ -99,7 +99,8 @@ interface AppWalletContextType {
   }) => Promise<SigningWallet>;
   /**
    * Re-open the connector with options (e.g. addFunctionCallKey) — same
-   * calm wallet sheet as connect's session-key step.
+   * guarded picker as connect. A different account throws
+   * WalletConnectedReviewError before session polling.
    */
   connectWithOptions: (
     options: NearConnector_ConnectOptions
@@ -318,6 +319,18 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
   const pickerGenerationRef = useRef(0);
   /** Wallet accepted by the latest attempt. Stale sign-ins belong to another. */
   const acceptedWalletRef = useRef<NearWalletBase | null>(null);
+  /**
+   * Latest guarded picker. Session bootstrap calls this so its identity
+   * stays stable and the wallet listener is not torn down on each account.
+   */
+  const connectForAcceptedAccountRef = useRef<
+    (
+      options?: NearConnector_ConnectOptions,
+      expectedAccountId?: string | null
+    ) => Promise<NearWalletBase>
+  >(async () => {
+    throw new Error('Wallet is still loading. Try again in a moment.');
+  });
   const network = ACTIVE_NEAR_NETWORK;
 
   const clearSessionFeedback = useCallback(() => {
@@ -362,7 +375,8 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
         try {
           const ready = await bootstrapAppSocialSession(
             nextAccountId,
-            (options) => connector.connect(options),
+            (options) =>
+              connectForAcceptedAccountRef.current(options, nextAccountId),
             {
               onFunding: () => {
                 prompted = true;
@@ -386,6 +400,13 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
           }
           return ready;
         } catch (error) {
+          if (
+            error instanceof WalletConnectedReviewError ||
+            error instanceof WalletPickerTimeoutError
+          ) {
+            setHasSocialSession(false);
+            throw error;
+          }
           if (isWalletUserCancellation(error)) {
             clearSessionFeedback();
           } else {
@@ -572,7 +593,9 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
               msg: WALLET_PICKER_TIMEOUT_MESSAGE,
             });
           }
-          rejectPromise(new WalletPickerTimeoutError(WALLET_PICKER_TIMEOUT_MESSAGE));
+          rejectPromise(
+            new WalletPickerTimeoutError(WALLET_PICKER_TIMEOUT_MESSAGE)
+          );
         }, WALLET_PICKER_TIMEOUT_MS);
 
         void takeConnectedAccount(
@@ -617,6 +640,37 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     },
     [network]
   );
+
+  const connectForAcceptedAccount = useCallback(
+    async (
+      options?: NearConnector_ConnectOptions,
+      expectedAccountId?: string | null
+    ): Promise<NearWalletBase> => {
+      const preferredAccountId =
+        expectedAccountId ?? resolvedAccountId ?? readStoredWalletAccountId();
+      const previousWallet = acceptedWalletRef.current;
+      const { wallet, accountId: pickedAccountId } = await openPicker(
+        preferredAccountId,
+        options
+      );
+      if (
+        preferredAccountId &&
+        !sameWalletAccount(preferredAccountId, pickedAccountId)
+      ) {
+        acceptedWalletRef.current = previousWallet;
+        throw new WalletConnectedReviewError(pickedAccountId);
+      }
+      acceptedWalletRef.current = wallet;
+      setWallet(wallet);
+      if (!preferredAccountId) {
+        setAccountId(pickedAccountId);
+        writeStoredWalletAccountId(pickedAccountId);
+      }
+      return wallet;
+    },
+    [openPicker, resolvedAccountId]
+  );
+  connectForAcceptedAccountRef.current = connectForAcceptedAccount;
 
   const connect = useCallback(async () => {
     const connector = connectorRef.current;
@@ -687,7 +741,10 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
 
         await ensureSocialSession(nextAccountId);
       } catch (error) {
-        if (error instanceof WalletPickerTimeoutError) {
+        if (
+          error instanceof WalletPickerTimeoutError ||
+          error instanceof WalletConnectedReviewError
+        ) {
           return;
         }
         if (bundled) {
@@ -755,7 +812,12 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       await ensureSocialSession(nextAccountId);
     })()
       .catch((error) => {
-        if (isWalletUserCancellation(error)) return;
+        if (
+          error instanceof WalletConnectedReviewError ||
+          isWalletUserCancellation(error)
+        ) {
+          return;
+        }
         throw error;
       })
       .finally(() => {
@@ -786,72 +848,74 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     clearAppGatewayAuth(resolvedAccountId);
   }, [resolvedAccountId]);
 
-  const getSigningWallet = useCallback(async (opts?: {
-    reviewAfterPicker?: boolean;
-  }): Promise<SigningWallet> => {
-    const e2eAccount = readE2eWalletAccountId();
-    if (
-      e2eAccount &&
-      (readE2eMockSignerEnabled() || readE2eAuthSessionEnabled())
-    ) {
-      return {
-        wallet: createE2eMockWallet(e2eAccount),
-        accountId: e2eAccount,
-      };
-    }
-
-    const connector = connectorRef.current;
-    if (!connector) {
-      throw new Error('Wallet is still loading. Try again in a moment.');
-    }
-
-    // A call that started during restore still throws, even if restore
-    // finishes while this attempt is waiting.
-    const initDone = walletInitDoneRef.current;
-    const preferredAccountId = resolvedAccountId ?? readStoredWalletAccountId();
-
-    try {
-      const { wallet: connectedWallet, accounts } =
-        await connector.getConnectedWallet();
-      const pickedAccountId = pickRestoredAccountId(
-        accounts,
-        preferredAccountId
-      );
-      if (connectedWallet && pickedAccountId) {
-        acceptedWalletRef.current = connectedWallet;
-        setWallet(connectedWallet);
-        setAccountId(pickedAccountId);
-        writeStoredWalletAccountId(pickedAccountId);
-        if (
-          preferredAccountId &&
-          !sameWalletAccount(preferredAccountId, pickedAccountId)
-        ) {
-          throw new WalletConnectedReviewError(pickedAccountId);
-        }
-        return { wallet: connectedWallet, accountId: pickedAccountId };
+  const getSigningWallet = useCallback(
+    async (opts?: { reviewAfterPicker?: boolean }): Promise<SigningWallet> => {
+      const e2eAccount = readE2eWalletAccountId();
+      if (
+        e2eAccount &&
+        (readE2eMockSignerEnabled() || readE2eAuthSessionEnabled())
+      ) {
+        return {
+          wallet: createE2eMockWallet(e2eAccount),
+          accountId: e2eAccount,
+        };
       }
-    } catch (error) {
-      if (error instanceof WalletConnectedReviewError) throw error;
-      if (!initDone) {
+
+      const connector = connectorRef.current;
+      if (!connector) {
         throw new Error('Wallet is still loading. Try again in a moment.');
       }
-    }
 
-    const { wallet: connectedWallet, accountId: pickedAccountId } =
-      await openPicker(preferredAccountId);
-    acceptedWalletRef.current = connectedWallet;
-    setWallet(connectedWallet);
-    setAccountId(pickedAccountId);
-    writeStoredWalletAccountId(pickedAccountId);
-    const mismatched = Boolean(
-      preferredAccountId &&
-        !sameWalletAccount(preferredAccountId, pickedAccountId)
-    );
-    if (opts?.reviewAfterPicker || mismatched) {
-      throw new WalletConnectedReviewError(pickedAccountId);
-    }
-    return { wallet: connectedWallet, accountId: pickedAccountId };
-  }, [resolvedAccountId, openPicker]);
+      // A call that started during restore still throws, even if restore
+      // finishes while this attempt is waiting.
+      const initDone = walletInitDoneRef.current;
+      const preferredAccountId =
+        resolvedAccountId ?? readStoredWalletAccountId();
+
+      try {
+        const { wallet: connectedWallet, accounts } =
+          await connector.getConnectedWallet();
+        const pickedAccountId = pickRestoredAccountId(
+          accounts,
+          preferredAccountId
+        );
+        if (connectedWallet && pickedAccountId) {
+          acceptedWalletRef.current = connectedWallet;
+          setWallet(connectedWallet);
+          setAccountId(pickedAccountId);
+          writeStoredWalletAccountId(pickedAccountId);
+          if (
+            preferredAccountId &&
+            !sameWalletAccount(preferredAccountId, pickedAccountId)
+          ) {
+            throw new WalletConnectedReviewError(pickedAccountId);
+          }
+          return { wallet: connectedWallet, accountId: pickedAccountId };
+        }
+      } catch (error) {
+        if (error instanceof WalletConnectedReviewError) throw error;
+        if (!initDone) {
+          throw new Error('Wallet is still loading. Try again in a moment.');
+        }
+      }
+
+      const { wallet: connectedWallet, accountId: pickedAccountId } =
+        await openPicker(preferredAccountId);
+      acceptedWalletRef.current = connectedWallet;
+      setWallet(connectedWallet);
+      setAccountId(pickedAccountId);
+      writeStoredWalletAccountId(pickedAccountId);
+      const mismatched = Boolean(
+        preferredAccountId &&
+          !sameWalletAccount(preferredAccountId, pickedAccountId)
+      );
+      if (opts?.reviewAfterPicker || mismatched) {
+        throw new WalletConnectedReviewError(pickedAccountId);
+      }
+      return { wallet: connectedWallet, accountId: pickedAccountId };
+    },
+    [resolvedAccountId, openPicker]
+  );
 
   const resumeSocialSession = useCallback(
     async (options?: {
@@ -883,11 +947,11 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
           ) {
             setIsBootstrappingSession(true);
             try {
-              const connector = connectorRef.current;
-              if (!connector) return false;
+              if (!connectorRef.current) return false;
               const ready = await renewAppSocialSession({
                 accountId: nextAccountId,
-                connectWithOptions: (options) => connector.connect(options),
+                connectWithOptions: (options) =>
+                  connectForAcceptedAccount(options, nextAccountId),
               });
               setHasSocialSession(ready);
               if (ready) {
@@ -899,6 +963,10 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
             }
           }
         } catch (error) {
+          if (error instanceof WalletConnectedReviewError) {
+            setHasSocialSession(false);
+            throw error;
+          }
           if (!isWalletUserCancellation(error)) {
             console.warn('OnSocial session renew failed', error);
           }
@@ -914,18 +982,13 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
 
       return ensureSocialSession(nextAccountId);
     },
-    [resolvedAccountId, ensureSocialSession]
+    [connectForAcceptedAccount, resolvedAccountId, ensureSocialSession]
   );
 
   const connectWithOptions = useCallback(
-    async (options: NearConnector_ConnectOptions) => {
-      const connector = connectorRef.current;
-      if (!connector) {
-        throw new Error('Wallet is still loading. Try again in a moment.');
-      }
-      return connector.connect(options);
-    },
-    []
+    (options: NearConnector_ConnectOptions) =>
+      connectForAcceptedAccount(options),
+    [connectForAcceptedAccount]
   );
 
   return (

@@ -8,7 +8,10 @@ import {
   standingIdentityAccountCopy,
 } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import {
+  useAppWallet,
+  WalletConnectedReviewError,
+} from '@/contexts/app-wallet-context';
 import {
   clearAppSocialSession,
   getAppSocialSessionLifecycle,
@@ -138,6 +141,10 @@ export function AppAccessSheet({
       });
       await refreshStatus();
     } catch (error) {
+      if (error instanceof WalletConnectedReviewError) {
+        setTxResult({ type: 'info', msg: error.message });
+        return;
+      }
       if (isWalletUserCancellation(error)) {
         setTxResult(null);
         return;
