@@ -39583,16 +39583,20 @@ a.os-surface-row,
     object-fit: cover;
   }
 
-  /* Compose dock — tools left, compact Post right (above keyboard). */
+  /*
+   * Compose dock — same sheet footer inset as Transfer / About resting
+   * chrome. Dock hits stay on `--os-dock-height`. Keyboard: flush like
+   * About's format strip (pad 0), not the commerce keyboard meet gap.
+   */
   .guild-composer-sheet-footer {
-    padding: 0.4rem var(--os-screen-body-pad-x, 0.75rem)
-      calc(0.5rem + env(safe-area-inset-bottom, 0px));
+    padding: var(--os-sheet-footer-pad-top, 0.45rem)
+      var(--os-sheet-footer-pad-inline, var(--os-gutter, 0.75rem))
+      var(
+        --os-sheet-footer-pad-bottom,
+        calc(0.55rem + env(safe-area-inset-bottom, 0px))
+      );
   }
 
-  /*
-   * Full composer stays a full page. Only this row lifts, flush on the keys,
-   * with the launcher's hit and glyph so photo lines up with the pill.
-   */
   .glass-sheet-panel.guild-composer-sheet-panel.is-keyboard-open
     > .glass-sheet-footer {
     margin-bottom: var(--os-keyboard-lift, 0px);
