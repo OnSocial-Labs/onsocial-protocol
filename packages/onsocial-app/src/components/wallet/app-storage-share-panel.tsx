@@ -16,6 +16,7 @@ import {
   StorageShareRecipientRow,
   StorageShareSplitVisual,
 } from '@/components/wallet/app-storage-share-ui';
+import { WalletConnectedReviewError } from '@/contexts/app-wallet-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useStorageSharesGranted } from '@/hooks/use-storage-shares-granted';
 import { useStorageShareRecipientsValidation } from '@/hooks/use-storage-share-recipients';
@@ -229,7 +230,11 @@ export function AppStorageSharePanel({
       });
       if (!confirmed) return;
     } catch (err) {
-      if (isWalletUserCancellation(err)) return;
+      if (
+        isWalletUserCancellation(err) ||
+        err instanceof WalletConnectedReviewError
+      )
+        return;
       const message = getErrorMessage(err);
       onError(message);
       return;
@@ -264,7 +269,11 @@ export function AppStorageSharePanel({
       });
       if (!confirmed) return;
     } catch (err) {
-      if (isWalletUserCancellation(err)) return;
+      if (
+        isWalletUserCancellation(err) ||
+        err instanceof WalletConnectedReviewError
+      )
+        return;
       const message = getErrorMessage(err);
       onError(message);
       return;

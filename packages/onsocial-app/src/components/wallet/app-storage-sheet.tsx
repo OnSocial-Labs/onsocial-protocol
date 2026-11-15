@@ -24,7 +24,10 @@ import { useSharedStoragePool } from '@/hooks/use-shared-storage-pool';
 import { useUserStorageBalance } from '@/hooks/use-user-storage-balance';
 import { useWalletNearBalance } from '@/hooks/use-wallet-near-balance';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import {
+  useAppWallet,
+  WalletConnectedReviewError,
+} from '@/contexts/app-wallet-context';
 import { finalizeAmountInput } from '@/lib/amount-input';
 import { yoctoToNear } from '@/lib/app-near-rpc';
 import {
@@ -386,7 +389,11 @@ export function AppStorageSheet({
         refreshAfterTx();
       }
     } catch (err) {
-      if (isWalletUserCancellation(err)) return;
+      if (
+        isWalletUserCancellation(err) ||
+        err instanceof WalletConnectedReviewError
+      )
+        return;
       setError(
         err instanceof Error ? err.message : 'Transaction did not go through.'
       );

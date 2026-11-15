@@ -1,4 +1,12 @@
+export class WalletPickerTimeoutError extends Error {
+  constructor(message = 'The wallet took too long. Try again.') {
+    super(message);
+    this.name = 'WalletPickerTimeoutError';
+  }
+}
+
 export function isWalletUserCancellation(error: unknown): boolean {
+  if (error instanceof WalletPickerTimeoutError) return true;
   if (!(error instanceof Error)) {
     if (typeof error === 'string') {
       const message = error.toLowerCase();

@@ -21,7 +21,10 @@ import {
   guildStoragePoolHeroMeta,
 } from '@/components/wallet/app-storage-share-ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import {
+  useAppWallet,
+  WalletConnectedReviewError,
+} from '@/contexts/app-wallet-context';
 import {
   ProfileAccountSearchPicks,
   profileAccountSearchActive,
@@ -333,7 +336,11 @@ export function GuildGroupStorageSheet({
       });
       if (!confirmed) return;
     } catch (err) {
-      if (isWalletUserCancellation(err)) return;
+      if (
+        isWalletUserCancellation(err) ||
+        err instanceof WalletConnectedReviewError
+      )
+        return;
       const message = getErrorMessage(err);
       setError(message);
       setTxResult({
@@ -375,7 +382,11 @@ export function GuildGroupStorageSheet({
         ...new Set([...current, ...readyRecipients]),
       ]);
     } catch (err) {
-      if (isWalletUserCancellation(err)) return;
+      if (
+        isWalletUserCancellation(err) ||
+        err instanceof WalletConnectedReviewError
+      )
+        return;
       const message = getErrorMessage(err);
       setError(message);
       setTxResult({
@@ -414,7 +425,11 @@ export function GuildGroupStorageSheet({
       });
       if (!confirmed) return;
     } catch (err) {
-      if (isWalletUserCancellation(err)) return;
+      if (
+        isWalletUserCancellation(err) ||
+        err instanceof WalletConnectedReviewError
+      )
+        return;
       const message = getErrorMessage(err);
       setError(message);
       setTxResult({
@@ -449,7 +464,11 @@ export function GuildGroupStorageSheet({
       });
       if (!confirmed) return;
     } catch (err) {
-      if (isWalletUserCancellation(err)) return;
+      if (
+        isWalletUserCancellation(err) ||
+        err instanceof WalletConnectedReviewError
+      )
+        return;
       const message = getErrorMessage(err);
       setError(message);
       setTxResult({
@@ -484,7 +503,11 @@ export function GuildGroupStorageSheet({
       });
       if (!confirmed) return;
     } catch (err) {
-      if (isWalletUserCancellation(err)) return;
+      if (
+        isWalletUserCancellation(err) ||
+        err instanceof WalletConnectedReviewError
+      )
+        return;
       const message = getErrorMessage(err);
       setError(message);
       setTxResult({

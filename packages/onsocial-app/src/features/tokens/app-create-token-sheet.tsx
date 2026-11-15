@@ -26,7 +26,10 @@ import {
 } from '@onsocial/ui';
 import { TokenCreateStepThread } from '@/features/tokens/token-create-step-thread';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import {
+  useAppWallet,
+  WalletConnectedReviewError,
+} from '@/contexts/app-wallet-context';
 import { useNearAccountStatus } from '@/hooks/use-near-account-status';
 import {
   buildFtContractAccountId,
@@ -327,6 +330,7 @@ export function AppCreateTokenSheet({
           setPhase('error');
         }
       } catch (cause) {
+        if (cause instanceof WalletConnectedReviewError) return;
         setPhase('error');
         if (isWalletUserCancellation(cause)) {
           setPhase('idle');

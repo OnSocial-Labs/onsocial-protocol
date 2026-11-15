@@ -40,7 +40,10 @@ import { buildDaoClaimSupportProposalPayload } from '@/features/protocol/dao-cla
 import { DaoProposeConfirmSheet } from '@/features/protocol/dao-propose-confirm-sheet';
 import { submitProtocolProposal } from '@/features/protocol/protocol-create';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import {
+  useAppWallet,
+  WalletConnectedReviewError,
+} from '@/contexts/app-wallet-context';
 import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
 import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
 import { seedDaoBrandingCache } from '@/lib/dao-shell-cache';
@@ -238,7 +241,10 @@ function PortfolioDaoOrgChromeInner({
         openSubmittedProposal(response.proposalId);
       }
     } catch (cause) {
-      if (!isWalletUserCancellation(cause)) {
+      if (
+        !isWalletUserCancellation(cause) &&
+        !(cause instanceof WalletConnectedReviewError)
+      ) {
         setTxResult({
           type: 'error',
           msg:

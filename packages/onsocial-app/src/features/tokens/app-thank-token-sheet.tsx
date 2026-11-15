@@ -17,7 +17,10 @@ import {
 } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import {
+  useAppWallet,
+  WalletConnectedReviewError,
+} from '@/contexts/app-wallet-context';
 import {
   getSpendableNearBalance,
   normalizeFtBalanceYocto,
@@ -247,7 +250,11 @@ export function AppThankTokenSheet({
           requestClose();
         }
       } catch (cause) {
-        if (isWalletUserCancellation(cause)) return;
+        if (
+          isWalletUserCancellation(cause) ||
+          cause instanceof WalletConnectedReviewError
+        )
+          return;
         const message =
           cause instanceof Error
             ? cause.message
