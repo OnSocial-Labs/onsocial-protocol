@@ -480,6 +480,7 @@ export function LiveGuildPostPanel({
     hostRef: replyStackRef,
     pinnedKey: focusPinKey,
     anchorQuery: THREAD_ANCHOR_QUERY,
+    holdAnchor: landSettled,
   });
 
   useEffect(() => {
