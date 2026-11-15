@@ -184,8 +184,8 @@
 }
 
 /*
- * Footer format row — dock hit. Opaque `--bg` so essay text fades under the
- * rail, not through it (same seat on compose + Edit About).
+ * Footer format row — edge-flush writing-tool hit (write dock / Post tools).
+ * Opaque `--bg` so essay text fades under the rail, not through it.
  */
 .profile-about-edit-format-toolbar {
   display: flex;
@@ -215,9 +215,9 @@
 
 .profile-about-edit-format-toolbar .account-editor-bio-tool,
 .profile-about-edit-format-toolbar .account-editor-bio-list {
-  width: var(--os-dock-height, 3.25rem);
-  min-width: var(--os-dock-height, 3.25rem);
-  height: var(--os-dock-height, 3.25rem);
+  width: var(--os-writing-tool-hit, var(--os-icon-hit, 3.25rem));
+  min-width: var(--os-writing-tool-hit, var(--os-icon-hit, 3.25rem));
+  height: var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
   padding: 0;
   border-radius: 0;
   background: transparent;
@@ -241,8 +241,8 @@
 
 .profile-align-tool-icon {
   display: block;
-  width: 1.36rem;
-  height: 1.36rem;
+  width: var(--os-writing-tool-glyph, 1.36rem);
+  height: var(--os-writing-tool-glyph, 1.36rem);
   flex-shrink: 0;
 }
 

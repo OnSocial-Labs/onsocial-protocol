@@ -3690,6 +3690,16 @@ a.os-surface-row,
     --os-format-strip-height: var(--os-dock-height);
     /* Icon hit box. Glyphs stay on their own size. */
     --os-icon-hit: 3.25rem;
+    /*
+     * Writing-rail column — write dock, format strip, Post tools.
+     * Edge-flush hits: glyph side-bearing ≈ page gutter (avatar / About ink).
+     */
+    --os-writing-tool-hit: var(--os-icon-hit);
+    --os-writing-tool-glyph: 1.36rem;
+    /* Ink inset from the rail edge — same as centered glyph side-bearing. */
+    --os-writing-tool-side: calc(
+      (var(--os-writing-tool-hit) - var(--os-writing-tool-glyph)) / 2
+    );
     /* Shared grip bar. Mood finishes that draw their own bar override these. */
     --os-grip-width: 2.625rem;
     --os-grip-thickness: 0.22rem;
@@ -16697,8 +16707,8 @@ a.os-surface-row,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: var(--os-dock-height, 3.25rem);
-    min-width: var(--os-dock-height, 3.25rem);
+    width: var(--os-writing-tool-hit, var(--os-icon-hit, 3.25rem));
+    min-width: var(--os-writing-tool-hit, var(--os-icon-hit, 3.25rem));
     height: auto;
     margin: 0;
     padding: 0;
@@ -16731,8 +16741,8 @@ a.os-surface-row,
   .os-write-dock-media-icon,
   .os-write-dock-expand-icon {
     display: block;
-    width: 1.36rem;
-    height: 1.36rem;
+    width: var(--os-writing-tool-glyph, 1.36rem);
+    height: var(--os-writing-tool-glyph, 1.36rem);
   }
 
   .os-write-dock-send {
@@ -17004,7 +17014,7 @@ a.os-surface-row,
   .os-write-dock-footer-tools .os-write-dock-tool {
     flex-shrink: 0;
     align-self: center;
-    width: var(--os-dock-height, 3.25rem);
+    width: var(--os-writing-tool-hit, var(--os-icon-hit, 3.25rem));
     height: var(--os-dock-height, 3.25rem);
     min-height: 0;
   }
@@ -39578,10 +39588,7 @@ a.os-surface-row,
     object-fit: cover;
   }
 
-  /*
-   * Compose rails — both rows edge-flush like About format (one horizontal
-   * rhythm). Keyboard: block pad 0.
-   */
+  /* Compose rails — edge-flush writing column (About + write dock). */
   .guild-composer-sheet-footer {
     display: flex;
     flex-direction: column;
@@ -39613,7 +39620,7 @@ a.os-surface-row,
     z-index: 1;
   }
 
-  /* Format strip — dock hit, edge-flush like Edit About. */
+  /* Format strip — dock tall. */
   .guild-composer-sheet-footer > .profile-about-edit-format-toolbar {
     flex: 0 0 var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
     height: var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
@@ -39621,7 +39628,7 @@ a.os-surface-row,
     max-height: var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
   }
 
-  /* Post tools — nav-band hit, same edge-flush as the format strip above. */
+  /* Post tools — nav-band tall, same writing-tool hit width as format. */
   .guild-composer-sheet-footer > .guild-composer-toolbar {
     flex: 0 0 var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
     height: var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
@@ -39630,9 +39637,10 @@ a.os-surface-row,
   }
 
   .guild-composer-toolbar {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 0.65rem;
+    gap: 0;
     min-width: 0;
   }
 
@@ -39693,14 +39701,15 @@ a.os-surface-row,
 
   .guild-composer-tool {
     display: inline-flex;
-    flex: 0 0 2.35rem;
+    flex: 0 0 var(--os-writing-tool-hit, var(--os-icon-hit, 3.25rem));
     align-items: center;
     justify-content: center;
-    width: 2.35rem;
-    height: 2.35rem;
+    width: var(--os-writing-tool-hit, var(--os-icon-hit, 3.25rem));
+    min-width: var(--os-writing-tool-hit, var(--os-icon-hit, 3.25rem));
+    height: var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
     margin: 0;
     border: 0;
-    border-radius: 9999px;
+    border-radius: 0;
     background: transparent;
     color: rgb(var(--fg-rgb) / 0.52);
     cursor: pointer;
@@ -39730,20 +39739,8 @@ a.os-surface-row,
 
   .guild-composer-tool-icon {
     display: block;
-    width: 1.2rem;
-    height: 1.2rem;
-  }
-
-  /* Nav-band hit — Post tools under the dock-sized format strip. */
-  .guild-composer-toolbar .guild-composer-tool {
-    flex-basis: var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
-    width: var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
-    height: var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
-  }
-
-  .guild-composer-toolbar .guild-composer-tool-icon {
-    width: 1.2rem;
-    height: 1.2rem;
+    width: var(--os-writing-tool-glyph, 1.36rem);
+    height: var(--os-writing-tool-glyph, 1.36rem);
   }
 
   .guild-composer-toolbar .guild-composer-tool-slot-gap {
@@ -39751,14 +39748,18 @@ a.os-surface-row,
     width: 0;
   }
 
+  /* Overlay — a flex end slot padded the right and left tools look wall-flush. */
   .guild-composer-toolbar-end {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 0;
+    z-index: 2;
     display: inline-flex;
-    flex: 0 0 auto;
     align-items: center;
-    gap: 0.5rem;
-    margin-left: auto;
+    justify-content: flex-end;
     min-height: 0;
     height: 100%;
+    pointer-events: none;
   }
 
   .guild-composer-toolbar-post {
@@ -39922,20 +39923,31 @@ a.os-surface-row,
     z-index: 2;
   }
 
-  /* Reserved slot beside Post — no layout jump when typing starts. */
   .guild-composer-char-count {
     display: inline-flex;
     align-items: center;
     justify-content: flex-end;
+    box-sizing: border-box;
     margin: 0;
     min-width: 2.75rem;
-    height: 2.15rem;
+    height: 100%;
+    /* Trailing digits share format-strip glyph inset from the wall. */
+    padding-inline: 0.35rem
+      max(
+        var(--os-writing-tool-side, 0.945rem),
+        env(safe-area-inset-right, 0px)
+      );
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 600;
     font-variant-numeric: normal;
     letter-spacing: 0.02em;
     line-height: 1;
     color: rgb(var(--fg-rgb) / 0.4);
+    background: linear-gradient(
+      to left,
+      var(--bg, rgb(var(--bg-rgb))) 70%,
+      transparent
+    );
     transition:
       color 160ms ease,
       opacity 160ms ease;
@@ -39948,7 +39960,6 @@ a.os-surface-row,
 
   .guild-composer-char-count.is-idle {
     opacity: 0;
-    pointer-events: none;
   }
 
   .guild-composer-char-count.is-warn {
