@@ -1227,6 +1227,65 @@ describe('signed-out wallet picker', () => {
     expect(collectText(renderer!.root)).not.toContain(REVIEW_TEXT);
   });
 
+  it('opens the picked account page on a mismatch', async () => {
+    const logged: string[] = [];
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation((...args) => {
+      logged.push(args.map(String).join(' '));
+    });
+    try {
+      function OpenPage() {
+        const { navigate } = useOsAppNavigate();
+        return createElement(
+          'button',
+          {
+            type: 'button',
+            onClick: () => {
+              navigate({ id: 'page', label: 'Page', kind: 'open-page' });
+            },
+          },
+          'Open page'
+        );
+      }
+      await mount(createElement(Shell, null, createElement(OpenPage)));
+      await waitForInit();
+      await act(async () => {
+        window.localStorage.setItem(APP_WALLET_ACCOUNT_KEY, 'alice.near');
+        window.dispatchEvent(new Event('onsocial:wallet-account'));
+      });
+      const picker = deferred<ReturnType<typeof makeWallet>>();
+      harness.connect.mockImplementation(() => picker.promise);
+      const openPage = renderer!.root.findAll(
+        (node) =>
+          node.type === 'button' && collectText(node).includes('Open page')
+      )[0]!;
+      await act(async () => {
+        openPage.props.onClick();
+      });
+      await expect
+        .poll(() => harness.connect.mock.calls.length, {
+          interval: 15,
+          timeout: 2000,
+        })
+        .toBe(1);
+      await act(async () => {
+        picker.resolve(signingWallet('payer.near'));
+      });
+      await expect
+        .poll(() => router.push.mock.calls.length, {
+          interval: 15,
+          timeout: 2000,
+        })
+        .toBe(1);
+      expect(router.push.mock.calls[0]?.[0]).toBe('/@payer.near');
+      expect(logged.join('\n')).not.toContain('Could not open your page');
+      const text = collectText(renderer!.root);
+      expect(text).toContain('Review this account');
+      expect(text).toContain('Connected as payer.near.');
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it('keeps one connect when three keys overlap', async () => {
     await mount(createElement(Probe));
     await waitForInit();

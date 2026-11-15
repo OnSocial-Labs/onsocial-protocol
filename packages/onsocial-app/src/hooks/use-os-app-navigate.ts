@@ -2,7 +2,10 @@
 
 import { useCallback, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import {
+  useAppWallet,
+  WalletConnectedReviewError,
+} from '@/contexts/app-wallet-context';
 import {
   isPortfolioOverlayPath,
   overlayPath,
@@ -26,6 +29,10 @@ export function useOsAppNavigate(pageAccountId?: string) {
       const { accountId } = await getSigningWallet();
       router.push(portfolioPath(accountId));
     } catch (error) {
+      if (error instanceof WalletConnectedReviewError) {
+        router.push(portfolioPath(error.accountId));
+        return;
+      }
       if (!isWalletUserCancellation(error)) {
         console.error('Could not open your page', error);
       }
