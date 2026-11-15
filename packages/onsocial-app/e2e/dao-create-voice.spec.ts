@@ -170,7 +170,7 @@ test.describe('dao create voice', () => {
     await gotoApp(page, '/daos');
     await expect(page.getByRole('heading', { name: 'DAOs' })).toBeVisible();
     await dismissNextDevOverlay(page);
-    await page.getByRole('link', { name: 'Create DAO' }).click();
+    await page.getByRole('link', { name: 'New DAO', exact: true }).click();
     await page.waitForURL(/\/daos\/create\/?$/, { timeout: 15_000 });
     await expect(
       page.getByRole('heading', { name: 'Create DAO' })
