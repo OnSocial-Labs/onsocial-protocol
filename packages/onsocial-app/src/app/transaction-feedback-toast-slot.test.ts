@@ -28,9 +28,11 @@ describe('transaction toast slot', () => {
 
   it('uses neutral elevated chrome frost, not mood dock fill', () => {
     expect(css).toContain('rgb(var(--bg-rgb) / 0.72)');
-    expect(css).toContain('blur(20px) saturate(1.3)');
+    expect(css).toContain('backdrop-filter: blur(20px) saturate(1.3)');
     expect(css).toContain('inset 0 1px 0 rgb(var(--fg-rgb) / 0.1)');
     expect(css).not.toContain('--os-dock-fill');
     expect(css).not.toContain('mood-accent');
+    // -webkit- pair makes Lightning drop the blur (same rule as dock/footer).
+    expect(css).not.toContain('-webkit-backdrop-filter');
   });
 });

@@ -18,7 +18,7 @@ export type TransactionFeedback = {
   title?: string;
   /** Optional override — default success/error toast is one-line (no eyebrow). */
   eyebrow?: string;
-  /** Session setup: wallet = Allow access sheet; chain = gift or grant confirm. */
+  /** Session setup: wallet = sheet open; chain = gift or grant confirm. */
   pendingPhase?: 'wallet' | 'chain';
   /** Nearblocks tx link — icon only; omit when an in-app action is shown. */
   explorerHref?: string | null;
