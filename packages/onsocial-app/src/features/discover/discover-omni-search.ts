@@ -74,20 +74,7 @@ export function discoverOmniTargetHref(raw: string): string | null {
   return intent.kind === 'people' ? null : intent.href;
 }
 
-/** Focus placeholder — names the surface. Idle stays `Search`. */
-export function discoverSearchFocusHint(
-  tab: DiscoverTab,
-  face: DiscoverFaceFilter = 'all'
-): string {
-  if (tab === 'profiles' && face === 'offers') return 'Offer title';
-  if (tab === 'profiles' && face === 'hiring') return 'Role title';
-  if (tab === 'daos') return 'DAOs';
-  if (tab === 'guilds') return 'Guilds';
-  if (tab === 'hubs') return 'Hubs';
-  if (tab === 'trending') return 'People, articles, books, music, events';
-  return 'People, #topics, $tickers';
-}
-
+/** Accessible name — idle placeholder stays short `Search` (no focus swap). */
 export function discoverSearchAriaLabel(
   tab: DiscoverTab,
   face: DiscoverFaceFilter = 'all'

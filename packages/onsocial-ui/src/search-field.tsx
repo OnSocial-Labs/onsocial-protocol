@@ -3,7 +3,6 @@
 import {
   useCallback,
   useRef,
-  useState,
   type FocusEventHandler,
   type ReactNode,
 } from 'react';
@@ -35,9 +34,8 @@ export interface SearchFieldProps {
   chrome?: 'sheet' | 'floating-panel';
   /**
    * Replaces the default magnifying glass (e.g. Market shop / Discover mark).
-   * Pass a single icon sized via `search-field-icon`. Shows a portal-style
-   * vertical divider after the glyph. Icon + placeholder share the mute →
-   * reveal ladder on hover/focus.
+   * Size via `search-field-icon` / `--os-search-icon-*`. Shows a portal-style
+   * vertical divider after the glyph.
    */
   leadingIcon?: ReactNode;
   /** Focus the input on mount (GlassSheet prefers this over the close button). */
@@ -48,12 +46,9 @@ export interface SearchFieldProps {
 }
 
 /**
- * Shared filter search. Pair with `search-field.css`; the `sheet` chrome class
- * (`sheet-control`) is styled by the host app, `floating-panel` by
- * `floating-panel.css`.
- *
- * Clear (`X`) when there is text. Keyboard / tap-outside dismisses focus —
- * no leading chevron or search-mode exit.
+ * Shared filter search — heading + toolbar share one pill, chrome icon ladder
+ * (0.72→0.92), full-fg typed text, proportional clear ×; focus clears fill +
+ * hint. Pair with `search-field.css`.
  */
 export function SearchField({
   value,
@@ -70,24 +65,13 @@ export function SearchField({
   onBlur,
 }: SearchFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [focused, setFocused] = useState(false);
   const branded = Boolean(leadingIcon);
-  const { showClear } = searchFieldTrailing(focused, value);
+  const { showClear } = searchFieldTrailing(false, value);
 
   const handleClear = useCallback(() => {
     onValueChange('');
     inputRef.current?.focus();
   }, [onValueChange]);
-
-  const handleFocus: FocusEventHandler<HTMLInputElement> = (event) => {
-    setFocused(true);
-    onFocus?.(event);
-  };
-
-  const handleBlur: FocusEventHandler<HTMLInputElement> = (event) => {
-    setFocused(false);
-    onBlur?.(event);
-  };
 
   const chromeClass =
     chrome === 'floating-panel' ? 'os-floating-panel-search' : 'sheet-control';
@@ -116,8 +100,8 @@ export function SearchField({
           enterKeyHint="search"
           value={value}
           onChange={(event) => onValueChange(event.target.value)}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
+          onFocus={onFocus}
+          onBlur={onBlur}
           placeholder={placeholder}
           maxLength={maxLength}
           aria-label={ariaLabel ?? placeholder}

@@ -1605,7 +1605,7 @@ export function ComposerSheet({
               size="sm"
               tone="frosted-primary"
               borderless
-              className="guild-composer-toolbar-post guild-composer-header-post"
+              className="guild-composer-toolbar-post guild-composer-header-post os-header-commit"
             >
               <OsSheetAction
                 type="submit"

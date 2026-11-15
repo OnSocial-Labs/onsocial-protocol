@@ -20,6 +20,8 @@ describe('DiscoveryPartyStack lead', () => {
     expect(source).toContain("'Listed by'");
     expect(source).toContain("'Bought by'");
     expect(source).toContain('{name}');
+    expect(source).toContain('link = true');
+    expect(source).toContain('if (!link)');
     expect(source).not.toContain('`${lead} ${name}`');
     expect(css).toContain('grid-column: 1 / -1');
     expect(css).toContain('grid-row: 2 / span 2');

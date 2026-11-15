@@ -154,47 +154,6 @@ export function CollectiblesHoldingRow({
   const showMaker = Boolean(creatorId) && !hideCreator;
   const rowHref = opensPass ? dropHref : item.href;
 
-  const mainBody = (
-    <>
-      <div
-        className={`market-listing-thumb${showThumb ? ' has-media' : ''}`}
-        aria-hidden
-      >
-        {showThumb ? (
-          <CatalogThumbImage
-            src={item.mediaUrl!}
-            onError={() => setBrokenMediaUrl(item.mediaUrl ?? null)}
-          />
-        ) : (
-          <span className="market-listing-thumb-fallback" />
-        )}
-      </div>
-      <div className="market-listing-copy drops-discovery-copy">
-        <div className="market-listing-head drops-discovery-head">
-          <div className="collectibles-holding-title-block">
-            <p className="market-listing-title">{item.title}</p>
-            {seatMark ? (
-              <p className="collectibles-holding-edition">{seatMark}</p>
-            ) : null}
-          </div>
-        </div>
-        {showMaker && creatorId ? (
-          <DiscoveryPartyStack
-            accountId={creatorId}
-            displayName={authorDisplayName}
-            avatarUrl={authorAvatarUrl}
-            lead="by"
-          />
-        ) : null}
-        {fact ? (
-          <p className="market-listing-meta market-listing-meta--price">
-            <span className="market-listing-own">{fact}</span>
-          </p>
-        ) : null}
-      </div>
-    </>
-  );
-
   return (
     <div
       className="market-listing-row collectibles-holding-row"
@@ -215,84 +174,128 @@ export function CollectiblesHoldingRow({
           aria-label={opensPass ? `Open drop for ${item.title}` : item.title}
         />
       ) : null}
-      <div className="collectibles-holding-row-main">{mainBody}</div>
-      <div className="market-listing-action-col drops-discovery-action-col collectibles-holding-action-col">
-        <div className="drops-discovery-head-trail">
-          {mintedRel && item.mintedAtMs != null ? (
-            <time
-              className="market-listing-meta-right"
-              {...socialTimeProps(item.mintedAtMs)}
-            >
-              {mintedRel}
-            </time>
-          ) : null}
-          {ownerMenu}
-        </div>
-        {onOpenEditions ? (
-          <OsRowAction
-            className="collectibles-holding-action"
-            aria-label={`${item.actionLabel} ${item.title}`}
-            onClick={onOpenEditions}
-          >
-            {item.actionLabel}
-          </OsRowAction>
-        ) : opensPass ? (
-          <OsRowAction
-            className="collectibles-holding-action"
-            aria-label={`${item.actionLabel} ${item.title}`}
-            onClick={() => {
-              setPassMounted(true);
-              setPassOpen(true);
-            }}
-          >
-            {item.actionLabel}
-          </OsRowAction>
-        ) : articleReadHref ? (
-          <OsRowAction
-            href={articleReadHref}
-            className="collectibles-holding-action"
-            aria-label={`${item.actionLabel} ${item.title}`}
-          >
-            {item.actionLabel}
-          </OsRowAction>
-        ) : opensCollectedRead ? (
-          <OsRowAction
-            className="collectibles-holding-action"
-            aria-label={`${item.actionLabel} ${item.title}`}
-            onClick={() => {
-              if (readPending || !collectionId) return;
-              setReadPending(true);
-              void fetchCollectionPreferIndexer(collectionId)
-                .then((view) => {
-                  const href = listedArticleReaderHref({
-                    writingFormat: view?.writingFormat,
-                    sourcePostPath: view?.sourcePostPath ?? item.sourcePostPath,
-                  });
-                  if (href) {
-                    router.push(href);
-                    return;
-                  }
-                  setReadMounted(true);
-                  setReadOpen(true);
-                })
-                .catch(() => {
-                  setReadMounted(true);
-                  setReadOpen(true);
-                })
-                .finally(() => setReadPending(false));
-            }}
-          >
-            {item.actionLabel}
-          </OsRowAction>
+      <div
+        className={`market-listing-thumb${showThumb ? ' has-media' : ''}`}
+        aria-hidden
+      >
+        {showThumb ? (
+          <CatalogThumbImage
+            src={item.mediaUrl!}
+            onError={() => setBrokenMediaUrl(item.mediaUrl ?? null)}
+          />
         ) : (
-          <OsRowAction
-            href={item.href}
-            className="collectibles-holding-action"
-            aria-label={`${item.actionLabel} ${item.title}`}
-          >
-            {item.actionLabel}
-          </OsRowAction>
+          <span className="market-listing-thumb-fallback" />
         )}
+      </div>
+      <div className="drops-discovery-body">
+        <div className="drops-discovery-top">
+          <div className="market-listing-head drops-discovery-head">
+            <div className="collectibles-holding-title-block">
+              <p className="market-listing-title">{item.title}</p>
+              {seatMark ? (
+                <p className="collectibles-holding-edition">{seatMark}</p>
+              ) : null}
+            </div>
+          </div>
+          <div className="market-listing-action-col drops-discovery-action-col collectibles-holding-action-col">
+            <div className="drops-discovery-head-trail">
+              {mintedRel && item.mintedAtMs != null ? (
+                <time
+                  className="market-listing-meta-right"
+                  {...socialTimeProps(item.mintedAtMs)}
+                >
+                  {mintedRel}
+                </time>
+              ) : null}
+              {ownerMenu}
+            </div>
+          </div>
+        </div>
+        <div className="drops-discovery-ledger">
+          <div className="drops-discovery-stack">
+            {showMaker && creatorId ? (
+              <DiscoveryPartyStack
+                accountId={creatorId}
+                displayName={authorDisplayName}
+                avatarUrl={authorAvatarUrl}
+                lead="by"
+              />
+            ) : null}
+            {fact ? (
+              <p className="market-listing-meta market-listing-meta--price">
+                <span className="market-listing-own">{fact}</span>
+              </p>
+            ) : null}
+          </div>
+          <div className="market-listing-action-col drops-discovery-action-col collectibles-holding-action-col">
+            {onOpenEditions ? (
+              <OsRowAction
+                className="collectibles-holding-action"
+                aria-label={`${item.actionLabel} ${item.title}`}
+                onClick={onOpenEditions}
+              >
+                {item.actionLabel}
+              </OsRowAction>
+            ) : opensPass ? (
+              <OsRowAction
+                className="collectibles-holding-action"
+                aria-label={`${item.actionLabel} ${item.title}`}
+                onClick={() => {
+                  setPassMounted(true);
+                  setPassOpen(true);
+                }}
+              >
+                {item.actionLabel}
+              </OsRowAction>
+            ) : articleReadHref ? (
+              <OsRowAction
+                href={articleReadHref}
+                className="collectibles-holding-action"
+                aria-label={`${item.actionLabel} ${item.title}`}
+              >
+                {item.actionLabel}
+              </OsRowAction>
+            ) : opensCollectedRead ? (
+              <OsRowAction
+                className="collectibles-holding-action"
+                aria-label={`${item.actionLabel} ${item.title}`}
+                onClick={() => {
+                  if (readPending || !collectionId) return;
+                  setReadPending(true);
+                  void fetchCollectionPreferIndexer(collectionId)
+                    .then((view) => {
+                      const href = listedArticleReaderHref({
+                        writingFormat: view?.writingFormat,
+                        sourcePostPath:
+                          view?.sourcePostPath ?? item.sourcePostPath,
+                      });
+                      if (href) {
+                        router.push(href);
+                        return;
+                      }
+                      setReadMounted(true);
+                      setReadOpen(true);
+                    })
+                    .catch(() => {
+                      setReadMounted(true);
+                      setReadOpen(true);
+                    })
+                    .finally(() => setReadPending(false));
+                }}
+              >
+                {item.actionLabel}
+              </OsRowAction>
+            ) : (
+              <OsRowAction
+                href={item.href}
+                className="collectibles-holding-action"
+                aria-label={`${item.actionLabel} ${item.title}`}
+              >
+                {item.actionLabel}
+              </OsRowAction>
+            )}
+          </div>
+        </div>
       </div>
       {opensCollectedRead && readMounted ? (
         <WritingReadSheet

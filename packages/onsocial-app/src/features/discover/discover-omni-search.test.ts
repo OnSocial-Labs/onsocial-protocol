@@ -4,7 +4,6 @@ import {
   discoverOmniTargetHref,
   discoverPeopleSearchQuery,
   discoverSearchAriaLabel,
-  discoverSearchFocusHint,
   isDiscoverPeopleSearchActive,
   isDiscoverTopicDraft,
   showDiscoverTrendingStrip,
@@ -65,22 +64,11 @@ describe('discover omni query helpers', () => {
   });
 });
 
-describe('discover search focus hint', () => {
-  it('names the surface without repeating Search', () => {
-    expect(discoverSearchFocusHint('daos')).toBe('DAOs');
-    expect(discoverSearchFocusHint('guilds')).toBe('Guilds');
-    expect(discoverSearchFocusHint('hubs')).toBe('Hubs');
-    expect(discoverSearchFocusHint('profiles', 'offers')).toBe('Offer title');
-    expect(discoverSearchFocusHint('profiles', 'hiring')).toBe('Role title');
-    expect(discoverSearchFocusHint('trending')).toBe(
-      'People, articles, books, music, events'
-    );
+describe('discover search aria labels', () => {
+  it('names the surface for assistive tech (idle placeholder stays Search)', () => {
     expect(discoverSearchAriaLabel('trending')).toBe(
       'Search people, articles, books, music, and events'
     );
-  });
-
-  it('keeps aria labels as search actions', () => {
     expect(discoverSearchAriaLabel('daos')).toBe('Search DAOs');
     expect(discoverSearchAriaLabel('guilds')).toBe('Search Guilds');
     expect(discoverSearchAriaLabel('hubs')).toBe('Search Hubs');

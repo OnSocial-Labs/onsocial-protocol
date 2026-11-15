@@ -39,11 +39,16 @@ test.describe('drops discovery', () => {
     await expect(
       page.locator('.drops-discovery-row .os-row-action')
     ).toHaveCount(0);
-    const rowCount = await page.locator('.drops-discovery-row').count();
+    await expect(page.locator('[data-drops-ready]')).toHaveCount(1);
+    const rows = page.locator(
+      '.drops-discovery-row:not(.drops-discovery-row--skeleton)'
+    );
+    const rowCount = await rows.count();
     if (rowCount > 0) {
-      await expect(
-        page.locator('.drops-discovery-row .market-listing-row-open').first()
-      ).toHaveAttribute('href', /\/collection\//);
+      await expect(rows.first().locator('.market-listing-row-open')).toHaveAttribute(
+        'href',
+        /\/collection\//
+      );
     }
   });
 

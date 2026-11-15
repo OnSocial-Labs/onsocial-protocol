@@ -27,9 +27,8 @@ interface PostIdentityMetaProps {
   trailing?: ReactNode;
   className?: string;
   /**
-   * `inline` (feed): Name marks @handle · time
-   * `stacked` (open post): standing-style cluster — avatar + name marks +
-   * @handle in one hover hit; ⋮ stays on the name row.
+   * `inline` (feed): Name marks @handle · time · spacer · trailing
+   * `stacked` (open post): standing main|aside — trailing on the name line
    */
   layout?: 'inline' | 'stacked';
 }
@@ -144,7 +143,7 @@ export function PostIdentityMeta({
   ) : null;
 
   if (stacked) {
-    // One profile hit like standing: avatar + name/marks + @id hover together.
+    // Standing main|aside: avatar + name/@id one hit; Stand/⋮ hug name line.
     const stackedBody = (
       <span className="post-identity-stack">
         {nameAndMarks}
@@ -176,9 +175,6 @@ export function PostIdentityMeta({
       >
         <div className="post-identity-row">
           {profile}
-          {trailing ? (
-            <span className="post-identity-spacer" aria-hidden />
-          ) : null}
           {trailing}
         </div>
         {channelNode}

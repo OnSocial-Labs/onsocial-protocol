@@ -376,7 +376,7 @@ export function HubCreatorsSheet({
         zIndex={SHEET_Z.facts}
         panelClassName="guild-facts-sheet-panel guild-members-sheet-panel os-sheet-cap-standard"
         bodyClassName="guild-facts-sheet-body"
-        titleAccessory={
+        endAccessory={
           canAdd ? (
             <OsIconAction
               className="guild-members-add"

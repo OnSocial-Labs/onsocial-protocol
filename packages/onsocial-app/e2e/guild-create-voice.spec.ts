@@ -69,7 +69,7 @@ test.describe('create guild voice', () => {
     await expect(
       page.getByRole('button', { name: 'Add about', exact: true })
     ).toBeVisible();
-    await expect(page.locator('#guild-create-description')).toHaveCount(0);
+    await expect(page.locator('#guild-create-description')).not.toBeVisible();
     await expect(page.getByRole('button', { name: 'Advanced' })).toHaveCount(0);
 
     await dismissNextDevOverlay(page);
@@ -79,7 +79,7 @@ test.describe('create guild voice', () => {
       .locator('#guild-create-description')
       .fill('Builder Room ships weekly.');
     await page.getByRole('button', { name: 'Hide about', exact: true }).click();
-    await expect(page.locator('#guild-create-description')).toHaveCount(0);
+    await expect(page.locator('#guild-create-description')).not.toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Edit about', exact: true })
     ).toBeVisible();
@@ -115,7 +115,8 @@ test.describe('create guild voice', () => {
           (nameBox!.y + nameBox!.height / 2)
       )
     ).toBeLessThan(16);
-    expect(bannerBox!.height).toBeLessThan(110);
+    // Live guild face: clamp(7.25rem, 26vw, 10.25rem) — ~116px at 390 wide.
+    expect(bannerBox!.height).toBeLessThan(130);
 
     await setLookPreviewFile(
       page,
@@ -125,7 +126,7 @@ test.describe('create guild voice', () => {
         mimeType: 'image/png',
         buffer: LOOK_PNG,
       },
-      page.getByRole('button', { name: 'Change banner', exact: true })
+      page.getByRole('button', { name: 'Remove banner' })
     );
     await banner.hover();
     await expect(page.getByRole('button', { name: 'Remove banner' })).toBeVisible();
@@ -138,7 +139,7 @@ test.describe('create guild voice', () => {
         mimeType: 'image/png',
         buffer: LOOK_PNG,
       },
-      page.getByRole('button', { name: 'Change badge', exact: true })
+      page.getByRole('button', { name: 'Remove badge' })
     );
     await badge.hover();
     await expect(page.getByRole('button', { name: 'Remove badge' })).toBeVisible();

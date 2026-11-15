@@ -19,14 +19,16 @@ function PulseItem({
   return (
     <div className="portfolio-boost-network-item">
       <span className="portfolio-boost-network-label">{label}</span>
-      {loading ? (
-        <span
-          className="standing-row-shimmer portfolio-boost-shimmer-network"
-          aria-hidden
-        />
-      ) : (
-        <span className="portfolio-boost-network-value">{value}</span>
-      )}
+      <span className="portfolio-boost-network-value-seat">
+        {loading ? (
+          <span
+            className="standing-row-shimmer portfolio-boost-shimmer-network"
+            aria-hidden
+          />
+        ) : (
+          <span className="portfolio-boost-network-value">{value}</span>
+        )}
+      </span>
     </div>
   );
 }

@@ -174,7 +174,7 @@ export function eventGuestSheetCopy(
         errorCopy: 'Couldn’t load who has one.',
         closeAriaLabel: 'Close who has one',
         backdropLabel: 'Close who has one',
-        searchPlaceholder: 'Search who has one',
+        searchPlaceholder: 'Search',
         searchAriaLabel: 'Search who has one by name',
         searchClearAriaLabel: 'Clear search',
       };
@@ -190,7 +190,7 @@ export function eventGuestSheetCopy(
       errorCopy: 'Couldn’t load who redeemed.',
       closeAriaLabel: 'Close who redeemed',
       backdropLabel: 'Close who redeemed',
-      searchPlaceholder: 'Search who redeemed',
+      searchPlaceholder: 'Search',
       searchAriaLabel: 'Search who redeemed by name',
       searchClearAriaLabel: 'Clear search',
     };
@@ -204,7 +204,7 @@ export function eventGuestSheetCopy(
       errorCopy: 'Couldn’t load who’s in.',
       closeAriaLabel: 'Close who’s in',
       backdropLabel: 'Close who’s in',
-      searchPlaceholder: 'Search who’s in',
+      searchPlaceholder: 'Search',
       searchAriaLabel: 'Search who’s in by name',
       searchClearAriaLabel: 'Clear search',
     };
@@ -218,7 +218,7 @@ export function eventGuestSheetCopy(
       errorCopy: 'Couldn’t load who attended.',
       closeAriaLabel: 'Close who attended',
       backdropLabel: 'Close who attended',
-      searchPlaceholder: 'Search who attended',
+      searchPlaceholder: 'Search',
       searchAriaLabel: 'Search who attended by name',
       searchClearAriaLabel: 'Clear search',
     };
@@ -231,7 +231,7 @@ export function eventGuestSheetCopy(
     errorCopy: 'Couldn’t load who’s going.',
     closeAriaLabel: 'Close who’s going',
     backdropLabel: 'Close who’s going',
-    searchPlaceholder: 'Search who’s going',
+    searchPlaceholder: 'Search',
     searchAriaLabel: 'Search who’s going by name',
     searchClearAriaLabel: 'Clear search',
   };

@@ -2,18 +2,18 @@ import { describe, expect, it } from 'vitest';
 import {
   DAO_CREATE_ADD_COVER,
   DAO_CREATE_ADD_CREST,
-  DAO_CREATE_ADVANCED,
-  DAO_CREATE_ADVANCED_HIDE,
   DAO_CREATE_CHANGE_COVER,
   DAO_CREATE_CHANGE_CREST,
   DAO_CREATE_CONNECT_CTA,
   DAO_CREATE_CONNECT_HINT,
+  DAO_CREATE_DEFAULT_POLICY,
   DAO_CREATE_FORM_ID,
   DAO_CREATE_PUBLISH,
   DAO_CREATE_REMOVE_COVER,
   DAO_CREATE_REMOVE_CREST,
   DAO_CREATE_TITLE,
   DAO_EDIT_PUBLISH_HINT,
+  daoCreateLinksToggle,
   daoCreateNearShortHint,
   daoCreatePurposeToggle,
   daoCreateWhisper,
@@ -37,9 +37,8 @@ describe('DAO create Connect voice', () => {
     expect(DAO_CREATE_CONNECT_HINT.toLowerCase()).not.toContain('wallet');
   });
 
-  it('parks extras behind Advanced', () => {
-    expect(DAO_CREATE_ADVANCED).toBe('Advanced');
-    expect(DAO_CREATE_ADVANCED_HIDE).toBe('Hide advanced');
+  it('names Default policy, not Advanced', () => {
+    expect(DAO_CREATE_DEFAULT_POLICY).toBe('Default policy');
   });
 
   it('offers Publish OnSocial profile on the same create step', () => {
@@ -59,10 +58,12 @@ describe('DAO create Connect voice', () => {
     expect(daoCreateWhisper('6.1')).toBe('You start as council · ~6.1 NEAR');
     expect(daoCreateWhisper('6').toLowerCase()).not.toContain('gas');
     expect(daoCreateWhisper('6.1').toLowerCase()).not.toContain('bond');
-    expect(daoCreateNearShortHint('0.4')).toBe('Need ~0.4 more NEAR.');
+    expect(daoCreateNearShortHint('0.4')).toBe('Need ~0.4 more NEAR');
+    expect(daoCreateNearShortHint('4.7817')).toBe('Need ~4.7817 more NEAR');
     expect(daoCreateNearShortHint('0.1').toLowerCase()).not.toContain('bond');
     expect(daoCreateNearShortHint('0.1').toLowerCase()).not.toContain('gas');
     expect(daoCreateNearShortHint('0.1').toLowerCase()).not.toContain('wallet');
+    expect(daoCreateNearShortHint('0.1')).not.toMatch(/\.$/);
   });
 
   it('names Cover and Crest, not Banner or Badge', () => {
@@ -86,6 +87,18 @@ describe('DAO create Connect voice', () => {
     );
     expect(daoCreatePurposeToggle({ open: true, hasText: true })).toBe(
       'Hide purpose'
+    );
+  });
+
+  it('waits links behind Add links', () => {
+    expect(daoCreateLinksToggle({ open: false, hasText: false })).toBe(
+      'Add links'
+    );
+    expect(daoCreateLinksToggle({ open: false, hasText: true })).toBe(
+      'Edit links'
+    );
+    expect(daoCreateLinksToggle({ open: true, hasText: true })).toBe(
+      'Hide links'
     );
   });
 });

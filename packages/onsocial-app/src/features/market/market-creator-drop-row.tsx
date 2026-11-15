@@ -61,7 +61,11 @@ export function MarketCreatorDropRow({
           ) : null}
         </div>
       </Link>
-      <div className="market-listing-action-col collectibles-holding-action-col">
+      <div
+        className={`market-listing-action-col collectibles-holding-action-col${
+          mintable ? '' : ' is-empty'
+        }`}
+      >
         {mintable ? (
           <OsRowAction
             className="collectibles-holding-action"

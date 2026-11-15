@@ -11,26 +11,33 @@ import {
   useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
   type ChangeEvent,
   type FormEvent,
 } from 'react';
 import {
+  formatProfileMediaRef,
+  normalizeProfileAboutAlign,
+  normalizeProfileLeadInput,
+  profileAvatarShapeForFace,
+  type ProfileAboutAlign,
+} from '@onsocial/sdk';
+import {
+  ChevronLeftIcon,
   DiscardConfirmSheet,
+  ipfsImgSrcSet,
   OsField,
+  OsIconAction,
+  OsPageSheet,
   OsSheetAction,
   OsSheetActions,
   osFieldBorderedClassName,
   useDiscardConfirm,
 } from '@onsocial/ui';
-import {
-  formatProfileMediaRef,
-  normalizeProfileAboutAlign,
-  normalizeProfileLeadInput,
-  type ProfileAboutAlign,
-} from '@onsocial/sdk';
-import { DaoPageSlideOverScreen } from '@/features/protocol/dao-page-slide-over-screen';
-import { DaoLookPreview } from '@/features/protocol/dao-look-preview';
+import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
+import { PortfolioFaceEditorHero } from '@/components/wallet/portfolio-face-editor-hero';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
 import { ProfileAboutEditorSheet } from '@/components/wallet/profile-about-editor-sheet';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -48,16 +55,34 @@ import {
 } from '@/features/protocol/protocol-create';
 import { DaoProposeConfirmSheet } from '@/features/protocol/dao-propose-confirm-sheet';
 import {
+  DAO_CREATE_ADD_COVER,
+  DAO_CREATE_ADD_CREST,
+  DAO_CREATE_CHANGE_COVER,
   DAO_CREATE_PUBLISH,
+  DAO_CREATE_REMOVE_COVER,
+  DAO_CREATE_REMOVE_CREST,
   DAO_EDIT_PUBLISH_HINT,
 } from '@/features/protocol/dao-create-voice';
+import { useDaoPageMood } from '@/features/protocol/use-dao-page-mood';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { usePageKeyboardLift } from '@/hooks/use-page-keyboard-lift';
 import { useDaoPageCapability } from '@/hooks/use-dao-page-capability';
 import { bumpDaoWorkspacePrefetch } from '@/lib/dao-workspace-prefetch';
-import { isMediaFramePanCentered } from '@/lib/media-frame-pan';
-import { prepareProfileAboutPhotosForSave } from '@/lib/prepare-profile-editor-media';
+import {
+  EDITOR_MARK_WIDTHS,
+  SCARCE_HERO_WIDTHS,
+} from '@/lib/hero-img-variants';
+import {
+  isMediaFramePanCentered,
+  MEDIA_FRAME_PAN_CENTER,
+  type MediaFramePan,
+} from '@/lib/media-frame-pan';
+import {
+  prepareProfileAboutPhotosForSave,
+  prepareProfileAvatarForSave,
+  prepareProfileBannerForSave,
+} from '@/lib/prepare-profile-editor-media';
 import { prepareSquareOpaqueJpeg } from '@/lib/prepare-square-opaque-jpeg';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import type { ProfileAboutPhotoDraft } from '@/lib/profile-about-photos';
@@ -120,10 +145,14 @@ export function DaoEditSheet({
 }: DaoEditSheetProps) {
   const isSocial = mode === 'social';
   const formId = useId();
+  const titleId = useId();
+  const bannerInputRef = useRef<HTMLInputElement>(null);
+  const crestInputRef = useRef<HTMLInputElement>(null);
   const { getSigningWallet } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const scrollFieldIntoView = useMobileFieldFocusScroll();
+  const { moodId, moodStyle } = useDaoPageMood(daoAccountId, open);
   const { eligibility, isLoading: eligibilityLoading } = useDaoPageCapability(
     daoAccountId,
     true
@@ -168,6 +197,10 @@ export function DaoEditSheet({
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [avatarRemoved, setAvatarRemoved] = useState(false);
   const [bannerRemoved, setBannerRemoved] = useState(false);
+  const [crestPan, setCrestPan] =
+    useState<MediaFramePan>(MEDIA_FRAME_PAN_CENTER);
+  const [coverPan, setCoverPan] =
+    useState<MediaFramePan>(MEDIA_FRAME_PAN_CENTER);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [proposeConfirmOpen, setProposeConfirmOpen] = useState(false);
@@ -191,6 +224,8 @@ export function DaoEditSheet({
     setBannerPreview(null);
     setAvatarRemoved(false);
     setBannerRemoved(false);
+    setCrestPan(MEDIA_FRAME_PAN_CENTER);
+    setCoverPan(MEDIA_FRAME_PAN_CENTER);
     setError(null);
     setProposeConfirmOpen(false);
   }, [open, baseline]);
@@ -238,7 +273,9 @@ export function DaoEditSheet({
       avatarFile !== null ||
       bannerFile !== null ||
       avatarRemoved ||
-      bannerRemoved
+      bannerRemoved ||
+      !isMediaFramePanCentered(crestPan) ||
+      !isMediaFramePanCentered(coverPan)
     );
   }, [
     about,
@@ -247,6 +284,8 @@ export function DaoEditSheet({
     avatarRemoved,
     bannerFile,
     bannerRemoved,
+    coverPan,
+    crestPan,
     baseline.about,
     baseline.aboutAlign,
     baseline.face,
@@ -290,13 +329,10 @@ export function DaoEditSheet({
     onClose,
   });
 
-  const handleBeforeClose = useCallback(() => {
-    if (discardConfirmOpen) {
-      keepEditing();
-      return false;
-    }
-    return requestCloseOrConfirm();
-  }, [discardConfirmOpen, keepEditing, requestCloseOrConfirm]);
+  const requestClose = useCallback(() => {
+    if (!requestCloseOrConfirm()) return;
+    onClose();
+  }, [onClose, requestCloseOrConfirm]);
 
   const onAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
@@ -315,6 +351,7 @@ export function DaoEditSheet({
       setError(null);
       setAvatarRemoved(false);
       setAvatarFile(prepared);
+      setCrestPan(MEDIA_FRAME_PAN_CENTER);
       setAvatarPreview((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return URL.createObjectURL(prepared);
@@ -341,6 +378,7 @@ export function DaoEditSheet({
     setError(null);
     setBannerRemoved(false);
     setBannerFile(file);
+    setCoverPan(MEDIA_FRAME_PAN_CENTER);
     setBannerPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return URL.createObjectURL(file);
@@ -350,6 +388,7 @@ export function DaoEditSheet({
   const clearAvatar = () => {
     setAvatarFile(null);
     setAvatarRemoved(true);
+    setCrestPan(MEDIA_FRAME_PAN_CENTER);
     setAvatarPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
@@ -359,6 +398,7 @@ export function DaoEditSheet({
   const clearBanner = () => {
     setBannerFile(null);
     setBannerRemoved(true);
+    setCoverPan(MEDIA_FRAME_PAN_CENTER);
     setBannerPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
@@ -369,6 +409,10 @@ export function DaoEditSheet({
     avatarPreview ?? (avatarRemoved ? null : baseline.avatarUrl);
   const bannerSrc =
     bannerPreview ?? (bannerRemoved ? null : baseline.bannerUrl);
+  const bannerSrcSet = ipfsImgSrcSet(bannerSrc, SCARCE_HERO_WIDTHS);
+  const crestSrcSet = ipfsImgSrcSet(avatarSrc, EDITOR_MARK_WIDTHS);
+  const openBannerPicker = () => bannerInputRef.current?.click();
+  const openCrestPicker = () => crestInputRef.current?.click();
   const deniedDetail = isSocial
     ? 'Needs call permission on this DAO.'
     : 'Needs config permission on this DAO.';
@@ -417,17 +461,30 @@ export function DaoEditSheet({
       const { client } = await getClient();
       let avatar = baseline.avatar;
       let banner = baseline.banner;
-      if (avatarFile) {
-        const uploaded = await client.storage.upload(avatarFile);
-        avatar = `ipfs://${uploaded.cid}`;
-      } else if (avatarRemoved) {
+      const crestPrepared = await prepareProfileAvatarForSave({
+        file: avatarFile,
+        displayUrl: avatarSrc,
+        pan: crestPan,
+        removed: avatarRemoved,
+      });
+      if (crestPrepared === null) {
         avatar = null;
+      } else if (crestPrepared) {
+        const uploaded = await client.storage.upload(crestPrepared);
+        avatar = `ipfs://${uploaded.cid}`;
       }
-      if (bannerFile) {
-        const uploaded = await client.storage.upload(bannerFile);
-        banner = `ipfs://${uploaded.cid}`;
-      } else if (bannerRemoved) {
+      const coverPrepared = await prepareProfileBannerForSave({
+        file: bannerFile,
+        displayUrl: bannerSrc,
+        pan: coverPan,
+        removed: bannerRemoved,
+        isVideo: false,
+      });
+      if (coverPrepared === null) {
         banner = null;
+      } else if (coverPrepared) {
+        const uploaded = await client.storage.upload(coverPrepared);
+        banner = `ipfs://${uploaded.cid}`;
       }
 
       const normalizedLinks = normalizeProfileLinksInput(links, undefined);
@@ -610,177 +667,255 @@ export function DaoEditSheet({
     </>
   );
 
+  const editTitle = isSocial
+    ? 'Publish OnSocial profile'
+    : 'Edit DAO profile';
+
+  const footer = (
+    <div
+      className={`profile-edit-sheet-footer${
+        keyboardOpen ? ' is-keyboard-open' : ''
+      }`}
+    >
+      <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+        <OsSheetAction
+          type="submit"
+          form={formId}
+          ready={canSave}
+          pending={pending}
+          pendingLabel="Proposing…"
+          disabled={!canSave}
+        >
+          {isSocial ? 'Propose OnSocial' : 'Propose profile'}
+        </OsSheetAction>
+      </OsSheetActions>
+    </div>
+  );
+
   return (
     <>
-      <DaoPageSlideOverScreen
-        pageAccountId={daoAccountId}
+      <OsPageSheet
         open={open}
-        onClose={onClose}
-        onBeforeClose={handleBeforeClose}
+        onClose={requestClose}
         onClosed={clearDiscardConfirm}
-        title={isSocial ? 'Publish OnSocial profile' : 'Edit DAO profile'}
-        subtitle={
-          isSocial
-            ? 'Call proposal to OnSocial profile keys.'
-            : 'Publishes as a config proposal.'
-        }
-        closeAriaLabel={
-          isSocial ? 'Back from publish OnSocial' : 'Back from edit DAO'
-        }
-        closeDisabled={pending}
+        surface="page"
+        presentation="appear"
         zIndex={SHEET_Z.overShell}
-        className={`hub-manage-slide${
+        ariaLabelledBy={titleId}
+        backdropLabel="Close"
+        moodId={moodId ?? undefined}
+        moodStyle={moodStyle}
+        panelClassName={`profile-edit-sheet-panel os-page-chrome-appear${
           keyboardOpen ? ' is-keyboard-open is-page-keyboard' : ''
         }`}
-        style={panelStyle}
-        contentClassName="hub-manage-slide-body"
-        footer={
-          <div className="hub-manage-sheet-footer">
-            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-              <OsSheetAction
-                type="submit"
-                form={formId}
-                ready={canSave}
-                pending={pending}
-                pendingLabel="Proposing…"
-                disabled={!canSave}
-              >
-                {isSocial ? 'Propose OnSocial' : 'Propose profile'}
-              </OsSheetAction>
-            </OsSheetActions>
-          </div>
-        }
+        panelStyle={panelStyle}
+        bodyClassName="profile-edit-sheet-body"
+        header={null}
+        footer={footer}
       >
-        <form
-          id={formId}
-          className="hub-manage-form"
-          onSubmit={(e) => requestProposeConfirm(e)}
-        >
-          <section className="dao-edit-hero" aria-label="DAO media">
-            <DaoLookPreview
-              coverUrl={bannerSrc}
-              crestUrl={avatarSrc}
-              disabled={pending}
-              onCoverChange={onBannerChange}
-              onCrestChange={(event) => void onAvatarChange(event)}
-              onRemoveCover={bannerSrc ? clearBanner : undefined}
-              onRemoveCrest={avatarSrc ? clearAvatar : undefined}
-            />
-          </section>
-
-          <OsField
-            label="Name"
-            htmlFor={`${formId}-name`}
-            hint={`${name.length}/${MAX_NAME}`}
-          >
-            <input
-              id={`${formId}-name`}
-              value={name}
-              maxLength={MAX_NAME}
-              disabled={pending}
-              onFocus={scrollFieldIntoView}
-              onChange={(event) => setName(event.target.value)}
-              className={osFieldBorderedClassName}
-            />
-          </OsField>
-
-          {!isSocial ? (
-            <OsField
-              label="Purpose"
-              htmlFor={`${formId}-purpose`}
-              hint={
-                purpose.length >= PROFILE_BIO_LIMIT_WARN
-                  ? `${purpose.length}/${PROFILE_BIO_MAX}`
-                  : undefined
+        <OsAppScreen
+          title={editTitle}
+          glassChrome
+          compactChrome
+          embedded
+          leading={
+            <OsIconAction
+              ariaLabel={
+                isSocial ? 'Back from publish OnSocial' : 'Back from edit DAO'
               }
-            >
-              <textarea
-                id={`${formId}-purpose`}
-                rows={4}
-                value={purpose}
-                maxLength={PROFILE_BIO_MAX}
-                disabled={pending}
-                placeholder="What this DAO stewards…"
-                onFocus={scrollFieldIntoView}
-                onChange={(event) =>
-                  setPurpose(event.target.value.slice(0, PROFILE_BIO_MAX))
-                }
-                className={osFieldBorderedClassName}
-              />
-            </OsField>
-          ) : null}
-
-          {isSocial ? faceAboutFields : null}
-
-          <div className="dao-edit-links">
-            <ProfileLinksEditor
-              links={links}
-              fieldErrors={linkErrors}
-              onUpdateLink={(key, value) => {
-                setLinks((prev) => ({ ...prev, [key]: value }));
-                setLinkErrors((prev) => {
-                  if (!prev[key]) return prev;
-                  const next = { ...prev };
-                  delete next[key];
-                  return next;
-                });
-              }}
-              onClearFieldError={(key) => {
-                setLinkErrors((prev) => {
-                  if (!prev[key]) return prev;
-                  const next = { ...prev };
-                  delete next[key];
-                  return next;
-                });
-              }}
-              onSetFieldError={(key, nextError) => {
-                setLinkErrors((prev) => {
-                  if (!nextError) {
-                    if (!prev[key]) return prev;
-                    const next = { ...prev };
-                    delete next[key];
-                    return next;
-                  }
-                  return { ...prev, [key]: nextError };
-                });
-              }}
-            />
-          </div>
-
-          {canBatchSocial ? (
-            <button
-              type="button"
-              className="account-action-toggle os-disabled-ink dao-edit-publish"
-              role="switch"
-              aria-checked={publishSocial}
               disabled={pending}
-              onClick={() => {
-                if (!publishSocial) {
-                  setFace(clampFaceEditorInput(clampProfileBioFace(purpose)));
-                }
-                setPublishSocial((on) => !on);
-              }}
+              onClick={requestClose}
             >
-              <span className="account-action-toggle-copy">
-                <span className="account-action-toggle-label">
-                  {DAO_CREATE_PUBLISH}
-                </span>
-                <span className="account-action-toggle-hint">
-                  {DAO_EDIT_PUBLISH_HINT}
-                </span>
-              </span>
-              <span
-                className={`account-safe-mode-switch${publishSocial ? ' is-on' : ''}`}
+              <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
+            </OsIconAction>
+          }
+          className="profile-edit-slide"
+        >
+          <span id={titleId} className="sr-only">
+            {editTitle}
+          </span>
+          <OsPageBodyAppear>
+            <form
+              id={formId}
+              className="account-editor-form profile-edit-form"
+              onSubmit={(e) => requestProposeConfirm(e)}
+            >
+              <div className="account-editor-form-main profile-edit-form-main">
+                <PortfolioFaceEditorHero
+                  ariaLabel="DAO profile"
+                  banner={
+                    bannerSrc
+                      ? {
+                          kind: 'image',
+                          url: bannerSrc,
+                          srcSet: bannerSrcSet ?? undefined,
+                        }
+                      : null
+                  }
+                  bannerPan={coverPan}
+                  onBannerPanChange={setCoverPan}
+                  onBannerPick={openBannerPicker}
+                  onRemoveBanner={bannerSrc ? clearBanner : undefined}
+                  bannerAddLabel={DAO_CREATE_ADD_COVER}
+                  bannerChangeLabel={DAO_CREATE_CHANGE_COVER}
+                  bannerRemoveLabel={DAO_CREATE_REMOVE_COVER}
+                  markUrl={avatarSrc}
+                  markSrcSet={crestSrcSet ?? undefined}
+                  markPan={crestPan}
+                  onMarkPanChange={setCrestPan}
+                  onMarkPick={openCrestPicker}
+                  onRemoveMark={avatarSrc ? clearAvatar : undefined}
+                  markAddLabel={DAO_CREATE_ADD_CREST}
+                  markRemoveLabel={DAO_CREATE_REMOVE_CREST}
+                  markFallback="+"
+                  profileKind="dao"
+                  avatarShape={profileAvatarShapeForFace('org', true)}
+                  disabled={pending}
+                />
+
+                <div className="account-editor-form-body">
+                  <OsField
+                    label="Name"
+                    htmlFor={`${formId}-name`}
+                    hint={`${name.length}/${MAX_NAME}`}
+                  >
+                    <input
+                      id={`${formId}-name`}
+                      value={name}
+                      maxLength={MAX_NAME}
+                      disabled={pending}
+                      onFocus={scrollFieldIntoView}
+                      onChange={(event) => setName(event.target.value)}
+                      className={osFieldBorderedClassName}
+                    />
+                  </OsField>
+
+                  {!isSocial ? (
+                    <OsField
+                      label="Purpose"
+                      htmlFor={`${formId}-purpose`}
+                      hint={
+                        purpose.length >= PROFILE_BIO_LIMIT_WARN
+                          ? `${purpose.length}/${PROFILE_BIO_MAX}`
+                          : undefined
+                      }
+                    >
+                      <textarea
+                        id={`${formId}-purpose`}
+                        rows={4}
+                        value={purpose}
+                        maxLength={PROFILE_BIO_MAX}
+                        disabled={pending}
+                        placeholder="What this DAO stewards…"
+                        onFocus={scrollFieldIntoView}
+                        onChange={(event) =>
+                          setPurpose(
+                            event.target.value.slice(0, PROFILE_BIO_MAX)
+                          )
+                        }
+                        className={osFieldBorderedClassName}
+                      />
+                    </OsField>
+                  ) : null}
+
+                  {isSocial ? faceAboutFields : null}
+
+                  <div className="dao-edit-links">
+                    <ProfileLinksEditor
+                      links={links}
+                      fieldErrors={linkErrors}
+                      onUpdateLink={(key, value) => {
+                        setLinks((prev) => ({ ...prev, [key]: value }));
+                        setLinkErrors((prev) => {
+                          if (!prev[key]) return prev;
+                          const next = { ...prev };
+                          delete next[key];
+                          return next;
+                        });
+                      }}
+                      onClearFieldError={(key) => {
+                        setLinkErrors((prev) => {
+                          if (!prev[key]) return prev;
+                          const next = { ...prev };
+                          delete next[key];
+                          return next;
+                        });
+                      }}
+                      onSetFieldError={(key, nextError) => {
+                        setLinkErrors((prev) => {
+                          if (!nextError) {
+                            if (!prev[key]) return prev;
+                            const next = { ...prev };
+                            delete next[key];
+                            return next;
+                          }
+                          return { ...prev, [key]: nextError };
+                        });
+                      }}
+                    />
+                  </div>
+
+                  {canBatchSocial ? (
+                    <button
+                      type="button"
+                      className="account-action-toggle os-disabled-ink dao-edit-publish"
+                      role="switch"
+                      aria-checked={publishSocial}
+                      disabled={pending}
+                      onClick={() => {
+                        if (!publishSocial) {
+                          setFace(
+                            clampFaceEditorInput(clampProfileBioFace(purpose))
+                          );
+                        }
+                        setPublishSocial((on) => !on);
+                      }}
+                    >
+                      <span className="account-action-toggle-copy">
+                        <span className="account-action-toggle-label">
+                          {DAO_CREATE_PUBLISH}
+                        </span>
+                        <span className="account-action-toggle-hint">
+                          {DAO_EDIT_PUBLISH_HINT}
+                        </span>
+                      </span>
+                      <span
+                        className={`account-safe-mode-switch${publishSocial ? ' is-on' : ''}`}
+                        aria-hidden
+                      />
+                    </button>
+                  ) : null}
+
+                  {!isSocial && publishSocial ? faceAboutFields : null}
+
+                  {error ? <p className="guild-form-error">{error}</p> : null}
+                </div>
+              </div>
+
+              <input
+                ref={bannerInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                className="account-editor-file-input"
+                tabIndex={-1}
                 aria-hidden
+                disabled={pending}
+                onChange={onBannerChange}
               />
-            </button>
-          ) : null}
-
-          {!isSocial && publishSocial ? faceAboutFields : null}
-
-          {error ? <p className="guild-form-error">{error}</p> : null}
-        </form>
-      </DaoPageSlideOverScreen>
+              <input
+                ref={crestInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="account-editor-file-input"
+                tabIndex={-1}
+                aria-hidden
+                disabled={pending}
+                onChange={(event) => void onAvatarChange(event)}
+              />
+            </form>
+          </OsPageBodyAppear>
+        </OsAppScreen>
+      </OsPageSheet>
       <DiscardConfirmSheet
         open={discardConfirmOpen}
         onDiscard={discard}

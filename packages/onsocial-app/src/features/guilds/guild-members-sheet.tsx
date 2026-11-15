@@ -124,7 +124,7 @@ export function GuildMembersSheet({
             subtitle={memberCountLabel}
             onClose={onClose}
             closeAriaLabel="Close members"
-            titleAccessory={
+            endAccessory={
               onAddMember ? (
                 <OsIconAction
                   className="guild-members-add"

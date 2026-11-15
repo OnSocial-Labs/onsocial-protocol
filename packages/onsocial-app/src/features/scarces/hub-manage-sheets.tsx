@@ -48,6 +48,15 @@ import { HubLookPreview } from '@/features/scarces/hub-look-preview';
 import { commerceSheetKeyboardPanelStyle } from '@/features/scarces/commerce-sheet-keyboard';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import {
+  isMediaFramePanCentered,
+  MEDIA_FRAME_PAN_CENTER,
+  type MediaFramePan,
+} from '@/lib/media-frame-pan';
+import {
+  prepareProfileAvatarForSave,
+  prepareProfileBannerForSave,
+} from '@/lib/prepare-profile-editor-media';
+import {
   nearAccountStatusClass,
   useNearAccountStatus,
 } from '@/hooks/use-near-account-status';
@@ -236,6 +245,9 @@ export function HubLookSheet({
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [logoRemoved, setLogoRemoved] = useState(false);
   const [bannerRemoved, setBannerRemoved] = useState(false);
+  const [logoPan, setLogoPan] = useState<MediaFramePan>(MEDIA_FRAME_PAN_CENTER);
+  const [bannerPan, setBannerPan] =
+    useState<MediaFramePan>(MEDIA_FRAME_PAN_CENTER);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -251,6 +263,8 @@ export function HubLookSheet({
     setBannerFile(null);
     setLogoRemoved(false);
     setBannerRemoved(false);
+    setLogoPan(MEDIA_FRAME_PAN_CENTER);
+    setBannerPan(MEDIA_FRAME_PAN_CENTER);
     setError(null);
   }, [open, app]);
 
@@ -268,7 +282,9 @@ export function HubLookSheet({
     logoFile != null ||
     bannerFile != null ||
     logoRemoved ||
-    bannerRemoved;
+    bannerRemoved ||
+    !isMediaFramePanCentered(logoPan) ||
+    !isMediaFramePanCentered(bannerPan);
 
   const save = async () => {
     if (!dirty || pending) return;
@@ -300,17 +316,30 @@ export function HubLookSheet({
       } catch {
         // ignore malformed metadata
       }
-      if (logoFile) {
-        const uploaded = await client.storage.upload(logoFile);
-        image = `ipfs://${uploaded.cid}`;
-      } else if (logoRemoved) {
+      const logoPrepared = await prepareProfileAvatarForSave({
+        file: logoFile,
+        displayUrl: displayLogoUrl,
+        pan: logoPan,
+        removed: logoRemoved,
+      });
+      if (logoPrepared === null) {
         image = undefined;
+      } else if (logoPrepared) {
+        const uploaded = await client.storage.upload(logoPrepared);
+        image = `ipfs://${uploaded.cid}`;
       }
-      if (bannerFile) {
-        const uploaded = await client.storage.upload(bannerFile);
-        banner = `ipfs://${uploaded.cid}`;
-      } else if (bannerRemoved) {
+      const bannerPrepared = await prepareProfileBannerForSave({
+        file: bannerFile,
+        displayUrl: displayBannerUrl,
+        pan: bannerPan,
+        removed: bannerRemoved,
+        isVideo: false,
+      });
+      if (bannerPrepared === null) {
         banner = undefined;
+      } else if (bannerPrepared) {
+        const uploaded = await client.storage.upload(bannerPrepared);
+        banner = `ipfs://${uploaded.cid}`;
       }
       const metadata = JSON.stringify({
         name: trimmed,
@@ -346,8 +375,7 @@ export function HubLookSheet({
   return (
     <HubManageSheetChrome
       open={open}
-      title="Edit look"
-      subtitle="Logo, banner, name, categories"
+      title="Edit hub"
       onClose={onClose}
       pending={pending}
       dirty={dirty}
@@ -361,7 +389,7 @@ export function HubLookSheet({
             disabled={!dirty || pending}
             onClick={() => void save()}
           >
-            Save look
+            Save changes
           </OsSheetAction>
         </OsSheetActions>
       }
@@ -379,6 +407,10 @@ export function HubLookSheet({
           name={name}
           disabled={pending}
           accept={IMAGE_ACCEPT}
+          bannerPan={bannerPan}
+          logoPan={logoPan}
+          onBannerPanChange={setBannerPan}
+          onLogoPanChange={setLogoPan}
           onBannerChange={(event) => {
             const file = event.target.files?.[0] ?? null;
             event.target.value = '';
@@ -391,6 +423,7 @@ export function HubLookSheet({
             setError(null);
             setBannerFile(file);
             setBannerRemoved(false);
+            setBannerPan(MEDIA_FRAME_PAN_CENTER);
           }}
           onLogoChange={(event) => {
             const file = event.target.files?.[0] ?? null;
@@ -404,14 +437,17 @@ export function HubLookSheet({
             setError(null);
             setLogoFile(file);
             setLogoRemoved(false);
+            setLogoPan(MEDIA_FRAME_PAN_CENTER);
           }}
           onRemoveBanner={() => {
             setBannerFile(null);
             setBannerRemoved(true);
+            setBannerPan(MEDIA_FRAME_PAN_CENTER);
           }}
           onRemoveLogo={() => {
             setLogoFile(null);
             setLogoRemoved(true);
+            setLogoPan(MEDIA_FRAME_PAN_CENTER);
           }}
         />
 

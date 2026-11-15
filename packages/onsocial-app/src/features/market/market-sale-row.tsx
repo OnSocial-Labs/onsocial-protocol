@@ -118,47 +118,55 @@ export function MarketSaleRow({
       <div className={thumbClass} aria-hidden>
         {thumbArt}
       </div>
-      <div className="market-listing-copy drops-discovery-copy">
-        <div className="market-listing-head drops-discovery-head">
-          <p className="market-listing-title">{title}</p>
+      <div className="drops-discovery-body">
+        <div className="drops-discovery-top">
+          <div className="market-listing-head drops-discovery-head">
+            <p className="market-listing-title">{title}</p>
+          </div>
+          <div className="market-listing-action-col">
+            <div className="drops-discovery-head-trail">
+              {saleTime ? (
+                <time
+                  className="market-listing-meta-right"
+                  {...socialTimeProps(sale.blockTimestamp)}
+                >
+                  {saleTime}
+                </time>
+              ) : null}
+              <MarketListingRowMenu
+                item={{
+                  title,
+                  tokenId: sale.tokenId,
+                  mediaUrl: sale.mediaUrl,
+                  sourcePostPath: sale.sourcePostPath,
+                }}
+                sharePath={detail?.href ?? null}
+              />
+            </div>
+          </div>
         </div>
-        {partyId ? (
-          <DiscoveryPartyStack
-            accountId={partyId}
-            displayName={displayName}
-            avatarUrl={avatarUrl}
-            lead={salePartyLead(sale)}
-          />
-        ) : null}
-        {priceLine || sale.quantity ? (
-          <p className="market-listing-meta market-listing-meta--price">
-            <QuantityCount quantity={sale.quantity} verb="minted" />
-            {sale.quantity && sale.quantity > 1 && priceLine ? ' · ' : null}
-            {priceLine ? (
-              <span className="market-listing-price">{priceLine}</span>
+        <div className="drops-discovery-ledger">
+          <div className="drops-discovery-stack">
+            {partyId ? (
+              <DiscoveryPartyStack
+                accountId={partyId}
+                displayName={displayName}
+                avatarUrl={avatarUrl}
+                lead={salePartyLead(sale)}
+              />
             ) : null}
-          </p>
-        ) : null}
-      </div>
-      <div className="market-listing-action-col">
-        <div className="drops-discovery-head-trail">
-          {saleTime ? (
-            <time
-              className="market-listing-meta-right"
-              {...socialTimeProps(sale.blockTimestamp)}
-            >
-              {saleTime}
-            </time>
-          ) : null}
-          <MarketListingRowMenu
-            item={{
-              title,
-              tokenId: sale.tokenId,
-              mediaUrl: sale.mediaUrl,
-              sourcePostPath: sale.sourcePostPath,
-            }}
-            sharePath={detail?.href ?? null}
-          />
+            {priceLine || sale.quantity ? (
+              <p className="market-listing-meta market-listing-meta--price">
+                <QuantityCount quantity={sale.quantity} verb="minted" />
+                {sale.quantity && sale.quantity > 1 && priceLine
+                  ? ' · '
+                  : null}
+                {priceLine ? (
+                  <span className="market-listing-price">{priceLine}</span>
+                ) : null}
+              </p>
+            ) : null}
+          </div>
         </div>
       </div>
     </li>

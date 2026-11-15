@@ -4,14 +4,14 @@ import Link from 'next/link';
 import {
   OsIconAction,
   osIconActionGlyphClassName,
-  PlusIcon,
   ShopFillIcon,
 } from '@onsocial/ui';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { accountIdsEqual } from '@/lib/account-match';
 import { APP_DROP_CREATE_PATH, APP_MARKET_PATH } from '@/lib/app-routes';
+import { OsRowAction } from '@/lib/os-row-action';
 
-/** Market + create — same header cluster as Reputation's chart. */
+/** Market utility + owner New drop (`os-header-commit`). */
 export function CollectiblesHeaderActions({
   pageAccountId = null,
 }: {
@@ -34,14 +34,9 @@ export function CollectiblesHeaderActions({
         </Link>
       </OsIconAction>
       {isSelf ? (
-        <OsIconAction asChild ariaLabel="Start a drop">
-          <Link href={APP_DROP_CREATE_PATH} scroll={false}>
-            <PlusIcon
-              aria-hidden
-              className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
-            />
-          </Link>
-        </OsIconAction>
+        <OsRowAction className="os-header-commit" href={APP_DROP_CREATE_PATH}>
+          New drop
+        </OsRowAction>
       ) : null}
     </>
   );

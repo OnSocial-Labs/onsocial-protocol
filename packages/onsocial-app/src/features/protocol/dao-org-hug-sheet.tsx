@@ -8,7 +8,8 @@ import { SHEET_Z } from '@/lib/sheet-z';
 /**
  * DAO org read drawers (Members, Treasury, Info) — full-detent OsHugSheet, same
  * family as guild members / fans. Face stays underneath. Proposals stay a
- * nested keep-dock page. Edit / Boost stay on `DaoPageSlideOverScreen`.
+ * nested keep-dock page. Boost stays on `DaoPageSlideOverScreen`; Edit DAO
+ * uses the portfolio `profile-edit-slide` page sheet.
  *
  * GlassSheet already stays mounted through the exit animation — callers
  * should pass parent `open` / `onClose` through and not re-fire `onClose`

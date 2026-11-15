@@ -161,7 +161,7 @@ export function useRegisterDockAction(entry: DockActionRegistration | null) {
   }, [key, setDockAction]);
 }
 
-/** Header already has Connect / Start drop — hide the dock Connect hint. */
+/** Header already has Connect / Publish — hide the dock Connect hint. */
 export function useRegisterHeaderOwnsConnect(owns: boolean) {
   const context = useContext(DockChromeContext);
   const setHeaderOwnsConnect = context?.setHeaderOwnsConnect;

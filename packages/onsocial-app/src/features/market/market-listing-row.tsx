@@ -225,105 +225,113 @@ export function MarketListingRow({
           {thumbArt}
         </button>
       )}
-      <div className="market-listing-copy drops-discovery-copy">
-        <div className="market-listing-head drops-discovery-head">
-          <p className="market-listing-title">{item.title}</p>
+      <div className="drops-discovery-body">
+        <div className="drops-discovery-top">
+          <div className="market-listing-head drops-discovery-head">
+            <p className="market-listing-title">{item.title}</p>
+          </div>
+          <div className="market-listing-action-col">
+            <div className="drops-discovery-head-trail">
+              {timeLabel ? (
+                <time
+                  className="market-listing-meta-right"
+                  {...socialTimeProps(timeAt)}
+                >
+                  {timeLabel}
+                </time>
+              ) : null}
+              <MarketListingRowMenu
+                item={item}
+                sharePath={rowTarget?.href ?? null}
+              />
+            </div>
+          </div>
         </div>
-        <DiscoveryPartyStack
-          accountId={sellerId}
-          displayName={item.creatorDisplayName}
-          avatarUrl={item.creatorAvatarUrl}
-          lead="listed by"
-        />
-        <p className="market-listing-meta market-listing-meta--price">
-          <span className="market-listing-price">
-            {item.priceLabel && item.priceLabel !== 'Ask'
-              ? `${item.priceLabel} · `
-              : ''}
-            {dollarStickerLabel(item.usdE6) ??
-              `${formatPriceNear(item.priceNear)} NEAR`}
-          </span>
-          {bidCount != null ? (
-            <span className="market-listing-own">
-              {' · '}
-              {bidCount === 1 ? '1 bid' : `${bidCount} bids`}
-            </span>
-          ) : highestOfferNear?.trim() ? (
-            <span className="market-listing-own">
-              {' · '}
-              Offer {formatPriceNear(highestOfferNear)} NEAR
-            </span>
-          ) : item.kind === 'native' ? (
-            <span className="market-listing-own"> · Resale</span>
-          ) : isPrimaryMint && !isOwnListing ? (
-            <span className="market-listing-own"> · Primary</span>
-          ) : isOwnListing ? (
-            <span className="market-listing-own"> · Yours</span>
-          ) : null}
-          {isPrimaryMint &&
-          item.copies != null &&
-          item.remaining != null &&
-          item.remaining >= 0 ? (
-            <span className="market-listing-own">
-              {' · '}
-              {item.remaining} of {item.copies} left
-            </span>
-          ) : null}
-        </p>
-      </div>
-      <div className="market-listing-action-col">
-        <div className="drops-discovery-head-trail">
-          {timeLabel ? (
-            <time
-              className="market-listing-meta-right"
-              {...socialTimeProps(timeAt)}
+        <div className="drops-discovery-ledger">
+          <div className="drops-discovery-stack">
+            <DiscoveryPartyStack
+              accountId={sellerId}
+              displayName={item.creatorDisplayName}
+              avatarUrl={item.creatorAvatarUrl}
+              lead="listed by"
+            />
+            <p className="market-listing-meta market-listing-meta--price">
+              <span className="market-listing-price">
+                {item.priceLabel && item.priceLabel !== 'Ask'
+                  ? `${item.priceLabel} · `
+                  : ''}
+                {dollarStickerLabel(item.usdE6) ??
+                  `${formatPriceNear(item.priceNear)} NEAR`}
+              </span>
+              {bidCount != null ? (
+                <span className="market-listing-own">
+                  {' · '}
+                  {bidCount === 1 ? '1 bid' : `${bidCount} bids`}
+                </span>
+              ) : highestOfferNear?.trim() ? (
+                <span className="market-listing-own">
+                  {' · '}
+                  Offer {formatPriceNear(highestOfferNear)} NEAR
+                </span>
+              ) : item.kind === 'native' ? (
+                <span className="market-listing-own"> · Resale</span>
+              ) : isPrimaryMint && !isOwnListing ? (
+                <span className="market-listing-own"> · Primary</span>
+              ) : isOwnListing ? (
+                <span className="market-listing-own"> · Yours</span>
+              ) : null}
+              {isPrimaryMint &&
+              item.copies != null &&
+              item.remaining != null &&
+              item.remaining >= 0 ? (
+                <span className="market-listing-own">
+                  {' · '}
+                  {item.remaining} of {item.copies} left
+                </span>
+              ) : null}
+            </p>
+          </div>
+          <div className="market-listing-action-col">
+            <OsSheetActions
+              layout="row-compact"
+              tone="frosted-primary"
+              size="sm"
+              borderless
+              className="market-listing-action"
             >
-              {timeLabel}
-            </time>
-          ) : null}
-          <MarketListingRowMenu
-            item={item}
-            sharePath={rowTarget?.href ?? null}
-          />
+              {isOwnListing ? (
+                <OsSheetAction
+                  type="button"
+                  variant={confirmingCancel ? 'danger' : 'primary'}
+                  ready
+                  pending={cancelPending}
+                  pendingLabel="Canceling…"
+                  aria-label={
+                    cancelPending
+                      ? 'Canceling listing'
+                      : confirmingCancel
+                        ? 'Confirm cancel listing'
+                        : 'Cancel listing'
+                  }
+                  onClick={handleOwnClick}
+                  onBlur={confirmingCancel ? clearConfirm : undefined}
+                >
+                  {confirmingCancel ? 'Cancel?' : 'Listed'}
+                </OsSheetAction>
+              ) : (
+                <OsSheetAction
+                  type="button"
+                  variant="primary"
+                  ready
+                  aria-label={buyAriaLabel}
+                  onClick={() => onBuy(item)}
+                >
+                  {buyLabel}
+                </OsSheetAction>
+              )}
+            </OsSheetActions>
+          </div>
         </div>
-        <OsSheetActions
-          layout="row-compact"
-          tone="frosted-primary"
-          size="sm"
-          borderless
-          className="market-listing-action"
-        >
-          {isOwnListing ? (
-            <OsSheetAction
-              type="button"
-              variant={confirmingCancel ? 'danger' : 'primary'}
-              ready
-              pending={cancelPending}
-              pendingLabel="Canceling…"
-              aria-label={
-                cancelPending
-                  ? 'Canceling listing'
-                  : confirmingCancel
-                    ? 'Confirm cancel listing'
-                    : 'Cancel listing'
-              }
-              onClick={handleOwnClick}
-              onBlur={confirmingCancel ? clearConfirm : undefined}
-            >
-              {confirmingCancel ? 'Cancel?' : 'Listed'}
-            </OsSheetAction>
-          ) : (
-            <OsSheetAction
-              type="button"
-              variant="primary"
-              ready
-              aria-label={buyAriaLabel}
-              onClick={() => onBuy(item)}
-            >
-              {buyLabel}
-            </OsSheetAction>
-          )}
-        </OsSheetActions>
       </div>
     </div>
   );

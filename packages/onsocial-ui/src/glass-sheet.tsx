@@ -1877,8 +1877,10 @@ export interface SheetHeaderProps {
   title: ReactNode;
   /** Quiet kind line above the title (facts: Hub / Guild / Account). */
   eyebrow?: ReactNode;
-  /** Sibling of the title (e.g. Clear) — stays outside the heading. */
+  /** Hugs the title on the same line (rare — prefer `endAccessory`). */
   titleAccessory?: ReactNode;
+  /** Trailing control before close (Filter Clear, Add member). */
+  endAccessory?: ReactNode;
   subtitle?: ReactNode;
   /** Accessible name when the visible title is not the dialog name. */
   titleLabel?: string;
@@ -1893,6 +1895,7 @@ export function SheetHeader({
   title,
   eyebrow,
   titleAccessory,
+  endAccessory,
   subtitle,
   titleLabel,
   onClose,
@@ -1914,18 +1917,21 @@ export function SheetHeader({
             {eyebrow ? (
               <p className="glass-sheet-header-eyebrow">{eyebrow}</p>
             ) : null}
-            <h2
-              id={titleId}
-              className="glass-sheet-header-title"
-              {...(titleLabel ? { 'aria-label': titleLabel } : {})}
-            >
-              {title}
-            </h2>
+            <div className="glass-sheet-header-title-line">
+              <h2
+                id={titleId}
+                className="glass-sheet-header-title"
+                {...(titleLabel ? { 'aria-label': titleLabel } : {})}
+              >
+                {title}
+              </h2>
+              {titleAccessory}
+            </div>
             {subtitle ? (
               <div className="glass-sheet-header-subtitle">{subtitle}</div>
             ) : null}
           </div>
-          {titleAccessory}
+          {endAccessory}
           {closeControl}
         </div>
       </div>

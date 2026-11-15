@@ -119,86 +119,100 @@ export function PortfolioDropRow({
           <span className="market-listing-thumb-play" aria-hidden />
         ) : null}
       </Link>
-      <div className="market-listing-copy drops-discovery-copy">
-        <div className="market-listing-head drops-discovery-head">
-          <Link href={href} scroll={false} className="market-listing-title">
-            {drop.title}
-          </Link>
-        </div>
-        <DiscoveryPartyStack
-          accountId={pageAccountId}
-          displayName={displayName}
-          avatarUrl={avatarUrl}
-        />
-        {dealBits.length > 0 || fanCount != null ? (
-          <div className="drops-discovery-deal">
-            {dealBits.length > 0 ? (
-              <Link
-                href={href}
-                scroll={false}
-                className="drops-discovery-deal-bits"
-              >
-                {dealBits.join(' · ')}
-              </Link>
-            ) : null}
-            {fanCount != null ? (
-              <>
-                {dealBits.length > 0 ? (
-                  <span className="drops-discovery-deal-sep" aria-hidden>
-                    {' · '}
-                  </span>
-                ) : null}
-                <DropFansButton
-                  creatorId={pageAccountId}
-                  collectionId={drop.collectionId}
-                  title={drop.title}
-                  fanIds={drop.fanIds}
-                  fanCount={fanCount}
+      <div className="drops-discovery-body">
+        <div className="drops-discovery-top">
+          <div className="market-listing-head drops-discovery-head">
+            <Link href={href} scroll={false} className="market-listing-title">
+              {drop.title}
+            </Link>
+          </div>
+          <div
+            className={`market-listing-action-col drops-discovery-action-col${
+              !(droppedLabel && drop.createdAtMs != null) && !onToggleSave
+                ? ' is-empty'
+                : ''
+            }`}
+          >
+            <div className="drops-discovery-head-trail">
+              {droppedLabel && drop.createdAtMs != null ? (
+                <time
+                  className="market-listing-meta-right"
+                  {...socialTimeProps(drop.createdAtMs)}
+                >
+                  {droppedLabel}
+                </time>
+              ) : null}
+              {onToggleSave ? (
+                <DropsDiscoveryRowMenu
+                  item={menuItem}
+                  saved={saved}
+                  savePending={savePending}
+                  onToggleSave={onToggleSave}
+                  onOwnerManaged={onOwnerManaged}
                 />
-              </>
+              ) : null}
+            </div>
+          </div>
+        </div>
+        <div className="drops-discovery-ledger">
+          <div className="drops-discovery-stack">
+            <DiscoveryPartyStack
+              accountId={pageAccountId}
+              displayName={displayName}
+              avatarUrl={avatarUrl}
+            />
+            {dealBits.length > 0 || fanCount != null ? (
+              <div className="drops-discovery-deal">
+                {dealBits.length > 0 ? (
+                  <Link
+                    href={href}
+                    scroll={false}
+                    className="drops-discovery-deal-bits"
+                  >
+                    {dealBits.join(' · ')}
+                  </Link>
+                ) : null}
+                {fanCount != null ? (
+                  <>
+                    {dealBits.length > 0 ? (
+                      <span className="drops-discovery-deal-sep" aria-hidden>
+                        {' · '}
+                      </span>
+                    ) : null}
+                    <DropFansButton
+                      creatorId={pageAccountId}
+                      collectionId={drop.collectionId}
+                      title={drop.title}
+                      fanIds={drop.fanIds}
+                      fanCount={fanCount}
+                    />
+                  </>
+                ) : null}
+              </div>
             ) : null}
           </div>
-        ) : null}
-      </div>
-      <div className="market-listing-action-col drops-discovery-action-col">
-        <div className="drops-discovery-head-trail">
-          {droppedLabel && drop.createdAtMs != null ? (
-            <time
-              className="market-listing-meta-right"
-              {...socialTimeProps(drop.createdAtMs)}
-            >
-              {droppedLabel}
-            </time>
-          ) : null}
-          {onToggleSave ? (
-            <DropsDiscoveryRowMenu
-              item={menuItem}
-              saved={saved}
-              savePending={savePending}
-              onToggleSave={onToggleSave}
-              onOwnerManaged={onOwnerManaged}
-            />
+          {showMint ? (
+            <div className="market-listing-action-col drops-discovery-action-col">
+              <OsSheetActions
+                layout="row-compact"
+                tone="frosted-primary"
+                size="sm"
+                borderless
+                className="market-listing-action drops-discovery-action"
+              >
+                <OsSheetAction
+                  type="button"
+                  variant="primary"
+                  ready
+                  aria-label={`Mint ${drop.title}`}
+                  onClick={() => onMint(drop)}
+                >
+                  Mint
+                </OsSheetAction>
+              </OsSheetActions>
+            </div>
           ) : null}
         </div>
-        {showMint ? (
-          <OsSheetActions
-            layout="row-compact"
-            tone="frosted-primary"
-            size="sm"
-            borderless
-            className="market-listing-action drops-discovery-action"
-          >
-            <OsSheetAction
-              type="button"
-              variant="primary"
-              ready
-              aria-label={`Mint ${drop.title}`}
-              onClick={() => onMint(drop)}
-            >
-              Mint
-            </OsSheetAction>
-          </OsSheetActions>
-        ) : null}
       </div>
     </div>
   );

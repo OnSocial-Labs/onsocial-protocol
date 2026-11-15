@@ -245,11 +245,11 @@ export function MarketFilterMenu({
         onClosed={handleClosed}
         label="Filter"
         closeAriaLabel="Close filter"
-        titleAccessory={
+        endAccessory={
           narrowed ? (
             <button
               type="button"
-              className="market-filter-title-clear"
+              className="market-filter-clear"
               onClick={onClear}
             >
               Clear

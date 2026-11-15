@@ -5,7 +5,7 @@ interface MarketListSkeletonProps {
   variant?: 'market' | 'drops';
 }
 
-/** Shimmer placeholders for Market listing / sales rows. */
+/** Shimmer — title|trail, then party/meta with optional CTA beside. */
 export function MarketListSkeleton({
   rows = 5,
   variant = 'market',
@@ -21,7 +21,7 @@ export function MarketListSkeleton({
         <div
           key={index}
           className={`market-listing-row market-listing-row--skeleton${
-            isDrops ? ' drops-discovery-row--skeleton' : ''
+            isDrops ? ' drops-discovery-row drops-discovery-row--skeleton' : ''
           }`}
         >
           <span
@@ -29,30 +29,34 @@ export function MarketListSkeleton({
               isDrops ? ' drops-discovery-thumb' : ''
             }`}
           />
-          <div
-            className={`market-listing-copy${
-              isDrops ? ' drops-discovery-copy' : ''
-            }`}
-          >
-            <div
-              className={`market-listing-head${
-                isDrops ? ' drops-discovery-head' : ''
-              }`}
-            >
-              <span className="standing-row-shimmer standing-row-shimmer-line market-listing-shimmer-title" />
+          <div className="drops-discovery-body">
+            <div className="drops-discovery-top">
+              <div
+                className={`market-listing-head${
+                  isDrops ? ' drops-discovery-head' : ''
+                }`}
+              >
+                <span className="standing-row-shimmer standing-row-shimmer-line market-listing-shimmer-title" />
+              </div>
+              <div
+                className={`market-listing-action-col${
+                  isDrops ? ' drops-discovery-action-col' : ''
+                }`}
+              >
+                <span className="standing-row-shimmer standing-row-shimmer-line market-listing-shimmer-time" />
+              </div>
             </div>
-            <span className="standing-row-shimmer standing-row-shimmer-line market-listing-shimmer-identity" />
-            <span className="standing-row-shimmer standing-row-shimmer-line market-listing-shimmer-meta" />
-          </div>
-          <div
-            className={`market-listing-action-col${
-              isDrops ? ' drops-discovery-action-col' : ''
-            }`}
-          >
-            <span className="standing-row-shimmer standing-row-shimmer-line market-listing-shimmer-time" />
-            {isDrops ? null : (
-              <span className="standing-row-shimmer market-listing-shimmer-action" />
-            )}
+            <div className="drops-discovery-ledger">
+              <div className="drops-discovery-stack">
+                <span className="standing-row-shimmer standing-row-shimmer-line market-listing-shimmer-identity" />
+                <span className="standing-row-shimmer standing-row-shimmer-line market-listing-shimmer-meta" />
+              </div>
+              {isDrops ? null : (
+                <div className="market-listing-action-col">
+                  <span className="standing-row-shimmer market-listing-shimmer-action" />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       ))}

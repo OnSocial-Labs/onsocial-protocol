@@ -21,7 +21,6 @@ import { DropFansButton } from '@/components/drops/drop-row-fans';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
-import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
@@ -354,56 +353,62 @@ function DropRow({
           {thumb}
         </div>
       )}
-      <div className="market-listing-copy drops-discovery-copy">
-        <div className="market-listing-head drops-discovery-head">
-          <p className="market-listing-title">{item.title}</p>
+      <div className="drops-discovery-body">
+        <div className="drops-discovery-top">
+          <div className="market-listing-head drops-discovery-head">
+            <p className="market-listing-title">{item.title}</p>
+          </div>
+          <div className="market-listing-action-col drops-discovery-action-col">
+            <div className="drops-discovery-head-trail">
+              {corner ? (
+                <time
+                  className="market-listing-meta-right"
+                  {...socialTimeProps(corner.atMs)}
+                >
+                  {corner.label}
+                </time>
+              ) : null}
+              <DropsDiscoveryRowMenu
+                item={item}
+                saved={saved}
+                savePending={savePending}
+                onToggleSave={onToggleSave}
+                onOwnerManaged={onOwnerManaged}
+              />
+            </div>
+          </div>
         </div>
-        <DiscoveryPartyStack
-          accountId={item.creatorId}
-          displayName={item.creatorDisplayName}
-          avatarUrl={item.creatorAvatarUrl}
-        />
-        <div className="drops-discovery-deal">
-          {dealBits.length > 0 ? (
-            <span className="drops-discovery-deal-bits">
-              {dealBits.join(' · ')}
-            </span>
-          ) : null}
-          {fanCount != null ? (
-            <>
+        <div className="drops-discovery-ledger">
+          <div className="drops-discovery-stack">
+            <DiscoveryPartyStack
+              accountId={item.creatorId}
+              displayName={item.creatorDisplayName}
+              avatarUrl={item.creatorAvatarUrl}
+            />
+            <div className="drops-discovery-deal">
               {dealBits.length > 0 ? (
-                <span className="drops-discovery-deal-sep" aria-hidden>
-                  {' · '}
+                <span className="drops-discovery-deal-bits">
+                  {dealBits.join(' · ')}
                 </span>
               ) : null}
-              <DropFansButton
-                creatorId={item.creatorId}
-                collectionId={item.collectionId}
-                title={item.title}
-                fanIds={item.fanIds}
-                fanCount={fanCount}
-              />
-            </>
-          ) : null}
-        </div>
-      </div>
-      <div className="market-listing-action-col drops-discovery-action-col">
-        <div className="drops-discovery-head-trail">
-          {corner ? (
-            <time
-              className="market-listing-meta-right"
-              {...socialTimeProps(corner.atMs)}
-            >
-              {corner.label}
-            </time>
-          ) : null}
-          <DropsDiscoveryRowMenu
-            item={item}
-            saved={saved}
-            savePending={savePending}
-            onToggleSave={onToggleSave}
-            onOwnerManaged={onOwnerManaged}
-          />
+              {fanCount != null ? (
+                <>
+                  {dealBits.length > 0 ? (
+                    <span className="drops-discovery-deal-sep" aria-hidden>
+                      {' · '}
+                    </span>
+                  ) : null}
+                  <DropFansButton
+                    creatorId={item.creatorId}
+                    collectionId={item.collectionId}
+                    title={item.title}
+                    fanIds={item.fanIds}
+                    fanCount={fanCount}
+                  />
+                </>
+              ) : null}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -480,7 +485,7 @@ function EmptyDropsStatus({
         copy="No upcoming drops."
         actions={[
           { href: dropsPath({ sort: 'live' }), label: 'See Live' },
-          { href: APP_DROP_CREATE_PATH, label: 'Create' },
+          { href: APP_DROP_CREATE_PATH, label: 'New drop' },
         ]}
       />
     );
@@ -507,7 +512,7 @@ function EmptyDropsStatus({
         copy="No live drops right now."
         actions={[
           { href: dropsPath({ sort: 'upcoming' }), label: 'See Upcoming' },
-          { href: APP_DROP_CREATE_PATH, label: 'Create' },
+          { href: APP_DROP_CREATE_PATH, label: 'New drop' },
         ]}
       />
     );
@@ -604,13 +609,6 @@ export function DropsPagePanel({
 } = {}) {
   const { accountId, isConnected, connect } = useAppWallet();
   const router = useRouter();
-  const openDropCreate = useCallback(() => {
-    router.push(APP_DROP_CREATE_PATH);
-  }, [router]);
-  useRegisterComposeAction(
-    isConnected && accountId?.trim() ? openDropCreate : null,
-    'drop'
-  );
   const seedKey = dropsSeedParamsKey(seedQuery);
   const [pageQuery, setPageQuery] = useState<DropsPageQuery>(seedQuery);
   const sort = pageQuery.sort;
