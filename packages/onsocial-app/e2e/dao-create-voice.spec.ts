@@ -36,7 +36,7 @@ test.describe('dao create voice', () => {
     await expect(
       page.getByRole('button', { name: 'Add links', exact: true })
     ).toBeVisible();
-    await expect(page.getByText('Purpose', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Purpose', { exact: true })).not.toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Add a purpose', exact: true })
     ).toBeVisible();

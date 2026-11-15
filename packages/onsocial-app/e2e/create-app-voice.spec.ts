@@ -29,8 +29,8 @@ test.describe('create app voice', () => {
     await expect(
       page.getByRole('button', { name: 'Add about', exact: true })
     ).toBeVisible();
-    await expect(page.locator('#app-create-description')).toHaveCount(0);
-    await expect(page.getByText('About', { exact: true })).toHaveCount(0);
+    await expect(page.locator('#app-create-description')).not.toBeVisible();
+    await expect(page.getByText('About', { exact: true })).not.toBeVisible();
     await expect(page.getByRole('button', { name: 'Advanced' })).toHaveCount(0);
 
     await expect(
@@ -95,7 +95,7 @@ test.describe('create app voice', () => {
       .locator('#app-create-description')
       .fill('Midnight Records publishes live sessions.');
     await page.getByRole('button', { name: 'Hide about', exact: true }).click();
-    await expect(page.locator('#app-create-description')).toHaveCount(0);
+    await expect(page.locator('#app-create-description')).not.toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Edit about', exact: true })
     ).toBeVisible();
