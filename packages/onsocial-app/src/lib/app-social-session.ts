@@ -336,8 +336,8 @@ export async function getAppSocialSessionPublicKey(
 }
 
 /**
- * Delete the OnSocial FunctionCall session key on-chain and clear local
- * session metadata. Caller clears gateway JWT / React session flags.
+ * DeleteKey-only for the OnSocial session key, then clear local metadata.
+ * Caller clears gateway JWT / React session flags.
  */
 export async function revokeAppSocialSession(input: {
   accountId: string;
@@ -360,6 +360,8 @@ export async function revokeAppSocialSession(input: {
     network: ACTIVE_NEAR_NETWORK,
     store: getAppSocialSessionStore(),
     accountId: input.accountId,
+    // Match AddKey-only grants — no set_key_permission to clear.
+    clearKeyPermission: false,
   });
   clearStoredPendingSessionKey(input.accountId);
   return extractNearTransactionHashes(result);
@@ -371,9 +373,9 @@ export type AppSocialSessionTxResult = {
 };
 
 /**
- * Renew an expired (or re-attach a missing-on-chain) session using the same
- * key material. When the FunctionCall key is still on the account, skips
- * AddKey and only refreshes the core permission TTL — no orphan keys.
+ * Renew an expired session with the same key material.
+ * Key still on-chain → local TTL only (no wallet). Key missing → AddKey only
+ * (same sheet as connect — no set_key_permission).
  */
 export async function renewAppSocialSession(input: {
   accountId: string;
@@ -399,13 +401,15 @@ export async function renewAppSocialSession(input: {
     input.accountId,
     sessionKey.publicKey
   );
+  if (onChain) {
+    await persistAppSessionAfterSignIn(input.accountId, sessionKey);
+    return { ready: true, txHashes: [] };
+  }
+
   await fundAppSessionIfNeeded(input.accountId);
-  const allowanceYocto = onChain
-    ? await resolveOnChainSessionAllowanceYocto(
-        input.accountId,
-        sessionKey.publicKey
-      )
-    : await resolveAppSessionKeyAllowanceYocto(input.accountId);
+  const allowanceYocto = await resolveAppSessionKeyAllowanceYocto(
+    input.accountId
+  );
 
   const adapter = nearConnectAdapter(input.wallet, input.accountId, {
     network: ACTIVE_NEAR_NETWORK,
@@ -420,7 +424,7 @@ export async function renewAppSocialSession(input: {
     wallet: adapter,
     accountId: input.accountId,
     sessionKey,
-    skipAddKey: onChain,
+    skipKeyPermission: true,
     onGrantResult: (result) => {
       grantResult = result;
     },
@@ -433,8 +437,7 @@ export async function renewAppSocialSession(input: {
 }
 
 /**
- * Explicit Allow access — wallet grant via bootstrap plan (AddKey + permission).
- * Prefer this from App access UI so confirmations can link Nearblocks.
+ * Explicit Allow access — same AddKey-only path as connect (no permission tx).
  */
 export async function grantAppSocialSession(input: {
   accountId: string;
@@ -477,6 +480,7 @@ export async function grantAppSocialSession(input: {
     wallet: adapter,
     accountId: input.accountId,
     sessionKey: pendingSessionKey,
+    skipKeyPermission: true,
     onGrantResult: (result) => {
       grantResult = result;
     },

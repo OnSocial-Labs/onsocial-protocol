@@ -348,9 +348,15 @@ const DEFAULT_GRANT_GAS_TGAS = 100;
 /** Expands an onboarding plan into wallet transactions. */
 export function planToWalletTransactions(
   plan: OnboardingPlan,
-  opts: { gasTgas?: number; includeAddKey?: boolean } = {}
+  opts: {
+    gasTgas?: number;
+    includeAddKey?: boolean;
+    /** When false, omit execute_admin / set_key_permission (AddKey-only). */
+    includeCoreActions?: boolean;
+  } = {}
 ): Array<{ receiverId: string; actions: NearAction[] }> {
   const includeAddKey = opts.includeAddKey !== false;
+  const includeCoreActions = opts.includeCoreActions !== false;
   const gas = String(
     BigInt(opts.gasTgas ?? DEFAULT_GRANT_GAS_TGAS) * 1_000_000_000_000n
   );
@@ -379,7 +385,7 @@ export function planToWalletTransactions(
     });
   }
 
-  if (plan.coreActions.length > 0) {
+  if (includeCoreActions && plan.coreActions.length > 0) {
     txs.push({
       receiverId: plan.accessKey.receiverId,
       actions: plan.coreActions.map((action) =>
@@ -449,6 +455,11 @@ export interface BootstrapSessionInput
   sessionKey?: GeneratedSessionKey;
   /** Skip the on-chain AddKey tx when the key was already added at sign-in. */
   skipAddKey?: boolean;
+  /**
+   * Skip execute_admin / set_key_permission. Own-account `{accountId}/`
+   * sessions only need the FunctionCall key (same as connect AddKey).
+   */
+  skipKeyPermission?: boolean;
   /** Wallet grant outcome (for explorer links / confirmation tracking). */
   onGrantResult?: (result: unknown) => void;
 }
@@ -553,7 +564,13 @@ export async function bootstrapSession(
   const transactions = planToWalletTransactions(plan, {
     gasTgas: input.grantGasTgas,
     includeAddKey: !input.skipAddKey,
+    includeCoreActions: !input.skipKeyPermission,
   });
+  if (transactions.length === 0) {
+    throw new Error(
+      'bootstrapSession: nothing to sign (AddKey and key permission both skipped)'
+    );
+  }
   const grantResult = await input.wallet.signAndSendTransactions({
     transactions,
   });
@@ -656,6 +673,11 @@ export interface RevokeSessionInput {
   store?: KeyStore;
   accountId?: string;
   gasTgas?: number;
+  /**
+   * When false, DeleteKey only — matches AddKey-only grants that never
+   * wrote set_key_permission.
+   */
+  clearKeyPermission?: boolean;
 }
 
 /** Revokes a session key and clears any stored metadata. */
@@ -663,11 +685,14 @@ export async function revokeSession(
   input: RevokeSessionInput
 ): Promise<unknown> {
   const accountId = input.accountId ?? (await input.wallet.accountId());
-  const { coreActions } = buildSessionRevoke({
-    publicKey: input.publicKey,
-    contract: input.contract,
-    path: input.path,
-  });
+  const clearKeyPermission = input.clearKeyPermission !== false;
+  const coreActions = clearKeyPermission
+    ? buildSessionRevoke({
+        publicKey: input.publicKey,
+        contract: input.contract,
+        path: input.path,
+      }).coreActions
+    : [];
 
   const txs: Array<{ receiverId: string; actions: NearAction[] }> = [
     {

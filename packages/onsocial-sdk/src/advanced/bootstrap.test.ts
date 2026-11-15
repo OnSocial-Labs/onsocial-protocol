@@ -128,6 +128,20 @@ describe('planToWalletTransactions', () => {
       true
     );
   });
+
+  it('can omit core permission grant for AddKey-only own-account sessions', () => {
+    const plan = buildSessionGrant({
+      network: 'mainnet',
+      accountId: 'alice.near',
+      sessionPublicKey: 'ed25519:11111111111111111111111111111111',
+      contract: 'core',
+      path: 'alice.near/',
+      functionCallKey: { allowanceYocto: '250000000000000000000000' },
+    });
+    const txs = planToWalletTransactions(plan, { includeCoreActions: false });
+    expect(txs).toHaveLength(1);
+    expect(txs[0].actions[0].type).toBe('AddKey');
+  });
 });
 
 describe('MemoryKeyStore', () => {

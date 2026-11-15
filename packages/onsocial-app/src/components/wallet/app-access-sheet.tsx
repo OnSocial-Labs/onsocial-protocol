@@ -46,8 +46,8 @@ function shortenSessionKey(publicKey: string): string {
 
 /**
  * Nested account sheet — OnSocial session key status + allow / renew / remove.
- * Log out stays separate (disconnect only); this owns on-chain DeleteKey.
- * Expired renew reuses the same FunctionCall key (no orphan AddKey).
+ * Allow uses the same AddKey-only path as connect (no set_key_permission).
+ * Renew reuses the same key; DeleteKey-only on remove.
  */
 export function AppAccessSheet({
   open,
@@ -143,23 +143,30 @@ export function AppAccessSheet({
         return;
       }
 
-      setTxResult(sessionPendingFeedback('confirming'));
-      const confirmed = await trackTransaction({
-        txHashes: result.txHashes,
-        submittedMessage: renewing
-          ? txToastConfirming.renewingAppAccess
-          : txToastConfirming.allowingAppAccess,
-        successMessage: renewing
-          ? txToastSuccess.appAccessRenewed
-          : txToastSuccess.appAccessAllowed,
-        failureMessage: txToastError.allowAppAccessFailed,
-      });
-      if (!confirmed) {
-        // Bootstrap already wrote local metadata; drop it if chain failed.
-        await clearAppSocialSession(signerId);
-        clearSocialSessionLocal();
-        await refreshStatus();
-        return;
+      const successMessage = renewing
+        ? txToastSuccess.appAccessRenewed
+        : txToastSuccess.appAccessAllowed;
+
+      // Local TTL renew / already-on-chain persist — no chain wait.
+      if (result.txHashes.length === 0) {
+        setTxResult({ type: 'success', msg: successMessage });
+      } else {
+        setTxResult(sessionPendingFeedback('confirming'));
+        const confirmed = await trackTransaction({
+          txHashes: result.txHashes,
+          submittedMessage: renewing
+            ? txToastConfirming.renewingAppAccess
+            : txToastConfirming.allowingAppAccess,
+          successMessage,
+          failureMessage: txToastError.allowAppAccessFailed,
+        });
+        if (!confirmed) {
+          // AddKey may have landed while local persist failed — drop stale meta.
+          await clearAppSocialSession(signerId);
+          clearSocialSessionLocal();
+          await refreshStatus();
+          return;
+        }
       }
 
       // Sync React session flag from local store (no second wallet prompt).
@@ -250,8 +257,8 @@ export function AppAccessSheet({
   const statusHint = accessActive
     ? 'Lets OnSocial act for you without opening the wallet every time.'
     : accessExpired
-      ? 'Session expired. Renew to keep the same key, or remove access.'
-      : 'Allow access so OnSocial can post, stand, and collect without a wallet prompt each time.';
+      ? 'Session expired. Renew keeps the same key on this device, or remove access.'
+      : 'Allow access adds the same session key as connect — post, stand, and collect without a wallet prompt each time.';
   const pillClass = accessActive
     ? ' is-active'
     : accessExpired
