@@ -81,7 +81,9 @@ describe('visualFramePin', () => {
     ).toBe(140);
   });
 
-  it('keeps a card that is already on screen through a caret pan', () => {
+  it('closes the Brave pan gap on a hosted card that is already on screen', () => {
+    // visualHeight is keyTop - offsetTop; reach the key top or a caret pan
+    // leaves a page strip under the drawer.
     expect(
       visualFramePin({
         position: 'absolute',
@@ -90,7 +92,7 @@ describe('visualFramePin', () => {
         offsetTop: 140,
         visualHeight: 520,
       })
-    ).toEqual({ top: 0, height: 520 });
+    ).toEqual({ top: 0, height: 660 });
   });
 
   it('leaves a card that already ends on the keys', () => {
