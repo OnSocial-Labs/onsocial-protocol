@@ -28,10 +28,11 @@ describe('Writing shelf search', () => {
     expect(panel).toContain('query={query}');
     expect(panel).toContain('onQueryChange={search.setDraft}');
     expect(panel).not.toContain('type="search"');
-    expect(navSearch).toContain('type="text"');
-    expect(navSearch).toContain('inputMode="search"');
+    expect(navSearch).toContain('<SearchField');
+    expect(navSearch).not.toContain('type="search"');
     expect(searchField).toContain('type="text"');
     expect(searchField).toContain('inputMode="search"');
+    expect(searchField).not.toContain('type="search"');
     expect(globalsCss).not.toContain('.portfolio-writing-search {');
     expect(globalsCss).not.toContain('.portfolio-writing-search-input');
   });
