@@ -149,6 +149,7 @@ export function AppSocialSwapForm({ onSuccess }: AppSocialSwapFormProps) {
         onSuccess?.();
       }
     } catch (err) {
+      swap.clearSwapping();
       if (isWalletUserCancellation(err)) {
         setTxResult(null);
         return;

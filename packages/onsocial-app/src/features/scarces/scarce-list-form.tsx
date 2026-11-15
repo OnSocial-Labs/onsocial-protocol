@@ -94,7 +94,10 @@ import {
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import { STORAGE_DEPOSIT_PRESETS_NEAR } from '@/lib/user-storage-display';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  isWalletUserCancellation,
+  walletMismatchInfoMessage,
+} from '@/lib/wallet-errors';
 
 type FromPostCommerceMode = 'drop' | 'market';
 
@@ -837,7 +840,13 @@ export function ScarceListForm({
       });
       onSuccess?.({ priceNear, listingId });
     } catch (cause) {
-      if (cause instanceof WalletConnectedReviewError) return;
+      if (cause instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          msg: walletMismatchInfoMessage(cause.accountId),
+        });
+        return;
+      }
       if (isWalletUserCancellation(cause)) return;
       setTxResult({
         type: 'error',

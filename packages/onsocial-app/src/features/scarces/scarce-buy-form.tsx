@@ -133,7 +133,10 @@ import {
   txToastError,
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  isWalletUserCancellation,
+  walletMismatchInfoMessage,
+} from '@/lib/wallet-errors';
 
 export interface ScarceBuySuccessDetail {
   listingId?: string;
@@ -907,7 +910,13 @@ export function ScarceBuyForm({
         ...(tokenId ? { tokenId } : {}),
       });
     } catch (cause) {
-      if (cause instanceof WalletConnectedReviewError) return;
+      if (cause instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          msg: walletMismatchInfoMessage(cause.accountId),
+        });
+        return;
+      }
       if (isWalletUserCancellation(cause)) return;
       setFieldError(
         cause instanceof Error
@@ -1443,7 +1452,13 @@ export function ScarceBuyForm({
       forgetCollectiblesPlace(accountId);
       onSuccess?.({ listingId, tokenId });
     } catch (cause) {
-      if (cause instanceof WalletConnectedReviewError) return;
+      if (cause instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          msg: walletMismatchInfoMessage(cause.accountId),
+        });
+        return;
+      }
       if (isWalletUserCancellation(cause)) return;
       if (cause instanceof LazyListingNotFoundError) {
         markListingGone();

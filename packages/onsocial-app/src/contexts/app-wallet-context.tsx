@@ -163,6 +163,13 @@ function sameWalletAccount(left: string | null, right: string | null): boolean {
 }
 
 /**
+ * App-started connect() calls still awaiting return. near-connect emits
+ * wallet:signIn before connect() returns, and reuses one wallet object per
+ * manifest, so the object cannot tell one attempt from another.
+ */
+let unsettledAppConnects = 0;
+
+/**
  * One sign-in capture for every picker. A fresh sign-in uses the account
  * the wallet just returned, not a stored preference that may be a different
  * account on the same wallet.
@@ -186,6 +193,7 @@ async function takeConnectedAccount(
     signedInEvents.push(event);
   };
   connector.on('wallet:signIn', captureSignIn);
+  unsettledAppConnects += 1;
   try {
     const connectedWallet = await connector.connect(options ?? {});
     if (isCancelled()) return null;
@@ -205,6 +213,7 @@ async function takeConnectedAccount(
     }
     return { wallet: connectedWallet, accountId };
   } finally {
+    unsettledAppConnects -= 1;
     connector.off('wallet:signIn', captureSignIn);
   }
 }
@@ -436,6 +445,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     connectorRef.current = connector;
 
     connector.on('wallet:signIn', (event) => {
+      if (unsettledAppConnects > 0) return;
       if (pickerAttemptRef.current) return;
       const accepted = acceptedWalletRef.current;
       if (accepted && event.wallet && event.wallet !== accepted) return;
@@ -799,9 +809,16 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
         setWallet(connectedWallet);
         setAccountId(pickedAccountId);
         writeStoredWalletAccountId(pickedAccountId);
+        if (
+          preferredAccountId &&
+          !sameWalletAccount(preferredAccountId, pickedAccountId)
+        ) {
+          throw new WalletConnectedReviewError(pickedAccountId);
+        }
         return { wallet: connectedWallet, accountId: pickedAccountId };
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof WalletConnectedReviewError) throw error;
       if (!initDone) {
         throw new Error('Wallet is still loading. Try again in a moment.');
       }

@@ -35,7 +35,10 @@ import {
   txToastError,
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  isWalletUserCancellation,
+  walletMismatchInfoMessage,
+} from '@/lib/wallet-errors';
 
 interface ScarceOffersSheetProps {
   open: boolean;
@@ -163,7 +166,13 @@ export function ScarceOffersSheet({
         onAccepted?.();
         requestClose();
       } catch (cause) {
-        if (cause instanceof WalletConnectedReviewError) return;
+        if (cause instanceof WalletConnectedReviewError) {
+          setTxResult({
+            type: 'info',
+            msg: walletMismatchInfoMessage(cause.accountId),
+          });
+          return;
+        }
         if (isWalletUserCancellation(cause)) return;
         setTxResult({
           type: 'error',
