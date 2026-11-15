@@ -256,11 +256,11 @@ describe('visualKeyboardFrame', () => {
     ).toEqual({ top: 40, height: 380 });
   });
 
-  it('fills the root to the layout bottom so the page cannot peek under', () => {
+  it('clips the root to the visible box so the bottom lands on the keys', () => {
     expect(keyboardRootFrameStyle({ top: 140, height: 520 })).toEqual({
       top: '140px',
-      bottom: 0,
-      height: 'auto',
+      height: '520px',
+      bottom: 'auto',
       paddingBottom: 0,
     });
   });
@@ -408,7 +408,7 @@ describe('virtual keyboard seat', () => {
     });
     expect(readKeyboardVisibleBottom()).toBe(500);
 
-    // Same flush assert the Playwright Location drawer checks: root bottom = key top.
+    // Flush: root bottom = key top (not layout bottom cover).
     const metrics = readKeyboardDrawerMetrics();
     const box = visualKeyboardFrame({
       position: 'fixed',
@@ -420,16 +420,16 @@ describe('virtual keyboard seat', () => {
     const root = keyboardRootFrameStyle(box);
     expect(root).toEqual({
       top: '0px',
-      bottom: 0,
-      height: 'auto',
+      height: '500px',
+      bottom: 'auto',
       paddingBottom: 0,
     });
-    // Panel maxHeight still tracks the visible box above the keys.
     expect(box.top + box.height).toBe(500);
   });
 
-  it('takes the lower IME edge when Brave leaves a shortfall under the box', () => {
-    // y=500, height=300 → 44px short of innerHeight. That strip is the gap.
+  it('seats on the key top when the IME rect leaves room under the box', () => {
+    // y=500, height=300 → 44px under the box is below the keys, not a gap to
+    // cover. Chrome docs seat on the key top (y) / keyboard-inset-height+bottom.
     const virtualKeyboard = {
       overlaysContent: true,
       boundingRect: { x: 0, y: 500, width: 390, height: 300 },
@@ -442,10 +442,10 @@ describe('virtual keyboard seat', () => {
     });
     stubPhoneWindow({ innerHeight: 844, viewportHeight: 844 });
 
-    expect(readKeyboardVisibleBottom()).toBe(544);
+    expect(readKeyboardVisibleBottom()).toBe(500);
     expect(readKeyboardDrawerMetrics()).toEqual({
-      lift: 300,
-      height: 544,
+      lift: 344,
+      height: 500,
       isMobile: true,
     });
   });

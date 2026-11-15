@@ -71,13 +71,22 @@ export function ensureVirtualKeyboardOverlay(): boolean {
 /**
  * IME height in CSS px from the Virtual Keyboard API when overlaying.
  * Prefer this over visualViewport lift — VV often stops at browser chrome.
+ *
+ * Chrome docs seat with `env(keyboard-inset-height)` as a bottom inset
+ * (`margin-block-end`). That equals `boundingRect.height` when the keyboard
+ * sits on the layout bottom (`keyboard-inset-bottom: 0`). When the rect’s
+ * key top (`y`) is present, the flush seat is `innerHeight - y` — same as
+ * inset-height + inset-bottom. Do not extend past `y` to “cover” a shortfall
+ * under the box; that paints over the page instead of closing onto the keys.
+ * @see https://developer.chrome.com/docs/web-platform/virtual-keyboard
+ * @see https://www.januschka.com/chromium-android-virtual-keyboard.html
  */
 export function readVirtualKeyboardInset(): number {
   const keyboard = getVirtualKeyboard();
   if (!keyboard?.overlaysContent) return 0;
   const rect = keyboard.boundingRect;
   if (!rect || rect.height < 1) return 0;
-  // Key top → layout bottom. Prefer y so a short height cannot leave a gap.
+  // Key top → layout bottom. Matches keyboard-inset-height when bottom is 0.
   if (rect.y > 0) {
     return Math.max(0, Math.round(window.innerHeight - rect.y));
   }
@@ -95,20 +104,16 @@ export function virtualKeyboardSeatActive(): boolean {
 
 /**
  * Visible bottom edge above the keys (layout coordinates).
- * Virtual Keyboard `boundingRect.y` when overlaying; else visualViewport.
+ * Virtual Keyboard key top (`boundingRect.y`) when overlaying; else VV.
+ * Flush on `y` — never push past it to cover a strip under the IME box.
  */
 export function readKeyboardVisibleBottom(): number {
   const keyboard = getVirtualKeyboard();
   if (keyboard?.overlaysContent) {
     const rect = keyboard.boundingRect;
     if (rect && rect.height >= KEYBOARD_VIEWPORT_SLOP_PX) {
-      // `y` is the key top when the IME box fills to the layout bottom.
-      // When Brave leaves a shortfall under the box (toolbar / first paint),
-      // `innerHeight - height` is the real key top — take the lower edge.
-      const fromY = rect.y > 0 ? Math.round(rect.y) : 0;
-      const fromHeight = Math.round(window.innerHeight - rect.height);
-      if (fromY > 0 && fromHeight > 0) return Math.max(fromY, fromHeight);
-      return fromY || fromHeight;
+      if (rect.y > 0) return Math.round(rect.y);
+      return Math.max(0, Math.round(window.innerHeight - rect.height));
     }
   }
   const viewport = window.visualViewport;
@@ -348,18 +353,17 @@ export function keyboardFrameTop(input: {
 
 /**
  * Root box for a drawer while the keyboard is up.
- * Fill from the visible top to the layout bottom (`bottom: 0`) so the
- * backdrop covers any strip above the keys — that strip was the page
- * showing through when height stopped at a short IME top. The panel seats
- * on the keys with `marginBottom: lift`, not by clipping the root.
+ * Clip to the visible box so the root bottom lands on the key top. The
+ * panel keeps `marginBottom: 0` — the root pin is the only seat (Chrome’s
+ * `keyboard-inset-height` applied as frame height, not a cover fill).
  */
 export function keyboardRootFrameStyle(
   frame: VisualKeyboardBox
 ): CSSProperties {
   return {
     top: `${frame.top}px`,
-    bottom: 0,
-    height: 'auto',
+    height: `${frame.height}px`,
+    bottom: 'auto',
     paddingBottom: 0,
   };
 }
@@ -388,8 +392,8 @@ function applyKeyboardRootFrame(
   }
   const style = keyboardRootFrameStyle(box);
   node.style.top = String(style.top);
-  node.style.bottom = String(style.bottom ?? 0);
-  node.style.height = String(style.height ?? 'auto');
+  node.style.height = String(style.height);
+  node.style.bottom = String(style.bottom);
   node.style.paddingBottom = '0';
 }
 
@@ -424,8 +428,10 @@ function parentVisualTop(node: HTMLElement): number {
 }
 
 /**
- * Write the box and correct a missed top. The root fills to the layout
- * bottom so a short IME height cannot uncover the page above the keys.
+ * Write the box, correct a missed top, then stretch height so the root
+ * bottom lands on the IME top. Brave can leave a ~40px paint shortfall when
+ * CSS top/height and the painted box disagree — measuring closes it onto
+ * the keys (it does not fill under the keys to cover the page).
  */
 function commitVisibleBox(
   node: HTMLElement,
@@ -437,9 +443,21 @@ function commitVisibleBox(
     frameTop: node.getBoundingClientRect().top,
     parentTop: parentVisualTop(node),
   });
-  if (top === box.top) return box;
-  const next = { top, height: box.height };
-  applyKeyboardRootFrame(node, next);
+  let next = top === box.top ? box : { top, height: box.height };
+  if (top !== box.top) applyKeyboardRootFrame(node, next);
+
+  const keyTop = readKeyboardVisibleBottom();
+  if (keyTop > 0) {
+    const rect = node.getBoundingClientRect();
+    const bottom = Math.round(rect.bottom);
+    if (Math.abs(bottom - keyTop) >= 2) {
+      const height = Math.max(0, keyTop - Math.round(rect.top));
+      if (height !== next.height) {
+        next = { top: next.top, height };
+        applyKeyboardRootFrame(node, next);
+      }
+    }
+  }
   return next;
 }
 
@@ -678,12 +696,9 @@ export function useKeyboardDrawerFrame(
   const style = useMemo(() => {
     if (mode === 'page') return pageKeyboardLiftStyle(live, liveSeat);
     if (!liveBox) return undefined;
-    // Root fills under the keys; panel margin seats the hug on the IME top
-    // so the backdrop covers the strip that used to show the page.
-    return {
-      maxHeight: `${liveBox.height}px`,
-      marginBottom: `${live.lift}px`,
-    };
+    // Root pin seats on the key top. Clear any margin so we do not double
+    // the inset (cover-with-margin was the rejected approach).
+    return { maxHeight: `${liveBox.height}px`, marginBottom: '0px' };
   }, [live, liveBox, liveSeat, mode]);
   const rootStyle = useMemo(
     () => (liveBox ? keyboardRootFrameStyle(liveBox) : undefined),
