@@ -336,7 +336,7 @@ describe('scrollMobileFieldIntoView', () => {
 
     scrollMobileFieldIntoView(field);
     // Visible bottom is the keyboard (524) minus caret-drop clearance.
-    expect(scrollTop).toBe(744 - (524 - 36));
+    expect(scrollTop).toBe(744 - (524 - 44));
     expect(scrollIntoView).not.toHaveBeenCalled();
   });
 
@@ -395,7 +395,7 @@ describe('scrollMobileFieldIntoView', () => {
     });
 
     scrollMobileFieldIntoView(field);
-    expect(scrollTop).toBe(744 - (470 - 36));
+    expect(scrollTop).toBe(744 - (470 - 44));
   });
 
   it('scrolls the drawer body and leaves the page still', () => {
@@ -441,7 +441,7 @@ describe('scrollMobileFieldIntoView', () => {
 
     scrollMobileFieldIntoView(field);
     expect(scrollIntoView).not.toHaveBeenCalled();
-    expect(state.scrollTop).toBe(20 + (390 - (300 - 36)));
+    expect(state.scrollTop).toBe(20 + (390 - (300 - 44)));
   });
 
   it('keeps a focused line below the overlay header', () => {

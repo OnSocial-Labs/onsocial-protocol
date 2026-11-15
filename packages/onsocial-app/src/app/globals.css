@@ -3699,8 +3699,8 @@ a.os-surface-row,
     --os-compose-tools-height: var(--os-nav-band);
     /* About slide-over + compose footer block pad (not commerce 0.45). */
     --os-writing-footer-pad-block: 0.55rem;
-    /* iOS/Android caret tear-drop below the line (matches JS 36px @ 16px). */
-    --os-caret-drop-clearance: 2.25rem;
+    /* iOS/Android caret tear-drop — fade above strips (matches JS 44px @ 16px). */
+    --os-caret-drop-clearance: 2.75rem;
     /* Primary commit control — same as dock. */
     --os-control-primary: 3.25rem;
     /* Nav / dock face — all viewports. ~1.35× dock glyphs so a filled
@@ -32531,6 +32531,10 @@ a.os-surface-row,
     padding-bottom: calc(
       env(safe-area-inset-bottom, 0px) + var(--os-screen-footer-band, 4.25rem)
     );
+    scroll-padding-bottom: calc(
+      var(--os-screen-footer-band, 4.25rem) +
+        var(--os-caret-drop-clearance, 2.75rem)
+    );
   }
 
   /*
@@ -39608,10 +39612,10 @@ a.os-surface-row,
     min-height: var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
     max-height: var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
     overflow: hidden;
-  }
-
-  .guild-composer-sheet-footer > .profile-about-edit-format-toolbar {
-    background: transparent;
+    /* Same opaque seat as About — caret/text fade under the rail, not through. */
+    background: var(--bg, rgb(var(--bg-rgb)));
+    position: relative;
+    z-index: 1;
   }
 
   .guild-composer-sheet-footer
