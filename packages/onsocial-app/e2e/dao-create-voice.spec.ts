@@ -100,8 +100,10 @@ test.describe('dao create voice', () => {
       page.getByText('You start as council · ~6.1 NEAR', { exact: true })
     ).toBeVisible();
     await expect(page.getByText('Need ~')).toHaveCount(0);
-    await expect(page.getByText(/bond/i)).toHaveCount(0);
-    await expect(page.getByText(/gas/i)).toHaveCount(0);
+    // Deal whisper stays jargon-free; Default policy may still list Bond.
+    const deal = page.locator('.dao-create-deal');
+    await expect(deal.getByText(/bond/i)).toHaveCount(0);
+    await expect(deal.getByText(/gas/i)).toHaveCount(0);
 
     await publish.click();
     await expect(publish).toHaveAttribute('aria-checked', 'false');
