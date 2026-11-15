@@ -5,7 +5,6 @@ import DiscoverLoading from '@/app/(app)/discover/loading';
 import { PostThreadRouteLoading } from '@/features/home/post-thread-route-loading';
 import {
   INTENT_PREFETCH_SEEN_CAP,
-  anchorPrefetchDisabled,
   createIntentPrefetchSession,
 } from '@/lib/intent-prefetch';
 
@@ -131,7 +130,7 @@ describe('intent prefetch', () => {
     expect(prefetch).toHaveBeenCalledWith('/discover');
   });
 
-  it('skips API routes and links that opted out of prefetch', () => {
+  it('skips same-origin API routes', () => {
     const { prefetch, intent } = session();
 
     expect(
@@ -147,16 +146,6 @@ describe('intent prefetch', () => {
       intent.request({
         href: '/discover',
         base: BASE,
-        kind: 'pointerenter',
-        now: 1_100,
-        keyboard: false,
-        prefetch: false,
-      })
-    ).toBe(false);
-    expect(
-      intent.request({
-        href: '/discover',
-        base: BASE,
         kind: 'touchstart',
         now: 1_200,
         keyboard: false,
@@ -165,34 +154,6 @@ describe('intent prefetch', () => {
 
     expect(prefetch).toHaveBeenCalledTimes(1);
     expect(prefetch).toHaveBeenCalledWith('/discover');
-  });
-
-  it('reads a prefetch opt-out from the anchor, its props, or the parent fiber', () => {
-    const attribute = {
-      getAttribute: (name: string) => (name === 'prefetch' ? 'false' : null),
-    };
-    const data = {
-      getAttribute: () => null,
-      dataset: { prefetch: 'false' },
-    };
-    const props = {
-      getAttribute: () => null,
-      __reactProps$test: { prefetch: false },
-    };
-    const fiber = {
-      getAttribute: () => null,
-      __reactFiber$test: {
-        memoizedProps: { href: '/writing' },
-        return: { memoizedProps: { prefetch: false, href: '/writing' } },
-      },
-    };
-    const open = { getAttribute: () => null };
-
-    expect(anchorPrefetchDisabled(attribute)).toBe(true);
-    expect(anchorPrefetchDisabled(data)).toBe(true);
-    expect(anchorPrefetchDisabled(props)).toBe(true);
-    expect(anchorPrefetchDisabled(fiber)).toBe(true);
-    expect(anchorPrefetchDisabled(open)).toBe(false);
   });
 
   it('forgets seen links when the route changes and caps one route', () => {

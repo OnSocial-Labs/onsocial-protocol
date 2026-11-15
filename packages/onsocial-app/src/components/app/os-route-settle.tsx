@@ -3,38 +3,24 @@
 import {
   useLayoutEffect,
   useState,
-  useSyncExternalStore,
   type AnimationEvent,
   type ReactNode,
 } from 'react';
+import { usePathname } from 'next/navigation';
 import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
-
-function subscribeClientNavigation() {
-  return () => {};
-}
-
-function clientNavigationSnapshot() {
-  return true;
-}
-
-function serverNavigationSnapshot() {
-  return false;
-}
+import { documentEntryPathname } from '@/lib/intent-prefetch';
 
 /**
- * True only for a mount that never had server HTML.
- * Hydration reads the server snapshot and latches it, so the client
- * snapshot that follows cannot cover content the server already painted.
- * Same server/client store split as the compact nav search.
+ * Cover only after a client navigation away from the document's first URL.
+ * A hard load — including the client swap that replaces `loading.tsx` once
+ * the server payload arrives — stays on that first URL, so it never paints
+ * a skeleton over content the server already produced.
  */
-function useMountedOnClientNavigation() {
-  const clientNavigation = useSyncExternalStore(
-    subscribeClientNavigation,
-    clientNavigationSnapshot,
-    serverNavigationSnapshot
-  );
-  const [mountedOnClientNavigation] = useState(clientNavigation);
-  return mountedOnClientNavigation;
+export function routeSettleCovers(
+  entryPathname: string | null,
+  pathname: string | null
+): boolean {
+  return Boolean(entryPathname && pathname && entryPathname !== pathname);
 }
 
 function prefersReducedMotion() {
@@ -58,10 +44,10 @@ function routeSettleFadeMs() {
 }
 
 /**
- * Soft handoff off a route skeleton.
- * Server HTML and the hydration render start done: no cover over content
- * already painted. A client navigation fades the skeleton, then unmounts it.
- * Pass `ready` so thread replies stay on OsPageBodyAppear until permalinkReady.
+ * Soft handoff off a route skeleton after a client navigation.
+ * The document's first route starts done: no cover in the HTML and none
+ * after the loading shell swaps for server-painted content. Pass `ready`
+ * so thread replies stay on OsPageBodyAppear until permalinkReady.
  */
 export function OsRouteSettle({
   ready,
@@ -72,7 +58,10 @@ export function OsRouteSettle({
   skeleton: ReactNode;
   children: ReactNode;
 }) {
-  const clientNav = useMountedOnClientNavigation();
+  const pathname = usePathname();
+  const [clientNav] = useState(() =>
+    routeSettleCovers(documentEntryPathname, pathname)
+  );
   const managed = ready !== undefined;
   const [autoReady, setAutoReady] = useState(false);
   const [cover, setCover] = useState<'hold' | 'leave' | 'off'>(

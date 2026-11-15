@@ -3,7 +3,6 @@
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  anchorPrefetchDisabled,
   createIntentPrefetchSession,
   type IntentPrefetchKind,
 } from '@/lib/intent-prefetch';
@@ -64,7 +63,6 @@ export function IntentPrefetchHost() {
         kind,
         now: performance.now(),
         keyboard,
-        prefetch: anchorPrefetchDisabled(anchor) ? false : undefined,
       });
     };
 
