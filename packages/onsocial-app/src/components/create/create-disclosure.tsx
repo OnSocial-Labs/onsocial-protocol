@@ -11,7 +11,7 @@ import { ChevronDownIcon, useOsReveal } from '@onsocial/ui';
 import './create-disclosure.css';
 
 /** Closed is 0. Open height is the measured section — shared create fold. */
-export function useCreateReveal(open: boolean) {
+function useCreateReveal(open: boolean) {
   const { hostRef, clipRef, innerRef, measure } = useOsReveal<HTMLDivElement>();
   const measureClosed = useCallback(() => {
     measure({ closedPx: 0 });
@@ -35,8 +35,6 @@ export function useCreateReveal(open: boolean) {
     innerRef: innerRef as RefObject<HTMLDivElement | null>,
   };
 }
-
-export type CreateRevealRefs = ReturnType<typeof useCreateReveal>;
 
 /** Chevron disclosure — same motion language as New drop Description / More. */
 export function CreateDisclosure({
@@ -71,30 +69,30 @@ export function CreateDisclosure({
   );
 }
 
-/** Measured fold body for a create disclosure. */
+/** Measured fold body for a create disclosure — refs stay local (react-hooks/refs). */
 export function CreateRevealPanel({
   open,
-  reveal,
   id,
   children,
   className,
 }: {
   open: boolean;
-  reveal: CreateRevealRefs;
   id: string;
   children: ReactNode;
   className?: string;
 }) {
+  const { hostRef, clipRef, innerRef } = useCreateReveal(open);
+
   return (
     <div
-      ref={reveal.hostRef}
+      ref={hostRef}
       className={`create-reveal os-reveal${open ? ' is-open' : ''}${
         className ? ` ${className}` : ''
       }`}
     >
-      <div ref={reveal.clipRef} id={id} className="os-reveal-clip">
+      <div ref={clipRef} id={id} className="os-reveal-clip">
         <div
-          ref={reveal.innerRef}
+          ref={innerRef}
           className="os-reveal-inner create-reveal-body"
           inert={open ? undefined : true}
           aria-hidden={open ? undefined : true}

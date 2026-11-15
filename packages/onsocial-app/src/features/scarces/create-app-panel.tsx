@@ -23,7 +23,6 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import {
   CreateDisclosure,
   CreateRevealPanel,
-  useCreateReveal,
 } from '@/components/create/create-disclosure';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -126,7 +125,6 @@ export function CreateAppPanel() {
   const [slugTouched, setSlugTouched] = useState(false);
   const [description, setDescription] = useState('');
   const [aboutOpen, setAboutOpen] = useState(false);
-  const aboutReveal = useCreateReveal(aboutOpen);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -546,11 +544,7 @@ export function CreateAppPanel() {
           disabled={pending}
           onClick={() => setAboutOpen((open) => !open)}
         />
-        <CreateRevealPanel
-          open={aboutOpen}
-          reveal={aboutReveal}
-          id={fieldId('about-panel')}
-        >
+        <CreateRevealPanel open={aboutOpen} id={fieldId('about-panel')}>
           <label className="guild-field" htmlFor={fieldId('description')}>
             <span>About</span>
             <textarea

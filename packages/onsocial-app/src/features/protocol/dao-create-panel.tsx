@@ -25,7 +25,6 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import {
   CreateDisclosure,
   CreateRevealPanel,
-  useCreateReveal,
 } from '@/components/create/create-disclosure';
 import { PortfolioFaceEditorHero } from '@/components/wallet/portfolio-face-editor-hero';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
@@ -196,8 +195,6 @@ export function DaoCreatePanel() {
   const [linksOpen, setLinksOpen] = useState(false);
   const [purposeOpen, setPurposeOpen] = useState(false);
   const [publishSocial, setPublishSocial] = useState(false);
-  const purposeReveal = useCreateReveal(purposeOpen);
-  const linksReveal = useCreateReveal(linksOpen);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -672,7 +669,6 @@ export function DaoCreatePanel() {
         />
         <CreateRevealPanel
           open={purposeOpen}
-          reveal={purposeReveal}
           id={fieldId('purpose-panel')}
         >
           <label className="guild-field" htmlFor={fieldId('purpose')}>
@@ -733,7 +729,6 @@ export function DaoCreatePanel() {
         />
         <CreateRevealPanel
           open={linksOpen}
-          reveal={linksReveal}
           id={fieldId('links-panel')}
         >
           <ProfileLinksEditor

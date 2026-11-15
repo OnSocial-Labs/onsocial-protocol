@@ -21,7 +21,6 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import {
   CreateDisclosure,
   CreateRevealPanel,
-  useCreateReveal,
 } from '@/components/create/create-disclosure';
 import { InfoDrawer } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -118,7 +117,6 @@ export function GuildCreatePanel() {
   const [slugTouched, setSlugTouched] = useState(false);
   const [description, setDescription] = useState('');
   const [aboutOpen, setAboutOpen] = useState(false);
-  const aboutReveal = useCreateReveal(aboutOpen);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [badgeFile, setBadgeFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
@@ -544,11 +542,7 @@ export function GuildCreatePanel() {
           disabled={pending}
           onClick={() => setAboutOpen((open) => !open)}
         />
-        <CreateRevealPanel
-          open={aboutOpen}
-          reveal={aboutReveal}
-          id={fieldId('about-panel')}
-        >
+        <CreateRevealPanel open={aboutOpen} id={fieldId('about-panel')}>
           <label className="guild-field" htmlFor={fieldId('description')}>
             <span>About</span>
             <textarea

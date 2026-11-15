@@ -30,7 +30,6 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import {
   CreateDisclosure,
   CreateRevealPanel,
-  useCreateReveal,
 } from '@/components/create/create-disclosure';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -345,8 +344,6 @@ export function CreateDropPanel() {
   );
   const [createReady, setCreateReady] = useState(false);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
-  const descriptionReveal = useCreateReveal(descriptionOpen);
-  const advancedReveal = useCreateReveal(showAdvanced);
   const dropIdRef = useRef<HTMLInputElement>(null);
   const seriesFieldRef = useRef<HTMLInputElement>(null);
   const placeFieldRef = useRef<HTMLInputElement>(null);
@@ -3620,7 +3617,6 @@ export function CreateDropPanel() {
           />
           <CreateRevealPanel
             open={descriptionShown}
-            reveal={descriptionReveal}
             id={fieldId('description-panel')}
             className="drop-create-description-reveal"
           >
@@ -3811,7 +3807,6 @@ export function CreateDropPanel() {
           />
           <CreateRevealPanel
             open={showAdvanced}
-            reveal={advancedReveal}
             id={fieldId('advanced-panel')}
             className="drop-create-advanced-reveal"
           >

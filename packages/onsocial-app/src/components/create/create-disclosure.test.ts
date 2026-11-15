@@ -11,14 +11,14 @@ describe('create disclosure', () => {
     const src = readFileSync(join(root, 'create-disclosure.tsx'), 'utf8');
     expect(src).toContain('export function CreateDisclosure');
     expect(src).toContain('export function CreateRevealPanel');
-    expect(src).toContain('export function useCreateReveal');
+    expect(src).toContain('function useCreateReveal');
     expect(src).toContain('useOsReveal');
     expect(src).toContain('create-disclosure-chevron');
 
     for (const [file, token] of [
       ['features/scarces/create-drop-panel.tsx', 'CreateDisclosure'],
       ['features/scarces/create-app-panel.tsx', 'CreateRevealPanel'],
-      ['features/guilds/guild-create-panel.tsx', 'useCreateReveal'],
+      ['features/guilds/guild-create-panel.tsx', 'CreateRevealPanel'],
       ['features/protocol/dao-create-panel.tsx', 'DAO_CREATE_DEFAULT_POLICY'],
     ] as const) {
       expect(readFileSync(join(appSrc, file), 'utf8')).toContain(token);
