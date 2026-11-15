@@ -127,11 +127,11 @@ describe('portfolio page entry', () => {
       join(appSrc, 'app/transaction-feedback-toast.css'),
       'utf8'
     );
-    // Elevated chrome frost (neutral) — same recipe as os-chrome-glass.
-    expect(toast).toContain('background: rgb(var(--bg-rgb) / 0.72);');
+    // Neutral dock frost plate — same tokens as non-mood .os-dock-pill.
+    expect(toast).toContain('--os-dock-fill: rgb(var(--bg-rgb) / 0.72)');
+    expect(toast).toContain('background: var(--os-dock-fill)');
     expect(toast).toContain('blur(20px) saturate(1.3)');
-    expect(toast).toContain('var(--os-chrome-elev-shadow)');
-    expect(toast).not.toContain('--os-dock-fill');
+    expect(toast).toContain('var(--os-dock-shadow), var(--os-dock-lip)');
     expect(toast).not.toContain('mood-accent');
     expect(toast).not.toContain('#3b82f6');
     expect(toast).toContain('color: rgb(var(--fg-rgb));');
