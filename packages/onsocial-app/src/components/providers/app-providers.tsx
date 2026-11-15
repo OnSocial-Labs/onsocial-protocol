@@ -43,6 +43,7 @@ import { PwaProvider } from '@/components/providers/pwa-provider';
 import { markAppHydrated } from '@/lib/e2e-portfolio-ready';
 import { WebPushProvider } from '@/components/providers/web-push-provider';
 import { GlassSheetPortalProvider } from '@onsocial/ui';
+import { IntentPrefetchHost } from '@/components/providers/intent-prefetch-host';
 import { SingleMediaPlaybackHost } from '@/components/providers/single-media-playback-host';
 
 /** Remount the join/claim ledger when the wallet account changes. */
@@ -77,6 +78,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <PwaProvider>
       <AppHydratedMarker />
+      <IntentPrefetchHost />
       <SingleMediaPlaybackHost />
       <AppSmoothScrollProvider>
         <AppWalletProvider>

@@ -12,7 +12,7 @@ import type { PostRow } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsHeaderBack } from '@/components/app/os-header-back';
-import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
+import { OsRouteSettle } from '@/components/app/os-route-settle';
 import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -42,6 +42,7 @@ import {
   writeWriteDockDraft,
 } from '@/lib/os-write-dock-draft';
 import { PostCard, postKey } from '@/features/home/post-card';
+import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
 import { ThreadRail } from '@/features/home/thread-rail';
 import { ThreadDiscoverPeek } from '@/features/home/thread-discover-peek';
 import { ThreadRepliesSortButton } from '@/features/home/thread-replies-sort';
@@ -1401,7 +1402,12 @@ export function LiveGuildPostPanel({
       backFallbackHref={guildPath(groupId)}
       leading={<OsHeaderBack fallbackHref={guildPath(groupId)} />}
     >
-      <OsPageBodyAppear ready={permalinkReady}>{threadBody}</OsPageBodyAppear>
+      <OsRouteSettle
+        ready={permalinkReady}
+        skeleton={<PostThreadPageSkeleton />}
+      >
+        {threadBody}
+      </OsRouteSettle>
       {threadChrome}
     </OsAppScreen>
   );

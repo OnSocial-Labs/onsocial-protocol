@@ -345,3 +345,18 @@ export function DiscoverTrendingPanel({
     </div>
   );
 }
+
+/** Cold route cover — same section order as the landing, before rows exist. */
+export function DiscoverMovingLandingSkeleton() {
+  return (
+    <>
+      <MovingPostPeekSection heading="Hot posts" why="hot" rows={null} />
+      <MovingPostPeekSection heading="Talked about" why="talk" rows={null} />
+      <MovingCoverPeekSection heading="Just sold" rows={null} />
+      <MovingChipPeekSection heading="Mentioned" rows={null} />
+      <MovingFacePeekSection heading="Active" rows={null} onSeeAll={() => undefined} />
+      <MovingHubPeekSection heading="Hot hubs" rows={null} onSeeAll={() => undefined} />
+      <MovingProposalPeekSection heading="New proposals" rows={null} />
+    </>
+  );
+}

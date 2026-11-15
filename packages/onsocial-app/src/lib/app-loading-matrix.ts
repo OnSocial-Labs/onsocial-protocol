@@ -46,10 +46,11 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     appending: 'Append profile/community skeleton rows',
     empty: 'ListLoadError or standing empty state',
     error: 'OsChromeListAlert with painted rows',
-    routeFallback: 'preserve-shell',
+    routeFallback: 'shell-skeleton',
     implementationFiles: [
       'features/discover/discover-panel-content.tsx',
       'features/discover/discover-loading-skeleton.tsx',
+      'app/(app)/discover/loading.tsx',
     ],
   },
   {

@@ -3581,6 +3581,41 @@ a.os-surface-row,
   }
 }
 
+/*
+ * Route skeleton leaves with the same fade as page sheets
+ * (`glass-sheet-appear`, --os-motion-appear). A held body uses
+ * `.os-page-body-appear` so thread replies still fade in after it.
+ */
+.os-route-settle {
+  position: relative;
+}
+
+.os-route-skeleton {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--mood-bg, var(--bg));
+  pointer-events: none;
+}
+
+.os-route-settle > .os-page-body-appear:not(.is-ready) {
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .os-route-skeleton.is-done {
+    animation: glass-sheet-appear var(--os-motion-appear, 280ms)
+      var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1))
+      reverse forwards;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .os-route-skeleton.is-done {
+    display: none;
+  }
+}
+
 @keyframes breathe {
   0%,
   100% {
