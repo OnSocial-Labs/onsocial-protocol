@@ -909,17 +909,28 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     >
       {children}
       {mismatchNotice ? (
-        <OsNoticeCard
-          align="center"
-          shell
-          title="Review this account"
-          body={`Connected as ${mismatchNotice}.`}
-          footer={
-            <button type="button" onClick={() => setMismatchNotice(null)}>
-              OK
-            </button>
-          }
-        />
+        <div
+          style={{
+            position: 'fixed',
+            zIndex: 80,
+            left: '50%',
+            top: 'calc(env(safe-area-inset-top, 0px) + 4.75rem)',
+            transform: 'translateX(-50%)',
+            width: 'min(22rem, calc(100vw - 1.5rem))',
+          }}
+        >
+          <OsNoticeCard
+            align="center"
+            shell
+            title="Review this account"
+            body={`Connected as ${mismatchNotice}.`}
+            footer={
+              <button type="button" onClick={() => setMismatchNotice(null)}>
+                OK
+              </button>
+            }
+          />
+        </div>
       ) : null}
     </AppWalletContext.Provider>
   );
