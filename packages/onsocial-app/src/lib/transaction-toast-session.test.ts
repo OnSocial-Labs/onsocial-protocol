@@ -14,28 +14,30 @@ describe('session pending toast', () => {
     });
   });
 
-  it('asks for the wallet while the key sheet is open', () => {
+  it('matches App access CTA while the wallet sheet is open', () => {
     expect(sessionPendingFeedback('wallet')).toEqual({
       type: 'pending',
       pendingPhase: 'wallet',
       eyebrow: 'Wallet',
-      msg: txToastSession.approveInWallet,
+      msg: txToastSession.allowAccess,
     });
+    expect(txToastSession.allowAccess).toBe('Allow access…');
   });
 
-  it('keeps the approval line after the wallet returns', () => {
+  it('switches the body after the wallet returns', () => {
     expect(sessionPendingFeedback('confirming')).toEqual({
       type: 'pending',
       pendingPhase: 'chain',
       eyebrow: 'Confirming',
-      msg: txToastSession.approveInWallet,
+      msg: txToastSession.finishingSession,
     });
     expect(sessionPendingFeedback('confirming').msg).not.toBe(
-      txToastSession.settingUpSession
+      txToastSession.allowAccess
     );
   });
 
-  it('keeps the green line for a ready session', () => {
-    expect(txToastSession.ready).toBe("You're set to post on-chain.");
+  it('keeps the ready line free of chain jargon', () => {
+    expect(txToastSession.ready).toBe("You're set to post.");
+    expect(txToastSession.ready.toLowerCase()).not.toContain('on-chain');
   });
 });

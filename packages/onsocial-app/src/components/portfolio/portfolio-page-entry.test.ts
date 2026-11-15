@@ -127,13 +127,13 @@ describe('portfolio page entry', () => {
       join(appSrc, 'app/transaction-feedback-toast.css'),
       'utf8'
     );
-    expect(toast).toContain(
-      'background: var(--glass-surface-solid, var(--surface-solid));'
-    );
-    expect(toast).toContain('box-shadow: var(--os-chrome-elev-shadow);');
+    // Elevated chrome frost (neutral) — same recipe as os-chrome-glass.
+    expect(toast).toContain('background: rgb(var(--bg-rgb) / 0.72);');
+    expect(toast).toContain('blur(20px) saturate(1.3)');
+    expect(toast).toContain('var(--os-chrome-elev-shadow)');
     expect(toast).not.toContain('--os-dock-fill');
+    expect(toast).not.toContain('mood-accent');
     expect(toast).not.toContain('#3b82f6');
-    expect(toast).not.toContain('rgb(var(--bg-rgb) / 0.92)');
     expect(toast).toContain('color: rgb(var(--fg-rgb));');
   });
 });
