@@ -39584,13 +39584,16 @@ a.os-surface-row,
   }
 
   /*
-   * Compose dock — same sheet footer inset as Transfer / About resting
-   * chrome. Dock hits stay on `--os-dock-height`. Keyboard: flush like
-   * About's format strip (pad 0), not the commerce keyboard meet gap.
+   * Compose dock — same resting inset as `.os-slide-over-footer-inner`
+   * (About). Format + Post tools are equal dock rows; footer is already
+   * page chrome so the format strip drops its opaque slab here. Keyboard:
+   * flush like About (pad 0).
    */
   .guild-composer-sheet-footer {
-    padding: var(--os-sheet-footer-pad-top, 0.45rem)
-      var(--os-sheet-footer-pad-inline, var(--os-gutter, 0.75rem))
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 0.55rem var(--os-sheet-footer-pad-inline, var(--os-gutter, 0.75rem))
       var(
         --os-sheet-footer-pad-bottom,
         calc(0.55rem + env(safe-area-inset-bottom, 0px))
@@ -39608,20 +39611,19 @@ a.os-surface-row,
       max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
   }
 
-  .guild-composer-toolbar .guild-composer-tool {
-    flex-basis: var(--os-dock-height, 3.25rem);
-    width: var(--os-dock-height, 3.25rem);
-    height: var(--os-dock-height, 3.25rem);
+  .guild-composer-sheet-footer > .profile-about-edit-format-toolbar {
+    flex: 0 0 var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
+    box-sizing: border-box;
+    height: var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
+    min-height: var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
+    background: transparent;
   }
 
-  .guild-composer-toolbar .guild-composer-tool-icon {
-    width: 1.36rem;
-    height: 1.36rem;
-  }
-
-  .guild-composer-toolbar .guild-composer-tool-slot-gap {
-    flex-basis: 0;
-    width: 0;
+  .guild-composer-sheet-footer > .guild-composer-toolbar {
+    flex: 0 0 var(--os-compose-tools-height, var(--os-dock-height, 3.25rem));
+    box-sizing: border-box;
+    height: var(--os-compose-tools-height, var(--os-dock-height, 3.25rem));
+    min-height: var(--os-compose-tools-height, var(--os-dock-height, 3.25rem));
   }
 
   .guild-composer-toolbar {
@@ -39729,13 +39731,31 @@ a.os-surface-row,
     height: 1.2rem;
   }
 
+  /* Dock hit — after the compact base so equal-specificity size wins. */
+  .guild-composer-toolbar .guild-composer-tool {
+    flex-basis: var(--os-compose-tools-height, var(--os-dock-height, 3.25rem));
+    width: var(--os-compose-tools-height, var(--os-dock-height, 3.25rem));
+    height: var(--os-compose-tools-height, var(--os-dock-height, 3.25rem));
+  }
+
+  .guild-composer-toolbar .guild-composer-tool-icon {
+    width: 1.36rem;
+    height: 1.36rem;
+  }
+
+  .guild-composer-toolbar .guild-composer-tool-slot-gap {
+    flex-basis: 0;
+    width: 0;
+  }
+
   .guild-composer-toolbar-end {
     display: inline-flex;
     flex: 0 0 auto;
     align-items: center;
     gap: 0.5rem;
     margin-left: auto;
-    min-height: 2.15rem;
+    min-height: 0;
+    height: 100%;
   }
 
   .guild-composer-toolbar-post {
