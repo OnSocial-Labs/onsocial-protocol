@@ -69,21 +69,36 @@ export function ensureVirtualKeyboardOverlay(): boolean {
 }
 
 /**
+ * Live `env(keyboard-inset-height)` in CSS px.
+ * Chrome docs seat with this. On broken Android VK math it was the inset
+ * that still worked while `boundingRect.y` was chrome-offset — Brave tabs
+ * can still lag that Chromium fix.
+ * @see https://developer.chrome.com/docs/web-platform/virtual-keyboard
+ * @see https://www.januschka.com/chromium-android-virtual-keyboard.html
+ */
+export function readCssKeyboardInsetHeight(): number {
+  if (typeof document === 'undefined') return 0;
+  const probe = document.createElement('div');
+  probe.style.cssText =
+    'position:fixed;left:0;bottom:0;width:0;height:env(keyboard-inset-height,0px);visibility:hidden;pointer-events:none;';
+  document.documentElement.appendChild(probe);
+  const height = Math.round(probe.getBoundingClientRect().height);
+  probe.remove();
+  return Math.max(0, height);
+}
+
+/**
  * IME height in CSS px from the Virtual Keyboard API when overlaying.
  * Prefer this over visualViewport lift — VV often stops at browser chrome.
  *
- * Chrome docs seat with `env(keyboard-inset-height)` as a bottom inset
- * (`margin-block-end`). That equals `boundingRect.height` when the keyboard
- * sits on the layout bottom (`keyboard-inset-bottom: 0`). When the rect’s
- * key top (`y`) is present, the flush seat is `innerHeight - y` — same as
- * inset-height + inset-bottom. Do not extend past `y` to “cover” a shortfall
- * under the box; that paints over the page instead of closing onto the keys.
- * @see https://developer.chrome.com/docs/web-platform/virtual-keyboard
- * @see https://www.januschka.com/chromium-android-virtual-keyboard.html
+ * Prefer `env(keyboard-inset-height)` when the browser reports it (compose /
+ * Chrome docs path). Fall back to `boundingRect` key-top math.
  */
 export function readVirtualKeyboardInset(): number {
   const keyboard = getVirtualKeyboard();
   if (!keyboard?.overlaysContent) return 0;
+  const cssInset = readCssKeyboardInsetHeight();
+  if (cssInset >= KEYBOARD_VIEWPORT_SLOP_PX) return cssInset;
   const rect = keyboard.boundingRect;
   if (!rect || rect.height < 1) return 0;
   // Key top → layout bottom. Matches keyboard-inset-height when bottom is 0.
@@ -104,17 +119,13 @@ export function virtualKeyboardSeatActive(): boolean {
 
 /**
  * Visible bottom edge above the keys (layout coordinates).
- * Virtual Keyboard key top (`boundingRect.y`) when overlaying; else VV.
- * Flush on `y` — never push past it to cover a strip under the IME box.
+ * Prefer the CSS/IME inset (same source as compose’s `--os-keyboard-lift`);
+ * else visualViewport.
  */
 export function readKeyboardVisibleBottom(): number {
-  const keyboard = getVirtualKeyboard();
-  if (keyboard?.overlaysContent) {
-    const rect = keyboard.boundingRect;
-    if (rect && rect.height >= KEYBOARD_VIEWPORT_SLOP_PX) {
-      if (rect.y > 0) return Math.round(rect.y);
-      return Math.max(0, Math.round(window.innerHeight - rect.height));
-    }
+  const inset = readVirtualKeyboardInset();
+  if (inset >= KEYBOARD_VIEWPORT_SLOP_PX) {
+    return Math.max(0, Math.round(window.innerHeight - inset));
   }
   const viewport = window.visualViewport;
   if (!viewport) return window.innerHeight;
@@ -298,11 +309,13 @@ export function visualKeyboardFrame(input: {
   if (fillsVisible) {
     return { top: 0, height: parentHeight };
   }
-  // The card is already on the visual screen (hosted sheet). offsetTop is
-  // the caret pan, not a gap inside this card. Adding it slides the sheet
-  // down and uncovers a strip of the page.
+  // Hosted sheet already on screen. `visualHeight` from IME metrics is
+  // keyTop - offsetTop — using it alone with top:0 ends the root
+  // `offsetTop` px above the keys (Brave tab URL/caret pan ≈ 40px page
+  // strip). Reach the key top; do not re-apply offsetTop as CSS top.
   if (parentTop >= -1) {
-    return { top: 0, height: Math.min(visualHeight, parentHeight) };
+    const keyTop = visualHeight + offsetTop;
+    return { top: 0, height: Math.min(keyTop, parentHeight) };
   }
   const top = Math.max(0, -parentTop);
   const room = Math.max(0, parentHeight - top);
@@ -696,8 +709,9 @@ export function useKeyboardDrawerFrame(
   const style = useMemo(() => {
     if (mode === 'page') return pageKeyboardLiftStyle(live, liveSeat);
     if (!liveBox) return undefined;
-    // Root pin seats on the key top. Clear any margin so we do not double
-    // the inset (cover-with-margin was the rejected approach).
+    // Root pin seats on the key top. Margin stays 0 so we do not double the
+    // inset. Compose uses `bottom: env(keyboard-inset-height)` on a dock;
+    // the drawer equivalent is the pin height (plus CSS inset in metrics).
     return { maxHeight: `${liveBox.height}px`, marginBottom: '0px' };
   }, [live, liveBox, liveSeat, mode]);
   const rootStyle = useMemo(

@@ -8,6 +8,7 @@ import {
   keyboardRootFrameStyle,
   keyboardSeatPx,
   pageKeyboardLiftStyle,
+  readCssKeyboardInsetHeight,
   readKeyboardDrawerMetrics,
   readKeyboardVisibleBottom,
   readVirtualKeyboardInset,
@@ -210,7 +211,9 @@ describe('visualKeyboardFrame', () => {
     ).toEqual({ top: 140, height: 520 });
   });
 
-  it('keeps an absolute drawer at the top of a card that is already on screen', () => {
+  it('closes the Brave pan gap on a hosted card that is already on screen', () => {
+    // visualHeight is keyTop - offsetTop. top:0 + height:visualHeight left a
+    // page strip of offsetTop under the drawer. Reach the key top instead.
     expect(
       visualKeyboardFrame({
         position: 'absolute',
@@ -219,7 +222,7 @@ describe('visualKeyboardFrame', () => {
         offsetTop: 140,
         visualHeight: 520,
       })
-    ).toEqual({ top: 0, height: 520 });
+    ).toEqual({ top: 0, height: 660 });
   });
 
   it('does not push a card that has already shrunk onto the keys', () => {
@@ -401,6 +404,7 @@ describe('virtual keyboard seat', () => {
 
     const vvOnlyLift = 844 - 844 - 0;
     expect(vvOnlyLift).toBe(0);
+    expect(readCssKeyboardInsetHeight()).toBe(0);
     expect(readKeyboardDrawerMetrics()).toEqual({
       lift: 344,
       height: 500,
@@ -425,6 +429,18 @@ describe('virtual keyboard seat', () => {
       paddingBottom: 0,
     });
     expect(box.top + box.height).toBe(500);
+
+    // Hosted Location drawer: metrics.height is already keyTop - offsetTop.
+    // Reaching key top must add offsetTop back or Brave leaves a page strip.
+    const hosted = visualKeyboardFrame({
+      position: 'absolute',
+      parentTop: 0,
+      parentHeight: 844,
+      offsetTop: 40,
+      visualHeight: metrics.height - 40,
+    });
+    expect(hosted).toEqual({ top: 0, height: 500 });
+    expect(hosted.top + hosted.height).toBe(500);
   });
 
   it('seats on the key top when the IME rect leaves room under the box', () => {
