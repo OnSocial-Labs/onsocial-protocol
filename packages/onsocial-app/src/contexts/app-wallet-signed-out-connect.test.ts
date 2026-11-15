@@ -11,6 +11,8 @@ import {
   useAppTransactionFeedback,
 } from '@/contexts/app-transaction-feedback-context';
 import { AppWalletProvider, useAppWallet } from '@/contexts/app-wallet-context';
+import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
+import { AppCreateTokenSheet } from '@/features/tokens/app-create-token-sheet';
 import { OsDockAccountZone } from '@/components/wallet/os-dock-account-zone';
 import { ScarceBuyForm } from '@/features/scarces/scarce-buy-form';
 import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
@@ -25,6 +27,7 @@ import { HubPublishRequestsSheet } from '@/features/scarces/hub-publish-requests
 import { NearAccountField } from '@/components/ui/near-account-field';
 import { useOsAppNavigate } from '@/hooks/use-os-app-navigate';
 import * as appSocialSession from '@/lib/app-social-session';
+import * as welcomeNear from '@/lib/welcome-near';
 import * as scarceAuction from '@/features/scarces/scarce-auction';
 import * as publishAccess from '@/features/scarces/hub-publish-access';
 import { APP_WALLET_ACCOUNT_KEY } from '@/lib/gate-return';
@@ -319,7 +322,11 @@ function jsonResponse(body: unknown, status = 200) {
 async function testFetch(input: RequestInfo | URL, init?: RequestInit) {
   const url = String(input);
   if (url.includes('/api/account-exists')) {
-    return jsonResponse({ exists: true });
+    const id = new URL(url, 'http://test.local').searchParams.get('accountId') ?? '';
+    return jsonResponse({ exists: !id.startsWith('note.') });
+  }
+  if (url.includes('/api/ft-template')) {
+    return jsonResponse({ status: 'ready' });
   }
   if (url.includes('/api/near/rpc')) {
     const body = JSON.parse(String(init?.body ?? '{}')) as {
@@ -1278,9 +1285,7 @@ describe('signed-out wallet picker', () => {
         .toBe(1);
       expect(router.push.mock.calls[0]?.[0]).toBe('/@payer.near');
       expect(logged.join('\n')).not.toContain('Could not open your page');
-      const text = collectText(renderer!.root);
-      expect(text).toContain('Review this account');
-      expect(text).toContain('Connected as payer.near.');
+      expect(collectText(renderer!.root)).not.toContain('Review this account');
     } finally {
       errorSpy.mockRestore();
     }
@@ -1573,11 +1578,11 @@ describe('signed-out wallet picker', () => {
     await act(async () => {
       picker.resolve(signingWallet('bob.near'));
     });
-    await expect
-      .poll(() => collectText(renderer!.root), { interval: 15, timeout: 2000 })
-      .toContain('Review this account');
+    await act(async () => {
+      await Promise.resolve();
+    });
     const text = collectText(renderer!.root);
-    expect(text).toContain('Connected as bob.near.');
+    expect(text).not.toContain('Review this account');
     expect(text).not.toContain(REVIEW_TEXT);
   });
 
@@ -1622,6 +1627,148 @@ describe('signed-out wallet picker', () => {
         apiRef.current!.clearSessionFeedback();
       });
       expect(collectText(renderer!.root)).not.toMatch(/too long/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('renders an info toast as neutral status and leaves the other types', async () => {
+    const info = 'Connected as @bob.near. Check and tap again.';
+    function toast(result: {
+      type: 'success' | 'error' | 'info';
+      msg: string;
+    }) {
+      return createElement(TransactionFeedbackToast, {
+        result,
+        onClose() {},
+      });
+    }
+    function statusNode() {
+      return renderer!.root.findAll((node) => node.props?.role === 'status')[0];
+    }
+    await act(async () => {
+      renderer = create(toast({ type: 'success', msg: 'Saved.' }));
+    });
+    expect(statusNode().props.className).toContain('is-success');
+    expect(collectText(renderer!.root)).toContain('Saved.');
+    await act(async () => {
+      renderer = create(toast({ type: 'error', msg: 'Failed.' }));
+    });
+    expect(statusNode().props.className).toContain('is-error');
+    await act(async () => {
+      renderer = create(toast({ type: 'info', msg: info }));
+    });
+    const status = statusNode();
+    expect(status.props['aria-live']).toBe('polite');
+    expect(status.props.className).toContain('is-info');
+    expect(status.props.className).not.toContain('is-error');
+    expect(status.props.className).not.toContain('is-success');
+    expect(
+      renderer!.root.findAll(
+        (node) =>
+          typeof node.props?.className === 'string' &&
+          node.props.className.includes('app-tx-toast-icon--info')
+      ).length
+    ).toBeGreaterThan(0);
+    expect(
+      renderer!.root.findAll(
+        (node) =>
+          typeof node.props?.className === 'string' &&
+          node.props.className.includes('app-tx-toast-icon--error')
+      ).length
+    ).toBe(0);
+    expect(collectText(renderer!.root)).toContain(info);
+  });
+
+  it('returns the create-token step thread to idle and shows the info toast', async () => {
+    window.localStorage.setItem(
+      APP_WALLET_ACCOUNT_KEY,
+      'alice.onsocial.testnet'
+    );
+    await mount(
+      createElement(
+        Shell,
+        null,
+        createElement(AppCreateTokenSheet, { open: true, onClose() {} })
+      )
+    );
+    await waitForInit();
+    const name = renderer!.root.findByProps({ placeholder: 'Cool Token' });
+    const symbol = renderer!.root.findByProps({ placeholder: 'COOL' });
+    await act(async () => {
+      name.props.onChange({ target: { value: 'Note' } });
+      symbol.props.onChange({ target: { value: 'N' } });
+    });
+    await expect
+      .poll(() => collectText(renderer!.root), { interval: 40, timeout: 4000 })
+      .toContain('Available');
+    const picker = deferred<ReturnType<typeof makeWallet>>();
+    harness.connect.mockImplementation(() => picker.promise);
+    await act(async () => {
+      findForm(renderer!.root).props.onSubmit({ preventDefault() {} });
+    });
+    await expect
+      .poll(() => harness.connect.mock.calls.length, { interval: 20, timeout: 3000 })
+      .toBe(1);
+    await act(async () => {
+      picker.resolve(signingWallet('bob.onsocial.testnet'));
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const text = collectText(renderer!.root);
+    expect(
+      renderer!.root.findAll(
+        (node) => node.props?.['aria-label'] === 'Sign in your wallet'
+      ).length
+    ).toBe(0);
+    expect(text).toContain(
+      'Connected as @bob.onsocial.testnet. Check and tap again.'
+    );
+  }, 12000);
+
+  it('keeps the timeout toast after a bundled dock connect', async () => {
+    vi.spyOn(appSocialSession, 'resolveAppSessionPlan').mockResolvedValue({
+      sessionReady: false,
+      pendingSessionKey: {
+        publicKey: 'ed25519:test',
+        secretSeedB64u: 'c2VlZA',
+        sign: async () => new Uint8Array(64),
+      },
+    });
+    vi.spyOn(welcomeNear, 'accountNeedsAppSessionSponsor').mockResolvedValue(
+      false
+    );
+    vi.spyOn(
+      welcomeNear,
+      'resolveAppSessionKeyAllowanceYocto'
+    ).mockResolvedValue('250000000000000000000000');
+    await mount(createElement(OsDockAccountZone));
+    await expect
+      .poll(
+        () =>
+          renderer!.root.findAll(
+            (node) =>
+              node.type === 'button' && node.props['aria-label'] === 'Connect'
+          ).length,
+        { interval: 15, timeout: 2000 }
+      )
+      .toBe(1);
+    window.localStorage.setItem(APP_WALLET_ACCOUNT_KEY, 'alice.near');
+    harness.connect.mockImplementation(() => new Promise(() => {}));
+    vi.useFakeTimers();
+    try {
+      const button = renderer!.root.findAll(
+        (node) => node.type === 'button' && node.props['aria-label'] === 'Connect'
+      )[0]!;
+      await act(async () => {
+        button.props.onClick();
+      });
+      await vi.advanceTimersByTimeAsync(120_000);
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(collectText(renderer!.root)).toMatch(/too long/);
     } finally {
       vi.useRealTimers();
     }

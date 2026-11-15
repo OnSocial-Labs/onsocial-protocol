@@ -109,6 +109,12 @@ body:has(.glass-sheet-root:not(.post-thread-sheet-parked))
   color: var(--protocol-red);
 }
 
+.app-tx-toast-icon--info {
+  width: 1rem;
+  height: 1rem;
+  color: rgb(var(--fg-rgb));
+}
+
 .app-tx-toast-icon--pending {
   color: rgb(var(--fg-rgb));
   transform-box: view-box;
@@ -217,6 +223,10 @@ body:has(.glass-sheet-root:not(.post-thread-sheet-parked))
   background: var(--protocol-red);
 }
 
+.app-tx-toast-progress--info {
+  background: rgb(var(--fg-rgb));
+}
+
 @media (prefers-reduced-motion: reduce) {
   .app-tx-toast,
   .app-tx-toast-icon--pending {
@@ -224,7 +234,8 @@ body:has(.glass-sheet-root:not(.post-thread-sheet-parked))
   }
 
   .app-tx-toast-progress--success,
-  .app-tx-toast-progress--error {
+  .app-tx-toast-progress--error,
+  .app-tx-toast-progress--info {
     transform: scaleX(0);
   }
 }

@@ -5,13 +5,14 @@ import { createPortal } from 'react-dom';
 import {
   CheckIcon,
   ExternalLinkIcon,
+  InformationCircleIcon,
   MultiplyIcon,
   RefreshIcon,
 } from '@onsocial/ui';
 import { useToastDismissTimer } from '@/hooks/use-toast-dismiss-timer';
 
 export type TransactionFeedback = {
-  type: 'success' | 'error' | 'pending';
+  type: 'success' | 'error' | 'pending' | 'info';
   msg: string;
   /** Optional override — default success/error toast is one-line (no eyebrow). */
   eyebrow?: string;
@@ -24,7 +25,7 @@ export type TransactionFeedback = {
   actionLabel?: string | null;
 };
 
-const DISMISS_MS = { success: 3500, error: 7000 } as const;
+const DISMISS_MS = { success: 3500, error: 7000, info: 3500 } as const;
 
 function ToastStatusIcon({ type }: { type: TransactionFeedback['type'] }) {
   if (type === 'success') {
@@ -39,6 +40,14 @@ function ToastStatusIcon({ type }: { type: TransactionFeedback['type'] }) {
     return (
       <RefreshIcon
         className="app-tx-toast-icon app-tx-toast-icon--pending"
+        aria-hidden
+      />
+    );
+  }
+  if (type === 'info') {
+    return (
+      <InformationCircleIcon
+        className="app-tx-toast-icon app-tx-toast-icon--info"
         aria-hidden
       />
     );

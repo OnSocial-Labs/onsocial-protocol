@@ -38,8 +38,6 @@ import {
   isWalletUserCancellation,
   WalletPickerTimeoutError,
 } from '@/lib/wallet-errors';
-import { OsNoticeCard } from '@onsocial/ui';
-
 /**
  * The picker just connected an account. Callers stop before signing so the
  * sheet can review that account. The next request uses the connected wallet.
@@ -275,7 +273,6 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
   const resolvedAccountId =
     liveAccountId === undefined ? storedAccountId : liveAccountId;
   const [isLoading, setIsLoading] = useState(true);
-  const [mismatchNotice, setMismatchNotice] = useState<string | null>(null);
   const [hasSocialSession, setHasSocialSession] = useState(false);
   const [isBootstrappingSession, setIsBootstrappingSession] = useState(false);
   const [sessionFeedback, setSessionFeedback] =
@@ -576,7 +573,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
               return;
             }
             acceptedWalletRef.current = value.wallet;
-        resolvePromise(value);
+            resolvePromise(value);
           },
           (error) => {
             clearTimeout(timer);
@@ -667,6 +664,9 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
 
         await ensureSocialSession(nextAccountId);
       } catch (error) {
+        if (error instanceof WalletPickerTimeoutError) {
+          return;
+        }
         if (bundled) {
           if (isWalletUserCancellation(error)) {
             clearSessionFeedback();
@@ -817,9 +817,6 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       preferredAccountId &&
         !sameWalletAccount(preferredAccountId, pickedAccountId)
     );
-    if (mismatched) {
-      setMismatchNotice(pickedAccountId);
-    }
     if (opts?.reviewAfterPicker || mismatched) {
       throw new WalletConnectedReviewError(pickedAccountId);
     }
@@ -908,30 +905,6 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-      {mismatchNotice ? (
-        <div
-          style={{
-            position: 'fixed',
-            zIndex: 80,
-            left: '50%',
-            top: 'calc(env(safe-area-inset-top, 0px) + 4.75rem)',
-            transform: 'translateX(-50%)',
-            width: 'min(22rem, calc(100vw - 1.5rem))',
-          }}
-        >
-          <OsNoticeCard
-            align="center"
-            shell
-            title="Review this account"
-            body={`Connected as ${mismatchNotice}.`}
-            footer={
-              <button type="button" onClick={() => setMismatchNotice(null)}>
-                OK
-              </button>
-            }
-          />
-        </div>
-      ) : null}
     </AppWalletContext.Provider>
   );
 }

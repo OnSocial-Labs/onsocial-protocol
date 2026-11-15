@@ -54,7 +54,10 @@ import {
   txToastGovPending,
   txToastGovSuccess,
 } from '@/lib/transaction-toast-copy';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  isWalletUserCancellation,
+  walletMismatchInfoMessage,
+} from '@/lib/wallet-errors';
 
 type PortfolioOverlay =
   | 'manage'
@@ -241,10 +244,12 @@ function PortfolioDaoOrgChromeInner({
         openSubmittedProposal(response.proposalId);
       }
     } catch (cause) {
-      if (
-        !isWalletUserCancellation(cause) &&
-        !(cause instanceof WalletConnectedReviewError)
-      ) {
+      if (cause instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          msg: walletMismatchInfoMessage(cause.accountId),
+        });
+      } else if (!isWalletUserCancellation(cause)) {
         setTxResult({
           type: 'error',
           msg:

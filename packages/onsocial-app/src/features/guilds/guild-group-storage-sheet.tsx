@@ -67,7 +67,10 @@ import {
   STORAGE_SHARE_POOL_DEPOSIT_MIN_YOCTO,
   STORAGE_SHARE_POOL_DEPOSIT_PRESETS_NEAR,
 } from '@/lib/user-storage-display';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  isWalletUserCancellation,
+  walletMismatchInfoMessage,
+} from '@/lib/wallet-errors';
 import {
   txToastConfirming,
   txToastError,
@@ -336,11 +339,14 @@ export function GuildGroupStorageSheet({
       });
       if (!confirmed) return;
     } catch (err) {
-      if (
-        isWalletUserCancellation(err) ||
-        err instanceof WalletConnectedReviewError
-      )
+      if (err instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          msg: walletMismatchInfoMessage(err.accountId),
+        });
         return;
+      }
+      if (isWalletUserCancellation(err)) return;
       const message = getErrorMessage(err);
       setError(message);
       setTxResult({
@@ -382,11 +388,14 @@ export function GuildGroupStorageSheet({
         ...new Set([...current, ...readyRecipients]),
       ]);
     } catch (err) {
-      if (
-        isWalletUserCancellation(err) ||
-        err instanceof WalletConnectedReviewError
-      )
+      if (err instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          msg: walletMismatchInfoMessage(err.accountId),
+        });
         return;
+      }
+      if (isWalletUserCancellation(err)) return;
       const message = getErrorMessage(err);
       setError(message);
       setTxResult({
@@ -425,11 +434,14 @@ export function GuildGroupStorageSheet({
       });
       if (!confirmed) return;
     } catch (err) {
-      if (
-        isWalletUserCancellation(err) ||
-        err instanceof WalletConnectedReviewError
-      )
+      if (err instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          msg: walletMismatchInfoMessage(err.accountId),
+        });
         return;
+      }
+      if (isWalletUserCancellation(err)) return;
       const message = getErrorMessage(err);
       setError(message);
       setTxResult({
@@ -464,11 +476,14 @@ export function GuildGroupStorageSheet({
       });
       if (!confirmed) return;
     } catch (err) {
-      if (
-        isWalletUserCancellation(err) ||
-        err instanceof WalletConnectedReviewError
-      )
+      if (err instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          msg: walletMismatchInfoMessage(err.accountId),
+        });
         return;
+      }
+      if (isWalletUserCancellation(err)) return;
       const message = getErrorMessage(err);
       setError(message);
       setTxResult({
@@ -503,11 +518,14 @@ export function GuildGroupStorageSheet({
       });
       if (!confirmed) return;
     } catch (err) {
-      if (
-        isWalletUserCancellation(err) ||
-        err instanceof WalletConnectedReviewError
-      )
+      if (err instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          msg: walletMismatchInfoMessage(err.accountId),
+        });
         return;
+      }
+      if (isWalletUserCancellation(err)) return;
       const message = getErrorMessage(err);
       setError(message);
       setTxResult({

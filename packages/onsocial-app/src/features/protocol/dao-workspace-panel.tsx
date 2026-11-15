@@ -152,7 +152,10 @@ import {
   writeDaoFeedCache,
 } from '@/lib/dao-workspace-prefetch';
 import { invalidateDaoPortfolioFaceCaches } from '@/lib/invalidate-dao-portfolio-face';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  isWalletUserCancellation,
+  walletMismatchInfoMessage,
+} from '@/lib/wallet-errors';
 
 /** Below page drawer (48) + launcher (60) so dock actions aren’t buried. */
 const PROPOSALS_PAGE_Z = 45;
@@ -1190,10 +1193,12 @@ export function DaoWorkspacePanel({
 
         bumpDaoWorkspacePrefetch(daoAccountId);
       } catch (error) {
-        if (
-          !isWalletUserCancellation(error) &&
-          !(error instanceof WalletConnectedReviewError)
-        ) {
+        if (error instanceof WalletConnectedReviewError) {
+          setTxResult({
+            type: 'info',
+            msg: walletMismatchInfoMessage(error.accountId),
+          });
+        } else if (!isWalletUserCancellation(error)) {
           setTxResult({
             type: 'error',
             msg:
@@ -1247,10 +1252,12 @@ export function DaoWorkspacePanel({
 
         await landOnSubmittedProposal(proposalId);
       } catch (error) {
-        if (
-          !isWalletUserCancellation(error) &&
-          !(error instanceof WalletConnectedReviewError)
-        ) {
+        if (error instanceof WalletConnectedReviewError) {
+          setTxResult({
+            type: 'info',
+            msg: walletMismatchInfoMessage(error.accountId),
+          });
+        } else if (!isWalletUserCancellation(error)) {
           setTxResult({
             type: 'error',
             msg:
@@ -1301,10 +1308,12 @@ export function DaoWorkspacePanel({
 
         await landOnSubmittedProposal(proposalId);
       } catch (error) {
-        if (
-          !isWalletUserCancellation(error) &&
-          !(error instanceof WalletConnectedReviewError)
-        ) {
+        if (error instanceof WalletConnectedReviewError) {
+          setTxResult({
+            type: 'info',
+            msg: walletMismatchInfoMessage(error.accountId),
+          });
+        } else if (!isWalletUserCancellation(error)) {
           setTxResult({
             type: 'error',
             msg:
@@ -1371,10 +1380,12 @@ export function DaoWorkspacePanel({
         setStakeOpen(false);
         void face?.refresh({ fresh: true });
       } catch (error) {
-        if (
-          !isWalletUserCancellation(error) &&
-          !(error instanceof WalletConnectedReviewError)
-        ) {
+        if (error instanceof WalletConnectedReviewError) {
+          setTxResult({
+            type: 'info',
+            msg: walletMismatchInfoMessage(error.accountId),
+          });
+        } else if (!isWalletUserCancellation(error)) {
           setTxResult({
             type: 'error',
             msg:
@@ -1426,10 +1437,12 @@ export function DaoWorkspacePanel({
         setStakeOpen(false);
         void face?.refresh({ fresh: true });
       } catch (error) {
-        if (
-          !isWalletUserCancellation(error) &&
-          !(error instanceof WalletConnectedReviewError)
-        ) {
+        if (error instanceof WalletConnectedReviewError) {
+          setTxResult({
+            type: 'info',
+            msg: walletMismatchInfoMessage(error.accountId),
+          });
+        } else if (!isWalletUserCancellation(error)) {
           setTxResult({
             type: 'error',
             msg:
@@ -1482,10 +1495,12 @@ export function DaoWorkspacePanel({
         setStakeOpen(false);
         void face?.refresh({ fresh: true });
       } catch (error) {
-        if (
-          !isWalletUserCancellation(error) &&
-          !(error instanceof WalletConnectedReviewError)
-        ) {
+        if (error instanceof WalletConnectedReviewError) {
+          setTxResult({
+            type: 'info',
+            msg: walletMismatchInfoMessage(error.accountId),
+          });
+        } else if (!isWalletUserCancellation(error)) {
           setTxResult({
             type: 'error',
             msg:

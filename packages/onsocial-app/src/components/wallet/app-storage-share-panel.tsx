@@ -46,7 +46,10 @@ import {
   USER_STORAGE_SHARE_POOL_DEPOSIT_HINT,
   USER_STORAGE_SHARE_HINT,
 } from '@/lib/user-storage-display';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  isWalletUserCancellation,
+  walletMismatchInfoMessage,
+} from '@/lib/wallet-errors';
 import {
   txToastConfirming,
   txToastError,
@@ -88,7 +91,7 @@ export function AppStorageSharePanel({
   onPoolChanged: () => void;
   getSigningWallet: () => Promise<SigningWallet>;
 }) {
-  const { trackTransaction } = useAppTransactionFeedback();
+  const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const baseId = useId();
   const [rows, setRows] = useState<string[]>(['']);
   const [sharePercent, setSharePercent] = useState<number>(100);
@@ -230,11 +233,14 @@ export function AppStorageSharePanel({
       });
       if (!confirmed) return;
     } catch (err) {
-      if (
-        isWalletUserCancellation(err) ||
-        err instanceof WalletConnectedReviewError
-      )
+      if (err instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          msg: walletMismatchInfoMessage(err.accountId),
+        });
         return;
+      }
+      if (isWalletUserCancellation(err)) return;
       const message = getErrorMessage(err);
       onError(message);
       return;
@@ -269,11 +275,14 @@ export function AppStorageSharePanel({
       });
       if (!confirmed) return;
     } catch (err) {
-      if (
-        isWalletUserCancellation(err) ||
-        err instanceof WalletConnectedReviewError
-      )
+      if (err instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          msg: walletMismatchInfoMessage(err.accountId),
+        });
         return;
+      }
+      if (isWalletUserCancellation(err)) return;
       const message = getErrorMessage(err);
       onError(message);
       return;

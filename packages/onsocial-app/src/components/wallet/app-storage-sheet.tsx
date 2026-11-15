@@ -59,7 +59,10 @@ import {
   USER_STORAGE_WITHDRAW_HINT,
   type UserStorageSummary,
 } from '@/lib/user-storage-display';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  isWalletUserCancellation,
+  walletMismatchInfoMessage,
+} from '@/lib/wallet-errors';
 import {
   txToastConfirming,
   txToastError,
@@ -233,7 +236,7 @@ export function AppStorageSheet({
   onStorageChanged,
 }: AppStorageSheetProps) {
   const { getSigningWallet } = useAppWallet();
-  const { trackTransaction } = useAppTransactionFeedback();
+  const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [closing, setClosing] = useState(false);
   const [localRefreshKey, setLocalRefreshKey] = useState(0);
   const [view, setView] = useState<StorageSheetView>('status');
@@ -389,11 +392,14 @@ export function AppStorageSheet({
         refreshAfterTx();
       }
     } catch (err) {
-      if (
-        isWalletUserCancellation(err) ||
-        err instanceof WalletConnectedReviewError
-      )
+      if (err instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          msg: walletMismatchInfoMessage(err.accountId),
+        });
         return;
+      }
+      if (isWalletUserCancellation(err)) return;
       setError(
         err instanceof Error ? err.message : 'Transaction did not go through.'
       );

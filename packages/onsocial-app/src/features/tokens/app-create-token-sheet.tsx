@@ -61,6 +61,7 @@ import { rememberUserCreatedToken } from '@/lib/user-created-tokens';
 import {
   formatCreateTokenWalletError,
   isWalletUserCancellation,
+  walletMismatchInfoMessage,
 } from '@/lib/wallet-errors';
 
 function fieldId(name: string) {
@@ -330,7 +331,14 @@ export function AppCreateTokenSheet({
           setPhase('error');
         }
       } catch (cause) {
-        if (cause instanceof WalletConnectedReviewError) return;
+        if (cause instanceof WalletConnectedReviewError) {
+          setPhase('idle');
+          setTxResult({
+            type: 'info',
+            msg: walletMismatchInfoMessage(cause.accountId),
+          });
+          return;
+        }
         setPhase('error');
         if (isWalletUserCancellation(cause)) {
           setPhase('idle');

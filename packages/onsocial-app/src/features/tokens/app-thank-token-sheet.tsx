@@ -56,7 +56,10 @@ import {
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import type { UserCreatedTokenRecord } from '@/lib/user-created-tokens';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  isWalletUserCancellation,
+  walletMismatchInfoMessage,
+} from '@/lib/wallet-errors';
 
 type ThankPhase = 'idle' | 'checking' | 'signing' | 'confirming';
 
@@ -250,11 +253,14 @@ export function AppThankTokenSheet({
           requestClose();
         }
       } catch (cause) {
-        if (
-          isWalletUserCancellation(cause) ||
-          cause instanceof WalletConnectedReviewError
-        )
+        if (cause instanceof WalletConnectedReviewError) {
+          setTxResult({
+            type: 'info',
+            msg: walletMismatchInfoMessage(cause.accountId),
+          });
           return;
+        }
+        if (isWalletUserCancellation(cause)) return;
         const message =
           cause instanceof Error
             ? cause.message
