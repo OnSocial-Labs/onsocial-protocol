@@ -4,7 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
 import { CollectionQtyStepper } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import {
+  useAppWallet,
+  WalletConnectedReviewError,
+} from '@/contexts/app-wallet-context';
 import '@/features/scarces/scarce-buy-deal.css';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import {
@@ -902,6 +905,7 @@ export function ScarceBuyForm({
         ...(tokenId ? { tokenId } : {}),
       });
     } catch (cause) {
+      if (cause instanceof WalletConnectedReviewError) return;
       if (isWalletUserCancellation(cause)) return;
       setFieldError(
         cause instanceof Error
@@ -1435,6 +1439,7 @@ export function ScarceBuyForm({
       forgetCollectiblesPlace(accountId);
       onSuccess?.({ listingId, tokenId });
     } catch (cause) {
+      if (cause instanceof WalletConnectedReviewError) return;
       if (isWalletUserCancellation(cause)) return;
       if (cause instanceof LazyListingNotFoundError) {
         markListingGone();

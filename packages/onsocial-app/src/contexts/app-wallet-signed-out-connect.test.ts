@@ -20,12 +20,22 @@ import * as appSocialSession from '@/lib/app-social-session';
 import * as scarceAuction from '@/features/scarces/scarce-auction';
 import * as publishAccess from '@/features/scarces/hub-publish-access';
 import { APP_WALLET_ACCOUNT_KEY } from '@/lib/gate-return';
+import { viewNearContract } from '@/lib/app-near-rpc';
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
 const LOADING = /Wallet is still loading/;
+const ONE_NEAR_YOCTO = '1000000000000000000000000';
+const PAYER_BALANCE_YOCTO = '50000000000000000000000000';
+const OWN_LISTING_ERROR = 'You can’t buy your own listing.';
+
+const reviewRpc = {
+  balances: new Map<string, string>(),
+  prepareCalls: 0,
+  viewedAccounts: [] as string[],
+};
 
 const harness = vi.hoisted(() => {
   const connect = vi.fn(() => new Promise(() => {}));
@@ -247,19 +257,53 @@ function installBrowser() {
   vi.stubGlobal('getComputedStyle', () => ({
     getPropertyValue: () => '',
   }));
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
-      if (url.includes('/api/account-exists')) {
-        return new Response(JSON.stringify({ exists: true }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        });
-      }
-      throw new Error('offline');
-    })
-  );
+  vi.stubGlobal('fetch', testFetch);
+}
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+}
+
+async function testFetch(input: RequestInfo | URL, init?: RequestInit) {
+  const url = String(input);
+  if (url.includes('/api/account-exists')) {
+    return jsonResponse({ exists: true });
+  }
+  if (url.includes('/api/near/rpc')) {
+    const body = JSON.parse(String(init?.body ?? '{}')) as {
+      method?: string;
+      params?: { request_type?: string; account_id?: string };
+    };
+    if (body.method === 'query' && body.params?.request_type === 'view_account') {
+      const accountId = body.params.account_id ?? '';
+      reviewRpc.viewedAccounts.push(accountId);
+      const amount = reviewRpc.balances.get(accountId);
+      if (!amount) return jsonResponse({ error: { message: 'offline' } });
+      return jsonResponse({
+        result: { amount, locked: '0', storage_usage: 0 },
+      });
+    }
+    if (body.method === 'EXPERIMENTAL_tx_status') {
+      return jsonResponse({
+        result: {
+          final_execution_status: 'FINAL',
+          status: { SuccessValue: '' },
+          receipts_outcome: [],
+        },
+      });
+    }
+  }
+  if (url.includes('/compose/prepare/')) {
+    reviewRpc.prepareCalls += 1;
+    return jsonResponse({
+      action: { type: 'purchase' },
+      target_account: 'scarces.onsocial.testnet',
+    });
+  }
+  throw new Error('offline');
 }
 
 function collectText(node: ReactTestInstance): string {
@@ -334,6 +378,9 @@ async function expectSignedOutPicker() {
 
 describe('signed-out wallet picker', () => {
   beforeEach(() => {
+    reviewRpc.balances.clear();
+    reviewRpc.prepareCalls = 0;
+    reviewRpc.viewedAccounts = [];
     installBrowser();
     harness.wallets.length = 0;
     harness.signInListeners.clear();
@@ -795,7 +842,13 @@ describe('signed-out wallet picker', () => {
         })
         .toBe(2);
       next.resolve(makeWallet('dana.near'));
-      await expect(again).resolves.toMatchObject({ accountId: 'dana.near' });
+      await expect(again).rejects.toMatchObject({
+        name: 'WalletConnectedReviewError',
+        accountId: 'dana.near',
+      });
+      await expect
+        .poll(() => apiRef.current?.accountId, { interval: 15, timeout: 2000 })
+        .toBe('dana.near');
     } finally {
       vi.useRealTimers();
     }
@@ -822,8 +875,13 @@ describe('signed-out wallet picker', () => {
         signMessage: vi.fn(),
       };
     });
-    const picked = await apiRef.current!.getSigningWallet();
-    expect(picked.accountId).toBe('bob.near');
+    await expect(apiRef.current!.getSigningWallet()).rejects.toMatchObject({
+      name: 'WalletConnectedReviewError',
+      accountId: 'bob.near',
+    });
+    await expect
+      .poll(() => apiRef.current?.accountId, { interval: 15, timeout: 2000 })
+      .toBe('bob.near');
     expect(sessionSpy).not.toHaveBeenCalled();
   });
 
@@ -847,7 +905,10 @@ describe('signed-out wallet picker', () => {
     });
     expect(harness.connect.mock.calls.length).toBe(1);
     picker.resolve(makeWallet('visitor.near'));
-    await expect(signing).resolves.toMatchObject({ accountId: 'visitor.near' });
+    await expect(signing).rejects.toMatchObject({
+      name: 'WalletConnectedReviewError',
+      accountId: 'visitor.near',
+    });
     await expect
       .poll(() => sessionSpy?.mock.calls.length ?? 0, {
         interval: 15,
@@ -878,7 +939,10 @@ describe('signed-out wallet picker', () => {
     });
     const second = apiRef.current!.getSigningWallet();
     firstPicker.resolve(makeWallet('alice.near'));
-    await expect(first).resolves.toMatchObject({ accountId: 'alice.near' });
+    await expect(first).rejects.toMatchObject({
+      name: 'WalletConnectedReviewError',
+      accountId: 'alice.near',
+    });
     await expect
       .poll(() => harness.connect.mock.calls.length, {
         interval: 15,
@@ -886,6 +950,142 @@ describe('signed-out wallet picker', () => {
       })
       .toBe(2);
     secondPicker.resolve(makeWallet('bob.near'));
-    await expect(second).resolves.toMatchObject({ accountId: 'bob.near' });
+    await expect(second).rejects.toMatchObject({
+      name: 'WalletConnectedReviewError',
+      accountId: 'bob.near',
+    });
   });
+
+  it('returns to the buy sheet after the picker so a payer confirms on the second tap', async () => {
+    reviewRpc.balances.set('payer.near', PAYER_BALANCE_YOCTO);
+    const footer = { current: null as { primaryLabel?: string; canSubmit?: boolean } | null };
+    await mountPaidBuy('seller.near', footer);
+    const wallet = await resolveSignedOutPicker('payer.near');
+
+    await expect
+      .poll(() => reviewRpc.prepareCalls, { interval: 20, timeout: 2000 })
+      .toBe(0);
+    expect(signCallCount()).toBe(0);
+    expect(findForm(renderer!.root)).toBeTruthy();
+    expect(collectText(renderer!.root)).not.toMatch(LOADING);
+    expect(collectText(renderer!.root)).not.toContain(OWN_LISTING_ERROR);
+    await expect
+      .poll(() => reviewRpc.viewedAccounts.includes('payer.near'), {
+        interval: 20,
+        timeout: 2000,
+      })
+      .toBe(true);
+    await expect
+      .poll(() => footer.current?.primaryLabel, { interval: 20, timeout: 2000 })
+      .toBe('Buy · 1 NEAR');
+    expect(footer.current?.canSubmit).toBe(true);
+    expect(apiRef.current?.accountId).toBe('payer.near');
+    const priceChecks = saleReads();
+
+    await act(async () => {
+      findForm(renderer!.root).props.onSubmit({ preventDefault() {} });
+    });
+    await expect
+      .poll(() => signCallCount(), { interval: 20, timeout: 2000 })
+      .toBe(1);
+    expect(saleReads()).toBeGreaterThan(priceChecks);
+    expect(depositOf(wallet)).toBe(ONE_NEAR_YOCTO);
+    expect(reviewRpc.prepareCalls).toBe(1);
+    expect(sessionSpy).not.toHaveBeenCalled();
+  }, 12000);
+
+  it('returns to the buy sheet after the picker when the account is the seller', async () => {
+    const footer = { current: null as { primaryLabel?: string } | null };
+    await mountPaidBuy('seller.near', footer);
+    await resolveSignedOutPicker('seller.near');
+
+    await expect
+      .poll(() => reviewRpc.prepareCalls, { interval: 20, timeout: 2000 })
+      .toBe(0);
+    expect(signCallCount()).toBe(0);
+    expect(findForm(renderer!.root)).toBeTruthy();
+    await expect
+      .poll(() => footer.current?.primaryLabel, { interval: 20, timeout: 2000 })
+      .toBe('Delist');
+
+    await act(async () => {
+      findForm(renderer!.root).props.onSubmit({ preventDefault() {} });
+    });
+    await expect
+      .poll(() => collectText(renderer!.root), { interval: 20, timeout: 2000 })
+      .toContain(OWN_LISTING_ERROR);
+    expect(signCallCount()).toBe(0);
+    expect(reviewRpc.prepareCalls).toBe(0);
+    expect(sessionSpy).not.toHaveBeenCalled();
+  }, 12000);
 });
+
+function paidListing(creatorId: string) {
+  return {
+    status: 'listed' as const,
+    tokenId: 'lot-1',
+    creatorId,
+    title: 'Field note',
+    description: 'A note',
+    mediaUrl: 'https://example.com/cover.png',
+    priceNear: '1',
+    sourcePostPath: `${creatorId}/post/1`,
+  };
+}
+
+async function mountPaidBuy(
+  creatorId: string,
+  footer: { current: { primaryLabel?: string; canSubmit?: boolean } | null }
+) {
+  await mount(
+    createElement(
+      Shell,
+      null,
+      createElement(ScarceBuyForm, {
+        formId: 'buy-scarce',
+        onFooterStateChange: (state) => {
+          footer.current = state;
+        },
+        listing: paidListing(creatorId),
+      })
+    )
+  );
+  await waitForInit();
+}
+
+async function resolveSignedOutPicker(accountId: string) {
+  const picker = deferred<ReturnType<typeof makeWallet>>();
+  harness.connect.mockImplementation(() => picker.promise);
+  await act(async () => {
+    findForm(renderer!.root).props.onSubmit({ preventDefault() {} });
+  });
+  await expect
+    .poll(() => harness.connect.mock.calls.length, { interval: 20, timeout: 2000 })
+    .toBe(1);
+  const wallet = makeWallet(accountId);
+  wallet.signAndSendTransaction.mockResolvedValue({
+    transaction: { hash: 'tx-buy' },
+  });
+  await act(async () => {
+    harness.getConnectedWallet.mockResolvedValue({
+      wallet,
+      accounts: [{ accountId }],
+    });
+    picker.resolve(wallet);
+  });
+  await expect
+    .poll(() => apiRef.current?.accountId, { interval: 20, timeout: 2000 })
+    .toBe(accountId);
+  return wallet;
+}
+
+function saleReads(): number {
+  return viewNearContract.mock.calls.filter((call) => call[1] === 'get_sale').length;
+}
+
+function depositOf(wallet: ReturnType<typeof makeWallet>): string | undefined {
+  const request = wallet.signAndSendTransaction.mock.calls[0]?.[0] as
+    | { actions?: Array<{ params?: { deposit?: string } }> }
+    | undefined;
+  return request?.actions?.[0]?.params?.deposit;
+}

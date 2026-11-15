@@ -35,6 +35,20 @@ import {
 import { clearAppGatewayAuth } from '@/lib/app-gateway-auth';
 import { invalidateAppSocialSessionCache } from '@/lib/app-social-session-cache';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+
+/**
+ * The picker just connected an account. Callers stop before signing so the
+ * sheet can review that account. The next request uses the connected wallet.
+ */
+export class WalletConnectedReviewError extends Error {
+  readonly accountId: string;
+
+  constructor(accountId: string) {
+    super('Review this account, then confirm.');
+    this.name = 'WalletConnectedReviewError';
+    this.accountId = accountId;
+  }
+}
 import {
   createE2eMockWallet,
   readE2eAuthSessionEnabled,
@@ -755,7 +769,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     setWallet(connectedWallet);
     setAccountId(pickedAccountId);
     writeStoredWalletAccountId(pickedAccountId);
-    return { wallet: connectedWallet, accountId: pickedAccountId };
+    throw new WalletConnectedReviewError(pickedAccountId);
   }, [resolvedAccountId, openPicker]);
 
   const resumeSocialSession = useCallback(
