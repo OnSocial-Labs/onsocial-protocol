@@ -267,17 +267,6 @@ describe('visualKeyboardFrame', () => {
       paddingBottom: 0,
     });
   });
-
-  it('clears the pin on a hosted root so the phone card does not peek as a strip', () => {
-    expect(
-      keyboardRootFrameStyle({ top: 0, height: 500 }, { fillHost: true })
-    ).toEqual({
-      top: '',
-      height: '',
-      bottom: '',
-      paddingBottom: 0,
-    });
-  });
 });
 
 describe('keyboardFrameTop', () => {

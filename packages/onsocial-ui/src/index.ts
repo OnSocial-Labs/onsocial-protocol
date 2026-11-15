@@ -301,7 +301,6 @@ export {
 export { OsSheetFooter, osSheetFooterClassName } from './os-sheet-footer.js';
 export {
   ensureVirtualKeyboardOverlay,
-  isHostedKeyboardRoot,
   keyboardDrawerFrameStyle,
   keyboardSeatPx,
   keyboardSheetMargin,

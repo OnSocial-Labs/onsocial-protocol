@@ -366,35 +366,19 @@ export function keyboardFrameTop(input: {
 
 /**
  * Root box for a drawer while the keyboard is up.
- *
- * Fixed (body) roots clip to the key top. Hosted roots must keep filling the
- * phone card — a short height pin leaves the card peeking as a strip the hug
- * folds behind (`overflow:hidden` + enter translate). Hosted seating is the
- * panel margin (`env(keyboard-inset-height)`), same as compose.
+ * Clip to the key top so the backdrop stops with the hug — a full-card root
+ * plus `marginBottom: lift` left an opaque scrim strip in the keyboard zone
+ * even when the panel seated correctly.
  */
 export function keyboardRootFrameStyle(
-  frame: VisualKeyboardBox,
-  options?: { fillHost?: boolean }
+  frame: VisualKeyboardBox
 ): CSSProperties {
-  if (options?.fillHost) {
-    return {
-      top: '',
-      height: '',
-      bottom: '',
-      paddingBottom: 0,
-    };
-  }
   return {
     top: `${frame.top}px`,
     height: `${frame.height}px`,
     bottom: 'auto',
     paddingBottom: 0,
   };
-}
-
-/** Hosted OS-card sheets — Location / choice drawers inside `.portfolio-frame`. */
-export function isHostedKeyboardRoot(node: HTMLElement | null): boolean {
-  return Boolean(node?.classList.contains('glass-sheet-root--hosted'));
 }
 
 /**
@@ -410,15 +394,13 @@ export function activeDrawerKeyboardBox(): VisualKeyboardBox | null {
 /** Same-frame pin. A React state update lands after paint and the drawer jumps. */
 function applyKeyboardRootFrame(
   node: HTMLElement,
-  box: VisualKeyboardBox | null,
-  options?: { fillHost?: boolean }
+  box: VisualKeyboardBox | null
 ) {
-  if (!box || options?.fillHost) {
-    // Clear the pin so hosted `inset: -1px` fills the phone card again.
+  if (!box) {
     node.style.top = '';
     node.style.height = '';
     node.style.bottom = '';
-    node.style.paddingBottom = options?.fillHost ? '0' : '';
+    node.style.paddingBottom = '';
     return;
   }
   const style = keyboardRootFrameStyle(box);
@@ -550,8 +532,7 @@ export function useKeyboardDrawerFrame(
     metrics: KeyboardDrawerMetrics;
     seat: number;
     box: VisualKeyboardBox | null;
-    fillHost: boolean;
-  }>({ metrics: IDLE, seat: 0, box: null, fillHost: false });
+  }>({ metrics: IDLE, seat: 0, box: null });
   const [frame, setFrame] = useState(frameRef.current);
 
   useLayoutEffect(() => {
@@ -576,8 +557,6 @@ export function useKeyboardDrawerFrame(
       // A paste pan or a lower field (url keyboard) must not become CSS top.
       // `settled.height` is IME-aware (Virtual Keyboard) or VV fallback.
       if (keyboardUp && viewport) {
-        const fillHost =
-          mode === 'drawer' && isHostedKeyboardRoot(root);
         const fixed =
           !root || window.getComputedStyle(root).position === 'fixed';
         const parentRect = fixed
@@ -596,33 +575,21 @@ export function useKeyboardDrawerFrame(
             : trustIme
               ? proposed
               : settleVisualKeyboardFrame(frameRef.current.box, proposed);
-        // Hosted: keep the root filling the phone card and seat the hug with
-        // margin (compose / Chrome docs). A short height pin leaves the card
-        // as a strip the enter animation folds behind.
-        if (root && fillHost) {
-          applyKeyboardRootFrame(root, null, { fillHost: true });
-          pinPagesBehindDrawer(root, null);
-          nextBox = { top: 0, height: settled.height };
-        } else if (root) {
+        if (root) {
+          // Clip root (+ backdrop) to the key top. Filling the card and
+          // seating with margin left an opaque scrim strip over the keys.
           nextBox = commitVisibleBox(root, nextBox);
           pinPagesBehindDrawer(root, nextBox);
         }
-        const nextSeat = fillHost ? settled.lift : 0;
         if (mode === 'drawer') activeDrawerBox = nextBox;
         if (
           settled === frameRef.current.metrics &&
           nextBox === frameRef.current.box &&
-          nextSeat === frameRef.current.seat &&
-          fillHost === frameRef.current.fillHost
+          frameRef.current.seat === 0
         ) {
           return;
         }
-        const next = {
-          metrics: settled,
-          seat: nextSeat,
-          box: nextBox,
-          fillHost,
-        };
+        const next = { metrics: settled, seat: 0, box: nextBox };
         frameRef.current = next;
         setFrame(next);
         return;
@@ -636,22 +603,16 @@ export function useKeyboardDrawerFrame(
         if (
           settled === frameRef.current.metrics &&
           frameRef.current.box == null &&
-          frameRef.current.seat === 0 &&
-          !frameRef.current.fillHost
+          frameRef.current.seat === 0
         ) {
           return;
         }
-        const next = {
-          metrics: settled,
-          seat: 0,
-          box: null,
-          fillHost: false,
-        };
+        const next = { metrics: settled, seat: 0, box: null };
         frameRef.current = next;
         setFrame(next);
         return;
       }
-      if (root && (frameRef.current.box || frameRef.current.fillHost)) {
+      if (root && frameRef.current.box) {
         applyKeyboardRootFrame(root, null);
         pinPagesBehindDrawer(root, null);
       }
@@ -667,17 +628,11 @@ export function useKeyboardDrawerFrame(
       if (
         settled === frameRef.current.metrics &&
         rootSeat === frameRef.current.seat &&
-        frameRef.current.box == null &&
-        !frameRef.current.fillHost
+        frameRef.current.box == null
       ) {
         return;
       }
-      const next = {
-        metrics: settled,
-        seat: rootSeat,
-        box: null,
-        fillHost: false,
-      };
+      const next = { metrics: settled, seat: rootSeat, box: null };
       frameRef.current = next;
       setFrame(next);
     };
@@ -752,24 +707,17 @@ export function useKeyboardDrawerFrame(
   const live = active ? frame.metrics : IDLE;
   const liveSeat = active ? frame.seat : 0;
   const liveBox = active ? frame.box : null;
-  const liveFillHost = active ? frame.fillHost : false;
   const style = useMemo(() => {
     if (mode === 'page') return pageKeyboardLiftStyle(live, liveSeat);
     if (!liveBox) return undefined;
-    if (liveFillHost && live.lift > 0) {
-      // Compose path: seat with keyboard-inset-height; root keeps filling the card.
-      return {
-        maxHeight: `${liveBox.height}px`,
-        marginBottom: `env(keyboard-inset-height, ${live.lift}px)`,
-      };
-    }
-    // Fixed roots: pin is the seat; clear margin so it is not double-applied.
+    // Root (+ backdrop) pin is the seat. Margin stays 0 so we do not paint
+    // an opaque scrim strip under the hug in the keyboard zone.
     return { maxHeight: `${liveBox.height}px`, marginBottom: '0px' };
-  }, [live, liveBox, liveFillHost, liveSeat, mode]);
-  const rootStyle = useMemo(() => {
-    if (!liveBox) return undefined;
-    return keyboardRootFrameStyle(liveBox, { fillHost: liveFillHost });
-  }, [liveBox, liveFillHost]);
+  }, [live, liveBox, liveSeat, mode]);
+  const rootStyle = useMemo(
+    () => (liveBox ? keyboardRootFrameStyle(liveBox) : undefined),
+    [liveBox]
+  );
   return {
     style,
     rootStyle,
