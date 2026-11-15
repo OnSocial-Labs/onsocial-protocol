@@ -346,14 +346,20 @@ export function keyboardFrameTop(input: {
   return Math.max(0, Math.round(input.appliedTop + error));
 }
 
-/** Root box for a drawer. The panel then ends on the keys with no margin. */
+/**
+ * Root box for a drawer while the keyboard is up.
+ * Fill from the visible top to the layout bottom (`bottom: 0`) so the
+ * backdrop covers any strip above the keys — that strip was the page
+ * showing through when height stopped at a short IME top. The panel seats
+ * on the keys with `marginBottom: lift`, not by clipping the root.
+ */
 export function keyboardRootFrameStyle(
   frame: VisualKeyboardBox
 ): CSSProperties {
   return {
     top: `${frame.top}px`,
-    height: `${frame.height}px`,
-    bottom: 'auto',
+    bottom: 0,
+    height: 'auto',
     paddingBottom: 0,
   };
 }
@@ -382,8 +388,8 @@ function applyKeyboardRootFrame(
   }
   const style = keyboardRootFrameStyle(box);
   node.style.top = String(style.top);
-  node.style.height = String(style.height);
-  node.style.bottom = String(style.bottom);
+  node.style.bottom = String(style.bottom ?? 0);
+  node.style.height = String(style.height ?? 'auto');
   node.style.paddingBottom = '0';
 }
 
@@ -418,9 +424,8 @@ function parentVisualTop(node: HTMLElement): number {
 }
 
 /**
- * Write the box, correct a missed top, then stretch height so the root
- * bottom lands on the IME top. Brave can leave a ~40px strip when CSS top
- * / height and the painted box disagree — measuring closes it.
+ * Write the box and correct a missed top. The root fills to the layout
+ * bottom so a short IME height cannot uncover the page above the keys.
  */
 function commitVisibleBox(
   node: HTMLElement,
@@ -432,21 +437,9 @@ function commitVisibleBox(
     frameTop: node.getBoundingClientRect().top,
     parentTop: parentVisualTop(node),
   });
-  let next = top === box.top ? box : { top, height: box.height };
-  if (top !== box.top) applyKeyboardRootFrame(node, next);
-
-  const keyTop = readKeyboardVisibleBottom();
-  if (keyTop > 0) {
-    const rect = node.getBoundingClientRect();
-    const bottom = Math.round(rect.bottom);
-    if (Math.abs(bottom - keyTop) >= 2) {
-      const height = Math.max(0, keyTop - Math.round(rect.top));
-      if (height !== next.height) {
-        next = { top: next.top, height };
-        applyKeyboardRootFrame(node, next);
-      }
-    }
-  }
+  if (top === box.top) return box;
+  const next = { top, height: box.height };
+  applyKeyboardRootFrame(node, next);
   return next;
 }
 
@@ -685,9 +678,12 @@ export function useKeyboardDrawerFrame(
   const style = useMemo(() => {
     if (mode === 'page') return pageKeyboardLiftStyle(live, liveSeat);
     if (!liveBox) return undefined;
-    // Last style on the panel. Clears a margin another caller already set,
-    // so the root pin is the only keyboard movement.
-    return { maxHeight: `${liveBox.height}px`, marginBottom: '0px' };
+    // Root fills under the keys; panel margin seats the hug on the IME top
+    // so the backdrop covers the strip that used to show the page.
+    return {
+      maxHeight: `${liveBox.height}px`,
+      marginBottom: `${live.lift}px`,
+    };
   }, [live, liveBox, liveSeat, mode]);
   const rootStyle = useMemo(
     () => (liveBox ? keyboardRootFrameStyle(liveBox) : undefined),

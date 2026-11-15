@@ -256,11 +256,11 @@ describe('visualKeyboardFrame', () => {
     ).toEqual({ top: 40, height: 380 });
   });
 
-  it('styles the root as that box and does not add a keyboard margin', () => {
+  it('fills the root to the layout bottom so the page cannot peek under', () => {
     expect(keyboardRootFrameStyle({ top: 140, height: 520 })).toEqual({
       top: '140px',
-      height: '520px',
-      bottom: 'auto',
+      bottom: 0,
+      height: 'auto',
       paddingBottom: 0,
     });
   });
@@ -420,10 +420,11 @@ describe('virtual keyboard seat', () => {
     const root = keyboardRootFrameStyle(box);
     expect(root).toEqual({
       top: '0px',
-      height: '500px',
-      bottom: 'auto',
+      bottom: 0,
+      height: 'auto',
       paddingBottom: 0,
     });
+    // Panel maxHeight still tracks the visible box above the keys.
     expect(box.top + box.height).toBe(500);
   });
 
