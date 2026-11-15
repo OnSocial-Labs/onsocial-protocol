@@ -678,14 +678,17 @@ export interface RevokeSessionInput {
    * wrote set_key_permission.
    */
   clearKeyPermission?: boolean;
+  /** When false, leave store for the caller to clear after chain confirm. */
+  clearStore?: boolean;
 }
 
-/** Revokes a session key and clears any stored metadata. */
+/** Revokes a session key; clears store unless `clearStore: false`. */
 export async function revokeSession(
   input: RevokeSessionInput
 ): Promise<unknown> {
   const accountId = input.accountId ?? (await input.wallet.accountId());
   const clearKeyPermission = input.clearKeyPermission !== false;
+  const clearStore = input.clearStore !== false;
   const coreActions = clearKeyPermission
     ? buildSessionRevoke({
         publicKey: input.publicKey,
@@ -719,7 +722,7 @@ export async function revokeSession(
     transactions: txs,
   });
 
-  if (input.store) {
+  if (clearStore && input.store) {
     await input.store.delete(sessionId(accountId, input.contract, input.path));
   }
   return result;

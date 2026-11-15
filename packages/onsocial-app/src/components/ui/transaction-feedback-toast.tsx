@@ -39,7 +39,6 @@ function ToastStatusIcon({ type }: { type: TransactionFeedback['type'] }) {
     );
   }
   if (type === 'pending') {
-    // Same pending language as stand / endorse / sheets — no spin wobble.
     return (
       <PulsingDots
         size="sm"

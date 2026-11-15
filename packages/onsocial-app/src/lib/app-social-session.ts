@@ -1,10 +1,11 @@
 import type { NearConnector_ConnectOptions } from '@hot-labs/near-connect';
 import {
-  bootstrapSession,
+  buildSessionGrant,
   generateEd25519Key,
   localStorageKeyStore,
   nearConnectAdapter,
   persistSessionFromKey,
+  planToWalletTransactions,
   resolveContractId,
   restoreEd25519Key,
   restoreSession,
@@ -336,8 +337,7 @@ export async function getAppSocialSessionPublicKey(
 }
 
 /**
- * DeleteKey-only for the OnSocial session key, then clear local metadata.
- * Caller clears gateway JWT / React session flags.
+ * DeleteKey-only. Local store is cleared by the caller after chain confirm.
  */
 export async function revokeAppSocialSession(input: {
   accountId: string;
@@ -358,12 +358,10 @@ export async function revokeAppSocialSession(input: {
     contract: 'core',
     path: getAppSocialSessionPath(input.accountId),
     network: ACTIVE_NEAR_NETWORK,
-    store: getAppSocialSessionStore(),
     accountId: input.accountId,
-    // Match AddKey-only grants — no set_key_permission to clear.
     clearKeyPermission: false,
+    clearStore: false,
   });
-  clearStoredPendingSessionKey(input.accountId);
   return extractNearTransactionHashes(result);
 }
 
@@ -372,10 +370,58 @@ export type AppSocialSessionTxResult = {
   txHashes: string[];
 };
 
+/** AddKey-only wallet tx — same chain effect as connect's addFunctionCallKey. */
+async function signAppSessionAddKey(input: {
+  accountId: string;
+  wallet: NearWalletBase;
+  sessionKey: GeneratedSessionKey;
+  allowanceYocto: string;
+}): Promise<unknown> {
+  const bootstrap = appSessionBootstrapInput(
+    input.accountId,
+    appSessionFunctionCallKey(input.allowanceYocto)
+  );
+  const plan = buildSessionGrant({
+    network: bootstrap.network,
+    accountId: input.accountId,
+    sessionPublicKey: input.sessionKey.publicKey,
+    contract: bootstrap.contract,
+    path: bootstrap.path,
+    ttlMs: bootstrap.ttlMs,
+    functionCallKey: bootstrap.functionCallKey,
+    storageDepositYocto: bootstrap.storageDepositYocto,
+  });
+  const transactions = planToWalletTransactions(plan, {
+    includeCoreActions: false,
+  });
+  const adapter = nearConnectAdapter(input.wallet, input.accountId, {
+    network: ACTIVE_NEAR_NETWORK,
+  });
+  return adapter.signAndSendTransactions({ transactions });
+}
+
 /**
- * Renew an expired session with the same key material.
- * Key still on-chain → local TTL only (no wallet). Key missing → AddKey only
- * (same sheet as connect — no set_key_permission).
+ * Wait for AddKey on-chain, then persist — same finish as connect.
+ * Keeps the pending key on failure so retry reuses it (no orphan twin).
+ */
+async function finishAppSessionAfterAddKey(
+  accountId: string,
+  sessionKey: GeneratedSessionKey,
+  grantResult: unknown
+): Promise<AppSocialSessionTxResult> {
+  const txHashes = extractNearTransactionHashes(grantResult);
+  if (!(await waitForSessionKeyOnChain(accountId, sessionKey.publicKey))) {
+    return { ready: false, txHashes };
+  }
+  await persistAppSessionAfterSignIn(accountId, sessionKey);
+  return {
+    ready: Boolean(await restoreAppSocialSession(accountId)),
+    txHashes,
+  };
+}
+
+/**
+ * Renew: on-chain key → local TTL only. Missing key → AddKey, wait, persist.
  */
 export async function renewAppSocialSession(input: {
   accountId: string;
@@ -397,11 +443,7 @@ export async function renewAppSocialSession(input: {
     return { ready: false, txHashes: [] };
   }
 
-  const onChain = await sessionKeyValidOnChain(
-    input.accountId,
-    sessionKey.publicKey
-  );
-  if (onChain) {
+  if (await sessionKeyValidOnChain(input.accountId, sessionKey.publicKey)) {
     await persistAppSessionAfterSignIn(input.accountId, sessionKey);
     return { ready: true, txHashes: [] };
   }
@@ -410,35 +452,16 @@ export async function renewAppSocialSession(input: {
   const allowanceYocto = await resolveAppSessionKeyAllowanceYocto(
     input.accountId
   );
-
-  const adapter = nearConnectAdapter(input.wallet, input.accountId, {
-    network: ACTIVE_NEAR_NETWORK,
-  });
-
-  let grantResult: unknown;
-  await bootstrapSession({
-    ...appSessionBootstrapInput(
-      input.accountId,
-      appSessionFunctionCallKey(allowanceYocto)
-    ),
-    wallet: adapter,
+  const grantResult = await signAppSessionAddKey({
     accountId: input.accountId,
+    wallet: input.wallet,
     sessionKey,
-    skipKeyPermission: true,
-    onGrantResult: (result) => {
-      grantResult = result;
-    },
+    allowanceYocto,
   });
-  clearStoredPendingSessionKey(input.accountId);
-  return {
-    ready: Boolean(await restoreAppSocialSession(input.accountId)),
-    txHashes: extractNearTransactionHashes(grantResult),
-  };
+  return finishAppSessionAfterAddKey(input.accountId, sessionKey, grantResult);
 }
 
-/**
- * Explicit Allow access — same AddKey-only path as connect (no permission tx).
- */
+/** Allow access — AddKey, wait, persist (no set_key_permission). */
 export async function grantAppSocialSession(input: {
   accountId: string;
   wallet: NearWalletBase;
@@ -466,30 +489,17 @@ export async function grantAppSocialSession(input: {
   const allowanceYocto = await resolveAppSessionKeyAllowanceYocto(
     input.accountId
   );
-
-  const adapter = nearConnectAdapter(input.wallet, input.accountId, {
-    network: ACTIVE_NEAR_NETWORK,
-  });
-
-  let grantResult: unknown;
-  await bootstrapSession({
-    ...appSessionBootstrapInput(
-      input.accountId,
-      appSessionFunctionCallKey(allowanceYocto)
-    ),
-    wallet: adapter,
+  const grantResult = await signAppSessionAddKey({
     accountId: input.accountId,
+    wallet: input.wallet,
     sessionKey: pendingSessionKey,
-    skipKeyPermission: true,
-    onGrantResult: (result) => {
-      grantResult = result;
-    },
+    allowanceYocto,
   });
-  clearStoredPendingSessionKey(input.accountId);
-  return {
-    ready: Boolean(await restoreAppSocialSession(input.accountId)),
-    txHashes: extractNearTransactionHashes(grantResult),
-  };
+  return finishAppSessionAfterAddKey(
+    input.accountId,
+    pendingSessionKey,
+    grantResult
+  );
 }
 
 export async function resolveAppSessionPlan(

@@ -19,12 +19,7 @@ import {
   type AppSocialSessionLifecycle,
 } from '@/lib/app-social-session';
 import { SHEET_Z } from '@/lib/sheet-z';
-import {
-  sessionPendingFeedback,
-  txToastConfirming,
-  txToastError,
-  txToastSuccess,
-} from '@/lib/transaction-toast-copy';
+import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 import {
   accountNeedsAppSessionSponsor,
   fundAppSessionIfNeeded,
@@ -45,9 +40,8 @@ function shortenSessionKey(publicKey: string): string {
 }
 
 /**
- * Nested account sheet — OnSocial session key status + allow / renew / remove.
- * Allow uses the same AddKey-only path as connect (no set_key_permission).
- * Renew reuses the same key; DeleteKey-only on remove.
+ * Nested account sheet — session key allow / renew / remove.
+ * Allow = AddKey (same as connect); button owns wait; toast is success/error.
  */
 export function AppAccessSheet({
   open,
@@ -57,7 +51,6 @@ export function AppAccessSheet({
   panelStyle,
 }: AppAccessSheetProps) {
   const {
-    hasSocialSession,
     isBootstrappingSession,
     resumeSocialSession,
     clearSocialSessionLocal,
@@ -77,9 +70,7 @@ export function AppAccessSheet({
   const refreshStatus = useCallback(async () => {
     setLoadingStatus(true);
     try {
-      const nextLifecycle = hasSocialSession
-        ? 'active'
-        : await getAppSocialSessionLifecycle(accountId);
+      const nextLifecycle = await getAppSocialSessionLifecycle(accountId);
       setLifecycle(nextLifecycle);
       if (nextLifecycle === 'active' || nextLifecycle === 'expired') {
         setPublicKey(await getAppSocialSessionPublicKey(accountId));
@@ -87,12 +78,12 @@ export function AppAccessSheet({
         setPublicKey(null);
       }
     } catch {
-      setLifecycle(hasSocialSession ? 'active' : 'missing');
+      setLifecycle('missing');
       setPublicKey(null);
     } finally {
       setLoadingStatus(false);
     }
-  }, [accountId, hasSocialSession]);
+  }, [accountId]);
 
   useEffect(() => {
     if (!sheetOpen) {
@@ -120,11 +111,9 @@ export function AppAccessSheet({
     try {
       const { wallet, accountId: signerId } = await getSigningWallet();
       if (await accountNeedsAppSessionSponsor(signerId)) {
-        setTxResult(sessionPendingFeedback('setup'));
         await fundAppSessionIfNeeded(signerId);
       }
       setPending(true);
-      setTxResult(sessionPendingFeedback('wallet'));
       const result = renewing
         ? await renewAppSocialSession({
             accountId: signerId,
@@ -135,6 +124,10 @@ export function AppAccessSheet({
             wallet,
           });
 
+      const successMessage = renewing
+        ? txToastSuccess.appAccessRenewed
+        : txToastSuccess.appAccessAllowed;
+
       if (!result.ready) {
         setTxResult({
           type: 'error',
@@ -143,25 +136,15 @@ export function AppAccessSheet({
         return;
       }
 
-      const successMessage = renewing
-        ? txToastSuccess.appAccessRenewed
-        : txToastSuccess.appAccessAllowed;
-
-      // Local TTL renew / already-on-chain persist — no chain wait.
       if (result.txHashes.length === 0) {
         setTxResult({ type: 'success', msg: successMessage });
       } else {
-        setTxResult(sessionPendingFeedback('confirming'));
         const confirmed = await trackTransaction({
           txHashes: result.txHashes,
-          submittedMessage: renewing
-            ? txToastConfirming.renewingAppAccess
-            : txToastConfirming.allowingAppAccess,
           successMessage,
           failureMessage: txToastError.allowAppAccessFailed,
         });
         if (!confirmed) {
-          // AddKey may have landed while local persist failed — drop stale meta.
           await clearAppSocialSession(signerId);
           clearSocialSessionLocal();
           await refreshStatus();
@@ -169,7 +152,6 @@ export function AppAccessSheet({
         }
       }
 
-      // Sync React session flag from local store (no second wallet prompt).
       await resumeSocialSession({
         renewIfExpired: false,
         bootstrapIfMissing: false,
@@ -214,17 +196,16 @@ export function AppAccessSheet({
 
       const confirmed = await trackTransaction({
         txHashes,
-        submittedMessage: txToastConfirming.removingAppAccess,
         successMessage: txToastSuccess.appAccessRemoved,
         failureMessage: txToastError.removeAppAccessFailed,
       });
+      if (!confirmed) return;
 
-      // Local store is cleared by revoke; always drop React flags after submit.
+      await clearAppSocialSession(signerId);
       clearSocialSessionLocal();
       setPublicKey(null);
       setLifecycle('missing');
       setConfirmRemove(false);
-      if (!confirmed) return;
     } catch (error) {
       if (isWalletUserCancellation(error)) return;
       setTxResult({
@@ -245,8 +226,8 @@ export function AppAccessSheet({
     trackTransaction,
   ]);
 
-  const accessActive = lifecycle === 'active' || hasSocialSession;
-  const accessExpired = !accessActive && lifecycle === 'expired';
+  const accessActive = lifecycle === 'active';
+  const accessExpired = lifecycle === 'expired';
   const statusLabel = loadingStatus
     ? 'Checking…'
     : accessActive
