@@ -3685,6 +3685,10 @@ a.os-surface-row,
     /* Dock control box — same on all viewports. Icon hit + primary CTAs lockstep.
        Do not change the bottom offset. */
     --os-dock-height: 3.25rem;
+    /* Markdown / article format row — same hit as dock. */
+    --os-format-strip-height: var(--os-dock-height);
+    /* Compose Post-tools row under the format strip. */
+    --os-compose-tools-height: var(--os-dock-height);
     /* Icon hit box. Glyphs stay on their own size. */
     --os-icon-hit: 3.25rem;
     /* Shared grip bar. Mood finishes that draw their own bar override these. */
@@ -21186,8 +21190,9 @@ a.os-surface-row,
     flex-wrap: nowrap;
     gap: 0;
     width: 100%;
-    min-height: var(--os-dock-height, 3.25rem);
+    min-height: var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
     overflow-x: hidden;
+    background: var(--bg, rgb(var(--bg-rgb)));
   }
 
   .profile-about-edit-format-tools,
@@ -21197,7 +21202,7 @@ a.os-surface-row,
     align-items: center;
     justify-content: flex-start;
     gap: 0;
-    min-height: var(--os-dock-height, 3.25rem);
+    min-height: var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
   }
 
   .profile-about-edit-align-tools {
@@ -34553,14 +34558,18 @@ a.os-surface-row,
 
   .profile-about-edit-slide.is-keyboard-open[data-os-slide-over='true']
     .os-app-screen-body {
+    /* Same band as resting footer so copy cannot sit in the format strip. */
     padding-bottom: calc(
-      var(--os-keyboard-lift, 0px) + var(--os-dock-height, 3.25rem)
+      var(--os-keyboard-lift, 0px) + var(--os-screen-footer-band)
     );
-    scroll-padding-bottom: var(--os-dock-height, 3.25rem);
+    scroll-padding-bottom: var(--os-screen-footer-band);
   }
 
   .profile-about-edit-slide[data-screen-footer='true'] {
-    --os-screen-footer-band: calc(var(--os-dock-height, 3.25rem) + 1.1rem);
+    --os-screen-footer-band: calc(
+      var(--os-format-strip-height, var(--os-dock-height, 3.25rem)) +
+        var(--os-dock-clearance-gap, 1.1rem)
+    );
   }
 
   .drop-variation-set-slide-grid {
@@ -39624,17 +39633,59 @@ a.os-surface-row,
      * Sheet footer holds the compose toolbar (outside this scroller). Keep
      * clearance so long article bodies can scroll the caret above it.
      */
-    padding-bottom: calc(4.85rem + env(safe-area-inset-bottom, 0px));
-    scroll-padding-bottom: calc(4.85rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(
+      var(--os-compose-tools-height, var(--os-dock-height, 3.25rem)) +
+        var(--os-dock-bottom-offset, 0.9rem) +
+        env(safe-area-inset-bottom, 0px) + 0.7rem
+    );
+    scroll-padding-bottom: calc(
+      var(--os-compose-tools-height, var(--os-dock-height, 3.25rem)) +
+        var(--os-dock-bottom-offset, 0.9rem) +
+        env(safe-area-inset-bottom, 0px) + 0.7rem
+    );
   }
 
-  /* Keyboard open — the Post bar is already above the keys. Drop the
-     home-indicator hole so the writing area meets that bar. */
+  /* Format + Post tools stacked — clear both rows. */
+  .guild-composer-sheet-panel:has(.profile-about-edit-format-toolbar)
+    .os-app-screen--embedded
+    .os-app-screen-body {
+    padding-bottom: calc(
+      var(--os-format-strip-height, var(--os-dock-height, 3.25rem)) +
+        var(--os-compose-tools-height, var(--os-dock-height, 3.25rem)) +
+        var(--os-dock-bottom-offset, 0.9rem) +
+        env(safe-area-inset-bottom, 0px) + 0.35rem
+    );
+    scroll-padding-bottom: calc(
+      var(--os-format-strip-height, var(--os-dock-height, 3.25rem)) +
+        var(--os-compose-tools-height, var(--os-dock-height, 3.25rem)) +
+        var(--os-dock-bottom-offset, 0.9rem) +
+        env(safe-area-inset-bottom, 0px) + 0.35rem
+    );
+  }
+
+  /* Keyboard open — footer already rides the keys; meet the tool row. */
   .guild-composer-sheet-panel:has(.guild-composer-sheet-footer.is-keyboard-open)
     .os-app-screen--embedded
     .os-app-screen-body {
     padding-bottom: 0.85rem;
     scroll-padding-bottom: 0.85rem;
+  }
+
+  /* Keyboard + format stack — clear format and tools above the keys. */
+  .guild-composer-sheet-panel:has(
+      .guild-composer-sheet-footer.is-keyboard-open
+        .profile-about-edit-format-toolbar
+    )
+    .os-app-screen--embedded
+    .os-app-screen-body {
+    padding-bottom: calc(
+      var(--os-format-strip-height, var(--os-dock-height, 3.25rem)) +
+        var(--os-compose-tools-height, var(--os-dock-height, 3.25rem)) + 0.35rem
+    );
+    scroll-padding-bottom: calc(
+      var(--os-format-strip-height, var(--os-dock-height, 3.25rem)) +
+        var(--os-compose-tools-height, var(--os-dock-height, 3.25rem)) + 0.35rem
+    );
   }
 
   .guild-composer-sheet-panel

@@ -185,7 +185,8 @@
 
 /*
  * Footer format row. Same hit as the post controls. Hosts pin the chrome
- * here with `chromePortal` while the writing field is focused.
+ * here with `chromePortal` while the writing field is focused. Opaque fill
+ * so essay text cannot paint through the strip on absolute footers (About).
  */
 .profile-about-edit-format-toolbar {
   display: flex;
@@ -194,8 +195,9 @@
   flex-wrap: nowrap;
   gap: 0;
   width: 100%;
-  min-height: var(--os-dock-height, 3.25rem);
+  min-height: var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
   overflow-x: hidden;
+  background: var(--bg, rgb(var(--bg-rgb)));
 }
 
 .profile-about-edit-format-tools {
@@ -204,7 +206,7 @@
   align-items: center;
   justify-content: flex-start;
   gap: 0;
-  min-height: var(--os-dock-height, 3.25rem);
+  min-height: var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
 }
 
 .profile-about-edit-format-toolbar .account-editor-bio-tool,
