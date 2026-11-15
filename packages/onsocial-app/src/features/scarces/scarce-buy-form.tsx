@@ -878,7 +878,9 @@ export function ScarceBuyForm({
     setPending(true);
     setFieldError(null);
     try {
-      const { accountId: signer, wallet } = await getSigningWallet();
+      const { accountId: signer, wallet } = await getSigningWallet({
+        reviewAfterPicker: true,
+      });
       const item: ListingActionItem = {
         id: `buy-sheet:${ownManageKind}:${tokenId ?? listingId ?? ''}`,
         kind: ownManageKind,
@@ -1260,7 +1262,9 @@ export function ScarceBuyForm({
       const ask = await readAskBeforeWallet();
       if (!ask.proceed) return;
       // Wallet only — paid scarces must not bootstrap the core social session.
-      const { accountId, wallet } = await getSigningWallet();
+      const { accountId, wallet } = await getSigningWallet({
+        reviewAfterPicker: true,
+      });
       const client = createAppScarcesWalletClient(accountId, wallet);
       const fallbackDeposit =
         ask.yocto ?? (priceNear ? nearToYocto(priceNear) : null);

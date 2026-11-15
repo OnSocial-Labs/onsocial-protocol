@@ -11,6 +11,11 @@ import { AppWalletProvider, useAppWallet } from '@/contexts/app-wallet-context';
 import { OsDockAccountZone } from '@/components/wallet/os-dock-account-zone';
 import { ScarceBuyForm } from '@/features/scarces/scarce-buy-form';
 import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
+import { ScarceListForm } from '@/features/scarces/scarce-list-form';
+import { ScarceOffersSheet } from '@/features/scarces/scarce-offers-sheet';
+import { CreateDropPanel } from '@/features/scarces/create-drop-panel';
+import { GenerativeDropBuilder } from '@/features/scarces/generative-drop-builder';
+import * as scarceOffers from '@/features/scarces/scarce-offers';
 import { ScarceBidForm } from '@/features/scarces/scarce-bid-form';
 import { ScarceTransferForm } from '@/features/scarces/scarce-transfer-form';
 import { HubPublishRequestsSheet } from '@/features/scarces/hub-publish-requests-sheet';
@@ -27,6 +32,7 @@ import { viewNearContract } from '@/lib/app-near-rpc';
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
 const LOADING = /Wallet is still loading/;
+const REVIEW_TEXT = 'Review this account, then confirm.';
 const ONE_NEAR_YOCTO = '1000000000000000000000000';
 const PAYER_BALANCE_YOCTO = '50000000000000000000000000';
 const OWN_LISTING_ERROR = 'You can’t buy your own listing.';
@@ -137,6 +143,14 @@ function deferred<T>() {
     reject = rej;
   });
   return { promise, resolve, reject };
+}
+
+function signingWallet(accountId: string) {
+  const wallet = makeWallet(accountId);
+  wallet.signAndSendTransaction.mockResolvedValue({
+    transaction: { hash: 'tx-sign' },
+  });
+  return wallet;
 }
 
 function makeWallet(accountId: string) {
@@ -825,12 +839,6 @@ describe('signed-out wallet picker', () => {
       expect(failure).toMatchObject({
         message: expect.stringMatching(/too long/),
       });
-      hung.resolve(makeWallet('carol.near'));
-      await act(async () => {
-        await Promise.resolve();
-        await Promise.resolve();
-      });
-      expect(apiRef.current?.accountId ?? null).toBeNull();
       vi.useRealTimers();
       const next = deferred<ReturnType<typeof makeWallet>>();
       harness.connect.mockImplementation(() => next.promise);
@@ -841,11 +849,13 @@ describe('signed-out wallet picker', () => {
           timeout: 2000,
         })
         .toBe(2);
-      next.resolve(makeWallet('dana.near'));
-      await expect(again).rejects.toMatchObject({
-        name: 'WalletConnectedReviewError',
-        accountId: 'dana.near',
+      hung.resolve(makeWallet('carol.near'));
+      await act(async () => {
+        await Promise.resolve();
       });
+      expect(apiRef.current?.accountId ?? null).toBeNull();
+      next.resolve(makeWallet('dana.near'));
+      await expect(again).resolves.toMatchObject({ accountId: 'dana.near' });
       await expect
         .poll(() => apiRef.current?.accountId, { interval: 15, timeout: 2000 })
         .toBe('dana.near');
@@ -905,10 +915,7 @@ describe('signed-out wallet picker', () => {
     });
     expect(harness.connect.mock.calls.length).toBe(1);
     picker.resolve(makeWallet('visitor.near'));
-    await expect(signing).rejects.toMatchObject({
-      name: 'WalletConnectedReviewError',
-      accountId: 'visitor.near',
-    });
+    await expect(signing).resolves.toMatchObject({ accountId: 'visitor.near' });
     await expect
       .poll(() => sessionSpy?.mock.calls.length ?? 0, {
         interval: 15,
@@ -939,10 +946,7 @@ describe('signed-out wallet picker', () => {
     });
     const second = apiRef.current!.getSigningWallet();
     firstPicker.resolve(makeWallet('alice.near'));
-    await expect(first).rejects.toMatchObject({
-      name: 'WalletConnectedReviewError',
-      accountId: 'alice.near',
-    });
+    await expect(first).resolves.toMatchObject({ accountId: 'alice.near' });
     await expect
       .poll(() => harness.connect.mock.calls.length, {
         interval: 15,
@@ -950,10 +954,7 @@ describe('signed-out wallet picker', () => {
       })
       .toBe(2);
     secondPicker.resolve(makeWallet('bob.near'));
-    await expect(second).rejects.toMatchObject({
-      name: 'WalletConnectedReviewError',
-      accountId: 'bob.near',
-    });
+    await expect(second).resolves.toMatchObject({ accountId: 'bob.near' });
   });
 
   it('returns to the buy sheet after the picker so a payer confirms on the second tap', async () => {
@@ -1018,6 +1019,379 @@ describe('signed-out wallet picker', () => {
     expect(reviewRpc.prepareCalls).toBe(0);
     expect(sessionSpy).not.toHaveBeenCalled();
   }, 12000);
+
+  it('returns the wallet after the picker when review is not requested', async () => {
+    await mount(createElement(Probe));
+    await waitForInit();
+    const picker = deferred<ReturnType<typeof makeWallet>>();
+    harness.connect.mockImplementation(() => picker.promise);
+    const pending = apiRef.current!.getSigningWallet();
+    await expect
+      .poll(() => harness.connect.mock.calls.length, { interval: 15, timeout: 2000 })
+      .toBe(1);
+    picker.resolve(signingWallet('payer.near'));
+    await expect(pending).resolves.toMatchObject({ accountId: 'payer.near' });
+    expect(collectText(renderer!.root)).not.toContain(REVIEW_TEXT);
+  });
+
+  it('throws when the picked account is not the preferred account', async () => {
+    await mount(createElement(Probe));
+    await waitForInit();
+    await act(async () => {
+      window.localStorage.setItem(APP_WALLET_ACCOUNT_KEY, 'alice.near');
+      window.dispatchEvent(new Event('onsocial:wallet-account'));
+    });
+    const picker = deferred<ReturnType<typeof makeWallet>>();
+    harness.connect.mockImplementation(() => picker.promise);
+    const pending = apiRef.current!.getSigningWallet();
+    await expect
+      .poll(() => harness.connect.mock.calls.length, { interval: 15, timeout: 2000 })
+      .toBe(1);
+    picker.resolve(signingWallet('bob.near'));
+    await expect(pending).rejects.toMatchObject({
+      name: 'WalletConnectedReviewError',
+      accountId: 'bob.near',
+    });
+    await expect
+      .poll(() => apiRef.current?.accountId, { interval: 15, timeout: 2000 })
+      .toBe('bob.near');
+
+    const again = deferred<ReturnType<typeof makeWallet>>();
+    harness.connect.mockImplementation(() => again.promise);
+    harness.getConnectedWallet.mockRejectedValue(new Error('no wallet'));
+    await act(async () => {
+      window.localStorage.setItem(APP_WALLET_ACCOUNT_KEY, 'bob.near');
+      window.dispatchEvent(new Event('onsocial:wallet-account'));
+    });
+    const matched = apiRef.current!.getSigningWallet();
+    await expect
+      .poll(() => harness.connect.mock.calls.length, { interval: 15, timeout: 2000 })
+      .toBe(2);
+    again.resolve(signingWallet('bob.near'));
+    await expect(matched).resolves.toMatchObject({ accountId: 'bob.near' });
+  });
+
+  it('opens one bid picker then signs without review text', async () => {
+    await mount(
+      createElement(
+        Shell,
+        null,
+        createElement(ScarceBidForm, {
+          formId: 'bid-scarce',
+          listing: {
+            tokenId: 'lot-1',
+            sellerId: 'seller.near',
+            title: 'Field note',
+            description: 'A note',
+            mediaUrl: 'https://example.com/cover.png',
+            sourcePostPath: 'seller.near/post/1',
+          },
+        })
+      )
+    );
+    await waitForInit();
+    const picker = deferred<ReturnType<typeof makeWallet>>();
+    harness.connect.mockImplementation(() => picker.promise);
+    await expect
+      .poll(() => collectText(renderer!.root), { interval: 20, timeout: 2000 })
+      .toMatch(/Connect/);
+    await act(async () => {
+      findForm(renderer!.root).props.onSubmit({ preventDefault() {} });
+    });
+    await expect
+      .poll(() => harness.connect.mock.calls.length, { interval: 20, timeout: 4000 })
+      .toBe(1);
+    const wallet = signingWallet('payer.near');
+    await act(async () => {
+      harness.getConnectedWallet.mockResolvedValue({
+        wallet,
+        accounts: [{ accountId: 'payer.near' }],
+      });
+      picker.resolve(wallet);
+    });
+    await expect
+      .poll(() => signCallCount(), { interval: 20, timeout: 2000 })
+      .toBe(1);
+    expect(collectText(renderer!.root)).not.toContain(REVIEW_TEXT);
+    expect(harness.connect.mock.calls.length).toBe(1);
+  }, 12000);
+
+  it('navigates after the picker', async () => {
+    function OpenPage() {
+      const { navigate } = useOsAppNavigate();
+      return createElement(
+        'button',
+        {
+          type: 'button',
+          onClick: () => {
+            navigate({ id: 'page', label: 'Page', kind: 'open-page' });
+          },
+        },
+        'Open page'
+      );
+    }
+    await mount(createElement(Shell, null, createElement(OpenPage)));
+    await waitForInit();
+    const picker = deferred<ReturnType<typeof makeWallet>>();
+    harness.connect.mockImplementation(() => picker.promise);
+    const openPage = renderer!.root.findAll(
+      (node) => node.type === 'button' && collectText(node).includes('Open page')
+    )[0]!;
+    await act(async () => {
+      openPage.props.onClick();
+    });
+    await expect
+      .poll(() => harness.connect.mock.calls.length, { interval: 15, timeout: 2000 })
+      .toBe(1);
+    await act(async () => {
+      picker.resolve(signingWallet('payer.near'));
+    });
+    await expect
+      .poll(() => router.push.mock.calls.length, { interval: 15, timeout: 2000 })
+      .toBe(1);
+    expect(router.push.mock.calls[0]?.[0]).toBe('/@payer.near');
+    expect(collectText(renderer!.root)).not.toContain(REVIEW_TEXT);
+  });
+
+  it('keeps one connect when three keys overlap', async () => {
+    await mount(createElement(Probe));
+    await waitForInit();
+    const first = deferred<ReturnType<typeof makeWallet>>();
+    const second = deferred<ReturnType<typeof makeWallet>>();
+    const pickers = [first, second];
+    let call = 0;
+    harness.connect.mockImplementation(() => pickers[call++]!.promise);
+    const lead = apiRef.current!.getSigningWallet();
+    await expect
+      .poll(() => harness.connect.mock.calls.length, { interval: 15, timeout: 2000 })
+      .toBe(1);
+    await act(async () => {
+      window.localStorage.setItem(APP_WALLET_ACCOUNT_KEY, 'bob.near');
+      window.dispatchEvent(new Event('onsocial:wallet-account'));
+    });
+    const bob = apiRef.current!.getSigningWallet();
+    await act(async () => {
+      window.localStorage.setItem(APP_WALLET_ACCOUNT_KEY, 'carol.near');
+      window.dispatchEvent(new Event('onsocial:wallet-account'));
+    });
+    const carol = apiRef.current!.getSigningWallet();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(harness.connect.mock.calls.length).toBe(1);
+    first.resolve(signingWallet('alice.near'));
+    await expect(lead).resolves.toMatchObject({ accountId: 'alice.near' });
+    await expect
+      .poll(() => harness.connect.mock.calls.length, { interval: 15, timeout: 2000 })
+      .toBe(2);
+    expect(harness.connect.mock.calls.length).toBe(2);
+    void bob;
+    void carol;
+  });
+
+  it('ignores a late sign-in when a newer attempt exists', async () => {
+    await mount(createElement(Probe));
+    await waitForInit();
+    const hung = deferred<ReturnType<typeof makeWallet>>();
+    harness.connect.mockImplementation(() => hung.promise);
+    vi.useFakeTimers();
+    try {
+      const first = apiRef.current!.getSigningWallet();
+      const firstSettled = first.then(
+        () => 'opened',
+        () => 'rejected'
+      );
+      await vi.advanceTimersByTimeAsync(120_000);
+      await act(async () => {
+        await Promise.resolve();
+      });
+      vi.useRealTimers();
+      const next = deferred<ReturnType<typeof makeWallet>>();
+      harness.connect.mockImplementation(() => next.promise);
+      const again = apiRef.current!.getSigningWallet();
+      await expect
+        .poll(() => harness.connect.mock.calls.length, { interval: 15, timeout: 2000 })
+        .toBe(2);
+      hung.resolve(signingWallet('carol.near'));
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(apiRef.current?.accountId ?? null).not.toBe('carol.near');
+      next.resolve(signingWallet('dana.near'));
+      await expect(again).resolves.toMatchObject({ accountId: 'dana.near' });
+      await expect(firstSettled).resolves.toBe('rejected');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('accepts a late sign-in when no newer attempt exists', async () => {
+    await mount(createElement(Probe));
+    await waitForInit();
+    const hung = deferred<ReturnType<typeof makeWallet>>();
+    harness.connect.mockImplementation(() => hung.promise);
+    vi.useFakeTimers();
+    try {
+      const pending = apiRef.current!.getSigningWallet();
+      const settled = pending.then(
+        () => 'opened',
+        (error: unknown) => error
+      );
+      await vi.advanceTimersByTimeAsync(120_000);
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await expect(settled).resolves.toMatchObject({
+        message: expect.stringMatching(/too long/),
+      });
+      await expect
+        .poll(() => collectText(renderer!.root), { interval: 15, timeout: 2000 })
+        .toMatch(/too long/);
+      vi.useRealTimers();
+      hung.resolve(signingWallet('carol.near'));
+      await expect
+        .poll(() => apiRef.current?.accountId, { interval: 15, timeout: 2000 })
+        .toBe('carol.near');
+      expect(collectText(renderer!.root)).not.toMatch(/too long/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not open a picker when a drop poll has no account', async () => {
+    await mount(createElement(Shell, null, createElement(CreateDropPanel)));
+    await waitForInit();
+    const variations = renderer!.root.findAll(
+      (node) =>
+        node.type === 'button' && collectText(node).includes('Set of variations')
+    )[0]!;
+    await act(async () => {
+      variations.props.onClick();
+    });
+    const generate = renderer!.root.findAll(
+      (node) =>
+        node.type === 'button' && collectText(node).includes('Generate layers')
+    )[0]!;
+    await act(async () => {
+      generate.props.onClick();
+    });
+    const builder = renderer!.root.findByType(GenerativeDropBuilder);
+    await act(async () => {
+      builder.props.onJobStarted('job-keep');
+    });
+    const callsBefore = harness.connect.mock.calls.length;
+    let pausedId: string | null = null;
+    const poll = builder.props.remotePoll('job-keep');
+    const settled = poll.then(
+      () => 'resolved',
+      (error: { jobId?: string }) => {
+        pausedId = error?.jobId ?? null;
+        return 'paused';
+      }
+    );
+    await expect
+      .poll(() => harness.connect.mock.calls.length, { interval: 20, timeout: 500 })
+      .toBe(callsBefore);
+    await expect(settled).resolves.toBe('paused');
+    expect(pausedId).toBe('job-keep');
+    expect(renderer!.root.findByType(GenerativeDropBuilder)).toBeTruthy();
+  }, 15000);
+
+  it('accept offer and list do not sign on the first tap', async () => {
+    vi.spyOn(scarceOffers, 'fetchOffersForToken').mockResolvedValue([
+      {
+        buyerId: 'buyer.near',
+        amountYocto: ONE_NEAR_YOCTO,
+        amountNear: '1',
+        expiresAtNs: null,
+        createdAtNs: 1,
+      },
+    ]);
+    await mount(
+      createElement(
+        Shell,
+        null,
+        createElement(ScarceOffersSheet, {
+          open: true,
+          item: {
+            tokenId: 'lot-1',
+            title: 'Field note',
+            ownerId: 'seller.near',
+            listingKind: null,
+          },
+          onOpenChange: () => {},
+        })
+      )
+    );
+    await waitForInit();
+    await expect
+      .poll(
+        () =>
+          renderer!.root.findAll(
+            (node) => node.type === 'button' && collectText(node).includes('Connect')
+          ).length,
+        { interval: 20, timeout: 2000 }
+      )
+      .toBeGreaterThan(0);
+    const picker = deferred<ReturnType<typeof makeWallet>>();
+    harness.connect.mockImplementation(() => picker.promise);
+    const connect = renderer!.root.findAll(
+      (node) => node.type === 'button' && collectText(node).trim() === 'Connect'
+    )[0]!;
+    await act(async () => {
+      connect.props.onClick();
+    });
+    await expect
+      .poll(() => harness.connect.mock.calls.length, { interval: 15, timeout: 2000 })
+      .toBe(1);
+    await act(async () => {
+      picker.resolve(signingWallet('payer.near'));
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(signCallCount()).toBe(0);
+    expect(collectText(renderer!.root)).not.toContain(REVIEW_TEXT);
+
+    act(() => {
+      renderer?.unmount();
+    });
+    renderer = null;
+    harness.connect.mockClear();
+    harness.connect.mockImplementation(() => new Promise(() => {}));
+
+    await mount(
+      createElement(
+        Shell,
+        null,
+        createElement(ScarceListForm, {
+          formId: 'list-scarce',
+          post: {
+            accountId: 'author.near',
+            postId: '1',
+            value: '',
+          },
+        })
+      )
+    );
+    await waitForInit();
+    const listPicker = deferred<ReturnType<typeof makeWallet>>();
+    harness.connect.mockImplementation(() => listPicker.promise);
+    await act(async () => {
+      findForm(renderer!.root).props.onSubmit({ preventDefault() {} });
+    });
+    await expect
+      .poll(() => harness.connect.mock.calls.length, { interval: 15, timeout: 2000 })
+      .toBe(1);
+    await act(async () => {
+      listPicker.resolve(signingWallet('payer.near'));
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(signCallCount()).toBe(0);
+    expect(collectText(renderer!.root)).not.toContain(REVIEW_TEXT);
+  }, 15000);
 });
 
 function paidListing(creatorId: string) {

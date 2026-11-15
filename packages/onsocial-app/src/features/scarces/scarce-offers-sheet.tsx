@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { Divider, OsGestureSheet } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import {
+  useAppWallet,
+  WalletConnectedReviewError,
+} from '@/contexts/app-wallet-context';
 import { heldEditionMark } from '@/features/collectibles/held-editions';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import type { OwnedScarceItem } from '@/features/market/market-listings';
@@ -142,7 +145,9 @@ export function ScarceOffersSheet({
       if (!offers.some((row) => row.buyerId === offer.buyerId)) return;
       setAcceptingBuyer(offer.buyerId);
       try {
-        const { accountId: signerId, wallet } = await getSigningWallet();
+        const { accountId: signerId, wallet } = await getSigningWallet({
+          reviewAfterPicker: true,
+        });
         const client = createAppScarcesWalletClient(signerId, wallet);
         const response = await client.scarces.offers.accept(
           item.tokenId,
@@ -158,6 +163,7 @@ export function ScarceOffersSheet({
         onAccepted?.();
         requestClose();
       } catch (cause) {
+        if (cause instanceof WalletConnectedReviewError) return;
         if (isWalletUserCancellation(cause)) return;
         setTxResult({
           type: 'error',
