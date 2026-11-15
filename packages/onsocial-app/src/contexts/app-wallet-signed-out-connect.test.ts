@@ -19,7 +19,7 @@ import { useOsAppNavigate } from '@/hooks/use-os-app-navigate';
 import * as appSocialSession from '@/lib/app-social-session';
 import * as scarceAuction from '@/features/scarces/scarce-auction';
 import * as publishAccess from '@/features/scarces/hub-publish-access';
-import type { OwnedScarceItem } from '@/features/market/market-listings';
+import { APP_WALLET_ACCOUNT_KEY } from '@/lib/gate-return';
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -35,7 +35,18 @@ const harness = vi.hoisted(() => {
   const wallets: Array<{
     signAndSendTransaction: ReturnType<typeof vi.fn>;
   }> = [];
-  return { connect, getConnectedWallet, wallets };
+  const signInListeners = new Set<
+    (event: { accounts: Array<{ accountId: string }> }) => void
+  >();
+  return {
+    connect,
+    getConnectedWallet,
+    wallets,
+    signInListeners,
+    emitSignIn(accounts: Array<{ accountId: string }>) {
+      signInListeners.forEach((listener) => listener({ accounts }));
+    },
+  };
 });
 
 const portal = vi.hoisted(() => ({ calls: 0 }));
@@ -52,8 +63,18 @@ vi.mock('@hot-labs/near-connect', () => {
     connect: typeof harness.connect;
     getConnectedWallet: typeof harness.getConnectedWallet;
     on = vi.fn();
-    once = vi.fn();
-    off = vi.fn();
+    once = (
+      event: string,
+      listener: (event: { accounts: Array<{ accountId: string }> }) => void
+    ) => {
+      if (event === 'wallet:signIn') harness.signInListeners.add(listener);
+    };
+    off = (
+      event: string,
+      listener: (event: { accounts: Array<{ accountId: string }> }) => void
+    ) => {
+      if (event === 'wallet:signIn') harness.signInListeners.delete(listener);
+    };
     removeAllListeners = vi.fn();
     disconnect = vi.fn(async () => {});
     constructor() {
@@ -315,6 +336,7 @@ describe('signed-out wallet picker', () => {
   beforeEach(() => {
     installBrowser();
     harness.wallets.length = 0;
+    harness.signInListeners.clear();
     harness.connect.mockReset();
     harness.connect.mockImplementation(() => new Promise(() => {}));
     harness.getConnectedWallet.mockReset();
@@ -731,5 +753,139 @@ describe('signed-out wallet picker', () => {
       .toBe(1);
     expect(sessionSpy?.mock.calls[0]?.[0]).toBe('visitor.near');
     expect(signCallCount()).toBe(0);
+  });
+
+  it('releases a hung picker so the next request can open one', async () => {
+    await mount(createElement(Probe));
+    await waitForInit();
+    const hung = deferred<{
+      getAccounts: () => Promise<Array<{ accountId: string }>>;
+    }>();
+    harness.connect.mockImplementation(() => hung.promise);
+    vi.useFakeTimers();
+    try {
+      let failure: unknown = null;
+      void apiRef.current!.getSigningWallet().then(
+        () => undefined,
+        (error) => {
+          failure = error;
+        }
+      );
+      await vi.advanceTimersByTimeAsync(120_000);
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(failure).toMatchObject({
+        message: expect.stringMatching(/too long/),
+      });
+      hung.resolve(makeWallet('carol.near'));
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(apiRef.current?.accountId ?? null).toBeNull();
+      vi.useRealTimers();
+      const next = deferred<ReturnType<typeof makeWallet>>();
+      harness.connect.mockImplementation(() => next.promise);
+      const again = apiRef.current!.getSigningWallet();
+      await expect
+        .poll(() => harness.connect.mock.calls.length, {
+          interval: 15,
+          timeout: 2000,
+        })
+        .toBe(2);
+      next.resolve(makeWallet('dana.near'));
+      await expect(again).resolves.toMatchObject({ accountId: 'dana.near' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('uses the account from the sign-in, not a stored preference on the same wallet', async () => {
+    await mount(createElement(Probe));
+    await waitForInit();
+    await act(async () => {
+      window.localStorage.setItem(APP_WALLET_ACCOUNT_KEY, 'alice.near');
+      window.dispatchEvent(new Event('onsocial:wallet-account'));
+    });
+    harness.connect.mockImplementation(async () => {
+      harness.emitSignIn([{ accountId: 'bob.near' }]);
+      return {
+        getAccounts: async () => [
+          { accountId: 'alice.near' },
+          { accountId: 'bob.near' },
+        ],
+        signAndSendTransaction: vi.fn(async () => {
+          throw new Error('signing was not part of this test');
+        }),
+        signAndSendTransactions: vi.fn(),
+        signMessage: vi.fn(),
+      };
+    });
+    const picked = await apiRef.current!.getSigningWallet();
+    expect(picked.accountId).toBe('bob.near');
+    expect(sessionSpy).not.toHaveBeenCalled();
+  });
+
+  it('lets dock connect share the open picker and still run session setup', async () => {
+    await mount(createElement(Shell, null, createElement(OsDockAccountZone)));
+    await waitForInit();
+    const picker = deferred<ReturnType<typeof makeWallet>>();
+    harness.connect.mockImplementation(() => picker.promise);
+    const signing = apiRef.current!.getSigningWallet();
+    await expect
+      .poll(() => harness.connect.mock.calls.length, {
+        interval: 15,
+        timeout: 2000,
+      })
+      .toBe(1);
+    const button = renderer!.root.findAll(
+      (node) => node.type === 'button' && node.props['aria-label'] === 'Connect'
+    )[0]!;
+    await act(async () => {
+      button.props.onClick();
+    });
+    expect(harness.connect.mock.calls.length).toBe(1);
+    picker.resolve(makeWallet('visitor.near'));
+    await expect(signing).resolves.toMatchObject({ accountId: 'visitor.near' });
+    await expect
+      .poll(() => sessionSpy?.mock.calls.length ?? 0, {
+        interval: 15,
+        timeout: 2000,
+      })
+      .toBe(1);
+    expect(signCallCount()).toBe(0);
+  });
+
+  it('does not hand a new account the previous picker result', async () => {
+    await mount(createElement(Probe));
+    await waitForInit();
+    const firstPicker = deferred<ReturnType<typeof makeWallet>>();
+    const secondPicker = deferred<ReturnType<typeof makeWallet>>();
+    const pickers = [firstPicker, secondPicker];
+    let call = 0;
+    harness.connect.mockImplementation(() => pickers[call++]!.promise);
+    const first = apiRef.current!.getSigningWallet();
+    await expect
+      .poll(() => harness.connect.mock.calls.length, {
+        interval: 15,
+        timeout: 2000,
+      })
+      .toBe(1);
+    await act(async () => {
+      window.localStorage.setItem(APP_WALLET_ACCOUNT_KEY, 'bob.near');
+      window.dispatchEvent(new Event('onsocial:wallet-account'));
+    });
+    const second = apiRef.current!.getSigningWallet();
+    firstPicker.resolve(makeWallet('alice.near'));
+    await expect(first).resolves.toMatchObject({ accountId: 'alice.near' });
+    await expect
+      .poll(() => harness.connect.mock.calls.length, {
+        interval: 15,
+        timeout: 2000,
+      })
+      .toBe(2);
+    secondPicker.resolve(makeWallet('bob.near'));
+    await expect(second).resolves.toMatchObject({ accountId: 'bob.near' });
   });
 });
