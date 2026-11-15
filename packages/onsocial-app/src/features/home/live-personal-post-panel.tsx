@@ -497,7 +497,6 @@ export function LivePersonalPostPanel({
     hostRef: replyStackRef,
     pinnedKey: focusPinKey,
     anchorQuery: THREAD_ANCHOR_QUERY,
-    holdAnchor: landSettled,
   });
 
   const refresh = useCallback(

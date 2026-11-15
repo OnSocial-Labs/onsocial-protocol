@@ -59,12 +59,6 @@ export type UseFeedWindowOptions = {
   pinnedKey?: string | null;
   /** Row lookup for height-change anchoring — defaults to feed blocks. */
   anchorQuery?: FeedAnchorQuery;
-  /**
-   * Hold the visible row when a height above it changes. Thread open passes
-   * false until land has seated the focal post, so the first reply measure
-   * cannot scroll that post under the header.
-   */
-  holdAnchor?: boolean;
   enabled?: boolean;
   /**
    * Unmeasured-row height. A number is every row; a list is index-aligned
@@ -107,7 +101,6 @@ export function useFeedWindow({
   sizeCache,
   pinnedKey = null,
   anchorQuery,
-  holdAnchor = true,
   enabled = true,
   estimate = FEED_WINDOW_ESTIMATE_PX,
   overscan = FEED_WINDOW_OVERSCAN_PX,
@@ -162,11 +155,6 @@ export function useFeedWindow({
   const anchorQueryRef = useRef(anchorQuery);
   useLayoutEffect(() => {
     anchorQueryRef.current = anchorQuery;
-  });
-
-  const holdAnchorRef = useRef(holdAnchor);
-  useLayoutEffect(() => {
-    holdAnchorRef.current = holdAnchor;
   });
 
   const syncRange = useCallback(() => {
@@ -240,7 +228,7 @@ export function useFeedWindow({
   const estimateAnchorRef = useRef<FeedScrollAnchor | null>(null);
   const estimateSnapshotRef = useRef(estimate);
   if (estimateSnapshotRef.current !== estimate) {
-    if (holdAnchorRef.current && !pendingMeasureAnchorRef.current) {
+    if (!pendingMeasureAnchorRef.current) {
       estimateAnchorRef.current = captureVisibleFeedAnchor(
         rootRef.current,
         anchorQueryRef.current
@@ -266,12 +254,10 @@ export function useFeedWindow({
       if (changed) {
         // Heights in the DOM already moved; remember where the reader is so
         // the spacer correction below can hold that row in place.
-        if (holdAnchorRef.current) {
-          pendingMeasureAnchorRef.current ??= captureVisibleFeedAnchor(
-            rootRef.current,
-            anchorQueryRef.current
-          );
-        }
+        pendingMeasureAnchorRef.current ??= captureVisibleFeedAnchor(
+          rootRef.current,
+          anchorQueryRef.current
+        );
         setOffsetsVersion((version) => version + 1);
       }
     });
@@ -289,7 +275,7 @@ export function useFeedWindow({
     if (offsetsVersion === 0) return;
     const pending = pendingMeasureAnchorRef.current;
     pendingMeasureAnchorRef.current = null;
-    if (pending && holdAnchorRef.current)
+    if (pending)
       restoreFeedAnchor(rootRef.current, pending, anchorQueryRef.current);
     syncRange();
   }, [offsetsVersion, syncRange]);
@@ -297,7 +283,7 @@ export function useFeedWindow({
   useLayoutEffect(() => {
     const pending = estimateAnchorRef.current;
     estimateAnchorRef.current = null;
-    if (!pending || !holdAnchorRef.current) return;
+    if (!pending) return;
     restoreFeedAnchor(rootRef.current, pending, anchorQueryRef.current);
   }, [offsets]);
 
