@@ -1,7 +1,14 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { PostThreadRouteLoading } from '@/features/home/post-thread-route-loading';
 import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: () => undefined, prefetch: () => undefined }),
+  usePathname: () => '/home',
+  useSearchParams: () => new URLSearchParams(),
+}));
 
 function markup() {
   return renderToStaticMarkup(createElement(PostThreadPageSkeleton));
@@ -23,5 +30,19 @@ describe('PostThreadPageSkeleton', () => {
     expect(replyRows).toBeGreaterThan(replies);
     expect(html).toContain('divider-detail');
     expect(html).toContain('aria-hidden="true"');
+  });
+
+  it('keeps the loading reply bar inert and reserves the expand slot', () => {
+    const html = renderToStaticMarkup(
+      createElement(PostThreadRouteLoading, { backHref: '/home' })
+    );
+    const dock = html.slice(html.indexOf('is-reply-reserve'));
+    const textarea = dock.match(/<textarea\b[^>]*>/)?.[0] ?? '';
+
+    expect(dock.startsWith('is-reply-reserve')).toBe(true);
+    expect(html).toContain('inert=""');
+    expect(textarea).toContain('disabled');
+    expect(dock).toContain('os-write-dock-expand-icon');
+    expect(textarea).not.toContain('kept-text');
   });
 });

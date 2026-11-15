@@ -22,6 +22,7 @@ function PostThreadReplyDockReserve() {
       ref={ref}
       className="portfolio-summon-dock is-writing is-reply-reserve"
       aria-hidden
+      inert
     >
       <div className="os-dock-pill portfolio-summon is-writing">
         <OsDockAccountZone />
@@ -34,6 +35,7 @@ function PostThreadReplyDockReserve() {
           placeholder={WRITE_DOCK_ADD_REPLY_PLACEHOLDER}
           ariaLabel="Reply"
           disabled
+          onExpand={() => undefined}
           onSubmit={() => false}
         />
       </div>
