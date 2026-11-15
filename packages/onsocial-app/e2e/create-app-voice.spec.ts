@@ -148,7 +148,8 @@ test.describe('create app voice', () => {
         mimeType: 'image/png',
         buffer: LOOK_PNG,
       },
-      page.getByRole('button', { name: 'Change banner', exact: true })
+      // Pan surface replaces Change — Remove is the confirm control.
+      page.getByRole('button', { name: 'Remove banner' })
     );
     await expect(page.locator('.hub-look-preview img').first()).toBeVisible();
     await page.locator('.hub-look-preview-banner').hover();
@@ -164,7 +165,7 @@ test.describe('create app voice', () => {
         mimeType: 'image/png',
         buffer: LOOK_PNG,
       },
-      page.getByRole('button', { name: 'Change logo', exact: true })
+      page.getByRole('button', { name: 'Remove logo' })
     );
     await expect(page.locator('.hub-look-preview img')).toHaveCount(2);
     await page.locator('.hub-look-preview-logo').hover();

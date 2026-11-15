@@ -61,7 +61,8 @@ test.describe('dao create voice', () => {
       '+'
     );
     await expect(page.locator('.dao-create-name-row')).toHaveCount(0);
-    const cover = page.locator('.account-editor-cover-stage');
+    // Banner band only — cover-stage also wraps the crest overlap.
+    const cover = page.locator('.account-editor-banner-button');
     const crest = page.locator('.account-editor-avatar');
     const nameField = page.locator('#dao-create-name');
     await expect
