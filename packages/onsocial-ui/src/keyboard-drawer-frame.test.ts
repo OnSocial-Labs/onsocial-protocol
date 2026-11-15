@@ -341,9 +341,33 @@ describe('virtual keyboard seat', () => {
     expect(ensureVirtualKeyboardOverlay()).toBe(false);
   });
 
-  it('seats on the IME top when overlaysContent reports a keyboard', () => {
+  it('does not arm overlaysContent — browser resize seats the drawer', () => {
     const virtualKeyboard = {
       overlaysContent: false,
+      boundingRect: { x: 0, y: 520, width: 390, height: 324 },
+      addEventListener() {},
+      removeEventListener() {},
+    };
+    Object.defineProperty(navigator, 'virtualKeyboard', {
+      configurable: true,
+      value: virtualKeyboard,
+    });
+    stubPhoneWindow({ innerHeight: 844, viewportHeight: 520 });
+
+    expect(ensureVirtualKeyboardOverlay()).toBe(false);
+    expect(virtualKeyboard.overlaysContent).toBe(false);
+    // Without overlay opt-in, seat from visualViewport (resizes-content).
+    expect(readVirtualKeyboardInset()).toBe(0);
+    expect(readKeyboardDrawerMetrics()).toEqual({
+      lift: 324,
+      height: 520,
+      isMobile: true,
+    });
+  });
+
+  it('seats on the IME top when overlaysContent is already on', () => {
+    const virtualKeyboard = {
+      overlaysContent: true,
       boundingRect: { x: 0, y: 520, width: 390, height: 324 },
       addEventListener() {},
       removeEventListener() {},
@@ -355,7 +379,6 @@ describe('virtual keyboard seat', () => {
     stubPhoneWindow({ innerHeight: 844, viewportHeight: 844 });
 
     expect(ensureVirtualKeyboardOverlay()).toBe(true);
-    expect(virtualKeyboard.overlaysContent).toBe(true);
     expect(readVirtualKeyboardInset()).toBe(324);
     expect(readKeyboardVisibleBottom()).toBe(520);
     expect(readKeyboardDrawerMetrics()).toEqual({

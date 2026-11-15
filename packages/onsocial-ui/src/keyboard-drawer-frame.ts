@@ -52,20 +52,16 @@ function getVirtualKeyboard(): VirtualKeyboardLike | null {
 }
 
 /**
- * Opt into overlay IME so `boundingRect` is the real key top (Chromium /
- * Brave tab). Idempotent. No-op on Safari / unsupported browsers.
+ * Report whether overlay IME is already active. Do **not** set
+ * `overlaysContent = true` — that opts out of browser viewport resize and on
+ * Brave leaves keyboard → gap → drawer. Pro apps use
+ * `interactive-widget=resizes-content` + visualViewport instead.
  */
 export function ensureVirtualKeyboardOverlay(): boolean {
   const keyboard = getVirtualKeyboard();
   if (!keyboard) return false;
-  if (virtualKeyboardOverlayArmed && keyboard.overlaysContent) return true;
-  try {
-    keyboard.overlaysContent = true;
-    virtualKeyboardOverlayArmed = true;
-    return true;
-  } catch {
-    return false;
-  }
+  virtualKeyboardOverlayArmed = Boolean(keyboard.overlaysContent);
+  return virtualKeyboardOverlayArmed;
 }
 
 /**
