@@ -32,7 +32,7 @@ instance). Attach the listing price as `depositYocto`.
 ```ts
 import { OnSocial, nearToYocto } from '@onsocial/sdk';
 
-// Adapt to your wallet (near-connect, wallet-selector, …).
+// Adapt to your near-connect wallet.
 const signer = async ({ receiverId, actions }) => {
   const result = await wallet.signAndSendTransaction({
     receiverId,

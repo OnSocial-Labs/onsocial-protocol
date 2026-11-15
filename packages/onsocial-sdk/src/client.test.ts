@@ -389,7 +389,7 @@ describe('OnSocial.execute', () => {
       });
     });
 
-    it('extracts txHash from `transaction.hash` shape (wallet-selector compat)', async () => {
+    it('extracts txHash from `transaction.hash` shape', async () => {
       const signer = vi
         .fn()
         .mockResolvedValue({ transaction: { hash: 'tx-ws-1' } });

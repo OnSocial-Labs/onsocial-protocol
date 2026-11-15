@@ -22,7 +22,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@hot-labs/near-connect": "^0.11.4",
+    "@hot-labs/near-connect": "^0.12.0",
     "@monaco-editor/react": "^4.7.0",
     "@onsocial/rpc": "workspace:*",
     "@onsocial/sdk": "workspace:*",
