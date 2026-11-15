@@ -11,27 +11,41 @@ import {
   type FormEvent,
 } from 'react';
 import { useRouter } from 'next/navigation';
+import { profileAvatarShapeForFace } from '@onsocial/sdk';
 import {
   ChevronLeftIcon,
   DiscardConfirmSheet,
   OsIconAction,
+  SheetFactRow,
+  SheetFactSection,
   osFieldBorderedClassName,
   useDiscardConfirm,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import {
+  CreateDisclosure,
+  CreateRevealPanel,
+  useCreateReveal,
+} from '@/components/create/create-disclosure';
+import { PortfolioFaceEditorHero } from '@/components/wallet/portfolio-face-editor-hero';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { rememberCommunityDao } from '@/features/protocol/dao-accounts';
 import { buildDaoBrandingMetadata } from '@/features/protocol/dao-branding';
 import {
-  DAO_CREATE_ADVANCED,
-  DAO_CREATE_ADVANCED_HIDE,
+  DAO_CREATE_ADD_COVER,
+  DAO_CREATE_ADD_CREST,
+  DAO_CREATE_CHANGE_COVER,
   DAO_CREATE_CONNECT_CTA,
   DAO_CREATE_CONNECT_HINT,
+  DAO_CREATE_DEFAULT_POLICY,
   DAO_CREATE_FORM_ID,
   DAO_CREATE_PUBLISH,
+  DAO_CREATE_REMOVE_COVER,
+  DAO_CREATE_REMOVE_CREST,
   DAO_CREATE_TITLE,
+  daoCreateLinksToggle,
   daoCreateNearShortHint,
   daoCreatePurposeToggle,
   daoCreateWhisper,
@@ -42,6 +56,7 @@ import {
   DAO_FACTORY_PURPOSE_MAX,
   DAO_FACTORY_SLUG_MIN,
   daoCreateAttachNearLabel,
+  daoCreateNearShortfallLabel,
   daoCreateNearShortfallYocto,
   daoFactoryCreatePolicyFacts,
   isValidDaoFactorySlug,
@@ -50,7 +65,6 @@ import {
   submitDaoFactoryCreate,
 } from '@/features/protocol/dao-factory-create';
 import { buildDaoSocialProfileProposalPayload } from '@/features/protocol/dao-social-profile';
-import { DaoLookPreview } from '@/features/protocol/dao-look-preview';
 import { rememberOptimisticMyDao } from '@/features/protocol/my-daos-optimistic';
 import { submitProtocolProposal } from '@/features/protocol/protocol-create';
 import {
@@ -71,9 +85,16 @@ import {
   type EntityIdAvailability,
 } from '@/hooks/use-entity-id-availability';
 import { SPUTNIK_DAO_FACTORY } from '@/lib/app-config';
-import { yoctoToNear } from '@/lib/app-near-rpc';
 import { APP_DAOS_PATH, daoPath } from '@/lib/app-routes';
 import { DAO_CREATE_FORM_CLASS } from '@/lib/os-create-page';
+import {
+  MEDIA_FRAME_PAN_CENTER,
+  type MediaFramePan,
+} from '@/lib/media-frame-pan';
+import {
+  prepareProfileAvatarForSave,
+  prepareProfileBannerForSave,
+} from '@/lib/prepare-profile-editor-media';
 import { prepareSquareOpaqueJpeg } from '@/lib/prepare-square-opaque-jpeg';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import {
@@ -174,12 +195,17 @@ export function DaoCreatePanel() {
   >({});
   const [linksOpen, setLinksOpen] = useState(false);
   const [purposeOpen, setPurposeOpen] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [publishSocial, setPublishSocial] = useState(false);
+  const purposeReveal = useCreateReveal(purposeOpen);
+  const linksReveal = useCreateReveal(linksOpen);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [crestPan, setCrestPan] =
+    useState<MediaFramePan>(MEDIA_FRAME_PAN_CENTER);
+  const [coverPan, setCoverPan] =
+    useState<MediaFramePan>(MEDIA_FRAME_PAN_CENTER);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formFieldFocused, setFormFieldFocused] = useState(false);
@@ -187,10 +213,14 @@ export function DaoCreatePanel() {
   const formViewport = useVisualViewportSheetMetrics(formFieldFocused);
   const formKeyboardOpen =
     formFieldFocused && formViewport.isMobile && formViewport.lift > 0;
+  const bannerInputRef = useRef<HTMLInputElement>(null);
+  const crestInputRef = useRef<HTMLInputElement>(null);
   const avatarPreviewRef = useRef<string | null>(null);
   const bannerPreviewRef = useRef<string | null>(null);
   avatarPreviewRef.current = avatarPreview;
   bannerPreviewRef.current = bannerPreview;
+  const openBannerPicker = () => bannerInputRef.current?.click();
+  const openCrestPicker = () => crestInputRef.current?.click();
 
   const walletNear = useWalletNearBalance(accountId, isConnected);
   const nearShortfall = daoCreateNearShortfallYocto(
@@ -331,6 +361,7 @@ export function DaoCreatePanel() {
       const prepared = await prepareSquareOpaqueJpeg(file);
       setError(null);
       setAvatarFile(prepared);
+      setCrestPan(MEDIA_FRAME_PAN_CENTER);
       setAvatarPreview((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return URL.createObjectURL(prepared);
@@ -354,6 +385,7 @@ export function DaoCreatePanel() {
     }
     setError(null);
     setBannerFile(file);
+    setCoverPan(MEDIA_FRAME_PAN_CENTER);
     setBannerPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return URL.createObjectURL(file);
@@ -362,6 +394,7 @@ export function DaoCreatePanel() {
 
   const clearAvatar = () => {
     setAvatarFile(null);
+    setCrestPan(MEDIA_FRAME_PAN_CENTER);
     setAvatarPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
@@ -370,6 +403,7 @@ export function DaoCreatePanel() {
 
   const clearBanner = () => {
     setBannerFile(null);
+    setCoverPan(MEDIA_FRAME_PAN_CENTER);
     setBannerPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
@@ -389,7 +423,6 @@ export function DaoCreatePanel() {
     if (Object.keys(nextLinkErrors).length > 0) {
       setLinkErrors(nextLinkErrors);
       setLinksOpen(true);
-      setShowAdvanced(true);
       setError('Fix the link fields before creating.');
       return;
     }
@@ -410,12 +443,25 @@ export function DaoCreatePanel() {
       const { client } = await getClient();
       let avatar: string | null = null;
       let banner: string | null = null;
-      if (avatarFile) {
-        const uploaded = await client.storage.upload(avatarFile);
+      const crestPrepared = await prepareProfileAvatarForSave({
+        file: avatarFile,
+        displayUrl: avatarPreview,
+        pan: crestPan,
+        removed: false,
+      });
+      if (crestPrepared) {
+        const uploaded = await client.storage.upload(crestPrepared);
         avatar = `ipfs://${uploaded.cid}`;
       }
-      if (bannerFile) {
-        const uploaded = await client.storage.upload(bannerFile);
+      const coverPrepared = await prepareProfileBannerForSave({
+        file: bannerFile,
+        displayUrl: bannerPreview,
+        pan: coverPan,
+        removed: false,
+        isVideo: false,
+      });
+      if (coverPrepared) {
+        const uploaded = await client.storage.upload(coverPrepared);
         banner = `ipfs://${uploaded.cid}`;
       }
       const normalizedLinks = normalizeProfileLinksInput(links, undefined);
@@ -503,7 +549,6 @@ export function DaoCreatePanel() {
   return (
     <OsAppScreen
       title={DAO_CREATE_TITLE}
-      subtitle={daoCreateWhisper(dealNearLabel)}
       launcher={false}
       glassChrome
       style={screenStyle}
@@ -531,17 +576,34 @@ export function DaoCreatePanel() {
           void handleSubmit(event);
         }}
       >
-        <DaoLookPreview
-          coverUrl={bannerPreview}
-          crestUrl={avatarPreview}
+        <PortfolioFaceEditorHero
+          ariaLabel="DAO look"
+          banner={
+            bannerPreview ? { kind: 'image', url: bannerPreview } : null
+          }
+          bannerPan={coverPan}
+          onBannerPanChange={setCoverPan}
+          onBannerPick={openBannerPicker}
+          onRemoveBanner={bannerPreview ? clearBanner : undefined}
+          bannerAddLabel={DAO_CREATE_ADD_COVER}
+          bannerChangeLabel={DAO_CREATE_CHANGE_COVER}
+          bannerRemoveLabel={DAO_CREATE_REMOVE_COVER}
+          markUrl={avatarPreview}
+          markPan={crestPan}
+          onMarkPanChange={setCrestPan}
+          onMarkPick={openCrestPicker}
+          onRemoveMark={avatarPreview ? clearAvatar : undefined}
+          markAddLabel={DAO_CREATE_ADD_CREST}
+          markRemoveLabel={DAO_CREATE_REMOVE_CREST}
+          markFallback="+"
+          profileKind="dao"
+          avatarShape={profileAvatarShapeForFace('org', true)}
           disabled={pending || discardConfirmOpen}
-          onCoverChange={onBannerChange}
-          onCrestChange={(event) => {
-            void onAvatarChange(event);
-          }}
-          onRemoveCover={clearBanner}
-          onRemoveCrest={clearAvatar}
         />
+
+        <p className="profile-support-hint dao-create-deal">
+          {daoCreateWhisper(dealNearLabel)}
+        </p>
 
         <label className="guild-field" htmlFor={fieldId('name')}>
           <span>Name</span>
@@ -598,19 +660,21 @@ export function DaoCreatePanel() {
           </small>
         </label>
 
-        <button
-          type="button"
-          className="collection-allowlist-toggle"
-          aria-expanded={purposeOpen}
-          disabled={pending || discardConfirmOpen}
-          onClick={() => setPurposeOpen((open) => !open)}
-        >
-          {daoCreatePurposeToggle({
+        <CreateDisclosure
+          open={purposeOpen}
+          label={daoCreatePurposeToggle({
             open: purposeOpen,
             hasText: purpose.trim().length > 0,
           })}
-        </button>
-        {purposeOpen ? (
+          controlsId={fieldId('purpose-panel')}
+          disabled={pending || discardConfirmOpen}
+          onClick={() => setPurposeOpen((open) => !open)}
+        />
+        <CreateRevealPanel
+          open={purposeOpen}
+          reveal={purposeReveal}
+          id={fieldId('purpose-panel')}
+        >
           <label className="guild-field" htmlFor={fieldId('purpose')}>
             <span>Purpose</span>
             <textarea
@@ -628,7 +692,7 @@ export function DaoCreatePanel() {
               className={osFieldBorderedClassName}
             />
           </label>
-        ) : null}
+        </CreateRevealPanel>
 
         <button
           type="button"
@@ -645,74 +709,66 @@ export function DaoCreatePanel() {
           />
         </button>
 
-        <button
-          type="button"
-          className="collection-allowlist-toggle"
-          aria-expanded={showAdvanced}
+        <div className="os-sheet-facts dao-create-policy">
+          <SheetFactSection title={DAO_CREATE_DEFAULT_POLICY}>
+            {policyFacts.map((fact) => (
+              <SheetFactRow
+                key={fact.label}
+                label={fact.label}
+                value={fact.value}
+              />
+            ))}
+          </SheetFactSection>
+        </div>
+
+        <CreateDisclosure
+          open={linksOpen}
+          label={daoCreateLinksToggle({
+            open: linksOpen,
+            hasText: Object.values(links).some((value) => value.trim().length > 0),
+          })}
+          controlsId={fieldId('links-panel')}
           disabled={pending || discardConfirmOpen}
-          onClick={() => setShowAdvanced((open) => !open)}
+          onClick={() => setLinksOpen((open) => !open)}
+        />
+        <CreateRevealPanel
+          open={linksOpen}
+          reveal={linksReveal}
+          id={fieldId('links-panel')}
         >
-          {showAdvanced ? DAO_CREATE_ADVANCED_HIDE : DAO_CREATE_ADVANCED}
-        </button>
-
-        {showAdvanced ? (
-          <>
-            <div className="dao-create-facts" aria-label="What you get">
-              <p className="dao-create-facts-title">You get</p>
-              <ul className="dao-create-facts-list">
-                <li>{policyFacts.publicPropose}</li>
-                <li>{policyFacts.vote}</li>
-                <li>{policyFacts.bond}</li>
-              </ul>
-            </div>
-
-            <div className="dao-create-links">
-              <button
-                type="button"
-                className="dao-create-links-toggle"
-                aria-expanded={linksOpen}
-                disabled={pending || discardConfirmOpen}
-                onClick={() => setLinksOpen((open) => !open)}
-              >
-                {linksOpen ? 'Hide links' : 'Add links'}
-              </button>
-              {linksOpen ? (
-                <ProfileLinksEditor
-                  links={links}
-                  fieldErrors={linkErrors}
-                  onUpdateLink={(key, value) => {
-                    setLinks((prev) => ({ ...prev, [key]: value }));
-                    setLinkErrors((prev) => {
-                      if (!prev[key]) return prev;
-                      const next = { ...prev };
-                      delete next[key];
-                      return next;
-                    });
-                  }}
-                  onClearFieldError={(key) => {
-                    setLinkErrors((prev) => {
-                      if (!prev[key]) return prev;
-                      const next = { ...prev };
-                      delete next[key];
-                      return next;
-                    });
-                  }}
-                  onSetFieldError={(key, nextError) => {
-                    setLinkErrors((prev) => {
-                      if (!nextError) {
-                        if (!prev[key]) return prev;
-                        const next = { ...prev };
-                        delete next[key];
-                        return next;
-                      }
-                      return { ...prev, [key]: nextError };
-                    });
-                  }}
-                />
-              ) : null}
-            </div>
-          </>
-        ) : null}
+          <ProfileLinksEditor
+            links={links}
+            fieldErrors={linkErrors}
+            onUpdateLink={(key, value) => {
+              setLinks((prev) => ({ ...prev, [key]: value }));
+              setLinkErrors((prev) => {
+                if (!prev[key]) return prev;
+                const next = { ...prev };
+                delete next[key];
+                return next;
+              });
+            }}
+            onClearFieldError={(key) => {
+              setLinkErrors((prev) => {
+                if (!prev[key]) return prev;
+                const next = { ...prev };
+                delete next[key];
+                return next;
+              });
+            }}
+            onSetFieldError={(key, nextError) => {
+              setLinkErrors((prev) => {
+                if (!nextError) {
+                  if (!prev[key]) return prev;
+                  const next = { ...prev };
+                  delete next[key];
+                  return next;
+                }
+                return { ...prev, [key]: nextError };
+              });
+            }}
+          />
+        </CreateRevealPanel>
 
         {error ? (
           <p className="dao-create-error" role="alert">
@@ -722,9 +778,34 @@ export function DaoCreatePanel() {
           <p className="profile-support-hint">{DAO_CREATE_CONNECT_HINT}</p>
         ) : nearShortfall != null ? (
           <p className="profile-support-hint">
-            {daoCreateNearShortHint(yoctoToNear(String(nearShortfall)))}
+            {daoCreateNearShortHint(daoCreateNearShortfallLabel(nearShortfall))}
           </p>
         ) : null}
+
+        <input
+          ref={bannerInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          data-dao-look-file="cover"
+          className="account-editor-file-input"
+          tabIndex={-1}
+          aria-hidden
+          disabled={pending || discardConfirmOpen}
+          onChange={onBannerChange}
+        />
+        <input
+          ref={crestInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          data-dao-look-file="crest"
+          className="account-editor-file-input"
+          tabIndex={-1}
+          aria-hidden
+          disabled={pending || discardConfirmOpen}
+          onChange={(event) => {
+            void onAvatarChange(event);
+          }}
+        />
       </form>
       <DiscardConfirmSheet
         open={discardConfirmOpen}

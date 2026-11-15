@@ -1,51 +1,14 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useSyncExternalStore,
-  useState,
-  type FocusEventHandler,
-  type ReactNode,
-} from 'react';
-import { cn } from './cn.js';
-import { Divider } from './divider.js';
-import { OsIconAction } from './os-icon-action.js';
-import { MultiplyIcon, SearchIcon } from './mage-stroke-icons.js';
+import type { FocusEventHandler, ReactNode } from 'react';
 import { SearchField } from './search-field.js';
 
 export const osAppChromeNavSearchClassName = 'os-app-chrome-nav-search';
 export const osAppChromeNavSearchIdleClassName = 'os-app-screen-search';
 
-const MOBILE_MAX_WIDTH_PX = 767;
-
-function subscribeMobile(onStoreChange: () => void) {
-  const mq = window.matchMedia(`(max-width: ${MOBILE_MAX_WIDTH_PX}px)`);
-  mq.addEventListener('change', onStoreChange);
-  return () => mq.removeEventListener('change', onStoreChange);
-}
-
-function getMobileSnapshot() {
-  return window.matchMedia(`(max-width: ${MOBILE_MAX_WIDTH_PX}px)`).matches;
-}
-
-function getServerMobileSnapshot() {
-  return false;
-}
-
-function useMobileViewport() {
-  return useSyncExternalStore(
-    subscribeMobile,
-    getMobileSnapshot,
-    getServerMobileSnapshot
-  );
-}
-
 /**
- * Compact nav-row filter search. Mobile: stable shell; focus only fades the
- * pill fill. Clear (`X`) when there is text — no Done chevron / mode exit.
- * Desktop uses SearchField.
+ * Compact nav-row filter search — one SearchField on every breakpoint.
+ * Heading scale (glyph + clear ×) via `.os-app-screen-search`.
  */
 export function OsAppChromeNavSearch({
   value,
@@ -73,117 +36,30 @@ export function OsAppChromeNavSearch({
   onFocus?: FocusEventHandler<HTMLInputElement>;
   onBlur?: FocusEventHandler<HTMLInputElement>;
 }) {
-  const isMobile = useMobileViewport();
-  const [searchActive, setSearchActive] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const handleFocus: FocusEventHandler<HTMLInputElement> = (event) => {
+    onActiveChange?.(true);
+    onFocus?.(event);
+  };
 
-  const setActive = useCallback(
-    (active: boolean) => {
-      setSearchActive(active);
-      onActiveChange?.(active);
-    },
-    [onActiveChange]
-  );
-
-  const handleFocus = useCallback<FocusEventHandler<HTMLInputElement>>(
-    (event) => {
-      setActive(true);
-      onFocus?.(event);
-    },
-    [onFocus, setActive]
-  );
-
-  const handleBlur = useCallback<FocusEventHandler<HTMLInputElement>>(
-    (event) => {
-      setActive(false);
-      onBlur?.(event);
-    },
-    [onBlur, setActive]
-  );
-
-  useEffect(() => {
-    if (!isMobile && searchActive) {
-      setActive(false);
-    }
-  }, [isMobile, searchActive, setActive]);
-
-  const showClear = value.trim().length > 0;
-  const branded = Boolean(leadingIcon);
-
-  if (!isMobile) {
-    return (
-      <div data-sheet-initial-focus-skip="">
-        <SearchField
-          value={value}
-          onValueChange={onValueChange}
-          placeholder={placeholder}
-          maxLength={maxLength}
-          clearAriaLabel={clearAriaLabel}
-          ariaLabel={ariaLabel ?? placeholder}
-          className={`${osAppChromeNavSearchIdleClassName}${idleClassName ? ` ${idleClassName}` : ''}`}
-          leadingIcon={leadingIcon}
-          onFocus={onFocus}
-          onBlur={onBlur}
-        />
-      </div>
-    );
-  }
+  const handleBlur: FocusEventHandler<HTMLInputElement> = (event) => {
+    onActiveChange?.(false);
+    onBlur?.(event);
+  };
 
   return (
-    <div
-      data-sheet-initial-focus-skip=""
-      data-search-active={searchActive ? 'true' : undefined}
-      className={cn(
-        osAppChromeNavSearchClassName,
-        'search-field',
-        'sheet-control',
-        osAppChromeNavSearchIdleClassName,
-        branded && 'search-field--branded',
-        idleClassName
-      )}
-    >
-      <div className="os-app-chrome-nav-search-leading">
-        <span className="os-app-chrome-nav-search-glyph">
-          {leadingIcon ?? (
-            <SearchIcon className="search-field-icon" aria-hidden />
-          )}
-        </span>
-        {branded ? (
-          <Divider
-            orientation="vertical"
-            variant="detail"
-            className={cn('search-field-divider', 'self-center')}
-          />
-        ) : null}
-      </div>
-      <input
-        ref={inputRef}
-        type="text"
-        inputMode="search"
-        enterKeyHint="search"
+    <div data-sheet-initial-focus-skip="">
+      <SearchField
         value={value}
-        onChange={(event) => onValueChange(event.target.value)}
+        onValueChange={onValueChange}
         placeholder={placeholder}
         maxLength={maxLength}
-        aria-label={ariaLabel ?? placeholder}
-        className="os-app-chrome-nav-search-input"
+        clearAriaLabel={clearAriaLabel}
+        ariaLabel={ariaLabel ?? placeholder}
+        className={`${osAppChromeNavSearchIdleClassName}${idleClassName ? ` ${idleClassName}` : ''}`}
+        leadingIcon={leadingIcon}
         onFocus={handleFocus}
         onBlur={handleBlur}
       />
-      <div className="os-app-chrome-nav-search-trailing">
-        {showClear ? (
-          <OsIconAction
-            ariaLabel={clearAriaLabel}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => {
-              onValueChange('');
-              inputRef.current?.focus();
-            }}
-          >
-            <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
-          </OsIconAction>
-        ) : null}
-      </div>
     </div>
   );
 }

@@ -12,14 +12,8 @@ export function osCreatePageClassName(
 
 export const GUILD_CREATE_FORM_CLASS = osCreatePageClassName('guild-create-form');
 
-export const HUB_CREATE_FORM_CLASS = osCreatePageClassName(
-  'drop-create-form',
-  'hub-create-form'
-);
+export const HUB_CREATE_FORM_CLASS = osCreatePageClassName('hub-create-form');
 
 export const DROP_CREATE_FORM_CLASS = osCreatePageClassName('drop-create-form');
 
-export const DAO_CREATE_FORM_CLASS = osCreatePageClassName(
-  'protocol-task-form',
-  'dao-create-form'
-);
+export const DAO_CREATE_FORM_CLASS = osCreatePageClassName('dao-create-form');

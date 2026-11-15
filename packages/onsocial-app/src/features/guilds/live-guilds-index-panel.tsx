@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { Divider, OsIconAction, PlusIcon, SearchIcon } from '@onsocial/ui';
+import { Divider, OsIconAction, SearchIcon } from '@onsocial/ui';
 import {
   LauncherHomeMineStatus,
   LauncherHomeSection,
@@ -21,10 +21,12 @@ import { GuildsLatestPostsPanel } from '@/features/guilds/guilds-latest-posts-pa
 import { guildPath } from '@/features/guilds/guilds-data';
 import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { APP_GROUPS_PATH } from '@/lib/app-routes';
 import {
   readLauncherMineSession,
   writeLauncherMineSession,
 } from '@/lib/launcher-mine-session';
+import { OsRowAction } from '@/lib/os-row-action';
 
 /**
  * Guilds launcher — one Home: mine (horizontal) + latest posts under a divider.
@@ -115,11 +117,12 @@ export function LiveGuildsIndexPanel() {
           <SearchIcon aria-hidden className="glass-sheet-close-icon" />
         </Link>
       </OsIconAction>
-      <OsIconAction asChild ariaLabel="Create guild">
-        <Link href="/groups/create" scroll={false}>
-          <PlusIcon aria-hidden className="glass-sheet-close-icon" />
-        </Link>
-      </OsIconAction>
+      <OsRowAction
+        className="os-header-commit"
+        href={`${APP_GROUPS_PATH}/create`}
+      >
+        New guild
+      </OsRowAction>
     </>
   );
 
@@ -139,7 +142,7 @@ export function LiveGuildsIndexPanel() {
             error={loadError}
             onRetry={() => setRetryKey((value) => value + 1)}
             emptyLoggedOut="Connect to see guilds you’ve joined — or tap search to explore."
-            emptyNone="You haven’t joined a guild yet. Tap Search to explore, or + to start one."
+            emptyNone="You haven’t joined a guild yet. Tap Search to explore, or New guild to start one."
             loadingLabel="Loading your guilds…"
             loadingSkeleton={<LauncherMineRailSkeleton count={4} />}
             hasItems={(myGuilds?.length ?? 0) > 0}

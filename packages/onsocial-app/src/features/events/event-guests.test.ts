@@ -46,20 +46,19 @@ describe('guest roster search', () => {
     expect(guestRosterMatchLine(2)).toBe('2 matches');
   });
 
-  it('names the search for each window', () => {
-    expect(eventGuestSheetCopy('going').searchPlaceholder).toBe(
-      'Search who’s going'
-    );
-    expect(eventGuestSheetCopy('in').searchPlaceholder).toBe('Search who’s in');
-    expect(eventGuestSheetCopy('attended').searchPlaceholder).toBe(
-      'Search who attended'
-    );
+  it('keeps idle search short; aria names the window', () => {
+    expect(eventGuestSheetCopy('going').searchPlaceholder).toBe('Search');
+    expect(eventGuestSheetCopy('in').searchPlaceholder).toBe('Search');
+    expect(eventGuestSheetCopy('attended').searchPlaceholder).toBe('Search');
     expect(
       eventGuestSheetCopy('going', { redeemed: true }).searchPlaceholder
-    ).toBe('Search who has one');
+    ).toBe('Search');
     expect(
       eventGuestSheetCopy('attended', { redeemed: true }).searchPlaceholder
-    ).toBe('Search who redeemed');
+    ).toBe('Search');
+    expect(eventGuestSheetCopy('going').searchAriaLabel).toBe(
+      'Search who’s going by name'
+    );
   });
 });
 

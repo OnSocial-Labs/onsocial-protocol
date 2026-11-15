@@ -69,7 +69,7 @@ export interface OsAppScreenProps {
   /** When set with `dockBack`, runs instead of history navigation (e.g. close thread). */
   onDockBack?: () => void;
   /**
-   * Header already has Connect / Start drop — hide the dock Connect hint.
+   * Header already has Connect / Publish — hide the dock Connect hint.
    */
   headerOwnsConnect?: boolean;
   /**

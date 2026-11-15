@@ -155,10 +155,10 @@ export function HomeSavedFeedSheet({
           <SearchField
             value={query}
             onValueChange={setQuery}
-            placeholder="Search #topics or $tickers"
+            placeholder="#topics · $tickers"
             maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
             clearAriaLabel="Clear topic search"
-            ariaLabel="Search topics or tickers"
+            ariaLabel="Search #topics or $tickers"
             chrome="floating-panel"
             className="home-saved-feed-sheet-search-field"
           />

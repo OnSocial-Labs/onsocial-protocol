@@ -17,3 +17,9 @@ export const HUB_CREATE_REMOVE_LOGO = 'Remove logo';
 export const HUB_CREATE_CONNECT = 'Connect';
 export const HUB_CREATE_SUBMIT = 'Open hub';
 export const HUB_CREATE_FORM_ID = 'hub-create-form';
+
+export const HUB_CREATE_HELP_TITLE = 'Your hub';
+export const HUB_CREATE_HELP_SUMMARY =
+  'Brand home for drops — you publish, or let creators in.';
+export const HUB_CREATE_HELP_DETAIL =
+  'Primary category powers browse. Hub ID sticks. Commission hits every sale.';

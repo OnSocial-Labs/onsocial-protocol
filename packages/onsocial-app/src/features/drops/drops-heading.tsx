@@ -1,13 +1,9 @@
 'use client';
 
-import Link from 'next/link';
-import {
-  GiftFillIcon,
-  OsIconAction,
-  ShopFillIcon,
-} from '@onsocial/ui';
+import { GiftFillIcon } from '@onsocial/ui';
 import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
-import { APP_MARKET_PATH } from '@/lib/app-routes';
+import { APP_DROP_CREATE_PATH } from '@/lib/app-routes';
+import { OsRowAction } from '@/lib/os-row-action';
 
 interface DropsSearchHeadingProps {
   query?: string;
@@ -42,23 +38,15 @@ export function DropsSearchHeading({
   );
 }
 
-/** Market cross-link — mirrors Market header → Drops. Create lives in the dock. */
+/** Primary create — Post-size header commit; Market lives in empty recovery. */
 export function DropsHeadingActions() {
   return (
-    <OsIconAction asChild ariaLabel="Browse Market" title="Secondary listings">
-      <Link href={APP_MARKET_PATH} scroll={false}>
-        <ShopFillIcon aria-hidden className="glass-sheet-close-icon" />
-      </Link>
-    </OsIconAction>
+    <OsRowAction className="os-header-commit" href={APP_DROP_CREATE_PATH}>
+      New drop
+    </OsRowAction>
   );
 }
 
 export function DropsLoadingActions() {
-  return (
-    <OsIconAction asChild ariaLabel="Browse Market" title="Secondary listings">
-      <Link href={APP_MARKET_PATH} scroll={false}>
-        <ShopFillIcon aria-hidden className="glass-sheet-close-icon" />
-      </Link>
-    </OsIconAction>
-  );
+  return <DropsHeadingActions />;
 }

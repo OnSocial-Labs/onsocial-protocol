@@ -236,7 +236,12 @@ export function ProfileSocialListSkeletonRow({
   }
 
   return (
-    <div className="standing-row standing-row--skeleton" aria-hidden>
+    <div
+      className={`standing-row standing-row--skeleton${
+        showLedgerShimmer ? ' standing-row--ledger' : ''
+      }`}
+      aria-hidden
+    >
       <div className="standing-row-main">
         <div className="standing-row-avatar standing-row-shimmer" />
         <div className="standing-row-copy">
@@ -246,16 +251,6 @@ export function ProfileSocialListSkeletonRow({
           <div className="standing-row-skeleton-handle">
             <div className="standing-row-shimmer standing-row-shimmer-line-sm" />
           </div>
-          {showLedgerShimmer ? (
-            <>
-              <div className="standing-row-skeleton-bio">
-                <div className="standing-row-shimmer standing-row-shimmer-line-bio" />
-              </div>
-              <div className="standing-row-skeleton-metrics">
-                <div className="standing-row-shimmer standing-row-shimmer-line-xs" />
-              </div>
-            </>
-          ) : null}
         </div>
       </div>
       <div className="standing-row-aside standing-row-aside--skeleton">
@@ -264,6 +259,16 @@ export function ProfileSocialListSkeletonRow({
         ) : null}
         <div className="standing-row-shimmer standing-row-shimmer-pill" />
       </div>
+      {showLedgerShimmer ? (
+        <div className="standing-row-ledger">
+          <div className="standing-row-skeleton-bio">
+            <div className="standing-row-shimmer standing-row-shimmer-line-bio" />
+          </div>
+          <div className="standing-row-skeleton-metrics">
+            <div className="standing-row-shimmer standing-row-shimmer-line-xs" />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -381,15 +386,24 @@ export function ProfileSocialListRow({
     directoryActions && (directoryActions.offers || directoryActions.hiring)
   );
 
+  const rowHit = (
+    <Link
+      href={targetHref}
+      className="standing-row-hit"
+      scroll={false}
+      aria-label={targetAriaLabel}
+    />
+  );
+
   return (
-    <div className={`standing-row${isDaoTarget ? ' standing-row--dao' : ''}`}>
+    <div
+      className={`standing-row${isDaoTarget ? ' standing-row--dao' : ''}${
+        ledger ? ' standing-row--ledger' : ''
+      }`}
+    >
+      {ledger ? rowHit : null}
       <div className="standing-row-main">
-        <Link
-          href={targetHref}
-          className="standing-row-hit"
-          scroll={false}
-          aria-label={targetAriaLabel}
-        />
+        {!ledger ? rowHit : null}
         <StandingIdentity
           accountId={account.accountId}
           profileName={account.name}
@@ -437,41 +451,7 @@ export function ProfileSocialListRow({
               moodId={moodId}
             />
           }
-        >
-          {ledger && directoryLine ? (
-            directoryFaceLine || directoryFallback ? (
-              <span className="standing-row-bio">
-                {directoryFaceLine || directoryFallback}
-              </span>
-            ) : null
-          ) : (
-            <>
-              {ledger && bio ? (
-                <span className="standing-row-bio">
-                  <PostRichText
-                    text={bio}
-                    emptyFallback=""
-                    showLinkIcon
-                    inlineMarks
-                  />
-                </span>
-              ) : null}
-              {ledger && offerHint ? (
-                <span className="standing-row-bio standing-row-offer">
-                  {offerHint}
-                </span>
-              ) : null}
-              {ledger && hiringHint ? (
-                <span className="standing-row-bio standing-row-hiring">
-                  {hiringHint}
-                </span>
-              ) : null}
-            </>
-          )}
-          {ledger ? (
-            <ProfileRowMetrics account={account} isDao={isDaoTarget} />
-          ) : null}
-        </StandingIdentity>
+        />
       </div>
 
       <div
@@ -516,6 +496,42 @@ export function ProfileSocialListRow({
           </button>
         ) : null}
       </div>
+
+      {ledger ? (
+        <div className="standing-row-ledger">
+          {directoryLine ? (
+            directoryFaceLine || directoryFallback ? (
+              <span className="standing-row-bio">
+                {directoryFaceLine || directoryFallback}
+              </span>
+            ) : null
+          ) : (
+            <>
+              {bio ? (
+                <span className="standing-row-bio">
+                  <PostRichText
+                    text={bio}
+                    emptyFallback=""
+                    showLinkIcon
+                    inlineMarks
+                  />
+                </span>
+              ) : null}
+              {offerHint ? (
+                <span className="standing-row-bio standing-row-offer">
+                  {offerHint}
+                </span>
+              ) : null}
+              {hiringHint ? (
+                <span className="standing-row-bio standing-row-hiring">
+                  {hiringHint}
+                </span>
+              ) : null}
+            </>
+          )}
+          <ProfileRowMetrics account={account} isDao={isDaoTarget} />
+        </div>
+      ) : null}
     </div>
   );
 }

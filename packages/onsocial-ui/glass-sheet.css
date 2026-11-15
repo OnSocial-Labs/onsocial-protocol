@@ -706,6 +706,15 @@
   min-width: 0;
 }
 
+/* Title + optional titleAccessory; endAccessory + ✕ trail on the row. */
+.glass-sheet-header-title-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
 .glass-sheet-header-eyebrow {
   margin: 0;
   font-size: var(--os-stamp-size, 0.75rem);
@@ -731,6 +740,13 @@
 
 .glass-sheet-header-title-row > .glass-sheet-icon-action {
   flex-shrink: 0;
+}
+
+/*
+ * Pack trailing chrome (Clear / Add + ✕) on the end. First trailing sibling
+ * after the heading eats free space so text Clear sits with ✕, not mid-gap.
+ */
+.glass-sheet-header-title-row > .glass-sheet-header-heading + * {
   margin-inline-start: auto;
 }
 

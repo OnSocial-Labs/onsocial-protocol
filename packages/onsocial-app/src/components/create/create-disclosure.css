@@ -1,0 +1,59 @@
+/* Shared create fold — chevron disclosure + measured os-reveal.
+   Drop / hub / guild / DAO compose this; do not invent a second toggle. */
+
+.create-reveal {
+  --os-reveal-closed: 0px;
+}
+
+.create-disclosure {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  align-self: flex-start;
+  max-width: 100%;
+  margin: 0;
+  padding: 0.1rem 0;
+  border: 0;
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.48);
+  font: inherit;
+  font-size: var(--os-stamp-size, 0.75rem);
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.create-disclosure:hover,
+.create-disclosure:focus-visible {
+  color: rgb(var(--fg-rgb) / 0.72);
+  outline: none;
+}
+
+.create-disclosure-chevron {
+  display: block;
+  width: 0.7rem;
+  height: 0.7rem;
+  flex-shrink: 0;
+  color: inherit;
+  transform-origin: 50% 50%;
+  transform-box: fill-box;
+  transition: transform 160ms ease;
+}
+
+.create-disclosure.is-open .create-disclosure-chevron {
+  transform: rotate(180deg);
+}
+
+.create-reveal-body {
+  display: flex;
+  flex-direction: column;
+  gap: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .create-disclosure-chevron {
+    transition: none;
+  }
+}

@@ -18,6 +18,11 @@ import {
   useDiscardConfirm,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import {
+  CreateDisclosure,
+  CreateRevealPanel,
+  useCreateReveal,
+} from '@/components/create/create-disclosure';
 import { InfoDrawer } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -63,6 +68,14 @@ import {
   GuildLookPreview,
 } from '@/features/guilds/guild-look-preview';
 import { GuildTagsEditor } from '@/features/guilds/guild-tags-editor';
+import {
+  MEDIA_FRAME_PAN_CENTER,
+  type MediaFramePan,
+} from '@/lib/media-frame-pan';
+import {
+  prepareProfileAvatarForSave,
+  prepareProfileBannerForSave,
+} from '@/lib/prepare-profile-editor-media';
 import { prepareSquareOpaqueJpeg } from '@/lib/prepare-square-opaque-jpeg';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import { normalizeGuildEditorTags } from '@/features/guilds/guild-tag-editor';
@@ -105,10 +118,14 @@ export function GuildCreatePanel() {
   const [slugTouched, setSlugTouched] = useState(false);
   const [description, setDescription] = useState('');
   const [aboutOpen, setAboutOpen] = useState(false);
+  const aboutReveal = useCreateReveal(aboutOpen);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [badgeFile, setBadgeFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [badgePreview, setBadgePreview] = useState<string | null>(null);
+  const [bannerPan, setBannerPan] =
+    useState<MediaFramePan>(MEDIA_FRAME_PAN_CENTER);
+  const [badgePan, setBadgePan] = useState<MediaFramePan>(MEDIA_FRAME_PAN_CENTER);
   const [accessGated, setAccessGated] = useState(false);
   const [memberDriven, setMemberDriven] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
@@ -172,6 +189,7 @@ export function GuildCreatePanel() {
       const prepared = await prepareSquareOpaqueJpeg(file);
       setError(null);
       setBadgeFile(prepared);
+      setBadgePan(MEDIA_FRAME_PAN_CENTER);
       setBadgePreview((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return URL.createObjectURL(prepared);
@@ -195,6 +213,7 @@ export function GuildCreatePanel() {
     }
     setError(null);
     setBannerFile(file);
+    setBannerPan(MEDIA_FRAME_PAN_CENTER);
     setBannerPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return URL.createObjectURL(file);
@@ -203,6 +222,7 @@ export function GuildCreatePanel() {
 
   const clearBadge = () => {
     setBadgeFile(null);
+    setBadgePan(MEDIA_FRAME_PAN_CENTER);
     setBadgePreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
@@ -211,6 +231,7 @@ export function GuildCreatePanel() {
 
   const clearBanner = () => {
     setBannerFile(null);
+    setBannerPan(MEDIA_FRAME_PAN_CENTER);
     setBannerPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
@@ -324,8 +345,15 @@ export function GuildCreatePanel() {
       };
       let bannerCid: string | null = null;
       let badgeCid: string | null = null;
-      if (bannerFile) {
-        const uploaded = await client.storage.upload(bannerFile);
+      const bannerPrepared = await prepareProfileBannerForSave({
+        file: bannerFile,
+        displayUrl: bannerPreview,
+        pan: bannerPan,
+        removed: false,
+        isVideo: false,
+      });
+      if (bannerPrepared) {
+        const uploaded = await client.storage.upload(bannerPrepared);
         bannerCid = uploaded.cid;
         onsocial.banner = {
           cid: uploaded.cid,
@@ -333,8 +361,14 @@ export function GuildCreatePanel() {
           size: uploaded.size,
         };
       }
-      if (badgeFile) {
-        const uploaded = await client.storage.upload(badgeFile);
+      const badgePrepared = await prepareProfileAvatarForSave({
+        file: badgeFile,
+        displayUrl: badgePreview,
+        pan: badgePan,
+        removed: false,
+      });
+      if (badgePrepared) {
+        const uploaded = await client.storage.upload(badgePrepared);
         badgeCid = uploaded.cid;
         onsocial.badge = {
           cid: uploaded.cid,
@@ -430,6 +464,8 @@ export function GuildCreatePanel() {
         <GuildLookPreview
           bannerUrl={bannerPreview}
           disabled={pending}
+          bannerPan={bannerPan}
+          onBannerPanChange={setBannerPan}
           onBannerChange={onBannerChange}
           onRemoveBanner={clearBanner}
         />
@@ -442,6 +478,8 @@ export function GuildCreatePanel() {
             <GuildBadgeWell
               badgeUrl={badgePreview}
               disabled={pending}
+              badgePan={badgePan}
+              onBadgePanChange={setBadgePan}
               onBadgeChange={(event) => {
                 void onBadgeChange(event);
               }}
@@ -496,19 +534,21 @@ export function GuildCreatePanel() {
           </small>
         </label>
 
-        <button
-          type="button"
-          className="collection-allowlist-toggle"
-          aria-expanded={aboutOpen}
-          disabled={pending}
-          onClick={() => setAboutOpen((open) => !open)}
-        >
-          {guildCreateAboutToggle({
+        <CreateDisclosure
+          open={aboutOpen}
+          label={guildCreateAboutToggle({
             open: aboutOpen,
             hasText: description.trim().length > 0,
           })}
-        </button>
-        {aboutOpen ? (
+          controlsId={fieldId('about-panel')}
+          disabled={pending}
+          onClick={() => setAboutOpen((open) => !open)}
+        />
+        <CreateRevealPanel
+          open={aboutOpen}
+          reveal={aboutReveal}
+          id={fieldId('about-panel')}
+        >
           <label className="guild-field" htmlFor={fieldId('description')}>
             <span>About</span>
             <textarea
@@ -526,7 +566,7 @@ export function GuildCreatePanel() {
               {description.length}/{GUILD_MAX_DESCRIPTION_LENGTH}
             </small>
           </label>
-        ) : null}
+        </CreateRevealPanel>
 
         <div className="guild-field">
           <span>Topic</span>

@@ -19,20 +19,28 @@ function SeriesHeadingBone() {
   );
 }
 
-/** Use-first row bone — thumb, title, holding line, corner time, Play/Read pill. */
+/** Use-first row bone — title|trail, then meta with Play/Read beside. */
 function HoldingRowBone() {
   return (
     <div className="market-listing-row market-listing-row--skeleton collectibles-holding-row--skeleton">
       <span className="standing-row-shimmer market-listing-thumb-shimmer" />
-      <div className="market-listing-copy">
-        <div className="market-listing-head">
-          <span className="standing-row-shimmer standing-row-shimmer-line market-listing-shimmer-title" />
+      <div className="drops-discovery-body">
+        <div className="drops-discovery-top">
+          <div className="market-listing-head">
+            <span className="standing-row-shimmer standing-row-shimmer-line market-listing-shimmer-title" />
+          </div>
+          <div className="market-listing-action-col">
+            <span className="standing-row-shimmer standing-row-shimmer-line market-listing-shimmer-time" />
+          </div>
         </div>
-        <span className="standing-row-shimmer standing-row-shimmer-line market-listing-shimmer-meta" />
-      </div>
-      <div className="market-listing-action-col">
-        <span className="standing-row-shimmer standing-row-shimmer-line market-listing-shimmer-time" />
-        <span className="standing-row-shimmer market-listing-shimmer-action" />
+        <div className="drops-discovery-ledger">
+          <div className="drops-discovery-stack">
+            <span className="standing-row-shimmer standing-row-shimmer-line market-listing-shimmer-meta" />
+          </div>
+          <div className="market-listing-action-col">
+            <span className="standing-row-shimmer market-listing-shimmer-action" />
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -6,7 +6,7 @@ describe('composeDockAriaLabel', () => {
     expect(composeDockAriaLabel('post')).toBe('Compose a post');
     expect(composeDockAriaLabel('article')).toBe('Write an article');
     expect(composeDockAriaLabel('announce')).toBe('Post this drop');
-    expect(composeDockAriaLabel('drop')).toBe('Start a drop');
+    expect(composeDockAriaLabel('drop')).toBe('New drop');
     expect(composeDockAriaLabel('mint')).toBe('Mint');
     expect(composeDockAriaLabel('propose')).toBe('Create a proposal');
   });

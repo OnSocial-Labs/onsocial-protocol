@@ -1,15 +1,7 @@
 'use client';
 
-import Link from 'next/link';
-import {
-  BookmarkFillIcon,
-  GiftFillIcon,
-  OsIconAction,
-  ShopFillIcon,
-} from '@onsocial/ui';
+import { ShopFillIcon } from '@onsocial/ui';
 import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
-import { useAppWallet } from '@/contexts/app-wallet-context';
-import { APP_DROPS_PATH, dropsPath } from '@/lib/app-routes';
 
 interface MarketSearchHeadingProps {
   listingQuery?: string;
@@ -48,39 +40,5 @@ export function MarketSearchHeading({
       idleClassName="discover-nav-search-field"
       leadingIcon={<ShopFillIcon className="search-field-icon" aria-hidden />}
     />
-  );
-}
-
-/** Drops + Saved — same `actions` slot / icon style as Hubs +. */
-export function MarketHeadingActions() {
-  const { accountId } = useAppWallet();
-  const viewerAccountId = accountId?.trim() || null;
-
-  return (
-    <>
-      <OsIconAction asChild ariaLabel="Browse drops" title="Primary edition Drops">
-        <Link href={APP_DROPS_PATH} scroll={false}>
-          <GiftFillIcon aria-hidden className="glass-sheet-close-icon" />
-        </Link>
-      </OsIconAction>
-      {viewerAccountId ? (
-        <OsIconAction asChild ariaLabel="Saved drops" title="Bookmarked drops">
-          <Link href={dropsPath({ sort: 'saved' })} scroll={false}>
-            <BookmarkFillIcon aria-hidden className="glass-sheet-close-icon" />
-          </Link>
-        </OsIconAction>
-      ) : null}
-    </>
-  );
-}
-
-/** Loading shell actions — Drops only (no wallet required). */
-export function MarketLoadingActions() {
-  return (
-    <OsIconAction asChild ariaLabel="Browse drops" title="Primary edition Drops">
-      <Link href={APP_DROPS_PATH} scroll={false}>
-        <GiftFillIcon aria-hidden className="glass-sheet-close-icon" />
-      </Link>
-    </OsIconAction>
   );
 }

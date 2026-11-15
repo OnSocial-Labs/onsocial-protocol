@@ -19,7 +19,6 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
-  MarketHeadingActions,
   MarketSearchHeading,
 } from '@/features/market/market-heading';
 import { MarketCreatorShop } from '@/features/market/market-creator-shop';
@@ -2093,7 +2092,6 @@ export function MarketPagePanel({
           }
         />
       }
-      actions={<MarketHeadingActions />}
       toolbar={
         shopMode && creatorEmpty ? undefined : (
           <MarketListingToolbar

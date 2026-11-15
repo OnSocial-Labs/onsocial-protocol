@@ -83,8 +83,10 @@ export interface ActionDrawerProps {
   label: string;
   /** Optional rich title (e.g. custom heading). Defaults to `label`. */
   title?: ReactNode;
-  /** Sibling of the title outside the heading (e.g. Clear). */
+  /** Hugs the title on the same line. */
   titleAccessory?: ReactNode;
+  /** Trailing control before close (e.g. Filter → Clear). */
+  endAccessory?: ReactNode;
   /** Quiet line under the title. */
   copy?: string;
   /** aria-label for the inner list (defaults to `label`). */
@@ -137,6 +139,7 @@ export function ActionDrawer({
   label,
   title,
   titleAccessory,
+  endAccessory,
   copy,
   listAriaLabel,
   items,
@@ -226,6 +229,7 @@ export function ActionDrawer({
       label={label}
       title={title}
       titleAccessory={titleAccessory}
+      endAccessory={endAccessory}
       copy={copy}
       closeAriaLabel={closeAriaLabel}
       showClose={showClose}

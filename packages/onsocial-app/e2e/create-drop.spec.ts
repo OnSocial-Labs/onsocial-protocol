@@ -70,7 +70,7 @@ test.describe('create drop', () => {
     );
     await expectConnectVoice(page);
     await expect(
-      page.getByRole('button', { name: 'Start drop', exact: true })
+      page.getByRole('button', { name: 'Publish', exact: true })
     ).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Back', exact: true }).click();
@@ -191,7 +191,7 @@ test.describe('create drop', () => {
     const descriptionToggle = page.locator('.drop-create-description-toggle');
     await expect(descriptionToggle).toHaveText('Description');
     await expect(
-      descriptionToggle.locator('.drop-create-disclosure-chevron')
+      descriptionToggle.locator('.create-disclosure-chevron')
     ).toBeVisible();
     const descriptionDecoration = await descriptionToggle.evaluate(
       (el) => getComputedStyle(el).textDecorationLine

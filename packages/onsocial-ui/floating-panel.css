@@ -20,9 +20,6 @@
     --os-fp-muted-90: hsl(218 5% 43% / 0.9);
     --os-fp-neutral-bg: rgb(100 116 139 / 0.06);
     --os-fp-neutral-frame-bg: rgb(100 116 139 / 0.08);
-    --os-fp-search-bg: hsl(0 0% 100% / 0.45);
-    --os-fp-search-bg-focus: hsl(0 0% 100% / 0.6);
-    --os-fp-search-border-focus: hsl(218 8% 91%);
     --os-fp-count-border: hsl(218 8% 91% / 0.35);
     --os-fp-count-border-strong: hsl(218 8% 91% / 0.45);
     --os-fp-count-bg: hsl(0 0% 100% / 0.55);
@@ -46,9 +43,6 @@
     --os-fp-muted-90: hsl(218 6% 65% / 0.9);
     --os-fp-neutral-bg: rgb(148 163 184 / 0.06);
     --os-fp-neutral-frame-bg: rgb(148 163 184 / 0.08);
-    --os-fp-search-bg: hsl(0 0% 0% / 0.45);
-    --os-fp-search-bg-focus: hsl(0 0% 0% / 0.6);
-    --os-fp-search-border-focus: hsl(218 6% 16%);
     --os-fp-count-border: hsl(218 6% 16% / 0.35);
     --os-fp-count-border-strong: hsl(218 6% 16% / 0.45);
     --os-fp-count-bg: hsl(0 0% 0% / 0.55);
@@ -70,9 +64,6 @@
     --os-fp-muted-90: hsl(218 6% 65% / 0.9);
     --os-fp-neutral-bg: rgb(148 163 184 / 0.06);
     --os-fp-neutral-frame-bg: rgb(148 163 184 / 0.08);
-    --os-fp-search-bg: hsl(0 0% 0% / 0.45);
-    --os-fp-search-bg-focus: hsl(0 0% 0% / 0.6);
-    --os-fp-search-border-focus: hsl(218 6% 16%);
     --os-fp-count-border: hsl(218 6% 16% / 0.35);
     --os-fp-count-border-strong: hsl(218 6% 16% / 0.45);
     --os-fp-count-bg: hsl(0 0% 0% / 0.55);
@@ -94,9 +85,6 @@
       --os-fp-muted-90: hsl(218 5% 43% / 0.9);
       --os-fp-neutral-bg: rgb(100 116 139 / 0.06);
       --os-fp-neutral-frame-bg: rgb(100 116 139 / 0.08);
-      --os-fp-search-bg: hsl(0 0% 100% / 0.45);
-      --os-fp-search-bg-focus: hsl(0 0% 100% / 0.6);
-      --os-fp-search-border-focus: hsl(218 8% 91%);
       --os-fp-count-border: hsl(218 8% 91% / 0.35);
       --os-fp-count-border-strong: hsl(218 8% 91% / 0.45);
       --os-fp-count-bg: hsl(0 0% 100% / 0.55);
@@ -324,54 +312,15 @@
   transform: rotate(180deg);
 }
 
-/* Borderless filled search — matches the sheet-chrome search treatment. */
+/*
+ * Toolbar search chrome class — SearchField owns fill, icon ladder, clear ×
+ * (`search-field.css`). Keep only flex seat here.
+ */
 .os-floating-panel-search {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
   min-width: 0;
-  height: 2rem;
-  padding: 0 0.625rem;
-  border: 1px solid transparent;
-  border-radius: 9999px;
-  background: var(--os-fp-search-bg);
-  color: var(--os-fp-muted);
   cursor: text;
-  transition:
-    background 300ms ease,
-    color 300ms ease;
-}
-
-.os-floating-panel-search:focus-within {
-  background: var(--os-fp-search-bg-focus);
-  color: var(--os-fp-fg);
-  outline: none;
-}
-
-.os-floating-panel-search .search-field-icon {
-  width: 1rem;
-  height: 1rem;
-  flex-shrink: 0;
-  opacity: 1;
-  color: inherit;
-}
-
-.os-floating-panel-search .search-field-input {
-  color: var(--os-fp-fg);
-  font-size: var(--os-control-label-compact-size, 0.8125rem);
-}
-
-.os-floating-panel-search .search-field-input::placeholder {
-  color: var(--os-fp-muted-90);
-}
-
-.os-floating-panel-search .search-field-clear {
-  color: var(--os-fp-muted);
-}
-
-.os-floating-panel-search .search-field-clear:hover,
-.os-floating-panel-search .search-field-clear:focus-visible {
-  color: var(--os-fp-fg);
 }
 
 .os-floating-panel-count {

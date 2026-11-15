@@ -37,10 +37,6 @@
   padding-top: 0.5rem;
 }
 
-.drop-create-reveal {
-  --os-reveal-closed: 0px;
-}
-
 .drop-create-sale-row.is-required .drop-create-extra-row-value {
   color: rgb(var(--fg-rgb) / 0.92);
 }
@@ -51,47 +47,6 @@
 
 .drop-create-sale-open-hint {
   margin: 0 0 0.65rem;
-}
-
-.drop-create-disclosure {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.28rem;
-  align-self: flex-start;
-  max-width: 100%;
-  margin: 0;
-  padding: 0.1rem 0;
-  border: 0;
-  background: transparent;
-  color: rgb(var(--fg-rgb) / 0.48);
-  font: inherit;
-  font-size: var(--os-stamp-size, 0.75rem);
-  font-weight: 600;
-  line-height: 1.4;
-  text-align: left;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.drop-create-disclosure:hover,
-.drop-create-disclosure:focus-visible {
-  color: rgb(var(--fg-rgb) / 0.72);
-  outline: none;
-}
-
-.drop-create-disclosure-chevron {
-  display: block;
-  width: 0.7rem;
-  height: 0.7rem;
-  flex-shrink: 0;
-  color: inherit;
-  transform-origin: 50% 50%;
-  transform-box: fill-box;
-  transition: transform 160ms ease;
-}
-
-.drop-create-disclosure.is-open .drop-create-disclosure-chevron {
-  transform: rotate(180deg);
 }
 
 /* One chip row, pinned. Same chips as the rest of the form. */
@@ -110,7 +65,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .drop-create-disclosure-chevron,
   .drop-create-field-rule {
     transition: none;
   }

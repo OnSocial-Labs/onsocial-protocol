@@ -3,14 +3,12 @@
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type ChangeEvent,
   type FocusEvent,
   type FormEvent,
-  type RefObject,
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import './drop-create-spacing.css';
@@ -22,8 +20,6 @@ import {
   OsIconAction,
   OsAppChromeToolbarRail,
   QuestionMarkCircleFillIcon,
-  ChevronDownIcon,
-  useOsReveal,
   osFieldBorderedClassName,
 } from '@onsocial/ui';
 import { InfoDrawer } from '@onsocial/ui';
@@ -31,6 +27,11 @@ import { AmountField } from '@onsocial/ui';
 import { Divider } from '@onsocial/ui';
 import { SuffixField } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import {
+  CreateDisclosure,
+  CreateRevealPanel,
+  useCreateReveal,
+} from '@/components/create/create-disclosure';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
@@ -271,64 +272,6 @@ function fieldId(name: string) {
   return `drop-create-${name}`;
 }
 
-/** Closed is 0. Open height is the measured section, animated by os-reveal. */
-function useDropCreateReveal(open: boolean) {
-  const { hostRef, clipRef, innerRef, measure } = useOsReveal<HTMLDivElement>();
-  const measureClosed = useCallback(() => {
-    measure({ closedPx: 0 });
-  }, [measure]);
-
-  useLayoutEffect(() => {
-    measureClosed();
-  }, [measureClosed, open]);
-
-  useEffect(() => {
-    const inner = innerRef.current;
-    if (!inner || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(() => measureClosed());
-    observer.observe(inner);
-    return () => observer.disconnect();
-  }, [innerRef, measureClosed]);
-
-  return {
-    hostRef,
-    clipRef: clipRef as RefObject<HTMLDivElement | null>,
-    innerRef: innerRef as RefObject<HTMLDivElement | null>,
-  };
-}
-
-function DropCreateDisclosure({
-  open,
-  label,
-  controlsId,
-  disabled,
-  className,
-  onClick,
-}: {
-  open: boolean;
-  label: string;
-  controlsId: string;
-  disabled?: boolean;
-  className?: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className={`drop-create-disclosure${open ? ' is-open' : ''}${
-        className ? ` ${className}` : ''
-      }`}
-      disabled={disabled}
-      aria-expanded={open}
-      aria-controls={controlsId}
-      onClick={onClick}
-    >
-      <span>{label}</span>
-      <ChevronDownIcon className="drop-create-disclosure-chevron" aria-hidden />
-    </button>
-  );
-}
-
 function isFormFieldTarget(target: EventTarget | null): boolean {
   return (
     target instanceof HTMLInputElement ||
@@ -402,8 +345,8 @@ export function CreateDropPanel() {
   );
   const [createReady, setCreateReady] = useState(false);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
-  const descriptionReveal = useDropCreateReveal(descriptionOpen);
-  const advancedReveal = useDropCreateReveal(showAdvanced);
+  const descriptionReveal = useCreateReveal(descriptionOpen);
+  const advancedReveal = useCreateReveal(showAdvanced);
   const dropIdRef = useRef<HTMLInputElement>(null);
   const seriesFieldRef = useRef<HTMLInputElement>(null);
   const placeFieldRef = useRef<HTMLInputElement>(null);
@@ -448,7 +391,7 @@ export function CreateDropPanel() {
   const [seriesName, setSeriesName] = useState('');
   const [pending, setPending] = useState(false);
   /** Upload pins first (album tracks); wallet sign stays a separate label. */
-  const [pendingLabel, setPendingLabel] = useState('Starting…');
+  const [pendingLabel, setPendingLabel] = useState('Publishing…');
   /**
    * Heavy pins finished — next submit only opens the wallet. A second click
    * keeps the user gesture so the approve sheet actually pops.
@@ -2190,7 +2133,7 @@ export function CreateDropPanel() {
           );
         } finally {
           setPending(false);
-          setPendingLabel('Starting…');
+          setPendingLabel('Publishing…');
         }
         return;
       }
@@ -2264,7 +2207,7 @@ export function CreateDropPanel() {
           );
         } finally {
           setPending(false);
-          setPendingLabel('Starting…');
+          setPendingLabel('Publishing…');
         }
         return;
       }
@@ -2306,7 +2249,7 @@ export function CreateDropPanel() {
           );
         } finally {
           setPending(false);
-          setPendingLabel('Starting…');
+          setPendingLabel('Publishing…');
         }
         return;
       }
@@ -2369,7 +2312,7 @@ export function CreateDropPanel() {
                 : 'Could not upload the drop cover. Try again.'
             );
             setPending(false);
-            setPendingLabel('Starting…');
+            setPendingLabel('Publishing…');
             setConfirmPhase(hasMatchingPin ? 'ready' : 'review');
             return;
           }
@@ -2527,7 +2470,7 @@ export function CreateDropPanel() {
         setConfirmPhase(hasMatchingPin ? 'ready' : 'review');
       } finally {
         setPending(false);
-        setPendingLabel('Starting…');
+        setPendingLabel('Publishing…');
       }
     } finally {
       startInFlightRef.current = false;
@@ -2721,7 +2664,7 @@ export function CreateDropPanel() {
               tone="frosted-primary"
               size="sm"
               borderless
-              className="drop-create-header-cta"
+              className="os-header-commit"
             >
               <OsSheetAction
                 variant="primary"
@@ -2753,7 +2696,7 @@ export function CreateDropPanel() {
               tone="frosted-primary"
               size="sm"
               borderless
-              className="drop-create-header-cta"
+              className="os-header-commit"
             >
               <OsSheetAction
                 type="button"
@@ -2772,7 +2715,7 @@ export function CreateDropPanel() {
                   ? 'Connect'
                   : needsWalletConfirm
                     ? 'Continue'
-                    : 'Start drop'}
+                    : 'Publish'}
               </OsSheetAction>
             </OsSheetActions>
           </>
@@ -3667,7 +3610,7 @@ export function CreateDropPanel() {
           className="drop-create-section"
           data-drop-create-section="description"
         >
-          <DropCreateDisclosure
+          <CreateDisclosure
             className="drop-create-description-toggle"
             open={descriptionShown}
             label={dropCreateDescriptionToggle()}
@@ -3675,41 +3618,28 @@ export function CreateDropPanel() {
             disabled={pending}
             onClick={() => setDescriptionOpen((open) => !open)}
           />
-          <div
-            ref={descriptionReveal.hostRef}
-            className={`drop-create-reveal os-reveal${
-              descriptionShown ? ' is-open' : ''
-            } drop-create-description-reveal`}
+          <CreateRevealPanel
+            open={descriptionShown}
+            reveal={descriptionReveal}
+            id={fieldId('description-panel')}
+            className="drop-create-description-reveal"
           >
-            <div
-              ref={descriptionReveal.clipRef}
-              id={fieldId('description-panel')}
-              className="os-reveal-clip"
-            >
-              <div
-                ref={descriptionReveal.innerRef}
-                className="os-reveal-inner drop-create-reveal-body"
-                inert={descriptionShown ? undefined : true}
-                aria-hidden={descriptionShown ? undefined : true}
-              >
-                <div className="guild-field">
-                  <textarea
-                    id={fieldId('description')}
-                    ref={descriptionRef}
-                    value={description}
-                    onChange={(event) => setDescription(event.target.value)}
-                    placeholder={dropCreateDescriptionPlaceholder(isWriting)}
-                    aria-label="Description"
-                    maxLength={MAX_DESCRIPTION}
-                    className={osFieldBorderedClassName}
-                  />
-                  <small>
-                    {description.length}/{MAX_DESCRIPTION}
-                  </small>
-                </div>
-              </div>
+            <div className="guild-field">
+              <textarea
+                id={fieldId('description')}
+                ref={descriptionRef}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder={dropCreateDescriptionPlaceholder(isWriting)}
+                aria-label="Description"
+                maxLength={MAX_DESCRIPTION}
+                className={osFieldBorderedClassName}
+              />
+              <small>
+                {description.length}/{MAX_DESCRIPTION}
+              </small>
             </div>
-          </div>
+          </CreateRevealPanel>
         </div>
 
         <div className="drop-create-terms">
@@ -3872,30 +3802,19 @@ export function CreateDropPanel() {
         </div>
 
         <div className="drop-create-advanced">
-          <DropCreateDisclosure
+          <CreateDisclosure
             open={showAdvanced}
             label={dropCreateMoreToggle(showAdvanced)}
             controlsId={fieldId('advanced-panel')}
             disabled={pending}
             onClick={() => setShowAdvanced((open) => !open)}
           />
-          <div
-            ref={advancedReveal.hostRef}
-            className={`drop-create-reveal os-reveal${
-              showAdvanced ? ' is-open' : ''
-            } drop-create-advanced-reveal`}
+          <CreateRevealPanel
+            open={showAdvanced}
+            reveal={advancedReveal}
+            id={fieldId('advanced-panel')}
+            className="drop-create-advanced-reveal"
           >
-            <div
-              ref={advancedReveal.clipRef}
-              id={fieldId('advanced-panel')}
-              className="os-reveal-clip"
-            >
-              <div
-                ref={advancedReveal.innerRef}
-                className="os-reveal-inner drop-create-reveal-body"
-                inert={showAdvanced ? undefined : true}
-                aria-hidden={showAdvanced ? undefined : true}
-              >
                 {isWriting && writingFormat === 'book' && bookPdfInMore ? (
                   <div
                     className="drop-create-attach"
@@ -4044,9 +3963,7 @@ export function CreateDropPanel() {
                     }}
                   />
                 </DropCreateExtraList>
-              </div>
-            </div>
-          </div>
+          </CreateRevealPanel>
         </div>
 
         {error ? (
