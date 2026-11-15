@@ -16,6 +16,7 @@ import {
   StorageShareRecipientRow,
   StorageShareSplitVisual,
 } from '@/components/wallet/app-storage-share-ui';
+import { WalletConnectedReviewError } from '@/contexts/app-wallet-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useStorageSharesGranted } from '@/hooks/use-storage-shares-granted';
 import { useStorageShareRecipientsValidation } from '@/hooks/use-storage-share-recipients';
@@ -45,7 +46,10 @@ import {
   USER_STORAGE_SHARE_POOL_DEPOSIT_HINT,
   USER_STORAGE_SHARE_HINT,
 } from '@/lib/user-storage-display';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  isWalletUserCancellation,
+  walletMismatchInfoMessage,
+} from '@/lib/wallet-errors';
 import {
   txToastConfirming,
   txToastError,
@@ -87,7 +91,7 @@ export function AppStorageSharePanel({
   onPoolChanged: () => void;
   getSigningWallet: () => Promise<SigningWallet>;
 }) {
-  const { trackTransaction } = useAppTransactionFeedback();
+  const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const baseId = useId();
   const [rows, setRows] = useState<string[]>(['']);
   const [sharePercent, setSharePercent] = useState<number>(100);
@@ -229,6 +233,16 @@ export function AppStorageSharePanel({
       });
       if (!confirmed) return;
     } catch (err) {
+      if (err instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          ...walletMismatchInfoMessage(
+            err.accountId,
+            needsFunding ? 'Fund share pool' : 'Add to share pool'
+          ),
+        });
+        return;
+      }
       if (isWalletUserCancellation(err)) return;
       const message = getErrorMessage(err);
       onError(message);
@@ -264,6 +278,13 @@ export function AppStorageSharePanel({
       });
       if (!confirmed) return;
     } catch (err) {
+      if (err instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          ...walletMismatchInfoMessage(err.accountId, 'Share storage'),
+        });
+        return;
+      }
       if (isWalletUserCancellation(err)) return;
       const message = getErrorMessage(err);
       onError(message);

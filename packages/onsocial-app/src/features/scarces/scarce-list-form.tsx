@@ -21,7 +21,10 @@ import { osFieldBorderedClassName } from '@onsocial/ui';
 import { AmountField } from '@onsocial/ui';
 import { SuffixField } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import {
+  useAppWallet,
+  WalletConnectedReviewError,
+} from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
   findLiveListingForPost,
@@ -91,7 +94,10 @@ import {
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import { STORAGE_DEPOSIT_PRESETS_NEAR } from '@/lib/user-storage-display';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  isWalletUserCancellation,
+  walletMismatchInfoMessage,
+} from '@/lib/wallet-errors';
 
 type FromPostCommerceMode = 'drop' | 'market';
 
@@ -637,23 +643,23 @@ export function ScarceListForm({
               ? 'Enter a royalty between 0 and 50%.'
               : null;
 
+  const listActionLabel =
+    commerceMode === 'drop'
+      ? attachCollectionId
+        ? 'Attach Drop'
+        : 'Create Drop'
+      : 'List on Market';
   const footerState = useMemo((): CommerceSheetFooterState => {
     const isDrop = commerceMode === 'drop';
     return {
       visible: true,
-      primaryLabel: isConnected
-        ? isDrop
-          ? attachCollectionId
-            ? 'Attach Drop'
-            : 'Create Drop'
-          : 'List on Market'
-        : 'Connect',
+      primaryLabel: isConnected ? listActionLabel : 'Connect',
       primaryPendingLabel: isDrop ? 'Creating Drop…' : 'Listing…',
       canSubmit: isConnected ? canSubmit : true,
       pending,
       disabled: pending || (isConnected && !canSubmit),
     };
-  }, [attachCollectionId, canSubmit, commerceMode, isConnected, pending]);
+  }, [canSubmit, commerceMode, isConnected, listActionLabel, pending]);
 
   useSyncCommerceSheetFooter(footerState, onFooterStateChange);
 
@@ -690,7 +696,9 @@ export function ScarceListForm({
 
     setPending(true);
     try {
-      const { accountId, wallet } = await getSigningWallet();
+      const { accountId, wallet } = await getSigningWallet({
+        reviewAfterPicker: true,
+      });
       const client = createAppScarcesWalletClient(accountId, wallet);
       const key = postScarceKey(post.accountId, post.postId);
       const coverMedia =
@@ -832,6 +840,13 @@ export function ScarceListForm({
       });
       onSuccess?.({ priceNear, listingId });
     } catch (cause) {
+      if (cause instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          ...walletMismatchInfoMessage(cause.accountId, listActionLabel),
+        });
+        return;
+      }
       if (isWalletUserCancellation(cause)) return;
       setTxResult({
         type: 'error',

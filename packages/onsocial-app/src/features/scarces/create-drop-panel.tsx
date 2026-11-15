@@ -111,6 +111,7 @@ import { buildVariationSetZip } from '@/features/scarces/variation-set-zip';
 import type { GenerativeLayerSpec } from '@onsocial/sdk';
 import {
   GenerativeDropBuilder,
+  GenerativePollPaused,
   type BuilderDesignSummary,
   type GeneratedSet,
   type GenerativeBuilderHandle,
@@ -1498,15 +1499,13 @@ export function CreateDropPanel() {
 
   const pollServerGeneration = useCallback(
     async (jobId: string) => {
-      if (accountId) {
-        const client = createAppOnSocialClient(accountId);
-        return client.scarces.collections.generateVariationSetStatus(jobId);
+      if (!accountId) {
+        throw new GenerativePollPaused(jobId);
       }
-      const { accountId: signedId, wallet } = await getSigningWallet();
-      const client = createAppScarcesWalletClient(signedId, wallet);
+      const client = createAppOnSocialClient(accountId);
       return client.scarces.collections.generateVariationSetStatus(jobId);
     },
-    [accountId, getSigningWallet]
+    [accountId]
   );
 
   const persistGenerateJob = useCallback(

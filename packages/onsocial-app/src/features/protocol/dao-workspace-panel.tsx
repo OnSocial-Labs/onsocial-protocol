@@ -22,7 +22,10 @@ import { SECONDARY_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor'
 import { useFeedWindow } from '@/features/home/use-feed-window';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import {
+  useAppWallet,
+  WalletConnectedReviewError,
+} from '@/contexts/app-wallet-context';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import {
   rememberCommunityDao,
@@ -105,6 +108,7 @@ import {
 } from '@/features/protocol/protocol-policy';
 import { ProtocolSettingsActionSheet } from '@/features/protocol/protocol-settings-action-sheet';
 import { ProtocolSettingsSheet } from '@/features/protocol/protocol-settings-sheet';
+import { protocolStakeModeVerb } from '@/features/protocol/protocol-stake-amount';
 import { ProtocolStakeSheet } from '@/features/protocol/protocol-stake-sheet';
 import {
   buildProtocolDelegationPlan,
@@ -149,7 +153,10 @@ import {
   writeDaoFeedCache,
 } from '@/lib/dao-workspace-prefetch';
 import { invalidateDaoPortfolioFaceCaches } from '@/lib/invalidate-dao-portfolio-face';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  isWalletUserCancellation,
+  walletMismatchInfoMessage,
+} from '@/lib/wallet-errors';
 
 /** Below page drawer (48) + launcher (60) so dock actions aren’t buried. */
 const PROPOSALS_PAGE_Z = 45;
@@ -160,6 +167,22 @@ const SEARCH_DEBOUNCE_MS = 300;
 
 /** Tool the Manage sheet can ask `DaoWorkspacePanel` to open. */
 export type DaoWorkspaceTool = 'propose' | 'stake' | 'settings' | 'info' | null;
+
+function daoVoteButtonLabel(
+  action: ProtocolDaoAction,
+  proposalStatus: string | null | undefined
+): string {
+  switch (action) {
+    case 'VoteApprove':
+      return 'Approve';
+    case 'VoteReject':
+      return 'Reject';
+    case 'VoteRemove':
+      return 'Remove';
+    case 'Finalize':
+      return proposalStatus === 'Failed' ? 'Retry' : 'Finalize';
+  }
+}
 
 /**
  * Embeddable governance + treasury feed for a single DAO — the Protocol
@@ -1187,7 +1210,15 @@ export function DaoWorkspacePanel({
 
         bumpDaoWorkspacePrefetch(daoAccountId);
       } catch (error) {
-        if (!isWalletUserCancellation(error)) {
+        if (error instanceof WalletConnectedReviewError) {
+          setTxResult({
+            type: 'info',
+            ...walletMismatchInfoMessage(
+              error.accountId,
+              daoVoteButtonLabel(action, proposal.status)
+            ),
+          });
+        } else if (!isWalletUserCancellation(error)) {
           setTxResult({
             type: 'error',
             msg:
@@ -1241,7 +1272,12 @@ export function DaoWorkspacePanel({
 
         await landOnSubmittedProposal(proposalId);
       } catch (error) {
-        if (!isWalletUserCancellation(error)) {
+        if (error instanceof WalletConnectedReviewError) {
+          setTxResult({
+            type: 'info',
+            ...walletMismatchInfoMessage(error.accountId, 'Propose'),
+          });
+        } else if (!isWalletUserCancellation(error)) {
           setTxResult({
             type: 'error',
             msg:
@@ -1292,7 +1328,12 @@ export function DaoWorkspacePanel({
 
         await landOnSubmittedProposal(proposalId);
       } catch (error) {
-        if (!isWalletUserCancellation(error)) {
+        if (error instanceof WalletConnectedReviewError) {
+          setTxResult({
+            type: 'info',
+            ...walletMismatchInfoMessage(error.accountId, 'Propose'),
+          });
+        } else if (!isWalletUserCancellation(error)) {
           setTxResult({
             type: 'error',
             msg:
@@ -1359,7 +1400,15 @@ export function DaoWorkspacePanel({
         setStakeOpen(false);
         void face?.refresh({ fresh: true });
       } catch (error) {
-        if (!isWalletUserCancellation(error)) {
+        if (error instanceof WalletConnectedReviewError) {
+          setTxResult({
+            type: 'info',
+            ...walletMismatchInfoMessage(
+              error.accountId,
+              protocolStakeModeVerb('delegate')
+            ),
+          });
+        } else if (!isWalletUserCancellation(error)) {
           setTxResult({
             type: 'error',
             msg:
@@ -1411,7 +1460,15 @@ export function DaoWorkspacePanel({
         setStakeOpen(false);
         void face?.refresh({ fresh: true });
       } catch (error) {
-        if (!isWalletUserCancellation(error)) {
+        if (error instanceof WalletConnectedReviewError) {
+          setTxResult({
+            type: 'info',
+            ...walletMismatchInfoMessage(
+              error.accountId,
+              protocolStakeModeVerb('undelegate')
+            ),
+          });
+        } else if (!isWalletUserCancellation(error)) {
           setTxResult({
             type: 'error',
             msg:
@@ -1464,7 +1521,15 @@ export function DaoWorkspacePanel({
         setStakeOpen(false);
         void face?.refresh({ fresh: true });
       } catch (error) {
-        if (!isWalletUserCancellation(error)) {
+        if (error instanceof WalletConnectedReviewError) {
+          setTxResult({
+            type: 'info',
+            ...walletMismatchInfoMessage(
+              error.accountId,
+              protocolStakeModeVerb('withdraw')
+            ),
+          });
+        } else if (!isWalletUserCancellation(error)) {
           setTxResult({
             type: 'error',
             msg:

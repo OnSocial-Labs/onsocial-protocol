@@ -21,7 +21,10 @@ import {
   guildStoragePoolHeroMeta,
 } from '@/components/wallet/app-storage-share-ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import {
+  useAppWallet,
+  WalletConnectedReviewError,
+} from '@/contexts/app-wallet-context';
 import {
   ProfileAccountSearchPicks,
   profileAccountSearchActive,
@@ -64,7 +67,10 @@ import {
   STORAGE_SHARE_POOL_DEPOSIT_MIN_YOCTO,
   STORAGE_SHARE_POOL_DEPOSIT_PRESETS_NEAR,
 } from '@/lib/user-storage-display';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  isWalletUserCancellation,
+  walletMismatchInfoMessage,
+} from '@/lib/wallet-errors';
 import {
   txToastConfirming,
   txToastError,
@@ -333,6 +339,16 @@ export function GuildGroupStorageSheet({
       });
       if (!confirmed) return;
     } catch (err) {
+      if (err instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          ...walletMismatchInfoMessage(
+            err.accountId,
+            needsFunding ? 'Fund guild pool' : 'Add to guild pool'
+          ),
+        });
+        return;
+      }
       if (isWalletUserCancellation(err)) return;
       const message = getErrorMessage(err);
       setError(message);
@@ -375,6 +391,18 @@ export function GuildGroupStorageSheet({
         ...new Set([...current, ...readyRecipients]),
       ]);
     } catch (err) {
+      if (err instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          ...walletMismatchInfoMessage(
+            err.accountId,
+            readyRecipients.length > 1
+              ? `Add storage · ${readyRecipients.length}`
+              : 'Add storage'
+          ),
+        });
+        return;
+      }
       if (isWalletUserCancellation(err)) return;
       const message = getErrorMessage(err);
       setError(message);
@@ -414,6 +442,13 @@ export function GuildGroupStorageSheet({
       });
       if (!confirmed) return;
     } catch (err) {
+      if (err instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          ...walletMismatchInfoMessage(err.accountId, 'Save default'),
+        });
+        return;
+      }
       if (isWalletUserCancellation(err)) return;
       const message = getErrorMessage(err);
       setError(message);
@@ -449,6 +484,13 @@ export function GuildGroupStorageSheet({
       });
       if (!confirmed) return;
     } catch (err) {
+      if (err instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          ...walletMismatchInfoMessage(err.accountId, 'Turn off default'),
+        });
+        return;
+      }
       if (isWalletUserCancellation(err)) return;
       const message = getErrorMessage(err);
       setError(message);
@@ -484,6 +526,13 @@ export function GuildGroupStorageSheet({
       });
       if (!confirmed) return;
     } catch (err) {
+      if (err instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          ...walletMismatchInfoMessage(err.accountId, 'Remove'),
+        });
+        return;
+      }
       if (isWalletUserCancellation(err)) return;
       const message = getErrorMessage(err);
       setError(message);

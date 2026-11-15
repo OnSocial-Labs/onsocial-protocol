@@ -435,6 +435,7 @@ export function useAppSwap(accountId: string | null) {
     estimating,
     refreshingQuote,
     swapping,
+    clearSwapping: () => setSwapping(false),
     error,
     setError,
     prepareSwapTransactions,

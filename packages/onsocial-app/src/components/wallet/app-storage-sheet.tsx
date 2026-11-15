@@ -24,7 +24,10 @@ import { useSharedStoragePool } from '@/hooks/use-shared-storage-pool';
 import { useUserStorageBalance } from '@/hooks/use-user-storage-balance';
 import { useWalletNearBalance } from '@/hooks/use-wallet-near-balance';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import {
+  useAppWallet,
+  WalletConnectedReviewError,
+} from '@/contexts/app-wallet-context';
 import { finalizeAmountInput } from '@/lib/amount-input';
 import { yoctoToNear } from '@/lib/app-near-rpc';
 import {
@@ -56,7 +59,10 @@ import {
   USER_STORAGE_WITHDRAW_HINT,
   type UserStorageSummary,
 } from '@/lib/user-storage-display';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  isWalletUserCancellation,
+  walletMismatchInfoMessage,
+} from '@/lib/wallet-errors';
 import {
   txToastConfirming,
   txToastError,
@@ -230,7 +236,7 @@ export function AppStorageSheet({
   onStorageChanged,
 }: AppStorageSheetProps) {
   const { getSigningWallet } = useAppWallet();
-  const { trackTransaction } = useAppTransactionFeedback();
+  const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [closing, setClosing] = useState(false);
   const [localRefreshKey, setLocalRefreshKey] = useState(0);
   const [view, setView] = useState<StorageSheetView>('status');
@@ -386,6 +392,16 @@ export function AppStorageSheet({
         refreshAfterTx();
       }
     } catch (err) {
+      if (err instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          ...walletMismatchInfoMessage(
+            err.accountId,
+            view === 'deposit' ? 'Add NEAR' : 'Withdraw NEAR'
+          ),
+        });
+        return;
+      }
       if (isWalletUserCancellation(err)) return;
       setError(
         err instanceof Error ? err.message : 'Transaction did not go through.'

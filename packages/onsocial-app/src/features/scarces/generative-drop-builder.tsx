@@ -89,6 +89,17 @@ export interface BuilderDesignSummary {
   statusLabel: string | null;
 }
 
+/** Poll stopped because no account is connected. The job id stays. */
+export class GenerativePollPaused extends Error {
+  readonly jobId: string;
+
+  constructor(jobId: string) {
+    super('paused');
+    this.name = 'GenerativePollPaused';
+    this.jobId = jobId;
+  }
+}
+
 /** Imperative surface so the host can put Generate in the screen header. */
 export interface GenerativeBuilderHandle {
   generate: () => void;
@@ -459,7 +470,16 @@ export function GenerativeDropBuilder({
                 : `Rendering ${job.progress.done.toLocaleString()}/${job.progress.total.toLocaleString()} on OnSocial…`,
           });
           await new Promise((resolve) => setTimeout(resolve, REMOTE_POLL_MS));
-          job = await remotePoll(job.jobId);
+          try {
+            job = await remotePoll(job.jobId);
+          } catch (cause) {
+            if (cause instanceof GenerativePollPaused) {
+              localJobRef.current = null;
+              setStatus({ kind: 'idle' });
+              return;
+            }
+            throw cause;
+          }
         }
         if (job.state === 'failed' || !job.result?.reference) {
           onJobCleared?.();
@@ -568,7 +588,16 @@ export function GenerativeDropBuilder({
       try {
         setError(null);
         setStatus({ kind: 'working', label: 'Resuming render…' });
-        let job = await remotePollRef.current(resumeJobId);
+        let job: GenerateSetJob;
+        try {
+          job = await remotePollRef.current(resumeJobId);
+        } catch (cause) {
+          if (cause instanceof GenerativePollPaused) {
+            if (!cancelled) setStatus({ kind: 'idle' });
+            return;
+          }
+          throw cause;
+        }
         while (!cancelled && job.state !== 'done' && job.state !== 'failed') {
           setStatus({
             kind: 'working',
@@ -578,7 +607,15 @@ export function GenerativeDropBuilder({
                 : `Rendering ${job.progress.done.toLocaleString()}/${job.progress.total.toLocaleString()} on OnSocial…`,
           });
           await new Promise((resolve) => setTimeout(resolve, REMOTE_POLL_MS));
-          job = await remotePollRef.current(resumeJobId);
+          try {
+            job = await remotePollRef.current(resumeJobId);
+          } catch (cause) {
+            if (cause instanceof GenerativePollPaused) {
+              if (!cancelled) setStatus({ kind: 'idle' });
+              return;
+            }
+            throw cause;
+          }
         }
         if (cancelled) return;
         if (job.state === 'failed' || !job.result?.reference) {

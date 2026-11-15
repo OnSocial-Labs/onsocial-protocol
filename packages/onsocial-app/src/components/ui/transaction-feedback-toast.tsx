@@ -5,14 +5,17 @@ import { createPortal } from 'react-dom';
 import {
   CheckIcon,
   ExternalLinkIcon,
+  InformationCircleIcon,
   MultiplyIcon,
   RefreshIcon,
 } from '@onsocial/ui';
 import { useToastDismissTimer } from '@/hooks/use-toast-dismiss-timer';
 
 export type TransactionFeedback = {
-  type: 'success' | 'error' | 'pending';
+  type: 'success' | 'error' | 'pending' | 'info';
   msg: string;
+  /** Optional bold line above the message. Absent types stay one line. */
+  title?: string;
   /** Optional override — default success/error toast is one-line (no eyebrow). */
   eyebrow?: string;
   /** Session setup only. Wallet = approve the key. Chain = gift or key confirm. */
@@ -24,7 +27,7 @@ export type TransactionFeedback = {
   actionLabel?: string | null;
 };
 
-const DISMISS_MS = { success: 3500, error: 7000 } as const;
+const DISMISS_MS = { success: 3500, error: 7000, info: 3500 } as const;
 
 function ToastStatusIcon({ type }: { type: TransactionFeedback['type'] }) {
   if (type === 'success') {
@@ -39,6 +42,14 @@ function ToastStatusIcon({ type }: { type: TransactionFeedback['type'] }) {
     return (
       <RefreshIcon
         className="app-tx-toast-icon app-tx-toast-icon--pending"
+        aria-hidden
+      />
+    );
+  }
+  if (type === 'info') {
+    return (
+      <InformationCircleIcon
+        className="app-tx-toast-icon app-tx-toast-icon--info"
         aria-hidden
       />
     );
@@ -95,6 +106,9 @@ export function TransactionFeedbackToast({
           <div className="app-tx-toast-copy">
             {result.eyebrow ? (
               <span className="app-tx-toast-eyebrow">{result.eyebrow}</span>
+            ) : null}
+            {result.title ? (
+              <span className="app-tx-toast-title">{result.title}</span>
             ) : null}
             <span className="app-tx-toast-message">{result.msg}</span>
             {result.actionHref && result.actionLabel ? (

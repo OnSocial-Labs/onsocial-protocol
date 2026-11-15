@@ -17,7 +17,10 @@ import {
 } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import {
+  useAppWallet,
+  WalletConnectedReviewError,
+} from '@/contexts/app-wallet-context';
 import {
   getSpendableNearBalance,
   normalizeFtBalanceYocto,
@@ -53,7 +56,10 @@ import {
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import type { UserCreatedTokenRecord } from '@/lib/user-created-tokens';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  isWalletUserCancellation,
+  walletMismatchInfoMessage,
+} from '@/lib/wallet-errors';
 
 type ThankPhase = 'idle' | 'checking' | 'signing' | 'confirming';
 
@@ -247,6 +253,16 @@ export function AppThankTokenSheet({
           requestClose();
         }
       } catch (cause) {
+        if (cause instanceof WalletConnectedReviewError) {
+          setTxResult({
+            type: 'info',
+            ...walletMismatchInfoMessage(
+              cause.accountId,
+              recipients.length > 0 ? `Thank ${recipients.length}` : 'Thank'
+            ),
+          });
+          return;
+        }
         if (isWalletUserCancellation(cause)) return;
         const message =
           cause instanceof Error

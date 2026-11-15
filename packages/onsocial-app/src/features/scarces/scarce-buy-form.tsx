@@ -4,7 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
 import { CollectionQtyStepper } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import {
+  useAppWallet,
+  WalletConnectedReviewError,
+} from '@/contexts/app-wallet-context';
 import '@/features/scarces/scarce-buy-deal.css';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import {
@@ -130,7 +133,10 @@ import {
   txToastError,
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  isWalletUserCancellation,
+  walletMismatchInfoMessage,
+} from '@/lib/wallet-errors';
 
 export interface ScarceBuySuccessDetail {
   listingId?: string;
@@ -815,14 +821,13 @@ export function ScarceBuyForm({
       cancelled = true;
     };
   }, [nearDepositYocto, payWithToken, selectedPayToken, viewerAccountId]);
-  const showFooterPrice = unitDollarLabel
-    ? isConnected && (isLazyBuy || isDropBuy || isMarketBuy)
-    : isConnected && ((isDropBuy && isPaidMint) || (isMarketBuy && isPaidAsk));
-  const primaryLabelWithPrice = showFooterPrice
-    ? `${primaryActionLabel} · ${formatScarceBuyPrice(totalPriceNear) || '—'}`
-    : isConnected
-      ? primaryActionLabel
-      : 'Connect';
+  const connectedPrimaryLabel =
+    (unitDollarLabel
+      ? isLazyBuy || isDropBuy || isMarketBuy
+      : (isDropBuy && isPaidMint) || (isMarketBuy && isPaidAsk))
+      ? `${primaryActionLabel} · ${formatScarceBuyPrice(totalPriceNear) || '—'}`
+      : primaryActionLabel;
+  const primaryLabelWithPrice = isConnected ? connectedPrimaryLabel : 'Connect';
 
   const dollarCheckoutBlocked = dollarSticker != null && dollarOracle == null;
   const dollarPricePending =
@@ -875,7 +880,9 @@ export function ScarceBuyForm({
     setPending(true);
     setFieldError(null);
     try {
-      const { accountId: signer, wallet } = await getSigningWallet();
+      const { accountId: signer, wallet } = await getSigningWallet({
+        reviewAfterPicker: true,
+      });
       const item: ListingActionItem = {
         id: `buy-sheet:${ownManageKind}:${tokenId ?? listingId ?? ''}`,
         kind: ownManageKind,
@@ -902,6 +909,16 @@ export function ScarceBuyForm({
         ...(tokenId ? { tokenId } : {}),
       });
     } catch (cause) {
+      if (cause instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          ...walletMismatchInfoMessage(
+            cause.accountId,
+            ownManageKind === 'delist' ? 'Delist' : 'Cancel listing'
+          ),
+        });
+        return;
+      }
       if (isWalletUserCancellation(cause)) return;
       setFieldError(
         cause instanceof Error
@@ -1256,7 +1273,9 @@ export function ScarceBuyForm({
       const ask = await readAskBeforeWallet();
       if (!ask.proceed) return;
       // Wallet only — paid scarces must not bootstrap the core social session.
-      const { accountId, wallet } = await getSigningWallet();
+      const { accountId, wallet } = await getSigningWallet({
+        reviewAfterPicker: true,
+      });
       const client = createAppScarcesWalletClient(accountId, wallet);
       const fallbackDeposit =
         ask.yocto ?? (priceNear ? nearToYocto(priceNear) : null);
@@ -1435,6 +1454,13 @@ export function ScarceBuyForm({
       forgetCollectiblesPlace(accountId);
       onSuccess?.({ listingId, tokenId });
     } catch (cause) {
+      if (cause instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          ...walletMismatchInfoMessage(cause.accountId, connectedPrimaryLabel),
+        });
+        return;
+      }
       if (isWalletUserCancellation(cause)) return;
       if (cause instanceof LazyListingNotFoundError) {
         markListingGone();

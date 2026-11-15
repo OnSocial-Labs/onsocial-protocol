@@ -40,7 +40,10 @@ import { buildDaoClaimSupportProposalPayload } from '@/features/protocol/dao-cla
 import { DaoProposeConfirmSheet } from '@/features/protocol/dao-propose-confirm-sheet';
 import { submitProtocolProposal } from '@/features/protocol/protocol-create';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import {
+  useAppWallet,
+  WalletConnectedReviewError,
+} from '@/contexts/app-wallet-context';
 import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
 import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
 import { seedDaoBrandingCache } from '@/lib/dao-shell-cache';
@@ -51,7 +54,10 @@ import {
   txToastGovPending,
   txToastGovSuccess,
 } from '@/lib/transaction-toast-copy';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  isWalletUserCancellation,
+  walletMismatchInfoMessage,
+} from '@/lib/wallet-errors';
 
 type PortfolioOverlay =
   | 'manage'
@@ -238,7 +244,12 @@ function PortfolioDaoOrgChromeInner({
         openSubmittedProposal(response.proposalId);
       }
     } catch (cause) {
-      if (!isWalletUserCancellation(cause)) {
+      if (cause instanceof WalletConnectedReviewError) {
+        setTxResult({
+          type: 'info',
+          ...walletMismatchInfoMessage(cause.accountId, 'Propose'),
+        });
+      } else if (!isWalletUserCancellation(cause)) {
         setTxResult({
           type: 'error',
           msg:
