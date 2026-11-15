@@ -4,7 +4,7 @@ import { useCallback, type FocusEventHandler } from 'react';
 
 const MOBILE_MAX_WIDTH_PX = 767;
 const KEYBOARD_SCROLL_RETRY_MS = 280;
-/** iOS/Android caret tear-drop hangs below the line — keep it off strip chrome. */
+/** Matches `--os-caret-drop-clearance` (2.25rem @ 16px root). */
 const CARET_DROP_CLEARANCE_PX = 36;
 
 /** Nearest overflow scroller that actually moves (composer sheet body, etc.). */

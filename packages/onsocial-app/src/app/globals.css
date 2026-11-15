@@ -3686,17 +3686,21 @@ a.os-surface-row,
     /* Dock control box — same on all viewports. Icon hit + primary CTAs lockstep.
        Do not change the bottom offset. */
     --os-dock-height: 3.25rem;
-    /* About format row — dock hit. Compose overrides to nav-band. */
+    /* About format row — dock hit. Compose panel overrides to nav-band. */
     --os-format-strip-height: var(--os-dock-height);
-    /* Compose Post-tools row — compose panel sets nav-band. */
-    --os-compose-tools-height: var(--os-dock-height);
     /* Icon hit box. Glyphs stay on their own size. */
     --os-icon-hit: 3.25rem;
     /* Shared grip bar. Mood finishes that draw their own bar override these. */
     --os-grip-width: 2.625rem;
     --os-grip-thickness: 0.22rem;
-    /* Compact heading / search band — split from dock hits (3.25). */
+    /* Compact heading / search / compose rails — split from dock (3.25). */
     --os-nav-band: 2.35rem;
+    /* Compose Post-tools + format rails (About keeps format on dock). */
+    --os-compose-tools-height: var(--os-nav-band);
+    /* About slide-over + compose footer block pad (not commerce 0.45). */
+    --os-writing-footer-pad-block: 0.55rem;
+    /* iOS/Android caret tear-drop below the line (matches JS 36px @ 16px). */
+    --os-caret-drop-clearance: 2.25rem;
     /* Primary commit control — same as dock. */
     --os-control-primary: 3.25rem;
     /* Nav / dock face — all viewports. ~1.35× dock glyphs so a filled
@@ -32511,8 +32515,12 @@ a.os-surface-row,
     width: 100%;
     max-width: 36rem;
     margin-inline: auto;
-    padding: 0.55rem var(--os-screen-body-pad-x, 0.75rem)
-      calc(0.55rem + env(safe-area-inset-bottom, 0px));
+    padding: var(--os-writing-footer-pad-block, 0.55rem)
+      var(--os-screen-body-pad-x, 0.75rem)
+      calc(
+        var(--os-writing-footer-pad-block, 0.55rem) +
+          env(safe-area-inset-bottom, 0px)
+      );
     box-sizing: border-box;
   }
 
@@ -34388,8 +34396,9 @@ a.os-surface-row,
     padding-bottom: calc(
       var(--os-keyboard-lift, 0px) + var(--os-screen-footer-band)
     );
-    /* Band + caret tear-drop so the drop does not ride the format strip. */
-    scroll-padding-bottom: calc(var(--os-screen-footer-band) + 2.25rem);
+    scroll-padding-bottom: calc(
+      var(--os-screen-footer-band) + var(--os-caret-drop-clearance, 2.25rem)
+    );
   }
 
   .profile-about-edit-slide[data-screen-footer='true'] {
@@ -39456,46 +39465,25 @@ a.os-surface-row,
   }
 
   /*
-   * Composer footer is in-flow under the scroller. Both rails use the compact
-   * nav band (not dock) so markdown + Post tools match; About keeps dock.
-   * Body pad / scroll-padding clear the band for the caret.
+   * Composer footer is in-flow. Rails = nav-band (About format stays dock).
+   * Body only needs writing-block breath + caret-drop scroll-padding — do not
+   * re-clear the in-flow chrome heights.
    */
   .guild-composer-sheet-panel {
     --os-format-strip-height: var(--os-nav-band, 2.35rem);
     --os-compose-tools-height: var(--os-nav-band, 2.35rem);
-    --os-compose-footer-band: calc(
-      var(--os-compose-tools-height) + var(--os-dock-bottom-offset, 0.9rem) +
-        var(--os-dock-clearance-gap, 1.1rem)
-    );
-  }
-
-  .guild-composer-sheet-panel:has(.profile-about-edit-format-toolbar) {
-    --os-compose-footer-band: calc(
-      var(--os-format-strip-height) + var(--os-compose-tools-height) +
-        var(--os-dock-bottom-offset, 0.9rem) +
-        var(--os-dock-clearance-gap, 1.1rem)
-    );
   }
 
   .guild-composer-sheet-panel .os-app-screen--embedded .os-app-screen-body {
-    padding-bottom: calc(
-      var(--os-compose-footer-band) + env(safe-area-inset-bottom, 0px)
-    );
-    scroll-padding-bottom: calc(
-      var(--os-compose-footer-band) + env(safe-area-inset-bottom, 0px)
-    );
+    padding-bottom: var(--os-writing-footer-pad-block, 0.55rem);
+    scroll-padding-bottom: var(--os-caret-drop-clearance, 2.25rem);
   }
 
-  /*
-   * Keyboard — footer is in-flow (layout already reserved). Pad stays a meet
-   * gap; scroll-padding clears the iOS/Android caret tear-drop so it does not
-   * sit on the format / Post strips while text scrolls under them.
-   */
   .guild-composer-sheet-panel:has(.guild-composer-sheet-footer.is-keyboard-open)
     .os-app-screen--embedded
     .os-app-screen-body {
     padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem);
-    scroll-padding-bottom: 2.25rem;
+    scroll-padding-bottom: var(--os-caret-drop-clearance, 2.25rem);
   }
 
   .guild-composer-sheet-panel
@@ -39586,15 +39574,15 @@ a.os-surface-row,
   }
 
   /*
-   * Compose rails — same resting inset as About footer-inner; equal nav-band
-   * rows (markdown + Post tools). Opaque format fill off here (in-flow).
-   * Keyboard: flush like About (pad 0).
+   * Compose rails — `--os-writing-footer-pad-block` like About footer-inner;
+   * equal nav-band rows. Format fill off (in-flow). Keyboard: flush (pad 0).
    */
   .guild-composer-sheet-footer {
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    padding: 0.55rem var(--os-sheet-footer-pad-inline, var(--os-gutter, 0.75rem))
+    padding: var(--os-writing-footer-pad-block, 0.55rem)
+      var(--os-sheet-footer-pad-inline, var(--os-gutter, 0.75rem))
       var(
         --os-sheet-footer-pad-bottom,
         calc(0.55rem + env(safe-area-inset-bottom, 0px))
