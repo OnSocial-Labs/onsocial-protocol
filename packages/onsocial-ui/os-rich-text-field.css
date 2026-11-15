@@ -184,8 +184,8 @@
 }
 
 /*
- * Footer format row — dock hit. Opaque `--bg` so absolute hosts (About)
- * cannot paint essay text through the strip. Not frost: blur still leaks.
+ * Footer format row — dock hit. Opaque `--bg` so essay text fades under the
+ * rail, not through it (same seat on compose + Edit About).
  */
 .profile-about-edit-format-toolbar {
   display: flex;

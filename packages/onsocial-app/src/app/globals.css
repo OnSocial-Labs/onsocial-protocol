@@ -4706,10 +4706,8 @@ a.os-surface-row,
     width: 100%;
     min-height: 0;
     box-sizing: border-box;
-    padding:
-      max(var(--os-gutter), env(safe-area-inset-top, 0px))
-      max(var(--os-gutter), env(safe-area-inset-right, 0px))
-      var(--os-gutter)
+    padding: max(var(--os-gutter), env(safe-area-inset-top, 0px))
+      max(var(--os-gutter), env(safe-area-inset-right, 0px)) var(--os-gutter)
       max(var(--os-gutter), env(safe-area-inset-left, 0px));
   }
 
@@ -4863,8 +4861,7 @@ a.os-surface-row,
     justify-content: center;
     gap: var(--os-gutter);
     width: 100%;
-    padding:
-      var(--os-dock-clearance-gap)
+    padding: var(--os-dock-clearance-gap)
       max(var(--os-gutter), env(safe-area-inset-right, 0px))
       max(var(--os-dock-bottom-offset), env(safe-area-inset-bottom, 0px))
       max(var(--os-gutter), env(safe-area-inset-left, 0px));
@@ -7899,8 +7896,8 @@ a.os-surface-row,
     width: 100%;
     min-height: 0;
     overflow: visible;
-    padding: 0 max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px))
-      0 max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
+    padding: 0 max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px)) 0
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
   }
 
   .portfolio-hero-band {
@@ -20779,7 +20776,9 @@ a.os-surface-row,
   }
 
   /* Match live portfolio: grey edge on banner, ring cutout otherwise. */
-  .profile-edit-slide .account-editor-cover-stage.has-media .account-editor-avatar {
+  .profile-edit-slide
+    .account-editor-cover-stage.has-media
+    .account-editor-avatar {
     border: 3px solid rgb(var(--fg-rgb) / 0.1);
     box-shadow: none;
   }
@@ -20807,10 +20806,7 @@ a.os-surface-row,
     .account-editor-banner-button
     .media-frame-pan-surface
     > img,
-  .profile-edit-slide
-    .account-editor-avatar
-    .media-frame-pan-surface
-    > img {
+  .profile-edit-slide .account-editor-avatar .media-frame-pan-surface > img {
     position: absolute;
     inset: 0;
     width: 100%;
@@ -21024,7 +21020,8 @@ a.os-surface-row,
   }
 
   .profile-about-edit-body--studio .account-editor-topics-face,
-  .profile-about-edit-body--studio .account-editor-topics-list.portfolio-topics {
+  .profile-about-edit-body--studio
+    .account-editor-topics-list.portfolio-topics {
     align-items: stretch;
     justify-content: flex-start;
     text-align: start;
@@ -34354,11 +34351,9 @@ a.os-surface-row,
   }
 
   /*
-   * About stays a full page. The keyboard pins that page to the visible
-   * viewport (top + height from the lift hook) so the name stays under
-   * the header instead of riding into the status bar. The format row is
-   * then flush on the keys, the same padding as the composer tools.
-   * The write dock keeps its own air under the pill.
+   * Edit About format strip — GlassSheet in-flow seat (compose twin).
+   * Pin shrinks the page to the keys; the strip is a column sibling of the
+   * body, so the caret never fights an absolute overlay.
    */
   .os-app-screen.profile-about-edit-slide.is-keyboard-open {
     min-height: 0;
@@ -34377,50 +34372,45 @@ a.os-surface-row,
     );
   }
 
-  .profile-about-edit-slide.is-keyboard-open[data-os-slide-over='true']
-    .os-app-screen-footer {
-    box-sizing: border-box;
-    left: 50%;
+  .profile-about-edit-slide[data-screen-footer='true'] {
+    --os-screen-footer-band: 0px;
+  }
+
+  .profile-about-edit-slide[data-screen-footer='true'][data-os-slide-over='true']
+    > .os-app-screen-column
+    > .os-app-screen-footer {
+    position: relative;
+    inset: auto;
+    bottom: auto;
+    left: auto;
     right: auto;
-    width: min(100%, var(--os-column-width));
-    bottom: var(--os-keyboard-lift, 0px);
-    /* Edge-flush format strip — same resting seat (no gutter inset). */
+    z-index: 2;
+    width: 100%;
+    flex: 0 0 auto;
     padding: 0;
-    transform: translateX(-50%);
+    transform: none;
+    pointer-events: auto;
     transition: none;
   }
 
-  .profile-about-edit-slide.is-keyboard-open .os-slide-over-footer-inner {
+  .profile-about-edit-slide[data-screen-footer='true']
+    .os-slide-over-footer-inner {
     max-width: none;
+    width: 100%;
     padding: 0;
   }
 
-  .profile-about-edit-slide[data-screen-footer='true'] {
-    --os-screen-footer-band: calc(
-      var(--os-format-strip-height, var(--os-dock-height, 3.25rem)) +
-        var(--os-dock-clearance-gap, 1.1rem)
-    );
-  }
-
-  /*
-   * About format strip only — scroll-pad = strip + tear-drop, not the
-   * band's clearance gap (that over-cleared and bounced the page).
-   */
   .profile-about-edit-slide[data-screen-footer='true'][data-os-slide-over='true']
-    .os-app-screen-body,
+    > .os-app-screen-column
+    > .os-app-screen-body,
   .profile-about-edit-slide.is-keyboard-open[data-os-slide-over='true']
-    .os-app-screen-body {
-    scroll-padding-bottom: calc(
-      var(--os-format-strip-height, var(--os-dock-height, 3.25rem)) +
-        var(--os-caret-drop-clearance, 3.25rem)
-    );
-  }
-
-  .profile-about-edit-slide.is-keyboard-open[data-os-slide-over='true']
-    .os-app-screen-body {
-    padding-bottom: calc(
-      var(--os-keyboard-lift, 0px) + var(--os-screen-footer-band)
-    );
+    > .os-app-screen-column
+    > .os-app-screen-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding-bottom: 0;
+    /* Tear-drop only — strip height is in-flow, same as compose. */
+    scroll-padding-bottom: var(--os-caret-drop-clearance, 3.25rem);
   }
 
   .drop-variation-set-slide-grid {
@@ -40852,8 +40842,7 @@ a.os-surface-row,
     overflow-anchor: none;
     opacity: 0;
     animation: glass-sheet-appear var(--os-motion-appear, 280ms)
-      var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1))
-      forwards;
+      var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1)) forwards;
   }
 
   @media (prefers-reduced-motion: reduce) {

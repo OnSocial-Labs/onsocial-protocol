@@ -1,11 +1,6 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  type FocusEventHandler,
-  type RefObject,
-} from 'react';
+import { useCallback, type FocusEventHandler } from 'react';
 
 const MOBILE_MAX_WIDTH_PX = 767;
 const KEYBOARD_SCROLL_RETRY_MS = 280;
@@ -220,17 +215,13 @@ function overlayHeaderBottom(element: HTMLElement): number | null {
 }
 
 /**
- * Top of the absolute format / Save bar. About's strip overlays the body
- * scroller even when the keyboard class is off — fold against that chrome
- * whenever the writing footer is mounted. Compose is in-flow (no fold).
+ * Top of an absolute keyboard footer (Save / CTA). In-flow writing seats
+ * (compose, Edit About) need none — the scroller already ends above them.
  */
 function writingChromeTop(element: HTMLElement): number | null {
   if (typeof element.closest !== 'function') return null;
-  const host =
-    element.closest('.profile-about-edit-slide[data-screen-footer="true"]') ??
-    element.closest('.is-keyboard-open');
+  const host = element.closest('.is-keyboard-open');
   if (!host || typeof host.querySelector !== 'function') return null;
-  // About first — absolute strip. Other keyboard hosts use their CTA footer.
   const footer = host.querySelector(
     [
       '.os-app-screen-footer',
@@ -249,7 +240,7 @@ function writingChromeTop(element: HTMLElement): number | null {
 }
 
 export type ScrollMobileFieldOptions = {
-  /** Retry after keyboard settle (default true). Guards pass false. */
+  /** Retry after keyboard settle (default true). */
   retry?: boolean;
 };
 
@@ -321,48 +312,6 @@ export function scrollMobileFieldIntoView(
   if (options?.retry !== false) {
     window.setTimeout(run, KEYBOARD_SCROLL_RETRY_MS);
   }
-}
-
-/**
- * Absolute writing footers (About format strip) overlay the scroller.
- * Nudge only on selectionchange — never on scroll, or the page bounces off
- * the strip and the user cannot scroll. Compose stays in-flow and needs none.
- */
-export function useWritingCaretChromeGuard(
-  scrollerRef: RefObject<HTMLElement | null>,
-  enabled: boolean
-) {
-  useEffect(() => {
-    if (!enabled) return;
-    const scroller = scrollerRef.current;
-    if (!scroller) return;
-
-    let raf = 0;
-    const nudge = () => {
-      if (raf) return;
-      raf = window.requestAnimationFrame(() => {
-        raf = 0;
-        const active = document.activeElement;
-        if (!(active instanceof HTMLElement) || !scroller.contains(active)) {
-          return;
-        }
-        if (
-          !active.isContentEditable &&
-          active.tagName !== 'TEXTAREA' &&
-          active.tagName !== 'INPUT'
-        ) {
-          return;
-        }
-        scrollMobileFieldIntoView(active, { retry: false });
-      });
-    };
-
-    document.addEventListener('selectionchange', nudge);
-    return () => {
-      document.removeEventListener('selectionchange', nudge);
-      if (raf) window.cancelAnimationFrame(raf);
-    };
-  }, [enabled, scrollerRef]);
 }
 
 /** Focus a compose field and scroll it above the mobile keyboard. */

@@ -33,7 +33,6 @@ import { ProfileTopicsEditor } from '@/components/wallet/profile-topics-editor';
 import {
   scrollMobileFieldIntoView,
   useMobileFieldFocusScroll,
-  useWritingCaretChromeGuard,
 } from '@/hooks/use-mobile-field-focus-scroll';
 import { usePageKeyboardLift } from '@/hooks/use-page-keyboard-lift';
 import {
@@ -62,8 +61,7 @@ import { preserveSheetScroll } from '@/lib/preserve-sheet-scroll';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 const ABOUT_FILM_SLOTS = PROFILE_ABOUT_PHOTOS_MAX - 1;
-const ABOUT_EDIT_SCROLL_ROOT =
-  '.profile-about-edit-slide .os-app-screen-body';
+const ABOUT_EDIT_SCROLL_ROOT = '.profile-about-edit-slide .os-app-screen-body';
 
 export function ProfileAboutEditorSheet({
   open,
@@ -125,7 +123,6 @@ export function ProfileAboutEditorSheet({
   const [leadOpen, setLeadOpen] = useState(false);
   const scrollFieldIntoView = useMobileFieldFocusScroll();
   const pageSnapRef = useRef<PageScrollSnap | null>(null);
-  const bodyScrollRef = useRef<HTMLElement | null>(null);
   const pinAboutRoot = useCallback(
     () => document.querySelector<HTMLElement>('.profile-about-edit-slide'),
     []
@@ -133,7 +130,6 @@ export function ProfileAboutEditorSheet({
   const { keyboardOpen, panelStyle } = usePageKeyboardLift(open, {
     pinRoot: pinAboutRoot,
   });
-  useWritingCaretChromeGuard(bodyScrollRef, Boolean(editingField));
 
   const armAboutPage = useCallback((target: EventTarget | null) => {
     if (!(target instanceof HTMLElement)) return;
@@ -399,7 +395,6 @@ export function ProfileAboutEditorSheet({
       }`}
       style={panelStyle}
       contentClassName="profile-edit-slide-body"
-      scrollRootRef={bodyScrollRef}
       footer={formatToolbar}
     >
       <form
