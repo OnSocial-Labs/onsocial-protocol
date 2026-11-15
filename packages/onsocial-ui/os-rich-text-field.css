@@ -184,9 +184,8 @@
 }
 
 /*
- * Footer format row. Same hit as the post controls. Hosts pin the chrome
- * here with `chromePortal` while the writing field is focused. Opaque fill
- * so essay text cannot paint through the strip on absolute footers (About).
+ * Footer format row — dock hit. Opaque `--bg` so absolute hosts (About)
+ * cannot paint essay text through the strip. Not frost: blur still leaks.
  */
 .profile-about-edit-format-toolbar {
   display: flex;
