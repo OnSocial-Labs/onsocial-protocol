@@ -70,7 +70,7 @@ export interface NearConnectWalletLike {
   }): Promise<Array<{ accountId: string }>>;
 }
 
-/** Wraps a wallet-selector-compatible wallet as a `WalletAdapter`. */
+/** Wraps a `NearConnectWalletLike` as a `WalletAdapter`. */
 export function nearConnectAdapter(
   wallet: NearConnectWalletLike | null | undefined,
   accountId: string | null | undefined,

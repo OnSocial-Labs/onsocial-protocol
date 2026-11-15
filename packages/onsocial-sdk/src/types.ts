@@ -136,8 +136,8 @@ export interface AuthInfo {
 /**
  * Wallet-broadcast signer — for `BroadcastTarget` `kind: 'wallet'`. Builds a
  * regular NEAR `SignedTransaction` with the wallet's account as signer (so the
- * **user pays gas**, no relayer involved). The signature shape mirrors
- * `near-wallet-selector`'s `signAndSendTransaction({ receiverId, actions })`
+ * **user pays gas**, no relayer involved). The signature shape is
+ * `signAndSendTransaction({ receiverId, actions })`
  * so any wallet adapter can satisfy it without an extra adapter layer.
  *
  * Implementations should:

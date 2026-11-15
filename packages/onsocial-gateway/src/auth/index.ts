@@ -333,7 +333,7 @@ function parsePublicKey(publicKey: string): Uint8Array | null {
   }
 
   try {
-    // Try base64 first (more common in wallet-selector)
+    // Try base64 first (common wallet public-key encoding)
     const b64 = decodeBase64(keyData);
     if (b64.length === 32) return b64;
   } catch {
