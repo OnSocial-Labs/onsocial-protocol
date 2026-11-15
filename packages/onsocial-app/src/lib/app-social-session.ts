@@ -1,6 +1,5 @@
 import type { NearConnector_ConnectOptions } from '@hot-labs/near-connect';
 import {
-  bootstrapSession,
   generateEd25519Key,
   localStorageKeyStore,
   nearConnectAdapter,
@@ -336,8 +335,7 @@ export async function getAppSocialSessionPublicKey(
 }
 
 /**
- * Delete the OnSocial FunctionCall session key on-chain and clear local
- * session metadata. Caller clears gateway JWT / React session flags.
+ * DeleteKey-only. Local store is cleared by the caller after chain confirm.
  */
 export async function revokeAppSocialSession(input: {
   accountId: string;
@@ -358,30 +356,28 @@ export async function revokeAppSocialSession(input: {
     contract: 'core',
     path: getAppSocialSessionPath(input.accountId),
     network: ACTIVE_NEAR_NETWORK,
-    store: getAppSocialSessionStore(),
     accountId: input.accountId,
+    clearKeyPermission: false,
+    clearStore: false,
   });
-  clearStoredPendingSessionKey(input.accountId);
   return extractNearTransactionHashes(result);
 }
 
-export type AppSocialSessionTxResult = {
-  ready: boolean;
-  txHashes: string[];
-};
+export type AppSessionConnectFn = (
+  options: NearConnector_ConnectOptions
+) => Promise<unknown>;
 
 /**
- * Renew an expired (or re-attach a missing-on-chain) session using the same
- * key material. When the FunctionCall key is still on the account, skips
- * AddKey and only refreshes the core permission TTL — no orphan keys.
+ * Renew: on-chain key → local TTL only. Missing key → same
+ * `addFunctionCallKey` connect sheet as first-time Allow / connect.
  */
 export async function renewAppSocialSession(input: {
   accountId: string;
-  wallet: NearWalletBase;
-}): Promise<AppSocialSessionTxResult> {
+  connectWithOptions: AppSessionConnectFn;
+}): Promise<boolean> {
   const stored = await peekStoredAppSocialSession(input.accountId);
   if (!stored?.publicKey || !stored.secretSeedB64u) {
-    return { ready: false, txHashes: [] };
+    return false;
   }
 
   let sessionKey: GeneratedSessionKey;
@@ -392,100 +388,41 @@ export async function renewAppSocialSession(input: {
     });
   } catch {
     await clearAppSocialSession(input.accountId);
-    return { ready: false, txHashes: [] };
+    return false;
   }
 
-  const onChain = await sessionKeyValidOnChain(
-    input.accountId,
-    sessionKey.publicKey
-  );
-  await fundAppSessionIfNeeded(input.accountId);
-  const allowanceYocto = onChain
-    ? await resolveOnChainSessionAllowanceYocto(
-        input.accountId,
-        sessionKey.publicKey
-      )
-    : await resolveAppSessionKeyAllowanceYocto(input.accountId);
-
-  const adapter = nearConnectAdapter(input.wallet, input.accountId, {
-    network: ACTIVE_NEAR_NETWORK,
-  });
-
-  let grantResult: unknown;
-  await bootstrapSession({
-    ...appSessionBootstrapInput(
-      input.accountId,
-      appSessionFunctionCallKey(allowanceYocto)
-    ),
-    wallet: adapter,
-    accountId: input.accountId,
-    sessionKey,
-    skipAddKey: onChain,
-    onGrantResult: (result) => {
-      grantResult = result;
-    },
-  });
-  clearStoredPendingSessionKey(input.accountId);
-  return {
-    ready: Boolean(await restoreAppSocialSession(input.accountId)),
-    txHashes: extractNearTransactionHashes(grantResult),
-  };
-}
-
-/**
- * Explicit Allow access — wallet grant via bootstrap plan (AddKey + permission).
- * Prefer this from App access UI so confirmations can link Nearblocks.
- */
-export async function grantAppSocialSession(input: {
-  accountId: string;
-  wallet: NearWalletBase;
-}): Promise<AppSocialSessionTxResult> {
-  if (await restoreAppSocialSession(input.accountId)) {
-    clearStoredPendingSessionKey(input.accountId);
-    return { ready: true, txHashes: [] };
-  }
-
-  if ((await getAppSocialSessionLifecycle(input.accountId)) === 'expired') {
-    return renewAppSocialSession(input);
-  }
-
-  const pendingSessionKey = await loadOrCreatePendingSessionKey(
-    input.accountId
-  );
-  if (
-    await sessionKeyValidOnChain(input.accountId, pendingSessionKey.publicKey)
-  ) {
-    await persistAppSessionAfterSignIn(input.accountId, pendingSessionKey);
-    return { ready: true, txHashes: [] };
+  if (await sessionKeyValidOnChain(input.accountId, sessionKey.publicKey)) {
+    await persistAppSessionAfterSignIn(input.accountId, sessionKey);
+    return true;
   }
 
   await fundAppSessionIfNeeded(input.accountId);
   const allowanceYocto = await resolveAppSessionKeyAllowanceYocto(
     input.accountId
   );
+  const addKeyOptions = appSessionConnectOptions(sessionKey, allowanceYocto);
+  if (!addKeyOptions) return false;
 
-  const adapter = nearConnectAdapter(input.wallet, input.accountId, {
-    network: ACTIVE_NEAR_NETWORK,
-  });
+  await input.connectWithOptions(addKeyOptions);
+  await completeAppSessionAfterConnect(input.accountId, sessionKey);
+  return Boolean(await restoreAppSocialSession(input.accountId));
+}
 
-  let grantResult: unknown;
-  await bootstrapSession({
-    ...appSessionBootstrapInput(
-      input.accountId,
-      appSessionFunctionCallKey(allowanceYocto)
-    ),
-    wallet: adapter,
-    accountId: input.accountId,
-    sessionKey: pendingSessionKey,
-    onGrantResult: (result) => {
-      grantResult = result;
-    },
-  });
-  clearStoredPendingSessionKey(input.accountId);
-  return {
-    ready: Boolean(await restoreAppSocialSession(input.accountId)),
-    txHashes: extractNearTransactionHashes(grantResult),
-  };
+/** Allow access — same `addFunctionCallKey` path as connect. */
+export async function grantAppSocialSession(input: {
+  accountId: string;
+  connectWithOptions: AppSessionConnectFn;
+}): Promise<boolean> {
+  if (await restoreAppSocialSession(input.accountId)) {
+    clearStoredPendingSessionKey(input.accountId);
+    return true;
+  }
+
+  if ((await getAppSocialSessionLifecycle(input.accountId)) === 'expired') {
+    return renewAppSocialSession(input);
+  }
+
+  return bootstrapAppSocialSession(input.accountId, input.connectWithOptions);
 }
 
 export async function resolveAppSessionPlan(

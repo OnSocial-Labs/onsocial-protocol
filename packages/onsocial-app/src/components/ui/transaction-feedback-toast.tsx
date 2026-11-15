@@ -7,7 +7,7 @@ import {
   ExternalLinkIcon,
   InformationCircleIcon,
   MultiplyIcon,
-  RefreshIcon,
+  PulsingDots,
 } from '@onsocial/ui';
 import { useToastDismissTimer } from '@/hooks/use-toast-dismiss-timer';
 
@@ -18,7 +18,7 @@ export type TransactionFeedback = {
   title?: string;
   /** Optional override — default success/error toast is one-line (no eyebrow). */
   eyebrow?: string;
-  /** Session setup only. Wallet = approve the key. Chain = gift or key confirm. */
+  /** Session setup: wallet = sheet open; chain = gift or grant confirm. */
   pendingPhase?: 'wallet' | 'chain';
   /** Nearblocks tx link — icon only; omit when an in-app action is shown. */
   explorerHref?: string | null;
@@ -40,9 +40,10 @@ function ToastStatusIcon({ type }: { type: TransactionFeedback['type'] }) {
   }
   if (type === 'pending') {
     return (
-      <RefreshIcon
-        className="app-tx-toast-icon app-tx-toast-icon--pending"
-        aria-hidden
+      <PulsingDots
+        size="sm"
+        className="app-tx-toast-pending-dots"
+        label="Confirming"
       />
     );
   }

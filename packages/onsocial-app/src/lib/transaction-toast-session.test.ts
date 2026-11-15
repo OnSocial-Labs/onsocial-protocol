@@ -2,40 +2,33 @@ import { describe, expect, it } from 'vitest';
 import {
   sessionPendingFeedback,
   txToastSession,
-} from '@/lib/transaction-toast-copy';
+} from './transaction-toast-copy';
 
 describe('session pending toast', () => {
-  it('uses the setup line only while the gift is in flight', () => {
+  it('keeps one pending body across setup, wallet, and confirming', () => {
+    const line = txToastSession.settingUpSession;
     expect(sessionPendingFeedback('setup')).toEqual({
       type: 'pending',
       pendingPhase: 'chain',
       eyebrow: 'Confirming',
-      msg: txToastSession.settingUpSession,
+      msg: line,
     });
-  });
-
-  it('asks for the wallet while the key sheet is open', () => {
     expect(sessionPendingFeedback('wallet')).toEqual({
       type: 'pending',
       pendingPhase: 'wallet',
       eyebrow: 'Wallet',
-      msg: txToastSession.approveInWallet,
+      msg: line,
     });
-  });
-
-  it('keeps the approval line after the wallet returns', () => {
     expect(sessionPendingFeedback('confirming')).toEqual({
       type: 'pending',
       pendingPhase: 'chain',
       eyebrow: 'Confirming',
-      msg: txToastSession.approveInWallet,
+      msg: line,
     });
-    expect(sessionPendingFeedback('confirming').msg).not.toBe(
-      txToastSession.settingUpSession
-    );
   });
 
-  it('keeps the green line for a ready session', () => {
-    expect(txToastSession.ready).toBe("You're set to post on-chain.");
+  it('keeps the ready line free of chain jargon', () => {
+    expect(txToastSession.ready).toBe("You're set to post.");
+    expect(txToastSession.ready.toLowerCase()).not.toContain('on-chain');
   });
 });

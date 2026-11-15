@@ -3,11 +3,10 @@ export const TX_TOAST_EYEBROW = {
   confirming: 'Confirming',
 } as const;
 
-/** Wallet connect / session key. The sponsor gift has no line of its own. */
+/** Wallet connect / session key — one pending line for gift, wallet, and grant. */
 export const txToastSession = {
   settingUpSession: 'Setting up your session…',
-  approveInWallet: 'Approve in your wallet…',
-  ready: "You're set to post on-chain.",
+  ready: "You're set to post.",
   failed: 'Session setup did not finish. Try connecting again.',
 } as const;
 
@@ -20,10 +19,7 @@ export type SessionPendingFeedback = {
   msg: string;
 };
 
-/**
- * Setup is the gift only. After the wallet returns, the body stays
- * "Approve in your wallet…" and the eyebrow switches to Confirming.
- */
+/** Same body for every phase; eyebrow only flips for the wallet sheet. */
 export function sessionPendingFeedback(
   phase: SessionPendingPhase
 ): SessionPendingFeedback {
@@ -32,15 +28,7 @@ export function sessionPendingFeedback(
       type: 'pending',
       pendingPhase: 'wallet',
       eyebrow: TX_TOAST_EYEBROW.wallet,
-      msg: txToastSession.approveInWallet,
-    };
-  }
-  if (phase === 'confirming') {
-    return {
-      type: 'pending',
-      pendingPhase: 'chain',
-      eyebrow: TX_TOAST_EYEBROW.confirming,
-      msg: txToastSession.approveInWallet,
+      msg: txToastSession.settingUpSession,
     };
   }
   return {

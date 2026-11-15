@@ -128,6 +128,52 @@ describe('planToWalletTransactions', () => {
       true
     );
   });
+
+  it('can omit core permission grant for AddKey-only own-account sessions', () => {
+    const plan = buildSessionGrant({
+      network: 'mainnet',
+      accountId: 'alice.near',
+      sessionPublicKey: 'ed25519:11111111111111111111111111111111',
+      contract: 'core',
+      path: 'alice.near/',
+      functionCallKey: { allowanceYocto: '250000000000000000000000' },
+    });
+    const txs = planToWalletTransactions(plan, { includeCoreActions: false });
+    expect(txs).toHaveLength(1);
+    expect(txs[0].actions[0].type).toBe('AddKey');
+  });
+});
+
+describe('revokeSession clearKeyPermission', () => {
+  it('emits DeleteKey only when clearKeyPermission is false', async () => {
+    const signAndSendTransactions = vi.fn(async () => ({ ok: true }));
+    await revokeSession({
+      wallet: {
+        accountId: async () => 'alice.near',
+        signAndSendTransactions,
+      },
+      publicKey: 'ed25519:session',
+      contract: 'core',
+      path: 'alice.near/',
+      network: 'mainnet',
+      clearKeyPermission: false,
+      clearStore: false,
+    });
+    expect(signAndSendTransactions).toHaveBeenCalledTimes(1);
+    const [{ transactions }] = signAndSendTransactions.mock.calls[0] as [
+      {
+        transactions: Array<{
+          receiverId: string;
+          actions: Array<{ type: string; params?: { publicKey?: string } }>;
+        }>;
+      },
+    ];
+    expect(transactions).toHaveLength(1);
+    expect(transactions[0].receiverId).toBe('alice.near');
+    expect(transactions[0].actions).toEqual([
+      { type: 'DeleteKey', params: { publicKey: 'ed25519:session' } },
+    ]);
+  });
 });
 
 describe('MemoryKeyStore', () => {
