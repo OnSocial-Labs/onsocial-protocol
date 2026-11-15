@@ -149,12 +149,12 @@ body:has(.hot-connector-popup) .app-tx-toast-anchor {
   color: rgb(var(--fg-rgb) / 0.42);
 }
 
-.app-tx-toast-title {
+.app-tx-toast .app-tx-toast-title {
   display: block;
   font-size: 0.75rem;
   font-weight: 600;
   line-height: 1.25;
-  color: rgb(var(--fg-rgb) / 0.92);
+  color: rgb(var(--fg-rgb));
 }
 
 .app-tx-toast-message {
@@ -163,6 +163,10 @@ body:has(.hot-connector-popup) .app-tx-toast-anchor {
   font-weight: 500;
   line-height: 1.25;
   color: rgb(var(--fg-rgb) / 0.92);
+}
+
+.app-tx-toast-title + .app-tx-toast-message {
+  color: hsl(var(--muted-foreground));
 }
 
 .app-tx-toast-action {
