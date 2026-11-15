@@ -29,6 +29,7 @@
 @import '@onsocial/ui/os-sheet-facts.css';
 @import '@onsocial/ui/os-proposal-card.css';
 @import '@onsocial/ui/os-rich-text-field.css';
+@import '@onsocial/ui/os-essay-align.css';
 @import './transaction-feedback-toast.css';
 /* After Tailwind — feed @#$ / Show more weights (see file comment). */
 @import './feed-meta.css';
@@ -3685,13 +3686,31 @@ a.os-surface-row,
     /* Dock control box — same on all viewports. Icon hit + primary CTAs lockstep.
        Do not change the bottom offset. */
     --os-dock-height: 3.25rem;
+    /* Format strip (About + article compose) — same dock hit. */
+    --os-format-strip-height: var(--os-dock-height);
     /* Icon hit box. Glyphs stay on their own size. */
     --os-icon-hit: 3.25rem;
+    /*
+     * Writing-rail column — write dock, format strip, Post tools.
+     * Edge-flush hits: glyph side-bearing ≈ page gutter (avatar / About ink).
+     */
+    --os-writing-tool-hit: var(--os-icon-hit);
+    --os-writing-tool-glyph: 1.36rem;
+    /* Ink inset from the rail edge — same as centered glyph side-bearing. */
+    --os-writing-tool-side: calc(
+      (var(--os-writing-tool-hit) - var(--os-writing-tool-glyph)) / 2
+    );
     /* Shared grip bar. Mood finishes that draw their own bar override these. */
     --os-grip-width: 2.625rem;
     --os-grip-thickness: 0.22rem;
-    /* Compact heading / search band — split from dock hits (3.25). */
+    /* Compact heading / search / compose Post-tools — split from dock (3.25). */
     --os-nav-band: 2.35rem;
+    /* Compose Post-tools row only (format strip uses --os-format-strip-height). */
+    --os-compose-tools-height: var(--os-nav-band);
+    /* About slide-over + compose footer block pad (not commerce 0.45). */
+    --os-writing-footer-pad-block: 0.55rem;
+    /* iOS/Android caret tear-drop hang below the line (matches JS 52px @ 16px). */
+    --os-caret-drop-clearance: 3.25rem;
     /* Primary commit control — same as dock. */
     --os-control-primary: 3.25rem;
     /* Nav / dock face — all viewports. ~1.35× dock glyphs so a filled
@@ -4697,10 +4716,8 @@ a.os-surface-row,
     width: 100%;
     min-height: 0;
     box-sizing: border-box;
-    padding:
-      max(var(--os-gutter), env(safe-area-inset-top, 0px))
-      max(var(--os-gutter), env(safe-area-inset-right, 0px))
-      var(--os-gutter)
+    padding: max(var(--os-gutter), env(safe-area-inset-top, 0px))
+      max(var(--os-gutter), env(safe-area-inset-right, 0px)) var(--os-gutter)
       max(var(--os-gutter), env(safe-area-inset-left, 0px));
   }
 
@@ -4854,8 +4871,7 @@ a.os-surface-row,
     justify-content: center;
     gap: var(--os-gutter);
     width: 100%;
-    padding:
-      var(--os-dock-clearance-gap)
+    padding: var(--os-dock-clearance-gap)
       max(var(--os-gutter), env(safe-area-inset-right, 0px))
       max(var(--os-dock-bottom-offset), env(safe-area-inset-bottom, 0px))
       max(var(--os-gutter), env(safe-area-inset-left, 0px));
@@ -7890,8 +7906,8 @@ a.os-surface-row,
     width: 100%;
     min-height: 0;
     overflow: visible;
-    padding: 0 max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px))
-      0 max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
+    padding: 0 max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px)) 0
+      max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
   }
 
   .portfolio-hero-band {
@@ -11315,25 +11331,6 @@ a.os-surface-row,
     --portfolio-about-ink: rgb(var(--fg-rgb) / 0.78);
     max-width: none;
     width: 100%;
-  }
-
-  .portfolio-about-rest[data-about-align='center'] .portfolio-about-bio,
-  .portfolio-about-rest[data-about-align='center'] .portfolio-about-heading,
-  .portfolio-about-rest[data-about-align='center'] .portfolio-about-list {
-    text-align: center;
-    margin-inline: auto;
-  }
-
-  .portfolio-about-rest[data-about-align='center'] .portfolio-about-list {
-    display: inline-block;
-    text-align: start;
-  }
-
-  .portfolio-about-rest[data-about-align='justify'] .portfolio-about-bio,
-  .portfolio-about-rest[data-about-align='justify'] .portfolio-about-heading,
-  .portfolio-about-rest[data-about-align='justify'] .portfolio-about-list {
-    text-align: justify;
-    text-align-last: start;
   }
 
   .portfolio-about-rest .portfolio-about-bio,
@@ -16710,8 +16707,8 @@ a.os-surface-row,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: var(--os-dock-height, 3.25rem);
-    min-width: var(--os-dock-height, 3.25rem);
+    width: var(--os-writing-tool-hit, var(--os-icon-hit, 3.25rem));
+    min-width: var(--os-writing-tool-hit, var(--os-icon-hit, 3.25rem));
     height: auto;
     margin: 0;
     padding: 0;
@@ -16744,8 +16741,8 @@ a.os-surface-row,
   .os-write-dock-media-icon,
   .os-write-dock-expand-icon {
     display: block;
-    width: 1.36rem;
-    height: 1.36rem;
+    width: var(--os-writing-tool-glyph, 1.36rem);
+    height: var(--os-writing-tool-glyph, 1.36rem);
   }
 
   .os-write-dock-send {
@@ -17017,7 +17014,7 @@ a.os-surface-row,
   .os-write-dock-footer-tools .os-write-dock-tool {
     flex-shrink: 0;
     align-self: center;
-    width: var(--os-dock-height, 3.25rem);
+    width: var(--os-writing-tool-hit, var(--os-icon-hit, 3.25rem));
     height: var(--os-dock-height, 3.25rem);
     min-height: 0;
   }
@@ -20789,7 +20786,9 @@ a.os-surface-row,
   }
 
   /* Match live portfolio: grey edge on banner, ring cutout otherwise. */
-  .profile-edit-slide .account-editor-cover-stage.has-media .account-editor-avatar {
+  .profile-edit-slide
+    .account-editor-cover-stage.has-media
+    .account-editor-avatar {
     border: 3px solid rgb(var(--fg-rgb) / 0.1);
     box-shadow: none;
   }
@@ -20817,10 +20816,7 @@ a.os-surface-row,
     .account-editor-banner-button
     .media-frame-pan-surface
     > img,
-  .profile-edit-slide
-    .account-editor-avatar
-    .media-frame-pan-surface
-    > img {
+  .profile-edit-slide .account-editor-avatar .media-frame-pan-surface > img {
     position: absolute;
     inset: 0;
     width: 100%;
@@ -21034,7 +21030,8 @@ a.os-surface-row,
   }
 
   .profile-about-edit-body--studio .account-editor-topics-face,
-  .profile-about-edit-body--studio .account-editor-topics-list.portfolio-topics {
+  .profile-about-edit-body--studio
+    .account-editor-topics-list.portfolio-topics {
     align-items: stretch;
     justify-content: flex-start;
     text-align: start;
@@ -21176,75 +21173,6 @@ a.os-surface-row,
   .profile-about-edit-section--story .profile-about-edit-section-label,
   .profile-about-edit-section--story .account-editor-limits {
     text-align: start;
-  }
-
-  /* B / I / • / H and alignment — one bottom row, post-control hit. */
-  .profile-about-edit-format-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    flex-wrap: nowrap;
-    gap: 0;
-    width: 100%;
-    min-height: var(--os-dock-height, 3.25rem);
-    overflow-x: hidden;
-  }
-
-  .profile-about-edit-format-tools,
-  .profile-about-edit-align-tools {
-    display: inline-flex;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 0;
-    min-height: var(--os-dock-height, 3.25rem);
-  }
-
-  .profile-about-edit-align-tools {
-    margin-left: auto;
-  }
-
-  .profile-about-edit-format-toolbar:has(.profile-about-edit-format-divider)
-    .profile-about-edit-align-tools {
-    margin-left: 0;
-  }
-
-  .profile-align-tool-icon {
-    display: block;
-    width: 1.36rem;
-    height: 1.36rem;
-    flex-shrink: 0;
-  }
-
-  .profile-about-edit-format-toolbar .account-editor-bio-tool,
-  .profile-about-edit-format-toolbar .account-editor-bio-list {
-    width: var(--os-dock-height, 3.25rem);
-    min-width: var(--os-dock-height, 3.25rem);
-    height: var(--os-dock-height, 3.25rem);
-    padding: 0;
-    border-radius: 0;
-    background: transparent;
-    font-size: 1.125rem;
-  }
-
-  .profile-about-edit-format-toolbar .account-editor-bio-tool.is-active {
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.96);
-  }
-
-  @media (hover: hover) and (pointer: fine) {
-    .profile-about-edit-format-toolbar
-      .account-editor-bio-tool:hover:not(.is-active) {
-      background: transparent;
-      color: rgb(var(--fg-rgb) / 0.68);
-    }
-  }
-
-  .profile-about-edit-format-toolbar .account-editor-bio-chrome,
-  .profile-about-edit-format-toolbar .account-editor-bio-chrome--portal {
-    justify-content: flex-start;
-    gap: 0;
-    margin: 0;
   }
 
   .profile-about-edit-section--story .account-editor-bio-shell--about {
@@ -21675,61 +21603,6 @@ a.os-surface-row,
   }
 
   .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='center']
-    .account-editor-bio-shell--about
-    .account-editor-bio,
-  .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='center']
-    .account-editor-bio-shell--about
-    .account-editor-bio--wysiwyg,
-  .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='center']
-    .account-editor-bio-shell--about
-    .tiptap,
-  .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='center']
-    .account-editor-bio-shell--about
-    .ProseMirror,
-  .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='center']
-    .account-editor-bio--wysiwyg
-    p,
-  .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='center']
-    .account-editor-bio--wysiwyg
-    h3 {
-    text-align: center !important;
-  }
-
-  .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='justify']
-    .account-editor-bio-shell--about
-    .account-editor-bio,
-  .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='justify']
-    .account-editor-bio-shell--about
-    .account-editor-bio--wysiwyg,
-  .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='justify']
-    .account-editor-bio-shell--about
-    .tiptap,
-  .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='justify']
-    .account-editor-bio-shell--about
-    .ProseMirror,
-  .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='justify']
-    .account-editor-bio--wysiwyg
-    p,
-  .profile-about-edit-studio
-    .profile-about-edit-section--story[data-about-align='justify']
-    .account-editor-bio--wysiwyg
-    h3 {
-    text-align: justify !important;
-    text-align-last: start;
-  }
-
-  .profile-about-edit-studio
     .profile-about-edit-section--story
     .account-editor-bio--wysiwyg
     h3 {
@@ -21740,7 +21613,6 @@ a.os-surface-row,
     font-weight: 650;
     letter-spacing: -0.024em;
     color: inherit;
-    text-align: start;
     text-wrap: pretty;
     overflow-wrap: anywhere;
   }
@@ -21750,7 +21622,6 @@ a.os-surface-row,
     .account-editor-bio--wysiwyg
     p {
     margin: 0;
-    text-align: start;
   }
 
   .profile-about-edit-studio
@@ -21799,7 +21670,6 @@ a.os-surface-row,
     color: inherit;
     list-style-type: disc;
     list-style-position: outside;
-    text-align: start;
   }
 
   .profile-about-edit-studio
@@ -21810,7 +21680,6 @@ a.os-surface-row,
     margin: 0;
     padding-left: 0.15em;
     overflow-wrap: anywhere;
-    text-align: start;
   }
 
   .profile-about-edit-studio
@@ -21964,14 +21833,12 @@ a.os-surface-row,
     margin: 0.15rem 0;
     padding-left: 1.25rem;
     list-style: disc;
-    text-align: left;
   }
 
   .account-editor-bio--wysiwyg ol {
     margin: 0.15rem 0;
     padding-left: 1.25rem;
     list-style: decimal;
-    text-align: left;
   }
 
   .account-editor-bio--wysiwyg li {
@@ -31382,30 +31249,6 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.82);
   }
 
-  .collection-writing-markdown[data-about-align='center'] p,
-  .collection-writing-markdown[data-about-align='center'] h1,
-  .collection-writing-markdown[data-about-align='center'] h2,
-  .collection-writing-markdown[data-about-align='center'] h3,
-  .collection-writing-markdown[data-about-align='center'] h4,
-  .collection-writing-markdown[data-about-align='center'] li {
-    text-align: center;
-  }
-
-  .collection-writing-markdown[data-about-align='center'] ul,
-  .collection-writing-markdown[data-about-align='center'] ol {
-    list-style-position: inside;
-    padding-inline-start: 0;
-  }
-
-  .collection-writing-markdown[data-about-align='justify'] p,
-  .collection-writing-markdown[data-about-align='justify'] h1,
-  .collection-writing-markdown[data-about-align='justify'] h2,
-  .collection-writing-markdown[data-about-align='justify'] h3,
-  .collection-writing-markdown[data-about-align='justify'] h4,
-  .collection-writing-markdown[data-about-align='justify'] li {
-    text-align: justify;
-  }
-
   .collection-writing-markdown > :first-child {
     margin-top: 0;
   }
@@ -32679,8 +32522,12 @@ a.os-surface-row,
     width: 100%;
     max-width: 36rem;
     margin-inline: auto;
-    padding: 0.55rem var(--os-screen-body-pad-x, 0.75rem)
-      calc(0.55rem + env(safe-area-inset-bottom, 0px));
+    padding: var(--os-writing-footer-pad-block, 0.55rem)
+      var(--os-screen-body-pad-x, 0.75rem)
+      calc(
+        var(--os-writing-footer-pad-block, 0.55rem) +
+          env(safe-area-inset-bottom, 0px)
+      );
     box-sizing: border-box;
   }
 
@@ -32690,6 +32537,10 @@ a.os-surface-row,
     .os-app-screen-body {
     padding-bottom: calc(
       env(safe-area-inset-bottom, 0px) + var(--os-screen-footer-band, 4.25rem)
+    );
+    scroll-padding-bottom: calc(
+      var(--os-screen-footer-band, 4.25rem) +
+        var(--os-caret-drop-clearance, 3.25rem)
     );
   }
 
@@ -34510,11 +34361,9 @@ a.os-surface-row,
   }
 
   /*
-   * About stays a full page. The keyboard pins that page to the visible
-   * viewport (top + height from the lift hook) so the name stays under
-   * the header instead of riding into the status bar. The format row is
-   * then flush on the keys, the same padding as the composer tools.
-   * The write dock keeps its own air under the pill.
+   * Edit About format strip — GlassSheet in-flow seat (compose twin).
+   * Pin shrinks the page to the keys; the strip is a column sibling of the
+   * body, so the caret never fights an absolute overlay.
    */
   .os-app-screen.profile-about-edit-slide.is-keyboard-open {
     min-height: 0;
@@ -34533,34 +34382,45 @@ a.os-surface-row,
     );
   }
 
-  .profile-about-edit-slide.is-keyboard-open[data-os-slide-over='true']
-    .os-app-screen-footer {
-    box-sizing: border-box;
-    left: 50%;
+  .profile-about-edit-slide[data-screen-footer='true'] {
+    --os-screen-footer-band: 0px;
+  }
+
+  .profile-about-edit-slide[data-screen-footer='true'][data-os-slide-over='true']
+    > .os-app-screen-column
+    > .os-app-screen-footer {
+    position: relative;
+    inset: auto;
+    bottom: auto;
+    left: auto;
     right: auto;
-    width: min(100%, var(--os-column-width));
-    bottom: var(--os-keyboard-lift, 0px);
-    padding: 0 max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px)) 0
-      max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
-    transform: translateX(-50%);
+    z-index: 2;
+    width: 100%;
+    flex: 0 0 auto;
+    padding: 0;
+    transform: none;
+    pointer-events: auto;
     transition: none;
   }
 
-  .profile-about-edit-slide.is-keyboard-open .os-slide-over-footer-inner {
+  .profile-about-edit-slide[data-screen-footer='true']
+    .os-slide-over-footer-inner {
     max-width: none;
+    width: 100%;
     padding: 0;
   }
 
+  .profile-about-edit-slide[data-screen-footer='true'][data-os-slide-over='true']
+    > .os-app-screen-column
+    > .os-app-screen-body,
   .profile-about-edit-slide.is-keyboard-open[data-os-slide-over='true']
-    .os-app-screen-body {
-    padding-bottom: calc(
-      var(--os-keyboard-lift, 0px) + var(--os-dock-height, 3.25rem)
-    );
-    scroll-padding-bottom: var(--os-dock-height, 3.25rem);
-  }
-
-  .profile-about-edit-slide[data-screen-footer='true'] {
-    --os-screen-footer-band: calc(var(--os-dock-height, 3.25rem) + 1.1rem);
+    > .os-app-screen-column
+    > .os-app-screen-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding-bottom: 0;
+    /* Tear-drop only — strip height is in-flow, same as compose. */
+    scroll-padding-bottom: var(--os-caret-drop-clearance, 3.25rem);
   }
 
   .drop-variation-set-slide-grid {
@@ -39619,22 +39479,26 @@ a.os-surface-row,
     overflow: hidden;
   }
 
-  .guild-composer-sheet-panel .os-app-screen--embedded .os-app-screen-body {
-    /*
-     * Sheet footer holds the compose toolbar (outside this scroller). Keep
-     * clearance so long article bodies can scroll the caret above it.
-     */
-    padding-bottom: calc(4.85rem + env(safe-area-inset-bottom, 0px));
-    scroll-padding-bottom: calc(4.85rem + env(safe-area-inset-bottom, 0px));
+  /*
+   * Composer footer is in-flow. Format strip = dock (same as About);
+   * Post tools = nav-band. Body only needs writing-block breath + caret-drop
+   * scroll-padding — do not re-clear the in-flow chrome heights.
+   */
+  .guild-composer-sheet-panel {
+    --os-format-strip-height: var(--os-dock-height, 3.25rem);
+    --os-compose-tools-height: var(--os-nav-band, 2.35rem);
   }
 
-  /* Keyboard open — the Post bar is already above the keys. Drop the
-     home-indicator hole so the writing area meets that bar. */
+  .guild-composer-sheet-panel .os-app-screen--embedded .os-app-screen-body {
+    padding-bottom: var(--os-writing-footer-pad-block, 0.55rem);
+    scroll-padding-bottom: var(--os-caret-drop-clearance, 3.25rem);
+  }
+
   .guild-composer-sheet-panel:has(.guild-composer-sheet-footer.is-keyboard-open)
     .os-app-screen--embedded
     .os-app-screen-body {
-    padding-bottom: 0.85rem;
-    scroll-padding-bottom: 0.85rem;
+    padding-bottom: var(--os-sheet-footer-pad-bottom-keyboard, 0.45rem);
+    scroll-padding-bottom: var(--os-caret-drop-clearance, 3.25rem);
   }
 
   .guild-composer-sheet-panel
@@ -39724,16 +39588,18 @@ a.os-surface-row,
     object-fit: cover;
   }
 
-  /* Compose dock — tools left, compact Post right (above keyboard). */
+  /* Compose rails — edge-flush writing column (About + write dock). */
   .guild-composer-sheet-footer {
-    padding: 0.4rem var(--os-screen-body-pad-x, 0.75rem)
-      calc(0.5rem + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: var(--os-writing-footer-pad-block, 0.55rem) 0
+      var(
+        --os-sheet-footer-pad-bottom,
+        calc(0.55rem + env(safe-area-inset-bottom, 0px))
+      );
   }
 
-  /*
-   * Full composer stays a full page. Only this row lifts, flush on the keys,
-   * with the launcher's hit and glyph so photo lines up with the pill.
-   */
   .glass-sheet-panel.guild-composer-sheet-panel.is-keyboard-open
     > .glass-sheet-footer {
     margin-bottom: var(--os-keyboard-lift, 0px);
@@ -39741,30 +39607,40 @@ a.os-surface-row,
   }
 
   .guild-composer-sheet-footer.is-keyboard-open {
-    padding: 0 max(var(--os-gutter, 0.75rem), env(safe-area-inset-right, 0px)) 0
-      max(var(--os-gutter, 0.75rem), env(safe-area-inset-left, 0px));
+    padding: 0;
   }
 
-  .guild-composer-toolbar .guild-composer-tool {
-    flex-basis: var(--os-dock-height, 3.25rem);
-    width: var(--os-dock-height, 3.25rem);
-    height: var(--os-dock-height, 3.25rem);
+  .guild-composer-sheet-footer > .profile-about-edit-format-toolbar,
+  .guild-composer-sheet-footer > .guild-composer-toolbar {
+    box-sizing: border-box;
+    overflow: hidden;
+    /* Opaque seat — essay text fades under the rail, not through. */
+    background: var(--bg, rgb(var(--bg-rgb)));
+    position: relative;
+    z-index: 1;
   }
 
-  .guild-composer-toolbar .guild-composer-tool-icon {
-    width: 1.36rem;
-    height: 1.36rem;
+  /* Format strip — dock tall. */
+  .guild-composer-sheet-footer > .profile-about-edit-format-toolbar {
+    flex: 0 0 var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
+    height: var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
+    min-height: var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
+    max-height: var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
   }
 
-  .guild-composer-toolbar .guild-composer-tool-slot-gap {
-    flex-basis: 0;
-    width: 0;
+  /* Post tools — nav-band tall, same writing-tool hit width as format. */
+  .guild-composer-sheet-footer > .guild-composer-toolbar {
+    flex: 0 0 var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
+    height: var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
+    min-height: var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
+    max-height: var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
   }
 
   .guild-composer-toolbar {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 0.65rem;
+    gap: 0;
     min-width: 0;
   }
 
@@ -39825,14 +39701,15 @@ a.os-surface-row,
 
   .guild-composer-tool {
     display: inline-flex;
-    flex: 0 0 2.35rem;
+    flex: 0 0 var(--os-writing-tool-hit, var(--os-icon-hit, 3.25rem));
     align-items: center;
     justify-content: center;
-    width: 2.35rem;
-    height: 2.35rem;
+    width: var(--os-writing-tool-hit, var(--os-icon-hit, 3.25rem));
+    min-width: var(--os-writing-tool-hit, var(--os-icon-hit, 3.25rem));
+    height: var(--os-compose-tools-height, var(--os-nav-band, 2.35rem));
     margin: 0;
     border: 0;
-    border-radius: 9999px;
+    border-radius: 0;
     background: transparent;
     color: rgb(var(--fg-rgb) / 0.52);
     cursor: pointer;
@@ -39862,17 +39739,27 @@ a.os-surface-row,
 
   .guild-composer-tool-icon {
     display: block;
-    width: 1.2rem;
-    height: 1.2rem;
+    width: var(--os-writing-tool-glyph, 1.36rem);
+    height: var(--os-writing-tool-glyph, 1.36rem);
   }
 
+  .guild-composer-toolbar .guild-composer-tool-slot-gap {
+    flex-basis: 0;
+    width: 0;
+  }
+
+  /* Overlay — a flex end slot padded the right and left tools look wall-flush. */
   .guild-composer-toolbar-end {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 0;
+    z-index: 2;
     display: inline-flex;
-    flex: 0 0 auto;
     align-items: center;
-    gap: 0.5rem;
-    margin-left: auto;
-    min-height: 2.15rem;
+    justify-content: flex-end;
+    min-height: 0;
+    height: 100%;
+    pointer-events: none;
   }
 
   .guild-composer-toolbar-post {
@@ -40036,20 +39923,31 @@ a.os-surface-row,
     z-index: 2;
   }
 
-  /* Reserved slot beside Post — no layout jump when typing starts. */
   .guild-composer-char-count {
     display: inline-flex;
     align-items: center;
     justify-content: flex-end;
+    box-sizing: border-box;
     margin: 0;
     min-width: 2.75rem;
-    height: 2.15rem;
+    height: 100%;
+    /* Trailing digits share format-strip glyph inset from the wall. */
+    padding-inline: 0.35rem
+      max(
+        var(--os-writing-tool-side, 0.945rem),
+        env(safe-area-inset-right, 0px)
+      );
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 600;
     font-variant-numeric: normal;
     letter-spacing: 0.02em;
     line-height: 1;
     color: rgb(var(--fg-rgb) / 0.4);
+    background: linear-gradient(
+      to left,
+      var(--bg, rgb(var(--bg-rgb))) 70%,
+      transparent
+    );
     transition:
       color 160ms ease,
       opacity 160ms ease;
@@ -40062,7 +39960,6 @@ a.os-surface-row,
 
   .guild-composer-char-count.is-idle {
     opacity: 0;
-    pointer-events: none;
   }
 
   .guild-composer-char-count.is-warn {
@@ -40712,27 +40609,10 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.52);
   }
 
-  /* Live article align preview — the body tracks the tool. The title stays left. */
-  .guild-composer-beat-body[data-article-align='center'] .guild-composer-input,
-  .guild-composer-beat-body[data-article-align='center']
-    .guild-composer-input-backdrop,
-  .guild-composer-beat-body[data-article-align='center'] .ProseMirror {
-    text-align: center;
-  }
-
-  .guild-composer-beat-body[data-article-align='justify'] .guild-composer-input,
-  .guild-composer-beat-body[data-article-align='justify']
-    .guild-composer-input-backdrop,
-  .guild-composer-beat-body[data-article-align='justify'] .ProseMirror {
-    text-align: justify;
-    text-align-last: start;
-  }
-
-  /* Snippet lines scroll; TipTap's `.ProseMirror pre` would wrap them. */
+  /* Snippet lines scroll; TipTap's `.ProseMirror pre` would wrap them.
+     Essay align for code is owned by `@onsocial/ui/os-essay-align.css`. */
   .guild-composer-beat-body .ProseMirror pre,
   .guild-composer-beat-body .ProseMirror pre code {
-    text-align: left;
-    text-align-last: auto;
     white-space: pre;
     overflow-wrap: normal;
     word-break: normal;
@@ -40973,8 +40853,7 @@ a.os-surface-row,
     overflow-anchor: none;
     opacity: 0;
     animation: glass-sheet-appear var(--os-motion-appear, 280ms)
-      var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1))
-      forwards;
+      var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1)) forwards;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -47868,49 +47747,6 @@ button.messages-bubble-quote:focus-visible {
   opacity: 0;
   pointer-events: none;
   transition: opacity 160ms ease;
-}
-
-/*
- * Format row hit. Unlayered so it beats the 1.45rem bio-tool rule, which
- * is also emitted outside the component layer.
- */
-.profile-about-edit-format-toolbar .account-editor-bio-chrome,
-.profile-about-edit-format-toolbar .account-editor-bio-chrome--portal {
-  gap: 0;
-}
-
-.profile-about-edit-format-toolbar .account-editor-bio-tool,
-.profile-about-edit-format-toolbar .account-editor-bio-list {
-  width: var(--os-dock-height, 3.25rem);
-  min-width: var(--os-dock-height, 3.25rem);
-  height: var(--os-dock-height, 3.25rem);
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
-  font-size: 1.125rem;
-}
-
-.profile-about-edit-format-divider {
-  align-self: center;
-  flex: 0 0 auto;
-  height: 1.25rem;
-  min-height: 1.25rem;
-  margin-block: 0;
-  margin-left: auto;
-  margin-right: 0.35rem;
-}
-
-.profile-about-edit-format-toolbar .account-editor-bio-tool.is-active {
-  background: transparent;
-  color: rgb(var(--fg-rgb) / 0.96);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .profile-about-edit-format-toolbar
-    .account-editor-bio-tool:hover:not(.is-active) {
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.68);
-  }
 }
 
 @layer components {

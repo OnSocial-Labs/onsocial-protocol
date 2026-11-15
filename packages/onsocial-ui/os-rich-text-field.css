@@ -184,8 +184,8 @@
 }
 
 /*
- * Footer format row. Same hit as the post controls. Hosts pin the chrome
- * here with `chromePortal` while the writing field is focused.
+ * Footer format row — edge-flush writing-tool hit (write dock / Post tools).
+ * Opaque `--bg` so essay text fades under the rail, not through it.
  */
 .profile-about-edit-format-toolbar {
   display: flex;
@@ -194,24 +194,30 @@
   flex-wrap: nowrap;
   gap: 0;
   width: 100%;
-  min-height: var(--os-dock-height, 3.25rem);
+  min-height: var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
   overflow-x: hidden;
+  background: var(--bg, rgb(var(--bg-rgb)));
 }
 
-.profile-about-edit-format-tools {
+.profile-about-edit-format-tools,
+.profile-about-edit-align-tools {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
   justify-content: flex-start;
   gap: 0;
-  min-height: var(--os-dock-height, 3.25rem);
+  min-height: var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
+}
+
+.profile-about-edit-align-tools {
+  margin-left: auto;
 }
 
 .profile-about-edit-format-toolbar .account-editor-bio-tool,
 .profile-about-edit-format-toolbar .account-editor-bio-list {
-  width: var(--os-dock-height, 3.25rem);
-  min-width: var(--os-dock-height, 3.25rem);
-  height: var(--os-dock-height, 3.25rem);
+  width: var(--os-writing-tool-hit, var(--os-icon-hit, 3.25rem));
+  min-width: var(--os-writing-tool-hit, var(--os-icon-hit, 3.25rem));
+  height: var(--os-format-strip-height, var(--os-dock-height, 3.25rem));
   padding: 0;
   border-radius: 0;
   background: transparent;
@@ -233,6 +239,13 @@
   margin-left: 0;
 }
 
+.profile-align-tool-icon {
+  display: block;
+  width: var(--os-writing-tool-glyph, 1.36rem);
+  height: var(--os-writing-tool-glyph, 1.36rem);
+  flex-shrink: 0;
+}
+
 .profile-about-edit-format-toolbar .account-editor-bio-tool.is-active {
   background: transparent;
   color: rgb(var(--fg-rgb) / 0.96);
@@ -249,5 +262,6 @@
 .profile-about-edit-format-toolbar .account-editor-bio-chrome,
 .profile-about-edit-format-toolbar .account-editor-bio-chrome--portal {
   justify-content: flex-start;
+  gap: 0;
   margin: 0;
 }

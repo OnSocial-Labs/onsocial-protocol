@@ -43,7 +43,8 @@
     },
     "./os-sheet-facts.css": "./os-sheet-facts.css",
     "./os-proposal-card.css": "./os-proposal-card.css",
-    "./os-rich-text-field.css": "./os-rich-text-field.css"
+    "./os-rich-text-field.css": "./os-rich-text-field.css",
+    "./os-essay-align.css": "./os-essay-align.css"
   },
   "scripts": {
     "build": "tsc",
@@ -107,7 +108,8 @@
     "os-app-chrome-page.css",
     "os-sheet-facts.css",
     "os-proposal-card.css",
-    "os-rich-text-field.css"
+    "os-rich-text-field.css",
+    "os-essay-align.css"
   ],
   "license": "MIT",
   "author": "OnSocial Labs <dev@onsocial.id> (https://onsocial.id)",

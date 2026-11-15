@@ -335,8 +335,8 @@ describe('scrollMobileFieldIntoView', () => {
     });
 
     scrollMobileFieldIntoView(field);
-    // Visible bottom is the keyboard (524) minus 12, not the layout bottom.
-    expect(scrollTop).toBe(744 - (524 - 12));
+    // Visible bottom is the keyboard (524) minus caret-drop clearance.
+    expect(scrollTop).toBe(744 - (524 - 52));
     expect(scrollIntoView).not.toHaveBeenCalled();
   });
 
@@ -395,7 +395,7 @@ describe('scrollMobileFieldIntoView', () => {
     });
 
     scrollMobileFieldIntoView(field);
-    expect(scrollTop).toBe(744 - (470 - 12));
+    expect(scrollTop).toBe(744 - (470 - 52));
   });
 
   it('scrolls the drawer body and leaves the page still', () => {
@@ -441,7 +441,7 @@ describe('scrollMobileFieldIntoView', () => {
 
     scrollMobileFieldIntoView(field);
     expect(scrollIntoView).not.toHaveBeenCalled();
-    expect(state.scrollTop).toBe(20 + (390 - (300 - 12)));
+    expect(state.scrollTop).toBe(20 + (390 - (300 - 52)));
   });
 
   it('keeps a focused line below the overlay header', () => {

@@ -61,8 +61,7 @@ import { preserveSheetScroll } from '@/lib/preserve-sheet-scroll';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 const ABOUT_FILM_SLOTS = PROFILE_ABOUT_PHOTOS_MAX - 1;
-const ABOUT_EDIT_SCROLL_ROOT =
-  '.profile-about-edit-slide .os-app-screen-body';
+const ABOUT_EDIT_SCROLL_ROOT = '.profile-about-edit-slide .os-app-screen-body';
 
 export function ProfileAboutEditorSheet({
   open,

@@ -4,6 +4,24 @@ import { useCallback, type FocusEventHandler } from 'react';
 
 const MOBILE_MAX_WIDTH_PX = 767;
 const KEYBOARD_SCROLL_RETRY_MS = 280;
+/** Fallback when `--os-caret-drop-clearance` is unset (3.25rem @ 16px). */
+const CARET_DROP_CLEARANCE_PX = 52;
+
+function caretDropClearancePx(): number {
+  if (typeof document === 'undefined' || typeof window === 'undefined') {
+    return CARET_DROP_CLEARANCE_PX;
+  }
+  const raw = window
+    .getComputedStyle(document.documentElement)
+    .getPropertyValue('--os-caret-drop-clearance')
+    .trim();
+  if (!raw) return CARET_DROP_CLEARANCE_PX;
+  const root = parseFloat(
+    window.getComputedStyle(document.documentElement).fontSize || '16'
+  );
+  const n = raw.endsWith('rem') ? parseFloat(raw) * root : parseFloat(raw);
+  return Number.isFinite(n) && n > 0 ? n : CARET_DROP_CLEARANCE_PX;
+}
 
 /** Nearest overflow scroller that actually moves (composer sheet body, etc.). */
 export function nearestScrollContainer(
@@ -158,17 +176,22 @@ function focusClientRect(element: HTMLElement): {
 
   if (element.isContentEditable && typeof window.getSelection === 'function') {
     const selection = window.getSelection();
-    const node = selection?.anchorNode;
+    const node = selection?.anchorNode ?? selection?.focusNode;
     if (
       selection &&
       selection.rangeCount > 0 &&
       node &&
       element.contains(node)
     ) {
-      const range = selection.getRangeAt(0);
-      const caret = range.getClientRects()[0] ?? range.getBoundingClientRect();
-      if (caret && caret.height > 0) {
-        return { top: caret.top, bottom: caret.bottom };
+      // Full range — tear-drop rides the end, not the first client rect.
+      const bounds = selection.getRangeAt(0).getBoundingClientRect();
+      if (bounds.width > 0 || bounds.height > 0) {
+        const line =
+          parseFloat(window.getComputedStyle(element).lineHeight) || 22;
+        return {
+          top: bounds.top,
+          bottom: bounds.height > 0 ? bounds.bottom : bounds.top + line,
+        };
       }
     }
   }
@@ -177,10 +200,6 @@ function focusClientRect(element: HTMLElement): {
   return { top: rect.top, bottom: rect.bottom };
 }
 
-/**
- * Top of the lifted Save / format bar, so the caret clears that chrome
- * instead of the layout bottom sitting under the keyboard.
- */
 /** Bottom of the overlay header, so a focused line does not sit on the screen edge. */
 function overlayHeaderBottom(element: HTMLElement): number | null {
   if (typeof element.closest !== 'function') return null;
@@ -195,12 +214,24 @@ function overlayHeaderBottom(element: HTMLElement): number | null {
   return rect.bottom;
 }
 
-function keyboardChromeTop(element: HTMLElement): number | null {
+/**
+ * Top of an absolute keyboard footer (Save / CTA). In-flow writing seats
+ * (compose, Edit About) need none — the scroller already ends above them.
+ */
+function writingChromeTop(element: HTMLElement): number | null {
   if (typeof element.closest !== 'function') return null;
   const host = element.closest('.is-keyboard-open');
   if (!host || typeof host.querySelector !== 'function') return null;
   const footer = host.querySelector(
-    '.profile-edit-sheet-footer, .guild-edit-sheet-footer, .hub-manage-sheet-footer, .os-app-screen-footer, .os-sheet-footer'
+    [
+      '.os-app-screen-footer',
+      '.guild-composer-sheet-footer',
+      '.glass-sheet-footer',
+      '.profile-edit-sheet-footer',
+      '.guild-edit-sheet-footer',
+      '.hub-manage-sheet-footer',
+      '.os-sheet-footer',
+    ].join(', ')
   );
   if (!footer || !('getBoundingClientRect' in footer)) return null;
   const rect = (footer as HTMLElement).getBoundingClientRect();
@@ -208,7 +239,15 @@ function keyboardChromeTop(element: HTMLElement): number | null {
   return rect.top;
 }
 
-export function scrollMobileFieldIntoView(element: HTMLElement | null) {
+export type ScrollMobileFieldOptions = {
+  /** Retry after keyboard settle (default true). */
+  retry?: boolean;
+};
+
+export function scrollMobileFieldIntoView(
+  element: HTMLElement | null,
+  options?: ScrollMobileFieldOptions
+) {
   if (!element || typeof window === 'undefined') {
     return;
   }
@@ -226,13 +265,15 @@ export function scrollMobileFieldIntoView(element: HTMLElement | null) {
       const viewBottom = viewport
         ? viewport.offsetTop + viewport.height
         : window.innerHeight;
-      const chromeTop = keyboardChromeTop(element);
+      const chromeTop = writingChromeTop(element);
       const headerBottom = overlayHeaderBottom(element);
+      const dropClearance = caretDropClearancePx();
       const topLimit =
         Math.max(scrollerRect.top, headerBottom ?? scrollerRect.top) + 12;
-      let bottomLimit = Math.min(scrollerRect.bottom, viewBottom) - 12;
+      let bottomLimit =
+        Math.min(scrollerRect.bottom, viewBottom) - dropClearance;
       if (chromeTop != null) {
-        bottomLimit = Math.min(bottomLimit, chromeTop - 12);
+        bottomLimit = Math.min(bottomLimit, chromeTop - dropClearance);
       }
       if (rect.bottom > bottomLimit) {
         scroller.scrollTop += rect.bottom - bottomLimit;
@@ -268,7 +309,9 @@ export function scrollMobileFieldIntoView(element: HTMLElement | null) {
   };
 
   window.requestAnimationFrame(run);
-  window.setTimeout(run, KEYBOARD_SCROLL_RETRY_MS);
+  if (options?.retry !== false) {
+    window.setTimeout(run, KEYBOARD_SCROLL_RETRY_MS);
+  }
 }
 
 /** Focus a compose field and scroll it above the mobile keyboard. */
