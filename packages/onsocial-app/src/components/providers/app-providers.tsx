@@ -42,10 +42,7 @@ import { probeOsCardHost } from '@/lib/os-card-host';
 import { PwaProvider } from '@/components/providers/pwa-provider';
 import { markAppHydrated } from '@/lib/e2e-portfolio-ready';
 import { WebPushProvider } from '@/components/providers/web-push-provider';
-import {
-  ensureVirtualKeyboardOverlay,
-  GlassSheetPortalProvider,
-} from '@onsocial/ui';
+import { GlassSheetPortalProvider } from '@onsocial/ui';
 import { SingleMediaPlaybackHost } from '@/components/providers/single-media-playback-host';
 
 /** Remount the join/claim ledger when the wallet account changes. */
@@ -66,14 +63,6 @@ function AppHydratedMarker() {
   return null;
 }
 
-/** Chromium / Brave: overlay IME so drawer seat can use the real key top. */
-function VirtualKeyboardOverlayArm() {
-  useEffect(() => {
-    ensureVirtualKeyboardOverlay();
-  }, []);
-  return null;
-}
-
 /** Clip GlassSheet frost to the live OS / portfolio card (same host as slide-overs). */
 function OsGlassSheetPortalBridge({ children }: { children: React.ReactNode }) {
   const host = useOsPortalHost();
@@ -88,7 +77,6 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <PwaProvider>
       <AppHydratedMarker />
-      <VirtualKeyboardOverlayArm />
       <SingleMediaPlaybackHost />
       <AppSmoothScrollProvider>
         <AppWalletProvider>

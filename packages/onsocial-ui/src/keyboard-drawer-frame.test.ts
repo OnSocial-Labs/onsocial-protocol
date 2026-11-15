@@ -8,6 +8,7 @@ import {
   keyboardRootFrameStyle,
   keyboardSeatPx,
   pageKeyboardLiftStyle,
+  readCssKeyboardInsetHeight,
   readKeyboardDrawerMetrics,
   readKeyboardVisibleBottom,
   readVirtualKeyboardInset,
@@ -210,7 +211,9 @@ describe('visualKeyboardFrame', () => {
     ).toEqual({ top: 140, height: 520 });
   });
 
-  it('keeps an absolute drawer at the top of a card that is already on screen', () => {
+  it('closes the Brave pan gap on a hosted card that is already on screen', () => {
+    // visualHeight is keyTop - offsetTop. top:0 + height:visualHeight left a
+    // page strip of offsetTop under the drawer. Reach the key top instead.
     expect(
       visualKeyboardFrame({
         position: 'absolute',
@@ -219,7 +222,7 @@ describe('visualKeyboardFrame', () => {
         offsetTop: 140,
         visualHeight: 520,
       })
-    ).toEqual({ top: 0, height: 520 });
+    ).toEqual({ top: 0, height: 660 });
   });
 
   it('does not push a card that has already shrunk onto the keys', () => {
@@ -256,7 +259,7 @@ describe('visualKeyboardFrame', () => {
     ).toEqual({ top: 40, height: 380 });
   });
 
-  it('styles the root as that box and does not add a keyboard margin', () => {
+  it('clips the root to the visible box so the bottom lands on the keys', () => {
     expect(keyboardRootFrameStyle({ top: 140, height: 520 })).toEqual({
       top: '140px',
       height: '520px',
@@ -338,9 +341,33 @@ describe('virtual keyboard seat', () => {
     expect(ensureVirtualKeyboardOverlay()).toBe(false);
   });
 
-  it('seats on the IME top when overlaysContent reports a keyboard', () => {
+  it('does not arm overlaysContent — browser resize seats the drawer', () => {
     const virtualKeyboard = {
       overlaysContent: false,
+      boundingRect: { x: 0, y: 520, width: 390, height: 324 },
+      addEventListener() {},
+      removeEventListener() {},
+    };
+    Object.defineProperty(navigator, 'virtualKeyboard', {
+      configurable: true,
+      value: virtualKeyboard,
+    });
+    stubPhoneWindow({ innerHeight: 844, viewportHeight: 520 });
+
+    expect(ensureVirtualKeyboardOverlay()).toBe(false);
+    expect(virtualKeyboard.overlaysContent).toBe(false);
+    // Without overlay opt-in, seat from visualViewport (resizes-content).
+    expect(readVirtualKeyboardInset()).toBe(0);
+    expect(readKeyboardDrawerMetrics()).toEqual({
+      lift: 324,
+      height: 520,
+      isMobile: true,
+    });
+  });
+
+  it('seats on the IME top when overlaysContent is already on', () => {
+    const virtualKeyboard = {
+      overlaysContent: true,
       boundingRect: { x: 0, y: 520, width: 390, height: 324 },
       addEventListener() {},
       removeEventListener() {},
@@ -352,7 +379,6 @@ describe('virtual keyboard seat', () => {
     stubPhoneWindow({ innerHeight: 844, viewportHeight: 844 });
 
     expect(ensureVirtualKeyboardOverlay()).toBe(true);
-    expect(virtualKeyboard.overlaysContent).toBe(true);
     expect(readVirtualKeyboardInset()).toBe(324);
     expect(readKeyboardVisibleBottom()).toBe(520);
     expect(readKeyboardDrawerMetrics()).toEqual({
@@ -401,6 +427,7 @@ describe('virtual keyboard seat', () => {
 
     const vvOnlyLift = 844 - 844 - 0;
     expect(vvOnlyLift).toBe(0);
+    expect(readCssKeyboardInsetHeight()).toBe(0);
     expect(readKeyboardDrawerMetrics()).toEqual({
       lift: 344,
       height: 500,
@@ -408,7 +435,7 @@ describe('virtual keyboard seat', () => {
     });
     expect(readKeyboardVisibleBottom()).toBe(500);
 
-    // Same flush assert the Playwright Location drawer checks: root bottom = key top.
+    // Flush: root bottom = key top (not layout bottom cover).
     const metrics = readKeyboardDrawerMetrics();
     const box = visualKeyboardFrame({
       position: 'fixed',
@@ -425,10 +452,24 @@ describe('virtual keyboard seat', () => {
       paddingBottom: 0,
     });
     expect(box.top + box.height).toBe(500);
+
+    // Hosted Location drawer: metrics.height is already keyTop - offsetTop.
+    // Reaching key top must add offsetTop back or Brave leaves a page strip.
+    const hosted = visualKeyboardFrame({
+      position: 'absolute',
+      parentTop: 0,
+      parentHeight: 844,
+      offsetTop: 40,
+      visualHeight: metrics.height - 40,
+    });
+    expect(hosted).toEqual({ top: 0, height: 500 });
+    expect(hosted.top + hosted.height).toBe(500);
   });
 
-  it('takes the lower IME edge when Brave leaves a shortfall under the box', () => {
-    // y=500, height=300 → 44px short of innerHeight. That strip is the gap.
+  it('closes through a Brave chrome strip when the IME box stops short', () => {
+    // y=500, height=300 → 44px under the box. Seating on y alone left the
+    // drawer flush with that strip; the lower edge (innerHeight - height)
+    // is the real key top.
     const virtualKeyboard = {
       overlaysContent: true,
       boundingRect: { x: 0, y: 500, width: 390, height: 300 },

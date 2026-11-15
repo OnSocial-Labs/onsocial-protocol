@@ -311,6 +311,7 @@ export {
   keyboardRootFrameStyle,
   readKeyboardDrawerMetrics,
   readKeyboardVisibleBottom,
+  readCssKeyboardInsetHeight,
   readVirtualKeyboardInset,
   settleKeyboardDrawerMetrics,
   settleVisualKeyboardFrame,
