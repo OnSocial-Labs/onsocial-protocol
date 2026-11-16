@@ -25,6 +25,8 @@ export type TransactionFeedback = {
   /** In-app follow-up (e.g. View thread) — text link under the message. */
   actionHref?: string | null;
   actionLabel?: string | null;
+  /** In-app retry / continue — text control under the message. */
+  onAction?: () => void;
 };
 
 const DISMISS_MS = { success: 3500, error: 7000, info: 3500 } as const;
@@ -77,8 +79,13 @@ export function TransactionFeedbackToast({
   }, [onClose]);
 
   const canDismiss = Boolean(result && result.type !== 'pending');
+  // Actionable recovery stays up longer so the tap is reachable.
   const dismissMs =
-    result && result.type !== 'pending' ? DISMISS_MS[result.type] : 0;
+    result && result.type !== 'pending'
+      ? result.onAction
+        ? DISMISS_MS.error
+        : DISMISS_MS[result.type]
+      : 0;
   const { paused, barRef, hostRef, pauseProps } = useToastDismissTimer({
     active: canDismiss,
     durationMs: dismissMs,
@@ -86,6 +93,12 @@ export function TransactionFeedbackToast({
   });
 
   if (typeof document === 'undefined' || !result) return null;
+
+  const runAction = () => {
+    const action = result.onAction;
+    onClose();
+    action?.();
+  };
 
   return createPortal(
     <div className="app-tx-toast-anchor" role="presentation">
@@ -112,7 +125,15 @@ export function TransactionFeedbackToast({
               <span className="app-tx-toast-title">{result.title}</span>
             ) : null}
             <span className="app-tx-toast-message">{result.msg}</span>
-            {result.actionHref && result.actionLabel ? (
+            {result.onAction && result.actionLabel ? (
+              <button
+                type="button"
+                className="app-tx-toast-action"
+                onClick={runAction}
+              >
+                {result.actionLabel}
+              </button>
+            ) : result.actionHref && result.actionLabel ? (
               <a href={result.actionHref} className="app-tx-toast-action">
                 {result.actionLabel}
               </a>

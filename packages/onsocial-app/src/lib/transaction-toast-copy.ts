@@ -7,7 +7,10 @@ export const TX_TOAST_EYEBROW = {
 export const txToastSession = {
   settingUpSession: 'Setting up your session…',
   ready: "You're set to post.",
-  failed: 'Session setup did not finish. Try connecting again.',
+  /** User dismissed the wallet mid-setup — info toast, not a failure. */
+  canceled: 'Session not finished.',
+  failed: 'Session setup did not finish.',
+  tryAgain: 'Try again',
 } as const;
 
 export type SessionPendingPhase = 'setup' | 'wallet' | 'confirming';
