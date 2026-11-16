@@ -45,9 +45,9 @@ test.describe('discover tab settle', () => {
     });
 
     await clickTab(page, 'Discover', 'Moving');
-    await expect(
-      page.getByRole('region', { name: 'Hot posts' })
-    ).toBeVisible({
+    // Hot posts is omitted when the board is empty ("Nothing moving yet.").
+    // The Moving tabpanel is the surface that is always there.
+    await expect(page.getByRole('tabpanel', { name: 'Moving' })).toBeVisible({
       timeout: E2E_CHROME_TIMEOUT_MS,
     });
     await clickTab(page, 'Discover', 'Guilds');
