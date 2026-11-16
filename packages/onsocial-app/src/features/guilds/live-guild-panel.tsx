@@ -1314,9 +1314,15 @@ export function LiveGuildPanel({
             />
 
             <section className="guild-section guild-feed-section">
-              <OsPageBodyAppear>
               {renderFeedFilters()}
 
+              {feedPending ? (
+                <PostRowSkeleton
+                  rows={3}
+                  showChannel={selectedFeedFilterId === 'all'}
+                />
+              ) : (
+                <OsPageBodyAppear>
               {feedPosts.length > 0 ? (
                 <div
                   ref={feedListRef}
@@ -1434,11 +1440,6 @@ export function LiveGuildPanel({
                     Retry
                   </OsEmptyAction>
                 </div>
-              ) : feedPending ? (
-                <PostRowSkeleton
-                  rows={3}
-                  showChannel={selectedFeedFilterId === 'all'}
-                />
               ) : (
                 <div className="guild-state-card">
                   {selectedFeedSpace
@@ -1451,7 +1452,8 @@ export function LiveGuildPanel({
                   ) : null}
                 </div>
               )}
-              </OsPageBodyAppear>
+                </OsPageBodyAppear>
+              )}
             </section>
           </>
         ) : null}

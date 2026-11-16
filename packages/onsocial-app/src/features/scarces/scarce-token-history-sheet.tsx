@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { OsHugSheet } from '@onsocial/ui';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { heldEditionMark } from '@/features/collectibles/held-editions';
 import { CollectionActivityRows } from '@/features/scarces/collection-activity-rows';
 import { CollectionActivitySkeleton } from '@/features/scarces/collection-page-skeleton';
@@ -132,12 +133,13 @@ export function ScarceTokenHistorySheet({
       backdropLabel="Close history"
       zIndex={SHEET_Z.overShell}
       panelClassName="collection-activity-sheet-panel os-sheet-cap-standard"
-      deferEnter={phase === 'loading'}
       bodyClassName="collection-activity-sheet-body"
     >
       {phase === 'loading' ? (
         <CollectionActivitySkeleton rows={6} label="Loading history" />
-      ) : phase === 'error' ? (
+      ) : (
+        <OsPageBodyAppear>
+      {phase === 'error' ? (
         <p className="collection-activity-empty">
           History isn&apos;t available right now.
         </p>
@@ -152,6 +154,8 @@ export function ScarceTokenHistorySheet({
         </>
       ) : (
         <p className="collection-activity-empty">No history yet.</p>
+      )}
+        </OsPageBodyAppear>
       )}
     </OsHugSheet>
   );

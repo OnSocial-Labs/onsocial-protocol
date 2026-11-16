@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { postContentPath, type PostRow } from '@onsocial/sdk';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePageContentDrawer } from '@/contexts/page-content-drawer-context';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import {
   PageDrawerMediaGrid,
   PageDrawerMediaGridSkeleton,
@@ -364,39 +365,43 @@ export function ProfileFeedClient({
     if (tab === 'media' && mediaFailed) {
       return (
         <>
-          <div className="home-feed-state">
-            <span>{emptyTitle}</span>
-            <span>{emptyHint}</span>
-          </div>
-          <OsLoadMore onClick={loadOlderMedia} pending={mediaPaging}>
-            Show earlier
-          </OsLoadMore>
+          <OsPageBodyAppear>
+            <div className="home-feed-state">
+              <span>{emptyTitle}</span>
+              <span>{emptyHint}</span>
+            </div>
+            <OsLoadMore onClick={loadOlderMedia} pending={mediaPaging}>
+              Show earlier
+            </OsLoadMore>
+          </OsPageBodyAppear>
           {sheet}
         </>
       );
     }
     return (
       <>
-        {/* Tabs already name the section — lead line only on the legacy page. */}
-        {!tab ? (
-          <p className="panel-lead">
-            Public posts from <strong>@{accountId}</strong>.
-          </p>
-        ) : null}
-        <div className="home-feed-state">
-          <span>{emptyTitle}</span>
-          {showOwnerComposeAction ? (
-            <button
-              type="button"
-              className="profile-feed-compose-teaser"
-              onClick={() => openPost()}
-            >
-              Write your first post.
-            </button>
-          ) : (
-            <span>{emptyHint}</span>
-          )}
-        </div>
+        <OsPageBodyAppear>
+          {/* Tabs already name the section — lead line only on the legacy page. */}
+          {!tab ? (
+            <p className="panel-lead">
+              Public posts from <strong>@{accountId}</strong>.
+            </p>
+          ) : null}
+          <div className="home-feed-state">
+            <span>{emptyTitle}</span>
+            {showOwnerComposeAction ? (
+              <button
+                type="button"
+                className="profile-feed-compose-teaser"
+                onClick={() => openPost()}
+              >
+                Write your first post.
+              </button>
+            ) : (
+              <span>{emptyHint}</span>
+            )}
+          </div>
+        </OsPageBodyAppear>
         {sheet}
       </>
     );
@@ -404,40 +409,44 @@ export function ProfileFeedClient({
 
   return (
     <>
-      {!tab ? (
-        <p className="panel-lead">
-          Public posts from <strong>@{accountId}</strong>
-          {total > posts.length ? ` · showing ${posts.length}` : null}.
-        </p>
+      <OsPageBodyAppear>
+        {!tab ? (
+          <p className="panel-lead">
+            Public posts from <strong>@{accountId}</strong>
+            {total > posts.length ? ` · showing ${posts.length}` : null}.
+          </p>
+        ) : null}
+        {tab === 'media' ? (
+          <>
+            <PageDrawerMediaGrid posts={visiblePosts} />
+            {mediaFailed ? (
+              <OsLoadMore onClick={loadOlderMedia} pending={mediaPaging}>
+                Show earlier
+              </OsLoadMore>
+            ) : (
+              <div
+                ref={mediaSentinelRef}
+                className="page-drawer-media-sentinel"
+                aria-hidden
+              />
+            )}
+          </>
+        ) : (
+          <PersonalFeedList
+            posts={visiblePosts}
+            includeForeignReplies={tab === 'replies'}
+            onReply={replyHandler}
+            onExpandReply={openFullReply}
+            onQuote={quoteHandler}
+            onRepost={repostHandler}
+            onUndoRepost={undoRepostHandler}
+            className="home-feed-list"
+          />
+        )}
+      </OsPageBodyAppear>
+      {tab === 'media' && mediaPaging ? (
+        <PageDrawerMediaGridSkeleton cards={2} />
       ) : null}
-      {tab === 'media' ? (
-        <>
-          <PageDrawerMediaGrid posts={visiblePosts} />
-          {mediaPaging ? <PageDrawerMediaGridSkeleton cards={2} /> : null}
-          {mediaFailed ? (
-            <OsLoadMore onClick={loadOlderMedia} pending={mediaPaging}>
-              Show earlier
-            </OsLoadMore>
-          ) : (
-            <div
-              ref={mediaSentinelRef}
-              className="page-drawer-media-sentinel"
-              aria-hidden
-            />
-          )}
-        </>
-      ) : (
-        <PersonalFeedList
-          posts={visiblePosts}
-          includeForeignReplies={tab === 'replies'}
-          onReply={replyHandler}
-          onExpandReply={openFullReply}
-          onQuote={quoteHandler}
-          onRepost={repostHandler}
-          onUndoRepost={undoRepostHandler}
-          className="home-feed-list"
-        />
-      )}
       {sheet}
     </>
   );

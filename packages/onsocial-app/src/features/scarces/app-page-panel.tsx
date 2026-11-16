@@ -18,6 +18,7 @@ import {
   replaceSheet,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import {
   APP_COLUMN_HERO_SIZES,
   SCARCE_HERO_WIDTHS,
@@ -694,8 +695,8 @@ export function AppPagePanel({
         {catalogShell === 'skeleton' &&
         !hubRouteYieldsLoadingSkeleton(clientMounted) ? (
           <HubPageSkeleton listOnly />
-        ) : null}
-
+        ) : catalogShell === 'ready' || catalogShell === 'empty' ? (
+          <OsPageBodyAppear>
         {catalogShell === 'ready' && heldRows.length > 0 ? (
           <div
             ref={heldListRef}
@@ -822,6 +823,8 @@ export function AppPagePanel({
               ) : null}
             </div>
           </div>
+        ) : null}
+          </OsPageBodyAppear>
         ) : null}
       </div>
 
