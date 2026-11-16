@@ -1316,6 +1316,7 @@ export function LiveGuildPanel({
             <section className="guild-section guild-feed-section">
               {renderFeedFilters()}
 
+              {/* Painted rows win over feedPending so the load-more sentinel stays mounted. */}
               {feedPosts.length > 0 ? (
                 <div
                   ref={feedListRef}
