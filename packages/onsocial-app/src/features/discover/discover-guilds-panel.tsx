@@ -29,6 +29,7 @@ import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel'
 import { SECONDARY_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
 import { useFeedWindow } from '@/features/home/use-feed-window';
 import { APP_GROUPS_PATH } from '@/lib/app-routes';
+import { emptyCopy } from '@/lib/empty-copy';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import {
   countPrimaryTopics,
@@ -423,7 +424,7 @@ export function DiscoverGuildsPanel() {
           <div className="standing-panel-empty-state">
             <p className="standing-panel-empty-primary">
               {isSearchEmpty
-                ? 'No matches.'
+                ? emptyCopy.noMatches
                 : isTopicEmpty
                   ? 'No guilds in this topic yet.'
                   : 'No public guilds yet.'}

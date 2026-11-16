@@ -126,6 +126,7 @@ import type {
   ProtocolDaoPolicy,
 } from '@/features/protocol/types';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
+import { emptyCopy } from '@/lib/empty-copy';
 import { OsLoadMore } from '@/lib/os-load-more';
 import {
   PROTOCOL_FAMILY_PARAM,
@@ -2025,7 +2026,7 @@ export function DaoWorkspacePanel({
       filteredApplications.length === 0 ? (
         <p className="protocol-empty">
           {searchQuery
-            ? 'No matches.'
+            ? emptyCopy.noMatches
             : votedOnly
               ? 'No proposals you have voted on.'
               : familyFilter !== 'all'

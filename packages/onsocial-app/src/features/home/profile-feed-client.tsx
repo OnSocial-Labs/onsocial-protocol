@@ -21,6 +21,7 @@ import { PostRowSkeleton } from '@/features/home/post-card';
 import { usePersonalComposer } from '@/features/home/use-personal-composer';
 import { subscribePersonalReplyConfirmed } from '@/features/scarces/drop-compose-host';
 import { accountIdsEqual } from '@/lib/account-match';
+import { emptyCopy } from '@/lib/empty-copy';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { postKey } from '@/lib/post-display';
 import {
@@ -337,7 +338,7 @@ export function ProfileFeedClient({
     : tab
       ? isOwner
         ? FEED_TAB_OWNER_HINT[tab]
-        : 'Nothing here yet.'
+        : emptyCopy.nothingHereYet
       : total > 0
         ? 'Indexed posts could not be loaded right now.'
         : 'Nothing published yet.';

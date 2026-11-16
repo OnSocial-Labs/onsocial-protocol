@@ -37,6 +37,8 @@ import {
 } from '@/features/market/market-creator-view';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
+import { CatalogStatusLine } from '@/lib/catalog-status-line';
+import { emptyCopy } from '@/lib/empty-copy';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { OsLoadMore } from '@/lib/os-load-more';
 import { OsRowAction } from '@/lib/os-row-action';
@@ -1959,6 +1961,9 @@ export function MarketPagePanel({
   const errorPresentation = listingsError
     ? resolveAppLoadingPresentation('error', { hasPaintedRows })
     : null;
+  // Yours stays independent (vault must not wait on browse/sales). When the
+  // empty-listings hint is still undecided, reserve its line box so it cannot
+  // shove Yours/sales after they paint.
   const showOwnedSection =
     Boolean(viewerAccountId) &&
     owned.length > 0 &&
@@ -1975,6 +1980,28 @@ export function MarketPagePanel({
     !appFilter;
   const showSalesSection =
     salesRows.length > 0 && !searching && !creatorFilter && !appFilter;
+  const showNoActiveListingsHint =
+    status === 'ready' &&
+    listingsReady &&
+    !listingsFailed &&
+    !searching &&
+    listingFilter === 'all' &&
+    mediumFilter === 'all' &&
+    browseListings.length === 0 &&
+    salesRows.length > 0 &&
+    !showEmptyBrowse;
+  const reserveNoActiveListingsHint =
+    !showNoActiveListingsHint &&
+    !searching &&
+    !creatorFilter &&
+    !appFilter &&
+    listingFilter === 'all' &&
+    mediumFilter === 'all' &&
+    browseListings.length === 0 &&
+    !showEmptyBrowse &&
+    !listingsFailed &&
+    (showOwnedSection || showSalesSection) &&
+    (!listingsReady || sales === null);
   const creatorEmpty =
     Boolean(creatorFilter) &&
     creatorShopShell === 'empty' &&
@@ -2212,36 +2239,34 @@ export function MarketPagePanel({
         {showEmptyBrowse ? (
           <div className="market-page-empty">
             <p className="market-page-empty-copy">
-              Nothing listed yet. List a scarce from a post, or sell one you own
-              under Yours.
+              {emptyCopy.nothingListedYet}
             </p>
             <OsEmptyAction href={APP_DROPS_PATH}>Browse Drops</OsEmptyAction>
           </div>
         ) : null}
 
-        {status === 'ready' &&
-        listingsReady &&
-        !listingsFailed &&
-        !searching &&
-        listingFilter === 'all' &&
-        mediumFilter === 'all' &&
-        browseListings.length === 0 &&
-        salesRows.length > 0 &&
-        !showEmptyBrowse ? (
-          <p className="market-page-status">
-            No active listings — recent sales below.
-          </p>
+        {showNoActiveListingsHint || reserveNoActiveListingsHint ? (
+          <CatalogStatusLine reserved={reserveNoActiveListingsHint}>
+            {showNoActiveListingsHint
+              ? emptyCopy.noActiveListingsSalesBelow
+              : null}
+          </CatalogStatusLine>
         ) : null}
 
-        {showEmptySearch ? (
-          <p className="market-page-status">No matches.</p>
+        {searching &&
+        !searchSettled &&
+        discoveryFilteredListings.length === 0 &&
+        shopDrops.length === 0 ? (
+          <CatalogStatusLine>{emptyCopy.lookingForMatches}</CatalogStatusLine>
+        ) : showEmptySearch ? (
+          <CatalogStatusLine>{emptyCopy.noMatches}</CatalogStatusLine>
         ) : null}
 
         {showEmptyFilter ? (
           <div className="standing-panel-empty-state">
-            <p className="market-page-status">
+            <CatalogStatusLine>
               {facetOrFormatActive
-                ? 'No matches for these filters.'
+                ? emptyCopy.noMatchesForFilters
                 : mediumFilter !== 'all'
                   ? `Nothing in ${
                       MARKET_MEDIUM_FILTERS.find(
@@ -2251,7 +2276,7 @@ export function MarketPagePanel({
                   : `Nothing in ${
                       listingFilter === 'auctions' ? 'Auctions' : 'Fixed'
                     } right now.`}
-            </p>
+            </CatalogStatusLine>
             <div className="standing-panel-empty-actions">
               {facetOrFormatActive || mediumFilter !== 'all' ? (
                 <OsEmptyAction onClick={() => setMediumFilter('all')}>
@@ -2278,9 +2303,9 @@ export function MarketPagePanel({
 
         {appEmpty ? (
           <div className="standing-panel-empty-state">
-            <p className="market-page-status">
+            <CatalogStatusLine>
               No live listings in {appFilter} right now.
-            </p>
+            </CatalogStatusLine>
             <div className="standing-panel-empty-actions">
               <OsEmptyAction onClick={clearNarrowFilter}>
                 Clear filter
@@ -2416,7 +2441,7 @@ export function MarketPagePanel({
         listingsState.hasMore &&
         discoveryFilteredListings.length === 0 &&
         !showEmptyFilter ? (
-          <p className="market-page-status">Looking for matches…</p>
+          <CatalogStatusLine>{emptyCopy.lookingForMatches}</CatalogStatusLine>
         ) : null}
 
         {loadMoreFailed ? (

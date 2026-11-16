@@ -22,6 +22,41 @@ import {
   type GuildMemberRowActionId,
 } from '@/features/guilds/guild-member-row-actions';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
+import { emptyCopy } from '@/lib/empty-copy';
+
+function guildMembersRosterEmptyState(
+  roleFilter: GuildMemberRoleFilter,
+  bannedCount: number,
+  membersCount: number,
+  query: string
+): { primary: string; secondary: string | null } {
+  if (roleFilter === 'banned') {
+    if (bannedCount === 0) {
+      return { primary: 'No banned members', secondary: null };
+    }
+    if (query.trim()) {
+      return { primary: emptyCopy.noMatches, secondary: null };
+    }
+    return { primary: 'No banned members', secondary: null };
+  }
+  if (membersCount === 0) {
+    return { primary: 'No members yet', secondary: null };
+  }
+  if (query.trim()) {
+    return { primary: emptyCopy.noMatches, secondary: null };
+  }
+  if (roleFilter !== 'all') {
+    const tierLabel =
+      roleFilter === 'member'
+        ? 'regular members'
+        : guildMemberFilterLabel(roleFilter).toLowerCase();
+    return {
+      primary: `No ${tierLabel} yet`,
+      secondary: null,
+    };
+  }
+  return { primary: 'No members yet', secondary: null };
+}
 
 interface GuildMembersRosterProps {
   groupId: string;
@@ -90,34 +125,12 @@ export function GuildMembersRoster({
     return filterGuildMembers(members, profiles, { roleFilter, query });
   }, [banned, groupId, members, profiles, query, roleFilter]);
 
-  const emptyCopy = useMemo(() => {
-    if (roleFilter === 'banned') {
-      if (banned.length === 0) {
-        return { primary: 'No banned members', secondary: null };
-      }
-      if (query.trim()) {
-        return { primary: 'No matches.', secondary: null };
-      }
-      return { primary: 'No banned members', secondary: null };
-    }
-    if (members.length === 0) {
-      return { primary: 'No members yet', secondary: null };
-    }
-    if (query.trim()) {
-      return { primary: 'No matches.', secondary: null };
-    }
-    if (roleFilter !== 'all') {
-      const tierLabel =
-        roleFilter === 'member'
-          ? 'regular members'
-          : guildMemberFilterLabel(roleFilter).toLowerCase();
-      return {
-        primary: `No ${tierLabel} yet`,
-        secondary: null,
-      };
-    }
-    return { primary: 'No members yet', secondary: null };
-  }, [banned.length, members.length, query, roleFilter]);
+  const rosterEmptyState = guildMembersRosterEmptyState(
+    roleFilter,
+    banned.length,
+    members.length,
+    query
+  );
 
   const toolbarInBody = showToolbar && roleFilterProp === undefined;
   const sourceEmpty =
@@ -183,11 +196,11 @@ export function GuildMembersRoster({
               >
                 <div className="standing-panel-empty-state">
                   <p className="standing-panel-empty-primary">
-                    {emptyCopy.primary}
+                    {rosterEmptyState.primary}
                   </p>
-                  {emptyCopy.secondary ? (
+                  {rosterEmptyState.secondary ? (
                     <p className="standing-panel-empty-secondary">
-                      {emptyCopy.secondary}
+                      {rosterEmptyState.secondary}
                     </p>
                   ) : null}
                 </div>

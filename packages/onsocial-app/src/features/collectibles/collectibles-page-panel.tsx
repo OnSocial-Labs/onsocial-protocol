@@ -61,6 +61,8 @@ import {
 import { VAULT_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
+import { CatalogStatusLine } from '@/lib/catalog-status-line';
+import { emptyCopy } from '@/lib/empty-copy';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { OsLoadMore } from '@/lib/os-load-more';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
@@ -909,7 +911,7 @@ export function CollectiblesPagePanel({
   const loadMoreLabel = loadingMore
     ? 'Loading…'
     : filterAwaitingLoad && filtered.length === 0
-      ? 'Looking for matches…'
+      ? emptyCopy.lookingForMatches
       : 'Show more';
 
   useInfiniteScrollSentinel({
@@ -989,9 +991,9 @@ export function CollectiblesPagePanel({
       ) : null}
 
       {showOfflineOnly ? (
-        <p className="market-page-status">
+        <CatalogStatusLine>
           Downloaded music — available offline.
-        </p>
+        </CatalogStatusLine>
       ) : null}
 
       {emptyVault ? (
@@ -1020,13 +1022,15 @@ export function CollectiblesPagePanel({
         </div>
       ) : null}
 
-      {emptySearch ? <p className="market-page-status">No matches.</p> : null}
+      {emptySearch ? (
+        <CatalogStatusLine>{emptyCopy.noMatches}</CatalogStatusLine>
+      ) : null}
 
       {emptyFilter ? (
         <div className="market-page-empty">
           <p className="market-page-empty-copy">
             {facetOrFormatActive
-              ? 'No matches for these filters.'
+              ? emptyCopy.noMatchesForFilters
               : isSelf
                 ? `No ${emptyFilterLabel.toLowerCase()} in your vault.`
                 : `No ${emptyFilterLabel.toLowerCase()} held.`}
@@ -1038,7 +1042,7 @@ export function CollectiblesPagePanel({
       ) : null}
 
       {filterAwaitingLoad ? (
-        <p className="market-page-status">Looking for matches…</p>
+        <CatalogStatusLine>{emptyCopy.lookingForMatches}</CatalogStatusLine>
       ) : null}
 
       {showLibrary &&

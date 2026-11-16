@@ -1,5 +1,6 @@
 import type { DiscoverFaceFilter } from '@onsocial/sdk';
 import { isDiscoverTopicDraft } from '@/features/discover/discover-omni-search';
+import { emptyCopy } from '@/lib/empty-copy';
 import { profileIdentityTopicLabel } from '@/lib/profile-identity-topics';
 
 export interface DiscoverPanelEmptyState {
@@ -57,7 +58,7 @@ export function buildDiscoverEmptyState(
       };
     }
     return {
-      primary: 'No matches.',
+      primary: emptyCopy.noMatches,
       showClearSearch: false,
     };
   }

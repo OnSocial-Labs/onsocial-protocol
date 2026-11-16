@@ -76,6 +76,8 @@ import {
   parseDropsMediumParam,
 } from '@/lib/app-routes';
 import { DROPS_INDEX_PAGE_CLASS } from '@/lib/os-chrome-page';
+import { CatalogStatusLine } from '@/lib/catalog-status-line';
+import { emptyCopy } from '@/lib/empty-copy';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
 import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
@@ -422,7 +424,7 @@ function DropsEmptyRecovery({
 }) {
   return (
     <div className="standing-panel-empty-state">
-      <p className="market-page-status">{copy}</p>
+      <CatalogStatusLine>{copy}</CatalogStatusLine>
       {actions && actions.length > 0 ? (
         <div className="standing-panel-empty-actions">
           {actions.map((action) => (
@@ -450,7 +452,7 @@ function EmptyDropsStatus({
 }) {
   const mediumLabel = dropMediumLabel(medium);
   if (query.trim()) {
-    return <p className="market-page-status">No matches.</p>;
+    return <CatalogStatusLine>{emptyCopy.noMatches}</CatalogStatusLine>;
   }
   if (mediumLabel) {
     return (

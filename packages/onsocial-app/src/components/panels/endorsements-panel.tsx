@@ -24,6 +24,7 @@ import {
 } from '@/components/panels/endorsement-list-row';
 import { EndorsementFocusSheet } from '@/components/panels/endorsement-focus-sheet';
 import { DiscoverProfilesLink } from '@/components/panels/standing-discover-link';
+import { emptyCopy } from '@/lib/empty-copy';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import {
   ChoiceDrawerMenu,
@@ -525,7 +526,7 @@ export function EndorsementsPanel({
         >
           <div className="standing-panel-empty-state">
             <p className="standing-panel-empty-primary">
-              {searching ? 'No matches.' : emptyState.primary}
+              {searching ? emptyCopy.noMatches : emptyState.primary}
             </p>
             {!searching && emptyState.secondary ? (
               <p className="standing-panel-empty-secondary">

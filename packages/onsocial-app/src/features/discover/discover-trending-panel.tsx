@@ -18,6 +18,7 @@ import {
   homeTickerPath,
 } from '@/features/home/home-ticker-search';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { emptyCopy } from '@/lib/empty-copy';
 import {
   emptyMovingBoard,
   loadMovingBoard,
@@ -288,7 +289,9 @@ export function DiscoverTrendingPanel({
       {empty ? (
         <div className="standing-panel-empty-state">
           <p className="standing-panel-empty-primary">
-            {filterNeedle ? 'No matches.' : 'Nothing moving yet.'}
+            {filterNeedle
+              ? emptyCopy.noMatches
+              : emptyCopy.nothingMovingYet}
           </p>
         </div>
       ) : null}
