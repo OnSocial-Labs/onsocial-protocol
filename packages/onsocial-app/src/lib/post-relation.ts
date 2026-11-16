@@ -15,6 +15,16 @@ export function isQuoteRefType(refType: string | undefined): boolean {
   return key === 'quote' || key === 'cite';
 }
 
+/**
+ * Quote inset seat — true when the card will show a quoted original once
+ * `refPath` resolves. Bare reposts swap the whole card instead.
+ */
+export function postNeedsQuoteSeat(
+  post: Pick<PostRow, 'refPath' | 'refType'>
+): boolean {
+  return Boolean(post.refPath?.trim()) && !isRepostRefType(post.refType);
+}
+
 export type PostRelationContext =
   | { kind: 'reply'; verb: string; handle: string }
   | { kind: 'repost'; label: string };

@@ -46,6 +46,32 @@ import { PostSensitiveGate } from '@/features/home/post-sensitive-gate';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
 
+/**
+ * Structure seat for a quote inset while `refPath` soft-fills. Matches the
+ * live rail + head + body chassis so the row does not grow on paint.
+ */
+export function QuotedPostInsetPending() {
+  return (
+    <div className="post-card-quote-inset post-card-quote-inset--pending" aria-hidden>
+      <Divider orientation="vertical" variant="detail" />
+      <div className="post-card-quote-inset-content">
+        <span className="post-card-quote-inset-head">
+          <span className="standing-row-shimmer post-card-quote-inset-avatar-bone" />
+          <span className="post-card-quote-inset-identity-bone">
+            <span className="standing-row-shimmer post-row-skeleton-line" />
+            <span className="standing-row-shimmer post-row-skeleton-line-sm" />
+          </span>
+        </span>
+        <div className="post-card-quote-inset-body-row">
+          <p className="post-card-quote-inset-body">
+            <span className="standing-row-shimmer post-row-skeleton-line-body" />
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function QuotedPostInset({
   post,
   authorProfile,

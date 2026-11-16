@@ -53,14 +53,23 @@ export function OsTextFold({
       lineHeight = Number.parseFloat(style.fontSize) * 1.5;
     }
     const peekPx = Math.ceil(lineHeight * closedLines);
-    measure({ closedPx: peekPx });
     const overflows = inner.scrollHeight > peekPx + 1;
-    if (!overflows) {
-      host.style.setProperty('--os-reveal-closed', 'auto');
-      host.style.setProperty('--os-reveal-open', 'auto');
+    // Capped folds keep the CSS `--os-fold-lines` seat on first paint.
+    // Measure only drives open height + overflow ink — never rewrite the
+    // closed seat (px vs em mismatch) or flip it to `auto`.
+    if (capped) {
+      const openPx = Math.ceil(inner.scrollHeight);
+      host.style.removeProperty('--os-reveal-closed');
+      host.style.setProperty('--os-reveal-open', `${openPx}px`);
+    } else {
+      measure({ closedPx: peekPx });
+      if (!overflows) {
+        host.style.setProperty('--os-reveal-closed', 'auto');
+        host.style.setProperty('--os-reveal-open', 'auto');
+      }
     }
     onOverflow?.(overflows);
-  }, [clipRef, closedLines, hostRef, innerRef, measure, onOverflow]);
+  }, [capped, clipRef, closedLines, hostRef, innerRef, measure, onOverflow]);
 
   useLayoutEffect(() => {
     sync();

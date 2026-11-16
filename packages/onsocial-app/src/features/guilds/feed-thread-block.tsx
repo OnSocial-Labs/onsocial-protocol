@@ -3,7 +3,7 @@
 import type { PostRow } from '@onsocial/sdk';
 import type { WriteDockSubmit } from '@/contexts/compose-launcher-context';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
-import { PostCard, postKey } from '@/features/home/post-card';
+import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { ThreadRail } from '@/features/home/thread-rail';
 import { ThreadFoldLink } from '@/features/home/thread-fold-button';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
@@ -11,6 +11,7 @@ import {
   EMPTY_POST_ENGAGEMENT,
   type PostEngagement,
 } from '@/hooks/use-post-engagement';
+import { hasQuotedPostCacheEntry } from '@/hooks/use-quoted-posts';
 import type { PollTally } from '@/lib/poll-votes';
 import { parsePostText } from '@/lib/post-display';
 import { resolveThreadFoldLabel } from '@/lib/thread-fold-label';
@@ -173,9 +174,25 @@ export function FeedThreadBlock({
       .join(' ');
 
     const rawQuoted = post.refPath ? quotedPosts[post.refPath] : undefined;
+    // Bare repost: hold a skeleton seat until the original resolves so the
+    // row never paints the empty shell then swaps geometry.
+    const bareRepostPending =
+      isRepostRefType(post.refType) &&
+      !parsePostText(post.value).trim() &&
+      Boolean(post.refPath?.trim()) &&
+      !rawQuoted &&
+      !hasQuotedPostCacheEntry(post.refPath!);
+    if (bareRepostPending) {
+      return (
+        <div key={postKey(post)} className={itemClassName}>
+          <ThreadRail up={up} down={down} />
+          <PostRowSkeleton rows={1} />
+        </div>
+      );
+    }
     // Bare repost shell + resolved original → render the ORIGINAL as the
     // card (its author, time, engagement, actions) with a `{name} reposted`
-    // attribution line on top. Falls back to the shell while loading.
+    // attribution line on top. Misses keep the shell.
     const repostOriginal =
       isRepostRefType(post.refType) && !parsePostText(post.value).trim()
         ? rawQuoted

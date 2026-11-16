@@ -19,7 +19,10 @@ import {
 } from '@onsocial/sdk';
 import { RepeatIcon, UsersFillIcon } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
-import { QuotedPostInset } from '@/features/home/post-card-quote';
+import {
+  QuotedPostInset,
+  QuotedPostInsetPending,
+} from '@/features/home/post-card-quote';
 import {
   PostEngagementRow,
   PostPeekStandButton,
@@ -150,7 +153,11 @@ import {
   postKey,
   postTimestampIso,
 } from '@/lib/post-display';
-import { isRepostRefType, postRelationContext } from '@/lib/post-relation';
+import {
+  isRepostRefType,
+  postNeedsQuoteSeat,
+  postRelationContext,
+} from '@/lib/post-relation';
 import {
   parsePostMedia,
   isRenderablePostVideo,
@@ -162,7 +169,10 @@ import type { ThreadSheetContext } from '@/lib/guild-thread-card-context';
 import { isAppPostSheetHref, postThreadPath } from '@/lib/post-routes';
 import type { PollTally } from '@/lib/poll-votes';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
-import type { PostEngagement } from '@/hooks/use-post-engagement';
+import {
+  EMPTY_POST_ENGAGEMENT,
+  type PostEngagement,
+} from '@/hooks/use-post-engagement';
 
 /** Engagement data + per-post actions a feed host wires into the card. */
 export interface PostCardEngagementProps {
@@ -314,7 +324,7 @@ function PostCardImpl({
   channelLabel,
   showGuildAttribution = false,
   guildName,
-  engagement,
+  engagement = EMPTY_POST_ENGAGEMENT,
   reactionPending,
   savePending,
   sharePending,
@@ -724,6 +734,13 @@ function PostCardImpl({
       scarceEmbed?.status === 'sold' ||
       scarceEmbed?.status === 'auction' ||
       scarceEmbed?.status === 'minted');
+  /** Sync drop paint / embed refs without live art yet — hold the 300² jacket. */
+  const scarceArtSeat =
+    !article &&
+    !photoCover &&
+    mediaItems.length === 0 &&
+    !showScarceArt &&
+    (Boolean(dropPaint) || hasCollectionEmbed || hasTokenEmbed);
   const articleIssuedAt =
     typeof post.blockTimestamp === 'number'
       ? post.blockTimestamp
@@ -1549,6 +1566,13 @@ function PostCardImpl({
                 openFeedMedium(mode, coverSvg);
               }}
             />
+          ) : scarceArtSeat ? (
+            <div
+              className="scarce-post-preview scarce-post-preview--feed scarce-post-preview--cover"
+              aria-hidden
+            >
+              <div className="scarce-list-preview-placeholder scarce-post-preview-asset" />
+            </div>
           ) : null}
           {!isRepostShell && (scarceEmbed || canListScarce) ? (
             <PostScarceCta
@@ -1596,6 +1620,8 @@ function PostCardImpl({
             expanded={detailLayout}
             sheetContext={sheetContext}
           />
+        ) : postNeedsQuoteSeat(post) ? (
+          <QuotedPostInsetPending />
         ) : null}
         {detailLayout ? (
           <time
@@ -1606,18 +1632,16 @@ function PostCardImpl({
             {formatPostTimestamp(post.blockTimestamp)}
           </time>
         ) : null}
-        {engagement ? (
-          <PostEngagementRow
-            {...engagementActions}
-            engagement={engagement}
-            shareHref={shareHref}
-            shareTitle={name}
-            onAmplify={openAmplify}
-            {...(resolvedMenuZ != null
-              ? { shareDrawerZIndex: resolvedMenuZ }
-              : {})}
-          />
-        ) : null}
+        <PostEngagementRow
+          {...engagementActions}
+          engagement={engagement}
+          shareHref={shareHref}
+          shareTitle={name}
+          onAmplify={openAmplify}
+          {...(resolvedMenuZ != null
+            ? { shareDrawerZIndex: resolvedMenuZ }
+            : {})}
+        />
       </div>
       {amplifySheetMounted ? (
         <PostAmplifySheet
@@ -1996,4 +2020,4 @@ function postCardPropsEqual(prev: PostCardProps, next: PostCardProps): boolean {
 export const PostCard = memo(PostCardImpl, postCardPropsEqual);
 
 export { postKey };
-export { QuotedPostInset };
+export { QuotedPostInset, QuotedPostInsetPending };

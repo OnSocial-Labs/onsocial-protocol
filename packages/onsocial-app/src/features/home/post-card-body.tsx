@@ -193,7 +193,7 @@ export function PostCardBody({
               closedLines={closedLines}
               capped
               onOverflow={(overflows) => {
-                if (overflows) setBodyOverflows(true);
+                setBodyOverflows(overflows);
               }}
             >
               <p className="post-card-body">
