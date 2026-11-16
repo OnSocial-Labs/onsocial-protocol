@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { PostMediaBlock, PostMediaStrip } from './post-media';
 
 describe('post audio attachments', () => {
-  it('renders an audio file as a player, not an image', () => {
+  it('renders feed audio as a jacket that opens the player, not an inline row', () => {
     const html = renderToStaticMarkup(
       createElement(PostMediaStrip, {
         items: [
@@ -14,33 +14,35 @@ describe('post audio attachments', () => {
             alt: 'Voice note',
           },
         ],
+        onAudioOpen: () => {},
       })
     );
 
-    expect(html).toContain('<audio');
-    expect(html).toContain('src="https://example.com/voice.webm"');
-    expect(html).toContain('Play Voice note');
-    expect(html).toContain('post-audio-row');
+    expect(html).toContain('post-audio-jacket');
+    expect(html).toContain('Listen to Voice note');
+    expect(html).toContain('scarce-post-preview-play');
+    expect(html).not.toContain('post-audio-row');
+    expect(html).not.toContain('<audio');
     expect(html).not.toContain('<img');
-    expect(html).not.toContain('post-media-tile--compact');
-    expect(html).not.toContain('aspect-ratio');
   });
 
-  it('keeps a photo in the tile and puts audio beside it', () => {
+  it('keeps a photo in the tile and puts an audio jacket beside it', () => {
     const html = renderToStaticMarkup(
       createElement(PostMediaStrip, {
         items: [
           { url: 'https://example.com/still.jpg', mime: 'image/jpeg' },
           { url: 'https://example.com/voice.webm', mime: 'audio/webm' },
         ],
+        onAudioOpen: () => {},
       })
     );
 
     expect(html).toContain('post-media-strip--1');
     expect(html).not.toContain('is-collage');
     expect(html).toContain('<img');
-    expect(html).toContain('<audio');
-    expect(html).toContain('Play audio');
+    expect(html).toContain('post-audio-jacket');
+    expect(html).toContain('Listen');
+    expect(html).not.toContain('post-audio-row');
   });
 
   it('uses a square preview control in the composer', () => {

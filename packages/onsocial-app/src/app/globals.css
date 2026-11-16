@@ -23364,6 +23364,7 @@ a.os-surface-row,
   .post-card--openable .post-media-tile.is-activatable,
   .post-card--openable .post-audio-row,
   .post-card--openable .post-audio-preview,
+  .post-card--openable .post-audio-jacket,
   .post-card--openable .post-media-unmute-gate,
   .post-card--openable .post-media-mute,
   .post-card--openable .post-card-stat,
@@ -24042,24 +24043,6 @@ a.os-surface-row,
     width: 12rem;
     z-index: 40;
     pointer-events: auto;
-  }
-
-  .post-card-badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-  }
-
-  .post-card-badges span {
-    width: fit-content;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.055);
-    color: rgb(var(--fg-rgb) / 0.54);
-    font-size: var(--os-stamp-size, 0.75rem);
-    font-weight: 650;
-    letter-spacing: 0.04em;
-    padding: 0.24rem 0.44rem;
-    text-transform: capitalize;
   }
 
   .post-card--openable .post-card-body-block.is-fold-closed {

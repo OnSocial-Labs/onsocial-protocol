@@ -44,7 +44,7 @@ export type PostScarceCtaActionProps = {
 };
 
 export type PostScarceCtaProps = PostScarceCtaActionProps & {
-  /** Compact Listen control rendered beside commerce CTAs when playable. */
+  /** Compact Read (or other medium) control beside commerce CTAs. */
   listenSlot?: ReactNode;
 };
 

@@ -32,7 +32,7 @@ import {
   PostCardMenu,
   type PostCardMenuPostProps,
 } from '@/features/home/post-card-menu';
-import { PostCardBody, postBadges } from '@/features/home/post-card-body';
+import { PostCardBody } from '@/features/home/post-card-body';
 import {
   hasReachableMediaFace,
   onDismissReplyDrawers,
@@ -779,7 +779,8 @@ function PostCardImpl({
     tokenDropTitle?.trim() ||
     collectionDropTitle?.trim() ||
     dropPaint?.title?.trim() ||
-    'Drop';
+    postAudio?.alt?.trim() ||
+    (postPlayables.length > 0 ? 'Audio' : 'Drop');
   const openFeedMedium = (
     mode: ScarceFeedMediumMode,
     coverSvg: string | null = null
@@ -1058,7 +1059,6 @@ function PostCardImpl({
   const articleCoverActivatable = Boolean(article && articleCover);
 
   const name = displayName(post.accountId, authorProfile?.displayName);
-  const badges = postBadges(post, Boolean(poll));
   const relationContext = showRelationBadge
     ? postRelationContext(post, {
         viewerAccountId,
@@ -1420,7 +1420,6 @@ function PostCardImpl({
           <PostCardBody
             relationContext={relationContext}
             relationTargetProfileName={relationTargetProfileName}
-            badges={badges}
             text={text}
             hasMedia={hasMedia}
             startExpanded={mediaFocused}
@@ -1545,6 +1544,7 @@ function PostCardImpl({
                     }
                   : undefined
               }
+              onAudioOpen={() => openFeedMedium('audio')}
             />
           ) : showScarceArt && scarceEmbed ? (
             <ScarcePostPreview
@@ -1578,35 +1578,18 @@ function PostCardImpl({
             <PostScarceCta
               {...scarceCtaActions}
               listenSlot={
-                showDropListen || showDropRead ? (
-                  <>
-                    {showDropRead ? (
-                      <button
-                        type="button"
-                        className="post-card-scarce-listen"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          openDropWriting();
-                        }}
-                      >
-                        Read
-                      </button>
-                    ) : null}
-                    {showDropListen ? (
-                      <button
-                        type="button"
-                        className="post-card-scarce-listen"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          openFeedMedium('audio');
-                        }}
-                      >
-                        Listen
-                      </button>
-                    ) : null}
-                  </>
+                showDropRead ? (
+                  <button
+                    type="button"
+                    className="post-card-scarce-listen"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      openDropWriting();
+                    }}
+                  >
+                    Read
+                  </button>
                 ) : null
               }
             />
