@@ -481,8 +481,3 @@ export function postFeedBodyOverflows(
   if (text.split(/\r?\n/).length > closedLines) return true;
   return postPreviewNeedsExpand(text, postFeedPreviewLimit(hasMedia));
 }
-
-/**
- * Kind pill on a feed card. Media speaks for itself; a titled article
- * already has a title — do not stamp `longform`.
- */

@@ -49,6 +49,7 @@ import { usePostThreadLayer } from '@/features/home/post-thread-layer';
 import { PostRichText } from '@/features/home/post-rich-text';
 import { PostSensitiveGate } from '@/features/home/post-sensitive-gate';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
+import { useSheetMounted } from '@/hooks/use-sheet-mounted';
 import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
 import type { ScarcePlayableMedia } from '@/features/market/market-listings';
 import { ScarceFeedMediumSheet } from '@/features/scarces/scarce-feed-medium-sheet';
@@ -307,12 +308,6 @@ export function QuotedPostInset({
   );
 }
 
-/** Mount sheet chrome only after first open (same as post-card overlays). */
-function useSheetMounted(open: boolean): boolean {
-  const [mounted, setMounted] = useState(open);
-  if (open && !mounted) setMounted(true);
-  return mounted || open;
-}
 
 function QuoteThumbTile({
   item,

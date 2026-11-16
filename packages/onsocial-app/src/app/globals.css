@@ -4399,7 +4399,7 @@ a.os-surface-row,
 
 /*
  * Mood commerce — Mint / Buy / Bid follow reputation.
- * List / Sell stay gray and brighten on hover, with Read / Listen.
+ * List / Sell stay gray and brighten on hover, with Read.
  * Source / provenance greens (View original post, Drop page) too.
  * Like / boost stay hard protocol; love / player stay protocol green.
  * Fact-sheet identity links (creator / hub / explorer) stay inherited fg.
@@ -4422,12 +4422,12 @@ a.os-surface-row,
     .guild-facts-link.scarce-facts-source-link,
     .guild-facts-link.scarce-facts-source-link:hover,
     .guild-facts-link.scarce-facts-source-link:focus-visible,
-    .post-card-scarce-listen
+    .post-card-scarce-read
   ) {
   color: var(--signal-reputation, var(--protocol-green, #00ec97));
 }
 
-/* Mint / Buy / Bid, List / Sell, and Read / Listen — brighten, no underline. */
+/* Mint / Buy / Bid, List / Sell, and Read — brighten, no underline. */
 :is(
     .os-app-screen.os-app-screen--mood,
     .os-page-sheet-panel[data-mood],
@@ -4456,7 +4456,7 @@ a.os-surface-row,
     .portfolio-os-layer[data-mood],
     .portfolio-frame[data-mood]
   )
-  .post-card-scarce-listen:is(:hover, :focus-visible) {
+  .post-card-scarce-read:is(:hover, :focus-visible) {
   color: color-mix(
     in srgb,
     var(--signal-reputation, var(--protocol-green, #00ec97)) 72%,
@@ -23384,7 +23384,7 @@ a.os-surface-row,
   .post-card--openable .post-card-guild,
   .post-card--openable .post-card-scarce-buy,
   .post-card--openable .post-card-scarce-link,
-  .post-card--openable .post-card-scarce-listen,
+  .post-card--openable .post-card-scarce-read,
   .post-card--openable .scarce-post-preview {
     pointer-events: auto;
   }
@@ -25634,7 +25634,7 @@ a.os-surface-row,
     color: inherit;
   }
 
-  .post-card-scarce-listen {
+  .post-card-scarce-read {
     border: 0;
     background: transparent;
     padding: 0.2rem 0;
@@ -25649,13 +25649,13 @@ a.os-surface-row,
   }
 
   @media (hover: hover) and (pointer: fine) {
-    .post-card-scarce-listen:hover {
+    .post-card-scarce-read:hover {
       color: var(--protocol-green-hover, var(--protocol-green, #00ec97));
       text-decoration: none;
     }
   }
 
-  .post-card-scarce-listen:focus-visible {
+  .post-card-scarce-read:focus-visible {
     color: var(--protocol-green-hover, var(--protocol-green, #00ec97));
     text-decoration: none;
     outline: 1px solid currentColor;

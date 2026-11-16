@@ -23,6 +23,8 @@ describe('PostScarceCtaPending', () => {
     expect(postCard).toContain('scarceCtaSeat');
     expect(postCard).toContain('<PostScarceCtaPending');
     expect(postCard).toContain('mediumSlot=');
+    expect(postCard).toContain('post-card-scarce-read');
     expect(postCard).not.toContain('listenSlot');
+    expect(postCard).not.toContain('post-card-scarce-listen');
   });
 });

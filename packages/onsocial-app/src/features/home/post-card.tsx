@@ -127,6 +127,7 @@ import { usePostScarceEmbed } from '@/features/scarces/use-post-scarce-embed';
 import { usePostTokenEmbed } from '@/features/scarces/use-post-token-embed';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { useSheetMounted } from '@/hooks/use-sheet-mounted';
 import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
 import { parsePostContentLabels } from '@/lib/post-content-labels';
 import { accountIdsEqual } from '@/lib/account-match';
@@ -293,16 +294,6 @@ export {
 } from '@/features/home/post-skeleton';
 export type { PostSkeletonFrame } from '@/features/home/post-skeleton';
 
-/**
- * Mount an overlay sheet on first open and keep it mounted afterwards —
- * closed sheets cost nothing until first use, while close animations and
- * internal state survive later closes.
- */
-function useSheetMounted(open: boolean): boolean {
-  const [mounted, setMounted] = useState(open);
-  if (open && !mounted) setMounted(true);
-  return mounted || open;
-}
 
 /** Shared fallback so the scarce-CTA bundle keeps a stable embed identity. */
 const EMPTY_SCARCE_EMBED: PostScarceEmbed = {
@@ -1589,7 +1580,7 @@ function PostCardImpl({
                 showDropRead ? (
                   <button
                     type="button"
-                    className="post-card-scarce-listen"
+                    className="post-card-scarce-read"
                     onClick={(event) => {
                       event.preventDefault();
                       event.stopPropagation();
