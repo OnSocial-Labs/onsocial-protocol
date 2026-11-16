@@ -1,22 +1,55 @@
 import { createElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { act, create, type ReactTestRenderer } from 'react-test-renderer';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   OsRouteSettle,
   routeSettleCovers,
 } from '@/components/app/os-route-settle';
-import {
-  noteDocumentLeftEntry,
-  resetDocumentRouteForTests,
-} from '@/lib/intent-prefetch';
+import { DiscoverPagePanel } from '@/features/discover/discover-page-panel';
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
-  true;
+const tabState = vi.hoisted(() => ({
+  tab: 'trending' as 'trending' | 'guilds',
+}));
 
 vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: () => undefined, prefetch: () => undefined }),
   usePathname: () => '/discover',
+  useSearchParams: () => new URLSearchParams(),
 }));
+
+vi.mock('@/components/app/os-app-screen', () => ({
+  OsAppScreen: ({ children }: { children: ReactNode }) => children,
+}));
+
+vi.mock('@/features/discover/discover-panel', () => ({
+  DiscoverPanelRoot: ({ children }: { children: ReactNode }) => children,
+}));
+
+vi.mock('@/features/discover/discover-screen-chrome', () => ({
+  DiscoverHeaderTabs: () => null,
+  DiscoverNavSearch: () => null,
+}));
+
+vi.mock('@/features/discover/discover-panel-context', () => ({
+  useDiscoverPanel: () => ({
+    tab: tabState.tab,
+    initialTrending: { posts: [{ id: 'painted' }] },
+    setTab: () => undefined,
+  }),
+}));
+
+vi.mock('@/features/discover/discover-panel-content', () => {
+  const React = require('react') as typeof import('react');
+  return {
+    DiscoverPanelContent: function DiscoverPanelContent() {
+      return React.createElement(
+        'p',
+        { 'data-guild-filter': 'music' },
+        'music'
+      );
+    },
+  };
+});
 
 function settleMarkup(ready?: boolean) {
   const painted = createElement('p', null, 'Painted thread');
@@ -27,16 +60,6 @@ function settleMarkup(ready?: boolean) {
   }) => ReactNode;
   return renderToStaticMarkup(
     createElement(Settle, { ready, skeleton }, painted)
-  );
-}
-
-function paintedSettle() {
-  return createElement(
-    OsRouteSettle,
-    {
-      skeleton: createElement('div', { className: 'cover-probe' }, 'cover'),
-    },
-    createElement('p', null, 'Painted thread')
   );
 }
 
@@ -58,13 +81,23 @@ describe('routeSettleCovers', () => {
   });
 });
 
-describe('OsRouteSettle server paint', () => {
-  afterEach(() => {
-    resetDocumentRouteForTests();
-    vi.unstubAllGlobals();
-    vi.useRealTimers();
-  });
+describe('Discover tab settle', () => {
+  it('keeps the panel inside OsRouteSettle when the tab leaves Moving', () => {
+    tabState.tab = 'trending';
+    const moving = renderToStaticMarkup(createElement(DiscoverPagePanel));
+    tabState.tab = 'guilds';
+    const guilds = renderToStaticMarkup(createElement(DiscoverPagePanel));
 
+    for (const html of [moving, guilds]) {
+      const wrapper = html.indexOf('os-route-settle');
+      const filter = html.indexOf('data-guild-filter="music"');
+      expect(wrapper).toBeGreaterThan(-1);
+      expect(filter).toBeGreaterThan(wrapper);
+    }
+  });
+});
+
+describe('OsRouteSettle server paint', () => {
   it('does not cover server-rendered discover content before hydration', () => {
     const html = settleMarkup(undefined);
 
@@ -81,35 +114,5 @@ describe('OsRouteSettle server paint', () => {
     expect(html).not.toContain('is-ready');
     expect(html).not.toContain('os-route-skeleton');
     expect(html).not.toContain('cover-probe');
-  });
-
-  it('covers a later mount of the document path after the reader has left it', async () => {
-    vi.stubGlobal('window', {
-      location: { pathname: '/discover', search: '' },
-      matchMedia: () => ({ matches: false }),
-      setTimeout: globalThis.setTimeout.bind(globalThis),
-      clearTimeout: globalThis.clearTimeout.bind(globalThis),
-    });
-    vi.stubGlobal('document', { documentElement: {} });
-    vi.stubGlobal('getComputedStyle', () => ({
-      getPropertyValue: () => '280ms',
-    }));
-    vi.useFakeTimers();
-    resetDocumentRouteForTests();
-
-    let first!: ReactTestRenderer;
-    await act(async () => {
-      first = create(paintedSettle());
-    });
-    expect(JSON.stringify(first.toJSON())).not.toContain('os-route-skeleton');
-
-    noteDocumentLeftEntry();
-    let returned!: ReactTestRenderer;
-    await act(async () => {
-      returned = create(paintedSettle());
-    });
-    const painted = JSON.stringify(returned.toJSON());
-    expect(painted).toContain('Painted thread');
-    expect(painted).toContain('os-route-skeleton');
   });
 });

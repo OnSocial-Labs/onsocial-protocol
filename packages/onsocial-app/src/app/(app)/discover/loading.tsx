@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { Suspense, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -137,9 +137,18 @@ function DiscoverLoadingScreen({ tab }: { tab: DiscoverTab }) {
   );
 }
 
-export default function DiscoverLoading() {
+function DiscoverLoadingFromSearch() {
   const tab = parseDiscoverTab(
     useSearchParams().get(DISCOVER_TAB_QUERY_KEY)
   );
   return <DiscoverLoadingScreen tab={tab} />;
+}
+
+/** Same `Suspense fallback={null}` the Discover page uses around search params. */
+export default function DiscoverLoading() {
+  return (
+    <Suspense fallback={null}>
+      <DiscoverLoadingFromSearch />
+    </Suspense>
+  );
 }
