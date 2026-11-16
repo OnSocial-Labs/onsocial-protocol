@@ -1933,7 +1933,10 @@ describe('signed-out wallet picker', () => {
       buyPicker.resolve(signingWallet('bob.near'));
     });
     await expect
-      .poll(() => collectText(renderer!.root), { interval: 20, timeout: 3000 })
+      .poll(() => collectText(renderer!.root), {
+        interval: 20,
+        timeout: 3000,
+      })
       .toContain(title);
     expect(collectText(renderer!.root)).toContain(
       'Tap Buy · 1 NEAR again to continue.'

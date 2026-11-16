@@ -9,6 +9,7 @@ const panel = readFileSync(join(here, 'events-page-panel.tsx'), 'utf8');
 
 describe('events Structure→Paint', () => {
   it('exposes a route loading shell matching catalog bones', () => {
+    expect(screen).toContain("'use client'");
     expect(screen).toContain('MarketListSkeleton');
     expect(screen).toContain('variant="drops"');
     expect(screen).toContain('DROPS_INDEX_PAGE_CLASS');
