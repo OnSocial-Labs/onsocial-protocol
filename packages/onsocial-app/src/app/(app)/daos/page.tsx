@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+import { LauncherHomeLoadingScreen } from '@/components/launcher-home';
 import { DaosIndexPanel } from '@/features/protocol/daos-index-panel';
 
 export const metadata: Metadata = {
@@ -9,7 +10,14 @@ export const metadata: Metadata = {
 
 export default function DaosIndexPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <LauncherHomeLoadingScreen
+          title="DAOs"
+          loadingLabel="Loading your DAOs…"
+        />
+      }
+    >
       <DaosIndexPanel />
     </Suspense>
   );

@@ -15,6 +15,7 @@ import {
 } from '@/lib/catalog-place-memory';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import { DropFansButton } from '@/components/drops/drop-row-fans';
@@ -1285,35 +1286,39 @@ export function DropsPagePanel({
                 rows={DROPS_CATALOG_SKELETON_ROWS}
                 variant="drops"
               />
-            ) : visibleItems.length === 0 &&
-              !loading &&
-              (!searching || needle === debouncedQuery.toLowerCase()) ? (
-              <EmptyDropsStatus sort={sort} query={query} medium={medium} />
             ) : (
-              <>
-                {upcomingGroups ? (
-                  UPCOMING_SECTIONS.map((section) => {
-                    const rows = upcomingGroups[section.id];
-                    if (rows.length === 0) return null;
-                    return (
-                      <div key={section.id} className="drops-upcoming-group">
-                        <h3 className="market-section-title drops-upcoming-label">
-                          {section.label}
-                        </h3>
-                        <DropsWindowedList rows={rows} renderRow={renderRow} />
-                      </div>
-                    );
-                  })
+              <OsPageBodyAppear>
+                {visibleItems.length === 0 &&
+                !loading &&
+                (!searching || needle === debouncedQuery.toLowerCase()) ? (
+                  <EmptyDropsStatus sort={sort} query={query} medium={medium} />
                 ) : (
-                  <DropsWindowedList
-                    rows={visibleItems}
-                    renderRow={renderRow}
-                  />
+                  <>
+                    {upcomingGroups ? (
+                      UPCOMING_SECTIONS.map((section) => {
+                        const rows = upcomingGroups[section.id];
+                        if (rows.length === 0) return null;
+                        return (
+                          <div key={section.id} className="drops-upcoming-group">
+                            <h3 className="market-section-title drops-upcoming-label">
+                              {section.label}
+                            </h3>
+                            <DropsWindowedList rows={rows} renderRow={renderRow} />
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <DropsWindowedList
+                        rows={visibleItems}
+                        renderRow={renderRow}
+                      />
+                    )}
+                    {showAppendSkeleton ? (
+                      <MarketListSkeleton rows={2} variant="drops" />
+                    ) : null}
+                  </>
                 )}
-                {showAppendSkeleton ? (
-                  <MarketListSkeleton rows={2} variant="drops" />
-                ) : null}
-              </>
+              </OsPageBodyAppear>
             )}
             {failed && errorPresentation === 'overlay' ? (
               <OsChromeListAlert

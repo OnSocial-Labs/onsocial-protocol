@@ -20,6 +20,7 @@ import {
 } from '@onsocial/ui';
 import { StandingIdentity } from '@/components/profile/standing-identity';
 import { collectionCreatorNameLine } from '@/features/scarces/collection-creator-face';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -425,6 +426,7 @@ export function SeriesPagePanel({
         data-series-use-first={useFirst ? '' : undefined}
         data-series-back={seriesBackHref}
       >
+        <OsPageBodyAppear>
         <header className="series-hero">
           <div className="series-hero-identity">
             <span className={`series-hero-logo${logoUrl ? ' has-media' : ''}`}>
@@ -599,6 +601,7 @@ export function SeriesPagePanel({
             </div>
           </div>
         ) : null}
+        </OsPageBodyAppear>
       </div>
 
       {isOwner ? (

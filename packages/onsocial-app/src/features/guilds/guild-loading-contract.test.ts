@@ -25,4 +25,15 @@ describe('guild loading contract', () => {
     expect(source).toContain('Guild posts could not refresh');
     expect(source).toContain('GUILD_FEED_LOAD_MORE_ERROR');
   });
+
+  it('exposes a route loading shell for cold guild opens', () => {
+    const loading = readFileSync(
+      join(guildDir, 'guild-page-route-loading.tsx'),
+      'utf8'
+    );
+    expect(loading).toContain('GuildPageHeroSkeleton');
+    expect(loading).toContain('GuildFeedFilterSkeleton');
+    expect(loading).toContain('PostRowSkeleton');
+    expect(loading).toContain('data-guild-page-skeleton');
+  });
 });

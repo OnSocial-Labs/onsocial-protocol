@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { HashtagCount, TickerCount } from '@onsocial/sdk';
 import { OsHugSheet, SearchField } from '@onsocial/ui';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { DiscoverFocusListSkeleton } from '@/features/discover/discover-loading-skeleton';
 import {
   formatTickerDisplay,
@@ -173,78 +174,80 @@ export function HomeSavedFeedSheet({
             <p className="sr-only">Loading topics and tickers…</p>
             <DiscoverFocusListSkeleton rows={6} />
           </>
-        ) : null}
+        ) : (
+          <OsPageBodyAppear>
+            {!loading && rows.length === 0 ? (
+              <p className="home-saved-feed-sheet-state">
+                No topics or tickers found.
+              </p>
+            ) : null}
 
-        {!loading && rows.length === 0 ? (
-          <p className="home-saved-feed-sheet-state">
-            No topics or tickers found.
-          </p>
-        ) : null}
+            <div
+              className={`home-saved-feed-sheet-list${
+                loading && rows.length > 0 ? ' is-refreshing' : ''
+              }`}
+              role="listbox"
+              aria-busy={loading || undefined}
+              aria-label="Topics and tickers"
+            >
+              {rows.map((row) => {
+                if (row.kind === 'hashtag') {
+                  const focus: HomeFeedFocus = {
+                    kind: 'hashtag',
+                    value: row.item.hashtag,
+                  };
+                  const saved = existingFocusKeys.has(homeFeedFocusKey(focus));
+                  return (
+                    <button
+                      key={`h-${row.item.hashtag}`}
+                      type="button"
+                      role="option"
+                      aria-selected={saved}
+                      className={`home-hashtag-suggest-item${saved ? ' is-saved' : ''}`}
+                      onClick={() => pick(focus)}
+                    >
+                      <span className="home-hashtag-suggest-tag">
+                        #{row.item.hashtag}
+                      </span>
+                      <span className="home-hashtag-suggest-meta">
+                        {saved ? 'Saved' : 'Topic'}
+                      </span>
+                      <span className="home-hashtag-suggest-count">
+                        {row.item.postCount}
+                      </span>
+                    </button>
+                  );
+                }
 
-        <div
-          className={`home-saved-feed-sheet-list${
-            loading && rows.length > 0 ? ' is-refreshing' : ''
-          }`}
-          role="listbox"
-          aria-busy={loading || undefined}
-          aria-label="Topics and tickers"
-        >
-          {rows.map((row) => {
-            if (row.kind === 'hashtag') {
-              const focus: HomeFeedFocus = {
-                kind: 'hashtag',
-                value: row.item.hashtag,
-              };
-              const saved = existingFocusKeys.has(homeFeedFocusKey(focus));
-              return (
-                <button
-                  key={`h-${row.item.hashtag}`}
-                  type="button"
-                  role="option"
-                  aria-selected={saved}
-                  className={`home-hashtag-suggest-item${saved ? ' is-saved' : ''}`}
-                  onClick={() => pick(focus)}
-                >
-                  <span className="home-hashtag-suggest-tag">
-                    #{row.item.hashtag}
-                  </span>
-                  <span className="home-hashtag-suggest-meta">
-                    {saved ? 'Saved' : 'Topic'}
-                  </span>
-                  <span className="home-hashtag-suggest-count">
-                    {row.item.postCount}
-                  </span>
-                </button>
-              );
-            }
-
-            const focus: HomeFeedFocus = {
-              kind: 'ticker',
-              value: row.item.ticker,
-            };
-            const saved = existingFocusKeys.has(homeFeedFocusKey(focus));
-            return (
-              <button
-                key={`t-${row.item.ticker}`}
-                type="button"
-                role="option"
-                aria-selected={saved}
-                className={`home-hashtag-suggest-item home-hashtag-suggest-item--ticker${saved ? ' is-saved' : ''}`}
-                onClick={() => pick(focus)}
-              >
-                <span className="home-hashtag-suggest-tag home-hashtag-suggest-tag--ticker">
-                  {formatTickerDisplay(row.item.ticker)}
-                </span>
-                <span className="home-hashtag-suggest-meta">
-                  {saved ? 'Saved' : 'Ticker'}
-                </span>
-                <span className="home-hashtag-suggest-count">
-                  {row.item.postCount}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+                const focus: HomeFeedFocus = {
+                  kind: 'ticker',
+                  value: row.item.ticker,
+                };
+                const saved = existingFocusKeys.has(homeFeedFocusKey(focus));
+                return (
+                  <button
+                    key={`t-${row.item.ticker}`}
+                    type="button"
+                    role="option"
+                    aria-selected={saved}
+                    className={`home-hashtag-suggest-item home-hashtag-suggest-item--ticker${saved ? ' is-saved' : ''}`}
+                    onClick={() => pick(focus)}
+                  >
+                    <span className="home-hashtag-suggest-tag home-hashtag-suggest-tag--ticker">
+                      {formatTickerDisplay(row.item.ticker)}
+                    </span>
+                    <span className="home-hashtag-suggest-meta">
+                      {saved ? 'Saved' : 'Ticker'}
+                    </span>
+                    <span className="home-hashtag-suggest-count">
+                      {row.item.postCount}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </OsPageBodyAppear>
+        )}
       </div>
     </OsHugSheet>
   );

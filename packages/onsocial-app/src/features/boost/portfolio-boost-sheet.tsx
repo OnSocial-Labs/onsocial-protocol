@@ -28,6 +28,7 @@ import { AmountField } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { SheetChromeHeader } from '@/components/panels/sheet-chrome-header';
 import { BoostNetworkPulse } from '@/features/boost/boost-network-pulse';
 import {
@@ -1016,8 +1017,10 @@ export function PortfolioBoostSheet({
       <div className="portfolio-boost-sheet-body">
         {!loaded ? (
           <BoostSheetLoadingSkeleton />
-        ) : hasPosition && account ? (
-          <div className="portfolio-boost-view">
+        ) : (
+          <OsPageBodyAppear>
+            {hasPosition && account ? (
+              <div className="portfolio-boost-view">
             <section className="portfolio-boost-collect" aria-live="off">
               {claimCelebration ? (
                 <div
@@ -1295,6 +1298,8 @@ export function PortfolioBoostSheet({
               </p>
             ) : null}
           </div>
+            )}
+          </OsPageBodyAppear>
         )}
         {networkPulse}
       </div>

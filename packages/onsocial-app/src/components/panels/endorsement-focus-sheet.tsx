@@ -21,7 +21,7 @@ import {
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { StandingIdentity } from '@/components/profile/standing-identity';
 import { FeedPhotoEnlargeScreen } from '@/features/home/feed-photo-enlarge-screen';
-import { PostMediaStrip } from '@/features/home/post-media';
+import { EndorsementMediaStrip } from '@/components/panels/endorsement-media-strip';
 import { GuildFacepile } from '@/features/guilds/guild-facepile';
 import {
   EndorseComposeSheet,
@@ -312,8 +312,8 @@ export function EndorsementFocusSheet({
 
             {stageMedia ? (
               <div className="endorsement-focus-media">
-                <PostMediaStrip
-                  items={[stageMedia]}
+                <EndorsementMediaStrip
+                  item={stageMedia}
                   size="page"
                   focused={stageIsVideo}
                   activateLabel={

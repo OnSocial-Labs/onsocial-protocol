@@ -22,3 +22,4 @@ export {
   LauncherHomeMineStatus,
   LauncherHomeSection,
 } from '@/components/launcher-home/launcher-home-section';
+export { LauncherHomeLoadingScreen } from '@/components/launcher-home/launcher-home-loading-screen';

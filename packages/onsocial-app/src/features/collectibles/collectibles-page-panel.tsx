@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { CollectiblesHeaderActions } from '@/features/collectibles/collectibles-header-actions';
 import { CollectiblesHoldingRowMenu } from '@/features/collectibles/collectibles-holding-row-menu';
@@ -946,8 +947,8 @@ export function CollectiblesPagePanel({
           <p className="sr-only">Loading collectibles…</p>
           <CollectiblesLibrarySkeleton />
         </section>
-      ) : null}
-
+      ) : (
+        <OsPageBodyAppear>
       {showConnectPrompt ? (
         <div className="market-page-empty">
           <p className="market-page-empty-copy">{COLLECTIBLES_CONNECT_HINT}</p>
@@ -1094,6 +1095,8 @@ export function CollectiblesPagePanel({
           onEditionListOpenChange={setEditionListOpen}
         />
       ) : null}
+        </OsPageBodyAppear>
+      )}
 
       {loadingPresentation === 'append-skeleton' ? (
         <CollectiblesLibraryAppendSkeleton />

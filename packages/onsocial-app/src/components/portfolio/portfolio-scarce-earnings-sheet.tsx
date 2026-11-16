@@ -18,6 +18,7 @@ import {
   osIconActionGlyphClassName,
   useScrollLock,
 } from '@onsocial/ui';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 import { SheetChromeHeader } from '@/components/panels/sheet-chrome-header';
 import { PortfolioPayoutKindFilters } from '@/components/portfolio/portfolio-payout-kind-filters';
@@ -391,16 +392,20 @@ export function PortfolioScarceEarningsSheet({
           <p className="portfolio-support-collect-info-empty">{loadError}</p>
         ) : items == null || filteredItems == null ? (
           <ProfileSocialListSkeleton count={3} />
-        ) : items.length === 0 ? (
-          <p className="portfolio-support-collect-info-empty">
-            No scarce sales yet.
-          </p>
-        ) : filteredItems.length === 0 ? (
-          <p className="portfolio-support-collect-info-empty">
-            No {kindFilterLabel ?? 'earnings'} yet.
-          </p>
         ) : (
-          <EarningsList items={filteredItems} profiles={profiles} />
+          <OsPageBodyAppear>
+            {items.length === 0 ? (
+              <p className="portfolio-support-collect-info-empty">
+                No scarce sales yet.
+              </p>
+            ) : filteredItems.length === 0 ? (
+              <p className="portfolio-support-collect-info-empty">
+                No {kindFilterLabel ?? 'earnings'} yet.
+              </p>
+            ) : (
+              <EarningsList items={filteredItems} profiles={profiles} />
+            )}
+          </OsPageBodyAppear>
         )}
         {hasMore ? (
           <div
