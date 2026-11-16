@@ -1,22 +1,9 @@
 /**
- * One-line catalog status. Always occupies the line box so a late message
- * does not shove the section below (Yours, sales, vault).
+ * One-line catalog status. Stable line box (`min-height` on
+ * `.market-page-status`) so copy swaps do not shove the section below.
+ * Prefer settling the band with the hint (Market Yours/sales) over an
+ * invisible reserved slot.
  */
-export function CatalogStatusLine({
-  children,
-  reserved = false,
-}: {
-  children?: string | null;
-  /** Hold the line height with no visible copy while the hint is undecided. */
-  reserved?: boolean;
-}) {
-  if (!children && !reserved) return null;
-  return (
-    <p
-      className={`market-page-status${reserved && !children ? ' is-reserved' : ''}`}
-      aria-hidden={reserved && !children ? true : undefined}
-    >
-      {children || '\u00a0'}
-    </p>
-  );
+export function CatalogStatusLine({ children }: { children: string }) {
+  return <p className="market-page-status">{children}</p>;
 }

@@ -7,12 +7,12 @@ globs: packages/onsocial-app/**/*.{ts,tsx}
 
 ## Two surfaces only
 
-1. **Status line** — in-flow hint while the page still has structure (`CatalogStatusLine` / `market-page-status`, `OsAppChromePageStatus`). One short sentence. No icon. Stable line box (`min-height`) so late copy does not shove the section below.
+1. **Status line** — in-flow hint while the page still has structure (`CatalogStatusLine`, `OsAppChromePageStatus`). One short sentence. No icon. Stable line box (`min-height`) so looking ↔ no-matches swaps do not shove below.
 2. **True empty** — compose `market-page-empty` or `standing-panel-empty-state` (+ optional `OsEmptyAction`). Do not invent a third empty tree.
 
 ## Stable first paint
 
-When a status line can appear above a personal band (Market Yours / sales), wait until browse + sales settle so the hint and that band paint together. Prefer `CatalogStatusLine` for catalog status; morph looking → no matches in the same slot.
+When a status line can appear above a personal band (Market Yours / sales), wait until browse + sales settle so the hint and that band paint together. Morph looking → no matches in the same `CatalogStatusLine` slot — do not leave an invisible reserved gap when the hint will never show.
 
 ## Voice
 

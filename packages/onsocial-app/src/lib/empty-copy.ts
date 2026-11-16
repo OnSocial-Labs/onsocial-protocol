@@ -1,11 +1,10 @@
 /**
  * Shared empty / status voice across App.
  *
- * Status lines (`market-page-status`, `OsAppChromePageStatus`) stay one short
- * sentence — no icon. True empties keep the existing trees
- * (`market-page-empty`, `standing-panel-empty-state`) with optional
- * `OsEmptyAction`. Do not invent a third empty layout or a universal
- * decorative glyph (no coffee-cup empties).
+ * Catalog status uses `CatalogStatusLine` (one short sentence, no icon).
+ * Chrome pages use `OsAppChromePageStatus`. True empties keep the existing
+ * trees + optional `OsEmptyAction`. No third empty layout, no decorative
+ * empty glyph.
  */
 export const emptyCopy = {
   noMatches: 'No matches.',

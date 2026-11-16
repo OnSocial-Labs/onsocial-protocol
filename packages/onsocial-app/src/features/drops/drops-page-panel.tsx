@@ -424,7 +424,7 @@ function DropsEmptyRecovery({
 }) {
   return (
     <div className="standing-panel-empty-state">
-      <p className="market-page-status">{copy}</p>
+      <CatalogStatusLine>{copy}</CatalogStatusLine>
       {actions && actions.length > 0 ? (
         <div className="standing-panel-empty-actions">
           {actions.map((action) => (
