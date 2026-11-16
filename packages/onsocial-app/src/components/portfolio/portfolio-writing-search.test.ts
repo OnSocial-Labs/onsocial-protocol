@@ -48,7 +48,7 @@ describe('Writing shelf search', () => {
 
   it('opens from the reader with the shelf list, not a second card tree', () => {
     expect(opening).toContain('<PortfolioWritingList');
-    expect(opening).toContain('<WritingShelfFrame');
+    expect(opening).toContain('<PortfolioWritingPending');
     expect(opening).not.toContain('portfolio-writing-card');
     expect(opening).not.toContain('parseArticleSnapshot');
     expect(list).toContain('WritingShelfFrame');

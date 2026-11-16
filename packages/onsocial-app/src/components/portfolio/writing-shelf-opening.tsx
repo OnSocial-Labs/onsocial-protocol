@@ -8,7 +8,7 @@ import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OverlayGlassHeader } from '@/components/overlay/overlay-glass-header';
 import {
   PortfolioWritingList,
-  WritingShelfFrame,
+  PortfolioWritingPending,
 } from '@/components/portfolio/portfolio-writing-list';
 import {
   WritingIdentityToolbar,
@@ -104,8 +104,8 @@ export function WritingShelfOpening() {
                   />
                 }
               >
-                <OsPageBodyAppear>
-                  {articles ? (
+                {articles ? (
+                  <OsPageBodyAppear>
                     <PortfolioWritingList
                       accountId={face.accountId}
                       titleLabel={titleLabel}
@@ -120,15 +120,10 @@ export function WritingShelfOpening() {
                         });
                       }}
                     />
-                  ) : (
-                    <WritingShelfFrame hidden>
-                      <div className="portfolio-writing-pending">
-                        <span className="standing-row-shimmer portfolio-writing-pending-row" />
-                        <span className="standing-row-shimmer portfolio-writing-pending-row" />
-                      </div>
-                    </WritingShelfFrame>
-                  )}
-                </OsPageBodyAppear>
+                  </OsPageBodyAppear>
+                ) : (
+                  <PortfolioWritingPending />
+                )}
               </OsAppScreen>
             </div>
           </OsPageSheet>

@@ -63,6 +63,22 @@ export function WritingShelfFrame({
   );
 }
 
+/** Cold Writing list — same inset and row height as settled cards. */
+export function PortfolioWritingPending({ rowCount = 2 }: { rowCount?: number }) {
+  return (
+    <WritingShelfFrame>
+      <div className="portfolio-writing-pending" aria-hidden>
+        {Array.from({ length: rowCount }, (_, index) => (
+          <span
+            key={index}
+            className="standing-row-shimmer portfolio-writing-pending-row"
+          />
+        ))}
+      </div>
+    </WritingShelfFrame>
+  );
+}
+
 export const PortfolioWritingList = memo(function PortfolioWritingList({
   accountId,
   titleLabel,

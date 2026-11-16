@@ -1,6 +1,7 @@
 'use client';
 
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import {
   PortfolioAboutPanel,
   type PortfolioAboutPanelProps,
@@ -31,7 +32,9 @@ export function PortfolioAboutScreen({
       moodId={mood.id}
       moodStyle={portfolioMoodShellStyle(mood.cssVars)}
     >
-      <PortfolioAboutPanel {...panel} />
+      <OsPageBodyAppear>
+        <PortfolioAboutPanel {...panel} />
+      </OsPageBodyAppear>
     </OsAppScreen>
   );
 }

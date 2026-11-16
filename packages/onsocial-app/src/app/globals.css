@@ -10938,6 +10938,37 @@ a.os-surface-row,
     border-radius: 0.2rem;
   }
 
+  .portfolio-about-pending .portfolio-about-pending-name {
+    display: block;
+    width: min(12rem, 72%);
+    height: 1.65rem;
+    margin: 0 auto;
+    border-radius: 0.35rem;
+  }
+
+  .portfolio-about-pending .portfolio-about-pending-rule {
+    display: block;
+    width: 2.5rem;
+    height: 0.12rem;
+    margin: 0.75rem auto 0;
+    border-radius: 999px;
+  }
+
+  .portfolio-about-pending .portfolio-about-lede {
+    display: grid;
+    gap: 0.55rem;
+    margin-top: 1.25rem;
+    justify-items: center;
+  }
+
+  .portfolio-about-pending .portfolio-about-lede .standing-row-shimmer-line {
+    width: min(18rem, 92%);
+  }
+
+  .portfolio-about-pending .portfolio-about-lede .standing-row-shimmer-line-sm {
+    width: min(14rem, 78%);
+  }
+
   .portfolio-about {
     /* Match OS screen body pad (--os-screen-body-pad-x, from --os-gutter). */
     --portfolio-about-inset: max(
