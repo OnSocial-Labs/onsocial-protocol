@@ -12,7 +12,7 @@ import type { PostRow, ThreadNode } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsHeaderBack } from '@/components/app/os-header-back';
-import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
+import { OsRouteSettle } from '@/components/app/os-route-settle';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -42,6 +42,7 @@ import {
   type ComposerSubmit,
 } from '@/features/guilds/guild-composer-sheet';
 import { PostCard, postKey } from '@/features/home/post-card';
+import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
 import { ThreadRail } from '@/features/home/thread-rail';
 import { ThreadDiscoverPeek } from '@/features/home/thread-discover-peek';
 import { ThreadRepliesSortButton } from '@/features/home/thread-replies-sort';
@@ -1387,9 +1388,12 @@ export function LivePersonalPostPanel({
       backFallbackHref={APP_HOME_PATH}
       leading={<OsHeaderBack fallbackHref={APP_HOME_PATH} />}
     >
-      <OsPageBodyAppear ready={permalinkReady}>
+      <OsRouteSettle
+        ready={permalinkReady}
+        skeleton={<PostThreadPageSkeleton />}
+      >
         {thread}
-      </OsPageBodyAppear>
+      </OsRouteSettle>
       {composer}
     </OsAppScreen>
   );

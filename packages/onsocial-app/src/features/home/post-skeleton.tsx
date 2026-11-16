@@ -1,5 +1,6 @@
 'use client';
 
+import { Divider } from '@onsocial/ui';
 import { GUILDS_PAGE_CLASS } from '@/lib/os-chrome-page';
 
 export type PostSkeletonFrame =
@@ -59,10 +60,43 @@ function PostSkeletonMedia({ frame }: { frame: PostSkeletonFrame }) {
   );
 }
 
-/** Sheet and route loading — same page inset the opened post uses. */
+/**
+ * Opened post — focal block, replies label, then reply rows.
+ * In-app sheets do not use this; they keep the reply fade with no skeleton.
+ */
 export function PostThreadPageSkeleton({ rows = 2 }: { rows?: number }) {
   return (
-    <div className={GUILDS_PAGE_CLASS}>
+    <div className={GUILDS_PAGE_CLASS} aria-hidden>
+      <div className="post-row-skeleton-list">
+        <div className="post-card post-card--skeleton post-card--detail">
+          <div className="post-card-avatar post-row-skeleton-avatar standing-row-shimmer" />
+          <div className="post-card-copy">
+            <div className="standing-row-shimmer post-row-skeleton-line" />
+            <div className="standing-row-shimmer post-row-skeleton-line-body" />
+            <div className="post-card-detail-time">
+              <div className="standing-row-shimmer post-row-skeleton-line-sm" />
+            </div>
+            <div className="post-card-engagement">
+              <div className="post-card-engagement-actions">
+                {Array.from({ length: 4 }, (_, index) => (
+                  <span
+                    key={index}
+                    className="standing-row-shimmer post-row-skeleton-action"
+                  />
+                ))}
+              </div>
+              <div className="post-card-engagement-trailing">
+                <span className="standing-row-shimmer post-row-skeleton-action" />
+                <span className="standing-row-shimmer post-row-skeleton-action" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <Divider variant="detail" />
+      <div className="thread-controls-row">
+        <span className="standing-row-shimmer post-row-skeleton-line-sm" />
+      </div>
       <PostRowSkeleton rows={rows} />
     </div>
   );

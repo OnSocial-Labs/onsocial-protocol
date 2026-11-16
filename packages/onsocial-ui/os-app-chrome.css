@@ -297,7 +297,8 @@
   color: rgb(var(--fg-rgb) / 0.42);
 }
 
-.search-field.os-app-screen-search:focus-within .search-field-input::placeholder {
+.search-field.os-app-screen-search:focus-within
+  .search-field-input::placeholder {
   color: transparent;
   opacity: 0;
 }
