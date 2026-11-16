@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   OsRouteSettle,
   routeSettleCovers,
+  routeSettleHoldsCover,
 } from '@/components/app/os-route-settle';
 
 vi.mock('next/navigation', () => ({
@@ -40,6 +41,18 @@ describe('routeSettleCovers', () => {
   });
 });
 
+describe('routeSettleHoldsCover', () => {
+  it('holds for a managed gate that is still closed, including hard loads', () => {
+    expect(routeSettleHoldsCover(true, false)).toBe(true);
+  });
+
+  it('releases when ready, settle is off, or the gate is unmanaged', () => {
+    expect(routeSettleHoldsCover(true, true)).toBe(false);
+    expect(routeSettleHoldsCover(false, false)).toBe(false);
+    expect(routeSettleHoldsCover(true, undefined)).toBe(false);
+  });
+});
+
 describe('OsRouteSettle server paint', () => {
   it('does not cover server-rendered discover content before hydration', () => {
     const html = settleMarkup(undefined);
@@ -49,12 +62,22 @@ describe('OsRouteSettle server paint', () => {
     expect(html).not.toContain('cover-probe');
   });
 
-  it('does not cover a server-rendered post when reduced motion would show the thread', () => {
+  it('covers a managed post body until permalinkReady so hard loads are not blank', () => {
     const html = settleMarkup(false);
 
     expect(html).toContain('Painted thread');
     expect(html).toContain('os-page-body-appear');
     expect(html).not.toContain('is-ready');
+    expect(html).toContain('os-route-skeleton');
+    expect(html).toContain('cover-probe');
+    expect(html).toContain('aria-busy="true"');
+  });
+
+  it('does not cover a managed post that is already ready', () => {
+    const html = settleMarkup(true);
+
+    expect(html).toContain('Painted thread');
+    expect(html).toContain('is-ready');
     expect(html).not.toContain('os-route-skeleton');
     expect(html).not.toContain('cover-probe');
   });

@@ -6,7 +6,7 @@ import { useLayoutEffect, useState, type ReactNode } from 'react';
  * Soft-appear for OsPageSheet body under stable chrome (back + title).
  * Pair the panel with `os-page-chrome-appear`. Omit `ready` to appear on mount;
  * pass `ready` when the body waits on land / seed (thread: hold opacity 0 —
- * do not paint a skeleton under this gate).
+ * `OsRouteSettle` keeps the skeleton cover until that gate opens).
  *
  * Unmanaged starts without `is-ready`, then flips after layout so the keyframe
  * runs once the sheet is in the tree (mounting ready can leave opacity at 0).

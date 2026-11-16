@@ -16,8 +16,9 @@ import {
 
 /**
  * Cover a client navigation, including a return to the document's first URL.
- * A hard load stays on that URL and has not left it, so the swap that
- * replaces `loading.tsx` never paints a skeleton over server content.
+ * Unmanaged hard loads stay off so `loading.tsx` can swap for painted content
+ * without a second skeleton. Managed `ready` is separate — see
+ * `routeSettleHoldsCover`.
  */
 export function routeSettleCovers(
   entryPathname: string | null,
@@ -27,6 +28,19 @@ export function routeSettleCovers(
   if (!entryPathname || !pathname) return false;
   if (entryPathname !== pathname) return true;
   return hasLeftEntry;
+}
+
+/**
+ * Hold the skeleton while a managed gate is closed — hard load included.
+ * Post threads pass `permalinkReady`; without this cover the body sits at
+ * opacity 0 and the Post shell reads as blank (frame-only anti-pattern).
+ */
+export function routeSettleHoldsCover(
+  settle: boolean,
+  ready: boolean | undefined
+): boolean {
+  if (!settle || ready === undefined) return false;
+  return !ready;
 }
 
 function prefersReducedMotion() {
@@ -50,12 +64,12 @@ function routeSettleFadeMs() {
 }
 
 /**
- * Soft handoff off a route skeleton after a client navigation.
- * The document's first route starts done: no cover in the HTML and none
- * after the loading shell swaps for server-painted content. A later visit
- * to that same path covers once, then this instance stays inert. Pass
- * `ready` so thread replies stay on OsPageBodyAppear until permalinkReady.
- * `settle={false}` still renders this wrapper so the child is not remounted.
+ * Soft handoff off a route skeleton.
+ * Unmanaged: cover client navigations only — the document's first route
+ * starts done so `loading.tsx` can swap for server content without a
+ * second skeleton. Managed `ready` (post permalink): hold the skeleton
+ * until ready on hard load and client nav so the opacity-0 body never
+ * paints as an empty Post shell. `settle={false}` still wraps children.
  */
 export function OsRouteSettle({
   settle = true,
@@ -69,6 +83,7 @@ export function OsRouteSettle({
   skeleton: ReactNode;
 }>) {
   const pathname = usePathname();
+  const managed = ready !== undefined;
   const [clientNav] = useState(() => {
     if (!settle || typeof window === 'undefined') return false;
     return routeSettleCovers(
@@ -77,11 +92,12 @@ export function OsRouteSettle({
       readDocumentHasLeftEntry()
     );
   });
-  const managed = ready !== undefined;
   const [autoReady, setAutoReady] = useState(false);
-  const [cover, setCover] = useState<'hold' | 'leave' | 'off'>(
-    clientNav ? 'hold' : 'off'
-  );
+  const [cover, setCover] = useState<'hold' | 'leave' | 'off'>(() => {
+    if (routeSettleHoldsCover(settle, ready)) return 'hold';
+    if (typeof window === 'undefined') return 'off';
+    return clientNav ? 'hold' : 'off';
+  });
 
   useLayoutEffect(() => {
     if (!clientNav || managed) return;
@@ -89,10 +105,12 @@ export function OsRouteSettle({
     setAutoReady(true);
   }, [clientNav, managed]);
 
-  const settled = !clientNav || (managed ? Boolean(ready) : autoReady);
+  const settled = managed
+    ? Boolean(ready)
+    : !clientNav || autoReady;
 
   useLayoutEffect(() => {
-    if (!clientNav || !settled || cover === 'off') return;
+    if (!settled || cover === 'off') return;
     if (prefersReducedMotion()) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- reduced motion drops the cover; it must not sit on painted text
       setCover('off');
@@ -103,9 +121,9 @@ export function OsRouteSettle({
     }
     const timer = window.setTimeout(() => setCover('off'), routeSettleFadeMs());
     return () => window.clearTimeout(timer);
-  }, [clientNav, cover, settled]);
+  }, [cover, settled]);
 
-  const showCover = clientNav && cover !== 'off';
+  const showCover = cover !== 'off';
 
   return (
     <div
