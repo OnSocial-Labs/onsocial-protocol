@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 /**
  * One-line catalog status. Stable line box (`min-height` on
  * `.market-page-status`). Use `reserved` only while a hint is undecided
@@ -7,16 +9,17 @@ export function CatalogStatusLine({
   children,
   reserved = false,
 }: {
-  children?: string | null;
+  children?: ReactNode;
   reserved?: boolean;
 }) {
-  if (!children && !reserved) return null;
+  const empty = children == null || children === false || children === '';
+  if (empty && !reserved) return null;
   return (
     <p
-      className={`market-page-status${reserved && !children ? ' is-reserved' : ''}`}
-      aria-hidden={reserved && !children ? true : undefined}
+      className={`market-page-status${reserved && empty ? ' is-reserved' : ''}`}
+      aria-hidden={reserved && empty ? true : undefined}
     >
-      {children || '\u00a0'}
+      {empty ? '\u00a0' : children}
     </p>
   );
 }
