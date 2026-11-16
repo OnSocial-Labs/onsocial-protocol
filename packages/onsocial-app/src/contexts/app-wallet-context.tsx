@@ -569,12 +569,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
           try {
             await current.promise;
           } catch (error) {
-            if (
-              error instanceof WalletPickerTimeoutError ||
-              isWalletUserCancellation(error)
-            ) {
-              throw error;
-            }
+            if (isWalletUserCancellation(error)) throw error;
           }
           continue;
         }
@@ -629,12 +624,15 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
             clearTimeout(timer);
             if (pickerGenerationRef.current !== generation || !value) return;
             if (timedOut) {
-              // Attempt is dead. Late match for the expected account adopts
-              // quietly; any other account announces "Now using @y".
+              // Attempt is dead. Late match adopts quietly; anything else
+              // announces "Now using @y" and drops the leftover pending key.
               const matchesPreferred = sameWalletAccount(
                 preferredAccountId,
                 value.accountId
               );
+              if (preferredAccountId && !matchesPreferred) {
+                clearStoredPendingSessionKey(preferredAccountId);
+              }
               acceptedWalletRef.current = value.wallet;
               setWallet(value.wallet);
               setAccountId(value.accountId);
@@ -643,6 +641,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
                 setSessionFeedback((notice) =>
                   notice?.msg === WALLET_PICKER_TIMEOUT_MESSAGE ? null : notice
                 );
+                void restoreSocialSessionQuietly(value.accountId);
                 return;
               }
               setSessionFeedback({
@@ -674,7 +673,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
         return promise;
       }
     },
-    [network]
+    [network, restoreSocialSessionQuietly]
   );
 
   const connectForAcceptedAccount = useCallback(
@@ -774,12 +773,10 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
         await ensureSocialSession(nextAccountId);
       } catch (error) {
         if (error instanceof WalletPickerTimeoutError) {
-          // Timeout toast already set by openPicker; clear stuck pending only.
-          setSessionFeedback((notice) =>
-            notice?.type === 'pending'
-              ? { type: 'error', msg: WALLET_PICKER_TIMEOUT_MESSAGE }
-              : notice
-          );
+          setSessionFeedback({
+            type: 'error',
+            msg: WALLET_PICKER_TIMEOUT_MESSAGE,
+          });
           return;
         }
         if (error instanceof WalletConnectedReviewError) {

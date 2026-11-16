@@ -195,8 +195,6 @@ export function AppAccountSheet({
     try {
       await switchWallet();
     } catch (error) {
-      // Timeout is folded into cancellation; catch either so the sheet never
-      // surfaces an unhandled rejection after a quiet dismiss.
       if (isWalletUserCancellation(error)) return;
       throw error;
     }
