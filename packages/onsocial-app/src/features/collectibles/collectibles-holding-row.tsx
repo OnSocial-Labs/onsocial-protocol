@@ -25,6 +25,7 @@ import {
 } from '@/lib/portfolio-holdings';
 import { collectionPath } from '@/lib/app-routes';
 import { OsRowAction } from '@/lib/os-row-action';
+import { scarceRowPartyLead } from '@/lib/scarce-row-kind';
 
 interface CollectiblesHoldingRowProps {
   item: PortfolioHoldingPeek & { editions?: PortfolioHoldingPeek[] };
@@ -82,15 +83,16 @@ export function collectiblesFoldedSale(editions: readonly HoldingSalePeek[]): {
 }
 
 /**
- * Kind, collapsed count, and the sale state. `×2 · $1 each` only when every
- * folded copy is really listed at that ask — otherwise a quiet listed count.
+ * Collapsed count and sale state. Kind lives on the party lead when the maker
+ * face is shown; pass `omitKind` then so the fact line does not repeat it.
  */
 export function collectiblesHoldingFact(
   item: Pick<PortfolioHoldingPeek, 'kindLabel'> & HoldingSalePeek,
   editionCount = 1,
-  editions?: readonly HoldingSalePeek[]
+  editions?: readonly HoldingSalePeek[],
+  opts?: { omitKind?: boolean }
 ): string {
-  const kind = item.kindLabel.trim();
+  const kind = opts?.omitKind ? '' : item.kindLabel.trim();
   const count = quantityMark(editionCount) ?? '';
   const parts = [kind, count];
   if (editionCount > 1 && editions && editions.length > 1) {
@@ -149,9 +151,15 @@ export function CollectiblesHoldingRow({
   });
   const opensCollectedRead =
     item.actionLabel === 'Read' && !articleReadHref && Boolean(collectionId);
-  const fact = collectiblesHoldingFact(item, editionCount, item.editions);
-  const seatMark = heldEditionRowMark(item.tokenId, editionCount);
   const showMaker = Boolean(creatorId) && !hideCreator;
+  const fact = collectiblesHoldingFact(item, editionCount, item.editions, {
+    omitKind: showMaker,
+  });
+  const partyLead = scarceRowPartyLead({
+    mediumKind: item.mediumKind,
+    audioFormat: item.audioFormat ?? null,
+  });
+  const seatMark = heldEditionRowMark(item.tokenId, editionCount);
   const rowHref = opensPass ? dropHref : item.href;
 
   return (
@@ -218,7 +226,7 @@ export function CollectiblesHoldingRow({
                 accountId={creatorId}
                 displayName={authorDisplayName}
                 avatarUrl={authorAvatarUrl}
-                lead="by"
+                lead={partyLead}
               />
             ) : null}
             {fact ? (

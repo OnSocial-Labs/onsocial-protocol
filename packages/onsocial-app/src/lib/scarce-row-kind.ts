@@ -12,8 +12,8 @@ export interface ScarceRowKindInput {
 }
 
 /**
- * Row format label — Album, Ticket, Writing… (Drops deal line + optional eyebrow).
- * Matches Drops discovery vocabulary; singular on rows, plural stays on filters.
+ * Row format label — Album, Ticket, Writing… (party lead + deal/meta).
+ * Singular on rows; plural stays on filters.
  */
 export function scarceRowFormatLabel(input: ScarceRowKindInput): string | null {
   const medium = normalizeMediumKind(input.mediumKind);
@@ -21,6 +21,7 @@ export function scarceRowFormatLabel(input: ScarceRowKindInput): string | null {
     if (input.audioFormat === 'album') return 'Album';
     if (input.audioFormat === 'single') return 'Single';
     if (input.audioFormat === 'podcast') return 'Podcast';
+    if (input.audioFormat === 'audiobook') return 'Audiobook';
     return 'Audio';
   }
   if (medium === 'writing') {
@@ -38,5 +39,30 @@ export function scarceRowFormatLabel(input: ScarceRowKindInput): string | null {
   return label;
 }
 
-/** @deprecated Use {@link scarceRowFormatLabel} — same label, prefer deal-line placement. */
-export const scarceRowKindEyebrow = scarceRowFormatLabel;
+export type ScarceRowPartyRole = 'creator' | 'listed' | 'bought' | 'series';
+
+/**
+ * Quiet party stamp above the face — `{Kind} by`, or a commerce/role verb.
+ * Never concatenates the account name (identity stays on `.drops-discovery-by`).
+ */
+export function scarceRowPartyLead(
+  input: ScarceRowKindInput,
+  opts?: {
+    role?: ScarceRowPartyRole;
+    /** Events catalog — Ticket medium reads as Event. */
+    voice?: 'default' | 'event';
+    /** Medium tab already names the kind (or kind is on a fact line). */
+    omitKind?: boolean;
+  }
+): string | false {
+  const role = opts?.role ?? 'creator';
+  if (role === 'listed') return 'Listed by';
+  if (role === 'bought') return 'Bought by';
+  if (role === 'series') return 'Series by';
+
+  if (opts?.omitKind) return 'by';
+  if (opts?.voice === 'event') return 'Event by';
+
+  const kind = scarceRowFormatLabel(input);
+  return kind ? `${kind} by` : 'by';
+}

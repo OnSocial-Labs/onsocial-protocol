@@ -18,6 +18,7 @@ import { QuantityCount } from '@/features/scarces/quantity-count';
 import { appendEach } from '@/features/scarces/quantity-count-format';
 import { collectionPath } from '@/lib/app-routes';
 import { socialTimeProps } from '@/lib/post-display';
+import { scarceRowPartyLead } from '@/lib/scarce-row-kind';
 
 /** Post when the sale has one. Otherwise the drop page for an edition token. */
 export function marketSaleDetailHref(
@@ -42,11 +43,13 @@ export function salePartyAccountId(
   );
 }
 
-/** “bought by” only when the person on the row is the buyer. */
+/** “Bought by” only when the person on the row is the buyer. */
 export function salePartyLead(
   sale: Pick<MarketSaleItem, 'buyerId'>
-): 'bought by' | false {
-  return sale.buyerId?.trim() ? 'bought by' : false;
+): string | false {
+  return sale.buyerId?.trim()
+    ? scarceRowPartyLead({}, { role: 'bought' })
+    : false;
 }
 
 function formatSalePriceNear(priceNear: string, fractionDigits: 2 | 4): string {

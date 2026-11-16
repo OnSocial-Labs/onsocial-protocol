@@ -81,8 +81,8 @@ describe('salePartyAccountId', () => {
 });
 
 describe('salePartyLead', () => {
-  it('says bought by only when the sale names a buyer', () => {
-    expect(salePartyLead({ buyerId: ' buyer.near ' })).toBe('bought by');
+  it('says Bought by only when the sale names a buyer', () => {
+    expect(salePartyLead({ buyerId: ' buyer.near ' })).toBe('Bought by');
     expect(salePartyLead({ buyerId: '   ' })).toBe(false);
     expect(salePartyLead({})).toBe(false);
   });
@@ -96,7 +96,7 @@ describe('MarketSaleRow layout', () => {
     expect(source).toContain('lead={salePartyLead(sale)}');
     expect(source).toContain('avatarUrl={avatarUrl}');
     expect(source).not.toContain('usePostAuthorProfiles');
-    expect(source).toContain("'bought by'");
+    expect(source).toContain("role: 'bought'");
     expect(source).toContain('marketSalePriceLabel');
     expect(source).not.toContain('Sold ·');
     const trailAt = source.indexOf('drops-discovery-head-trail');

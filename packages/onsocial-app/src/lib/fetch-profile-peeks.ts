@@ -6,12 +6,12 @@ import { parsePostPollEmbed, parsePostText } from '@/lib/post-display';
 import { parsePostMedia } from '@/lib/post-media';
 import { isQuoteRefType, isRepostRefType } from '@/lib/post-relation';
 import { collectionIdFromTokenId } from '@/features/market/market-listings';
-import { marketMediumLabel } from '@/features/market/market-medium';
 import {
   holdingsActionLabel,
   holdingsHrefForOwned,
 } from '@/lib/portfolio-holdings';
 import { APP_COLLECTIBLES_PATH } from '@/lib/app-routes';
+import { scarceRowFormatLabel } from '@/lib/scarce-row-kind';
 
 /**
  * Recent post peeks — optimistic drawer post count (composer prepend) and a
@@ -125,7 +125,7 @@ function mediumKindFromScarceRow(row: ScarceMintRow): string | null {
 }
 
 function kindFromScarceRow(row: ScarceMintRow): string | null {
-  return marketMediumLabel(mediumKindFromScarceRow(row));
+  return scarceRowFormatLabel({ mediumKind: mediumKindFromScarceRow(row) });
 }
 
 function isQuotePost(

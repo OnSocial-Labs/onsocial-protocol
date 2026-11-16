@@ -8,7 +8,6 @@ import {
 import {
   MARKET_MEDIUM_FILTERS,
   isAudioMediumKind,
-  marketMediumLabel,
   parseMarketMediumFilter,
   type MarketMediumFilter,
 } from '@/features/market/market-medium';
@@ -21,6 +20,7 @@ import {
 import { listedArticleReaderHref } from '@/features/scarces/drop-writing';
 import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
 import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
+import { scarceRowFormatLabel } from '@/lib/scarce-row-kind';
 
 /** Vault filter id when a holding has no drop creator. */
 export const COLLECTIBLES_CREATOR_OTHER = 'other';
@@ -91,23 +91,18 @@ export function holdingsActionLabel(
   }
 }
 
+/** Singular row kind — Thought / Ticket; filter plurals stay on chips. */
 export function holdingsKindLabel(
   mediumKind: string | null | undefined
 ): string {
-  return marketMediumLabel(mediumKind) ?? 'Collectible';
+  return (
+    scarceRowFormatLabel({ mediumKind: mediumKind ?? null }) ?? 'Collectible'
+  );
 }
 
-/** Drop editions tagged `thought` from post mint still read as Collectible in lists. */
-export function displayKindLabelForOwned(
-  mediumKind: string | null,
-  tokenId: string,
-  collectionId: string | null
-): string {
-  const kind = mediumKind?.trim().toLowerCase() || null;
-  if (kind === 'thought' && collectionId && !tokenId.trim().startsWith('s:')) {
-    return 'Collectible';
-  }
-  return holdingsKindLabel(kind);
+/** Owned list kind — thought stays Thought, never rewritten to Collectible. */
+export function displayKindLabelForOwned(mediumKind: string | null): string {
+  return holdingsKindLabel(mediumKind?.trim().toLowerCase() || null);
 }
 
 function inferOwnedMediumKind(item: OwnedScarceItem): string | null {
@@ -195,7 +190,7 @@ export function toPortfolioHoldingPeek(
         mediumKind,
       }) ?? APP_COLLECTIBLES_PATH,
     actionLabel: holdingsActionLabel(mediumKind),
-    kindLabel: displayKindLabelForOwned(mediumKind, item.tokenId, collectionId),
+    kindLabel: displayKindLabelForOwned(mediumKind),
     ...(item.mintedAtMs != null && item.mintedAtMs > 0
       ? { mintedAtMs: item.mintedAtMs }
       : {}),

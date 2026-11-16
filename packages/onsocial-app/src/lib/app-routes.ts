@@ -180,7 +180,7 @@ export function parseDropsMediumParam(
   return 'all';
 }
 
-/** Query key for audio release format (`single` | `album` | `podcast`). */
+/** Query key for audio release format (`single` | `album` | `podcast` | `audiobook`). */
 export const MARKET_AUDIO_FORMAT_PARAM = 'audioFormat';
 
 /** Drops catalog path — deep-link sort, medium, and/or audio format. */
@@ -203,7 +203,10 @@ export function dropsPath(opts?: {
   const format = opts?.audioFormat?.trim().toLowerCase() ?? '';
   if (
     medium === 'audio' &&
-    (format === 'single' || format === 'album' || format === 'podcast')
+    (format === 'single' ||
+      format === 'album' ||
+      format === 'podcast' ||
+      format === 'audiobook')
   ) {
     params.set(MARKET_AUDIO_FORMAT_PARAM, format);
   }

@@ -17,8 +17,7 @@ describe('DiscoveryPartyStack lead', () => {
     expect(leadAt).toBeGreaterThan(-1);
     expect(nameAt).toBeGreaterThan(leadAt);
     expect(source).toContain('{leadText}');
-    expect(source).toContain("'Listed by'");
-    expect(source).toContain("'Bought by'");
+    expect(source).toContain('lead?: string | false');
     expect(source).toContain('{name}');
     expect(source).toContain('link = true');
     expect(source).toContain('if (!link)');
@@ -37,7 +36,7 @@ describe('DiscoveryPartyStack lead', () => {
       'utf8'
     );
     expect(row).toContain('accountId={sellerId}');
-    expect(row).toContain('lead="listed by"');
+    expect(row).toContain("role: 'listed'");
     expect(row).not.toContain('`Listed ${listedTime}`');
   });
 });

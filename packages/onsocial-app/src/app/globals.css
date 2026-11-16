@@ -28312,12 +28312,6 @@ a.os-surface-row,
     height: 1em;
   }
 
-  .collectibles-play-kind {
-    flex-shrink: 0;
-    color: var(--os-surface-muted);
-    font-weight: 600;
-  }
-
   .collectibles-play-gestures {
     margin-top: -0.1rem;
   }

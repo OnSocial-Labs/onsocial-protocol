@@ -110,4 +110,18 @@ describe('collectiblesHoldingFact', () => {
       ])
     ).toBe('Ticket · ×2');
   });
+
+  it('drops kind from the fact when the party lead already carries it', () => {
+    expect(
+      collectiblesHoldingFact(
+        { ...ticket, listedPriceNear: '0.1', listingKind: 'fixed' },
+        1,
+        undefined,
+        { omitKind: true }
+      )
+    ).toBe('0.1 NEAR');
+    expect(
+      collectiblesHoldingFact(ticket, 2, undefined, { omitKind: true })
+    ).toBe('×2');
+  });
 });

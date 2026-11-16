@@ -92,7 +92,7 @@ test.describe('collection drop page', () => {
     await expect(
       page.getByRole('button', { name: 'View full cover' })
     ).toHaveCount(0);
-    await expect(page.locator('.drops-discovery-lead')).toHaveText('by');
+    await expect(page.locator('.drops-discovery-lead')).toHaveText('Album by');
     await expect(page.locator('.drops-discovery-by')).toHaveText('Alice');
     await expect(page.locator('.drops-discovery-sub')).toHaveText(
       '@alice.near'

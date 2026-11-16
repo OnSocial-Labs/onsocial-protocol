@@ -17,6 +17,7 @@ import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { collectionPath } from '@/lib/app-routes';
 import { socialTimeProps } from '@/lib/post-display';
 import { OsRowAction } from '@/lib/os-row-action';
+import { scarceRowFormatLabel } from '@/lib/scarce-row-kind';
 
 /** Unheld series drop — Collect when live; otherwise the row opens the drop. */
 export function SeriesShopRow({
@@ -53,9 +54,14 @@ export function SeriesShopRow({
       : 'Free');
   const supply =
     view.totalSupply > 0 ? `${view.minted}/${view.totalSupply}` : null;
+  const formatLabel = scarceRowFormatLabel({
+    mediumKind: view.kind,
+    audioFormat: view.audioFormat,
+    writingFormat: view.writingFormat,
+  });
   const metaBits = [
     clock ? null : collectionStatusLabel(status),
-    view.kind,
+    formatLabel,
     creatorLabel,
     price,
     supply,

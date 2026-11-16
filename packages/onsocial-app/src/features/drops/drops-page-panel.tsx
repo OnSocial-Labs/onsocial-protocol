@@ -87,6 +87,7 @@ import {
   type DropsPageData,
   type DropsPageQuery,
 } from '@/lib/load-drops-page';
+import { scarceRowPartyLead } from '@/lib/scarce-row-kind';
 
 /** Debounce before search keystrokes hit the indexer (snappy, still typed). */
 const SEARCH_DEBOUNCE_MS = 200;
@@ -193,35 +194,19 @@ const DROP_MEDIUM_FILTERS: ReadonlyArray<{
   ).includes(entry.id)
 );
 
-/** Release format from metadata (`extra.audioFormat`) — never invent song counts. */
-function dropRowFormatLabel(item: DropDiscoveryItem): string | null {
-  const format = item.view?.audioFormat;
-  if (format === 'album') return 'Album';
-  if (format === 'single') return 'Single';
-  if (format === 'podcast') return 'Podcast';
-  if (format === 'audiobook') return 'Audiobook';
-  return null;
-}
-
-type DropRowMetaBits = {
-  bits: string[];
-  format: string | null;
-};
-
 function dropRowMetaBits(
   item: DropDiscoveryItem,
   sort: DropsSort,
   allowlistRemaining: number | null | undefined,
-  formatLabel: string | null,
   nowMs: number
-): DropRowMetaBits {
+): string[] {
   const supply =
     item.totalSupply != null
       ? `${item.mintedCount} of ${item.totalSupply}`
       : `${item.mintedCount} minted`;
 
   if (sort === 'loved' || sort === 'traded') {
-    return { bits: [], format: formatLabel };
+    return [];
   }
 
   if (sort === 'upcoming') {
@@ -235,7 +220,7 @@ function dropRowMetaBits(
     } else if (item.startTimeMs == null) {
       bits.push('Upcoming');
     }
-    return { bits, format: formatLabel };
+    return bits;
   }
 
   if (sort === 'finished') {
@@ -246,7 +231,7 @@ function dropRowMetaBits(
     if (soldOut) bits.push('Sold out');
     else if (item.endTimeMs == null) bits.push('Ended');
     bits.push(supply);
-    return { bits, format: formatLabel };
+    return bits;
   }
 
   if (sort === 'live' || sort === 'closing') {
@@ -259,13 +244,13 @@ function dropRowMetaBits(
     } else {
       bits.push(supply);
     }
-    return { bits, format: formatLabel };
+    return bits;
   }
 
   if (item.remaining != null && item.remaining > 0) {
-    return { bits: [`${item.remaining} left`], format: formatLabel };
+    return [`${item.remaining} left`];
   }
-  return { bits: [supply], format: formatLabel };
+  return [supply];
 }
 
 function DropRow({
@@ -275,6 +260,7 @@ function DropRow({
   saved = false,
   savePending = false,
   nowMs,
+  omitKind = false,
   onToggleSave,
   onOwnerManaged,
   onOpenCover,
@@ -285,18 +271,21 @@ function DropRow({
   saved?: boolean;
   savePending?: boolean;
   nowMs: number;
+  /** Medium tab already names the kind — keep the stamp as plain `by`. */
+  omitKind?: boolean;
   onToggleSave: () => void;
   onOwnerManaged?: (change: 'paused' | 'resumed' | 'deleted') => void;
   /** Cover tap — listen, read, or view art on this list. */
   onOpenCover?: () => void;
 }) {
-  const formatLabel = dropRowFormatLabel(item);
-  const meta = dropRowMetaBits(
-    item,
-    sort,
-    allowlistRemaining,
-    formatLabel,
-    nowMs
+  const metaBits = dropRowMetaBits(item, sort, allowlistRemaining, nowMs);
+  const partyLead = scarceRowPartyLead(
+    {
+      mediumKind: item.mediumKind ?? item.view?.kind,
+      audioFormat: item.view?.audioFormat ?? null,
+      writingFormat: item.view?.writingFormat ?? null,
+    },
+    { omitKind }
   );
   const showPrice = sort !== 'finished' || Boolean(item.priceNear);
   const sticker = dollarStickerLabel(item.usdE6);
@@ -325,7 +314,7 @@ function DropRow({
     endTimeMs: item.endTimeMs,
   });
   // Fans render as facepile (or text fallback) — keep out of the spaced bits.
-  const dealBits = [priceLabel, ...meta.bits, meta.format].filter(Boolean);
+  const dealBits = [priceLabel, ...metaBits].filter(Boolean);
   const fanCount =
     item.fanCount != null && item.fanCount > 0 ? item.fanCount : null;
 
@@ -385,6 +374,7 @@ function DropRow({
               accountId={item.creatorId}
               displayName={item.creatorDisplayName}
               avatarUrl={item.creatorAvatarUrl}
+              lead={partyLead}
             />
             <div className="drops-discovery-deal">
               {dealBits.length > 0 ? (
@@ -1169,6 +1159,7 @@ export function DropsPagePanel({
       saved={viewerSaved(item.collectionId)}
       savePending={isSavePending(item.collectionId)}
       nowMs={nowMs}
+      omitKind={medium !== 'all'}
       onToggleSave={() => {
         void toggleSave(item.collectionId);
       }}

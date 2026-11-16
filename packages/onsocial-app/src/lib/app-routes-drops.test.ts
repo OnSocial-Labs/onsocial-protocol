@@ -55,6 +55,9 @@ describe('dropsPath', () => {
     expect(dropsPath({ kind: 'audio', audioFormat: 'album' })).toBe(
       `${APP_DROPS_PATH}?${MARKET_KIND_PARAM}=audio&${MARKET_AUDIO_FORMAT_PARAM}=album`
     );
+    expect(dropsPath({ kind: 'audio', audioFormat: 'audiobook' })).toBe(
+      `${APP_DROPS_PATH}?${MARKET_KIND_PARAM}=audio&${MARKET_AUDIO_FORMAT_PARAM}=audiobook`
+    );
     expect(dropsPath({ kind: 'ticket', audioFormat: 'album' })).toBe(
       `${APP_DROPS_PATH}?${MARKET_KIND_PARAM}=ticket`
     );

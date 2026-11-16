@@ -11,7 +11,7 @@ import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { collectionPath } from '@/lib/app-routes';
 import { socialTimeProps } from '@/lib/post-display';
 import { profileStoreDropToDiscoveryItem } from '@/lib/profile-store-drop-discovery';
-import { scarceRowFormatLabel } from '@/lib/scarce-row-kind';
+import { scarceRowPartyLead } from '@/lib/scarce-row-kind';
 import type { ProfileStoreDrop } from '@/lib/profile-store-types';
 
 function formatPriceNear(priceNear: string): string {
@@ -20,39 +20,39 @@ function formatPriceNear(priceNear: string): string {
   return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
 }
 
+function dropRowKindInput(drop: ProfileStoreDrop) {
+  return {
+    mediumKind: drop.mediumKind,
+    audioFormat: drop.audioFormat,
+    writingFormat: drop.writingFormat,
+  };
+}
+
 function dropRowDealBits(drop: ProfileStoreDrop): string[] {
   const priceNear = drop.priceNear?.trim();
   const price =
     dollarStickerLabel(drop.usdE6) ??
     (priceNear ? `${formatPriceNear(priceNear)} NEAR` : 'Free');
-  const format = scarceRowFormatLabel({
-    mediumKind: drop.mediumKind,
-    audioFormat: drop.audioFormat,
-    writingFormat: drop.writingFormat,
-  });
 
   if (drop.status === 'sold_out') {
-    return [price, 'Sold out', format].filter(Boolean) as string[];
+    return [price, 'Sold out'];
   }
   if (drop.status === 'ended') {
-    return [price, 'Ended', format].filter(Boolean) as string[];
+    return [price, 'Ended'];
   }
   if (
     (drop.status === 'live' || drop.status === 'upcoming') &&
     drop.remaining > 0
   ) {
-    return [price, `${drop.remaining} left`, format].filter(
-      Boolean
-    ) as string[];
+    return [price, `${drop.remaining} left`];
   }
   if (drop.totalSupply > 0) {
     return [
       price,
       `${drop.totalSupply - drop.remaining}/${drop.totalSupply} minted`,
-      format,
-    ].filter(Boolean) as string[];
+    ];
   }
-  return [price, format].filter(Boolean) as string[];
+  return [price];
 }
 
 export function isDropMintable(drop: ProfileStoreDrop): boolean {
@@ -160,6 +160,7 @@ export function PortfolioDropRow({
               accountId={pageAccountId}
               displayName={displayName}
               avatarUrl={avatarUrl}
+              lead={scarceRowPartyLead(dropRowKindInput(drop))}
             />
             {dealBits.length > 0 || fanCount != null ? (
               <div className="drops-discovery-deal">

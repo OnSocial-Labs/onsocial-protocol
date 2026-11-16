@@ -60,6 +60,7 @@ import {
   fetchCollectionCreatorFace,
   type CollectionCreatorFace,
 } from '@/features/scarces/collection-creator-face';
+import { scarceRowPartyLead } from '@/lib/scarce-row-kind';
 import { CollectionOwnerManageMenu } from '@/features/scarces/collection-owner-manage-menu';
 import {
   collectionCatalogShell,
@@ -923,6 +924,11 @@ export function CollectionPagePanel({
     creatorId,
     creatorDisplayName
   );
+  const creatorPartyLead = scarceRowPartyLead({
+    mediumKind: view?.kind,
+    audioFormat: view?.audioFormat ?? null,
+    writingFormat: view?.writingFormat ?? null,
+  });
   const requestActivityClose = useCallback(() => {
     setActivityClosing(true);
   }, []);
@@ -1273,7 +1279,7 @@ export function CollectionPagePanel({
                 className="drops-discovery-party-avatar"
               />
               <span className="drops-discovery-party-stack">
-                <span className="drops-discovery-lead">by</span>
+                <span className="drops-discovery-lead">{creatorPartyLead}</span>
                 {creatorShellLoading ? (
                   <span
                     className="standing-row-shimmer collection-skeleton-creator-name drops-discovery-by"
