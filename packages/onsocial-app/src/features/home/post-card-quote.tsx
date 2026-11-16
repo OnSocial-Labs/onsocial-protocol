@@ -1,6 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type CSSProperties,
+} from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
@@ -45,6 +50,9 @@ import { PostRichText } from '@/features/home/post-rich-text';
 import { PostSensitiveGate } from '@/features/home/post-sensitive-gate';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
+import type { ScarcePlayableMedia } from '@/features/market/market-listings';
+import { ScarceFeedMediumSheet } from '@/features/scarces/scarce-feed-medium-sheet';
+import { postScarceAudio } from '@/features/scarces/scarce-post-preview';
 
 /**
  * Structure seat for a quote inset while `refPath` soft-fills. Matches the
@@ -101,6 +109,19 @@ export function QuotedPostInset({
   const [quoteZoomOrigin, setQuoteZoomOrigin] =
     useState<FeedPhotoZoomOrigin | null>(null);
   const [quoteThreadOpen, setQuoteThreadOpen] = useState(false);
+  const [quoteAudioOpen, setQuoteAudioOpen] = useState(false);
+  const quoteAudioMounted = useSheetMounted(quoteAudioOpen);
+  const quoteAudio = postScarceAudio(post);
+  const quotePlayables: ScarcePlayableMedia[] = quoteAudio?.url
+    ? [
+        {
+          url: quoteAudio.url,
+          mime: quoteAudio.mime || 'audio/mpeg',
+          ...(quoteAudio.cid ? { cid: quoteAudio.cid } : {}),
+        },
+      ]
+    : [];
+  const quoteListenTitle = quoteAudio?.alt?.trim() || 'Audio';
 
   const open = (event: {
     preventDefault(): void;
@@ -183,6 +204,11 @@ export function QuotedPostInset({
                       setQuotePhotoIndex(index);
                       setQuotePhotoOpen(true);
                     }}
+                    onAudioOpen={
+                      quotePlayables.length > 0
+                        ? () => setQuoteAudioOpen(true)
+                        : undefined
+                    }
                   />
                 ) : null}
               </div>
@@ -266,8 +292,26 @@ export function QuotedPostInset({
           }
         />
       ) : null}
+      {expanded && quoteAudioMounted ? (
+        <ScarceFeedMediumSheet
+          open={quoteAudioOpen}
+          onOpenChange={setQuoteAudioOpen}
+          mode="audio"
+          title={quoteListenTitle}
+          creatorId={post.accountId}
+          playables={quotePlayables}
+          feedEnlarge
+        />
+      ) : null}
     </>
   );
+}
+
+/** Mount sheet chrome only after first open (same as post-card overlays). */
+function useSheetMounted(open: boolean): boolean {
+  const [mounted, setMounted] = useState(open);
+  if (open && !mounted) setMounted(true);
+  return mounted || open;
 }
 
 function QuoteThumbTile({

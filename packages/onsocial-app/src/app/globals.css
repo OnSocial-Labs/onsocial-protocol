@@ -25594,6 +25594,17 @@ a.os-surface-row,
     overflow-anchor: none;
   }
 
+  .post-card-scarce-cta--pending {
+    min-height: calc(
+      0.4rem + 1.2 * var(--os-stamp-size, 0.75rem)
+    );
+  }
+
+  .post-card-scarce-cta--pending .post-row-skeleton-line-sm {
+    width: 4.5rem;
+    max-width: 40%;
+  }
+
   .post-card-scarce-cta--sold,
   .post-card-scarce-cta--muted {
     color: rgb(var(--fg-rgb) / 0.42);

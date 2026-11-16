@@ -76,6 +76,7 @@ import {
 } from '@/features/scarces/cancel-post-scarce';
 import {
   PostScarceCta,
+  PostScarceCtaPending,
   type PostScarceCtaActionProps,
 } from '@/features/scarces/post-scarce-cta';
 import {
@@ -740,6 +741,13 @@ function PostCardImpl({
     !photoCover &&
     mediaItems.length === 0 &&
     !showScarceArt &&
+    (Boolean(dropPaint) || hasCollectionEmbed || hasTokenEmbed);
+  const scarceCtaLive =
+    !isRepostShell && Boolean(scarceEmbed || canListScarce);
+  /** Jacket known from paint/refs before commerce soft-fills — hold the CTA row. */
+  const scarceCtaSeat =
+    !isRepostShell &&
+    !scarceCtaLive &&
     (Boolean(dropPaint) || hasCollectionEmbed || hasTokenEmbed);
   const articleIssuedAt =
     typeof post.blockTimestamp === 'number'
@@ -1574,10 +1582,10 @@ function PostCardImpl({
               <div className="scarce-list-preview-placeholder scarce-post-preview-asset" />
             </div>
           ) : null}
-          {!isRepostShell && (scarceEmbed || canListScarce) ? (
+          {scarceCtaLive ? (
             <PostScarceCta
               {...scarceCtaActions}
-              listenSlot={
+              mediumSlot={
                 showDropRead ? (
                   <button
                     type="button"
@@ -1593,6 +1601,8 @@ function PostCardImpl({
                 ) : null
               }
             />
+          ) : scarceCtaSeat ? (
+            <PostScarceCtaPending />
           ) : null}
         </PostSensitiveGate>
         {quotedPost ? (

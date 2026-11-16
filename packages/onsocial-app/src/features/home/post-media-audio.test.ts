@@ -57,4 +57,22 @@ describe('post audio attachments', () => {
     expect(html).toContain('Play audio');
     expect(html).not.toContain('<img');
   });
+
+  it('falls back to the inline row when onAudioOpen is omitted', () => {
+    const html = renderToStaticMarkup(
+      createElement(PostMediaStrip, {
+        items: [
+          {
+            url: 'https://example.com/voice.webm',
+            mime: 'audio/webm',
+            alt: 'Voice note',
+          },
+        ],
+        size: 'page',
+      })
+    );
+
+    expect(html).toContain('post-audio-row');
+    expect(html).not.toContain('post-audio-jacket');
+  });
 });
