@@ -15,12 +15,13 @@ import type {
 import dynamic from 'next/dynamic';
 import type { PostRow } from '@onsocial/sdk';
 import { GlassSheet, SheetHeader } from '@onsocial/ui';
-import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
+import { OsRouteSettle } from '@/components/app/os-route-settle';
+import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
 import { useFeedThreadBand } from '@/features/home/use-feed-thread-band';
 import { scarceEmbedsForOpenRoot } from '@/features/scarces/scarce-embed-ledger';
 import type { PersonalPostPageData } from '@/lib/load-personal-post-page';
 
-// No loading skeleton — body stays opacity 0 until onThreadPainted.
+// Client panel; OsRouteSettle covers with thread skeleton until land.
 const LivePersonalPostPanel = dynamic(
   () =>
     import('@/features/home/live-personal-post-panel').then(
@@ -121,7 +122,10 @@ export function FeedMediaThreadSheet({
         </div>
       }
     >
-      <OsPageBodyAppear ready={threadPainted}>
+      <OsRouteSettle
+        ready={threadPainted}
+        skeleton={<PostThreadPageSkeleton />}
+      >
         <Suspense fallback={null}>
           <LivePersonalPostPanel
             author={author}
@@ -133,7 +137,7 @@ export function FeedMediaThreadSheet({
             onThreadPainted={noteThreadPainted}
           />
         </Suspense>
-      </OsPageBodyAppear>
+      </OsRouteSettle>
     </GlassSheet>
   );
 }

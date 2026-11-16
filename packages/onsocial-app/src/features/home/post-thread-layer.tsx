@@ -25,8 +25,10 @@ import {
   resolveGlassSheetZIndex,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
+import { OsRouteSettle } from '@/components/app/os-route-settle';
 import { PostQuotesTrackHostProvider } from '@/features/home/post-quotes-track-host';
+import { PostQuotesPageSkeleton } from '@/features/home/post-quotes-skeleton';
+import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
 import { scarceEmbedsForOpenRoot } from '@/features/scarces/scarce-embed-ledger';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { accountIdsEqual } from '@/lib/account-match';
@@ -88,7 +90,7 @@ import {
   walkBackOneStep,
 } from './post-thread-stack';
 
-// No loading skeleton — OsPageBodyAppear stays opacity 0 until land paints.
+// Panels load client-side; OsRouteSettle covers with thread skeleton until land.
 const LivePersonalPostPanel = dynamic(
   () =>
     import('@/features/home/live-personal-post-panel').then(
@@ -432,8 +434,8 @@ function PostThreadSheet({
   const [quotesTrackHost, setQuotesTrackHost] = useState<HTMLDivElement | null>(
     null
   );
-  // Body appear waits on paint (`onThreadPainted`); key so a new layer never
-  // inherits the previous ready frame. Quotes wait the same — no skeleton.
+  // Settle waits on paint (`onThreadPainted`); key so a new layer never
+  // inherits the previous ready frame. Skeleton covers until then.
   const layerKey = `${layer.kind}:${layer.groupId ?? ''}:${layer.accountId}:${layer.postId}${
     layer.kind === 'quotes' ? `:${layer.tab}` : ''
   }`;
@@ -608,7 +610,16 @@ function PostThreadSheet({
               </OsIconAction>
             }
           >
-            <OsPageBodyAppear ready={threadPainted}>
+            <OsRouteSettle
+              ready={threadPainted}
+              skeleton={
+                quotes ? (
+                  <PostQuotesPageSkeleton />
+                ) : (
+                  <PostThreadPageSkeleton />
+                )
+              }
+            >
               <PostQuotesTrackHostProvider
                 value={quotes ? quotesTrackHost : null}
               >
@@ -653,7 +664,7 @@ function PostThreadSheet({
                   />
                 )}
               </PostQuotesTrackHostProvider>
-            </OsPageBodyAppear>
+            </OsRouteSettle>
           </OsAppScreen>
         </div>
       </OsPageSheet>

@@ -154,6 +154,11 @@ export function PortfolioShellPending({
           <div className="standing-row-shimmer standing-row-shimmer-line" />
           <div className="standing-row-shimmer standing-row-shimmer-line-sm" />
         </div>
+        <div className="portfolio-identity-gestures" aria-hidden>
+          <div className="portfolio-identity-gesture-row portfolio-identity-gesture-row--loading">
+            <span className="portfolio-identity-gesture-shimmer" />
+          </div>
+        </div>
       </section>
     </PortfolioShell>
   );

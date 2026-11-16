@@ -30,6 +30,7 @@ import { PortfolioPersonalComposer } from '@/components/portfolio/portfolio-pers
 import { ViewerWalletMoodSync } from '@/components/wallet/viewer-wallet-mood-sync';
 import { PortfolioCustomize } from '@/components/portfolio/portfolio-customize';
 import { PortfolioBookMarkProvider } from '@/components/portfolio/portfolio-book-mark';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { PortfolioShell } from '@/components/portfolio/portfolio-shell';
 import { PortfolioSongMarkProvider } from '@/components/portfolio/portfolio-song-mark';
 import type {
@@ -156,7 +157,7 @@ function PortfolioShellPreviewBridge({
                 isPreviewing={isPreviewing}
                 isPreviewingMood={isPreviewingMood}
               >
-                {children}
+                <OsPageBodyAppear>{children}</OsPageBodyAppear>
               </PortfolioShell>
               <ViewerWalletMoodSync
                 pageAccountId={pageAccountId}

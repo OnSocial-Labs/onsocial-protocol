@@ -77,12 +77,14 @@ export default async function AccountPage({
   }
 
   const activeFace = (
-    <PortfolioAccountFace
-      accountId={accountId}
-      search={search}
-      strict
-      showEssayLeave
-    />
+    <Suspense fallback={<PortfolioShellPending pageAccountId={accountId} />}>
+      <PortfolioAccountFace
+        accountId={accountId}
+        search={search}
+        strict
+        showEssayLeave
+      />
+    </Suspense>
   );
   const siblingFace = (
     <Suspense fallback={<ProtocolFacePairFallback />}>
