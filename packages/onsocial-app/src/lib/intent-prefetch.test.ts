@@ -2,6 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import DiscoverLoading from '@/app/(app)/discover/loading';
+import { PostQuotesRouteLoading } from '@/features/home/post-quotes-route-loading';
 import { PostThreadRouteLoading } from '@/features/home/post-thread-route-loading';
 import {
   INTENT_PREFETCH_SEEN_CAP,
@@ -221,6 +222,21 @@ describe('cold route skeletons', () => {
     expect(html).toContain('post-card--detail');
     expect(html).toContain('aria-busy="true"');
     expect(html).toContain('Loading post');
+    expect(html).toContain('inert=""');
+  });
+
+  it('renders the post reach skeleton and an inert Quotes/Reposts track', () => {
+    const html = renderToStaticMarkup(
+      createElement(PostQuotesRouteLoading, {
+        backHref: '/@alice.testnet/posts/1',
+      })
+    );
+
+    expect(html).toContain('Post reach');
+    expect(html).toContain('Loading post reach');
+    expect(html).toContain('aria-busy="true"');
+    expect(html).toContain('post-quotes-track');
+    expect(html).toContain('post-row-skeleton-list');
     expect(html).toContain('inert=""');
   });
 

@@ -14,8 +14,12 @@ import type { PostRow, ReposterRow } from '@onsocial/sdk';
 import { Divider, RepeatIcon } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
+import { OsRouteSettle } from '@/components/app/os-route-settle';
 import { PostCard, postKey } from '@/features/home/post-card';
+import {
+  PostQuotesPageSkeleton,
+  PostQuotesTrackSkeleton,
+} from '@/features/home/post-quotes-skeleton';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
 import { adoptAppLenisScroll } from '@/lib/app-lenis-registry';
@@ -328,7 +332,8 @@ export function PostQuotesPanel({
     thumb.style.transform = `translate3d(${left}px, ${first.offsetTop}px, 0)`;
   }, [activeTab]);
 
-  // Hold opacity 0 through fetch — never paint a quotes skeleton.
+  // Full page: OsRouteSettle holds the list skeleton until ready.
+  // Sheets keep opacity-0 appear only (no second skeleton language).
   const pageReady =
     loadState === 'missing' ||
     loadState === 'error' ||
@@ -711,10 +716,21 @@ export function PostQuotesPanel({
       glassChrome
       nestedScrollChrome
       className="post-quotes-screen-chrome"
-      toolbar={loadState === 'ready' && root ? track : undefined}
+      toolbar={
+        pageReady && root ? (
+          track
+        ) : (
+          <PostQuotesTrackSkeleton activeTab={activeTab} />
+        )
+      }
       backFallbackHref={backHref}
     >
-      <OsPageBodyAppear ready={pageReady}>{body}</OsPageBodyAppear>
+      <OsRouteSettle
+        ready={pageReady}
+        skeleton={<PostQuotesPageSkeleton />}
+      >
+        {body}
+      </OsRouteSettle>
     </OsAppScreen>
   );
 }

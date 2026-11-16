@@ -62,7 +62,7 @@ function PostSkeletonMedia({ frame }: { frame: PostSkeletonFrame }) {
 
 /**
  * Opened post — focal block, replies label, then reply rows.
- * In-app sheets do not use this; they keep the reply fade with no skeleton.
+ * Sheets keep the reply fade; quotes full page uses PostQuotesPageSkeleton.
  */
 export function PostThreadPageSkeleton({ rows = 2 }: { rows?: number }) {
   return (
