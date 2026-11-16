@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import DiscoverLoading from '@/app/(app)/discover/loading';
 import { PostThreadRouteLoading } from '@/features/home/post-thread-route-loading';
 import {
@@ -8,10 +8,12 @@ import {
   createIntentPrefetchSession,
 } from '@/lib/intent-prefetch';
 
+const discoverQuery = vi.hoisted(() => ({ search: '' }));
+
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: () => undefined, prefetch: () => undefined }),
   usePathname: () => '/home',
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(discoverQuery.search),
 }));
 
 vi.mock('@/features/discover/discover-page-panel', () => ({
@@ -207,6 +209,10 @@ describe('intent prefetch', () => {
 });
 
 describe('cold route skeletons', () => {
+  beforeEach(() => {
+    discoverQuery.search = '';
+  });
+
   it('renders the post thread skeleton and an inert reply dock', () => {
     const html = renderToStaticMarkup(
       createElement(PostThreadRouteLoading, { backHref: '/home' })
@@ -228,6 +234,18 @@ describe('cold route skeletons', () => {
     expect(html).toContain('discover-trending-section');
     expect(html).toContain('portfolio-summon-back');
     expect(html).toContain('inert=""');
+    expect(html).not.toContain('live Discover panel');
+  });
+
+  it('renders the requested Discover tab instead of Moving', () => {
+    discoverQuery.search = 'tab=profiles';
+    const html = renderToStaticMarkup(createElement(DiscoverLoading));
+
+    expect(html).toMatch(
+      /id="discover-tab-profiles"[^>]*aria-selected="true"/
+    );
+    expect(html).toContain('standing-list-skeleton');
+    expect(html).not.toContain('discover-trending-section');
     expect(html).not.toContain('live Discover panel');
   });
 });

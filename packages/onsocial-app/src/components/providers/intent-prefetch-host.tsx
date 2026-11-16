@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   createIntentPrefetchSession,
+  noteDocumentLeftEntry,
+  readDocumentEntryPathname,
   type IntentPrefetchKind,
 } from '@/lib/intent-prefetch';
 
@@ -39,10 +41,16 @@ function keyboardFocus(event: FocusEvent, anchor: HTMLAnchorElement): boolean {
  */
 export function IntentPrefetchHost() {
   const router = useRouter();
+  const pathname = usePathname();
   const routerRef = useRef(router);
   useEffect(() => {
     routerRef.current = router;
   }, [router]);
+
+  useEffect(() => {
+    const entry = readDocumentEntryPathname();
+    if (entry && pathname && pathname !== entry) noteDocumentLeftEntry();
+  }, [pathname]);
 
   useEffect(() => {
     const session = createIntentPrefetchSession((href) => {

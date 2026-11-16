@@ -5,12 +5,35 @@ export const INTENT_PREFETCH_SCROLL_GUARD_MS = 150;
 export const INTENT_PREFETCH_SEEN_CAP = 64;
 
 /**
- * Pathname of this document. Captured when the root client bundle evaluates,
- * so a later client navigation can be told apart from the hard load.
- * Null on the server.
+ * Pathname of this document, read on the first client call.
+ * Null on the server. A hard load stays on this path; a later client
+ * navigation — including a return to it — is something else.
  */
-export const documentEntryPathname =
-  typeof window === 'undefined' ? null : window.location.pathname;
+let documentEntryPathname: string | null | undefined;
+/** True after this document has shown a path other than the entry. */
+let documentHasLeftEntry = false;
+
+export function readDocumentEntryPathname(): string | null {
+  if (documentEntryPathname === undefined) {
+    documentEntryPathname =
+      typeof window === 'undefined' ? null : window.location.pathname;
+  }
+  return documentEntryPathname;
+}
+
+export function readDocumentHasLeftEntry(): boolean {
+  return documentHasLeftEntry;
+}
+
+export function noteDocumentLeftEntry(): void {
+  documentHasLeftEntry = true;
+}
+
+/** Tests start each case before the first client read. */
+export function resetDocumentRouteForTests(): void {
+  documentEntryPathname = undefined;
+  documentHasLeftEntry = false;
+}
 
 export type IntentPrefetchKind = 'pointerenter' | 'touchstart' | 'focus';
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, type RefObject } from 'react';
+import { useCallback, useRef, useState, type RefObject } from 'react';
 import { useRouter } from 'next/navigation';
 import { OsAppChromePage } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -31,8 +31,10 @@ function DiscoverPageScreen({
   const router = useRouter();
   const popInApp = useOsInAppPop();
   const { tab, initialTrending } = useDiscoverPanel();
-  const settleMoving =
-    tab === 'trending' && isMovingLandingPainted(initialTrending);
+  // Chosen once for this route mount. A tab change must not swap the wrapper.
+  const [settleMoving] = useState(
+    () => tab === 'trending' && isMovingLandingPainted(initialTrending)
+  );
   const onDockBack = useCallback(() => {
     if (popInApp()) return;
     router.push(backFallbackHref);
@@ -52,19 +54,16 @@ function DiscoverPageScreen({
       heading={<DiscoverNavSearch />}
       toolbar={<DiscoverHeaderTabs />}
     >
-      {settleMoving ? (
-        <OsRouteSettle
-          skeleton={
-            <OsAppChromePage className="discover-panel">
-              <DiscoverMovingLandingSkeleton />
-            </OsAppChromePage>
-          }
-        >
-          <DiscoverPanelContent />
-        </OsRouteSettle>
-      ) : (
+      <OsRouteSettle
+        settle={settleMoving}
+        skeleton={
+          <OsAppChromePage className="discover-panel">
+            <DiscoverMovingLandingSkeleton />
+          </OsAppChromePage>
+        }
+      >
         <DiscoverPanelContent />
-      )}
+      </OsRouteSettle>
     </OsAppScreen>
   );
 }

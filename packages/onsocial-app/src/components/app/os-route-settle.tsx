@@ -4,23 +4,29 @@ import {
   useLayoutEffect,
   useState,
   type AnimationEvent,
+  type PropsWithChildren,
   type ReactNode,
 } from 'react';
 import { usePathname } from 'next/navigation';
 import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
-import { documentEntryPathname } from '@/lib/intent-prefetch';
+import {
+  readDocumentEntryPathname,
+  readDocumentHasLeftEntry,
+} from '@/lib/intent-prefetch';
 
 /**
- * Cover only after a client navigation away from the document's first URL.
- * A hard load — including the client swap that replaces `loading.tsx` once
- * the server payload arrives — stays on that first URL, so it never paints
- * a skeleton over content the server already produced.
+ * Cover a client navigation, including a return to the document's first URL.
+ * A hard load stays on that URL and has not left it, so the swap that
+ * replaces `loading.tsx` never paints a skeleton over server content.
  */
 export function routeSettleCovers(
   entryPathname: string | null,
-  pathname: string | null
+  pathname: string | null,
+  hasLeftEntry: boolean
 ): boolean {
-  return Boolean(entryPathname && pathname && entryPathname !== pathname);
+  if (!entryPathname || !pathname) return false;
+  if (entryPathname !== pathname) return true;
+  return hasLeftEntry;
 }
 
 function prefersReducedMotion() {
@@ -46,22 +52,31 @@ function routeSettleFadeMs() {
 /**
  * Soft handoff off a route skeleton after a client navigation.
  * The document's first route starts done: no cover in the HTML and none
- * after the loading shell swaps for server-painted content. Pass `ready`
- * so thread replies stay on OsPageBodyAppear until permalinkReady.
+ * after the loading shell swaps for server-painted content. A later visit
+ * to that same path covers once, then this instance stays inert. Pass
+ * `ready` so thread replies stay on OsPageBodyAppear until permalinkReady.
+ * `settle={false}` still renders this wrapper so the child is not remounted.
  */
 export function OsRouteSettle({
+  settle = true,
   ready,
   skeleton,
   children,
-}: {
+}: PropsWithChildren<{
+  /** False paints children immediately and still keeps this wrapper. */
+  settle?: boolean;
   ready?: boolean;
   skeleton: ReactNode;
-  children: ReactNode;
-}) {
+}>) {
   const pathname = usePathname();
-  const [clientNav] = useState(() =>
-    routeSettleCovers(documentEntryPathname, pathname)
-  );
+  const [clientNav] = useState(() => {
+    if (!settle || typeof window === 'undefined') return false;
+    return routeSettleCovers(
+      readDocumentEntryPathname(),
+      pathname,
+      readDocumentHasLeftEntry()
+    );
+  });
   const managed = ready !== undefined;
   const [autoReady, setAutoReady] = useState(false);
   const [cover, setCover] = useState<'hold' | 'leave' | 'off'>(
