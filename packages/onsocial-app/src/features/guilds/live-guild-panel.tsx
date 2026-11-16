@@ -1322,7 +1322,7 @@ export function LiveGuildPanel({
                   showChannel={selectedFeedFilterId === 'all'}
                 />
               ) : (
-                <OsPageBodyAppear>
+                <OsPageBodyAppear className="guild-feed-body-appear">
               {feedPosts.length > 0 ? (
                 <div
                   ref={feedListRef}
