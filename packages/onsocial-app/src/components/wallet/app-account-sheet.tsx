@@ -24,6 +24,7 @@ import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
 import { MuteBlockListsSheet } from '@/components/wallet/mute-block-lists-sheet';
 import { AppTokensSheet } from '@/features/tokens/app-tokens-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary';
 import { usePortfolioCustomize } from '@/contexts/portfolio-customize-context';
 import {
@@ -191,7 +192,12 @@ export function AppAccountSheet({
 
   const handleSwitchWallet = useCallback(async () => {
     requestClose();
-    await switchWallet();
+    try {
+      await switchWallet();
+    } catch (error) {
+      if (isWalletUserCancellation(error)) return;
+      throw error;
+    }
   }, [requestClose, switchWallet]);
 
   const handleCustomize = useCallback(() => {

@@ -176,11 +176,17 @@ body:has(.hot-connector-popup) .app-tx-toast-anchor {
 .app-tx-toast-action {
   display: inline-block;
   margin-top: 0.125rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
   font-size: 0.6875rem;
   font-weight: 600;
   line-height: 1.25;
   color: rgb(var(--fg-rgb) / 0.62);
+  text-align: left;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .app-tx-toast-action:hover,

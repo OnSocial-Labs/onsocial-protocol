@@ -20,6 +20,7 @@ import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import {
   appSessionConnectOptions,
   bootstrapAppSocialSession,
+  clearStoredPendingSessionKey,
   completeAppSessionAfterConnect,
   getAppSocialSessionLifecycle,
   renewAppSocialSession,
@@ -39,6 +40,7 @@ import { clearAppGatewayAuth } from '@/lib/app-gateway-auth';
 import { invalidateAppSocialSessionCache } from '@/lib/app-social-session-cache';
 import {
   isWalletUserCancellation,
+  walletMismatchInfoMessage,
   WalletPickerTimeoutError,
 } from '@/lib/wallet-errors';
 /**
@@ -165,8 +167,6 @@ function pickRestoredAccountId(
  * sign-in does not pin every later request until reload.
  */
 const WALLET_PICKER_TIMEOUT_MS = 120_000;
-
-const WALLET_PICKER_TIMEOUT_MESSAGE = 'The wallet took too long. Try again.';
 
 function sameWalletAccount(left: string | null, right: string | null): boolean {
   if (!left || !right) return left === right;
@@ -337,6 +337,22 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     setSessionFeedback(null);
   }, []);
 
+  /**
+   * Latest Connect / resume — cancel and timeout toasts call this so the
+   * action never closes over a stale callback.
+   */
+  const sessionRetryRef = useRef<() => void>(() => {});
+
+  const sessionRecoverFeedback = useCallback(
+    (type: 'info' | 'error', msg: string): TransactionFeedback => ({
+      type,
+      msg,
+      actionLabel: txToastSession.tryAgain,
+      onAction: () => sessionRetryRef.current(),
+    }),
+    []
+  );
+
   const showSessionPending = useCallback(
     (phase: 'setup' | 'wallet' | 'confirming') => {
       setSessionFeedback(sessionPendingFeedback(phase));
@@ -400,21 +416,32 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
           }
           return ready;
         } catch (error) {
-          if (
-            error instanceof WalletConnectedReviewError ||
-            error instanceof WalletPickerTimeoutError
-          ) {
+          if (error instanceof WalletPickerTimeoutError) {
+            setSessionFeedback(
+              sessionRecoverFeedback('error', txToastSession.timedOut)
+            );
+            setHasSocialSession(false);
+            throw error;
+          }
+          if (error instanceof WalletConnectedReviewError) {
+            clearSessionFeedback();
             setHasSocialSession(false);
             throw error;
           }
           if (isWalletUserCancellation(error)) {
-            clearSessionFeedback();
+            // Dismissed the AddKey sheet — info + retry, not a red failure.
+            if (prompted) {
+              setSessionFeedback(
+                sessionRecoverFeedback('info', txToastSession.canceled)
+              );
+            } else {
+              clearSessionFeedback();
+            }
           } else {
             console.warn('OnSocial session bootstrap failed', error);
-            setSessionFeedback({
-              type: 'error',
-              msg: txToastSession.failed,
-            });
+            setSessionFeedback(
+              sessionRecoverFeedback('error', txToastSession.failed)
+            );
           }
           setHasSocialSession(false);
           return false;
@@ -429,7 +456,12 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       bootstrappingAccountRef.current = nextAccountId;
       return run;
     },
-    [clearSessionFeedback, finishSessionFeedback, showSessionPending]
+    [
+      clearSessionFeedback,
+      finishSessionFeedback,
+      sessionRecoverFeedback,
+      showSessionPending,
+    ]
   );
 
   /** Page-load / reconnect — restore only, never open AddKey. */
@@ -555,7 +587,13 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
           return current.promise;
         }
         if (current) {
-          await current.promise.catch(() => undefined);
+          // Cancel / timeout of the open sheet settles waiters too — do not
+          // quietly open a second, unchecked picker behind the same dismiss.
+          try {
+            await current.promise;
+          } catch (error) {
+            if (isWalletUserCancellation(error)) throw error;
+          }
           continue;
         }
 
@@ -588,14 +626,11 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
             pickerAttemptRef.current = null;
           }
           if (pickerGenerationRef.current === generation) {
-            setSessionFeedback({
-              type: 'error',
-              msg: WALLET_PICKER_TIMEOUT_MESSAGE,
-            });
+            setSessionFeedback(
+              sessionRecoverFeedback('error', txToastSession.timedOut)
+            );
           }
-          rejectPromise(
-            new WalletPickerTimeoutError(WALLET_PICKER_TIMEOUT_MESSAGE)
-          );
+          rejectPromise(new WalletPickerTimeoutError(txToastSession.timedOut));
         }, WALLET_PICKER_TIMEOUT_MS);
 
         void takeConnectedAccount(
@@ -609,13 +644,33 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
             clearTimeout(timer);
             if (pickerGenerationRef.current !== generation || !value) return;
             if (timedOut) {
+              // Attempt is dead. Late match adopts quietly; anything else
+              // announces "Now using @y" and drops the leftover pending key.
+              const matchesPreferred = sameWalletAccount(
+                preferredAccountId,
+                value.accountId
+              );
+              if (preferredAccountId && !matchesPreferred) {
+                clearStoredPendingSessionKey(preferredAccountId);
+              }
               acceptedWalletRef.current = value.wallet;
               setWallet(value.wallet);
               setAccountId(value.accountId);
               writeStoredWalletAccountId(value.accountId);
-              setSessionFeedback((notice) =>
-                notice?.msg === WALLET_PICKER_TIMEOUT_MESSAGE ? null : notice
-              );
+              if (preferredAccountId && matchesPreferred) {
+                setSessionFeedback((notice) =>
+                  notice?.msg === txToastSession.timedOut ? null : notice
+                );
+                void restoreSocialSessionQuietly(value.accountId);
+                return;
+              }
+              setSessionFeedback({
+                type: 'info',
+                ...walletMismatchInfoMessage(
+                  value.accountId,
+                  preferredAccountId ? 'Connect' : 'Switch'
+                ),
+              });
               return;
             }
             acceptedWalletRef.current = value.wallet;
@@ -638,7 +693,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
         return promise;
       }
     },
-    [network]
+    [network, restoreSocialSessionQuietly, sessionRecoverFeedback]
   );
 
   const connectForAcceptedAccount = useCallback(
@@ -708,27 +763,18 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
         showSessionPending('wallet');
       }
 
-      const joining = Boolean(
-        pickerAttemptRef.current &&
-          sameWalletAccount(
-            pickerAttemptRef.current.preferredAccountId,
-            storedHint
-          )
-      );
-
       try {
+        // Always pass this attempt's options. Joiners share the in-flight
+        // promise; openPicker ignores a second options bag on join.
         const { wallet: connectedWallet, accountId: nextAccountId } =
-          await openPicker(
-            storedHint,
-            joining ? undefined : (bundled?.options ?? {})
-          );
+          await openPicker(storedHint, bundled?.options ?? {});
 
         acceptedWalletRef.current = connectedWallet;
         setWallet(connectedWallet);
         setAccountId(nextAccountId);
         writeStoredWalletAccountId(nextAccountId);
 
-        if (!joining && bundled && nextAccountId === storedHint) {
+        if (bundled && nextAccountId === storedHint) {
           showSessionPending('confirming');
           await completeAppSessionAfterConnect(
             nextAccountId,
@@ -739,17 +785,28 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
           return;
         }
 
+        // Mid-setup account change — drop the gas key for the account we left.
+        if (bundled && storedHint) {
+          clearStoredPendingSessionKey(storedHint);
+        }
+
         await ensureSocialSession(nextAccountId);
       } catch (error) {
-        if (
-          error instanceof WalletPickerTimeoutError ||
-          error instanceof WalletConnectedReviewError
-        ) {
+        if (error instanceof WalletPickerTimeoutError) {
+          setSessionFeedback(
+            sessionRecoverFeedback('error', txToastSession.timedOut)
+          );
+          return;
+        }
+        if (error instanceof WalletConnectedReviewError) {
+          clearSessionFeedback();
           return;
         }
         if (bundled) {
           if (isWalletUserCancellation(error)) {
-            clearSessionFeedback();
+            setSessionFeedback(
+              sessionRecoverFeedback('info', txToastSession.canceled)
+            );
           } else if (
             !(
               error instanceof Error &&
@@ -757,13 +814,14 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
             )
           ) {
             console.warn('OnSocial session bootstrap failed', error);
-            setSessionFeedback({
-              type: 'error',
-              msg: txToastSession.failed,
-            });
+            setSessionFeedback(
+              sessionRecoverFeedback('error', txToastSession.failed)
+            );
           } else {
             clearSessionFeedback();
           }
+        } else if (isWalletUserCancellation(error)) {
+          clearSessionFeedback();
         }
         if (isWalletUserCancellation(error)) return;
         throw error;
@@ -782,6 +840,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     ensureSocialSession,
     finishSessionFeedback,
     openPicker,
+    sessionRecoverFeedback,
     showSessionPending,
   ]);
 
@@ -812,10 +871,19 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       await ensureSocialSession(nextAccountId);
     })()
       .catch((error) => {
+        if (error instanceof WalletPickerTimeoutError) {
+          // Switch is not session setup — don't offer Connect/resume retry.
+          setSessionFeedback({
+            type: 'error',
+            msg: txToastSession.timedOut,
+          });
+          return;
+        }
         if (
           error instanceof WalletConnectedReviewError ||
           isWalletUserCancellation(error)
         ) {
+          clearSessionFeedback();
           return;
         }
         throw error;
@@ -826,7 +894,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
 
     connectPromiseRef.current = connectPromise;
     await connectPromise;
-  }, [resolvedAccountId, ensureSocialSession, openPicker]);
+  }, [clearSessionFeedback, resolvedAccountId, ensureSocialSession, openPicker]);
 
   const disconnect = useCallback(async () => {
     const connector = connectorRef.current;
@@ -967,8 +1035,15 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
             setHasSocialSession(false);
             throw error;
           }
-          if (!isWalletUserCancellation(error)) {
+          if (isWalletUserCancellation(error)) {
+            setSessionFeedback(
+              sessionRecoverFeedback('info', txToastSession.canceled)
+            );
+          } else {
             console.warn('OnSocial session renew failed', error);
+            setSessionFeedback(
+              sessionRecoverFeedback('error', txToastSession.failed)
+            );
           }
           setHasSocialSession(false);
           return false;
@@ -982,7 +1057,12 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
 
       return ensureSocialSession(nextAccountId);
     },
-    [connectForAcceptedAccount, resolvedAccountId, ensureSocialSession]
+    [
+      connectForAcceptedAccount,
+      resolvedAccountId,
+      ensureSocialSession,
+      sessionRecoverFeedback,
+    ]
   );
 
   const connectWithOptions = useCallback(
@@ -990,6 +1070,15 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       connectForAcceptedAccount(options),
     [connectForAcceptedAccount]
   );
+
+  sessionRetryRef.current = () => {
+    clearSessionFeedback();
+    if (resolvedAccountId ?? readStoredWalletAccountId()) {
+      void resumeSocialSession();
+      return;
+    }
+    void connect();
+  };
 
   return (
     <AppWalletContext.Provider
