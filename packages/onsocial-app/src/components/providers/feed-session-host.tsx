@@ -12,6 +12,7 @@ import {
 import { usePathname } from 'next/navigation';
 import { useNoteOsPortalHosts } from '@/contexts/os-portal-host-context';
 import { WritingShelfOpening } from '@/components/portfolio/writing-shelf-opening';
+import { FeedArticleReadScreen } from '@/features/home/feed-article-read-screen';
 import { HomePagePanel } from '@/features/home/home-feed';
 import { APP_HOME_PATH } from '@/lib/app-routes';
 import { isWritingShelfPath } from '@/lib/overlay-routes';
@@ -25,6 +26,12 @@ import {
   shouldRetainOpenedFeed,
   subscribePortfolioShelfHop,
 } from '@/lib/portfolio-shelf-hop';
+import {
+  clearParkedShelfHopArticle,
+  getParkedShelfHopArticle,
+  getParkedShelfHopArticleServerSnapshot,
+  subscribeParkedShelfHopArticle,
+} from '@/lib/shelf-hop-article-park';
 
 /** Feed route only. Query (`?sheet=`) stays on this path. */
 export function isFeedSessionPath(pathname: string | null): boolean {
@@ -54,6 +61,9 @@ const FRONT_READY_SELECTOR =
  * Home mounts while you are on it. The route paints the server seed. Leaving
  * keeps a feed on screen from the saved list until the next screen exists,
  * then drops it. Coming back paints that same list.
+ *
+ * Soft-nav Writing is special: Next layout `children` is a live slot, so the
+ * open article is parked and remounted here under `data-feed-session`.
  */
 export function FeedSessionHost({
   page,
@@ -69,6 +79,11 @@ export function FeedSessionHost({
     getPortfolioShelfHopSnapshot,
     getPortfolioShelfHopServerSnapshot
   );
+  const parked = useSyncExternalStore(
+    subscribeParkedShelfHopArticle,
+    getParkedShelfHopArticle,
+    getParkedShelfHopArticleServerSnapshot
+  );
   const shelfHop = hop.active;
   const retainFeed = shouldRetainOpenedFeed({
     onFeed,
@@ -76,8 +91,11 @@ export function FeedSessionHost({
     holdAccountId: hop.holdAccountId,
     pathname,
   });
+  const showParkedReader = Boolean(
+    parked && (shelfHop || Boolean(hop.holdAccountId))
+  );
   const [openedFeed, setOpenedFeed] = useState<ReactNode>(page);
-  if (onFeed && openedFeed !== page) {
+  if (onFeed && openedFeed !== page && !shelfHop && !hop.holdAccountId) {
     setOpenedFeed(page);
   }
   const [keepFeed, setKeepFeed] = useState(onFeed);
@@ -148,12 +166,12 @@ export function FeedSessionHost({
     return () => root.removeEventListener('play', quiet, true);
   }, [onFeed, keepFeed]);
 
-  const showFeed = onFeed || keepFeed;
-  const pinFeed = showFeed && (shelfHop || retainFeed);
+  const showFeed = onFeed || keepFeed || showParkedReader;
+  const pinFeed = showFeed && (shelfHop || retainFeed || showParkedReader);
 
   useLayoutEffect(() => {
     notePortalHosts();
-  }, [notePortalHosts, showFeed]);
+  }, [notePortalHosts, showFeed, showParkedReader]);
 
   return (
     <>
@@ -163,7 +181,22 @@ export function FeedSessionHost({
           data-feed-session="live"
           style={pinFeed ? SHELF_FEED_STYLE : undefined}
         >
-          <Suspense fallback={null}>{feedTree}</Suspense>
+          {showParkedReader && parked ? (
+            <FeedArticleReadScreen
+              open
+              onOpenChange={(next) => {
+                if (!next) clearParkedShelfHopArticle();
+              }}
+              post={parked.post}
+              authorProfile={{
+                accountId: parked.post.accountId,
+                displayName: parked.titleLabel,
+                avatarUrl: parked.avatarUrl,
+              }}
+            />
+          ) : (
+            <Suspense fallback={null}>{feedTree}</Suspense>
+          )}
         </div>
       ) : null}
       <div

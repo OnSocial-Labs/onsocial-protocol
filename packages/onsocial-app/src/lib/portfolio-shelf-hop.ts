@@ -5,6 +5,7 @@
  */
 
 import { isWritingShelfPath } from '@/lib/overlay-routes';
+import { clearParkedShelfHopArticle } from '@/lib/shelf-hop-article-park';
 
 export type PortfolioShelfHopFace = {
   accountId: string;
@@ -147,6 +148,7 @@ export function releaseWritingShelfHold() {
   covered = false;
   face = null;
   emit();
+  clearParkedShelfHopArticle();
 }
 
 export function markShelfHopLeftHome() {

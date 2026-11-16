@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, type ComponentProps, type MouseEvent } from 'react';
+import { flushSync } from 'react-dom';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -108,7 +109,10 @@ export function AccountPlaceLink({
     const face = shelfHopFace(hop, shelfFace);
     if (face) startWritingShelfWarm(face.accountId);
     prefetchPortfolioHref(router.prefetch as RouterPrefetch, hop);
-    beginPortfolioShelfHop(face);
+    // Paint WritingShelfOpening before soft-nav swaps layout children.
+    flushSync(() => {
+      beginPortfolioShelfHop(face);
+    });
     router.push(hop);
   };
 
