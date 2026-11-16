@@ -28084,6 +28084,15 @@ a.os-surface-row,
     line-height: 1.45;
   }
 
+  /* One line box — late copy must not shove Yours / sales / vault. */
+  .market-page-status {
+    min-height: calc(var(--os-identity-meta-size, 0.875rem) * 1.45);
+  }
+
+  .market-page-status.is-reserved {
+    visibility: hidden;
+  }
+
   .market-page-empty {
     display: flex;
     flex-direction: column;

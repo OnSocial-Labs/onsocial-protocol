@@ -10,6 +10,7 @@
 export const emptyCopy = {
   noMatches: 'No matches.',
   noMatchesForFilters: 'No matches for these filters.',
+  lookingForMatches: 'Looking for matches…',
   nothingHereYet: 'Nothing here yet.',
   nothingMovingYet: 'Nothing moving yet.',
   /** In-flow Market hint when the live board is empty but sales remain. */
