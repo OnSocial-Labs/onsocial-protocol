@@ -1,5 +1,5 @@
 export class WalletPickerTimeoutError extends Error {
-  constructor(message = 'The wallet took too long. Try again.') {
+  constructor(message = 'The wallet took too long.') {
     super(message);
     this.name = 'WalletPickerTimeoutError';
   }

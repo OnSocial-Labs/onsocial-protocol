@@ -35,7 +35,9 @@ describe('session pending toast', () => {
   it('keeps cancel soft and recoverable', () => {
     expect(txToastSession.canceled).toBe('Session not finished.');
     expect(txToastSession.failed).toBe('Session setup did not finish.');
+    expect(txToastSession.timedOut).toBe('The wallet took too long.');
     expect(txToastSession.tryAgain).toBe('Try again');
     expect(txToastSession.canceled.toLowerCase()).not.toContain('fail');
+    expect(txToastSession.timedOut.toLowerCase()).not.toContain('try again');
   });
 });

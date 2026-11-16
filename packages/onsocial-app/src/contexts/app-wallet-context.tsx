@@ -168,8 +168,6 @@ function pickRestoredAccountId(
  */
 const WALLET_PICKER_TIMEOUT_MS = 120_000;
 
-const WALLET_PICKER_TIMEOUT_MESSAGE = 'The wallet took too long. Try again.';
-
 function sameWalletAccount(left: string | null, right: string | null): boolean {
   if (!left || !right) return left === right;
   return left.toLowerCase() === right.toLowerCase();
@@ -420,7 +418,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
         } catch (error) {
           if (error instanceof WalletPickerTimeoutError) {
             setSessionFeedback(
-              sessionRecoverFeedback('error', WALLET_PICKER_TIMEOUT_MESSAGE)
+              sessionRecoverFeedback('error', txToastSession.timedOut)
             );
             setHasSocialSession(false);
             throw error;
@@ -629,12 +627,10 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
           }
           if (pickerGenerationRef.current === generation) {
             setSessionFeedback(
-              sessionRecoverFeedback('error', WALLET_PICKER_TIMEOUT_MESSAGE)
+              sessionRecoverFeedback('error', txToastSession.timedOut)
             );
           }
-          rejectPromise(
-            new WalletPickerTimeoutError(WALLET_PICKER_TIMEOUT_MESSAGE)
-          );
+          rejectPromise(new WalletPickerTimeoutError(txToastSession.timedOut));
         }, WALLET_PICKER_TIMEOUT_MS);
 
         void takeConnectedAccount(
@@ -663,7 +659,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
               writeStoredWalletAccountId(value.accountId);
               if (preferredAccountId && matchesPreferred) {
                 setSessionFeedback((notice) =>
-                  notice?.msg === WALLET_PICKER_TIMEOUT_MESSAGE ? null : notice
+                  notice?.msg === txToastSession.timedOut ? null : notice
                 );
                 void restoreSocialSessionQuietly(value.accountId);
                 return;
@@ -798,7 +794,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         if (error instanceof WalletPickerTimeoutError) {
           setSessionFeedback(
-            sessionRecoverFeedback('error', WALLET_PICKER_TIMEOUT_MESSAGE)
+            sessionRecoverFeedback('error', txToastSession.timedOut)
           );
           return;
         }
@@ -876,9 +872,11 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     })()
       .catch((error) => {
         if (error instanceof WalletPickerTimeoutError) {
-          setSessionFeedback(
-            sessionRecoverFeedback('error', WALLET_PICKER_TIMEOUT_MESSAGE)
-          );
+          // Switch is not session setup — don't offer Connect/resume retry.
+          setSessionFeedback({
+            type: 'error',
+            msg: txToastSession.timedOut,
+          });
           return;
         }
         if (
@@ -896,13 +894,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
 
     connectPromiseRef.current = connectPromise;
     await connectPromise;
-  }, [
-    clearSessionFeedback,
-    resolvedAccountId,
-    ensureSocialSession,
-    openPicker,
-    sessionRecoverFeedback,
-  ]);
+  }, [clearSessionFeedback, resolvedAccountId, ensureSocialSession, openPicker]);
 
   const disconnect = useCallback(async () => {
     const connector = connectorRef.current;

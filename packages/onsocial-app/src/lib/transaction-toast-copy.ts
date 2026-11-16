@@ -10,6 +10,8 @@ export const txToastSession = {
   /** User dismissed the wallet mid-setup — info toast, not a failure. */
   canceled: 'Session not finished.',
   failed: 'Session setup did not finish.',
+  /** Body only — the toast action carries "Try again". */
+  timedOut: 'The wallet took too long.',
   tryAgain: 'Try again',
 } as const;
 
