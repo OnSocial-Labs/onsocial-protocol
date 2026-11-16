@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CommunityDiscoverRow } from '@/components/community-cards';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsChipRail } from '@/components/os/os-chip-rail';
@@ -310,14 +311,13 @@ export function DiscoverHubsPanel() {
 
       {showSkeleton ? (
         <DiscoverCommunityListSkeleton label="Loading hubs…" />
-      ) : null}
-
-      {!showSkeleton &&
-      !pending &&
-      !hasMore &&
-      apps != null &&
-      apps.length === 0 &&
-      (!searchQuery || isSearchEmpty) ? (
+      ) : (
+        <OsPageBodyAppear>
+          {!pending &&
+          !hasMore &&
+          apps != null &&
+          apps.length === 0 &&
+          (!searchQuery || isSearchEmpty) ? (
         <div className="standing-panel-empty-block">
           <div className="standing-panel-empty-state">
             <p className="standing-panel-empty-primary">
@@ -349,9 +349,9 @@ export function DiscoverHubsPanel() {
             </div>
           )}
         </div>
-      ) : null}
+          ) : null}
 
-      {!showSkeleton && apps != null && apps.length > 0 ? (
+          {apps != null && apps.length > 0 ? (
         <div
           ref={listRef}
           className="community-summary-card-grid apps-directory-list"
@@ -415,28 +415,30 @@ export function DiscoverHubsPanel() {
             />
           ) : null}
         </div>
-      ) : null}
-
-      {loadMoreError ? (
-        <OsChromeListAlert
-          message={loadMoreError}
-          onRetry={() => void loadMore()}
-        />
-      ) : hasMore || moreLoading ? (
-        <div className="dao-discover-load-more">
-          <div
-            ref={loadMoreRef}
-            className="protocol-feed-sentinel"
-            aria-hidden
-          />
-          {moreLoading ? (
-            <DiscoverCommunityListSkeleton
-              label="Loading more hubs…"
-              count={2}
-            />
           ) : null}
-        </div>
-      ) : null}
+
+          {loadMoreError ? (
+            <OsChromeListAlert
+              message={loadMoreError}
+              onRetry={() => void loadMore()}
+            />
+          ) : hasMore || moreLoading ? (
+            <div className="dao-discover-load-more">
+              <div
+                ref={loadMoreRef}
+                className="protocol-feed-sentinel"
+                aria-hidden
+              />
+              {moreLoading ? (
+                <DiscoverCommunityListSkeleton
+                  label="Loading more hubs…"
+                  count={2}
+                />
+              ) : null}
+            </div>
+          ) : null}
+        </OsPageBodyAppear>
+      )}
     </div>
   );
 }

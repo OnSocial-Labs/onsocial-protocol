@@ -1,5 +1,6 @@
 'use client';
 
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { DiscoverCommunityListSkeleton } from '@/features/discover/discover-loading-skeleton';
@@ -65,22 +66,26 @@ export function DiscoverDaosPanel() {
 
       {showSkeleton ? (
         <DiscoverCommunityListSkeleton label="Loading DAOs…" />
-      ) : entries.length > 0 ? (
-        <DaoDirectoryList entries={entries} />
-      ) : !error && (isSearchEmpty || catalogQuery.length === 0) ? (
-        <div className="standing-panel-empty-block">
-          <div className="standing-panel-empty-state">
-            <p className="standing-panel-empty-primary">
-              {isSearchEmpty ? emptyCopy.noMatches : 'No DAOs listed yet.'}
-            </p>
-          </div>
-          {isSearchEmpty ? (
-            <div className="standing-panel-empty-actions">
-              <OsEmptyAction href={APP_DAOS_PATH}>My DAOs</OsEmptyAction>
+      ) : (
+        <OsPageBodyAppear>
+          {entries.length > 0 ? (
+            <DaoDirectoryList entries={entries} />
+          ) : !error && (isSearchEmpty || catalogQuery.length === 0) ? (
+            <div className="standing-panel-empty-block">
+              <div className="standing-panel-empty-state">
+                <p className="standing-panel-empty-primary">
+                  {isSearchEmpty ? emptyCopy.noMatches : 'No DAOs listed yet.'}
+                </p>
+              </div>
+              {isSearchEmpty ? (
+                <div className="standing-panel-empty-actions">
+                  <OsEmptyAction href={APP_DAOS_PATH}>My DAOs</OsEmptyAction>
+                </div>
+              ) : null}
             </div>
           ) : null}
-        </div>
-      ) : null}
+        </OsPageBodyAppear>
+      )}
 
       {hasMore || (pending && rows != null) ? (
         <div className="dao-discover-load-more">

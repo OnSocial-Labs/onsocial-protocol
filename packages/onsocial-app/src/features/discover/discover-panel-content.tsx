@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { ProfileSocialList } from '@/components/panels/profile-social-list';
@@ -166,7 +167,9 @@ export function DiscoverPanelContent() {
             <div className="discover-profiles-list-slot">
               {showProfilesSkeleton ? (
                 <ProfileSocialListSkeleton rowVariant="discover" />
-              ) : profilesForList.length === 0 ? (
+              ) : (
+                <OsPageBodyAppear>
+                  {profilesForList.length === 0 ? (
                 !hasRecommended && (!isSearchEmpty || searchSettled) ? (
                   <div
                     className={`standing-panel-empty-block${
@@ -228,6 +231,8 @@ export function DiscoverPanelContent() {
                     face === 'offers' || face === 'hiring' ? face : undefined
                   }
                 />
+                  )}
+                </OsPageBodyAppear>
               )}
             </div>
           </div>

@@ -86,6 +86,22 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     ],
   },
   {
+    id: 'events',
+    route: '/events',
+    family: 'glass-list',
+    cold: 'EventsLoadingScreen with MarketListSkeleton',
+    refreshing: 'Keep visible events',
+    appending: 'Append MarketListSkeleton rows',
+    empty: 'Events empty state',
+    error: 'ListLoadError or OsChromeListAlert with painted events',
+    routeFallback: 'shell-skeleton',
+    implementationFiles: [
+      'features/events/events-loading-screen.tsx',
+      'features/events/events-page-panel.tsx',
+      'app/(app)/events/loading.tsx',
+    ],
+  },
+  {
     id: 'collectibles',
     route: '/collectibles',
     family: 'glass-list',

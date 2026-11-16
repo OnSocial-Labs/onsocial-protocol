@@ -26,6 +26,7 @@ import type { PostEngagement } from '@/hooks/use-post-engagement';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { HomeFeedChipBar } from '@/features/home/home-feed-chip-bar';
 import { HomeFeedHotUpdatedChip } from '@/features/home/home-feed-hot-updated-chip';
@@ -1589,38 +1590,40 @@ export function HomePagePanel({
 
           {showColdSkeleton ? (
             <PostRowSkeleton rows={4} frames={HOME_FEED_COLD_SKELETON_FRAMES} />
-          ) : null}
+          ) : (
+            <OsPageBodyAppear>
+              {showEmpty ? (
+                <div className="home-feed-state">{emptyCopy}</div>
+              ) : null}
 
-          {showEmpty ? (
-            <div className="home-feed-state">{emptyCopy}</div>
-          ) : null}
-
-          {showFeed ? (
-            <>
-              <PersonalFeedList
-                posts={visiblePosts}
-                includeForeignReplies={includeForeignReplies}
-                stoodWithAccountIds={stoodWithAccountIds}
-                showGuildAttribution
-                className={`home-feed-list${isRefreshing ? ' is-refreshing' : ''}`}
-                initialEngagement={initialEngagement}
-                initialScarceEmbeds={initialScarceEmbeds}
-                windowSizeCache={feedWindowCacheRef.current}
-                pinnedFeedKey={reRankAnchor?.key ?? null}
-                onReply={replyHandler}
-                onExpandReply={openFullReply}
-                onQuote={quoteHandler}
-                onRepost={repostHandler}
-                onUndoRepost={undoRepostHandler}
-                onEngagementError={(message) => setEngagementError(message)}
-              />
-              <HomeFeedLoadMoreFooter
-                loadMoreSentinelRef={loadMoreRef}
-                showSentinel={showLoadMoreSentinel}
-                showAppendSkeleton={showAppendSkeleton}
-              />
-            </>
-          ) : null}
+              {showFeed ? (
+                <>
+                  <PersonalFeedList
+                    posts={visiblePosts}
+                    includeForeignReplies={includeForeignReplies}
+                    stoodWithAccountIds={stoodWithAccountIds}
+                    showGuildAttribution
+                    className={`home-feed-list${isRefreshing ? ' is-refreshing' : ''}`}
+                    initialEngagement={initialEngagement}
+                    initialScarceEmbeds={initialScarceEmbeds}
+                    windowSizeCache={feedWindowCacheRef.current}
+                    pinnedFeedKey={reRankAnchor?.key ?? null}
+                    onReply={replyHandler}
+                    onExpandReply={openFullReply}
+                    onQuote={quoteHandler}
+                    onRepost={repostHandler}
+                    onUndoRepost={undoRepostHandler}
+                    onEngagementError={(message) => setEngagementError(message)}
+                  />
+                  <HomeFeedLoadMoreFooter
+                    loadMoreSentinelRef={loadMoreRef}
+                    showSentinel={showLoadMoreSentinel}
+                    showAppendSkeleton={showAppendSkeleton}
+                  />
+                </>
+              ) : null}
+            </OsPageBodyAppear>
+          )}
 
           {sheet}
         </OsAppChromePage>

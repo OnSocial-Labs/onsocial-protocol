@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { postContentPath, type PostRow } from '@onsocial/sdk';
 import { Divider, replaceSheet } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { useOsInAppPop } from '@/components/providers/os-face-leave-provider';
 import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
@@ -1313,6 +1314,7 @@ export function LiveGuildPanel({
             />
 
             <section className="guild-section guild-feed-section">
+              <OsPageBodyAppear>
               {renderFeedFilters()}
 
               {feedPosts.length > 0 ? (
@@ -1449,6 +1451,7 @@ export function LiveGuildPanel({
                   ) : null}
                 </div>
               )}
+              </OsPageBodyAppear>
             </section>
           </>
         ) : null}

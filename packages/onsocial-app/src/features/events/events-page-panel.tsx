@@ -22,6 +22,7 @@ import {
   osFloatingPanelTriggerMetaClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
 import { useSearchDraft } from '@/hooks/use-search-draft';
 import { OsChipRail } from '@/components/os/os-chip-rail';
@@ -672,63 +673,70 @@ export function EventsPagePanel({
             />
           ) : (loading && items.length === 0) || catalogPending ? (
             <MarketListSkeleton rows={6} variant="drops" />
-          ) : needsConnect ? (
-            <p className="market-section-title">Connect to see your events.</p>
-          ) : empty && listFiltered ? (
-            <p className="market-section-title">No events match.</p>
-          ) : empty ? (
-            <p className="market-section-title">
-              No events yet.{' '}
-              <Link href={APP_EVENTS_NEW_PATH} scroll={false}>
-                New event
-              </Link>
-            </p>
           ) : (
-            EVENT_WINDOW_ORDER.map((window) => {
-              const rows = grouped[window];
-              if (rows.length === 0) return null;
-              return (
-                <section
-                  key={window}
-                  className="market-section"
-                  aria-labelledby={`events-${window}`}
-                >
-                  <h2 id={`events-${window}`} className="market-section-title">
-                    {eventWindowLabel(window)}
-                  </h2>
-                  <EventsWindowedList
-                    rows={rows}
-                    renderRow={(item) => {
-                      const kind = eventGuestKind(window);
-                      return (
-                        <EventRow
-                          item={item}
-                          nowMs={nowMs}
-                          window={window}
-                          guestCount={resolveEventGuestCount(kind, {
-                            mintedCount: item.mintedCount,
-                            roster: eventGuestRoster(
-                              kind,
-                              item.collectionId,
-                              guestRosters
-                            ),
-                          })}
-                          onGuests={openGuests}
-                          saved={viewerSaved(item.collectionId)}
-                          savePending={isSavePending(item.collectionId)}
-                          onToggleSave={() => {
-                            void toggleSave(item.collectionId);
-                          }}
-                          onOwnerManaged={(change) =>
-                            onOwnerManaged(item.collectionId, change)
-                          }
-                        />
-                      );
-                    }}
-                  />
-                </section>
-              );
-            })
+            <OsPageBodyAppear>
+              {needsConnect ? (
+                <p className="market-section-title">Connect to see your events.</p>
+              ) : empty && listFiltered ? (
+                <p className="market-section-title">No events match.</p>
+              ) : empty ? (
+                <p className="market-section-title">
+                  No events yet.{' '}
+                  <Link href={APP_EVENTS_NEW_PATH} scroll={false}>
+                    New event
+                  </Link>
+                </p>
+              ) : (
+                EVENT_WINDOW_ORDER.map((window) => {
+                  const rows = grouped[window];
+                  if (rows.length === 0) return null;
+                  return (
+                    <section
+                      key={window}
+                      className="market-section"
+                      aria-labelledby={`events-${window}`}
+                    >
+                      <h2
+                        id={`events-${window}`}
+                        className="market-section-title"
+                      >
+                        {eventWindowLabel(window)}
+                      </h2>
+                      <EventsWindowedList
+                        rows={rows}
+                        renderRow={(item) => {
+                          const kind = eventGuestKind(window);
+                          return (
+                            <EventRow
+                              item={item}
+                              nowMs={nowMs}
+                              window={window}
+                              guestCount={resolveEventGuestCount(kind, {
+                                mintedCount: item.mintedCount,
+                                roster: eventGuestRoster(
+                                  kind,
+                                  item.collectionId,
+                                  guestRosters
+                                ),
+                              })}
+                              onGuests={openGuests}
+                              saved={viewerSaved(item.collectionId)}
+                              savePending={isSavePending(item.collectionId)}
+                              onToggleSave={() => {
+                                void toggleSave(item.collectionId);
+                              }}
+                              onOwnerManaged={(change) =>
+                                onOwnerManaged(item.collectionId, change)
+                              }
+                            />
+                          );
+                        }}
+                      />
+                    </section>
+                  );
+                })
+              )}
+            </OsPageBodyAppear>
           )}
           {showAppendSkeleton ? (
             <MarketListSkeleton rows={2} variant="drops" />
