@@ -39360,12 +39360,6 @@ a.os-surface-row,
     gap: 0;
   }
 
-  .guild-feed-section .guild-feed-body-appear {
-    display: block;
-    flex: none;
-    min-height: auto;
-  }
-
   .guild-section-head {
     display: flex;
     flex-direction: column;

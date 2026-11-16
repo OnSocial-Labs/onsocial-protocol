@@ -1321,9 +1321,7 @@ export function LiveGuildPanel({
                   rows={3}
                   showChannel={selectedFeedFilterId === 'all'}
                 />
-              ) : (
-                <OsPageBodyAppear className="guild-feed-body-appear">
-              {feedPosts.length > 0 ? (
+              ) : feedPosts.length > 0 ? (
                 <div
                   ref={feedListRef}
                   className={`home-feed-list${
@@ -1432,26 +1430,28 @@ export function LiveGuildPanel({
                     </div>
                   ) : null}
                 </div>
-              ) : state.feedError ? (
-                <div className="guild-state-card is-error">
-                  <p>Guild posts could not load from the indexed feed.</p>
-                  <small>{state.feedError}</small>
-                  <OsEmptyAction onClick={() => void refresh()}>
-                    Retry
-                  </OsEmptyAction>
-                </div>
               ) : (
-                <div className="guild-state-card">
-                  {selectedFeedSpace
-                    ? `No ${selectedFeedSpace.title.toLowerCase()} posts yet.`
-                    : 'No guild posts yet.'}
-                  {canCompose ? (
-                    <OsEmptyAction onClick={openPostComposer}>
-                      Share the first post
-                    </OsEmptyAction>
-                  ) : null}
-                </div>
-              )}
+                <OsPageBodyAppear>
+                  {state.feedError ? (
+                    <div className="guild-state-card is-error">
+                      <p>Guild posts could not load from the indexed feed.</p>
+                      <small>{state.feedError}</small>
+                      <OsEmptyAction onClick={() => void refresh()}>
+                        Retry
+                      </OsEmptyAction>
+                    </div>
+                  ) : (
+                    <div className="guild-state-card">
+                      {selectedFeedSpace
+                        ? `No ${selectedFeedSpace.title.toLowerCase()} posts yet.`
+                        : 'No guild posts yet.'}
+                      {canCompose ? (
+                        <OsEmptyAction onClick={openPostComposer}>
+                          Share the first post
+                        </OsEmptyAction>
+                      ) : null}
+                    </div>
+                  )}
                 </OsPageBodyAppear>
               )}
             </section>
