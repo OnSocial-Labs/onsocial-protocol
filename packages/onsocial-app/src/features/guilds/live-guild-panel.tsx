@@ -1316,12 +1316,7 @@ export function LiveGuildPanel({
             <section className="guild-section guild-feed-section">
               {renderFeedFilters()}
 
-              {feedPending ? (
-                <PostRowSkeleton
-                  rows={3}
-                  showChannel={selectedFeedFilterId === 'all'}
-                />
-              ) : feedPosts.length > 0 ? (
+              {feedPosts.length > 0 ? (
                 <div
                   ref={feedListRef}
                   className={`home-feed-list${
@@ -1430,6 +1425,11 @@ export function LiveGuildPanel({
                     </div>
                   ) : null}
                 </div>
+              ) : feedPending ? (
+                <PostRowSkeleton
+                  rows={3}
+                  showChannel={selectedFeedFilterId === 'all'}
+                />
               ) : (
                 <OsPageBodyAppear>
                   {state.feedError ? (
