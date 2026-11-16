@@ -2,6 +2,7 @@ import { collectionIdFromTokenId } from '@/features/market/market-listings';
 import { collectionCreatorNameLine } from '@/features/scarces/collection-creator-face';
 import { collectionStatusLabel } from '@/features/scarces/collections-data';
 import { APP_MARKET_PATH } from '@/lib/app-routes';
+import { emptyCopy } from '@/lib/empty-copy';
 import type { ProfileStoreDrop } from '@/lib/profile-store-types';
 import { scarceRowFormatLabel } from '@/lib/scarce-row-kind';
 
@@ -47,7 +48,7 @@ export function marketCreatorDocumentTitle(opts: {
 }
 
 export function marketCreatorEmptyCopy(): string {
-  return 'Nothing here yet.';
+  return emptyCopy.nothingHereYet;
 }
 
 export function marketCreatorBrowseLabel(): string {

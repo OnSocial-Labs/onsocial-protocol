@@ -1,3 +1,4 @@
+import { emptyCopy } from '@/lib/empty-copy';
 import type { StanceDetailKind } from '@/lib/profile-social-standings';
 
 export interface StandingPanelEmptyState {
@@ -51,7 +52,7 @@ export function buildStandingEmptyState({
 
   if (trimmedQuery) {
     return {
-      primary: 'No matches.',
+      primary: emptyCopy.noMatches,
       showClearSearch: false,
       showDiscover: showDiscoverLink,
     };

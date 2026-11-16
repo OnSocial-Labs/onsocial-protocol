@@ -10,6 +10,7 @@ import { discoverPeopleSearchQuery } from '@/features/discover/discover-omni-sea
 import { useDaoCatalogBrowse } from '@/hooks/use-dao-catalog-browse';
 import { discoverDaosLead } from '@/lib/discover-tab-lead';
 import { APP_DAOS_PATH, daosCreateHref } from '@/lib/app-routes';
+import { emptyCopy } from '@/lib/empty-copy';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 
 /**
@@ -70,7 +71,7 @@ export function DiscoverDaosPanel() {
         <div className="standing-panel-empty-block">
           <div className="standing-panel-empty-state">
             <p className="standing-panel-empty-primary">
-              {isSearchEmpty ? 'No matches.' : 'No DAOs listed yet.'}
+              {isSearchEmpty ? emptyCopy.noMatches : 'No DAOs listed yet.'}
             </p>
           </div>
           {isSearchEmpty ? (

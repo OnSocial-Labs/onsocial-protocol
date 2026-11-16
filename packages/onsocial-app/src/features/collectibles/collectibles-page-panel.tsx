@@ -61,6 +61,7 @@ import {
 import { VAULT_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
+import { emptyCopy } from '@/lib/empty-copy';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { OsLoadMore } from '@/lib/os-load-more';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
@@ -1020,13 +1021,15 @@ export function CollectiblesPagePanel({
         </div>
       ) : null}
 
-      {emptySearch ? <p className="market-page-status">No matches.</p> : null}
+      {emptySearch ? (
+        <p className="market-page-status">{emptyCopy.noMatches}</p>
+      ) : null}
 
       {emptyFilter ? (
         <div className="market-page-empty">
           <p className="market-page-empty-copy">
             {facetOrFormatActive
-              ? 'No matches for these filters.'
+              ? emptyCopy.noMatchesForFilters
               : isSelf
                 ? `No ${emptyFilterLabel.toLowerCase()} in your vault.`
                 : `No ${emptyFilterLabel.toLowerCase()} held.`}

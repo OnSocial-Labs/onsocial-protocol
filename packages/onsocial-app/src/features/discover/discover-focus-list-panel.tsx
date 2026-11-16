@@ -15,6 +15,7 @@ import {
   homeTickerPath,
 } from '@/features/home/home-ticker-search';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { emptyCopy } from '@/lib/empty-copy';
 
 const LIST_LIMIT = 24;
 
@@ -104,7 +105,7 @@ export function DiscoverFocusListPanel({
   const isRefreshing = loading && rows.length > 0;
 
   const emptyPrimary = filterPrefix
-    ? 'No matches.'
+    ? emptyCopy.noMatches
     : kind === 'ticker'
       ? 'No trending tickers yet.'
       : 'No trending topics yet.';

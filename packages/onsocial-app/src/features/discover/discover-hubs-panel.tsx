@@ -29,6 +29,7 @@ import {
   type HubCategoryFilter,
 } from '@/features/scarces/hub-categories';
 import { APP_APP_CREATE_PATH, APP_APPS_PATH, appPath } from '@/lib/app-routes';
+import { emptyCopy } from '@/lib/empty-copy';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { fallbackLabel } from '@/lib/profile-display';
 
@@ -321,7 +322,7 @@ export function DiscoverHubsPanel() {
           <div className="standing-panel-empty-state">
             <p className="standing-panel-empty-primary">
               {isSearchEmpty
-                ? 'No matches.'
+                ? emptyCopy.noMatches
                 : isCategoryEmpty
                   ? 'No hubs in this category yet.'
                   : 'No hubs listed yet.'}

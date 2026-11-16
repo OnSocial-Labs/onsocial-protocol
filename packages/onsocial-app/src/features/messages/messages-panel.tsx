@@ -80,6 +80,7 @@ import {
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
+import { emptyCopy } from '@/lib/empty-copy';
 import { DmBubbleText } from '@/features/messages/dm-bubble-text';
 import { DmMediaBubble } from '@/features/messages/dm-media-bubble';
 import { DmRecoveryCodeSheet } from '@/features/messages/dm-recovery-code-sheet';
@@ -1912,7 +1913,9 @@ export function MessagesPanel() {
                     peoplePending,
                     peopleFailed: Boolean(peopleError),
                   }) ? (
-                    <OsAppChromePageStatus>No matches.</OsAppChromePageStatus>
+                    <OsAppChromePageStatus>
+                      {emptyCopy.noMatches}
+                    </OsAppChromePageStatus>
                   ) : null}
                 </>
               ) : threads?.length === 0 ? (

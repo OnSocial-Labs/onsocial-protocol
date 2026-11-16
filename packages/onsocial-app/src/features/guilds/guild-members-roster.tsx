@@ -22,6 +22,7 @@ import {
   type GuildMemberRowActionId,
 } from '@/features/guilds/guild-member-row-actions';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
+import { emptyCopy } from '@/lib/empty-copy';
 
 interface GuildMembersRosterProps {
   groupId: string;
@@ -96,7 +97,7 @@ export function GuildMembersRoster({
         return { primary: 'No banned members', secondary: null };
       }
       if (query.trim()) {
-        return { primary: 'No matches.', secondary: null };
+        return { primary: emptyCopy.noMatches, secondary: null };
       }
       return { primary: 'No banned members', secondary: null };
     }
@@ -104,7 +105,7 @@ export function GuildMembersRoster({
       return { primary: 'No members yet', secondary: null };
     }
     if (query.trim()) {
-      return { primary: 'No matches.', secondary: null };
+      return { primary: emptyCopy.noMatches, secondary: null };
     }
     if (roleFilter !== 'all') {
       const tierLabel =

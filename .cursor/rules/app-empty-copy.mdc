@@ -1,0 +1,21 @@
+---
+description: App empty / status copy — one-line status, existing empty trees, no universal empty icon
+globs: packages/onsocial-app/**/*.{ts,tsx}
+---
+
+# App empty copy
+
+## Two surfaces only
+
+1. **Status line** — in-flow hint while the page still has structure (`market-page-status`, `OsAppChromePageStatus`). One short sentence. No icon.
+2. **True empty** — compose `market-page-empty` or `standing-panel-empty-state` (+ optional `OsEmptyAction`). Do not invent a third empty tree.
+
+## Voice
+
+Shared universals live in `@/lib/empty-copy` (`noMatches`, `nothingHereYet`, …). Domain lines stay local and human (`No fans yet.`, feed lens empties).
+
+## Do not
+
+- Slap a decorative Mage glyph (e.g. cup-hot) on every empty
+- Turn status hints into hero empty cards when content continues below
+- Hand-roll underlined recovery links — use `OsEmptyAction`

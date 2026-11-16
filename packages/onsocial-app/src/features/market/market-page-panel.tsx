@@ -37,6 +37,7 @@ import {
 } from '@/features/market/market-creator-view';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
+import { emptyCopy } from '@/lib/empty-copy';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { OsLoadMore } from '@/lib/os-load-more';
 import { OsRowAction } from '@/lib/os-row-action';
@@ -2212,8 +2213,7 @@ export function MarketPagePanel({
         {showEmptyBrowse ? (
           <div className="market-page-empty">
             <p className="market-page-empty-copy">
-              Nothing listed yet. List a scarce from a post, or sell one you own
-              under Yours.
+              {emptyCopy.nothingListedYet}
             </p>
             <OsEmptyAction href={APP_DROPS_PATH}>Browse Drops</OsEmptyAction>
           </div>
@@ -2229,19 +2229,19 @@ export function MarketPagePanel({
         salesRows.length > 0 &&
         !showEmptyBrowse ? (
           <p className="market-page-status">
-            No active listings — recent sales below.
+            {emptyCopy.noActiveListingsSalesBelow}
           </p>
         ) : null}
 
         {showEmptySearch ? (
-          <p className="market-page-status">No matches.</p>
+          <p className="market-page-status">{emptyCopy.noMatches}</p>
         ) : null}
 
         {showEmptyFilter ? (
           <div className="standing-panel-empty-state">
             <p className="market-page-status">
               {facetOrFormatActive
-                ? 'No matches for these filters.'
+                ? emptyCopy.noMatchesForFilters
                 : mediumFilter !== 'all'
                   ? `Nothing in ${
                       MARKET_MEDIUM_FILTERS.find(

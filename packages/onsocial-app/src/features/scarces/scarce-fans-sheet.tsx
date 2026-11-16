@@ -16,6 +16,7 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
 import { accountIdsEqual } from '@/lib/account-match';
+import { emptyCopy as emptyCopyVoice } from '@/lib/empty-copy';
 import { loadProfileListAccounts } from '@/lib/load-profile-list-accounts';
 import {
   filterGuestRoster,
@@ -258,7 +259,11 @@ export function ScarceFansSheet({
             </div>
           ) : (
             <p className="scarce-fans-empty">
-              {loadError ? errorCopy : searching ? 'No matches.' : emptyCopy}
+              {loadError
+                ? errorCopy
+                : searching
+                  ? emptyCopyVoice.noMatches
+                  : emptyCopy}
             </p>
           )}
         </OsPageBodyAppear>

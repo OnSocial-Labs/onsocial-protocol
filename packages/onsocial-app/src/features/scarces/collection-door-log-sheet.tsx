@@ -26,6 +26,7 @@ import { eventGuestTallyLine } from '@/features/events/event-guests';
 import { fetchCollectionRedeemAttendance } from '@/features/scarces/ticket-attendance';
 import { QuantityCount } from '@/features/scarces/quantity-count';
 import { visibleQuantity } from '@/features/scarces/quantity-count-format';
+import { emptyCopy } from '@/lib/empty-copy';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { osChromePageClassName } from '@/lib/os-chrome-page';
 import { SHEET_Z } from '@/lib/sheet-z';
@@ -234,7 +235,7 @@ export function CollectionDoorLogSheet({
             : 'No check-ins yet. Passes admitted at the door show up here.'}
         </p>
       ) : visible.length === 0 ? (
-        <p className="collection-door-log-empty">No matches.</p>
+        <p className="collection-door-log-empty">{emptyCopy.noMatches}</p>
       ) : (
         <div className="standing-list collection-door-log-list">
           {visible.map((entry, index) => {
