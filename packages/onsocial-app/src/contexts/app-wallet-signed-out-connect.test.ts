@@ -251,8 +251,10 @@ function installBrowser() {
     },
     setTimeout: globalThis.setTimeout.bind(globalThis),
     clearTimeout: globalThis.clearTimeout.bind(globalThis),
+    // Must match useToastDismissTimer's performance.now() clock — Date.now()
+    // makes the first tick look like hours elapsed and dismisses info toasts.
     requestAnimationFrame: (cb: FrameRequestCallback) =>
-      globalThis.setTimeout(() => cb(Date.now()), 16),
+      globalThis.setTimeout(() => cb(performance.now()), 16),
     cancelAnimationFrame: (id: number) => {
       globalThis.clearTimeout(id);
     },
