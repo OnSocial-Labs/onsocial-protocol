@@ -164,7 +164,8 @@ function writeStoredPendingSessionKey(
   }
 }
 
-function clearStoredPendingSessionKey(accountId: string): void {
+/** Drop a pending gas key when connect lands on a different account. */
+export function clearStoredPendingSessionKey(accountId: string): void {
   try {
     window.localStorage.removeItem(pendingSessionStorageKey(accountId));
   } catch {

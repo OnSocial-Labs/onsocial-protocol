@@ -20,6 +20,7 @@ import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import {
   appSessionConnectOptions,
   bootstrapAppSocialSession,
+  clearStoredPendingSessionKey,
   completeAppSessionAfterConnect,
   getAppSocialSessionLifecycle,
   renewAppSocialSession,
@@ -39,6 +40,7 @@ import { clearAppGatewayAuth } from '@/lib/app-gateway-auth';
 import { invalidateAppSocialSessionCache } from '@/lib/app-social-session-cache';
 import {
   isWalletUserCancellation,
+  walletMismatchInfoMessage,
   WalletPickerTimeoutError,
 } from '@/lib/wallet-errors';
 /**
@@ -400,10 +402,17 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
           }
           return ready;
         } catch (error) {
-          if (
-            error instanceof WalletConnectedReviewError ||
-            error instanceof WalletPickerTimeoutError
-          ) {
+          if (error instanceof WalletPickerTimeoutError) {
+            // Keep / restore the timeout toast; do not leave "Setting up…".
+            setSessionFeedback({
+              type: 'error',
+              msg: WALLET_PICKER_TIMEOUT_MESSAGE,
+            });
+            setHasSocialSession(false);
+            throw error;
+          }
+          if (error instanceof WalletConnectedReviewError) {
+            clearSessionFeedback();
             setHasSocialSession(false);
             throw error;
           }
@@ -555,7 +564,18 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
           return current.promise;
         }
         if (current) {
-          await current.promise.catch(() => undefined);
+          // Cancel / timeout of the open sheet settles waiters too — do not
+          // quietly open a second, unchecked picker behind the same dismiss.
+          try {
+            await current.promise;
+          } catch (error) {
+            if (
+              error instanceof WalletPickerTimeoutError ||
+              isWalletUserCancellation(error)
+            ) {
+              throw error;
+            }
+          }
           continue;
         }
 
@@ -609,13 +629,29 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
             clearTimeout(timer);
             if (pickerGenerationRef.current !== generation || !value) return;
             if (timedOut) {
+              // Attempt is dead. Late match for the expected account adopts
+              // quietly; any other account announces "Now using @y".
+              const matchesPreferred = sameWalletAccount(
+                preferredAccountId,
+                value.accountId
+              );
               acceptedWalletRef.current = value.wallet;
               setWallet(value.wallet);
               setAccountId(value.accountId);
               writeStoredWalletAccountId(value.accountId);
-              setSessionFeedback((notice) =>
-                notice?.msg === WALLET_PICKER_TIMEOUT_MESSAGE ? null : notice
-              );
+              if (preferredAccountId && matchesPreferred) {
+                setSessionFeedback((notice) =>
+                  notice?.msg === WALLET_PICKER_TIMEOUT_MESSAGE ? null : notice
+                );
+                return;
+              }
+              setSessionFeedback({
+                type: 'info',
+                ...walletMismatchInfoMessage(
+                  value.accountId,
+                  preferredAccountId ? 'Connect' : 'Switch'
+                ),
+              });
               return;
             }
             acceptedWalletRef.current = value.wallet;
@@ -708,27 +744,18 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
         showSessionPending('wallet');
       }
 
-      const joining = Boolean(
-        pickerAttemptRef.current &&
-          sameWalletAccount(
-            pickerAttemptRef.current.preferredAccountId,
-            storedHint
-          )
-      );
-
       try {
+        // Always pass this attempt's options. Joiners share the in-flight
+        // promise; openPicker ignores a second options bag on join.
         const { wallet: connectedWallet, accountId: nextAccountId } =
-          await openPicker(
-            storedHint,
-            joining ? undefined : (bundled?.options ?? {})
-          );
+          await openPicker(storedHint, bundled?.options ?? {});
 
         acceptedWalletRef.current = connectedWallet;
         setWallet(connectedWallet);
         setAccountId(nextAccountId);
         writeStoredWalletAccountId(nextAccountId);
 
-        if (!joining && bundled && nextAccountId === storedHint) {
+        if (bundled && nextAccountId === storedHint) {
           showSessionPending('confirming');
           await completeAppSessionAfterConnect(
             nextAccountId,
@@ -739,12 +766,24 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
           return;
         }
 
+        // Mid-setup account change — drop the gas key for the account we left.
+        if (bundled && storedHint) {
+          clearStoredPendingSessionKey(storedHint);
+        }
+
         await ensureSocialSession(nextAccountId);
       } catch (error) {
-        if (
-          error instanceof WalletPickerTimeoutError ||
-          error instanceof WalletConnectedReviewError
-        ) {
+        if (error instanceof WalletPickerTimeoutError) {
+          // Timeout toast already set by openPicker; clear stuck pending only.
+          setSessionFeedback((notice) =>
+            notice?.type === 'pending'
+              ? { type: 'error', msg: WALLET_PICKER_TIMEOUT_MESSAGE }
+              : notice
+          );
+          return;
+        }
+        if (error instanceof WalletConnectedReviewError) {
+          clearSessionFeedback();
           return;
         }
         if (bundled) {
@@ -764,6 +803,8 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
           } else {
             clearSessionFeedback();
           }
+        } else if (isWalletUserCancellation(error)) {
+          clearSessionFeedback();
         }
         if (isWalletUserCancellation(error)) return;
         throw error;
@@ -812,10 +853,18 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       await ensureSocialSession(nextAccountId);
     })()
       .catch((error) => {
+        if (error instanceof WalletPickerTimeoutError) {
+          setSessionFeedback({
+            type: 'error',
+            msg: WALLET_PICKER_TIMEOUT_MESSAGE,
+          });
+          return;
+        }
         if (
           error instanceof WalletConnectedReviewError ||
           isWalletUserCancellation(error)
         ) {
+          clearSessionFeedback();
           return;
         }
         throw error;
@@ -826,7 +875,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
 
     connectPromiseRef.current = connectPromise;
     await connectPromise;
-  }, [resolvedAccountId, ensureSocialSession, openPicker]);
+  }, [clearSessionFeedback, resolvedAccountId, ensureSocialSession, openPicker]);
 
   const disconnect = useCallback(async () => {
     const connector = connectorRef.current;
