@@ -1,9 +1,12 @@
 import { OsAppChromePage } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { MessagesInboxSkeleton } from '@/features/messages/messages-inbox-rows';
 import { APP_HOME_PATH } from '@/lib/app-routes';
 
-/** Cold messages — same chrome as `MessagesPanel` before session/keys settle. */
+/**
+ * Cold `/messages` chrome only. Inbox / thread skeletons stay inside
+ * `MessagesPanel` after connect, session, and key unlock — a route fallback
+ * must not flash conversation bones over those gates.
+ */
 export function MessagesRouteLoading() {
   return (
     <OsAppScreen
@@ -17,7 +20,6 @@ export function MessagesRouteLoading() {
     >
       <OsAppChromePage className="messages-panel" aria-busy="true">
         <p className="sr-only">Loading messages…</p>
-        <MessagesInboxSkeleton />
       </OsAppChromePage>
     </OsAppScreen>
   );

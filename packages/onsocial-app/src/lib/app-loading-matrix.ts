@@ -296,7 +296,7 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     appending: 'Append MessagesThreadAppendSkeleton rows',
     empty: 'OsAppChromePageStatus',
     error: 'OsChromeListAlert when painted inbox rows exist',
-    routeFallback: 'shell-skeleton',
+    routeFallback: 'preserve-shell',
     implementationFiles: [
       'app/(app)/messages/page.tsx',
       'app/(app)/messages/loading.tsx',
