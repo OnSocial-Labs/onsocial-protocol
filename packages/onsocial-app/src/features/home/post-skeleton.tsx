@@ -1,6 +1,7 @@
 'use client';
 
 import { Divider } from '@onsocial/ui';
+import { QuotedPostInsetPending } from '@/features/home/post-card-quote';
 import { GUILDS_PAGE_CLASS } from '@/lib/os-chrome-page';
 
 export type PostSkeletonFrame =
@@ -9,14 +10,15 @@ export type PostSkeletonFrame =
   | 'collage-2'
   | 'collage-3'
   | 'collage-4'
-  | 'quote';
+  | 'quote'
+  | 'poll';
 
 /** Home cold load — one frame per row, same boxes the live cards reserve. */
 export const HOME_FEED_COLD_SKELETON_FRAMES = [
   'single',
   'quote',
+  'poll',
   'collage-2',
-  'collage-4',
 ] as const satisfies readonly PostSkeletonFrame[];
 
 /** Next page — same reserved media boxes, shorter list. */
@@ -28,13 +30,19 @@ export const HOME_FEED_APPEND_SKELETON_FRAMES = [
 function PostSkeletonMedia({ frame }: { frame: PostSkeletonFrame }) {
   if (frame === 'text') return null;
   if (frame === 'quote') {
+    return <QuotedPostInsetPending />;
+  }
+  if (frame === 'poll') {
     return (
-      <div className="post-row-skeleton-quote">
-        <div className="standing-row-shimmer post-row-skeleton-quote-thumb" />
-        <div className="post-row-skeleton-quote-copy">
-          <div className="standing-row-shimmer post-row-skeleton-line" />
-          <div className="standing-row-shimmer post-row-skeleton-line-sm" />
-        </div>
+      <div className="post-poll-embed post-row-skeleton-poll" aria-hidden>
+        <div className="standing-row-shimmer post-row-skeleton-line" />
+        <ul className="post-poll-options">
+          {Array.from({ length: 3 }, (_, index) => (
+            <li key={index}>
+              <div className="standing-row-shimmer post-row-skeleton-poll-option" />
+            </li>
+          ))}
+        </ul>
       </div>
     );
   }
@@ -62,7 +70,7 @@ function PostSkeletonMedia({ frame }: { frame: PostSkeletonFrame }) {
 
 /**
  * Opened post — focal block, replies label, then reply rows.
- * In-app sheets do not use this; they keep the reply fade with no skeleton.
+ * Sheets keep the reply fade; quotes full page uses PostQuotesPageSkeleton.
  */
 export function PostThreadPageSkeleton({ rows = 2 }: { rows?: number }) {
   return (
@@ -138,14 +146,21 @@ export function PostRowSkeleton({
                 ) : null}
                 <div className="standing-row-shimmer post-row-skeleton-line-body" />
                 <PostSkeletonMedia frame={frame} />
-                {frame === 'text' ? null : (
-                  <div className="post-row-skeleton-actions">
-                    <div className="standing-row-shimmer post-row-skeleton-action" />
-                    <div className="standing-row-shimmer post-row-skeleton-action" />
-                    <div className="standing-row-shimmer post-row-skeleton-action" />
-                    <div className="standing-row-shimmer post-row-skeleton-action" />
+                {/* Engagement bones always — live cards mount EMPTY_POST_ENGAGEMENT. */}
+                <div className="post-card-engagement">
+                  <div className="post-card-engagement-actions">
+                    {Array.from({ length: 4 }, (_, action) => (
+                      <span
+                        key={action}
+                        className="standing-row-shimmer post-row-skeleton-action"
+                      />
+                    ))}
                   </div>
-                )}
+                  <div className="post-card-engagement-trailing">
+                    <span className="standing-row-shimmer post-row-skeleton-action" />
+                    <span className="standing-row-shimmer post-row-skeleton-action" />
+                  </div>
+                </div>
               </div>
             </div>
           </div>

@@ -45,7 +45,7 @@ describe('feed scroll clearance', () => {
     );
   });
 
-  it('sizes home skeletons to the live media and quote frames', () => {
+  it('sizes home skeletons to the live media, quote, and poll frames', () => {
     expect(globalsCss).toMatch(
       /\.post-row-skeleton-media--single \{[^}]*aspect-ratio:\s*4 \/ 3;[^}]*max-height:\s*14rem;/
     );
@@ -56,7 +56,10 @@ describe('feed scroll clearance', () => {
       /\.post-row-skeleton-media--collage-4 \{[^}]*height:\s*14rem;/
     );
     expect(globalsCss).toMatch(
-      /\.post-row-skeleton-quote-thumb \{[^}]*width:\s*3\.6rem;[^}]*height:\s*3\.6rem;/
+      /\.post-card-quote-inset-avatar-bone \{[^}]*width:\s*1\.35rem;[^}]*height:\s*1\.35rem;/
+    );
+    expect(globalsCss).toMatch(
+      /\.post-row-skeleton-poll-option \{[^}]*min-height:\s*2\.35rem;/
     );
   });
 

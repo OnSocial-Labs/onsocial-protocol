@@ -14,16 +14,18 @@ import type { PostRow, ReposterRow } from '@onsocial/sdk';
 import { Divider, RepeatIcon } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
-import { PostCard, postKey } from '@/features/home/post-card';
+import { OsRouteSettle } from '@/components/app/os-route-settle';
+import { postKey } from '@/features/home/post-card';
+import { ResolvedFeedPostCard } from '@/features/home/resolved-feed-post-card';
+import {
+  PostQuotesPageSkeleton,
+  PostQuotesTrackSkeleton,
+} from '@/features/home/post-quotes-skeleton';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
 import { adoptAppLenisScroll } from '@/lib/app-lenis-registry';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import {
-  EMPTY_POST_ENGAGEMENT,
-  usePostEngagement,
-} from '@/hooks/use-post-engagement';
+import { usePostEngagement } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -41,7 +43,6 @@ import {
 } from '@/lib/load-post-quotes-page';
 import { usePostQuotesTrackHost } from '@/features/home/post-quotes-track-host';
 import { portfolioPath } from '@/lib/overlay-routes';
-import { resolveQuotedInset } from '@/lib/post-relation';
 import { displayName } from '@/lib/profile-display';
 import { POST_REACH_TITLE } from '@/lib/post-reach-title';
 import { postThreadPath, type PostQuotesTab } from '@/lib/post-routes';
@@ -181,6 +182,12 @@ export function PostQuotesPanel({
     () => [...(root ? [root] : []), ...quotes],
     [root, quotes]
   );
+  /** Quotes of this post cite the root — seed the shared resolve map. */
+  const quotedPosts = useMemo(() => {
+    if (!root) return {};
+    return { [contentPathFor(root)]: root };
+  }, [root]);
+  const hrefForPost = (target: PostRow) => postThreadPath(target);
   const {
     engagement,
     toggleReaction,
@@ -328,7 +335,8 @@ export function PostQuotesPanel({
     thumb.style.transform = `translate3d(${left}px, ${first.offsetTop}px, 0)`;
   }, [activeTab]);
 
-  // Hold opacity 0 through fetch — never paint a quotes skeleton.
+  // Full page: OsRouteSettle holds the list skeleton until ready.
+  // Sheets keep opacity-0 appear only (no second skeleton language).
   const pageReady =
     loadState === 'missing' ||
     loadState === 'error' ||
@@ -498,7 +506,6 @@ export function PostQuotesPanel({
                     .slice(quotesWindow.start, quotesWindow.end)
                     .map((quote, sliceIndex) => {
                       const index = quotesWindow.start + sliceIndex;
-                      const quoted = resolveQuotedInset(quote, {}, root);
                       return (
                         <div
                           key={postKey(quote)}
@@ -513,30 +520,20 @@ export function PostQuotesPanel({
                                 : 'post-row-divider post-row-divider--leading-hidden'
                             }
                           />
-                          <PostCard
+                          <ResolvedFeedPostCard
                             post={quote}
-                            authorProfile={postAuthorProfiles[quote.accountId]}
-                            actionHref={postThreadPath(quote)}
+                            quotedPosts={quotedPosts}
+                            postAuthorProfiles={postAuthorProfiles}
+                            hrefForPost={hrefForPost}
                             showRelationBadge={false}
-                            quotedPost={quoted}
-                            quotedAuthorProfile={
-                              quoted
-                                ? postAuthorProfiles[quoted.accountId]
-                                : undefined
-                            }
-                            quotedHref={
-                              quoted ? postThreadPath(quoted) : undefined
-                            }
-                            engagement={
-                              engagement[postKey(quote)] ??
-                              EMPTY_POST_ENGAGEMENT
-                            }
-                            reactionPending={isReactionPending(quote)}
-                            savePending={isSavePending(quote)}
+                            authorProfiles={postAuthorProfiles}
+                            engagement={engagement}
+                            isReactionPending={isReactionPending}
+                            isSavePending={isSavePending}
                             onToggleReaction={toggleReaction}
                             onToggleSave={toggleSave}
-                            pollTally={pollTallyFor(quote)}
-                            pollVotePending={isPollVotePending(quote)}
+                            pollTallyFor={pollTallyFor}
+                            isPollVotePending={isPollVotePending}
                             onPollVote={(post, optionIndex) => {
                               void castVote(post, optionIndex);
                             }}
@@ -711,10 +708,21 @@ export function PostQuotesPanel({
       glassChrome
       nestedScrollChrome
       className="post-quotes-screen-chrome"
-      toolbar={loadState === 'ready' && root ? track : undefined}
+      toolbar={
+        pageReady && root ? (
+          track
+        ) : (
+          <PostQuotesTrackSkeleton activeTab={activeTab} />
+        )
+      }
       backFallbackHref={backHref}
     >
-      <OsPageBodyAppear ready={pageReady}>{body}</OsPageBodyAppear>
+      <OsRouteSettle
+        ready={pageReady}
+        skeleton={<PostQuotesPageSkeleton />}
+      >
+        {body}
+      </OsRouteSettle>
     </OsAppScreen>
   );
 }

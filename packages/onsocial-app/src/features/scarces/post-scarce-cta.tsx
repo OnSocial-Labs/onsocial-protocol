@@ -44,9 +44,21 @@ export type PostScarceCtaActionProps = {
 };
 
 export type PostScarceCtaProps = PostScarceCtaActionProps & {
-  /** Compact Listen control rendered beside commerce CTAs when playable. */
-  listenSlot?: ReactNode;
+  /** Compact Read (or other medium) control beside commerce CTAs. */
+  mediumSlot?: ReactNode;
 };
+
+/** Structure seat while drop commerce soft-fills after the jacket. */
+export function PostScarceCtaPending() {
+  return (
+    <div
+      className="post-card-scarce-cta post-card-scarce-cta--pending"
+      aria-hidden
+    >
+      <span className="standing-row-shimmer post-row-skeleton-line-sm" />
+    </div>
+  );
+}
 
 function primaryMintLive(embed: PostScarceEmbed): boolean {
   if (embed.status === 'lazy_listing' && Boolean(embed.listingId?.trim())) {
@@ -210,7 +222,7 @@ export const PostScarceCta = memo(function PostScarceCta({
   sellListed = false,
   onBuy,
   onBid,
-  listenSlot = null,
+  mediumSlot = null,
 }: PostScarceCtaProps) {
   const links = commerceLinks(embed, authorAccountId);
   const nearPrice = formatPriceNear(embed.priceNear);
@@ -278,7 +290,7 @@ export const PostScarceCta = memo(function PostScarceCta({
         >
           <span className="post-card-scarce-buy-main">Sell</span>
         </button>
-        {listenSlot}
+        {mediumSlot}
         <CommerceLinkRow links={links} />
       </div>
     );
@@ -299,7 +311,7 @@ export const PostScarceCta = memo(function PostScarceCta({
           <span className="post-card-scarce-buy-main">Transfer</span>
         </button>
         <span className="post-card-scarce-cta-main">Listed</span>
-        {listenSlot}
+        {mediumSlot}
         <CommerceLinkRow links={links} />
       </div>
     );
@@ -309,7 +321,7 @@ export const PostScarceCta = memo(function PostScarceCta({
     return (
       <div className="post-card-scarce-cta post-card-scarce-cta--muted">
         <span className="post-card-scarce-cta-main">Listed</span>
-        {listenSlot}
+        {mediumSlot}
         <CommerceLinkRow links={links} />
       </div>
     );
@@ -327,7 +339,7 @@ export const PostScarceCta = memo(function PostScarceCta({
             <span className="post-card-scarce-cta-meta">{edition}</span>
           ) : null}
           <ResaleMeta embed={embed} />
-          {listenSlot}
+          {mediumSlot}
           <CommerceLinkRow links={links} />
         </div>
       );
@@ -336,7 +348,7 @@ export const PostScarceCta = memo(function PostScarceCta({
       return (
         <div className="post-card-scarce-cta">
           {collectionId ? <DropPageLink collectionId={collectionId} /> : null}
-          {listenSlot}
+          {mediumSlot}
           <CommerceLinkRow links={linksBesideDropAction(links)} />
         </div>
       );
@@ -358,7 +370,7 @@ export const PostScarceCta = memo(function PostScarceCta({
             </span>
             <BuyMetaRow embed={embed} edition={edition} />
           </button>
-          {listenSlot}
+          {mediumSlot}
           <CommerceLinkRow links={links} />
         </div>
       );
@@ -387,7 +399,7 @@ export const PostScarceCta = memo(function PostScarceCta({
             <BuyMetaRow embed={embed} edition={edition} />
           )}
         </button>
-        {listenSlot}
+        {mediumSlot}
         <CommerceLinkRow links={links} />
       </div>
     );
@@ -397,7 +409,7 @@ export const PostScarceCta = memo(function PostScarceCta({
     return (
       <div className="post-card-scarce-cta post-card-scarce-cta--muted">
         <span className="post-card-scarce-cta-main">Owned</span>
-        {listenSlot}
+        {mediumSlot}
         <CommerceLinkRow links={links} />
         {isAuthor && canList && onList ? (
           <button
@@ -420,7 +432,7 @@ export const PostScarceCta = memo(function PostScarceCta({
     return (
       <div className="post-card-scarce-cta post-card-scarce-cta--sold">
         <span>Sold</span>
-        {listenSlot}
+        {mediumSlot}
         <CommerceLinkRow links={links} />
       </div>
     );
@@ -435,7 +447,7 @@ export const PostScarceCta = memo(function PostScarceCta({
             {price ? `Auction · ${price}` : 'Your auction'}
           </span>
           <ResaleMeta embed={embed} />
-          {listenSlot}
+          {mediumSlot}
           <CommerceLinkRow links={links} />
         </div>
       );
@@ -447,7 +459,7 @@ export const PostScarceCta = memo(function PostScarceCta({
             {price ? `Auction · ${price}…` : 'Auction…'}
           </span>
           <ResaleMeta embed={embed} />
-          {listenSlot}
+          {mediumSlot}
           <CommerceLinkRow links={links} />
         </div>
       );
@@ -468,7 +480,7 @@ export const PostScarceCta = memo(function PostScarceCta({
           </span>
           <BuyMetaRow embed={embed} edition={edition} />
         </button>
-        {listenSlot}
+        {mediumSlot}
         <CommerceLinkRow links={links} />
       </div>
     );
@@ -496,7 +508,7 @@ export const PostScarceCta = memo(function PostScarceCta({
           <span className="post-card-scarce-cta-meta">{edition}</span>
         ) : null}
         <ResaleMeta embed={embed} />
-        {listenSlot}
+        {mediumSlot}
         <CommerceLinkRow links={links} />
       </div>
     );
@@ -515,7 +527,7 @@ export const PostScarceCta = memo(function PostScarceCta({
               : 'Listing…'}
         </span>
         <ResaleMeta embed={embed} />
-        {listenSlot}
+        {mediumSlot}
         <CommerceLinkRow links={links} />
       </div>
     );
@@ -546,7 +558,7 @@ export const PostScarceCta = memo(function PostScarceCta({
           <BuyMetaRow embed={embed} edition={edition} />
         )}
       </button>
-      {listenSlot}
+      {mediumSlot}
       <CommerceLinkRow links={links} />
     </div>
   );

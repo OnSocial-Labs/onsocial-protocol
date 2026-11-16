@@ -3,18 +3,14 @@
 import type { PostRow } from '@onsocial/sdk';
 import type { WriteDockSubmit } from '@/contexts/compose-launcher-context';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
-import { PostCard, postKey } from '@/features/home/post-card';
+import { postKey } from '@/features/home/post-card';
+import { ResolvedFeedPostCard } from '@/features/home/resolved-feed-post-card';
 import { ThreadRail } from '@/features/home/thread-rail';
 import { ThreadFoldLink } from '@/features/home/thread-fold-button';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
-import {
-  EMPTY_POST_ENGAGEMENT,
-  type PostEngagement,
-} from '@/hooks/use-post-engagement';
+import type { PostEngagement } from '@/hooks/use-post-engagement';
 import type { PollTally } from '@/lib/poll-votes';
-import { parsePostText } from '@/lib/post-display';
 import { resolveThreadFoldLabel } from '@/lib/thread-fold-label';
-import { isRepostRefType } from '@/lib/post-relation';
 import type { ThreadSheetContext } from '@/lib/guild-thread-card-context';
 import { postThreadPath } from '@/lib/post-routes';
 
@@ -163,6 +159,9 @@ export function FeedThreadBlock({
       }
     : null;
 
+  const hrefForPost = (target: PostRow) =>
+    resolveThreadHref(target, groupId);
+
   const renderRow = ({ post, up, down, first }: BlockRow) => {
     const itemClassName = [
       'post-thread-item',
@@ -172,67 +171,31 @@ export function FeedThreadBlock({
       .filter(Boolean)
       .join(' ');
 
-    const rawQuoted = post.refPath ? quotedPosts[post.refPath] : undefined;
-    // Bare repost shell + resolved original → render the ORIGINAL as the
-    // card (its author, time, engagement, actions) with a `{name} reposted`
-    // attribution line on top. Falls back to the shell while loading.
-    const repostOriginal =
-      isRepostRefType(post.refType) && !parsePostText(post.value).trim()
-        ? rawQuoted
-        : undefined;
-    const card = repostOriginal ?? post;
-    const quoted = repostOriginal
-      ? card.refPath
-        ? quotedPosts[card.refPath]
-        : undefined
-      : rawQuoted;
-    const actionHref = resolveThreadHref(card, groupId);
-    const quotedHref = quoted
-      ? resolveThreadHref(quoted, quoted.groupId ?? groupId)
-      : undefined;
-    const stats = engagement[postKey(card)] ?? EMPTY_POST_ENGAGEMENT;
-
     return (
       <div key={postKey(post)} className={itemClassName}>
         <ThreadRail up={up} down={down} />
-        <PostCard
-          post={card}
-          authorProfile={postAuthorProfiles[card.accountId]}
-          repostedBy={
-            repostOriginal
-              ? {
-                  accountId: post.accountId,
-                  displayName: postAuthorProfiles[post.accountId]?.displayName,
-                }
-              : undefined
-          }
-          actionHref={actionHref}
+        <ResolvedFeedPostCard
+          post={post}
+          quotedPosts={quotedPosts}
+          postAuthorProfiles={postAuthorProfiles}
+          hrefForPost={hrefForPost}
           showChannel={showChannel}
-          channelLabel={
-            showChannel && card.channel
-              ? (channelTitleById?.[card.channel] ?? card.channel)
-              : undefined
-          }
+          channelTitleById={channelTitleById}
           showGuildAttribution={showGuildAttribution}
           sheetContext={sheetContext}
-          guildName={card.groupId ? guildNameById?.[card.groupId] : undefined}
+          guildNameById={guildNameById}
           showRelationBadge={first}
           authorProfiles={postAuthorProfiles}
           className={first ? undefined : 'post-card--chain-cont'}
-          quotedPost={quoted}
-          quotedAuthorProfile={
-            quoted ? postAuthorProfiles[quoted.accountId] : undefined
-          }
-          quotedHref={quotedHref}
-          engagement={stats}
-          reactionPending={isReactionPending(card)}
-          savePending={isSavePending?.(card)}
-          sharePending={isSharePending?.(card)}
+          engagement={engagement}
+          isReactionPending={isReactionPending}
+          isSavePending={isSavePending}
+          isSharePending={isSharePending}
           onToggleReaction={onToggleReaction}
           onToggleSave={onToggleSave}
           onAmplifyConfirmed={onAmplifyConfirmed}
-          pollTally={pollTallyFor?.(card)}
-          pollVotePending={isPollVotePending?.(card)}
+          pollTallyFor={pollTallyFor}
+          isPollVotePending={isPollVotePending}
           onPollVote={onPollVote}
           onReply={onReply}
           onExpandReply={onExpandReply}

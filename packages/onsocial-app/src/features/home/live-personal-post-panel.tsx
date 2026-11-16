@@ -41,7 +41,8 @@ import {
   type ComposerMode,
   type ComposerSubmit,
 } from '@/features/guilds/guild-composer-sheet';
-import { PostCard, postKey } from '@/features/home/post-card';
+import { postKey } from '@/features/home/post-card';
+import { ResolvedFeedPostCard } from '@/features/home/resolved-feed-post-card';
 import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
 import { ThreadRail } from '@/features/home/thread-rail';
 import { ThreadDiscoverPeek } from '@/features/home/thread-discover-peek';
@@ -64,7 +65,6 @@ import {
   usePostAuthorProfiles,
 } from '@/hooks/use-post-author-profiles';
 import {
-  EMPTY_POST_ENGAGEMENT,
   usePostEngagement,
 } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
@@ -942,8 +942,7 @@ export function LivePersonalPostPanel({
       }
     : undefined;
 
-  const quotedHrefFor = (quoted: PostRow | undefined) =>
-    quoted ? postThreadPath(quoted) : undefined;
+  const hrefForPost = (target: PostRow) => postThreadPath(target);
 
   const root = conversation.root;
   const writeTarget = dockTarget ?? root;
@@ -1057,34 +1056,22 @@ export function LivePersonalPostPanel({
             up={row.connectedToPrevious || continuesRoot}
             down={connectedToNext}
           />
-          <PostCard
+          <ResolvedFeedPostCard
             post={row.post}
-            authorProfile={postAuthorProfiles[row.post.accountId]}
+            quotedPosts={quotedPosts}
+            postAuthorProfiles={postAuthorProfiles}
+            hrefForPost={hrefForPost}
             videoSoundControl
-            actionHref={postThreadPath(row.post)}
             menuZIndex={nestMenuZ}
             showRelationBadge={false}
             authorProfiles={postAuthorProfiles}
             className={
               row.connectedToPrevious ? 'post-card--chain-cont' : undefined
             }
-            quotedPost={
-              row.post.refPath ? quotedPosts[row.post.refPath] : undefined
-            }
-            quotedAuthorProfile={
-              row.post.refPath
-                ? postAuthorProfiles[
-                    quotedPosts[row.post.refPath]?.accountId ?? ''
-                  ]
-                : undefined
-            }
-            quotedHref={quotedHrefFor(
-              row.post.refPath ? quotedPosts[row.post.refPath] : undefined
-            )}
-            engagement={engagement[postKey(row.post)] ?? EMPTY_POST_ENGAGEMENT}
-            reactionPending={isReactionPending(row.post)}
-            savePending={isSavePending(row.post)}
-            sharePending={isSharePending(row.post)}
+            engagement={engagement}
+            isReactionPending={isReactionPending}
+            isSavePending={isSavePending}
+            isSharePending={isSharePending}
             onToggleReaction={toggleReaction}
             onToggleSave={toggleSave}
             onAmplifyConfirmed={confirmAmplify}
@@ -1093,8 +1080,8 @@ export function LivePersonalPostPanel({
             onQuote={quoteHandler}
             onRepost={repostHandler}
             onUndoRepost={undoRepostHandler}
-            pollTally={pollTallyFor(row.post)}
-            pollVotePending={isPollVotePending(row.post)}
+            pollTallyFor={pollTallyFor}
+            isPollVotePending={isPollVotePending}
             onPollVote={(post, optionIndex) => {
               void castVote(post, optionIndex);
             }}
@@ -1137,34 +1124,20 @@ export function LivePersonalPostPanel({
                     data-thread-focus-key={postKey(ancestor)}
                   >
                 <ThreadRail up={index > 0} down />
-                <PostCard
+                <ResolvedFeedPostCard
                   post={ancestor}
-                  authorProfile={postAuthorProfiles[ancestor.accountId]}
+                  quotedPosts={quotedPosts}
+                  postAuthorProfiles={postAuthorProfiles}
+                  hrefForPost={hrefForPost}
                   videoSoundControl
-                  actionHref={postThreadPath(ancestor)}
                   returnToPost
                   menuZIndex={nestMenuZ}
                   showRelationBadge={index === 0}
                   authorProfiles={postAuthorProfiles}
-                  quotedPost={
-                    ancestor.refPath ? quotedPosts[ancestor.refPath] : undefined
-                  }
-                  quotedAuthorProfile={
-                    ancestor.refPath
-                      ? postAuthorProfiles[
-                          quotedPosts[ancestor.refPath]?.accountId ?? ''
-                        ]
-                      : undefined
-                  }
-                  quotedHref={quotedHrefFor(
-                    ancestor.refPath ? quotedPosts[ancestor.refPath] : undefined
-                  )}
-                  engagement={
-                    engagement[postKey(ancestor)] ?? EMPTY_POST_ENGAGEMENT
-                  }
-                  reactionPending={isReactionPending(ancestor)}
-                  savePending={isSavePending(ancestor)}
-                  sharePending={isSharePending(ancestor)}
+                  engagement={engagement}
+                  isReactionPending={isReactionPending}
+                  isSavePending={isSavePending}
+                  isSharePending={isSharePending}
                   onToggleReaction={toggleReaction}
                   onToggleSave={toggleSave}
                   onAmplifyConfirmed={confirmAmplify}
@@ -1173,8 +1146,8 @@ export function LivePersonalPostPanel({
                   onQuote={quoteHandler}
                   onRepost={repostHandler}
                   onUndoRepost={undoRepostHandler}
-                  pollTally={pollTallyFor(ancestor)}
-                  pollVotePending={isPollVotePending(ancestor)}
+                  pollTallyFor={pollTallyFor}
+                  isPollVotePending={isPollVotePending}
                   onPollVote={(post, optionIndex) => {
                     void castVote(post, optionIndex);
                   }}
@@ -1197,9 +1170,11 @@ export function LivePersonalPostPanel({
                 .join(' ')}
             >
               <ThreadRail up={hasAncestorRows} down={rootContinued} />
-              <PostCard
+              <ResolvedFeedPostCard
                 post={conversation.root}
-                authorProfile={postAuthorProfiles[conversation.root.accountId]}
+                quotedPosts={quotedPosts}
+                postAuthorProfiles={postAuthorProfiles}
+                hrefForPost={hrefForPost}
                 mediaFocused
                 videoSoundControl
                 hideMedia={hideRootMedia}
@@ -1209,30 +1184,10 @@ export function LivePersonalPostPanel({
                 detailLayout
                 showRelationBadge={!hasParent}
                 authorProfiles={postAuthorProfiles}
-                quotedPost={
-                  conversation.root.refPath
-                    ? quotedPosts[conversation.root.refPath]
-                    : undefined
-                }
-                quotedAuthorProfile={
-                  conversation.root.refPath
-                    ? postAuthorProfiles[
-                        quotedPosts[conversation.root.refPath]?.accountId ?? ''
-                      ]
-                    : undefined
-                }
-                quotedHref={quotedHrefFor(
-                  conversation.root.refPath
-                    ? quotedPosts[conversation.root.refPath]
-                    : undefined
-                )}
-                engagement={
-                  engagement[postKey(conversation.root)] ??
-                  EMPTY_POST_ENGAGEMENT
-                }
-                reactionPending={isReactionPending(conversation.root)}
-                savePending={isSavePending(conversation.root)}
-                sharePending={isSharePending(conversation.root)}
+                engagement={engagement}
+                isReactionPending={isReactionPending}
+                isSavePending={isSavePending}
+                isSharePending={isSharePending}
                 onToggleReaction={toggleReaction}
                 onToggleSave={toggleSave}
                 onAmplifyConfirmed={confirmAmplify}
@@ -1241,8 +1196,8 @@ export function LivePersonalPostPanel({
                 onQuote={quoteHandler}
                 onRepost={repostHandler}
                 onUndoRepost={undoRepostHandler}
-                pollTally={pollTallyFor(conversation.root)}
-                pollVotePending={isPollVotePending(conversation.root)}
+                pollTallyFor={pollTallyFor}
+                isPollVotePending={isPollVotePending}
                 onPollVote={(post, optionIndex) => {
                   void castVote(post, optionIndex);
                 }}

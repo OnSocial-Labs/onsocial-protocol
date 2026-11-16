@@ -3636,9 +3636,16 @@ a.os-surface-row,
  * Route skeleton leaves with the same fade as page sheets
  * (`glass-sheet-appear`, --os-motion-appear). A held body uses
  * `.os-page-body-appear` so thread replies still fade in after it.
+ * Flex stretch matches that appear wrapper so nested scroll (quotes)
+ * stays height-capped through this seat.
  */
 .os-route-settle {
   position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
 }
 
 .os-route-skeleton {
@@ -4392,7 +4399,7 @@ a.os-surface-row,
 
 /*
  * Mood commerce — Mint / Buy / Bid follow reputation.
- * List / Sell stay gray and brighten on hover, with Read / Listen.
+ * List / Sell stay gray and brighten on hover, with Read.
  * Source / provenance greens (View original post, Drop page) too.
  * Like / boost stay hard protocol; love / player stay protocol green.
  * Fact-sheet identity links (creator / hub / explorer) stay inherited fg.
@@ -4415,12 +4422,12 @@ a.os-surface-row,
     .guild-facts-link.scarce-facts-source-link,
     .guild-facts-link.scarce-facts-source-link:hover,
     .guild-facts-link.scarce-facts-source-link:focus-visible,
-    .post-card-scarce-listen
+    .post-card-scarce-read
   ) {
   color: var(--signal-reputation, var(--protocol-green, #00ec97));
 }
 
-/* Mint / Buy / Bid, List / Sell, and Read / Listen — brighten, no underline. */
+/* Mint / Buy / Bid, List / Sell, and Read — brighten, no underline. */
 :is(
     .os-app-screen.os-app-screen--mood,
     .os-page-sheet-panel[data-mood],
@@ -4449,7 +4456,7 @@ a.os-surface-row,
     .portfolio-os-layer[data-mood],
     .portfolio-frame[data-mood]
   )
-  .post-card-scarce-listen:is(:hover, :focus-visible) {
+  .post-card-scarce-read:is(:hover, :focus-visible) {
   color: color-mix(
     in srgb,
     var(--signal-reputation, var(--protocol-green, #00ec97)) 72%,
@@ -23167,34 +23174,22 @@ a.os-surface-row,
     border-radius: 0.25rem;
   }
 
-  .post-row-skeleton-quote {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    margin-top: 0.35rem;
-    min-width: 0;
+  .post-row-skeleton-poll-option {
+    display: block;
+    width: 100%;
+    min-height: 2.35rem;
+    border-radius: 0.75rem;
   }
 
-  .post-row-skeleton-quote-thumb {
-    flex: 0 0 3.6rem;
-    width: 3.6rem;
-    height: 3.6rem;
-    border-radius: 0.45rem;
-  }
-
-  .post-row-skeleton-quote-copy {
-    display: flex;
-    flex: 1 1 auto;
-    flex-direction: column;
-    gap: 0.28rem;
-    min-width: 0;
-  }
-
-  .post-row-skeleton-actions {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 2.4rem));
-    gap: 0.65rem;
+  .post-card--skeleton .post-card-engagement {
     margin-top: 0.45rem;
+  }
+
+  .post-card--skeleton .post-row-skeleton-action {
+    display: block;
+    height: 0.7rem;
+    width: 2.2rem;
+    border-radius: 999px;
   }
 
   .post-row-skeleton-action {
@@ -23369,6 +23364,7 @@ a.os-surface-row,
   .post-card--openable .post-media-tile.is-activatable,
   .post-card--openable .post-audio-row,
   .post-card--openable .post-audio-preview,
+  .post-card--openable .post-audio-jacket,
   .post-card--openable .post-media-unmute-gate,
   .post-card--openable .post-media-mute,
   .post-card--openable .post-card-stat,
@@ -23388,7 +23384,7 @@ a.os-surface-row,
   .post-card--openable .post-card-guild,
   .post-card--openable .post-card-scarce-buy,
   .post-card--openable .post-card-scarce-link,
-  .post-card--openable .post-card-scarce-listen,
+  .post-card--openable .post-card-scarce-read,
   .post-card--openable .scarce-post-preview {
     pointer-events: auto;
   }
@@ -24047,24 +24043,6 @@ a.os-surface-row,
     width: 12rem;
     z-index: 40;
     pointer-events: auto;
-  }
-
-  .post-card-badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-  }
-
-  .post-card-badges span {
-    width: fit-content;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.055);
-    color: rgb(var(--fg-rgb) / 0.54);
-    font-size: var(--os-stamp-size, 0.75rem);
-    font-weight: 650;
-    letter-spacing: 0.04em;
-    padding: 0.24rem 0.44rem;
-    text-transform: capitalize;
   }
 
   .post-card--openable .post-card-body-block.is-fold-closed {
@@ -24995,6 +24973,28 @@ a.os-surface-row,
     flex-shrink: 0;
   }
 
+  /* Quote soft-fill seat — same chassis as live inset (sm avatar + identity). */
+  .post-card-quote-inset-avatar-bone {
+    flex: 0 0 1.35rem;
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 999px;
+  }
+
+  .post-card-quote-inset-identity-bone {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0.22rem;
+    min-width: 0;
+  }
+
+  .post-card-quote-inset--pending .post-card-quote-inset-body .post-row-skeleton-line-body {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+  }
+
   .post-card-quote-inset-body-row {
     display: flex;
     flex-direction: row;
@@ -25594,6 +25594,17 @@ a.os-surface-row,
     overflow-anchor: none;
   }
 
+  .post-card-scarce-cta--pending {
+    min-height: calc(
+      0.4rem + 1.2 * var(--os-stamp-size, 0.75rem)
+    );
+  }
+
+  .post-card-scarce-cta--pending .post-row-skeleton-line-sm {
+    width: 4.5rem;
+    max-width: 40%;
+  }
+
   .post-card-scarce-cta--sold,
   .post-card-scarce-cta--muted {
     color: rgb(var(--fg-rgb) / 0.42);
@@ -25623,7 +25634,7 @@ a.os-surface-row,
     color: inherit;
   }
 
-  .post-card-scarce-listen {
+  .post-card-scarce-read {
     border: 0;
     background: transparent;
     padding: 0.2rem 0;
@@ -25638,13 +25649,13 @@ a.os-surface-row,
   }
 
   @media (hover: hover) and (pointer: fine) {
-    .post-card-scarce-listen:hover {
+    .post-card-scarce-read:hover {
       color: var(--protocol-green-hover, var(--protocol-green, #00ec97));
       text-decoration: none;
     }
   }
 
-  .post-card-scarce-listen:focus-visible {
+  .post-card-scarce-read:focus-visible {
     color: var(--protocol-green-hover, var(--protocol-green, #00ec97));
     text-decoration: none;
     outline: 1px solid currentColor;

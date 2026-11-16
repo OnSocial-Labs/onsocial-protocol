@@ -3,6 +3,7 @@ import type { PostRow } from '@onsocial/sdk';
 import {
   isQuoteRefType,
   isRepostRefType,
+  postNeedsQuoteSeat,
   postRelationContext,
   resolveQuotedInset,
   withRepostOriginals,
@@ -39,6 +40,24 @@ describe('isQuoteRefType', () => {
     expect(isQuoteRefType('repost')).toBe(false);
     expect(isQuoteRefType('post')).toBe(false);
     expect(isQuoteRefType(undefined)).toBe(false);
+  });
+});
+
+describe('postNeedsQuoteSeat', () => {
+  it('reserves a quote inset for non-repost refPaths', () => {
+    expect(
+      postNeedsQuoteSeat({ refPath: 'bob.near/post/2', refType: 'quote' })
+    ).toBe(true);
+    expect(
+      postNeedsQuoteSeat({ refPath: 'bob.near/post/2', refType: 'cite' })
+    ).toBe(true);
+    expect(
+      postNeedsQuoteSeat({ refPath: 'bob.near/post/2', refType: undefined })
+    ).toBe(true);
+    expect(
+      postNeedsQuoteSeat({ refPath: 'bob.near/post/2', refType: 'repost' })
+    ).toBe(false);
+    expect(postNeedsQuoteSeat({ refPath: '', refType: 'quote' })).toBe(false);
   });
 });
 

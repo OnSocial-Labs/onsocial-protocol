@@ -2,7 +2,6 @@
 
 import { useState, type MouseEvent } from 'react';
 import Link from 'next/link';
-import type { PostRow } from '@onsocial/sdk';
 import { RepeatIcon } from '@onsocial/ui';
 import { OsTextFold } from '@/components/ui/os-text-fold';
 import { articleTeaseSource } from '@/lib/article-post-payload';
@@ -10,7 +9,6 @@ import { portfolioPath } from '@/lib/overlay-routes';
 import {
   postFeedBodyOverflows,
   postFeedPreviewLimit,
-  postKindBadge,
   postPreviewNeedsExpand,
 } from '@/lib/post-display';
 import {
@@ -18,11 +16,6 @@ import {
   type PostRelationContext,
 } from '@/lib/post-relation';
 import { PostRichText } from '@/features/home/post-rich-text';
-
-export function postBadges(post: PostRow, hasPollEmbed: boolean): string[] {
-  const badge = postKindBadge(post.kind, hasPollEmbed);
-  return badge ? [badge] : [];
-}
 
 function PostCardRelationLine({
   relationContext,
@@ -72,7 +65,6 @@ function PostCardRelationLine({
 export function PostCardBody({
   relationContext,
   relationTargetProfileName,
-  badges,
   text,
   hideText = false,
   hasMedia = false,
@@ -86,7 +78,6 @@ export function PostCardBody({
 }: {
   relationContext: PostRelationContext | null;
   relationTargetProfileName?: string | null;
-  badges: string[];
   text: string;
   /** When the poll card already shows the question, skip duplicate body text. */
   hideText?: boolean;
@@ -155,13 +146,6 @@ export function PostCardBody({
           relationTargetProfileName={relationTargetProfileName}
         />
       ) : null}
-      {badges.length > 0 ? (
-        <div className="post-card-badges">
-          {badges.map((badge) => (
-            <span key={badge}>{badge}</span>
-          ))}
-        </div>
-      ) : null}
       {articleTitle ? (
         <p className="post-card-article-title">{articleTitle}</p>
       ) : null}
@@ -193,7 +177,7 @@ export function PostCardBody({
               closedLines={closedLines}
               capped
               onOverflow={(overflows) => {
-                if (overflows) setBodyOverflows(true);
+                setBodyOverflows(overflows);
               }}
             >
               <p className="post-card-body">

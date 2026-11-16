@@ -481,26 +481,3 @@ export function postFeedBodyOverflows(
   if (text.split(/\r?\n/).length > closedLines) return true;
   return postPreviewNeedsExpand(text, postFeedPreviewLimit(hasMedia));
 }
-
-/**
- * Kind pill on a feed card. Media speaks for itself; a titled article
- * already has a title — do not stamp `longform`.
- */
-export function postKindBadge(
-  kind: string | null | undefined,
-  hasPollEmbed = false
-): string | null {
-  const value = kind?.trim();
-  if (!value) return null;
-  if (
-    value === 'text' ||
-    value === 'image' ||
-    value === 'video' ||
-    value === 'audio' ||
-    value === 'longform'
-  ) {
-    return null;
-  }
-  if (hasPollEmbed && value === 'poll') return null;
-  return value;
-}

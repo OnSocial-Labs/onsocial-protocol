@@ -131,6 +131,8 @@ interface PostMediaBlockProps {
    * layout when the file arrives. No hint → no reservation (legacy posts).
    */
   reserveRatio?: boolean;
+  /** Audio jacket tap — open the in-sheet player. */
+  onAudioOpen?: () => void;
 }
 
 function audioControlLabel(item: PostMediaItem, playing: boolean): string {
@@ -140,17 +142,20 @@ function audioControlLabel(item: PostMediaItem, playing: boolean): string {
 }
 
 /**
- * Audio attachment — a compact row, never a photo tile.
- * Playback joins the single-player session on an explicit tap.
+ * Audio attachment. Feed / open post: jacket seat → immersive player.
+ * Composer preview / editable: local play control so remove stays reachable.
  */
 function PostAudioAttachment({
   item,
   size = 'compact',
   onRemove,
+  onOpen,
 }: {
   item: PostMediaItem;
   size?: PostMediaSize;
   onRemove?: () => void;
+  /** Feed / detail — open the in-sheet player (cover tap). */
+  onOpen?: () => void;
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -161,6 +166,11 @@ function PostAudioAttachment({
   const playLabel = failed
     ? 'Audio unavailable'
     : audioControlLabel(item, playing);
+  const listenLabel = failed
+    ? 'Audio unavailable'
+    : title === 'Audio'
+      ? 'Listen'
+      : `Listen to ${title}`;
   const elapsed = formatMediaDuration(time) || '0:00';
   const total = duration > 0 ? formatMediaDuration(duration) : '';
   const clock = total ? `${elapsed} / ${total}` : elapsed;
@@ -231,6 +241,32 @@ function PostAudioAttachment({
           />
         ) : null}
       </div>
+    );
+  }
+
+  // Feed / open post — same jacket seat as Drop covers; play happens inside.
+  if (!onRemove && onOpen) {
+    return (
+      <button
+        type="button"
+        className="post-audio-jacket scarce-post-preview scarce-post-preview--feed scarce-post-preview--cover"
+        aria-label={listenLabel}
+        disabled={failed}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (!failed) onOpen();
+        }}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        <span
+          className="scarce-list-preview-placeholder scarce-post-preview-asset"
+          aria-hidden
+        />
+        <span className="scarce-post-preview-play" aria-hidden>
+          <PlayFillIcon />
+        </span>
+      </button>
     );
   }
 
@@ -305,7 +341,7 @@ function PostAudioAttachment({
 /**
  * Feed media tile — muted list autoplay for video; tap opens media-face.
  * Open-post video stays inline with mute only; tap still opens the slider.
- * Audio is a compact player, never an image.
+ * Audio uses a jacket seat that opens the in-sheet player.
  */
 export function PostMediaBlock(props: PostMediaBlockProps) {
   if (isRenderablePostAudioMime(props.item.mime)) {
@@ -314,6 +350,7 @@ export function PostMediaBlock(props: PostMediaBlockProps) {
         item={props.item}
         size={props.size}
         onRemove={props.onRemove}
+        onOpen={props.onAudioOpen}
       />
     );
   }
@@ -571,6 +608,8 @@ interface PostMediaStripProps {
   onActivate?: (index: number, tile: HTMLElement | null) => void;
   /** Accessible name for a single still. Detail video keeps its mute control. */
   activateLabel?: string;
+  /** Audio jacket tap — open the in-sheet player. */
+  onAudioOpen?: () => void;
 }
 
 /** One or more media tiles for a post card / thread root. */
@@ -585,6 +624,7 @@ export function PostMediaStrip({
   playbackDisabled = false,
   onActivate,
   activateLabel,
+  onAudioOpen,
 }: PostMediaStripProps) {
   const stripRef = useRef<HTMLDivElement>(null);
   const slots = useMemo(
@@ -680,6 +720,7 @@ export function PostMediaStrip({
           key={`${slot.item.cid ?? slot.item.url}:${slot.index}`}
           item={slot.item}
           size={size}
+          onOpen={onAudioOpen}
         />
       ))}
     </>

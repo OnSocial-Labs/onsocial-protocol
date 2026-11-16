@@ -19,7 +19,10 @@ import {
 } from '@onsocial/sdk';
 import { RepeatIcon, UsersFillIcon } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
-import { QuotedPostInset } from '@/features/home/post-card-quote';
+import {
+  QuotedPostInset,
+  QuotedPostInsetPending,
+} from '@/features/home/post-card-quote';
 import {
   PostEngagementRow,
   PostPeekStandButton,
@@ -29,7 +32,7 @@ import {
   PostCardMenu,
   type PostCardMenuPostProps,
 } from '@/features/home/post-card-menu';
-import { PostCardBody, postBadges } from '@/features/home/post-card-body';
+import { PostCardBody } from '@/features/home/post-card-body';
 import {
   hasReachableMediaFace,
   onDismissReplyDrawers,
@@ -73,6 +76,7 @@ import {
 } from '@/features/scarces/cancel-post-scarce';
 import {
   PostScarceCta,
+  PostScarceCtaPending,
   type PostScarceCtaActionProps,
 } from '@/features/scarces/post-scarce-cta';
 import {
@@ -123,6 +127,7 @@ import { usePostScarceEmbed } from '@/features/scarces/use-post-scarce-embed';
 import { usePostTokenEmbed } from '@/features/scarces/use-post-token-embed';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { useSheetMounted } from '@/hooks/use-sheet-mounted';
 import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
 import { parsePostContentLabels } from '@/lib/post-content-labels';
 import { accountIdsEqual } from '@/lib/account-match';
@@ -150,7 +155,11 @@ import {
   postKey,
   postTimestampIso,
 } from '@/lib/post-display';
-import { isRepostRefType, postRelationContext } from '@/lib/post-relation';
+import {
+  isRepostRefType,
+  postNeedsQuoteSeat,
+  postRelationContext,
+} from '@/lib/post-relation';
 import {
   parsePostMedia,
   isRenderablePostVideo,
@@ -162,7 +171,10 @@ import type { ThreadSheetContext } from '@/lib/guild-thread-card-context';
 import { isAppPostSheetHref, postThreadPath } from '@/lib/post-routes';
 import type { PollTally } from '@/lib/poll-votes';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
-import type { PostEngagement } from '@/hooks/use-post-engagement';
+import {
+  EMPTY_POST_ENGAGEMENT,
+  type PostEngagement,
+} from '@/hooks/use-post-engagement';
 
 /** Engagement data + per-post actions a feed host wires into the card. */
 export interface PostCardEngagementProps {
@@ -282,16 +294,6 @@ export {
 } from '@/features/home/post-skeleton';
 export type { PostSkeletonFrame } from '@/features/home/post-skeleton';
 
-/**
- * Mount an overlay sheet on first open and keep it mounted afterwards —
- * closed sheets cost nothing until first use, while close animations and
- * internal state survive later closes.
- */
-function useSheetMounted(open: boolean): boolean {
-  const [mounted, setMounted] = useState(open);
-  if (open && !mounted) setMounted(true);
-  return mounted || open;
-}
 
 /** Shared fallback so the scarce-CTA bundle keeps a stable embed identity. */
 const EMPTY_SCARCE_EMBED: PostScarceEmbed = {
@@ -314,7 +316,7 @@ function PostCardImpl({
   channelLabel,
   showGuildAttribution = false,
   guildName,
-  engagement,
+  engagement = EMPTY_POST_ENGAGEMENT,
   reactionPending,
   savePending,
   sharePending,
@@ -724,6 +726,20 @@ function PostCardImpl({
       scarceEmbed?.status === 'sold' ||
       scarceEmbed?.status === 'auction' ||
       scarceEmbed?.status === 'minted');
+  /** Sync drop paint / embed refs without live art yet — hold the 300² jacket. */
+  const scarceArtSeat =
+    !article &&
+    !photoCover &&
+    mediaItems.length === 0 &&
+    !showScarceArt &&
+    (Boolean(dropPaint) || hasCollectionEmbed || hasTokenEmbed);
+  const scarceCtaLive =
+    !isRepostShell && Boolean(scarceEmbed || canListScarce);
+  /** Jacket known from paint/refs before commerce soft-fills — hold the CTA row. */
+  const scarceCtaSeat =
+    !isRepostShell &&
+    !scarceCtaLive &&
+    (Boolean(dropPaint) || hasCollectionEmbed || hasTokenEmbed);
   const articleIssuedAt =
     typeof post.blockTimestamp === 'number'
       ? post.blockTimestamp
@@ -762,7 +778,8 @@ function PostCardImpl({
     tokenDropTitle?.trim() ||
     collectionDropTitle?.trim() ||
     dropPaint?.title?.trim() ||
-    'Drop';
+    postAudio?.alt?.trim() ||
+    (postPlayables.length > 0 ? 'Audio' : 'Drop');
   const openFeedMedium = (
     mode: ScarceFeedMediumMode,
     coverSvg: string | null = null
@@ -1041,7 +1058,6 @@ function PostCardImpl({
   const articleCoverActivatable = Boolean(article && articleCover);
 
   const name = displayName(post.accountId, authorProfile?.displayName);
-  const badges = postBadges(post, Boolean(poll));
   const relationContext = showRelationBadge
     ? postRelationContext(post, {
         viewerAccountId,
@@ -1403,7 +1419,6 @@ function PostCardImpl({
           <PostCardBody
             relationContext={relationContext}
             relationTargetProfileName={relationTargetProfileName}
-            badges={badges}
             text={text}
             hasMedia={hasMedia}
             startExpanded={mediaFocused}
@@ -1528,6 +1543,7 @@ function PostCardImpl({
                     }
                   : undefined
               }
+              onAudioOpen={() => openFeedMedium('audio')}
             />
           ) : showScarceArt && scarceEmbed ? (
             <ScarcePostPreview
@@ -1549,43 +1565,35 @@ function PostCardImpl({
                 openFeedMedium(mode, coverSvg);
               }}
             />
+          ) : scarceArtSeat ? (
+            <div
+              className="scarce-post-preview scarce-post-preview--feed scarce-post-preview--cover"
+              aria-hidden
+            >
+              <div className="scarce-list-preview-placeholder scarce-post-preview-asset" />
+            </div>
           ) : null}
-          {!isRepostShell && (scarceEmbed || canListScarce) ? (
+          {scarceCtaLive ? (
             <PostScarceCta
               {...scarceCtaActions}
-              listenSlot={
-                showDropListen || showDropRead ? (
-                  <>
-                    {showDropRead ? (
-                      <button
-                        type="button"
-                        className="post-card-scarce-listen"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          openDropWriting();
-                        }}
-                      >
-                        Read
-                      </button>
-                    ) : null}
-                    {showDropListen ? (
-                      <button
-                        type="button"
-                        className="post-card-scarce-listen"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          openFeedMedium('audio');
-                        }}
-                      >
-                        Listen
-                      </button>
-                    ) : null}
-                  </>
+              mediumSlot={
+                showDropRead ? (
+                  <button
+                    type="button"
+                    className="post-card-scarce-read"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      openDropWriting();
+                    }}
+                  >
+                    Read
+                  </button>
                 ) : null
               }
             />
+          ) : scarceCtaSeat ? (
+            <PostScarceCtaPending />
           ) : null}
         </PostSensitiveGate>
         {quotedPost ? (
@@ -1596,6 +1604,8 @@ function PostCardImpl({
             expanded={detailLayout}
             sheetContext={sheetContext}
           />
+        ) : postNeedsQuoteSeat(post) ? (
+          <QuotedPostInsetPending />
         ) : null}
         {detailLayout ? (
           <time
@@ -1606,18 +1616,16 @@ function PostCardImpl({
             {formatPostTimestamp(post.blockTimestamp)}
           </time>
         ) : null}
-        {engagement ? (
-          <PostEngagementRow
-            {...engagementActions}
-            engagement={engagement}
-            shareHref={shareHref}
-            shareTitle={name}
-            onAmplify={openAmplify}
-            {...(resolvedMenuZ != null
-              ? { shareDrawerZIndex: resolvedMenuZ }
-              : {})}
-          />
-        ) : null}
+        <PostEngagementRow
+          {...engagementActions}
+          engagement={engagement}
+          shareHref={shareHref}
+          shareTitle={name}
+          onAmplify={openAmplify}
+          {...(resolvedMenuZ != null
+            ? { shareDrawerZIndex: resolvedMenuZ }
+            : {})}
+        />
       </div>
       {amplifySheetMounted ? (
         <PostAmplifySheet
@@ -1996,4 +2004,4 @@ function postCardPropsEqual(prev: PostCardProps, next: PostCardProps): boolean {
 export const PostCard = memo(PostCardImpl, postCardPropsEqual);
 
 export { postKey };
-export { QuotedPostInset };
+export { QuotedPostInset, QuotedPostInsetPending };

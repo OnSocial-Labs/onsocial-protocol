@@ -1,6 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type CSSProperties,
+} from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
@@ -44,7 +49,37 @@ import { usePostThreadLayer } from '@/features/home/post-thread-layer';
 import { PostRichText } from '@/features/home/post-rich-text';
 import { PostSensitiveGate } from '@/features/home/post-sensitive-gate';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
+import { useSheetMounted } from '@/hooks/use-sheet-mounted';
 import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
+import type { ScarcePlayableMedia } from '@/features/market/market-listings';
+import { ScarceFeedMediumSheet } from '@/features/scarces/scarce-feed-medium-sheet';
+import { postScarceAudio } from '@/features/scarces/scarce-post-preview';
+
+/**
+ * Structure seat for a quote inset while `refPath` soft-fills. Matches the
+ * live rail + head + body chassis so the row does not grow on paint.
+ */
+export function QuotedPostInsetPending() {
+  return (
+    <div className="post-card-quote-inset post-card-quote-inset--pending" aria-hidden>
+      <Divider orientation="vertical" variant="detail" />
+      <div className="post-card-quote-inset-content">
+        <span className="post-card-quote-inset-head">
+          <span className="standing-row-shimmer post-card-quote-inset-avatar-bone" />
+          <span className="post-card-quote-inset-identity-bone">
+            <span className="standing-row-shimmer post-row-skeleton-line" />
+            <span className="standing-row-shimmer post-row-skeleton-line-sm" />
+          </span>
+        </span>
+        <div className="post-card-quote-inset-body-row">
+          <p className="post-card-quote-inset-body">
+            <span className="standing-row-shimmer post-row-skeleton-line-body" />
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function QuotedPostInset({
   post,
@@ -75,6 +110,19 @@ export function QuotedPostInset({
   const [quoteZoomOrigin, setQuoteZoomOrigin] =
     useState<FeedPhotoZoomOrigin | null>(null);
   const [quoteThreadOpen, setQuoteThreadOpen] = useState(false);
+  const [quoteAudioOpen, setQuoteAudioOpen] = useState(false);
+  const quoteAudioMounted = useSheetMounted(quoteAudioOpen);
+  const quoteAudio = postScarceAudio(post);
+  const quotePlayables: ScarcePlayableMedia[] = quoteAudio?.url
+    ? [
+        {
+          url: quoteAudio.url,
+          mime: quoteAudio.mime || 'audio/mpeg',
+          ...(quoteAudio.cid ? { cid: quoteAudio.cid } : {}),
+        },
+      ]
+    : [];
+  const quoteListenTitle = quoteAudio?.alt?.trim() || 'Audio';
 
   const open = (event: {
     preventDefault(): void;
@@ -157,6 +205,11 @@ export function QuotedPostInset({
                       setQuotePhotoIndex(index);
                       setQuotePhotoOpen(true);
                     }}
+                    onAudioOpen={
+                      quotePlayables.length > 0
+                        ? () => setQuoteAudioOpen(true)
+                        : undefined
+                    }
                   />
                 ) : null}
               </div>
@@ -240,9 +293,21 @@ export function QuotedPostInset({
           }
         />
       ) : null}
+      {expanded && quoteAudioMounted ? (
+        <ScarceFeedMediumSheet
+          open={quoteAudioOpen}
+          onOpenChange={setQuoteAudioOpen}
+          mode="audio"
+          title={quoteListenTitle}
+          creatorId={post.accountId}
+          playables={quotePlayables}
+          feedEnlarge
+        />
+      ) : null}
     </>
   );
 }
+
 
 function QuoteThumbTile({
   item,
