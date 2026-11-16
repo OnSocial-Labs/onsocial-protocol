@@ -18,6 +18,7 @@ import {
   EndorseComposeSheet,
   type EndorseComposeIntent,
 } from '@/components/panels/endorse-compose-sheet';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import {
   EndorsementListRow,
   EndorsementListSkeleton,
@@ -508,7 +509,9 @@ export function EndorsementsPanel({
 
       {loading ? (
         <EndorsementListSkeleton />
-      ) : error ? (
+      ) : (
+        <OsPageBodyAppear>
+      {error ? (
         <div className="endorsements-empty">
           <p className="endorsements-empty-copy">{error}</p>
           <OsEmptyAction onClick={() => void load()}>Retry</OsEmptyAction>
@@ -590,6 +593,8 @@ export function EndorsementsPanel({
             </div>
           ) : null}
         </div>
+      )}
+        </OsPageBodyAppear>
       )}
 
       <EndorseComposeSheet

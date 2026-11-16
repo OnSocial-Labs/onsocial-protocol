@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { PageDrawerCreatedRail } from '@/components/portfolio/page-drawer-peeks';
 import { PortfolioDropRow } from '@/components/portfolio/portfolio-drop-row';
@@ -103,7 +104,7 @@ export function PageDrawerWorksCatalog({
   }
 
   return (
-    <div className="page-drawer-peek-stack">
+    <OsPageBodyAppear className="page-drawer-peek-stack">
       {hasCatalog ? (
         <div className="market-listing-list" role="list" aria-label="All works">
           {catalogDrops.map((drop) => (
@@ -126,6 +127,6 @@ export function PageDrawerWorksCatalog({
         </div>
       ) : null}
       {hasCreated ? <PageDrawerCreatedRail created={createdPeeks} /> : null}
-    </div>
+    </OsPageBodyAppear>
   );
 }

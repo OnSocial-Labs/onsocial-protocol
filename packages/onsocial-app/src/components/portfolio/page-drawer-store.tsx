@@ -7,6 +7,7 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useFeedWindow } from '@/features/home/use-feed-window';
 import { CATALOG_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsLoadMore } from '@/lib/os-load-more';
@@ -515,6 +516,7 @@ export function PageDrawerStoreList({
     <div className="portfolio-store">
       {loading && !showListings ? <MarketListSkeleton rows={3} /> : null}
 
+      <OsPageBodyAppear>
       {showListings ? (
         <section
           className="market-section"
@@ -673,6 +675,7 @@ export function PageDrawerStoreList({
       {isEmpty ? (
         <p className="page-drawer-section-empty">Nothing for sale right now.</p>
       ) : null}
+      </OsPageBodyAppear>
 
       <ScarceBuySheet
         open={buyListing != null}
