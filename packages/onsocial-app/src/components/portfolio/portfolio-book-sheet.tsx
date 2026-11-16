@@ -13,6 +13,7 @@ import type { CollectionView } from '@/features/scarces/collections-data';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
+import { scarceRowPartyLead } from '@/lib/scarce-row-kind';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 export interface PortfolioBookMarkModel {
@@ -45,6 +46,10 @@ export function PortfolioBookSheet({
   const handle = fallbackLabel(book.creatorId);
   const creatorHref = portfolioPath(book.creatorId);
   const kind = book.writingFormat === 'issue' ? 'Issue' : 'Book';
+  const creatorPartyLead = scarceRowPartyLead({
+    mediumKind: 'writing',
+    writingFormat: book.writingFormat,
+  });
 
   return (
     <OsHugSheet
@@ -96,12 +101,13 @@ export function PortfolioBookSheet({
             />
           </Link>
           <div className="collection-meta-copy">
+            <span className="drops-discovery-lead">{creatorPartyLead}</span>
             <Link
               href={creatorHref}
               scroll={false}
               className="collection-meta-creator-name"
             >
-              by {name}
+              {name}
             </Link>
             <div className="collection-meta-sub">
               <Link

@@ -51,9 +51,9 @@ describe('holdingsActionLabel', () => {
 describe('holdingsKindLabel', () => {
   it('uses market medium labels', () => {
     expect(holdingsKindLabel('writing')).toBe('Writing');
-    expect(holdingsKindLabel('thought')).toBe('Thoughts');
+    expect(holdingsKindLabel('thought')).toBe('Thought');
     expect(holdingsKindLabel('video')).toBe('Video');
-    expect(holdingsKindLabel('ticket')).toBe('Tickets');
+    expect(holdingsKindLabel('ticket')).toBe('Ticket');
     expect(holdingsKindLabel(null)).toBe('Collectible');
   });
 });
@@ -87,14 +87,14 @@ describe('toPortfolioHoldingPeek', () => {
     expect(peek.actionLabel).toBe('Play');
   });
 
-  it('infers post scarces as Thoughts from token id', () => {
+  it('infers post scarces as Thought from token id', () => {
     const peek = toPortfolioHoldingPeek({
       tokenId: 's:vote-1',
       title: 'I voted!',
       ownerId: 'alice.near',
       listingKind: null,
     });
-    expect(peek.kindLabel).toBe('Thoughts');
+    expect(peek.kindLabel).toBe('Thought');
     expect(peek.actionLabel).toBe('Open');
   });
 
@@ -108,7 +108,7 @@ describe('toPortfolioHoldingPeek', () => {
     expect(peek.kindLabel).toBe('Collectible');
   });
 
-  it('does not infer Thoughts from sourcePostPath on drop editions', () => {
+  it('keeps Thought labels on thought drop editions', () => {
     const peek = toPortfolioHoldingPeek({
       tokenId: 'lazy-fixture:1',
       title: 'Lazy Fixture NFT',
@@ -118,7 +118,7 @@ describe('toPortfolioHoldingPeek', () => {
       sourcePostPath: 'alice.near/post/99',
       listingKind: null,
     });
-    expect(peek.kindLabel).toBe('Collectible');
+    expect(peek.kindLabel).toBe('Thought');
   });
 
   it('keeps creator and edition seat on the peek', () => {

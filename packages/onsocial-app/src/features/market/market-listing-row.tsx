@@ -24,6 +24,7 @@ import {
   marketPostLayerLinkHandlers,
   useMarketPostLayer,
 } from '@/features/market/market-post-layer';
+import { scarceRowPartyLead } from '@/lib/scarce-row-kind';
 
 interface MarketListingRowProps {
   item: MarketListingItem;
@@ -253,7 +254,7 @@ export function MarketListingRow({
               accountId={sellerId}
               displayName={item.creatorDisplayName}
               avatarUrl={item.creatorAvatarUrl}
-              lead="listed by"
+              lead={scarceRowPartyLead({}, { role: 'listed' })}
             />
             <p className="market-listing-meta market-listing-meta--price">
               <span className="market-listing-price">

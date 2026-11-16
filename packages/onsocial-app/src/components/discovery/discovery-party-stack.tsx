@@ -9,7 +9,7 @@ import { fallbackLabel } from '@/lib/profile-display';
 /**
  * Creator party chrome for Market / Drops catalog rows —
  * avatar beside the name, @handle under it.
- * “by” / “bought by” sit above the face, in line with the title.
+ * Quiet lead (“Album by” / “Listed by”) sits above the face, in line with the title.
  * Use `link={false}` when nested inside a row that is already a link.
  */
 export function DiscoveryPartyStack({
@@ -23,21 +23,14 @@ export function DiscoveryPartyStack({
   displayName?: string | null;
   avatarUrl?: string | null;
   /** Quiet line above the face. `false` leaves the name alone. */
-  lead?: 'by' | 'bought by' | 'listed by' | false;
+  lead?: string | false;
   /** Portfolio link. Off when the row itself is the only hit target. */
   link?: boolean;
 }) {
   const href = portfolioPath(accountId);
   const handle = fallbackLabel(accountId);
   const name = collectionCreatorNameLine(accountId, profileDisplayName);
-  const leadText =
-    lead === 'listed by'
-      ? 'Listed by'
-      : lead === 'bought by'
-        ? 'Bought by'
-        : lead
-          ? lead
-          : null;
+  const leadText = lead || null;
   const className = `drops-discovery-party${leadText ? ' drops-discovery-party--lead' : ''}`;
   const face = (
     <>

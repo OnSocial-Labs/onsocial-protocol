@@ -31,8 +31,8 @@ import {
   formatMarketRelativeTime,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
-import { marketMediumLabel } from '@/features/market/market-medium';
 import { CollectiblesPlaySkeleton } from '@/features/collectibles/collectibles-play-skeleton';
+import { scarceRowPartyLead } from '@/lib/scarce-row-kind';
 import { OsRowAction } from '@/lib/os-row-action';
 import { socialTimeProps } from '@/lib/post-display';
 import {
@@ -346,7 +346,11 @@ export function CollectiblesPlayPanel({
       ? 'Access details'
       : '') ||
     (aboutHasMore ? 'About' : '');
-  const kindLabel = marketMediumLabel(view?.kind);
+  const creatorPartyLead = scarceRowPartyLead({
+    mediumKind: view?.kind,
+    audioFormat: view?.audioFormat ?? null,
+    writingFormat: view?.writingFormat ?? null,
+  });
   const releasedRel =
     view && view.createdAtMs > 0
       ? formatMarketRelativeTime(view.createdAtMs)
@@ -588,12 +592,13 @@ export function CollectiblesPlayPanel({
                   />
                 </Link>
                 <div className="collection-meta-copy">
+                  <span className="drops-discovery-lead">{creatorPartyLead}</span>
                   <Link
                     href={portfolioPath(view.creatorId)}
                     scroll={false}
                     className="collection-meta-creator-name"
                   >
-                    by {creatorNameLine}
+                    {creatorNameLine}
                   </Link>
                   <div className="collection-meta-sub">
                     <Link
@@ -603,16 +608,6 @@ export function CollectiblesPlayPanel({
                     >
                       @{fallbackLabel(view.creatorId)}
                     </Link>
-                    {kindLabel ? (
-                      <>
-                        <span className="collection-meta-sep" aria-hidden>
-                          ·
-                        </span>
-                        <span className="collectibles-play-kind">
-                          {kindLabel}
-                        </span>
-                      </>
-                    ) : null}
                     {releasedRel ? (
                       <>
                         <span className="collection-meta-sep" aria-hidden>

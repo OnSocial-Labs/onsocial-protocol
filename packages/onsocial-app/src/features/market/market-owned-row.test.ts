@@ -57,7 +57,7 @@ describe('owned listing clock', () => {
     expect(ownedAuthorAccountId({})).toBe('');
   });
 
-  it('puts by, then the author, above the price line', () => {
+  it('puts the kind stamp, then the author, above the price line', () => {
     const source = readFileSync(join(here, 'market-owned-row.tsx'), 'utf8');
     const titleAt = source.indexOf('market-listing-title');
     const partyAt = source.indexOf('<DiscoveryPartyStack');
@@ -65,7 +65,7 @@ describe('owned listing clock', () => {
     expect(titleAt).toBeGreaterThan(-1);
     expect(partyAt).toBeGreaterThan(titleAt);
     expect(priceAt).toBeGreaterThan(partyAt);
-    expect(source).toContain('lead="by"');
+    expect(source).toContain('scarceRowPartyLead');
     expect(source).toContain('drops-discovery-head-trail');
     expect(source).not.toContain('trigger="label"');
   });

@@ -29,6 +29,7 @@ import { ActionDrawer } from '@/components/ui/action-drawer';
 import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
+import { scarceRowPartyLead } from '@/lib/scarce-row-kind';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
@@ -194,6 +195,7 @@ function EventRow({
               accountId={item.creatorId}
               displayName={item.creatorDisplayName}
               avatarUrl={item.creatorAvatarUrl}
+              lead={scarceRowPartyLead({}, { voice: 'event' })}
             />
             {dealParts.length > 0 || guestLabel ? (
               <div className="drops-discovery-deal">

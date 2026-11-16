@@ -1932,10 +1932,9 @@ describe('signed-out wallet picker', () => {
     await act(async () => {
       buyPicker.resolve(signingWallet('bob.near'));
     });
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(collectText(renderer!.root)).toContain(title);
+    await expect
+      .poll(() => collectText(renderer!.root), { interval: 20, timeout: 3000 })
+      .toContain(title);
     expect(collectText(renderer!.root)).toContain(
       'Tap Buy · 1 NEAR again to continue.'
     );
@@ -1973,10 +1972,9 @@ describe('signed-out wallet picker', () => {
     await act(async () => {
       listPicker.resolve(signingWallet('bob.near'));
     });
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(collectText(renderer!.root)).toContain(title);
+    await expect
+      .poll(() => collectText(renderer!.root), { interval: 20, timeout: 3000 })
+      .toContain(title);
     expect(collectText(renderer!.root)).toContain(
       'Tap Create Drop again to continue.'
     );
@@ -2042,10 +2040,9 @@ describe('signed-out wallet picker', () => {
     await act(async () => {
       offerPicker.resolve(signingWallet('bob.near'));
     });
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(collectText(renderer!.root)).toContain(title);
+    await expect
+      .poll(() => collectText(renderer!.root), { interval: 20, timeout: 3000 })
+      .toContain(title);
     expect(collectText(renderer!.root)).toContain(
       'Tap Accept · 1 NEAR again to continue.'
     );

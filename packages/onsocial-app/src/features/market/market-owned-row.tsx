@@ -31,6 +31,7 @@ import {
   holdingsHrefForOwned,
 } from '@/lib/portfolio-holdings';
 import { OsRowAction } from '@/lib/os-row-action';
+import { scarceRowPartyLead } from '@/lib/scarce-row-kind';
 
 interface MarketOwnedRowProps {
   item: OwnedScarceItem;
@@ -266,7 +267,10 @@ export function MarketOwnedRow({
                 accountId={authorId}
                 displayName={authorDisplayName}
                 avatarUrl={authorAvatarUrl}
-                lead="by"
+                lead={scarceRowPartyLead({
+                  mediumKind: item.mediumKind,
+                  audioFormat: item.audioFormat ?? null,
+                })}
               />
             ) : null}
             <p className="market-listing-meta market-listing-meta--price">
