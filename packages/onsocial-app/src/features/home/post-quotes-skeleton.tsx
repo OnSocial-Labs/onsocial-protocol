@@ -3,12 +3,14 @@
 import { GUILDS_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { PostRowSkeleton } from '@/features/home/post-skeleton';
 
+export type PostQuotesTrackSkeletonProps = {
+  activeTab?: 'quotes' | 'reposts';
+};
+
 /** Inert Quotes / Reposts track — same toolbar seat as the ready screen. */
 export function PostQuotesTrackSkeleton({
   activeTab = 'quotes',
-}: {
-  activeTab?: 'quotes' | 'reposts';
-} = {}) {
+}: PostQuotesTrackSkeletonProps) {
   return (
     <div
       className="app-storage-mode-toggle post-quotes-track"
@@ -31,8 +33,14 @@ export function PostQuotesTrackSkeleton({
   );
 }
 
+export type PostQuotesPageSkeletonProps = {
+  rows?: number;
+};
+
 /** Full-page body — quote rows under Post reach chrome. */
-export function PostQuotesPageSkeleton({ rows = 4 }: { rows?: number } = {}) {
+export function PostQuotesPageSkeleton({
+  rows = 4,
+}: PostQuotesPageSkeletonProps) {
   return (
     <div className={`${GUILDS_PAGE_CLASS} post-quotes-screen`} aria-hidden>
       <PostRowSkeleton rows={rows} />
