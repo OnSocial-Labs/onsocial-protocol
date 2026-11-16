@@ -263,7 +263,7 @@ test.describe('collectibles shell', () => {
     const gateRow = page
       .locator('.collectibles-holding-row')
       .filter({ hasText: 'Gate Pass' });
-    await expect(gateRow).toContainText('Tickets');
+    await expect(gateRow).toContainText('Ticket');
     await expect(
       gateRow.getByRole('button', { name: 'Show pass Gate Pass' })
     ).toBeVisible();
