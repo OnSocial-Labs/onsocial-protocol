@@ -28084,9 +28084,13 @@ a.os-surface-row,
     line-height: 1.45;
   }
 
-  /* One line box — looking ↔ no-matches swaps must not shove below. */
+  /* One line box — looking ↔ no-matches / reserved → hint must not shove. */
   .market-page-status {
     min-height: calc(var(--os-identity-meta-size, 0.875rem) * 1.45);
+  }
+
+  .market-page-status.is-reserved {
+    visibility: hidden;
   }
 
   .market-page-empty {

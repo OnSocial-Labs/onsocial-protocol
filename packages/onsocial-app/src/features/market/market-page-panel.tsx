@@ -1961,17 +1961,15 @@ export function MarketPagePanel({
   const errorPresentation = listingsError
     ? resolveAppLoadingPresentation('error', { hasPaintedRows })
     : null;
-  // Empty browse + personal band: wait for listings + sales so the status
-  // line and Yours/sales paint together (no shove when the hint arrives).
-  const personalBandReady =
-    listingsReady && (browseListings.length > 0 || sales !== null);
+  // Yours stays independent (vault must not wait on browse/sales). When the
+  // empty-listings hint is still undecided, reserve its line box so it cannot
+  // shove Yours/sales after they paint.
   const showOwnedSection =
     Boolean(viewerAccountId) &&
     owned.length > 0 &&
     !searching &&
     !creatorFilter &&
-    !appFilter &&
-    personalBandReady;
+    !appFilter;
   const showMyOffersSection =
     Boolean(viewerAccountId) &&
     listingsReady &&
@@ -1981,11 +1979,7 @@ export function MarketPagePanel({
     !creatorFilter &&
     !appFilter;
   const showSalesSection =
-    salesRows.length > 0 &&
-    !searching &&
-    !creatorFilter &&
-    !appFilter &&
-    personalBandReady;
+    salesRows.length > 0 && !searching && !creatorFilter && !appFilter;
   const showNoActiveListingsHint =
     status === 'ready' &&
     listingsReady &&
@@ -1996,6 +1990,18 @@ export function MarketPagePanel({
     browseListings.length === 0 &&
     salesRows.length > 0 &&
     !showEmptyBrowse;
+  const reserveNoActiveListingsHint =
+    !showNoActiveListingsHint &&
+    !searching &&
+    !creatorFilter &&
+    !appFilter &&
+    listingFilter === 'all' &&
+    mediumFilter === 'all' &&
+    browseListings.length === 0 &&
+    !showEmptyBrowse &&
+    !listingsFailed &&
+    (showOwnedSection || showSalesSection) &&
+    (!listingsReady || sales === null);
   const creatorEmpty =
     Boolean(creatorFilter) &&
     creatorShopShell === 'empty' &&
@@ -2239,9 +2245,11 @@ export function MarketPagePanel({
           </div>
         ) : null}
 
-        {showNoActiveListingsHint ? (
-          <CatalogStatusLine>
-            {emptyCopy.noActiveListingsSalesBelow}
+        {showNoActiveListingsHint || reserveNoActiveListingsHint ? (
+          <CatalogStatusLine reserved={reserveNoActiveListingsHint}>
+            {showNoActiveListingsHint
+              ? emptyCopy.noActiveListingsSalesBelow
+              : null}
           </CatalogStatusLine>
         ) : null}
 

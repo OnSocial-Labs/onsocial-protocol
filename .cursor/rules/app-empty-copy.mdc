@@ -12,7 +12,7 @@ globs: packages/onsocial-app/**/*.{ts,tsx}
 
 ## Stable first paint
 
-When a status line can appear above a personal band (Market Yours / sales), wait until browse + sales settle so the hint and that band paint together. Morph looking → no matches in the same `CatalogStatusLine` slot — do not leave an invisible reserved gap when the hint will never show.
+Paint personal bands as soon as their data is ready (Market Yours stays independent of browse). If an empty-browse hint may still arrive above that band, reserve the `CatalogStatusLine` box — do not delay the band. Morph looking → no matches in the same slot. Do not leave a reserved gap when the hint will never show.
 
 ## Voice
 
@@ -23,4 +23,4 @@ Shared universals live in `@/lib/empty-copy` (`noMatches`, `nothingHereYet`, …
 - Slap a decorative Mage glyph (e.g. cup-hot) on every empty
 - Turn status hints into hero empty cards when content continues below
 - Hand-roll underlined recovery links — use `OsEmptyAction`
-- Mount Yours/sales before the empty-browse status decision when that would shove them down
+- Block Yours / vault paint on browse or sales RPC just to avoid CLS
