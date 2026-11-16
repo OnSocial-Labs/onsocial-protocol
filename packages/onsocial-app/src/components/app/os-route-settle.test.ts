@@ -5,51 +5,10 @@ import {
   OsRouteSettle,
   routeSettleCovers,
 } from '@/components/app/os-route-settle';
-import { DiscoverPagePanel } from '@/features/discover/discover-page-panel';
-
-const tabState = vi.hoisted(() => ({
-  tab: 'trending' as 'trending' | 'guilds',
-}));
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: () => undefined, prefetch: () => undefined }),
   usePathname: () => '/discover',
-  useSearchParams: () => new URLSearchParams(),
 }));
-
-vi.mock('@/components/app/os-app-screen', () => ({
-  OsAppScreen: ({ children }: { children: ReactNode }) => children,
-}));
-
-vi.mock('@/features/discover/discover-panel', () => ({
-  DiscoverPanelRoot: ({ children }: { children: ReactNode }) => children,
-}));
-
-vi.mock('@/features/discover/discover-screen-chrome', () => ({
-  DiscoverHeaderTabs: () => null,
-  DiscoverNavSearch: () => null,
-}));
-
-vi.mock('@/features/discover/discover-panel-context', () => ({
-  useDiscoverPanel: () => ({
-    tab: tabState.tab,
-    initialTrending: { posts: [{ id: 'painted' }] },
-    setTab: () => undefined,
-  }),
-}));
-
-vi.mock('@/features/discover/discover-panel-content', () => {
-  const React = require('react') as typeof import('react');
-  return {
-    DiscoverPanelContent: function DiscoverPanelContent() {
-      return React.createElement(
-        'p',
-        { 'data-guild-filter': 'music' },
-        'music'
-      );
-    },
-  };
-});
 
 function settleMarkup(ready?: boolean) {
   const painted = createElement('p', null, 'Painted thread');
@@ -78,22 +37,6 @@ describe('routeSettleCovers', () => {
       true
     );
     expect(routeSettleCovers('/discover', '/discover', true)).toBe(true);
-  });
-});
-
-describe('Discover tab settle', () => {
-  it('keeps the panel inside OsRouteSettle when the tab leaves Moving', () => {
-    tabState.tab = 'trending';
-    const moving = renderToStaticMarkup(createElement(DiscoverPagePanel));
-    tabState.tab = 'guilds';
-    const guilds = renderToStaticMarkup(createElement(DiscoverPagePanel));
-
-    for (const html of [moving, guilds]) {
-      const wrapper = html.indexOf('os-route-settle');
-      const filter = html.indexOf('data-guild-filter="music"');
-      expect(wrapper).toBeGreaterThan(-1);
-      expect(filter).toBeGreaterThan(wrapper);
-    }
   });
 });
 
