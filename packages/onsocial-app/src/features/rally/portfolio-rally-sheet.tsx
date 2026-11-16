@@ -9,6 +9,7 @@ import {
   osGestureSheetBodyClassName,
   useScrollLock,
 } from '@onsocial/ui';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { SheetChromeHeader } from '@/components/panels/sheet-chrome-header';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -419,7 +420,8 @@ export function PortfolioRallySheet({
         {!player.loaded ? (
           <RallySheetLoadingSkeleton />
         ) : (
-          <div className="portfolio-rally-view">
+          <OsPageBodyAppear>
+            <div className="portfolio-rally-view">
             {view.body ? (
               <p className="portfolio-boost-intro">{view.body}</p>
             ) : null}
@@ -453,7 +455,8 @@ export function PortfolioRallySheet({
                 </button>
               </>
             ) : null}
-          </div>
+            </div>
+          </OsPageBodyAppear>
         )}
       </GlassSheet>
 

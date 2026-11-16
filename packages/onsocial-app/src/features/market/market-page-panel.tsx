@@ -14,6 +14,7 @@ import {
   ProtocolMotionArrow,
   StarMovingFillIcon,
 } from '@onsocial/ui';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -2206,6 +2207,8 @@ export function MarketPagePanel({
           />
         ) : null}
 
+        {!showListSkeleton ? (
+          <OsPageBodyAppear>
         {showEmptyBrowse ? (
           <div className="market-page-empty">
             <p className="market-page-empty-copy">
@@ -2585,6 +2588,8 @@ export function MarketPagePanel({
               </OsLoadMore>
             ) : null}
           </section>
+        ) : null}
+          </OsPageBodyAppear>
         ) : null}
       </div>
 

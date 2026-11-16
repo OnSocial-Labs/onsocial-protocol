@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import type { GroupBannedRow, GroupMemberRow } from '@onsocial/sdk';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
@@ -172,39 +173,43 @@ export function GuildMembersRoster({
       >
         {showListSkeleton ? (
           <ProfileSocialListSkeleton rowVariant="guild-member" />
-        ) : null}
+        ) : (
+          <OsPageBodyAppear>
+            {showEmptyState ? (
+              <div
+                className={`standing-panel-empty-block${
+                  query.trim() ? ' is-search' : ''
+                }`}
+              >
+                <div className="standing-panel-empty-state">
+                  <p className="standing-panel-empty-primary">
+                    {emptyCopy.primary}
+                  </p>
+                  {emptyCopy.secondary ? (
+                    <p className="standing-panel-empty-secondary">
+                      {emptyCopy.secondary}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
 
-        {showEmptyState ? (
-          <div
-            className={`standing-panel-empty-block${
-              query.trim() ? ' is-search' : ''
-            }`}
-          >
-            <div className="standing-panel-empty-state">
-              <p className="standing-panel-empty-primary">{emptyCopy.primary}</p>
-              {emptyCopy.secondary ? (
-                <p className="standing-panel-empty-secondary">
-                  {emptyCopy.secondary}
-                </p>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-
-        {showMemberList ? (
-          <GuildMemberList
-            groupId={groupId}
-            members={filteredMembers}
-            profiles={profiles}
-            pendingRolesByMemberId={
-              listMode === 'banned' ? undefined : pendingRolesByMemberId
-            }
-            manageContext={manageContext}
-            listMode={listMode}
-            onMembersChanged={onMembersChanged}
-            onAddStorage={onAddStorage}
-          />
-        ) : null}
+            {showMemberList ? (
+              <GuildMemberList
+                groupId={groupId}
+                members={filteredMembers}
+                profiles={profiles}
+                pendingRolesByMemberId={
+                  listMode === 'banned' ? undefined : pendingRolesByMemberId
+                }
+                manageContext={manageContext}
+                listMode={listMode}
+                onMembersChanged={onMembersChanged}
+                onAddStorage={onAddStorage}
+              />
+            ) : null}
+          </OsPageBodyAppear>
+        )}
       </div>
     </div>
   );

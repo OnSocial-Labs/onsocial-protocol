@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import {
   LauncherHomeEmpty,
   LauncherHomeError,
@@ -28,7 +29,7 @@ export function LauncherHomeSection({
 }
 
 /**
- * Membership rail status: logged out → error → loading → empty → children (rail).
+ * Membership rail status: logged out → loading → soft-appear (error / empty / children).
  * Keeps the three Homes on one state order without a shared data layer.
  */
 export function LauncherHomeMineStatus({
@@ -58,19 +59,23 @@ export function LauncherHomeMineStatus({
   if (!connected) {
     return <LauncherHomeEmpty>{emptyLoggedOut}</LauncherHomeEmpty>;
   }
-  if (error) {
-    return onRetry ? (
-      <LauncherHomeError message={error} onRetry={onRetry} />
-    ) : (
-      <LauncherHomeEmpty>{error}</LauncherHomeEmpty>
-    );
-  }
   if (loading) {
     if (loadingSkeleton) return <>{loadingSkeleton}</>;
     return <LauncherHomeEmpty>{loadingLabel}</LauncherHomeEmpty>;
   }
-  if (!hasItems) {
-    return <LauncherHomeEmpty>{emptyNone}</LauncherHomeEmpty>;
-  }
-  return <>{children}</>;
+  return (
+    <OsPageBodyAppear>
+      {error ? (
+        onRetry ? (
+          <LauncherHomeError message={error} onRetry={onRetry} />
+        ) : (
+          <LauncherHomeEmpty>{error}</LauncherHomeEmpty>
+        )
+      ) : !hasItems ? (
+        <LauncherHomeEmpty>{emptyNone}</LauncherHomeEmpty>
+      ) : (
+        children
+      )}
+    </OsPageBodyAppear>
+  );
 }

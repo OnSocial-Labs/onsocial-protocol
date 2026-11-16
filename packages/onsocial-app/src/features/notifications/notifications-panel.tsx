@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { Notification } from '@onsocial/sdk';
 import { OsAppChromePage, OsAppChromePageStatus } from '@onsocial/ui';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
@@ -681,37 +682,44 @@ export function NotificationsPanel() {
 
         {items == null || showActivitySkeleton ? (
           <NotificationActivitySkeleton />
-        ) : items.length === 0 ? (
-          error ? null : (
-            <OsAppChromePageStatus>
-              {tab === 'mentions' ? 'No mentions yet.' : 'No activity yet.'}
-            </OsAppChromePageStatus>
-          )
         ) : (
-          <>
-            <NotificationActivityRows
-              items={items}
-              profiles={profiles}
-              guildNames={guildNames}
-              collectionNames={collectionNames}
-              postSnippets={postSnippets}
-              onOpen={openItem}
-              refreshing={showActivityRefreshing}
-            />
-            {showAppendSkeleton ? <NotificationActivityAppendSkeleton /> : null}
-            {nextCursor ? (
-              <div
-                ref={loadMoreSentinelRef}
-                className="notifications-load-sentinel"
-                aria-hidden="true"
-              />
-            ) : null}
-          </>
-        )}
+          <OsPageBodyAppear>
+            {items.length === 0 ? (
+              error ? null : (
+                <OsAppChromePageStatus>
+                  {tab === 'mentions' ? 'No mentions yet.' : 'No activity yet.'}
+                </OsAppChromePageStatus>
+              )
+            ) : (
+              <>
+                <NotificationActivityRows
+                  items={items}
+                  profiles={profiles}
+                  guildNames={guildNames}
+                  collectionNames={collectionNames}
+                  postSnippets={postSnippets}
+                  onOpen={openItem}
+                  refreshing={showActivityRefreshing}
+                />
+                {showAppendSkeleton ? (
+                  <NotificationActivityAppendSkeleton />
+                ) : null}
+                {nextCursor ? (
+                  <div
+                    ref={loadMoreSentinelRef}
+                    className="notifications-load-sentinel"
+                    aria-hidden="true"
+                  />
+                ) : null}
+              </>
+            )}
 
-        <p className="notifications-panel-footnote">
-          Private messages live in <Link href={messagesPath()}>Messages</Link>.
-        </p>
+            <p className="notifications-panel-footnote">
+              Private messages live in{' '}
+              <Link href={messagesPath()}>Messages</Link>.
+            </p>
+          </OsPageBodyAppear>
+        )}
       </>
     );
   } else if (authPending) {
