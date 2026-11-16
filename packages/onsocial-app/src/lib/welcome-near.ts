@@ -4,12 +4,10 @@ import {
   chooseSessionKeyAllowanceYocto,
   WELCOME_NEAR_THRESHOLD_YOCTO,
 } from '@/lib/app-session-sponsor';
+import { txToastSession } from '@/lib/transaction-toast-copy';
 
 const BALANCE_POLL_DELAYS_MS = [500, 1_000, 2_000, 3_000, 5_000] as const;
 const REQUEST_TIMEOUT_MS = 30_000;
-
-const SESSION_SETUP_FAILED =
-  'Session setup did not finish. Try connecting again.';
 
 interface WelcomeNearResponse {
   success?: boolean;
@@ -66,11 +64,11 @@ export async function fundAppSessionIfNeeded(accountId: string): Promise<void> {
     });
     data = (await response.json()) as WelcomeNearResponse;
     if (!response.ok || data.success === false) {
-      throw new Error(data.error ?? data.detail ?? SESSION_SETUP_FAILED);
+      throw new Error(data.error ?? data.detail ?? txToastSession.failed);
     }
   } catch (error) {
     console.warn('App session sponsor failed', error);
-    throw new Error(SESSION_SETUP_FAILED);
+    throw new Error(txToastSession.failed);
   }
 
   if (data.enabled === false || data.sufficient_balance || !data.dripped) {
@@ -79,7 +77,7 @@ export async function fundAppSessionIfNeeded(accountId: string): Promise<void> {
 
   const funded = await waitForSponsorBalance(accountId);
   if (!funded) {
-    throw new Error(SESSION_SETUP_FAILED);
+    throw new Error(txToastSession.failed);
   }
 }
 
