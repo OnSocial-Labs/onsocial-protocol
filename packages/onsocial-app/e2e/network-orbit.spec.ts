@@ -3,6 +3,7 @@ import { ENDORSE_E2E_ACCOUNT } from './helpers/endorse-compose-voice';
 import { seedE2eMockSigner } from './helpers/e2e-mock-signer';
 import {
   dismissNextDevOverlay,
+  expectPortfolioIdentityOrSkip,
   gotoApp,
   softOpenPortfolioOverlay,
   waitForPortfolioClientReady,
@@ -226,16 +227,11 @@ test.describe('network orbit', () => {
     await stubNetworkOrbitSearch(page);
     await gotoApp(page, `/@${ENDORSE_E2E_ACCOUNT}`);
     await waitForPortfolioClientReady(page);
-
-    const missing = page.getByRole('heading', { name: 'Account not found' });
-    const identity = page.locator('.portfolio-identity');
-    if (
-      (await missing.isVisible().catch(() => false)) &&
-      !(await identity.isVisible().catch(() => false))
-    ) {
-      test.skip(true, `Portfolio account ${ENDORSE_E2E_ACCOUNT} not found`);
-    }
-    await expect(identity).toBeVisible({ timeout: 10_000 });
+    await expectPortfolioIdentityOrSkip(page, ENDORSE_E2E_ACCOUNT);
+    // Soft-nav can leave a loading-shell identity under [id="S:0"] for a beat.
+    await expect(
+      page.getByRole('main').locator('.portfolio-identity')
+    ).toHaveCount(1, { timeout: 15_000 });
     await dismissNextDevOverlay(page);
 
     await openStandingSheet(page);
@@ -286,10 +282,13 @@ test.describe('network orbit', () => {
       timeout: 10_000,
     });
 
-    await page.getByRole('link', { name: 'View all' }).click();
-    await expect(page).toHaveURL(
-      new RegExp(`/@${ENDORSE_E2E_ACCOUNT}/standing/incoming\\?q=bo`)
-    );
+    const viewAll = page.getByRole('link', { name: 'View all' });
+    await Promise.all([
+      page.waitForURL(
+        new RegExp(`/@${ENDORSE_E2E_ACCOUNT}/standing/incoming\\?q=bo`)
+      ),
+      viewAll.click(),
+    ]);
     await expect(
       page.getByRole('button', { name: 'Close Standing' })
     ).toBeVisible({ timeout: 15_000 });
