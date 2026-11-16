@@ -3636,9 +3636,16 @@ a.os-surface-row,
  * Route skeleton leaves with the same fade as page sheets
  * (`glass-sheet-appear`, --os-motion-appear). A held body uses
  * `.os-page-body-appear` so thread replies still fade in after it.
+ * Flex stretch matches that appear wrapper so nested scroll (quotes)
+ * stays height-capped through this seat.
  */
 .os-route-settle {
   position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
 }
 
 .os-route-skeleton {
