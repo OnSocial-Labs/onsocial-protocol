@@ -109,10 +109,12 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     appending: 'Append PostRowSkeleton rows',
     empty: 'Guild state card',
     error: 'Guild state card with retry',
-    routeFallback: 'preserve-shell',
+    routeFallback: 'shell-skeleton',
     implementationFiles: [
+      'features/guilds/guild-page-route-loading.tsx',
       'features/guilds/live-guild-panel.tsx',
       'features/guilds/guild-page-hero.tsx',
+      'app/(app)/groups/[groupId]/loading.tsx',
     ],
   },
   {

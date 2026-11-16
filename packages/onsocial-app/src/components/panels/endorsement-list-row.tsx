@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { standingIdentityLabel } from '@onsocial/ui';
 import { StandingIdentity } from '@/components/profile/standing-identity';
-import { PostMediaStrip } from '@/features/home/post-media';
+import { EndorsementMediaStrip } from '@/components/panels/endorsement-media-strip';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import type { EndorsementPanelItem } from '@/lib/endorsements-panel-data';
 import {
@@ -86,7 +86,7 @@ export function EndorsementListRow({
           {note ? <span className="endorsement-row-note">{note}</span> : null}
           {stageMedia ? (
             <span className="endorsement-row-media">
-              <PostMediaStrip items={[stageMedia]} size="compact" />
+              <EndorsementMediaStrip item={stageMedia} size="compact" />
             </span>
           ) : null}
           <span className="endorsement-row-meta">
