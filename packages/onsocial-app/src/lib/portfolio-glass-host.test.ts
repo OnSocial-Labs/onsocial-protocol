@@ -145,6 +145,30 @@ describe('shouldMountPortfolioGlassHost', () => {
     ).toBe(true);
   });
 
+  it('mounts face-peek soft intercept while children still name the peek', () => {
+    expect(
+      shouldMountPortfolioGlassHost({
+        pathname: '/@alice.testnet/endorsements',
+        layoutSegments: ['endorsements'],
+        overlaySlotMode: 'intercept',
+      })
+    ).toBe(true);
+    expect(
+      shouldMountPortfolioGlassHost({
+        pathname: '/@alice.testnet/standing/incoming',
+        layoutSegments: ['standing', 'incoming'],
+        overlaySlotMode: 'intercept',
+      })
+    ).toBe(true);
+    expect(
+      shouldMountPortfolioGlassHost({
+        pathname: '/@alice.testnet/endorsements',
+        layoutSegments: ['endorsements'],
+        overlaySlotMode: 'idle',
+      })
+    ).toBe(false);
+  });
+
   it('does not mount for collectibles PanelPage vault', () => {
     expect(
       shouldMountPortfolioGlassHost({

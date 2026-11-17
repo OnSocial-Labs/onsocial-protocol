@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { useSyncExternalStore } from 'react';
+import { OverlayInterceptRoot } from '@/components/overlay/overlay-intercept-root';
 import { PortfolioAboutOverlayLoading } from '@/components/portfolio/portfolio-about-route-loading';
 import { PortfolioWritingOverlayLoading } from '@/components/portfolio/portfolio-writing-route-loading';
 import { EndorsementsSheetOpening } from '@/components/panels/endorsements-sheet-opening';
@@ -34,6 +35,8 @@ function isDiscoverOverlay(pathname: string): boolean {
 /**
  * Paint cold shells for overlays we can identify from the path. Other slots
  * stay empty so a shared fallback cannot flash over an unrelated profile.
+ * Wrap in OverlayInterceptRoot so the glass host treats loading as intercept
+ * (face peeks need that while children briefly match the peek segment).
  */
 export default function OverlayLoading() {
   const pathname = usePathname() ?? '';
@@ -42,9 +45,27 @@ export default function OverlayLoading() {
     getPortfolioShelfHopSnapshot,
     getPortfolioShelfHopServerSnapshot
   );
-  if (pathname.includes('/standing/')) return <StandingSheetOpening />;
-  if (isEndorsementsOverlay(pathname)) return <EndorsementsSheetOpening />;
-  if (isDiscoverOverlay(pathname)) return <DiscoverSheetOpening />;
+  if (pathname.includes('/standing/')) {
+    return (
+      <OverlayInterceptRoot>
+        <StandingSheetOpening />
+      </OverlayInterceptRoot>
+    );
+  }
+  if (isEndorsementsOverlay(pathname)) {
+    return (
+      <OverlayInterceptRoot>
+        <EndorsementsSheetOpening />
+      </OverlayInterceptRoot>
+    );
+  }
+  if (isDiscoverOverlay(pathname)) {
+    return (
+      <OverlayInterceptRoot>
+        <DiscoverSheetOpening />
+      </OverlayInterceptRoot>
+    );
+  }
   if (isWritingShelfOverlay(pathname)) {
     const accountId = accountIdFromPath(pathname);
     if (!accountId) return null;
@@ -54,12 +75,20 @@ export default function OverlayLoading() {
     ) {
       return null;
     }
-    return <PortfolioWritingOverlayLoading accountId={accountId} />;
+    return (
+      <OverlayInterceptRoot>
+        <PortfolioWritingOverlayLoading accountId={accountId} />
+      </OverlayInterceptRoot>
+    );
   }
   if (isAboutOverlay(pathname)) {
     const accountId = accountIdFromPath(pathname);
     if (!accountId) return null;
-    return <PortfolioAboutOverlayLoading accountId={accountId} />;
+    return (
+      <OverlayInterceptRoot>
+        <PortfolioAboutOverlayLoading accountId={accountId} />
+      </OverlayInterceptRoot>
+    );
   }
   return null;
 }

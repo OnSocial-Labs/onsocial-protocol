@@ -46,7 +46,17 @@ export function shouldMountPortfolioGlassHost(input: {
     const underlay = input.layoutSegments[0] ?? '';
     const pathIsUnderlay =
       panelKey === underlay || panelKey.startsWith(`${underlay}:`);
-    if (pathIsUnderlay || input.overlaySlotMode !== 'intercept') {
+    // Face peeks hard-redirect on the children route. Soft open can briefly
+    // keep that segment while @overlay/loading (or the intercept page) is
+    // active — still mount glass so `.endorsements-panel` / `.standing-panel`
+    // can paint. Hard refresh stays idle + underlay → no glass.
+    const facePeek =
+      panelKey === 'endorsements' || panelKey.startsWith('standing:');
+    if (
+      (pathIsUnderlay &&
+        !(facePeek && input.overlaySlotMode === 'intercept')) ||
+      (!pathIsUnderlay && input.overlaySlotMode !== 'intercept')
+    ) {
       return false;
     }
   }
