@@ -47,7 +47,9 @@ function ProfileSectionLockHarness({
     reposts: 0,
   });
   const fetchRef = useRef(fetchSection);
-  fetchRef.current = fetchSection;
+  useEffect(() => {
+    fetchRef.current = fetchSection;
+  }, [fetchSection]);
 
   useEffect(() => {
     if (started[tab]) return;

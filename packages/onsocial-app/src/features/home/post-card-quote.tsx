@@ -339,7 +339,7 @@ export function QuoteThumbTile({
   ]
     .filter(Boolean)
     .join(' ');
-  const videoSettle = feedMediaVideoSettleHandlers(markResolved);
+  const videoSettle = feedMediaVideoSettleHandlers(markResolved, remember);
   return (
     <span
       className="post-card-quote-thumb-cell"
@@ -371,11 +371,6 @@ export function QuoteThumbTile({
             {...(item.posterUrl ? { poster: item.posterUrl } : {})}
             className={mediaClassName}
             {...videoSettle}
-            onLoadedMetadata={(event) => {
-              const video = event.currentTarget;
-              remember(video.videoWidth, video.videoHeight);
-              videoSettle.onLoadedMetadata(event);
-            }}
           />
         ) : null
       ) : (

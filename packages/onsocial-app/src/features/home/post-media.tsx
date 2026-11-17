@@ -575,11 +575,7 @@ function PostVisualMediaBlock({
     setMeasuredRatio(lookupFeedMediaRatio(item.url));
   }
   const tileNodeRef = useRef<HTMLElement | null>(null);
-  const seatAnchorRef = useRef<
-    | { mode: 'height'; height: number }
-    | { mode: 'top'; top: number }
-    | null
-  >(null);
+  const seatAnchorRef = useRef<SeatScrollAnchor | null>(null);
   const mediaUrl = item.url;
 
   const rememberRatio = (width: number, height: number) => {
@@ -676,6 +672,8 @@ function PostVisualMediaBlock({
   const mediaClassName = ['post-media-element', resolved ? 'is-resolved' : '']
     .filter(Boolean)
     .join(' ');
+  // Compose after spread — rememberRatio closes over tile refs; passing it
+  // into the helper would read refs during render (react-hooks/refs).
   const videoSettle = feedMediaVideoSettleHandlers(markResolved);
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
   useEffect(() => {
