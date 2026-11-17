@@ -409,41 +409,39 @@ export function ProfileFeedClient({
 
   return (
     <>
-      <OsPageBodyAppear>
-        {!tab ? (
-          <p className="panel-lead">
-            Public posts from <strong>@{accountId}</strong>
-            {total > posts.length ? ` · showing ${posts.length}` : null}.
-          </p>
-        ) : null}
-        {tab === 'media' ? (
-          <>
-            <PageDrawerMediaGrid posts={visiblePosts} />
-            {mediaFailed ? (
-              <OsLoadMore onClick={loadOlderMedia} pending={mediaPaging}>
-                Show earlier
-              </OsLoadMore>
-            ) : (
-              <div
-                ref={mediaSentinelRef}
-                className="page-drawer-media-sentinel"
-                aria-hidden
-              />
-            )}
-          </>
-        ) : (
-          <PersonalFeedList
-            posts={visiblePosts}
-            includeForeignReplies={tab === 'replies'}
-            onReply={replyHandler}
-            onExpandReply={openFullReply}
-            onQuote={quoteHandler}
-            onRepost={repostHandler}
-            onUndoRepost={undoRepostHandler}
-            className="home-feed-list"
-          />
-        )}
-      </OsPageBodyAppear>
+      {!tab ? (
+        <p className="panel-lead">
+          Public posts from <strong>@{accountId}</strong>
+          {total > posts.length ? ` · showing ${posts.length}` : null}.
+        </p>
+      ) : null}
+      {tab === 'media' ? (
+        <>
+          <PageDrawerMediaGrid posts={visiblePosts} />
+          {mediaFailed ? (
+            <OsLoadMore onClick={loadOlderMedia} pending={mediaPaging}>
+              Show earlier
+            </OsLoadMore>
+          ) : (
+            <div
+              ref={mediaSentinelRef}
+              className="page-drawer-media-sentinel"
+              aria-hidden
+            />
+          )}
+        </>
+      ) : (
+        <PersonalFeedList
+          posts={visiblePosts}
+          includeForeignReplies={tab === 'replies'}
+          onReply={replyHandler}
+          onExpandReply={openFullReply}
+          onQuote={quoteHandler}
+          onRepost={repostHandler}
+          onUndoRepost={undoRepostHandler}
+          className="home-feed-list"
+        />
+      )}
       {tab === 'media' && mediaPaging ? (
         <PageDrawerMediaGridSkeleton cards={2} />
       ) : null}

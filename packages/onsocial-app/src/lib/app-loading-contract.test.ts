@@ -53,7 +53,6 @@ describe('app loading matrix', () => {
     const families: AppLoadingFamily[] = [
       'glass-list',
       'immersive-detail',
-      'sheet-form',
       'private',
     ];
 

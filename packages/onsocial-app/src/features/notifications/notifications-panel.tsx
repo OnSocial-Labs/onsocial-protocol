@@ -682,43 +682,46 @@ export function NotificationsPanel() {
 
         {items == null || showActivitySkeleton ? (
           <NotificationActivitySkeleton />
-        ) : (
-          <OsPageBodyAppear>
-            {items.length === 0 ? (
-              error ? null : (
+        ) : items.length === 0 ? (
+          <>
+            {error ? null : (
+              <OsPageBodyAppear>
                 <OsAppChromePageStatus>
                   {tab === 'mentions' ? 'No mentions yet.' : 'No activity yet.'}
                 </OsAppChromePageStatus>
-              )
-            ) : (
-              <>
-                <NotificationActivityRows
-                  items={items}
-                  profiles={profiles}
-                  guildNames={guildNames}
-                  collectionNames={collectionNames}
-                  postSnippets={postSnippets}
-                  onOpen={openItem}
-                  refreshing={showActivityRefreshing}
-                />
-                {showAppendSkeleton ? (
-                  <NotificationActivityAppendSkeleton />
-                ) : null}
-                {nextCursor ? (
-                  <div
-                    ref={loadMoreSentinelRef}
-                    className="notifications-load-sentinel"
-                    aria-hidden="true"
-                  />
-                ) : null}
-              </>
+              </OsPageBodyAppear>
             )}
-
             <p className="notifications-panel-footnote">
               Private messages live in{' '}
               <Link href={messagesPath()}>Messages</Link>.
             </p>
-          </OsPageBodyAppear>
+          </>
+        ) : (
+          <>
+            <NotificationActivityRows
+              items={items}
+              profiles={profiles}
+              guildNames={guildNames}
+              collectionNames={collectionNames}
+              postSnippets={postSnippets}
+              onOpen={openItem}
+              refreshing={showActivityRefreshing}
+            />
+            {showAppendSkeleton ? (
+              <NotificationActivityAppendSkeleton />
+            ) : null}
+            {nextCursor ? (
+              <div
+                ref={loadMoreSentinelRef}
+                className="notifications-load-sentinel"
+                aria-hidden="true"
+              />
+            ) : null}
+            <p className="notifications-panel-footnote">
+              Private messages live in{' '}
+              <Link href={messagesPath()}>Messages</Link>.
+            </p>
+          </>
         )}
       </>
     );

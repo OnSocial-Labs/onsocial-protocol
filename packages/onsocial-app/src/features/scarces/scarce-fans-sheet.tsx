@@ -212,60 +212,58 @@ export function ScarceFansSheet({
       {headLine ? <p className="scarce-fans-lede">{headLine}</p> : null}
       {showSkeleton ? (
         <ProfileSocialListSkeleton count={skeletonCount} rowVariant="person" />
+      ) : visible && visible.length > 0 ? (
+        <div className="standing-list scarce-fans-standing" ref={listRef}>
+          {windowed && topSpacer > 0 ? (
+            <div
+              style={{ height: topSpacer }}
+              aria-hidden="true"
+              data-feed-window-spacer="top"
+            />
+          ) : null}
+          {visible.slice(start, end).map((account, sliceIndex) => {
+            const index = start + sliceIndex;
+            const isSelf =
+              Boolean(viewerAccountId) &&
+              accountIdsEqual(viewerAccountId!, account.accountId);
+            return (
+              <div
+                key={account.accountId}
+                ref={registerRow(account.accountId)}
+                data-standing-key={account.accountId}
+              >
+                {index > 0 ? <Divider variant="item" /> : null}
+                <ProfileSocialListRow
+                  account={account}
+                  density="person"
+                  standingTimeMode="never"
+                  viewerAccountId={viewerAccountId}
+                  canUpdateStanding={isConnected && !isSelf}
+                  isPending={isStandingPendingForTarget(account.accountId)}
+                  onUpdateStanding={(shouldStand) => {
+                    void handleUpdateStanding(account, shouldStand);
+                  }}
+                />
+              </div>
+            );
+          })}
+          {windowed && bottomSpacer > 0 ? (
+            <div
+              style={{ height: bottomSpacer }}
+              aria-hidden="true"
+              data-feed-window-spacer="bottom"
+            />
+          ) : null}
+        </div>
       ) : (
         <OsPageBodyAppear>
-          {visible && visible.length > 0 ? (
-            <div className="standing-list scarce-fans-standing" ref={listRef}>
-              {windowed && topSpacer > 0 ? (
-                <div
-                  style={{ height: topSpacer }}
-                  aria-hidden="true"
-                  data-feed-window-spacer="top"
-                />
-              ) : null}
-              {visible.slice(start, end).map((account, sliceIndex) => {
-                const index = start + sliceIndex;
-                const isSelf =
-                  Boolean(viewerAccountId) &&
-                  accountIdsEqual(viewerAccountId!, account.accountId);
-                return (
-                  <div
-                    key={account.accountId}
-                    ref={registerRow(account.accountId)}
-                    data-standing-key={account.accountId}
-                  >
-                    {index > 0 ? <Divider variant="item" /> : null}
-                    <ProfileSocialListRow
-                      account={account}
-                      density="person"
-                      standingTimeMode="never"
-                      viewerAccountId={viewerAccountId}
-                      canUpdateStanding={isConnected && !isSelf}
-                      isPending={isStandingPendingForTarget(account.accountId)}
-                      onUpdateStanding={(shouldStand) => {
-                        void handleUpdateStanding(account, shouldStand);
-                      }}
-                    />
-                  </div>
-                );
-              })}
-              {windowed && bottomSpacer > 0 ? (
-                <div
-                  style={{ height: bottomSpacer }}
-                  aria-hidden="true"
-                  data-feed-window-spacer="bottom"
-                />
-              ) : null}
-            </div>
-          ) : (
-            <p className="scarce-fans-empty">
-              {loadError
-                ? errorCopy
-                : searching
-                  ? emptyCopyVoice.noMatches
-                  : emptyCopy}
-            </p>
-          )}
+          <p className="scarce-fans-empty">
+            {loadError
+              ? errorCopy
+              : searching
+                ? emptyCopyVoice.noMatches
+                : emptyCopy}
+          </p>
         </OsPageBodyAppear>
       )}
     </>

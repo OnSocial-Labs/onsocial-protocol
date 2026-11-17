@@ -2014,6 +2014,16 @@ export function MarketPagePanel({
     listingsReady &&
     !listingsFailed &&
     discoveryFilteredListings.length === 0;
+  // Appear XOR list body — empty flex appear must not sit beside windowed lists.
+  const showMarketListBody =
+    discoveryFilteredListings.length > 0 ||
+    showOwnedSection ||
+    showMyOffersSection ||
+    showSalesSection ||
+    loadMoreFailed ||
+    (clientDiscoveryFilterActive &&
+      listingsState.hasMore &&
+      !showEmptyFilter);
 
   const renderBrowseListingRow = (item: MarketListingItem) => {
     const rowKey = marketListingRowKey(item);
@@ -2235,16 +2245,8 @@ export function MarketPagePanel({
         ) : null}
 
         {!showListSkeleton ? (
-          <OsPageBodyAppear>
-        {showEmptyBrowse ? (
-          <div className="market-page-empty">
-            <p className="market-page-empty-copy">
-              {emptyCopy.nothingListedYet}
-            </p>
-            <OsEmptyAction href={APP_DROPS_PATH}>Browse Drops</OsEmptyAction>
-          </div>
-        ) : null}
-
+          showMarketListBody ? (
+          <>
         {showNoActiveListingsHint || reserveNoActiveListingsHint ? (
           <CatalogStatusLine reserved={reserveNoActiveListingsHint}>
             {showNoActiveListingsHint
@@ -2258,60 +2260,14 @@ export function MarketPagePanel({
         discoveryFilteredListings.length === 0 &&
         shopDrops.length === 0 ? (
           <CatalogStatusLine>{emptyCopy.lookingForMatches}</CatalogStatusLine>
-        ) : showEmptySearch ? (
-          <CatalogStatusLine>{emptyCopy.noMatches}</CatalogStatusLine>
         ) : null}
 
-        {showEmptyFilter ? (
-          <div className="standing-panel-empty-state">
-            <CatalogStatusLine>
-              {facetOrFormatActive
-                ? emptyCopy.noMatchesForFilters
-                : mediumFilter !== 'all'
-                  ? `Nothing in ${
-                      MARKET_MEDIUM_FILTERS.find(
-                        (tab) => tab.id === mediumFilter
-                      )?.label ?? mediumFilter
-                    } right now.`
-                  : `Nothing in ${
-                      listingFilter === 'auctions' ? 'Auctions' : 'Fixed'
-                    } right now.`}
-            </CatalogStatusLine>
-            <div className="standing-panel-empty-actions">
-              {facetOrFormatActive || mediumFilter !== 'all' ? (
-                <OsEmptyAction onClick={() => setMediumFilter('all')}>
-                  Clear filter
-                </OsEmptyAction>
-              ) : null}
-              {!facetOrFormatActive ? (
-                <OsEmptyAction onClick={() => setFilter('all')}>
-                  See All
-                </OsEmptyAction>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-
-        {creatorEmpty ? (
-          <div className="market-page-empty">
-            <p className="market-page-empty-copy">{marketCreatorEmptyCopy()}</p>
-            <OsEmptyAction href={marketCreatorBackHref()}>
-              {marketCreatorBrowseLabel()}
-            </OsEmptyAction>
-          </div>
-        ) : null}
-
-        {appEmpty ? (
-          <div className="standing-panel-empty-state">
-            <CatalogStatusLine>
-              No live listings in {appFilter} right now.
-            </CatalogStatusLine>
-            <div className="standing-panel-empty-actions">
-              <OsEmptyAction onClick={clearNarrowFilter}>
-                Clear filter
-              </OsEmptyAction>
-            </div>
-          </div>
+        {clientDiscoveryFilterActive &&
+        !searching &&
+        listingsState.hasMore &&
+        discoveryFilteredListings.length === 0 &&
+        !showEmptyFilter ? (
+          <CatalogStatusLine>{emptyCopy.lookingForMatches}</CatalogStatusLine>
         ) : null}
 
         <section
@@ -2435,14 +2391,6 @@ export function MarketPagePanel({
             </>
           ) : null}
         </section>
-
-        {clientDiscoveryFilterActive &&
-        !searching &&
-        listingsState.hasMore &&
-        discoveryFilteredListings.length === 0 &&
-        !showEmptyFilter ? (
-          <CatalogStatusLine>{emptyCopy.lookingForMatches}</CatalogStatusLine>
-        ) : null}
 
         {loadMoreFailed ? (
           <OsChromeListAlert
@@ -2614,7 +2562,86 @@ export function MarketPagePanel({
             ) : null}
           </section>
         ) : null}
-          </OsPageBodyAppear>
+          </>
+          ) : (
+            <OsPageBodyAppear>
+              {showEmptyBrowse ? (
+                <div className="market-page-empty">
+                  <p className="market-page-empty-copy">
+                    {emptyCopy.nothingListedYet}
+                  </p>
+                  <OsEmptyAction href={APP_DROPS_PATH}>
+                    Browse Drops
+                  </OsEmptyAction>
+                </div>
+              ) : null}
+
+              {searching &&
+              !searchSettled &&
+              discoveryFilteredListings.length === 0 &&
+              shopDrops.length === 0 ? (
+                <CatalogStatusLine>
+                  {emptyCopy.lookingForMatches}
+                </CatalogStatusLine>
+              ) : showEmptySearch ? (
+                <CatalogStatusLine>{emptyCopy.noMatches}</CatalogStatusLine>
+              ) : null}
+
+              {showEmptyFilter ? (
+                <div className="standing-panel-empty-state">
+                  <CatalogStatusLine>
+                    {facetOrFormatActive
+                      ? emptyCopy.noMatchesForFilters
+                      : mediumFilter !== 'all'
+                        ? `Nothing in ${
+                            MARKET_MEDIUM_FILTERS.find(
+                              (tab) => tab.id === mediumFilter
+                            )?.label ?? mediumFilter
+                          } right now.`
+                        : `Nothing in ${
+                            listingFilter === 'auctions' ? 'Auctions' : 'Fixed'
+                          } right now.`}
+                  </CatalogStatusLine>
+                  <div className="standing-panel-empty-actions">
+                    {facetOrFormatActive || mediumFilter !== 'all' ? (
+                      <OsEmptyAction onClick={() => setMediumFilter('all')}>
+                        Clear filter
+                      </OsEmptyAction>
+                    ) : null}
+                    {!facetOrFormatActive ? (
+                      <OsEmptyAction onClick={() => setFilter('all')}>
+                        See All
+                      </OsEmptyAction>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
+              {creatorEmpty ? (
+                <div className="market-page-empty">
+                  <p className="market-page-empty-copy">
+                    {marketCreatorEmptyCopy()}
+                  </p>
+                  <OsEmptyAction href={marketCreatorBackHref()}>
+                    {marketCreatorBrowseLabel()}
+                  </OsEmptyAction>
+                </div>
+              ) : null}
+
+              {appEmpty ? (
+                <div className="standing-panel-empty-state">
+                  <CatalogStatusLine>
+                    No live listings in {appFilter} right now.
+                  </CatalogStatusLine>
+                  <div className="standing-panel-empty-actions">
+                    <OsEmptyAction onClick={clearNarrowFilter}>
+                      Clear filter
+                    </OsEmptyAction>
+                  </div>
+                </div>
+              ) : null}
+            </OsPageBodyAppear>
+          )
         ) : null}
       </div>
 

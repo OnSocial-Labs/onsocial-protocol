@@ -312,109 +312,113 @@ export function DiscoverHubsPanel() {
       {showSkeleton ? (
         <DiscoverCommunityListSkeleton label="Loading hubs…" />
       ) : (
-        <OsPageBodyAppear>
+        <>
           {!pending &&
           !hasMore &&
           apps != null &&
           apps.length === 0 &&
           (!searchQuery || isSearchEmpty) ? (
-        <div className="standing-panel-empty-block">
-          <div className="standing-panel-empty-state">
-            <p className="standing-panel-empty-primary">
-              {isSearchEmpty
-                ? emptyCopy.noMatches
-                : isCategoryEmpty
-                  ? 'No hubs in this category yet.'
-                  : 'No hubs listed yet.'}
-            </p>
-            {isSearchEmpty ? null : (
-              <p className="standing-panel-empty-secondary">
-                {isCategoryEmpty
-                  ? 'Pick All or another category.'
-                  : 'Open a hub in the Hubs app.'}
-              </p>
-            )}
-          </div>
-          {isSearchEmpty ? null : (
-            <div className="standing-panel-empty-actions">
-              {isCategoryEmpty ? (
-                <OsEmptyAction onClick={() => setCategoryFilter('all')}>
-                  Show all hubs
-                </OsEmptyAction>
-              ) : (
-                <OsEmptyAction href={APP_APP_CREATE_PATH}>
-                  Open a hub
-                </OsEmptyAction>
-              )}
-            </div>
-          )}
-        </div>
+            <OsPageBodyAppear>
+              <div className="standing-panel-empty-block">
+                <div className="standing-panel-empty-state">
+                  <p className="standing-panel-empty-primary">
+                    {isSearchEmpty
+                      ? emptyCopy.noMatches
+                      : isCategoryEmpty
+                        ? 'No hubs in this category yet.'
+                        : 'No hubs listed yet.'}
+                  </p>
+                  {isSearchEmpty ? null : (
+                    <p className="standing-panel-empty-secondary">
+                      {isCategoryEmpty
+                        ? 'Pick All or another category.'
+                        : 'Open a hub in the Hubs app.'}
+                    </p>
+                  )}
+                </div>
+                {isSearchEmpty ? null : (
+                  <div className="standing-panel-empty-actions">
+                    {isCategoryEmpty ? (
+                      <OsEmptyAction onClick={() => setCategoryFilter('all')}>
+                        Show all hubs
+                      </OsEmptyAction>
+                    ) : (
+                      <OsEmptyAction href={APP_APP_CREATE_PATH}>
+                        Open a hub
+                      </OsEmptyAction>
+                    )}
+                  </div>
+                )}
+              </div>
+            </OsPageBodyAppear>
           ) : null}
 
           {apps != null && apps.length > 0 ? (
-        <div
-          ref={listRef}
-          className="community-summary-card-grid apps-directory-list"
-        >
-          {windowed && topSpacer > 0 ? (
             <div
-              style={{ height: topSpacer }}
-              aria-hidden="true"
-              data-feed-window-spacer="top"
-            />
-          ) : null}
-          {apps.slice(start, end).map((app) => {
-            const description = app.description?.trim() || null;
-            const category = hubPrimaryCategory(app);
-            return (
-              <div
-                key={app.appId}
-                ref={registerRow(app.appId)}
-                data-secondary-key={app.appId}
-              >
-                <CommunityDiscoverRow
-                  href={appPath(app.appId)}
-                  seedId={app.appId}
-                  bannerUrl={app.bannerUrl}
-                  markUrl={app.mediaUrl}
-                  markVariant="logo"
-                  title={app.title}
-                  description={description}
-                  meta={
-                    <>
-                      <span className="community-summary-stat">
-                        <span className="community-summary-stat-count">
-                          {app.commissionPct}%
-                        </span>
-                        <span className="community-summary-stat-label">fee</span>
-                      </span>
-                      <span className="community-summary-stat">
-                        <span className="community-summary-stat-label">
-                          @{fallbackLabel(app.ownerId)}
-                        </span>
-                      </span>
-                      {category ? (
-                        <span className="guild-card-pill guild-card-pill--topic">
-                          {category}
-                        </span>
-                      ) : null}
-                      <span className="guild-card-pill">
-                        {creatorAccessShort(app.creatorAccess)}
-                      </span>
-                    </>
-                  }
+              ref={listRef}
+              className="community-summary-card-grid apps-directory-list"
+            >
+              {windowed && topSpacer > 0 ? (
+                <div
+                  style={{ height: topSpacer }}
+                  aria-hidden="true"
+                  data-feed-window-spacer="top"
                 />
-              </div>
-            );
-          })}
-          {windowed && bottomSpacer > 0 ? (
-            <div
-              style={{ height: bottomSpacer }}
-              aria-hidden="true"
-              data-feed-window-spacer="bottom"
-            />
-          ) : null}
-        </div>
+              ) : null}
+              {apps.slice(start, end).map((app) => {
+                const description = app.description?.trim() || null;
+                const category = hubPrimaryCategory(app);
+                return (
+                  <div
+                    key={app.appId}
+                    ref={registerRow(app.appId)}
+                    data-secondary-key={app.appId}
+                  >
+                    <CommunityDiscoverRow
+                      href={appPath(app.appId)}
+                      seedId={app.appId}
+                      bannerUrl={app.bannerUrl}
+                      markUrl={app.mediaUrl}
+                      markVariant="logo"
+                      title={app.title}
+                      description={description}
+                      meta={
+                        <>
+                          <span className="community-summary-stat">
+                            <span className="community-summary-stat-count">
+                              {app.commissionPct}%
+                            </span>
+                            <span className="community-summary-stat-label">
+                              fee
+                            </span>
+                          </span>
+                          <span className="community-summary-stat">
+                            <span className="community-summary-stat-label">
+                              @{fallbackLabel(app.ownerId)}
+                            </span>
+                          </span>
+                          {category ? (
+                            <span className="guild-card-pill guild-card-pill--topic">
+                              {category}
+                            </span>
+                          ) : null}
+                          <span className="guild-card-pill">
+                            {creatorAccessShort(app.creatorAccess)}
+                          </span>
+                        </>
+                      }
+                    />
+                  </div>
+                );
+              })}
+              {windowed && bottomSpacer > 0 ? (
+                <div
+                  style={{ height: bottomSpacer }}
+                  aria-hidden="true"
+                  data-feed-window-spacer="bottom"
+                />
+              ) : null}
+            </div>
           ) : null}
 
           {loadMoreError ? (
@@ -437,7 +441,7 @@ export function DiscoverHubsPanel() {
               ) : null}
             </div>
           ) : null}
-        </OsPageBodyAppear>
+        </>
       )}
     </div>
   );

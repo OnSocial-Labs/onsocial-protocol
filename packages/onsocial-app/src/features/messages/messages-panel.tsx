@@ -1857,9 +1857,7 @@ export function MessagesPanel() {
             <aside className="messages-thread-list" aria-label="Conversations">
               {showThreadListSkeleton ? (
                 <MessagesInboxSkeleton />
-              ) : (
-                <OsPageBodyAppear>
-                  {isSearching ? (
+              ) : isSearching ? (
                 <>
                   {filteredThreads.length > 0 ? (
                     <>
@@ -1916,26 +1914,36 @@ export function MessagesPanel() {
                     peoplePending,
                     peopleFailed: Boolean(peopleError),
                   }) ? (
-                    <OsAppChromePageStatus>
-                      {emptyCopy.noMatches}
-                    </OsAppChromePageStatus>
+                    <OsPageBodyAppear>
+                      <OsAppChromePageStatus>
+                        {emptyCopy.noMatches}
+                      </OsAppChromePageStatus>
+                    </OsPageBodyAppear>
                   ) : null}
                 </>
-              ) : threads?.length === 0 ? (
-                <OsAppChromePageStatus>
-                  No conversations yet.
-                </OsAppChromePageStatus>
-              ) : inboxThreads &&
-                inboxThreads.length === 0 &&
-                sealedThreads.length > 0 ? (
-                <OsAppChromePageStatus>
-                  No open conversations.
-                </OsAppChromePageStatus>
-              ) : inboxThreads && inboxThreads.length === 0 ? (
-                <OsAppChromePageStatus>
-                  No conversations yet.
-                </OsAppChromePageStatus>
               ) : (
+                <>
+                  {threads?.length === 0 ? (
+                    <OsPageBodyAppear>
+                      <OsAppChromePageStatus>
+                        No conversations yet.
+                      </OsAppChromePageStatus>
+                    </OsPageBodyAppear>
+                  ) : inboxThreads &&
+                    inboxThreads.length === 0 &&
+                    sealedThreads.length > 0 ? (
+                    <OsPageBodyAppear>
+                      <OsAppChromePageStatus>
+                        No open conversations.
+                      </OsAppChromePageStatus>
+                    </OsPageBodyAppear>
+                  ) : inboxThreads && inboxThreads.length === 0 ? (
+                    <OsPageBodyAppear>
+                      <OsAppChromePageStatus>
+                        No conversations yet.
+                      </OsAppChromePageStatus>
+                    </OsPageBodyAppear>
+                  ) : (
                     <MessagesInboxThreadRows
                       threads={inboxThreads ?? []}
                       ariaLabel="Conversations"
@@ -1946,31 +1954,33 @@ export function MessagesPanel() {
                       onOpenThread={(threadId) => void openThread(threadId)}
                     />
                   )}
-                  {!isSearching && sealedThreads.length > 0 ? (
-                <div className="messages-sealed-archive">
-                  <button
-                    type="button"
-                    className="messages-sealed-archive-toggle"
-                    aria-expanded={showSealedArchive}
-                    onClick={() => setShowSealedArchive((open) => !open)}
-                  >
-                    {showSealedArchive ? 'Hide sealed' : 'Sealed before reset'}{' '}
-                    · {sealedThreads.length}
-                  </button>
-                  {showSealedArchive ? (
-                    <MessagesInboxThreadRows
-                      threads={sealedThreads}
-                      ariaLabel="Sealed conversations"
-                      profiles={profiles}
-                      inboxPreviewByThread={inboxPreviewByThread}
-                      treatAllAsSealed
-                      activeThreadId={activeThreadId}
-                      onOpenThread={(threadId) => void openThread(threadId)}
-                    />
+                  {sealedThreads.length > 0 ? (
+                    <div className="messages-sealed-archive">
+                      <button
+                        type="button"
+                        className="messages-sealed-archive-toggle"
+                        aria-expanded={showSealedArchive}
+                        onClick={() => setShowSealedArchive((open) => !open)}
+                      >
+                        {showSealedArchive
+                          ? 'Hide sealed'
+                          : 'Sealed before reset'}{' '}
+                        · {sealedThreads.length}
+                      </button>
+                      {showSealedArchive ? (
+                        <MessagesInboxThreadRows
+                          threads={sealedThreads}
+                          ariaLabel="Sealed conversations"
+                          profiles={profiles}
+                          inboxPreviewByThread={inboxPreviewByThread}
+                          treatAllAsSealed
+                          activeThreadId={activeThreadId}
+                          onOpenThread={(threadId) => void openThread(threadId)}
+                        />
+                      ) : null}
+                    </div>
                   ) : null}
-                </div>
-                  ) : null}
-                </OsPageBodyAppear>
+                </>
               )}
             </aside>
 
@@ -1984,7 +1994,7 @@ export function MessagesPanel() {
               ) : showThreadSkeleton ? (
                 <MessagesThreadSkeleton />
               ) : (
-                <OsPageBodyAppear>
+                <>
                   {hasMoreMessages ? (
                     <div className="messages-load-older">
                       <OsSheetAction
@@ -2198,7 +2208,7 @@ export function MessagesPanel() {
                     ) : null}
                   </ul>
                   {loadingOlder ? <MessagesThreadAppendSkeleton /> : null}
-                </OsPageBodyAppear>
+                </>
               )}
             </section>
           </div>
