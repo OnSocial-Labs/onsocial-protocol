@@ -1176,8 +1176,8 @@ export function HomePagePanel({
     enabled:
       showLoadMoreSentinel && !isLoading && !isLoadingMore && !isRefreshing,
     onIntersect: loadMore,
-    // ~1–1.5 viewports of lead: page two starts fetching well before the
-    // append skeleton can scroll into view on cold visits.
+    // ~1–1.5 viewports of lead: page two starts before the footer dots
+    // reach the fold on cold visits.
     rootMargin: '1400px 0px',
   });
 

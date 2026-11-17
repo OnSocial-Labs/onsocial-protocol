@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { postContentPath, type PostRow } from '@onsocial/sdk';
+import { PulsingDots } from '@onsocial/ui';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePageContentDrawer } from '@/contexts/page-content-drawer-context';
 import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
@@ -443,7 +444,9 @@ export function ProfileFeedClient({
         />
       )}
       {tab === 'media' && mediaPaging ? (
-        <PageDrawerMediaGridSkeleton cards={2} />
+        <div className="list-append-pending">
+          <PulsingDots size="sm" label="Loading more" />
+        </div>
       ) : null}
       {sheet}
     </>
