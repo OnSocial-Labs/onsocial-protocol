@@ -16,6 +16,7 @@ import {
   osHugSheetBodyClassName,
   useScrollLock,
 } from '@onsocial/ui';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 import { SheetChromeHeader } from '@/components/panels/sheet-chrome-header';
 import { PortfolioPayoutKindFilters } from '@/components/portfolio/portfolio-payout-kind-filters';
@@ -381,16 +382,20 @@ export function PortfolioSupportCollectInfoSheet({
           <p className="portfolio-support-collect-info-empty">{loadError}</p>
         ) : current == null || filteredCurrent == null ? (
           <ProfileSocialListSkeleton count={5} />
-        ) : current.length === 0 ? (
-          <p className="portfolio-support-collect-info-empty">
-            No credits in this pot yet.
-          </p>
-        ) : filteredCurrent.length === 0 ? (
-          <p className="portfolio-support-collect-info-empty">
-            No {kindFilterLabel ?? 'credits'} in this pot.
-          </p>
         ) : (
-          <SupportCreditList items={filteredCurrent} profiles={profiles} />
+          <OsPageBodyAppear>
+            {current.length === 0 ? (
+              <p className="portfolio-support-collect-info-empty">
+                No credits in this pot yet.
+              </p>
+            ) : filteredCurrent.length === 0 ? (
+              <p className="portfolio-support-collect-info-empty">
+                No {kindFilterLabel ?? 'credits'} in this pot.
+              </p>
+            ) : (
+              <SupportCreditList items={filteredCurrent} profiles={profiles} />
+            )}
+          </OsPageBodyAppear>
         )}
       </section>
 

@@ -633,6 +633,7 @@ test.describe('collection drop page', () => {
     });
 
     await gotoApp(page, '/collection/night-drive');
+    await expect(collectionPageRoot(page)).toHaveCount(1);
     const supply = collectionPageRoot(page).locator(
       '.collection-commerce-supply .sr-only'
     );

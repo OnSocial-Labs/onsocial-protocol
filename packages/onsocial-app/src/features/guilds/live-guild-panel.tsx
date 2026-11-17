@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { postContentPath, type PostRow } from '@onsocial/sdk';
 import { Divider, replaceSheet } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { useOsInAppPop } from '@/components/providers/os-face-leave-provider';
 import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
@@ -1315,6 +1316,7 @@ export function LiveGuildPanel({
             <section className="guild-section guild-feed-section">
               {renderFeedFilters()}
 
+              {/* Painted rows win over feedPending so the load-more sentinel stays mounted. */}
               {feedPosts.length > 0 ? (
                 <div
                   ref={feedListRef}
@@ -1424,30 +1426,34 @@ export function LiveGuildPanel({
                     </div>
                   ) : null}
                 </div>
-              ) : state.feedError ? (
-                <div className="guild-state-card is-error">
-                  <p>Guild posts could not load from the indexed feed.</p>
-                  <small>{state.feedError}</small>
-                  <OsEmptyAction onClick={() => void refresh()}>
-                    Retry
-                  </OsEmptyAction>
-                </div>
               ) : feedPending ? (
                 <PostRowSkeleton
                   rows={3}
                   showChannel={selectedFeedFilterId === 'all'}
                 />
               ) : (
-                <div className="guild-state-card">
-                  {selectedFeedSpace
-                    ? `No ${selectedFeedSpace.title.toLowerCase()} posts yet.`
-                    : 'No guild posts yet.'}
-                  {canCompose ? (
-                    <OsEmptyAction onClick={openPostComposer}>
-                      Share the first post
-                    </OsEmptyAction>
-                  ) : null}
-                </div>
+                <OsPageBodyAppear>
+                  {state.feedError ? (
+                    <div className="guild-state-card is-error">
+                      <p>Guild posts could not load from the indexed feed.</p>
+                      <small>{state.feedError}</small>
+                      <OsEmptyAction onClick={() => void refresh()}>
+                        Retry
+                      </OsEmptyAction>
+                    </div>
+                  ) : (
+                    <div className="guild-state-card">
+                      {selectedFeedSpace
+                        ? `No ${selectedFeedSpace.title.toLowerCase()} posts yet.`
+                        : 'No guild posts yet.'}
+                      {canCompose ? (
+                        <OsEmptyAction onClick={openPostComposer}>
+                          Share the first post
+                        </OsEmptyAction>
+                      ) : null}
+                    </div>
+                  )}
+                </OsPageBodyAppear>
               )}
             </section>
           </>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsChipRail } from '@/components/os/os-chip-rail';
@@ -414,12 +415,11 @@ export function DiscoverGuildsPanel() {
 
       {showSkeleton ? (
         <DiscoverCommunityListSkeleton label="Loading guilds…" />
-      ) : null}
-
-      {!error &&
-      !showSkeleton &&
-      visibleGuilds.length === 0 &&
-      (!searchQuery || isSearchEmpty) ? (
+      ) : (
+        <OsPageBodyAppear>
+          {!error &&
+          visibleGuilds.length === 0 &&
+          (!searchQuery || isSearchEmpty) ? (
         <div className="standing-panel-empty-block">
           <div className="standing-panel-empty-state">
             <p className="standing-panel-empty-primary">
@@ -456,9 +456,9 @@ export function DiscoverGuildsPanel() {
             </div>
           )}
         </div>
-      ) : null}
+          ) : null}
 
-      {!showSkeleton && visibleGuilds.length > 0 ? (
+          {visibleGuilds.length > 0 ? (
         <div ref={listRef} className="community-summary-card-grid">
           {windowed && topSpacer > 0 ? (
             <div
@@ -484,28 +484,30 @@ export function DiscoverGuildsPanel() {
             />
           ) : null}
         </div>
-      ) : null}
-
-      {loadMoreError ? (
-        <OsChromeListAlert
-          message={loadMoreError}
-          onRetry={() => void loadMore()}
-        />
-      ) : paging || moreLoading ? (
-        <div className="dao-discover-load-more">
-          <div
-            ref={loadMoreRef}
-            className="protocol-feed-sentinel"
-            aria-hidden
-          />
-          {moreLoading ? (
-            <DiscoverCommunityListSkeleton
-              label="Loading more guilds…"
-              count={2}
-            />
           ) : null}
-        </div>
-      ) : null}
+
+          {loadMoreError ? (
+            <OsChromeListAlert
+              message={loadMoreError}
+              onRetry={() => void loadMore()}
+            />
+          ) : paging || moreLoading ? (
+            <div className="dao-discover-load-more">
+              <div
+                ref={loadMoreRef}
+                className="protocol-feed-sentinel"
+                aria-hidden
+              />
+              {moreLoading ? (
+                <DiscoverCommunityListSkeleton
+                  label="Loading more guilds…"
+                  count={2}
+                />
+              ) : null}
+            </div>
+          ) : null}
+        </OsPageBodyAppear>
+      )}
     </div>
   );
 }

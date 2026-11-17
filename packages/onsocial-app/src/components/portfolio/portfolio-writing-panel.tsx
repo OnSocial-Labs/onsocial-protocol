@@ -11,6 +11,7 @@ import {
 import type { PostRow } from '@onsocial/sdk';
 import { OverlayPanelChrome } from '@/components/overlay/overlay-panel-chrome';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ArticleReadOverlay } from '@/components/portfolio/article-read-screen';
 import { PortfolioEssayLeave } from '@/components/portfolio/portfolio-essay-leave';
@@ -239,14 +240,16 @@ function PortfolioWritingShelf({
           pageAccountId={panel.accountId}
           dockPen="article"
         />
-        <PortfolioWritingList
-          {...panel}
-          articles={articles}
-          coverHints={coverHints}
-          query={listQuery}
-          showSearch={showSearch}
-          onOpenArticle={setOpenPost}
-        />
+        <OsPageBodyAppear>
+          <PortfolioWritingList
+            {...panel}
+            articles={articles}
+            coverHints={coverHints}
+            query={listQuery}
+            showSearch={showSearch}
+            onOpenArticle={setOpenPost}
+          />
+        </OsPageBodyAppear>
         {loadingMore ? (
           <div className="portfolio-writing-pending" aria-hidden>
             <span className="standing-row-shimmer portfolio-writing-pending-row" />

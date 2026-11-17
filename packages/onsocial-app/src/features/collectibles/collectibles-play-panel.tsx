@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { InformationCircleIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { useCatalogDockBack } from '@/hooks/use-catalog-dock-back';
 import { useImmersiveTitleHandoff } from '@/hooks/use-immersive-title-handoff';
 import { AccountAvatar } from '@/components/profile/account-avatar';
@@ -469,8 +470,9 @@ export function CollectiblesPlayPanel({
       >
         {status === 'loading' ? <CollectiblesPlaySkeleton /> : null}
 
+        {status !== 'loading' ? (
+          <OsPageBodyAppear>
         {status === 'error' || !view ? (
-          status !== 'loading' ? (
             <div className="market-page-empty">
               <p className="market-page-empty-copy">
                 Couldn’t open this collectible.
@@ -479,7 +481,6 @@ export function CollectiblesPlayPanel({
                 Back to Collectibles
               </OsEmptyAction>
             </div>
-          ) : null
         ) : null}
 
         {status === 'ready' && view ? (
@@ -661,6 +662,8 @@ export function CollectiblesPlayPanel({
               />
             ) : null}
           </div>
+        ) : null}
+          </OsPageBodyAppear>
         ) : null}
       </div>
 

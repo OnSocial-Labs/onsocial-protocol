@@ -61,6 +61,7 @@ import {
   usePostEngagement,
 } from '@/hooks/use-post-engagement';
 import { WritingMoreByAuthor } from '@/components/portfolio/writing-more-by-author';
+import { parkShelfHopArticle } from '@/lib/shelf-hop-article-park';
 
 export type PortfolioWritingArticlePanelProps = {
   accountId: string;
@@ -351,9 +352,18 @@ export function PortfolioWritingArticlePanel({
     ) {
       return;
     }
-    if (!shelfAlreadyOpen) return;
-    event.preventDefault();
-    onReturnToShelf?.();
+    if (shelfAlreadyOpen) {
+      event.preventDefault();
+      onReturnToShelf?.();
+      return;
+    }
+    // Next soft-nav replaces layout children — park the open reader so the
+    // Writing hop can keep it mounted under the shelf.
+    parkShelfHopArticle({
+      post,
+      titleLabel,
+      avatarUrl: avatarUrl ?? null,
+    });
   };
   const { accountId: viewerAccountId } = useAppWallet();
   const [coverOpen, setCoverOpen] = useState(false);

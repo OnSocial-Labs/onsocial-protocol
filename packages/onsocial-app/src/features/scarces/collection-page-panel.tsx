@@ -27,6 +27,7 @@ import {
   ipfsImgSrcSet,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import {
   APP_COLUMN_HERO_SIZES,
   SCARCE_HERO_WIDTHS,
@@ -1822,12 +1823,14 @@ export function CollectionPagePanel({
               ) : null}
             </div>
             {activityLoaded ? (
-              mintPreview.length > 0 ? (
-                <CollectionActivityRows
-                  rows={mintPreview}
-                  profiles={activityProfiles}
-                />
-              ) : null
+              <OsPageBodyAppear>
+                {mintPreview.length > 0 ? (
+                  <CollectionActivityRows
+                    rows={mintPreview}
+                    profiles={activityProfiles}
+                  />
+                ) : null}
+              </OsPageBodyAppear>
             ) : (
               <CollectionActivitySkeleton rows={3} />
             )}
@@ -1849,13 +1852,17 @@ export function CollectionPagePanel({
       >
         {!activityLoaded ? (
           <CollectionActivitySkeleton rows={6} />
-        ) : sheetActivity.length > 0 ? (
-          <CollectionActivityRows
-            rows={sheetActivity}
-            profiles={activityProfiles}
-          />
         ) : (
-          <p className="collection-activity-empty">No mint activity yet.</p>
+          <OsPageBodyAppear>
+            {sheetActivity.length > 0 ? (
+              <CollectionActivityRows
+                rows={sheetActivity}
+                profiles={activityProfiles}
+              />
+            ) : (
+              <p className="collection-activity-empty">No mint activity yet.</p>
+            )}
+          </OsPageBodyAppear>
         )}
       </OsHugSheet>
 

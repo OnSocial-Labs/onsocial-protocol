@@ -20,6 +20,7 @@ import {
   OsAppChromePageStatus,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsHeaderBack } from '@/components/app/os-header-back';
 import {
   OsChromeListAlert,
@@ -1856,7 +1857,9 @@ export function MessagesPanel() {
             <aside className="messages-thread-list" aria-label="Conversations">
               {showThreadListSkeleton ? (
                 <MessagesInboxSkeleton />
-              ) : isSearching ? (
+              ) : (
+                <OsPageBodyAppear>
+                  {isSearching ? (
                 <>
                   {filteredThreads.length > 0 ? (
                     <>
@@ -1933,17 +1936,17 @@ export function MessagesPanel() {
                   No conversations yet.
                 </OsAppChromePageStatus>
               ) : (
-                <MessagesInboxThreadRows
-                  threads={inboxThreads ?? []}
-                  ariaLabel="Conversations"
-                  profiles={profiles}
-                  inboxPreviewByThread={inboxPreviewByThread}
-                  refreshing={showThreadListRefreshing}
-                  activeThreadId={activeThreadId}
-                  onOpenThread={(threadId) => void openThread(threadId)}
-                />
-              )}
-              {!isSearching && sealedThreads.length > 0 ? (
+                    <MessagesInboxThreadRows
+                      threads={inboxThreads ?? []}
+                      ariaLabel="Conversations"
+                      profiles={profiles}
+                      inboxPreviewByThread={inboxPreviewByThread}
+                      refreshing={showThreadListRefreshing}
+                      activeThreadId={activeThreadId}
+                      onOpenThread={(threadId) => void openThread(threadId)}
+                    />
+                  )}
+                  {!isSearching && sealedThreads.length > 0 ? (
                 <div className="messages-sealed-archive">
                   <button
                     type="button"
@@ -1966,7 +1969,9 @@ export function MessagesPanel() {
                     />
                   ) : null}
                 </div>
-              ) : null}
+                  ) : null}
+                </OsPageBodyAppear>
+              )}
             </aside>
 
             <section className="messages-thread" aria-label="Thread">
@@ -1979,7 +1984,7 @@ export function MessagesPanel() {
               ) : showThreadSkeleton ? (
                 <MessagesThreadSkeleton />
               ) : (
-                <>
+                <OsPageBodyAppear>
                   {hasMoreMessages ? (
                     <div className="messages-load-older">
                       <OsSheetAction
@@ -2193,7 +2198,7 @@ export function MessagesPanel() {
                     ) : null}
                   </ul>
                   {loadingOlder ? <MessagesThreadAppendSkeleton /> : null}
-                </>
+                </OsPageBodyAppear>
               )}
             </section>
           </div>

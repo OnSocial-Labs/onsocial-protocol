@@ -773,7 +773,9 @@ function LeaderboardTrackPage({
             <ListLoadError message={pageError} onRetry={() => onRetry(track)} />
           ) : showSkeleton ? (
             <ProfileSocialListSkeleton count={6} rowVariant="leaderboard" />
-          ) : empty ? (
+          ) : (
+            <OsPageBodyAppear>
+          {empty ? (
             <p className="leaderboard-sheet-empty">
               No rankings yet. Activity will appear once indexed.
             </p>
@@ -831,6 +833,8 @@ function LeaderboardTrackPage({
                 </p>
               ) : null}
             </>
+          )}
+            </OsPageBodyAppear>
           )}
         </div>
       </div>

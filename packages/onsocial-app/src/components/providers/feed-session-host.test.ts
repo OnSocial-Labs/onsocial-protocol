@@ -18,7 +18,7 @@ describe('feed session path', () => {
 });
 
 describe('feed session host wiring', () => {
-  it('mounts the Home feed in the shell and drops it after a leave', () => {
+  it('mounts the Home feed in the shell and parks the Writing hop reader', () => {
     const host = readFileSync(join(here, 'feed-session-host.tsx'), 'utf8');
     const providers = readFileSync(join(here, 'app-providers.tsx'), 'utf8');
     const route = readFileSync(
@@ -31,6 +31,9 @@ describe('feed session host wiring', () => {
     expect(host).toContain('retainFeed ? openedFeed');
     expect(host).toContain('shouldRetainOpenedFeed');
     expect(host).toContain('WritingShelfOpening');
+    expect(host).toContain('FeedArticleReadScreen');
+    expect(host).toContain('parked');
+    expect(host).toContain('showParkedReader');
     expect(host).toContain('setKeepFeed');
     expect(host).toContain('if (onFeed && !keepFeed)');
     expect(host).not.toContain("display: 'none'");

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ProtocolMotionArrow } from '@onsocial/ui';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { CollectiblesHoldingRowMenu } from '@/features/collectibles/collectibles-holding-row-menu';
 import { CollectiblesLibrarySkeleton } from '@/features/collectibles/collectibles-library-skeleton';
 import { CollectiblesVaultLibrary } from '@/features/collectibles/collectibles-vault-library';
@@ -207,8 +208,11 @@ export function PageDrawerCollectionList({
         className="page-drawer-section is-vault"
         aria-label="Collectibles"
       >
-        {loading ? <CollectiblesLibrarySkeleton /> : null}
-        {!loading && previewRows > 0 ? (
+        {loading ? (
+          <CollectiblesLibrarySkeleton />
+        ) : (
+          <OsPageBodyAppear>
+        {previewRows > 0 ? (
           <CollectiblesVaultLibrary
             embedded
             groups={library.groups}
@@ -252,12 +256,14 @@ export function PageDrawerCollectionList({
             onEditionListOpenChange={setEditionListOpen}
           />
         ) : null}
-        {!loading && showSeeAll ? (
+        {showSeeAll ? (
           <OsRowAction href={seeAllHref}>
             {seeAllCopy.action} · {seeAllCopy.count}
             <ProtocolMotionArrow className="os-row-action-arrow" />
           </OsRowAction>
         ) : null}
+          </OsPageBodyAppear>
+        )}
       </section>
 
       <ScarceSellSheet

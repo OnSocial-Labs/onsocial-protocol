@@ -129,3 +129,4 @@ jobs:
           path: packages/onsocial-app/test-results
           if-no-files-found: ignore
           retention-days: 7
+# Keep path-filter wake-ups when only app sources change on stacked PRs.

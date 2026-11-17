@@ -11,6 +11,7 @@ import {
 } from '@onsocial/ui';
 import { StandingIdentity } from '@/components/profile/standing-identity';
 import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { CollectionActivitySkeleton } from '@/features/scarces/collection-page-skeleton';
 import {
@@ -228,7 +229,9 @@ export function CollectionDoorLogSheet({
 
       {!loaded || entries == null ? (
         <CollectionActivitySkeleton rows={6} />
-      ) : entries.length === 0 ? (
+      ) : (
+        <OsPageBodyAppear>
+      {entries.length === 0 ? (
         <p className="collection-door-log-empty">
           {redeemVoice
             ? 'No redeems yet. Codes scanned at the counter show up here.'
@@ -320,6 +323,8 @@ export function CollectionDoorLogSheet({
             );
           })}
         </div>
+      )}
+        </OsPageBodyAppear>
       )}
     </OsSlideOverScreen>
   );

@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react';
 import Link from 'next/link';
 import { Divider, OsHugSheet } from '@onsocial/ui';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { StandingIdentity } from '@/components/profile/standing-identity';
 import { EndorsementListSkeleton } from '@/components/panels/endorsement-list-row';
 import { useEndorsementSupporters } from '@/hooks/use-endorsement-supporters';
@@ -65,7 +66,9 @@ export function EndorsementSupportersSheet({
     >
       {supporters == null ? (
         <EndorsementListSkeleton rows={3} />
-      ) : error ? (
+      ) : (
+        <OsPageBodyAppear>
+      {error ? (
         <p className="endorsement-supporters-empty">{error}</p>
       ) : supporters.length === 0 ? (
         <p className="endorsement-supporters-empty">No supporters yet.</p>
@@ -105,6 +108,8 @@ export function EndorsementSupportersSheet({
             );
           })}
         </div>
+      )}
+        </OsPageBodyAppear>
       )}
     </OsHugSheet>
   );

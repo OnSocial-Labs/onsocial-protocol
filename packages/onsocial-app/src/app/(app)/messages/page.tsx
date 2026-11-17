@@ -1,9 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Suspense } from 'react';
-import { OsAppChromePage, OsAppChromePageStatus } from '@onsocial/ui';
-import { OsAppScreen } from '@/components/app/os-app-screen';
 import { MessagesPanel } from '@/features/messages/messages-panel';
-import { APP_HOME_PATH } from '@/lib/app-routes';
+import { MessagesRouteLoading } from '@/features/messages/messages-route-loading';
 
 export const metadata: Metadata = {
   title: 'Messages • OnSocial',
@@ -15,27 +13,9 @@ export const viewport: Viewport = {
   interactiveWidget: 'resizes-content',
 };
 
-function MessagesFallback() {
-  return (
-    <OsAppScreen
-      title="Messages"
-      compactChrome
-      dockBack
-      backFallbackHref={APP_HOME_PATH}
-      leading={null}
-      glassChrome
-      heading={<p className="os-app-screen-title">Messages</p>}
-    >
-      <OsAppChromePage className="messages-panel">
-        <OsAppChromePageStatus>Loading…</OsAppChromePageStatus>
-      </OsAppChromePage>
-    </OsAppScreen>
-  );
-}
-
 export default function MessagesPage() {
   return (
-    <Suspense fallback={<MessagesFallback />}>
+    <Suspense fallback={<MessagesRouteLoading />}>
       <MessagesPanel />
     </Suspense>
   );

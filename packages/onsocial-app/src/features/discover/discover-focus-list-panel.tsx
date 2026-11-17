@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import type { HashtagCount, TickerCount } from '@onsocial/sdk';
 import { DiscoverFocusListSkeleton } from '@/features/discover/discover-loading-skeleton';
 import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
@@ -131,24 +132,24 @@ export function DiscoverFocusListPanel({
           </p>
           <DiscoverFocusListSkeleton />
         </>
-      ) : null}
+      ) : (
+        <OsPageBodyAppear>
+          {!loading && error ? (
+            <div className="home-feed-state is-error">{error}</div>
+          ) : null}
 
-      {!loading && error ? (
-        <div className="home-feed-state is-error">{error}</div>
-      ) : null}
+          {!loading && !error && rows.length === 0 ? (
+            <div className="standing-panel-empty-state">
+              <p className="standing-panel-empty-primary">{emptyPrimary}</p>
+              {filterPrefix ? null : (
+                <p className="standing-panel-empty-secondary">
+                  Open one to see matching posts in Home.
+                </p>
+              )}
+            </div>
+          ) : null}
 
-      {!loading && !error && rows.length === 0 ? (
-        <div className="standing-panel-empty-state">
-          <p className="standing-panel-empty-primary">{emptyPrimary}</p>
-          {filterPrefix ? null : (
-            <p className="standing-panel-empty-secondary">
-              Open one to see matching posts in Home.
-            </p>
-          )}
-        </div>
-      ) : null}
-
-      {rows.length > 0 ? (
+          {rows.length > 0 ? (
         <div
           className={`discover-focus-list-body${
             isRefreshing ? ' is-refreshing' : ''
@@ -194,7 +195,9 @@ export function DiscoverFocusListPanel({
             })}
           </ul>
         </div>
-      ) : null}
+          ) : null}
+        </OsPageBodyAppear>
+      )}
     </div>
   );
 }

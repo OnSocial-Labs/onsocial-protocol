@@ -251,8 +251,10 @@ function installBrowser() {
     },
     setTimeout: globalThis.setTimeout.bind(globalThis),
     clearTimeout: globalThis.clearTimeout.bind(globalThis),
+    // Must match useToastDismissTimer's performance.now() clock — Date.now()
+    // makes the first tick look like hours elapsed and dismisses info toasts.
     requestAnimationFrame: (cb: FrameRequestCallback) =>
-      globalThis.setTimeout(() => cb(Date.now()), 16),
+      globalThis.setTimeout(() => cb(performance.now()), 16),
     cancelAnimationFrame: (id: number) => {
       globalThis.clearTimeout(id);
     },
@@ -1933,7 +1935,10 @@ describe('signed-out wallet picker', () => {
       buyPicker.resolve(signingWallet('bob.near'));
     });
     await expect
-      .poll(() => collectText(renderer!.root), { interval: 20, timeout: 3000 })
+      .poll(() => collectText(renderer!.root), {
+        interval: 20,
+        timeout: 3000,
+      })
       .toContain(title);
     expect(collectText(renderer!.root)).toContain(
       'Tap Buy · 1 NEAR again to continue.'
