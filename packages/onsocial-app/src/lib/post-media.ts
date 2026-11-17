@@ -28,6 +28,8 @@ export interface PostMediaItem {
   /** Intrinsic pixel size when the uploader persisted renderer hints. */
   width?: number;
   height?: number;
+  /** Still URL for video — feed stand-in before the first decoded frame. */
+  posterUrl?: string;
 }
 
 /** Intrinsic width/height ratio from persisted hints, when present + sane. */
@@ -225,7 +227,7 @@ export function applyMediaKindOverride<T extends { kind?: string }>(
 
 function asMediaRef(
   entry: unknown
-): (MediaRef & { previewUrl?: string }) | null {
+): (MediaRef & { previewUrl?: string; poster?: string }) | null {
   if (typeof entry === 'string') {
     const trimmed = entry.trim();
     if (!trimmed) return null;
@@ -245,6 +247,10 @@ function asMediaRef(
       ? record.mime.trim()
       : 'image/*';
   if (!cid && typeof record.previewUrl !== 'string') return null;
+  const poster =
+    typeof record.poster === 'string' && record.poster.trim()
+      ? record.poster.trim()
+      : undefined;
   return {
     cid: cid || 'preview',
     mime,
@@ -255,6 +261,7 @@ function asMediaRef(
     ...(typeof record.previewUrl === 'string'
       ? { previewUrl: record.previewUrl }
       : {}),
+    ...(poster ? { poster } : {}),
   };
 }
 
@@ -266,6 +273,18 @@ function resolveMediaUrl(
     return ref.cid;
   }
   return resolveProfileMediaUrl(`ipfs://${ref.cid}`);
+}
+
+function resolvePosterUrl(poster: string | undefined): string | undefined {
+  const trimmed = poster?.trim();
+  if (!trimmed) return undefined;
+  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('blob:')) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('ipfs://')) {
+    return resolveProfileMediaUrl(trimmed) ?? undefined;
+  }
+  return resolveProfileMediaUrl(`ipfs://${trimmed}`) ?? undefined;
 }
 
 /** Parse post body media for feed/detail rendering (images + video). */
@@ -289,6 +308,7 @@ export function parsePostMedia(
     if (!ref) continue;
     const url = resolveMediaUrl(ref);
     if (!url) continue;
+    const posterUrl = resolvePosterUrl(ref.poster);
     items.push({
       url,
       mime: ref.mime,
@@ -304,6 +324,7 @@ export function parsePostMedia(
       ref.height > 0
         ? { height: ref.height }
         : {}),
+      ...(posterUrl ? { posterUrl } : {}),
     });
     if (items.length >= POST_MEDIA_MAX_FILES) break;
   }

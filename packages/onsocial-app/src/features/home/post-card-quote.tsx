@@ -347,10 +347,15 @@ function QuoteThumbTile({
           aria-hidden
         />
       )}
-      {isVideo ? null : <IpfsBlurPreview src={item.url} mime={item.mime} />}
       {isVideo ? (
-        // Poster gate: far-off quote thumbs unmount; the grid cell holds
-        // the row height. Remounts warm a viewport before paint.
+        item.posterUrl ? (
+          <IpfsBlurPreview src={item.posterUrl} mime="image/jpeg" />
+        ) : null
+      ) : (
+        <IpfsBlurPreview src={item.url} mime={item.mime} />
+      )}
+      {isVideo ? (
+        // Far-off quote thumbs unmount; cell + poster stand-in hold height.
         videoMounted ? (
           <video
             ref={bindVideo}
@@ -358,12 +363,13 @@ function QuoteThumbTile({
             muted
             playsInline
             preload={videoPreload}
+            {...(item.posterUrl ? { poster: item.posterUrl } : {})}
             className={mediaClassName}
             onLoadedMetadata={(event) => {
               const video = event.currentTarget;
               remember(video.videoWidth, video.videoHeight);
-              markResolved();
             }}
+            onLoadedData={markResolved}
             onError={markResolved}
           />
         ) : null

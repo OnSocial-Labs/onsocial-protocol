@@ -27,6 +27,11 @@ export interface MediaRef {
   height?: number;
   alt?: string;
   blurhash?: string;
+  /**
+   * Still-image CID for video (and rare non-image) refs — feed/list
+   * stand-in before the decoder paints a frame. Omit for photos.
+   */
+  poster?: string;
 }
 
 // ── Profile ─────────────────────────────────────────────────────────────────

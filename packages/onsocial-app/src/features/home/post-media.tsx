@@ -126,9 +126,8 @@ interface PostMediaBlockProps {
   /** `sizes` paired with the CDN variant srcSet for this tile's slot. */
   imgSizes?: string;
   /**
-   * Reserve the intrinsic box from upload-persisted width/height hints so
-   * intrinsically-sized tiles (page / focused / quote singles) do not shift
-   * layout when the file arrives. No hint → no reservation (legacy posts).
+   * Page / focused / quote singles — lock a seat before decode. Persisted
+   * width/height override the 4:3 fallback.
    */
   reserveRatio?: boolean;
   /** Audio jacket tap — open the in-sheet player. */
@@ -467,6 +466,7 @@ function PostVisualMediaBlock({
     }
     if (playbackMode) bindVideoEl(node);
   };
+  const posterUrl = item.posterUrl?.trim() || undefined;
   const media = (
     <>
       {resolved ? null : (
@@ -475,10 +475,16 @@ function PostVisualMediaBlock({
           aria-hidden
         />
       )}
-      {isVideo ? null : <IpfsBlurPreview src={item.url} mime={item.mime} />}
       {isVideo ? (
-        // Far-off list videos unmount — the ratio-held box stays, the
-        // decoder and buffers go. Remounts warm up a viewport before paint.
+        posterUrl ? (
+          <IpfsBlurPreview src={posterUrl} mime="image/jpeg" />
+        ) : null
+      ) : (
+        <IpfsBlurPreview src={item.url} mime={item.mime} />
+      )}
+      {isVideo ? (
+        // Far-off list videos unmount — the ratio-held box (and poster
+        // stand-in) stay. Remounts warm up a viewport before paint.
         videoMounted ? (
           <video
             ref={bindVideo}
@@ -491,14 +497,15 @@ function PostVisualMediaBlock({
             }
             loop={isListVideo || isDetailVideo}
             preload={videoPreload}
+            {...(posterUrl ? { poster: posterUrl } : {})}
             data-post-focus-video={isDetailVideo ? String(index) : undefined}
             {...(showSoundControl ? { 'data-os-sound-chip': '' } : {})}
             className={mediaClassName}
             onLoadedMetadata={(event) => {
               const video = event.currentTarget;
               rememberRatio(video.videoWidth, video.videoHeight);
-              markResolved();
             }}
+            onLoadedData={markResolved}
             onError={markResolved}
           />
         ) : null

@@ -2,15 +2,22 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SocialModule, resolvePostMedia } from './social.js';
 import type { StorageProvider } from '../storage/provider.js';
 import { probeBlobDimensions } from '../internal/media-dimensions.js';
+import { captureBlobVideoPoster } from '../internal/media-poster.js';
 
 vi.mock('../internal/media-dimensions.js', () => ({
   probeBlobDimensions: vi.fn(async () => ({})),
 }));
 
+vi.mock('../internal/media-poster.js', () => ({
+  captureBlobVideoPoster: vi.fn(async () => null),
+}));
+
 const probeMock = vi.mocked(probeBlobDimensions);
+const posterMock = vi.mocked(captureBlobVideoPoster);
 
 afterEach(() => {
   probeMock.mockReset().mockResolvedValue({});
+  posterMock.mockReset().mockResolvedValue(null);
 });
 
 function makeProvider(): StorageProvider & { uploads: Array<Blob | File> } {
@@ -126,6 +133,31 @@ describe('resolvePostMedia', () => {
         size: cover.size,
         width: 3000,
         height: 2000,
+      },
+    ]);
+  });
+
+  it('uploads a video poster still beside the clip when capture succeeds', async () => {
+    probeMock.mockResolvedValue({ width: 1280, height: 720 });
+    posterMock.mockResolvedValue(
+      new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' })
+    );
+    const provider = makeProvider();
+    const clip = new File(['vid'], 'clip.mp4', { type: 'video/mp4' });
+    const out = await resolvePostMedia(
+      { text: 'clip', files: [clip] },
+      provider
+    );
+    expect(posterMock).toHaveBeenCalledTimes(1);
+    expect(provider.upload).toHaveBeenCalledTimes(2);
+    expect(out.media).toEqual([
+      {
+        cid: 'bafy-1',
+        mime: 'video/mp4',
+        size: clip.size,
+        width: 1280,
+        height: 720,
+        poster: 'bafy-2',
       },
     ]);
   });

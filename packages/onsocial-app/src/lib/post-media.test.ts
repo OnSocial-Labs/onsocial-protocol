@@ -100,6 +100,24 @@ describe('parsePostMedia', () => {
     expect(items[1]).toMatchObject({ width: 1080, height: 1920 });
   });
 
+  it('resolves a video poster CID to a stand-in URL', () => {
+    const items = parsePostMedia(
+      JSON.stringify({
+        media: [
+          {
+            cid: 'bafyvid',
+            mime: 'video/mp4',
+            width: 1080,
+            height: 1920,
+            poster: 'bafyposter',
+          },
+        ],
+      })
+    );
+    expect(items[0]?.posterUrl).toContain('bafyposter');
+    expect(items[0]?.url).toContain('bafyvid');
+  });
+
   it('drops non-positive or non-numeric hints per field', () => {
     const items = parsePostMedia(
       JSON.stringify({
