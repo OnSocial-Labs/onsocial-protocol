@@ -22,6 +22,9 @@ export function OsPageBodyAppear({
 }) {
   const managed = ready !== undefined;
   const [autoReady, setAutoReady] = useState(false);
+  // Mounting already ready must not run the from-0 keyframe. That fade has
+  // no skeleton behind it, so the header sits over an empty body.
+  const [bornReady] = useState(() => managed && Boolean(ready));
   useLayoutEffect(() => {
     if (!managed) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot appear after layout so opacity keyframe runs on a painted sheet
@@ -35,6 +38,7 @@ export function OsPageBodyAppear({
       className={[
         'os-page-body-appear',
         isReady ? 'is-ready' : '',
+        bornReady && isReady ? 'is-present' : '',
         className ?? '',
       ]
         .filter(Boolean)

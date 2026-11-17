@@ -1,6 +1,10 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { dismissNextDevOverlay, gotoApp } from './helpers';
 import {
+  armSheetBodyFrames,
+  expectSheetBodyNeverEmpty,
+} from './helpers/sheet-body-frames';
+import {
   GUILD_E2E_FEED_ROWS,
   GUILD_E2E_FEED_TEXT,
   GUILD_E2E_ID,
@@ -221,6 +225,17 @@ async function openThreadFromFeed(page: Page) {
   return layer;
 }
 
+test('the sheet body is never empty once the header is visible', async ({
+  page,
+}) => {
+  await stubGuildPage(page, { feedRows: GUILD_E2E_FEED_ROWS });
+  await stubGuildThreadGraph(page, { treeDelayMs: () => 600 });
+  await gotoGuildFeedWithRoot(page);
+  await armSheetBodyFrames(page);
+  await openThreadFromFeed(page);
+  await expectSheetBodyNeverEmpty(page);
+});
+
 test('direct replies paint while nested reply queries are still in flight', async ({
   page,
 }) => {
@@ -295,7 +310,7 @@ test('a seeded guild post stays visible while replies load', async ({
     .locator('.guild-thread-root .post-identity-name')
     .evaluate((node) => node.getBoundingClientRect().top);
   expect(Math.abs(replyTop - skeletonTop)).toBeLessThanOrEqual(1);
-  expect(Math.abs(rootTopAfter - rootTop)).toBeLessThanOrEqual(1);
+  expect(Math.abs(rootTopAfter - rootTop)).toBeLessThan(1);
   await expect(root).toHaveAttribute('data-open-node', 'root');
   await expect(root).toHaveJSProperty('tagName', 'DIV');
   await expect(

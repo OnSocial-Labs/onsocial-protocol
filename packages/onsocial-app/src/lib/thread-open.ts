@@ -139,7 +139,7 @@ export function scrollOpenedPostUnderHeader(post: HTMLElement): boolean {
   const scroller = threadScroller(post);
   if (!scroller) return false;
   const top = openedPostPinDeficit(post, scroller) + scroller.scrollTop;
-  if (Math.abs(scroller.scrollTop - top) < 0.5) return true;
+  if (Math.abs(scroller.scrollTop - top) <= 1) return true;
   pinThreadScroll(scroller, top);
   return true;
 }

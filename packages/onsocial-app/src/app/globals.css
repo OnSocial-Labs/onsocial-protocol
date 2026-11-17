@@ -39590,6 +39590,11 @@ a.os-surface-row,
     overflow-anchor: none;
   }
 
+  /* The pin sets scrollTop. The scroller must not undo that 1px when replies replace the skeleton. */
+  .os-app-screen-body:has(.guild-thread-column) {
+    overflow-anchor: none;
+  }
+
   /* Root and the continuing reply share one stroke. Sort sits in the copy column. */
   .guild-thread-column.is-continued {
     gap: 0;

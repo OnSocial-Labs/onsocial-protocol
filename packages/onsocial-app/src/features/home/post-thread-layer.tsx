@@ -97,7 +97,10 @@ const LivePersonalPostPanel = dynamic(
     import('@/features/home/live-personal-post-panel').then(
       (mod) => mod.LivePersonalPostPanel
     ),
-  { ssr: false }
+  {
+    ssr: false,
+    loading: () => <PostThreadPageSkeleton />,
+  }
 );
 
 const CollectionPagePanel = dynamic(
@@ -113,7 +116,10 @@ const LiveGuildPostPanel = dynamic(
     import('@/features/guilds/live-guild-post-panel').then(
       (mod) => mod.LiveGuildPostPanel
     ),
-  { ssr: false }
+  {
+    ssr: false,
+    loading: () => <PostThreadPageSkeleton />,
+  }
 );
 
 const PostQuotesPanel = dynamic(
