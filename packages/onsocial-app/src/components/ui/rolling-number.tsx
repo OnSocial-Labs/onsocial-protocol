@@ -232,11 +232,15 @@ export function RollingNumber({
   textRest?: boolean;
 }) {
   const safe = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
-  const prevValueRef = useRef(safe);
-  const fromValue = prevValueRef.current;
-  useEffect(() => {
-    prevValueRef.current = safe;
-  }, [safe]);
+  /*
+   * Previous whole value for zero-crossing snap. Adjust state during render
+   * (React-approved) so DigitRoll sees from→to on the changing paint without
+   * reading a ref in the glyph map (react-hooks/refs).
+   */
+  const [fromValue, setFromValue] = useState(safe);
+  if (fromValue !== safe) {
+    setFromValue(safe);
+  }
   const glyphs = rollingGlyphs(safe, grouped);
   return (
     <span
