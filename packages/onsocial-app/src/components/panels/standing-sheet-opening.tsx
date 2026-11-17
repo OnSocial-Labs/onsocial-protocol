@@ -1,8 +1,14 @@
 'use client';
 
+import { useSyncExternalStore } from 'react';
 import { usePathname } from 'next/navigation';
 import { StandingOverlaySheet } from '@/components/panels/standing-panel';
 import { getStandingOpeningFace } from '@/components/panels/network-standing-handoff';
+import {
+  getBrowserPath,
+  getBrowserPathServerSnapshot,
+  subscribeBrowserPath,
+} from '@/lib/browser-path';
 import { accountIdFromPath } from '@/lib/overlay-routes';
 import { parseStandingKindFromPathname } from '@/lib/profile-social-standings';
 
@@ -12,7 +18,13 @@ import { parseStandingKindFromPathname } from '@/lib/profile-social-standings';
  * known from the map, instead of an empty page.
  */
 export function StandingSheetOpening() {
-  const pathname = usePathname() ?? '';
+  const routerPath = usePathname() ?? '';
+  const browserPath = useSyncExternalStore(
+    subscribeBrowserPath,
+    getBrowserPath,
+    getBrowserPathServerSnapshot
+  );
+  const pathname = browserPath || routerPath;
   const accountId = accountIdFromPath(pathname);
   const kind = parseStandingKindFromPathname(pathname) ?? 'incoming';
   if (!accountId) return null;

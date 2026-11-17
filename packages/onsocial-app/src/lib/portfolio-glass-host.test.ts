@@ -54,13 +54,15 @@ describe('shouldMountPortfolioGlassHost', () => {
   });
 
   it('does not mount on hard refresh full-page panel routes', () => {
+    // Face-peek soft open can leave children on the peek with an idle slot —
+    // still mount so the Opening cover paints. Hard refresh redirects away.
     expect(
       shouldMountPortfolioGlassHost({
         pathname: '/@alice.testnet/standing/incoming',
         layoutSegments: ['standing', 'incoming'],
         overlaySlotMode: 'idle',
       })
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldMountPortfolioGlassHost({
         pathname: '/@alice.testnet/discover',
@@ -166,7 +168,7 @@ describe('shouldMountPortfolioGlassHost', () => {
         layoutSegments: ['endorsements'],
         overlaySlotMode: 'idle',
       })
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('does not treat writing or about as face peeks over their own underlay', () => {

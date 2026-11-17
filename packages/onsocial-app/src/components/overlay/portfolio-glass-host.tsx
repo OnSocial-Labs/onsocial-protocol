@@ -5,23 +5,35 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react';
 import { usePathname, useSelectedLayoutSegments } from 'next/navigation';
 import { OverlayGlassHeader } from '@/components/overlay/overlay-glass-header';
+import { OverlayInterceptRoot } from '@/components/overlay/overlay-intercept-root';
 import {
   OverlayChromeProvider,
   useOverlayChrome,
   useOverlayChromeClear,
 } from '@/contexts/overlay-chrome-context';
 import { OverlayDismissProvider } from '@/contexts/overlay-dismiss-context';
-import { parseOverlayPanelKey } from '@/lib/overlay-routes';
+import { EndorsementsSheetOpening } from '@/components/panels/endorsements-sheet-opening';
 import {
   standingSheetAlreadyCovered,
   getNetworkStandingHandoffPhase,
 } from '@/components/panels/network-standing-handoff';
+import { StandingSheetOpening } from '@/components/panels/standing-sheet-opening';
 import { writingShelfAlreadyCovered } from '@/lib/portfolio-shelf-hop';
-import type { OverlaySlotMode } from '@/lib/overlay-slot';
+import {
+  getBrowserPath,
+  getBrowserPathServerSnapshot,
+  subscribeBrowserPath,
+} from '@/lib/browser-path';
+import { parseOverlayPanelKey } from '@/lib/overlay-routes';
+import {
+  isOverlayInterceptSlot,
+  type OverlaySlotMode,
+} from '@/lib/overlay-slot';
 import {
   portfolioPanelIsFullScreen,
   routeKeepsPortfolioGlassSheet,
@@ -32,6 +44,30 @@ import { SHEET_Z } from '@/lib/sheet-z';
 import { useLivePortfolioMoodVars } from '@/hooks/use-portfolio-mood-vars';
 import { PostRowSkeleton } from '@/features/home/post-card';
 import { OsPageSheet, type GlassSheetPresentation } from '@onsocial/ui';
+
+/**
+ * Opening chrome until `@overlay` delivers a real OverlayInterceptRoot.
+ * Soft nav often parks an opaque client reference in the slot (mode=
+ * intercept) that never paints `.endorsements-panel` / `.standing-panel`
+ * while the RSC flight hangs — cover that gap from the URL.
+ */
+function FacePeekOverlayCover({ panelKey }: { panelKey: string }) {
+  if (panelKey === 'endorsements') {
+    return (
+      <OverlayInterceptRoot>
+        <EndorsementsSheetOpening />
+      </OverlayInterceptRoot>
+    );
+  }
+  if (panelKey.startsWith('standing:')) {
+    return (
+      <OverlayInterceptRoot>
+        <StandingSheetOpening />
+      </OverlayInterceptRoot>
+    );
+  }
+  return null;
+}
 
 function PortfolioGlassSheet({
   accountId,
@@ -188,7 +224,14 @@ export function PortfolioGlassHost({
   overlay: ReactNode;
   overlaySlotMode: OverlaySlotMode;
 }) {
-  const pathname = usePathname();
+  const routerPathname = usePathname();
+  const browserPath = useSyncExternalStore(
+    subscribeBrowserPath,
+    getBrowserPath,
+    getBrowserPathServerSnapshot
+  );
+  // Soft nav updates the address bar before usePathname / @overlay RSC settle.
+  const pathname = browserPath || routerPathname;
   const layoutSegments = useSelectedLayoutSegments();
   const panelKey = parseOverlayPanelKey(pathname);
   const overlayPresent = shouldMountPortfolioGlassHost({
@@ -196,6 +239,11 @@ export function PortfolioGlassHost({
     layoutSegments,
     overlaySlotMode,
   });
+  const facePeekCover =
+    overlayPresent &&
+    panelKey != null &&
+    (panelKey === 'endorsements' || panelKey.startsWith('standing:')) &&
+    !isOverlayInterceptSlot(overlay);
   const [hostMounted, setHostMounted] = useState(false);
   const [presentation, setPresentation] = useState<'appear' | 'swap'>(() =>
     standingSheetAlreadyCovered() || writingShelfAlreadyCovered()
@@ -262,7 +310,13 @@ export function PortfolioGlassHost({
         panelKey={panelKey}
         presentation={sheetPresentation}
       >
-        {overlayPresent ? overlay : null}
+        {overlayPresent ? (
+          facePeekCover && panelKey ? (
+            <FacePeekOverlayCover panelKey={panelKey} />
+          ) : (
+            overlay
+          )
+        ) : null}
       </PortfolioGlassSheet>
     </OverlayChromeProvider>
   );
