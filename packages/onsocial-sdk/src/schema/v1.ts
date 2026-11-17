@@ -247,6 +247,8 @@ function validateMedia(m: unknown): string | null {
   if (m.alt !== undefined && !isStr(m.alt)) return 'media.alt must be string';
   if (m.blurhash !== undefined && !isStr(m.blurhash))
     return 'media.blurhash must be string';
+  if (m.poster !== undefined && !isStr(m.poster))
+    return 'media.poster must be string';
   return null;
 }
 

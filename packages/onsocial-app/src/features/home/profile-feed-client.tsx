@@ -47,12 +47,43 @@ type SectionPager = {
   started: boolean;
 };
 
+export type ProfileSectionInFlight = Record<ProfileTextTab, boolean>;
+
+export function emptyProfileSectionInFlight(): ProfileSectionInFlight {
+  return { posts: false, replies: false, reposts: false };
+}
+
+/** Per-section lock — a mid-load tab switch can start the new section. */
+export function beginProfileSectionFetch(
+  inFlight: ProfileSectionInFlight,
+  section: ProfileTextTab
+): boolean {
+  if (inFlight[section]) return false;
+  inFlight[section] = true;
+  return true;
+}
+
+export function endProfileSectionFetch(
+  inFlight: ProfileSectionInFlight,
+  section: ProfileTextTab
+): void {
+  inFlight[section] = false;
+}
+
 function emptySectionPagers(): Record<ProfileTextTab, SectionPager> {
   return {
     posts: { nextOffset: 0, hasMore: false, started: false },
     replies: { nextOffset: 0, hasMore: false, started: false },
     reposts: { nextOffset: 0, hasMore: false, started: false },
   };
+}
+
+function emptySectionFlags(): Record<ProfileTextTab, boolean> {
+  return emptyProfileSectionInFlight();
+}
+
+function emptySectionRequests(): Record<ProfileTextTab, number> {
+  return { posts: 0, replies: 0, reposts: 0 };
 }
 
 function isProfileTextTab(tab: ProfileFeedTab | undefined): tab is ProfileTextTab {
@@ -123,10 +154,10 @@ export function ProfileFeedClient({
   const mediaAccountRef = useRef(accountId);
 
   const [sectionPages, setSectionPages] = useState(emptySectionPagers);
-  const [sectionPaging, setSectionPaging] = useState(false);
-  const [sectionFailed, setSectionFailed] = useState(false);
-  const sectionPagingRef = useRef(false);
-  const sectionRequestRef = useRef(0);
+  const [sectionPagingMap, setSectionPagingMap] = useState(emptySectionFlags);
+  const [sectionFailedMap, setSectionFailedMap] = useState(emptySectionFlags);
+  const sectionPagingRef = useRef(emptyProfileSectionInFlight());
+  const sectionRequestRef = useRef(emptySectionRequests());
   const sectionSentinelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -200,12 +231,11 @@ export function ProfileFeedClient({
 
   const fetchSectionPage = useCallback(
     (section: ProfileTextTab, offset: number) => {
-      if (sectionPagingRef.current) return;
-      sectionPagingRef.current = true;
-      const requestId = sectionRequestRef.current;
+      if (!beginProfileSectionFetch(sectionPagingRef.current, section)) return;
+      const requestId = sectionRequestRef.current[section];
       queueMicrotask(() => {
-        setSectionPaging(true);
-        setSectionFailed(false);
+        setSectionPagingMap((current) => ({ ...current, [section]: true }));
+        setSectionFailedMap((current) => ({ ...current, [section]: false }));
         if (offset === 0) setPendingTab(section);
       });
       const client = createReadOnlyOnSocialClient();
@@ -217,9 +247,9 @@ export function ProfileFeedClient({
           section,
         })
         .then((page) => {
-          if (requestId !== sectionRequestRef.current) return;
+          if (requestId !== sectionRequestRef.current[section]) return;
           setPosts((current) => mergePostRows(current, page.items));
-          setSectionFailed(false);
+          setSectionFailedMap((current) => ({ ...current, [section]: false }));
           setSectionPages((current) => ({
             ...current,
             [section]: {
@@ -230,8 +260,8 @@ export function ProfileFeedClient({
           }));
         })
         .catch(() => {
-          if (requestId !== sectionRequestRef.current) return;
-          setSectionFailed(true);
+          if (requestId !== sectionRequestRef.current[section]) return;
+          setSectionFailedMap((current) => ({ ...current, [section]: true }));
           setSectionPages((current) => ({
             ...current,
             [section]: {
@@ -242,9 +272,9 @@ export function ProfileFeedClient({
           }));
         })
         .finally(() => {
-          if (requestId !== sectionRequestRef.current) return;
-          sectionPagingRef.current = false;
-          setSectionPaging(false);
+          if (requestId !== sectionRequestRef.current[section]) return;
+          endProfileSectionFetch(sectionPagingRef.current, section);
+          setSectionPagingMap((current) => ({ ...current, [section]: false }));
           setPendingTab((current) => (current === section ? null : current));
         });
     },
@@ -255,15 +285,19 @@ export function ProfileFeedClient({
     if (mediaAccountRef.current === accountId) return;
     mediaAccountRef.current = accountId;
     mediaRequestRef.current += 1;
-    sectionRequestRef.current += 1;
+    sectionRequestRef.current = {
+      posts: sectionRequestRef.current.posts + 1,
+      replies: sectionRequestRef.current.replies + 1,
+      reposts: sectionRequestRef.current.reposts + 1,
+    };
     mediaPagingRef.current = false;
-    sectionPagingRef.current = false;
+    sectionPagingRef.current = emptyProfileSectionInFlight();
     queueMicrotask(() => {
       setMediaFailed(false);
       setMediaPaging(false);
       setMediaPage({ nextOffset: 0, hasMore: false, started: false });
-      setSectionFailed(false);
-      setSectionPaging(false);
+      setSectionFailedMap(emptySectionFlags());
+      setSectionPagingMap(emptySectionFlags());
       setSectionPages(emptySectionPagers());
     });
   }, [accountId]);
@@ -386,10 +420,25 @@ export function ProfileFeedClient({
     fetchMediaPage(mediaPage.nextOffset);
   }, [tab, mediaPage.hasMore, mediaPage.nextOffset, fetchMediaPage]);
 
+  const sectionPaging = activeSection
+    ? sectionPagingMap[activeSection]
+    : false;
+  const sectionFailed = activeSection
+    ? sectionFailedMap[activeSection]
+    : false;
+
   const loadOlderSection = useCallback(() => {
     if (!activeSection || !activeSectionPage) return;
-    if (!activeSectionPage.hasMore || sectionPagingRef.current) return;
-    setSectionFailed(false);
+    if (
+      !activeSectionPage.hasMore ||
+      sectionPagingRef.current[activeSection]
+    ) {
+      return;
+    }
+    setSectionFailedMap((current) => ({
+      ...current,
+      [activeSection]: false,
+    }));
     fetchSectionPage(activeSection, activeSectionPage.nextOffset);
   }, [activeSection, activeSectionPage, fetchSectionPage]);
 

@@ -128,6 +128,17 @@ describe('PostV1', () => {
     expect(p.timestamp).toBe(7);
   });
 
+  it('rejects a non-string media.poster', () => {
+    expect(
+      validatePostV1({
+        v: 1,
+        text: 'clip',
+        timestamp: 1,
+        media: [{ cid: 'bafyvid', mime: 'video/mp4', poster: 12 as never }],
+      })
+    ).toBe('post.media: media.poster must be string');
+  });
+
   it('rejects uppercase hashtags, bad tickers, and bad parentType / refType', () => {
     expect(() => postV1({ text: 'x', hashtags: ['BadTag'] })).toThrow(
       /hashtags/

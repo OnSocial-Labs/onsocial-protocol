@@ -278,8 +278,9 @@ function resolveMediaUrl(
 function resolvePosterUrl(poster: string | undefined): string | undefined {
   const trimmed = poster?.trim();
   if (!trimmed) return undefined;
+  // Only bare cid / ipfs:// — never trust http(s) or blob stand-ins.
   if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('blob:')) {
-    return trimmed;
+    return undefined;
   }
   if (trimmed.startsWith('ipfs://')) {
     return resolveProfileMediaUrl(trimmed) ?? undefined;

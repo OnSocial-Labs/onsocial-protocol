@@ -56,6 +56,12 @@ function mediaImgSizes(size: PostMediaSize, collage: boolean): string {
   return collage ? IMG_SIZES_TILE : IMG_SIZES_SINGLE;
 }
 
+/**
+ * Bounded shimmer settle when decode events never fire (iOS metadata preload).
+ * Same 8s budget as SDK `POSTER_TIMEOUT_MS` — named, not a magic inline.
+ */
+export const FEED_MEDIA_RESOLVE_FALLBACK_MS = 8_000;
+
 /** Survives window remount so scroll-back does not re-fade known media. */
 const feedMediaResolvedSrcs = new Set<string>();
 
@@ -409,6 +415,17 @@ function PostVisualMediaBlock({
     setSoundOff(focusedVideoMuted);
   }, [focusedVideoMuted]);
 
+  // iOS / low-power often skip loadeddata with preload=metadata — settle on
+  // metadata/canplay/error, and clear the shimmer after the named fallback.
+  useEffect(() => {
+    if (!isVideo || !videoMounted || resolved) return;
+    const timer = window.setTimeout(
+      markResolved,
+      FEED_MEDIA_RESOLVE_FALLBACK_MS
+    );
+    return () => window.clearTimeout(timer);
+  }, [isVideo, videoMounted, resolved, markResolved]);
+
   const rememberRatio = (width: number, height: number) => {
     if (width > 0 && height > 0) onRatio?.(width / height);
   };
@@ -504,7 +521,9 @@ function PostVisualMediaBlock({
             onLoadedMetadata={(event) => {
               const video = event.currentTarget;
               rememberRatio(video.videoWidth, video.videoHeight);
+              markResolved();
             }}
+            onCanPlay={markResolved}
             onLoadedData={markResolved}
             onError={markResolved}
           />

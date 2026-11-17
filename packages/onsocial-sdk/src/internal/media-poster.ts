@@ -33,67 +33,72 @@ export function captureBlobVideoPoster(blob: Blob): Promise<Blob | null> {
   if (!mime.startsWith('video/')) return Promise.resolve(null);
 
   return new Promise((resolve) => {
-    const url = URL.createObjectURL(blob);
-    const video = document.createElement('video');
-    let settled = false;
-    const settle = (value: Blob | null) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      video.onloadedmetadata = null;
-      video.onseeked = null;
-      video.onerror = null;
-      video.removeAttribute('src');
-      video.load();
-      URL.revokeObjectURL(url);
-      resolve(value);
-    };
-    const timer = setTimeout(() => settle(null), POSTER_TIMEOUT_MS);
+    // Never reject — a throw here used to orphan the video upload (Promise.all).
+    try {
+      const url = URL.createObjectURL(blob);
+      const video = document.createElement('video');
+      let settled = false;
+      const settle = (value: Blob | null) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        video.onloadedmetadata = null;
+        video.onseeked = null;
+        video.onerror = null;
+        video.removeAttribute('src');
+        video.load();
+        URL.revokeObjectURL(url);
+        resolve(value);
+      };
+      const timer = setTimeout(() => settle(null), POSTER_TIMEOUT_MS);
 
-    video.muted = true;
-    video.playsInline = true;
-    video.preload = 'auto';
-    video.onerror = () => settle(null);
-    video.onloadedmetadata = () => {
-      const width = video.videoWidth;
-      const height = video.videoHeight;
-      if (!width || !height) {
-        settle(null);
-        return;
-      }
-      const seekTo = defaultSeekSeconds(video.duration);
-      const grab = () => {
-        try {
-          const scale = Math.min(1, POSTER_MAX_EDGE / Math.max(width, height));
-          const canvas = document.createElement('canvas');
-          canvas.width = Math.max(1, Math.round(width * scale));
-          canvas.height = Math.max(1, Math.round(height * scale));
-          const context = canvas.getContext('2d');
-          if (!context) {
-            settle(null);
-            return;
-          }
-          context.drawImage(video, 0, 0, canvas.width, canvas.height);
-          canvas.toBlob(
-            (frame) => settle(frame),
-            'image/jpeg',
-            0.85
-          );
-        } catch {
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = 'auto';
+      video.onerror = () => settle(null);
+      video.onloadedmetadata = () => {
+        const width = video.videoWidth;
+        const height = video.videoHeight;
+        if (!width || !height) {
           settle(null);
+          return;
+        }
+        const seekTo = defaultSeekSeconds(video.duration);
+        const grab = () => {
+          try {
+            const scale = Math.min(1, POSTER_MAX_EDGE / Math.max(width, height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(width * scale));
+            canvas.height = Math.max(1, Math.round(height * scale));
+            const context = canvas.getContext('2d');
+            if (!context) {
+              settle(null);
+              return;
+            }
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob(
+              (frame) => settle(frame),
+              'image/jpeg',
+              0.85
+            );
+          } catch {
+            settle(null);
+          }
+        };
+        if (seekTo <= 0) {
+          grab();
+          return;
+        }
+        video.onseeked = () => grab();
+        try {
+          video.currentTime = seekTo;
+        } catch {
+          grab();
         }
       };
-      if (seekTo <= 0) {
-        grab();
-        return;
-      }
-      video.onseeked = () => grab();
-      try {
-        video.currentTime = seekTo;
-      } catch {
-        grab();
-      }
-    };
-    video.src = url;
+      video.src = url;
+    } catch {
+      resolve(null);
+    }
   });
 }

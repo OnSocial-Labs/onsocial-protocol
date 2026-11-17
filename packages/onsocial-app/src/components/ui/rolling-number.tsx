@@ -1,6 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import {
   ROLLING_DIGIT_MS,
   mod10,
@@ -233,14 +239,19 @@ export function RollingNumber({
 }) {
   const safe = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
   /*
-   * Previous whole value for zero-crossing snap. Adjust state during render
-   * (React-approved) so DigitRoll sees from→to on the changing paint without
-   * reading a ref in the glyph map (react-hooks/refs).
+   * Previous whole value for zero-crossing snap. Lag via layout effect so
+   * DigitRoll sees from→to on the changing paint (adjust-during-render
+   * collapsed both before the first like could snap).
    */
   const [fromValue, setFromValue] = useState(safe);
-  if (fromValue !== safe) {
-    setFromValue(safe);
-  }
+  useLayoutEffect(() => {
+    if (fromValue !== safe) {
+      // Lag one paint so DigitRoll sees from→to (0→1 snap). Sync setState is
+      // intentional — adjust-during-render collapsed both before commit.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- lag previous whole value
+      setFromValue(safe);
+    }
+  }, [fromValue, safe]);
   const glyphs = rollingGlyphs(safe, grouped);
   return (
     <span
