@@ -66,7 +66,10 @@ export function captureBlobVideoPoster(blob: Blob): Promise<Blob | null> {
         const seekTo = defaultSeekSeconds(video.duration);
         const grab = () => {
           try {
-            const scale = Math.min(1, POSTER_MAX_EDGE / Math.max(width, height));
+            const scale = Math.min(
+              1,
+              POSTER_MAX_EDGE / Math.max(width, height)
+            );
             const canvas = document.createElement('canvas');
             canvas.width = Math.max(1, Math.round(width * scale));
             canvas.height = Math.max(1, Math.round(height * scale));
@@ -76,11 +79,7 @@ export function captureBlobVideoPoster(blob: Blob): Promise<Blob | null> {
               return;
             }
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            canvas.toBlob(
-              (frame) => settle(frame),
-              'image/jpeg',
-              0.85
-            );
+            canvas.toBlob((frame) => settle(frame), 'image/jpeg', 0.85);
           } catch {
             settle(null);
           }
