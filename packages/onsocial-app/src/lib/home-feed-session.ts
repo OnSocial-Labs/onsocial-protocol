@@ -15,12 +15,10 @@ const HOME_FEED_SESSION_HINT_REFRESH_MS = 30_000;
 /** Bump when the snapshot shape changes — old copies are ignored. */
 const HOME_FEED_SESSION_STORAGE_VERSION = 1;
 /**
- * Live in-memory + sessionStorage post cap. Soft refresh / load-more / catch-up
- * trim to this so a long scroll session cannot grow without bound.
+ * Session restore only — hard refresh paints this many posts. Live scroll
+ * keeps growing via load-more; DOM windowing owns render cost.
  */
 export const HOME_FEED_SESSION_PERSISTED_POSTS = 60;
-/** Alias — same live list ceiling as the session snapshot. */
-export const HOME_FEED_LIVE_POSTS_CAP = HOME_FEED_SESSION_PERSISTED_POSTS;
 /** Same defensive cap as the window cache — heights are tiny but bounded. */
 const HOME_FEED_SESSION_PERSISTED_HEIGHTS = 400;
 

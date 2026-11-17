@@ -140,7 +140,6 @@ import {
   subscribeViewerAmplifyConfirmed,
 } from '@/lib/home-feed-amplify-epoch';
 import {
-  HOME_FEED_LIVE_POSTS_CAP,
   HOME_FEED_SSR_SESSION_KEY,
   homeFeedSessionKey,
   homeFeedSessionProbeDelayMs,
@@ -180,13 +179,6 @@ import {
 } from '@/lib/viewer-mute-global';
 
 const HOME_FEED_PAGE_SIZE = 24;
-
-/** Keep the live list at the session ceiling after merges. */
-function capHomeFeedLivePosts(posts: PostRow[]): PostRow[] {
-  return posts.length > HOME_FEED_LIVE_POSTS_CAP
-    ? posts.slice(0, HOME_FEED_LIVE_POSTS_CAP)
-    : posts;
-}
 
 async function fetchSavedFeedPage(
   accountId: string,
@@ -990,7 +982,6 @@ export function HomePagePanel({
           setReRankAnchor(captureVisibleFeedAnchor(scrollRootRef.current));
         }
         let risingAuthors: string[] = [];
-        let liveAtCap = false;
         setPosts((current) => {
           if (mergeHead && current.length > 0) {
             const merged =
@@ -1005,14 +996,10 @@ export function HomePagePanel({
               }
             }
             revokeDroppedOptimisticMedia(current, merged.posts);
-            const capped = capHomeFeedLivePosts(merged.posts);
-            liveAtCap = capped.length >= HOME_FEED_LIVE_POSTS_CAP;
-            return capped;
+            return merged.posts;
           }
           revokeDroppedOptimisticMedia(current, items);
-          const capped = capHomeFeedLivePosts(items);
-          liveAtCap = capped.length >= HOME_FEED_LIVE_POSTS_CAP;
-          return capped;
+          return items;
         });
         feedSessionKeyRef.current = sessionKey;
         if (mergeHead) {
@@ -1023,14 +1010,9 @@ export function HomePagePanel({
           ) {
             armHotUpdated(risingAuthors);
           }
-          if (liveAtCap) {
-            setNextOffset(undefined);
-            nextOffsetRef.current = undefined;
-          }
         } else {
-          const next = liveAtCap ? undefined : result.page.nextOffset;
-          setNextOffset(next);
-          nextOffsetRef.current = next;
+          setNextOffset(result.page.nextOffset);
+          nextOffsetRef.current = result.page.nextOffset;
           clearHotUpdated();
         }
         setSsrBootstrapDone(true);
@@ -1147,18 +1129,14 @@ export function HomePagePanel({
           // content under the reader. The layout effect below applies it.
           setReRankAnchor(captureVisibleFeedAnchor(scrollRootRef.current));
         }
-        let liveAtCap = false;
         setPosts((current) => {
           const merged = mergeFeedPosts(current, result.page.items);
-          const next =
-            focus != null && sort === 'hot' ? sortPostsByHot(merged) : merged;
-          const capped = capHomeFeedLivePosts(next);
-          liveAtCap = capped.length >= HOME_FEED_LIVE_POSTS_CAP;
-          return capped;
+          return focus != null && sort === 'hot'
+            ? sortPostsByHot(merged)
+            : merged;
         });
-        const next = liveAtCap ? undefined : result.page.nextOffset;
-        setNextOffset(next);
-        nextOffsetRef.current = next;
+        setNextOffset(result.page.nextOffset);
+        nextOffsetRef.current = result.page.nextOffset;
       } catch {
         // Keep the current list; the sentinel stays available to retry.
         if (isCurrentLoadingRequest(loadIdRef.current, loadId)) {
