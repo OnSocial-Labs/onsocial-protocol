@@ -11,12 +11,13 @@ import {
 } from '@/hooks/use-post-engagement';
 import { resolveFeedRepostCard } from '@/lib/feed-repost-card';
 import type { PollTally } from '@/lib/poll-votes';
+import { displayName } from '@/lib/profile-display';
 
 type PostCardProps = ComponentProps<typeof PostCard>;
 
 /**
- * Feed / thread PostCard with bare-repost Structure→Paint: skeleton until
- * the original resolves, then the original as the card + attribution.
+ * Feed / thread PostCard with bare-repost Structure→Paint: attribution +
+ * text chassis until the original resolves, then the original as the card.
  */
 export function ResolvedFeedPostCard({
   post,
@@ -73,7 +74,19 @@ export function ResolvedFeedPostCard({
     postAuthorProfiles
   );
   if (resolved.pending) {
-    return <PostRowSkeleton rows={1} />;
+    const reposter = displayName(
+      post.accountId,
+      postAuthorProfiles[post.accountId]?.displayName
+    );
+    return (
+      <div className="post-card-pending-repost" aria-busy="true">
+        <span className="post-card-repost-line" aria-hidden>
+          {`${reposter} reposted`}
+        </span>
+        {/* Text chassis matches feedBlockEstimatePx for unresolved shells. */}
+        <PostRowSkeleton rows={1} />
+      </div>
+    );
   }
   const { card, quoted, repostedBy } = resolved;
   const resolvedChannelLabel =
