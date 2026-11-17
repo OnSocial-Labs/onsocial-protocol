@@ -11867,6 +11867,20 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
+  .portfolio-writing-shelf-like {
+    display: inline-flex;
+    align-items: baseline;
+  }
+
+  .portfolio-writing-shelf-like.is-idle {
+    width: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+  }
+
   .portfolio-writing-more {
     display: flex;
     flex-direction: column;
@@ -23322,6 +23336,16 @@ a.os-surface-row,
     text-decoration: none;
   }
 
+  /* Bare-repost Structure seat — attribution stays live while the body chassis waits. */
+  .post-card-pending-repost {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .post-card-pending-repost > .post-card-repost-line {
+    flex-basis: auto;
+  }
+
   .post-card-repost-line:hover,
   .post-card-repost-line:focus-visible {
     color: var(--protocol-green-hover, var(--protocol-green, #00ec97));
@@ -25366,11 +25390,13 @@ a.os-surface-row,
     vertical-align: bottom;
   }
 
-  .post-card-count-slot:not(.is-visible) {
-    position: absolute;
+  /* Same idle seat as likes — digit stays mounted; no absolute unmount pop. */
+  .post-card-count-slot.is-idle {
     width: 0;
-    height: 0;
+    margin: 0;
+    padding: 0;
     overflow: hidden;
+    opacity: 0;
     pointer-events: none;
   }
 
@@ -41046,12 +41072,11 @@ a.os-surface-row,
   }
 
   .thread-view-quotes.is-idle {
-    position: absolute;
     width: 0;
-    height: 0;
     margin: 0;
     padding: 0;
     overflow: hidden;
+    opacity: 0;
     pointer-events: none;
   }
 
@@ -46986,11 +47011,11 @@ button.messages-bubble-quote:focus-visible {
 
 /* Empty reply / repost / heart / amplify — quieter than the count ink. */
 .post-card-stat:not(:hover):not(:focus-visible):not(.is-active):has(
-    > .post-card-count-slot:not(.is-visible)
+    > .post-card-count-slot.is-idle
   )
   > .mage-stroke-icon,
 .post-card-stat:not(:hover):not(:focus-visible):not(.is-active):has(
-    > .post-card-count-slot:not(.is-visible)
+    > .post-card-count-slot.is-idle
   )
   > svg,
 .post-card-react:not(:hover):not(:focus-visible):not(.is-active):has(

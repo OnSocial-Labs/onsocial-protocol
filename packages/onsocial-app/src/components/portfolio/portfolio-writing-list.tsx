@@ -8,10 +8,10 @@ import { PostRichText } from '@/features/home/post-rich-text';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useWritingComposeOpen } from '@/contexts/writing-compose-context';
 import { useEssayReturnSearch } from '@/hooks/use-essay-return-search';
+import { RollingNumber } from '@/components/ui/rolling-number';
 import {
   articleExcerpt,
   articleMatchesQuery,
-  formatWritingLikeLabel,
   formatWritingReadLabel,
   parseArticleSnapshot,
   resolveArticleCover,
@@ -149,9 +149,9 @@ export const PortfolioWritingList = memo(function PortfolioWritingList({
             const iso = postTimestampIso(post.blockTimestamp);
             const readLabel = formatWritingReadLabel(parsePostText(post.value));
             const shelfTime = formatWritingShelfTimestamp(post.blockTimestamp);
-            const likeLabel = formatWritingLikeLabel(
-              (engagement[postKey(post)] ?? EMPTY_POST_ENGAGEMENT).reactionCount
-            );
+            const likeRow =
+              engagement[postKey(post)] ?? EMPTY_POST_ENGAGEMENT;
+            const likeCount = likeRow.reactionCount;
             const articleHref = withEssayReturnSearch(
               writingArticlePath(post.accountId, post.postId),
               returnSearch
@@ -215,12 +215,18 @@ export const PortfolioWritingList = memo(function PortfolioWritingList({
                           <span>{readLabel}</span>
                         </>
                       ) : null}
-                      {likeLabel ? (
-                        <>
-                          <span aria-hidden> · </span>
-                          <span>{likeLabel}</span>
-                        </>
-                      ) : null}
+                      <span
+                        className={`portfolio-writing-shelf-like${
+                          likeCount > 0 ? '' : ' is-idle'
+                        }`}
+                        aria-hidden={likeCount > 0 ? undefined : true}
+                      >
+                        <span aria-hidden> · </span>
+                        <RollingNumber
+                          value={likeCount}
+                          rollSignal={likeRow.reactionRoll}
+                        />
+                      </span>
                     </p>
                   </div>
                 </Link>

@@ -230,7 +230,7 @@ function EngagementStat({
   rollSignal?: number;
 }) {
   const countNode = (
-    <span className={`post-card-count-slot${count > 0 ? ' is-visible' : ''}`}>
+    <span className={`post-card-count-slot${count > 0 ? '' : ' is-idle'}`}>
       <RollingNumber value={count} rollSignal={rollSignal} />
     </span>
   );
