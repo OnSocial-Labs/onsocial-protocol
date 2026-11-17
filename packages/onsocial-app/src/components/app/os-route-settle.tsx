@@ -74,15 +74,12 @@ function routeSettleFadeMs() {
 export function OsRouteSettle({
   settle = true,
   ready,
-  present = false,
   skeleton,
   children,
 }: PropsWithChildren<{
   /** False paints children immediately and still keeps this wrapper. */
   settle?: boolean;
   ready?: boolean;
-  /** Skip the body fade when `ready` is already true on mount. Quotes omit it. */
-  present?: boolean;
   skeleton: ReactNode;
 }>) {
   const pathname = usePathname();
@@ -134,9 +131,7 @@ export function OsRouteSettle({
       aria-busy={showCover && cover === 'hold' ? true : undefined}
     >
       {managed ? (
-        <OsPageBodyAppear ready={Boolean(ready)} present={present}>
-          {children}
-        </OsPageBodyAppear>
+        <OsPageBodyAppear ready={Boolean(ready)}>{children}</OsPageBodyAppear>
       ) : (
         children
       )}

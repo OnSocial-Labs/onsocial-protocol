@@ -502,12 +502,6 @@
     var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1)) forwards;
 }
 
-/* Mounted already ready: the from-0 keyframe would hide a painted root. */
-.os-page-body-appear.is-ready.is-present {
-  opacity: 1;
-  animation: none;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .os-page-body-appear {
     opacity: 1;

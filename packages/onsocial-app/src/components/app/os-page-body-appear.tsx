@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useState, type PropsWithChildren } from 'react';
+import { useLayoutEffect, useState, type ReactNode } from 'react';
 
 /**
  * Soft-appear for OsPageSheet body under stable chrome (back + title).
@@ -13,23 +13,15 @@ import { useLayoutEffect, useState, type PropsWithChildren } from 'react';
  */
 export function OsPageBodyAppear({
   ready,
-  present = false,
   children,
   className,
-}: PropsWithChildren<{
+}: {
   ready?: boolean;
-  /**
-   * Skip the 280ms fade when this body mounts already ready. Quotes omit
-   * this so the sheet fade still runs.
-   */
-  present?: boolean;
+  children: ReactNode;
   className?: string;
-}>) {
+}) {
   const managed = ready !== undefined;
   const [autoReady, setAutoReady] = useState(false);
-  // Mounting already ready must not run the from-0 keyframe. That fade has
-  // no skeleton behind it, so the header sits over an empty body.
-  const [bornReady] = useState(() => present && managed && Boolean(ready));
   useLayoutEffect(() => {
     if (!managed) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot appear after layout so opacity keyframe runs on a painted sheet
@@ -43,7 +35,6 @@ export function OsPageBodyAppear({
       className={[
         'os-page-body-appear',
         isReady ? 'is-ready' : '',
-        bornReady && isReady ? 'is-present' : '',
         className ?? '',
       ]
         .filter(Boolean)

@@ -1342,7 +1342,6 @@ export function LivePersonalPostPanel({
     >
       <OsRouteSettle
         ready={permalinkReady}
-        present
         skeleton={<PostThreadPageSkeleton />}
       >
         {thread}
