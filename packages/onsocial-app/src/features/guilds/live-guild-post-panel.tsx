@@ -6,10 +6,11 @@ import {
   useMemo,
   useRef,
   useState,
+  type RefObject,
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
-import { Divider } from '@onsocial/ui';
+import { Divider, PulsingDots } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsHeaderBack } from '@/components/app/os-header-back';
 import { OsRouteSettle } from '@/components/app/os-route-settle';
@@ -26,6 +27,7 @@ import {
 } from '@/contexts/compose-launcher-context';
 import { OsWriteDockReplyChip } from '@/components/os/os-write-dock';
 import { useReplyWriteDock } from '@/hooks/use-reply-write-dock';
+import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
   writeDockDraftKey,
   WRITE_DOCK_ADD_REPLY_PLACEHOLDER,
@@ -34,7 +36,6 @@ import {
 } from '@/lib/os-write-dock';
 import { GUILDS_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { OsEmptyAction } from '@/lib/os-empty-action';
-import { OsLoadMore } from '@/lib/os-load-more';
 import {
   clearWriteDockDraft,
   writeDockDraftFromComposer,
@@ -172,14 +173,14 @@ function GuildThreadLoadMoreFooter({
   hasMore,
   loadingMore,
   loadMoreError,
-  idleLabel,
   onLoadMore,
+  sentinelRef,
 }: {
   hasMore: boolean;
   loadingMore: boolean;
   loadMoreError: string | null;
-  idleLabel: string;
   onLoadMore: () => void;
+  sentinelRef: RefObject<HTMLDivElement | null>;
 }) {
   if (loadMoreError) {
     return (
@@ -192,15 +193,20 @@ function GuildThreadLoadMoreFooter({
       </div>
     );
   }
-  if (!hasMore) return null;
+  if (!hasMore && !loadingMore) return null;
   return (
-    <OsLoadMore
-      onClick={onLoadMore}
-      pending={loadingMore}
-      disabled={loadingMore}
-    >
-      {loadingMore ? 'Loading…' : idleLabel}
-    </OsLoadMore>
+    <div className="dao-discover-load-more">
+      <div
+        ref={sentinelRef}
+        className="protocol-feed-sentinel"
+        aria-hidden
+      />
+      {loadingMore ? (
+        <div className="list-append-pending">
+          <PulsingDots size="sm" label="Loading more" />
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -358,6 +364,9 @@ export function LiveGuildPostPanel({
   const hasParent = Boolean(parentPath);
   const hasAncestorRows = ancestorChain.length > 0;
   const openedPostRef = useRef<HTMLDivElement>(null);
+  const threadHostRef = useRef<HTMLDivElement | null>(null);
+  const threadScrollRef = useRef<HTMLElement | null>(null);
+  const replyLoadMoreRef = useRef<HTMLDivElement | null>(null);
   const engagementPosts = useMemo(
     () => [...ancestorChain, ...threadPosts],
     [ancestorChain, threadPosts]
@@ -1059,8 +1068,27 @@ export function LiveGuildPostPanel({
     );
   });
 
+  useEffect(() => {
+    const host = threadHostRef.current;
+    if (!host) return;
+    threadScrollRef.current =
+      (host.closest('.os-app-screen-body') as HTMLElement | null) ?? null;
+  }, [loadState, conversation.root?.postId]);
+
+  useInfiniteScrollSentinel({
+    scrollRootRef: threadScrollRef,
+    sentinelRef: replyLoadMoreRef,
+    enabled:
+      hasMoreReplies &&
+      !loadingMore &&
+      !loadMoreError &&
+      loadState === 'ready',
+    onIntersect: loadMore,
+    rootMargin: '1400px 0px',
+  });
+
   const threadBody = (
-      <div className={GUILDS_PAGE_CLASS}>
+      <div ref={threadHostRef} className={GUILDS_PAGE_CLASS}>
         {loadState === 'missing' ? (
           <section className="guild-state-card">
             <p>We could not find this guild post in the indexed feed yet.</p>
@@ -1256,8 +1284,8 @@ export function LiveGuildPostPanel({
                 hasMore={hasMoreReplies}
                 loadingMore={loadingMore}
                 loadMoreError={loadMoreError}
-                idleLabel="Show more replies"
                 onLoadMore={loadMore}
+                sentinelRef={replyLoadMoreRef}
               />
             </div>
           </section>

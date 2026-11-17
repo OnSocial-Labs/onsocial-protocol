@@ -9,7 +9,7 @@ import {
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { PostRow, ThreadNode } from '@onsocial/sdk';
-import { Divider } from '@onsocial/ui';
+import { Divider, PulsingDots } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsHeaderBack } from '@/components/app/os-header-back';
 import { OsRouteSettle } from '@/components/app/os-route-settle';
@@ -21,6 +21,7 @@ import {
 } from '@/contexts/compose-launcher-context';
 import { OsWriteDockReplyChip } from '@/components/os/os-write-dock';
 import { useReplyWriteDock } from '@/hooks/use-reply-write-dock';
+import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
   writeDockDraftKey,
   WRITE_DOCK_ADD_REPLY_PLACEHOLDER,
@@ -312,11 +313,15 @@ export function LivePersonalPostPanel({
     () => seeded?.hasMoreReplies ?? false
   );
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const paginatedRef = useRef(false);
   const refreshRequestIdRef = useRef(0);
   const reconcileTimersRef = useRef<number[]>([]);
   const openedPostRef = useRef<HTMLDivElement>(null);
+  const threadHostRef = useRef<HTMLDivElement | null>(null);
+  const threadScrollRef = useRef<HTMLElement | null>(null);
+  const replyLoadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const paintedKeyRef = useRef<string | null>(seeded ? rootPath : null);
   const treePosts = useMemo(() => flattenTreePosts(replyTree), [replyTree]);
@@ -758,6 +763,7 @@ export function LivePersonalPostPanel({
   const loadMoreReplies = useCallback(async () => {
     if (loadingMore) return;
     setLoadingMore(true);
+    setLoadMoreError(null);
     try {
       const client = createReadOnlyOnSocialClient();
       const page = await client.query.threads.repliesByPath(rootPath, {
@@ -798,11 +804,32 @@ export function LivePersonalPostPanel({
       });
       setHasMoreReplies(page.length >= REPLY_PAGE_SIZE);
     } catch {
-      // Keep the current list; the button stays available to retry.
+      setLoadMoreError('Could not load more replies.');
     } finally {
       setLoadingMore(false);
     }
   }, [conversation.replies.length, loadingMore, rootPath]);
+
+  useEffect(() => {
+    const host = threadHostRef.current;
+    if (!host) return;
+    threadScrollRef.current =
+      (host.closest('.os-app-screen-body') as HTMLElement | null) ?? null;
+  }, [loadState, conversation.root?.postId]);
+
+  useInfiniteScrollSentinel({
+    scrollRootRef: threadScrollRef,
+    sentinelRef: replyLoadMoreRef,
+    enabled:
+      hasMoreReplies &&
+      !loadingMore &&
+      !loadMoreError &&
+      loadState === 'ready',
+    onIntersect: () => {
+      void loadMoreReplies();
+    },
+    rootMargin: '1400px 0px',
+  });
 
   const canPostInThread = Boolean(isConnected && accountId);
 
@@ -1102,6 +1129,7 @@ export function LivePersonalPostPanel({
 
   const thread = (
     <div
+      ref={threadHostRef}
       className={hideRootMedia ? 'feed-media-thread-embed' : GUILDS_PAGE_CLASS}
     >
       {loadState === 'missing' ? (
@@ -1278,14 +1306,30 @@ export function LivePersonalPostPanel({
               />
             ) : null}
 
-            {hasMoreReplies ? (
+            {loadMoreError ? (
               <OsLoadMore
-                onClick={() => void loadMoreReplies()}
+                onClick={() => {
+                  setLoadMoreError(null);
+                  void loadMoreReplies();
+                }}
                 pending={loadingMore}
                 disabled={loadingMore}
               >
-                {loadingMore ? 'Loading…' : 'Show more replies'}
+                {loadingMore ? 'Loading…' : 'Try again'}
               </OsLoadMore>
+            ) : hasMoreReplies || loadingMore ? (
+              <div className="dao-discover-load-more">
+                <div
+                  ref={replyLoadMoreRef}
+                  className="protocol-feed-sentinel"
+                  aria-hidden
+                />
+                {loadingMore ? (
+                  <div className="list-append-pending">
+                    <PulsingDots size="sm" label="Loading more" />
+                  </div>
+                ) : null}
+              </div>
             ) : null}
           </div>
         </section>
