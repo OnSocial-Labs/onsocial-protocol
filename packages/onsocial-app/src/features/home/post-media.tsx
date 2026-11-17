@@ -586,6 +586,9 @@ function PostVisualMediaBlock({
     rememberFeedMediaRatio(mediaUrl, ratio);
     onRatio?.(ratio);
     if (!reserveRatio) return;
+    // Same ratio → no layout effect; do not leave a stale seatAnchorRef.
+    const next = nextMeasuredRatio(measuredRatio, ratio);
+    if (next === measuredRatio) return;
     const tile = tileNodeRef.current;
     const scroller = tile?.closest('.os-app-screen-body');
     if (tile instanceof HTMLElement && scroller instanceof HTMLElement) {
@@ -601,7 +604,7 @@ function PostVisualMediaBlock({
     } else {
       seatAnchorRef.current = null;
     }
-    setMeasuredRatio((current) => nextMeasuredRatio(current, ratio));
+    setMeasuredRatio(next);
   };
 
   // Soft-focus / remount: reserveRatio may flip on after the feed already

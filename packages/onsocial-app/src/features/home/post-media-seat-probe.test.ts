@@ -229,4 +229,46 @@ describe('feed media seat probe (render)', () => {
     expect(nextMeasuredRatio(1.777, 1.777)).toBe(1.777);
     expect(nextMeasuredRatio(null, 1.5)).toBe(1.5);
   });
+
+  it('skips same-ratio capture so a later change uses a fresh anchor', () => {
+    // Mirrors rememberRatio: capture only when nextMeasuredRatio changes.
+    let measured: number | null = 1.5;
+    let anchor: ReturnType<typeof captureSeatScrollAnchor> | null =
+      captureSeatScrollAnchor({
+        tileTop: -400,
+        tileBottom: -100,
+        tileHeight: 200,
+        scrollerTop: 0,
+        scrollTop: 800,
+      });
+    expect(anchor).toEqual({ mode: 'height', height: 200 });
+
+    const remember = (ratio: number, tileHeight: number) => {
+      const next = nextMeasuredRatio(measured, ratio);
+      if (next === measured) return;
+      anchor = captureSeatScrollAnchor({
+        tileTop: -400,
+        tileBottom: -100,
+        tileHeight,
+        scrollerTop: 0,
+        scrollTop: 800,
+      });
+      measured = next;
+    };
+
+    remember(1.5, 999);
+    // Same ratio must not replace the live anchor with a stale height.
+    expect(anchor).toEqual({ mode: 'height', height: 200 });
+    expect(measured).toBe(1.5);
+
+    remember(16 / 9, 120);
+    expect(measured).toBe(16 / 9);
+    expect(anchor).toEqual({ mode: 'height', height: 120 });
+    expect(seatScrollDelta(anchor, {
+      tileTop: -400,
+      tileHeight: 120,
+      scrollerTop: 0,
+      scrollTop: 800,
+    })).toBe(0);
+  });
 });

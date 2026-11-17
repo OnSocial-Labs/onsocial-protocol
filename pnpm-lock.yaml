@@ -273,6 +273,9 @@ importers:
       '@tailwindcss/postcss':
         specifier: ^4.2.1
         version: 4.2.1
+      '@testing-library/react':
+        specifier: ^16.3.0
+        version: 16.3.0
       '@types/node':
         specifier: ^25.4.0
         version: 25.4.0
