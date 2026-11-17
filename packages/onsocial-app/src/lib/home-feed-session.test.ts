@@ -6,7 +6,6 @@ import type { PostRow } from '@onsocial/sdk';
 import {
   clearHomeFeedSession,
   HOME_FEED_COLD_PROBE_DELAY_MS,
-  HOME_FEED_LIVE_POSTS_CAP,
   HOME_FEED_SESSION_HINT_COOKIE,
   HOME_FEED_SESSION_PERSISTED_POSTS,
   HOME_FEED_SESSION_PROBE_DELAY_MS,
@@ -380,7 +379,7 @@ describe('home feed session storage mirror', () => {
     expect(peekHomeFeedSession()?.scrollTop).toBe(12);
   });
 
-  it('caps live memory and the stored copy to the shared live ceiling', () => {
+  it('caps the session restore snapshot, not live scroll growth', () => {
     const map = stubSessionStorage();
     const posts = Array.from({ length: 80 }, (_, index) =>
       row('a.near', String(index))
@@ -393,7 +392,6 @@ describe('home feed session storage mirror', () => {
       offsetShiftApplied: 0,
       scrollTop: 0,
     });
-    expect(HOME_FEED_LIVE_POSTS_CAP).toBe(HOME_FEED_SESSION_PERSISTED_POSTS);
     expect(HOME_FEED_SESSION_PERSISTED_POSTS).toBe(60);
     expect(peekHomeFeedSession()?.posts).toHaveLength(
       HOME_FEED_SESSION_PERSISTED_POSTS
