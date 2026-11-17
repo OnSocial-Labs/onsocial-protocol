@@ -12,6 +12,7 @@ import { RollingNumber } from '@/components/ui/rolling-number';
 import {
   articleExcerpt,
   articleMatchesQuery,
+  formatWritingLikeLabel,
   formatWritingReadLabel,
   parseArticleSnapshot,
   resolveArticleCover,
@@ -76,6 +77,32 @@ export function PortfolioWritingPending({ rowCount = 2 }: { rowCount?: number })
         ))}
       </div>
     </WritingShelfFrame>
+  );
+}
+
+/**
+ * Shelf meta likes — RollingNumber for the digit, main's
+ * `formatWritingLikeLabel` wording for the word + accessible name.
+ * Hidden at 0. Digit + word stay aria-hidden so the label is read once.
+ */
+export function WritingShelfLikeCount({
+  likeCount,
+  rollSignal,
+}: {
+  likeCount: number;
+  rollSignal?: number;
+}) {
+  const likeLabel = formatWritingLikeLabel(likeCount);
+  if (!likeLabel) return null;
+  const word = likeCount === 1 ? ' like' : ' likes';
+  return (
+    <span className="portfolio-writing-shelf-like" aria-label={likeLabel}>
+      <span aria-hidden> · </span>
+      <span aria-hidden>
+        <RollingNumber value={likeCount} rollSignal={rollSignal} />
+        {word}
+      </span>
+    </span>
   );
 }
 
@@ -215,18 +242,10 @@ export const PortfolioWritingList = memo(function PortfolioWritingList({
                           <span>{readLabel}</span>
                         </>
                       ) : null}
-                      <span
-                        className={`portfolio-writing-shelf-like${
-                          likeCount > 0 ? '' : ' is-idle'
-                        }`}
-                        aria-hidden={likeCount > 0 ? undefined : true}
-                      >
-                        <span aria-hidden> · </span>
-                        <RollingNumber
-                          value={likeCount}
-                          rollSignal={likeRow.reactionRoll}
-                        />
-                      </span>
+                      <WritingShelfLikeCount
+                        likeCount={likeCount}
+                        rollSignal={likeRow.reactionRoll}
+                      />
                     </p>
                   </div>
                 </Link>
