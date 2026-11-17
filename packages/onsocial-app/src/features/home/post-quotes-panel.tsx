@@ -11,7 +11,7 @@ import {
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import type { PostRow, ReposterRow } from '@onsocial/sdk';
-import { Divider, RepeatIcon } from '@onsocial/ui';
+import { Divider, PulsingDots, RepeatIcon } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsRouteSettle } from '@/components/app/os-route-settle';
@@ -573,11 +573,18 @@ export function PostQuotesPanel({
                     {loadingMore ? 'Loading…' : 'Try again'}
                   </OsLoadMore>
                 ) : (
-                  <div
-                    ref={quotesSentinelRef}
-                    className="post-quotes-load-sentinel"
-                    aria-hidden="true"
-                  />
+                  <>
+                    <div
+                      ref={quotesSentinelRef}
+                      className="post-quotes-load-sentinel"
+                      aria-hidden="true"
+                    />
+                    {loadingMore && activeTab === 'quotes' ? (
+                      <div className="list-append-pending">
+                        <PulsingDots size="sm" label="Loading more" />
+                      </div>
+                    ) : null}
+                  </>
                 )
               ) : null}
             </div>
@@ -676,11 +683,18 @@ export function PostQuotesPanel({
                     {loadingMore ? 'Loading…' : 'Try again'}
                   </OsLoadMore>
                 ) : (
-                  <div
-                    ref={repostersSentinelRef}
-                    className="post-quotes-load-sentinel"
-                    aria-hidden="true"
-                  />
+                  <>
+                    <div
+                      ref={repostersSentinelRef}
+                      className="post-quotes-load-sentinel"
+                      aria-hidden="true"
+                    />
+                    {loadingMore && activeTab === 'reposts' ? (
+                      <div className="list-append-pending">
+                        <PulsingDots size="sm" label="Loading more" />
+                      </div>
+                    ) : null}
+                  </>
                 )
               ) : null}
             </div>

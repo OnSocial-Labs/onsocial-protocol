@@ -32,6 +32,7 @@ import { useFeedWindow } from '@/features/home/use-feed-window';
 import { APP_GROUPS_PATH } from '@/lib/app-routes';
 import { emptyCopy } from '@/lib/empty-copy';
 import { OsEmptyAction } from '@/lib/os-empty-action';
+import { PulsingDots } from '@onsocial/ui';
 import {
   countPrimaryTopics,
   discoverTopicFiltersFromCounts,
@@ -501,10 +502,9 @@ export function DiscoverGuildsPanel() {
                 aria-hidden
               />
               {moreLoading ? (
-                <DiscoverCommunityListSkeleton
-                  label="Loading more guilds…"
-                  count={2}
-                />
+                <div className="list-append-pending">
+                  <PulsingDots size="sm" label="Loading more" />
+                </div>
               ) : null}
             </div>
           ) : null}
