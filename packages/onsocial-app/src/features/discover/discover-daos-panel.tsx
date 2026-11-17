@@ -66,26 +66,24 @@ export function DiscoverDaosPanel() {
 
       {showSkeleton ? (
         <DiscoverCommunityListSkeleton label="Loading DAOs…" />
-      ) : (
+      ) : entries.length > 0 ? (
+        <DaoDirectoryList entries={entries} />
+      ) : !error && (isSearchEmpty || catalogQuery.length === 0) ? (
         <OsPageBodyAppear>
-          {entries.length > 0 ? (
-            <DaoDirectoryList entries={entries} />
-          ) : !error && (isSearchEmpty || catalogQuery.length === 0) ? (
-            <div className="standing-panel-empty-block">
-              <div className="standing-panel-empty-state">
-                <p className="standing-panel-empty-primary">
-                  {isSearchEmpty ? emptyCopy.noMatches : 'No DAOs listed yet.'}
-                </p>
-              </div>
-              {isSearchEmpty ? (
-                <div className="standing-panel-empty-actions">
-                  <OsEmptyAction href={APP_DAOS_PATH}>My DAOs</OsEmptyAction>
-                </div>
-              ) : null}
+          <div className="standing-panel-empty-block">
+            <div className="standing-panel-empty-state">
+              <p className="standing-panel-empty-primary">
+                {isSearchEmpty ? emptyCopy.noMatches : 'No DAOs listed yet.'}
+              </p>
             </div>
-          ) : null}
+            {isSearchEmpty ? (
+              <div className="standing-panel-empty-actions">
+                <OsEmptyAction href={APP_DAOS_PATH}>My DAOs</OsEmptyAction>
+              </div>
+            ) : null}
+          </div>
         </OsPageBodyAppear>
-      )}
+      ) : null}
 
       {hasMore || (pending && rows != null) ? (
         <div className="dao-discover-load-more">

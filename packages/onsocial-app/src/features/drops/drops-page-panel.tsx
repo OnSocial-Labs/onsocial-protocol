@@ -1279,39 +1279,37 @@ export function DropsPagePanel({
                 rows={DROPS_CATALOG_SKELETON_ROWS}
                 variant="drops"
               />
-            ) : (
+            ) : visibleItems.length === 0 &&
+              !loading &&
+              (!searching || needle === debouncedQuery.toLowerCase()) ? (
               <OsPageBodyAppear>
-                {visibleItems.length === 0 &&
-                !loading &&
-                (!searching || needle === debouncedQuery.toLowerCase()) ? (
-                  <EmptyDropsStatus sort={sort} query={query} medium={medium} />
-                ) : (
-                  <>
-                    {upcomingGroups ? (
-                      UPCOMING_SECTIONS.map((section) => {
-                        const rows = upcomingGroups[section.id];
-                        if (rows.length === 0) return null;
-                        return (
-                          <div key={section.id} className="drops-upcoming-group">
-                            <h3 className="market-section-title drops-upcoming-label">
-                              {section.label}
-                            </h3>
-                            <DropsWindowedList rows={rows} renderRow={renderRow} />
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <DropsWindowedList
-                        rows={visibleItems}
-                        renderRow={renderRow}
-                      />
-                    )}
-                    {showAppendSkeleton ? (
-                      <MarketListSkeleton rows={2} variant="drops" />
-                    ) : null}
-                  </>
-                )}
+                <EmptyDropsStatus sort={sort} query={query} medium={medium} />
               </OsPageBodyAppear>
+            ) : (
+              <>
+                {upcomingGroups ? (
+                  UPCOMING_SECTIONS.map((section) => {
+                    const rows = upcomingGroups[section.id];
+                    if (rows.length === 0) return null;
+                    return (
+                      <div key={section.id} className="drops-upcoming-group">
+                        <h3 className="market-section-title drops-upcoming-label">
+                          {section.label}
+                        </h3>
+                        <DropsWindowedList rows={rows} renderRow={renderRow} />
+                      </div>
+                    );
+                  })
+                ) : (
+                  <DropsWindowedList
+                    rows={visibleItems}
+                    renderRow={renderRow}
+                  />
+                )}
+                {showAppendSkeleton ? (
+                  <MarketListSkeleton rows={2} variant="drops" />
+                ) : null}
+              </>
             )}
             {failed && errorPresentation === 'overlay' ? (
               <OsChromeListAlert

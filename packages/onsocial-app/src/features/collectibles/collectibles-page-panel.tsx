@@ -949,156 +949,166 @@ export function CollectiblesPagePanel({
           <p className="sr-only">Loading collectibles…</p>
           <CollectiblesLibrarySkeleton />
         </section>
+      ) : showLibrary &&
+        filtered.length > 0 &&
+        (status === 'ready' ||
+          usingOfflineLibrary ||
+          loadingPresentation === 'preserve') ? (
+        <>
+          {ownerAccountId && !usingOfflineLibrary && showRefreshOverlay ? (
+            <OsChromeListAlert
+              message={
+                liveListError ??
+                (isSelf
+                  ? 'Couldn’t refresh your collectibles.'
+                  : 'Couldn’t refresh collectibles.')
+              }
+              onRetry={() => {
+                if (liveListError === 'Couldn’t load more.') {
+                  loadMore();
+                  return;
+                }
+                setRetryKey((n) => n + 1);
+              }}
+            />
+          ) : null}
+          {showOfflineOnly ? (
+            <CatalogStatusLine>
+              Downloaded music — available offline.
+            </CatalogStatusLine>
+          ) : null}
+          <CollectiblesVaultLibrary
+            groups={displayGroups}
+            ownedByToken={ownedByToken}
+            showCreatorHeadings={showCreatorHeadings}
+            selectedCreator={creatorFilter}
+            creatorFaces={creatorFaces}
+            refreshing={loadingPresentation === 'preserve'}
+            onSelectCreator={(creatorKey) =>
+              replaceDiscoveryParams({
+                creator: creatorFilter === creatorKey ? null : creatorKey,
+              })
+            }
+            renderOwnerMenu={
+              isSelf
+                ? (owned) => (
+                    <CollectiblesHoldingRowMenu
+                      item={owned}
+                      onList={() => {
+                        setSellItem(owned);
+                        setSellOpen(true);
+                      }}
+                      onTransfer={() => {
+                        setTransferItem(owned);
+                        setTransferOpen(true);
+                      }}
+                      onDelisted={refreshOwned}
+                    />
+                  )
+                : undefined
+            }
+            onTransferEdition={
+              isSelf
+                ? (owned) => {
+                    setTransferItem(owned);
+                    setTransferOpen(true);
+                  }
+                : undefined
+            }
+            onSellEdition={
+              isSelf
+                ? (owned) => {
+                    setSellItem(owned);
+                    setSellOpen(true);
+                  }
+                : undefined
+            }
+            onEditionListOpenChange={setEditionListOpen}
+          />
+        </>
       ) : (
         <OsPageBodyAppear>
-      {showConnectPrompt ? (
-        <div className="market-page-empty">
-          <p className="market-page-empty-copy">{COLLECTIBLES_CONNECT_HINT}</p>
-          <div className="collectibles-empty-actions">
-            <OsEmptyAction onClick={() => void connect()}>Connect</OsEmptyAction>
-            <OsEmptyAction href={APP_MARKET_PATH}>Browse Market</OsEmptyAction>
-          </div>
-        </div>
-      ) : null}
-
-      {ownerAccountId && !usingOfflineLibrary && showStateError ? (
-        <ListLoadError
-          message={
-            isSelf
-              ? 'Couldn’t load your collectibles.'
-              : 'Couldn’t load collectibles.'
-          }
-          onRetry={() => setRetryKey((n) => n + 1)}
-        />
-      ) : null}
-
-      {ownerAccountId && !usingOfflineLibrary && showRefreshOverlay ? (
-        <OsChromeListAlert
-          message={
-            liveListError ??
-            (isSelf
-              ? 'Couldn’t refresh your collectibles.'
-              : 'Couldn’t refresh collectibles.')
-          }
-          onRetry={() => {
-            if (liveListError === 'Couldn’t load more.') {
-              loadMore();
-              return;
-            }
-            setRetryKey((n) => n + 1);
-          }}
-        />
-      ) : null}
-
-      {showOfflineOnly ? (
-        <CatalogStatusLine>
-          Downloaded music — available offline.
-        </CatalogStatusLine>
-      ) : null}
-
-      {emptyVault ? (
-        <div className="market-page-empty">
-          <p className="market-page-empty-copy">
-            {isSelf
-              ? 'Nothing in your vault yet. Collect a scarce on Market, or release your own drop.'
-              : 'Nothing held yet.'}
-          </p>
-          {isSelf ? (
-            <div className="collectibles-empty-actions">
-              <OsEmptyAction href={APP_MARKET_PATH}>
-                Browse Market
-              </OsEmptyAction>
-              <OsEmptyAction href={APP_DROP_CREATE_PATH}>
-                Create a drop
-              </OsEmptyAction>
+          {showConnectPrompt ? (
+            <div className="market-page-empty">
+              <p className="market-page-empty-copy">
+                {COLLECTIBLES_CONNECT_HINT}
+              </p>
+              <div className="collectibles-empty-actions">
+                <OsEmptyAction onClick={() => void connect()}>
+                  Connect
+                </OsEmptyAction>
+                <OsEmptyAction href={APP_MARKET_PATH}>
+                  Browse Market
+                </OsEmptyAction>
+              </div>
             </div>
-          ) : (
-            <div className="collectibles-empty-actions">
-              <OsEmptyAction href={APP_MARKET_PATH}>
-                Browse Market
-              </OsEmptyAction>
+          ) : null}
+
+          {ownerAccountId && !usingOfflineLibrary && showStateError ? (
+            <ListLoadError
+              message={
+                isSelf
+                  ? 'Couldn’t load your collectibles.'
+                  : 'Couldn’t load collectibles.'
+              }
+              onRetry={() => setRetryKey((n) => n + 1)}
+            />
+          ) : null}
+
+          {showOfflineOnly ? (
+            <CatalogStatusLine>
+              Downloaded music — available offline.
+            </CatalogStatusLine>
+          ) : null}
+
+          {emptyVault ? (
+            <div className="market-page-empty">
+              <p className="market-page-empty-copy">
+                {isSelf
+                  ? 'Nothing in your vault yet. Collect a scarce on Market, or release your own drop.'
+                  : 'Nothing held yet.'}
+              </p>
+              {isSelf ? (
+                <div className="collectibles-empty-actions">
+                  <OsEmptyAction href={APP_MARKET_PATH}>
+                    Browse Market
+                  </OsEmptyAction>
+                  <OsEmptyAction href={APP_DROP_CREATE_PATH}>
+                    Create a drop
+                  </OsEmptyAction>
+                </div>
+              ) : (
+                <div className="collectibles-empty-actions">
+                  <OsEmptyAction href={APP_MARKET_PATH}>
+                    Browse Market
+                  </OsEmptyAction>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      ) : null}
+          ) : null}
 
-      {emptySearch ? (
-        <CatalogStatusLine>{emptyCopy.noMatches}</CatalogStatusLine>
-      ) : null}
+          {emptySearch ? (
+            <CatalogStatusLine>{emptyCopy.noMatches}</CatalogStatusLine>
+          ) : null}
 
-      {emptyFilter ? (
-        <div className="market-page-empty">
-          <p className="market-page-empty-copy">
-            {facetOrFormatActive
-              ? emptyCopy.noMatchesForFilters
-              : isSelf
-                ? `No ${emptyFilterLabel.toLowerCase()} in your vault.`
-                : `No ${emptyFilterLabel.toLowerCase()} held.`}
-          </p>
-          <div className="collectibles-empty-actions">
-            <OsEmptyAction onClick={clearDiscovery}>Show all</OsEmptyAction>
-          </div>
-        </div>
-      ) : null}
+          {emptyFilter ? (
+            <div className="market-page-empty">
+              <p className="market-page-empty-copy">
+                {facetOrFormatActive
+                  ? emptyCopy.noMatchesForFilters
+                  : isSelf
+                    ? `No ${emptyFilterLabel.toLowerCase()} in your vault.`
+                    : `No ${emptyFilterLabel.toLowerCase()} held.`}
+              </p>
+              <div className="collectibles-empty-actions">
+                <OsEmptyAction onClick={clearDiscovery}>Show all</OsEmptyAction>
+              </div>
+            </div>
+          ) : null}
 
-      {filterAwaitingLoad ? (
-        <CatalogStatusLine>{emptyCopy.lookingForMatches}</CatalogStatusLine>
-      ) : null}
-
-      {showLibrary &&
-      filtered.length > 0 &&
-      (status === 'ready' ||
-        usingOfflineLibrary ||
-        loadingPresentation === 'preserve') ? (
-        <CollectiblesVaultLibrary
-          groups={displayGroups}
-          ownedByToken={ownedByToken}
-          showCreatorHeadings={showCreatorHeadings}
-          selectedCreator={creatorFilter}
-          creatorFaces={creatorFaces}
-          refreshing={loadingPresentation === 'preserve'}
-          onSelectCreator={(creatorKey) =>
-            replaceDiscoveryParams({
-              creator: creatorFilter === creatorKey ? null : creatorKey,
-            })
-          }
-          renderOwnerMenu={
-            isSelf
-              ? (owned) => (
-                  <CollectiblesHoldingRowMenu
-                    item={owned}
-                    onList={() => {
-                      setSellItem(owned);
-                      setSellOpen(true);
-                    }}
-                    onTransfer={() => {
-                      setTransferItem(owned);
-                      setTransferOpen(true);
-                    }}
-                    onDelisted={refreshOwned}
-                  />
-                )
-              : undefined
-          }
-          onTransferEdition={
-            isSelf
-              ? (owned) => {
-                  setTransferItem(owned);
-                  setTransferOpen(true);
-                }
-              : undefined
-          }
-          onSellEdition={
-            isSelf
-              ? (owned) => {
-                  setSellItem(owned);
-                  setSellOpen(true);
-                }
-              : undefined
-          }
-          onEditionListOpenChange={setEditionListOpen}
-        />
-      ) : null}
+          {filterAwaitingLoad ? (
+            <CatalogStatusLine>{emptyCopy.lookingForMatches}</CatalogStatusLine>
+          ) : null}
         </OsPageBodyAppear>
       )}
 

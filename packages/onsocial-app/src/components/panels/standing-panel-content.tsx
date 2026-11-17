@@ -77,67 +77,65 @@ export function StandingPanelContent() {
       >
         {showListSkeleton ? (
           <ProfileSocialListSkeleton />
-        ) : (
-          <OsPageBodyAppear>
-            {listAccounts.length === 0 ? (
-              searchStillPending ? null : (
-                <div
-                  className={`standing-panel-empty-block${
-                    isSearchEmpty ? ' is-search' : ''
-                  }`}
-                >
-                  <div className="standing-panel-empty-state">
-                    <p className="standing-panel-empty-primary">
-                      {emptyState.primary}
+        ) : listAccounts.length === 0 ? (
+          searchStillPending ? null : (
+            <OsPageBodyAppear>
+              <div
+                className={`standing-panel-empty-block${
+                  isSearchEmpty ? ' is-search' : ''
+                }`}
+              >
+                <div className="standing-panel-empty-state">
+                  <p className="standing-panel-empty-primary">
+                    {emptyState.primary}
+                  </p>
+                  {emptyState.secondary ? (
+                    <p className="standing-panel-empty-secondary">
+                      {emptyState.secondary}
                     </p>
-                    {emptyState.secondary ? (
-                      <p className="standing-panel-empty-secondary">
-                        {emptyState.secondary}
-                      </p>
-                    ) : null}
-                    {emptyState.showClearSearch || emptyState.showDiscover ? (
-                      <div className="standing-panel-empty-actions">
-                        {emptyState.showClearSearch ? (
-                          <OsEmptyAction onClick={clearSearch}>
-                            Clear search
-                          </OsEmptyAction>
-                        ) : null}
-                        {emptyState.showDiscover ? (
-                          <StandingDiscoverLink closeOverlay />
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
+                  ) : null}
+                  {emptyState.showClearSearch || emptyState.showDiscover ? (
+                    <div className="standing-panel-empty-actions">
+                      {emptyState.showClearSearch ? (
+                        <OsEmptyAction onClick={clearSearch}>
+                          Clear search
+                        </OsEmptyAction>
+                      ) : null}
+                      {emptyState.showDiscover ? (
+                        <StandingDiscoverLink closeOverlay />
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
+              </div>
+            </OsPageBodyAppear>
+          )
+        ) : (
+          <ProfileSocialList
+            accounts={listAccounts}
+            listKey={listKey}
+            viewerAccountId={viewerAccountId}
+            showSolidarityBadge={kind !== 'mutual'}
+            viewerRelationshipsLoading={
+              isConnected && Boolean(viewerAccountId) && !relationshipSynced
+            }
+            canUpdateStandingFor={(account) =>
+              isConnected &&
+              Boolean(viewerAccountId) &&
+              viewerAccountId !== account.accountId
+            }
+            isPendingFor={(accountId) => mergedPendingIds.has(accountId)}
+            onUpdateStanding={(account, shouldStand) =>
+              void handleUpdateStanding(
+                profileListAccountToStandingSummary(account),
+                shouldStand
               )
-            ) : (
-              <ProfileSocialList
-                accounts={listAccounts}
-                listKey={listKey}
-                viewerAccountId={viewerAccountId}
-                showSolidarityBadge={kind !== 'mutual'}
-                viewerRelationshipsLoading={
-                  isConnected && Boolean(viewerAccountId) && !relationshipSynced
-                }
-                canUpdateStandingFor={(account) =>
-                  isConnected &&
-                  Boolean(viewerAccountId) &&
-                  viewerAccountId !== account.accountId
-                }
-                isPendingFor={(accountId) => mergedPendingIds.has(accountId)}
-                onUpdateStanding={(account, shouldStand) =>
-                  void handleUpdateStanding(
-                    profileListAccountToStandingSummary(account),
-                    shouldStand
-                  )
-                }
-                loadMoreSentinelRef={loadMoreRef}
-                footerSummary={footerSummary}
-                isLoadingMore={isLoadingMore}
-                showLoadMoreSentinel={showLoadMoreSentinel}
-              />
-            )}
-          </OsPageBodyAppear>
+            }
+            loadMoreSentinelRef={loadMoreRef}
+            footerSummary={footerSummary}
+            isLoadingMore={isLoadingMore}
+            showLoadMoreSentinel={showLoadMoreSentinel}
+          />
         )}
       </div>
     </div>

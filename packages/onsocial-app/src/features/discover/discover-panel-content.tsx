@@ -167,33 +167,33 @@ export function DiscoverPanelContent() {
             <div className="discover-profiles-list-slot">
               {showProfilesSkeleton ? (
                 <ProfileSocialListSkeleton rowVariant="discover" />
-              ) : (
-                <OsPageBodyAppear>
-                  {profilesForList.length === 0 ? (
+              ) : profilesForList.length === 0 ? (
                 !hasRecommended && (!isSearchEmpty || searchSettled) ? (
-                  <div
-                    className={`standing-panel-empty-block${
-                      isSearchEmpty ? ' is-search' : ''
-                    }`}
-                  >
-                    <div className="standing-panel-empty-state">
-                      <p className="standing-panel-empty-primary">
-                        {emptyState.primary}
-                      </p>
-                      {emptyState.secondary ? (
-                        <p className="standing-panel-empty-secondary">
-                          {emptyState.secondary}
+                  <OsPageBodyAppear>
+                    <div
+                      className={`standing-panel-empty-block${
+                        isSearchEmpty ? ' is-search' : ''
+                      }`}
+                    >
+                      <div className="standing-panel-empty-state">
+                        <p className="standing-panel-empty-primary">
+                          {emptyState.primary}
                         </p>
-                      ) : null}
-                      {emptyState.showClearSearch ? (
-                        <div className="standing-panel-empty-actions">
-                          <OsEmptyAction onClick={clearSearch}>
-                            Clear search
-                          </OsEmptyAction>
-                        </div>
-                      ) : null}
+                        {emptyState.secondary ? (
+                          <p className="standing-panel-empty-secondary">
+                            {emptyState.secondary}
+                          </p>
+                        ) : null}
+                        {emptyState.showClearSearch ? (
+                          <div className="standing-panel-empty-actions">
+                            <OsEmptyAction onClick={clearSearch}>
+                              Clear search
+                            </OsEmptyAction>
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
+                  </OsPageBodyAppear>
                 ) : null
               ) : (
                 <ProfileSocialList
@@ -231,8 +231,6 @@ export function DiscoverPanelContent() {
                     face === 'offers' || face === 'hiring' ? face : undefined
                   }
                 />
-                  )}
-                </OsPageBodyAppear>
               )}
             </div>
           </div>

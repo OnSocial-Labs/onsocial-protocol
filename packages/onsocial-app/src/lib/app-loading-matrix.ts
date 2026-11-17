@@ -1,7 +1,6 @@
 export type AppLoadingFamily =
   | 'glass-list'
   | 'immersive-detail'
-  | 'sheet-form'
   | 'private';
 
 export type AppLoadingMatrixRow = {
@@ -50,7 +49,9 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     implementationFiles: [
       'features/discover/discover-panel-content.tsx',
       'features/discover/discover-loading-skeleton.tsx',
+      'features/discover/discover-sheet-opening.tsx',
       'app/(app)/discover/loading.tsx',
+      'app/[accountId]/@overlay/loading.tsx',
     ],
   },
   {
@@ -363,7 +364,7 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     id: 'portfolio',
     route: '/[accountId]',
     family: 'immersive-detail',
-    cold: 'PortfolioShellPending identity stub; soft-appear face after Suspense',
+    cold: 'PortfolioShellPending identity stub via route loading',
     refreshing: 'Keep visible face; preview bars only',
     appending: 'Deferred shelf streams without remounting face',
     empty: 'Identity empty copy',

@@ -416,74 +416,76 @@ export function DiscoverGuildsPanel() {
       {showSkeleton ? (
         <DiscoverCommunityListSkeleton label="Loading guilds…" />
       ) : (
-        <OsPageBodyAppear>
+        <>
           {!error &&
           visibleGuilds.length === 0 &&
           (!searchQuery || isSearchEmpty) ? (
-        <div className="standing-panel-empty-block">
-          <div className="standing-panel-empty-state">
-            <p className="standing-panel-empty-primary">
-              {isSearchEmpty
-                ? emptyCopy.noMatches
-                : isTopicEmpty
-                  ? 'No guilds in this topic yet.'
-                  : 'No public guilds yet.'}
-            </p>
-            {isSearchEmpty ? null : (
-              <p className="standing-panel-empty-secondary">
-                {isTopicEmpty
-                  ? 'Pick All or another topic.'
-                  : 'Create one in Guilds, or join by URL.'}
-              </p>
-            )}
-          </div>
-          {isSearchEmpty ? null : (
-            <div className="standing-panel-empty-actions">
-              {isTopicEmpty ? (
-                <OsEmptyAction onClick={() => setTopicFilter('all')}>
-                  Show all guilds
-                </OsEmptyAction>
-              ) : (
-                <>
-                  <OsEmptyAction href={`${APP_GROUPS_PATH}/create`}>
-                    Create a guild
-                  </OsEmptyAction>
-                  <OsEmptyAction href={APP_GROUPS_PATH}>
-                    Open Guilds
-                  </OsEmptyAction>
-                </>
-              )}
-            </div>
-          )}
-        </div>
+            <OsPageBodyAppear>
+              <div className="standing-panel-empty-block">
+                <div className="standing-panel-empty-state">
+                  <p className="standing-panel-empty-primary">
+                    {isSearchEmpty
+                      ? emptyCopy.noMatches
+                      : isTopicEmpty
+                        ? 'No guilds in this topic yet.'
+                        : 'No public guilds yet.'}
+                  </p>
+                  {isSearchEmpty ? null : (
+                    <p className="standing-panel-empty-secondary">
+                      {isTopicEmpty
+                        ? 'Pick All or another topic.'
+                        : 'Create one in Guilds, or join by URL.'}
+                    </p>
+                  )}
+                </div>
+                {isSearchEmpty ? null : (
+                  <div className="standing-panel-empty-actions">
+                    {isTopicEmpty ? (
+                      <OsEmptyAction onClick={() => setTopicFilter('all')}>
+                        Show all guilds
+                      </OsEmptyAction>
+                    ) : (
+                      <>
+                        <OsEmptyAction href={`${APP_GROUPS_PATH}/create`}>
+                          Create a guild
+                        </OsEmptyAction>
+                        <OsEmptyAction href={APP_GROUPS_PATH}>
+                          Open Guilds
+                        </OsEmptyAction>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </OsPageBodyAppear>
           ) : null}
 
           {visibleGuilds.length > 0 ? (
-        <div ref={listRef} className="community-summary-card-grid">
-          {windowed && topSpacer > 0 ? (
-            <div
-              style={{ height: topSpacer }}
-              aria-hidden="true"
-              data-feed-window-spacer="top"
-            />
-          ) : null}
-          {visibleGuilds.slice(start, end).map((guild) => (
-            <div
-              key={guild.groupId}
-              ref={registerRow(guild.groupId)}
-              data-secondary-key={guild.groupId}
-            >
-              <GuildSummaryCard guild={guild} variant="grid" />
+            <div ref={listRef} className="community-summary-card-grid">
+              {windowed && topSpacer > 0 ? (
+                <div
+                  style={{ height: topSpacer }}
+                  aria-hidden="true"
+                  data-feed-window-spacer="top"
+                />
+              ) : null}
+              {visibleGuilds.slice(start, end).map((guild) => (
+                <div
+                  key={guild.groupId}
+                  ref={registerRow(guild.groupId)}
+                  data-secondary-key={guild.groupId}
+                >
+                  <GuildSummaryCard guild={guild} variant="grid" />
+                </div>
+              ))}
+              {windowed && bottomSpacer > 0 ? (
+                <div
+                  style={{ height: bottomSpacer }}
+                  aria-hidden="true"
+                  data-feed-window-spacer="bottom"
+                />
+              ) : null}
             </div>
-          ))}
-          {windowed && bottomSpacer > 0 ? (
-            <div
-              style={{ height: bottomSpacer }}
-              aria-hidden="true"
-              data-feed-window-spacer="bottom"
-            />
-          ) : null}
-        </div>
           ) : null}
 
           {loadMoreError ? (
@@ -506,7 +508,7 @@ export function DiscoverGuildsPanel() {
               ) : null}
             </div>
           ) : null}
-        </OsPageBodyAppear>
+        </>
       )}
     </div>
   );

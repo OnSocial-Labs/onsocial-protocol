@@ -6,6 +6,7 @@ import { PortfolioAboutOverlayLoading } from '@/components/portfolio/portfolio-a
 import { PortfolioWritingOverlayLoading } from '@/components/portfolio/portfolio-writing-route-loading';
 import { EndorsementsSheetOpening } from '@/components/panels/endorsements-sheet-opening';
 import { StandingSheetOpening } from '@/components/panels/standing-sheet-opening';
+import { DiscoverSheetOpening } from '@/features/discover/discover-sheet-opening';
 import { accountIdFromPath } from '@/lib/overlay-routes';
 import {
   getPortfolioShelfHopServerSnapshot,
@@ -26,6 +27,10 @@ function isEndorsementsOverlay(pathname: string): boolean {
   return pathname.includes('/endorsements');
 }
 
+function isDiscoverOverlay(pathname: string): boolean {
+  return /\/discover\/?$/.test(pathname);
+}
+
 /**
  * Paint cold shells for overlays we can identify from the path. Other slots
  * stay empty so a shared fallback cannot flash over an unrelated profile.
@@ -39,6 +44,7 @@ export default function OverlayLoading() {
   );
   if (pathname.includes('/standing/')) return <StandingSheetOpening />;
   if (isEndorsementsOverlay(pathname)) return <EndorsementsSheetOpening />;
+  if (isDiscoverOverlay(pathname)) return <DiscoverSheetOpening />;
   if (isWritingShelfOverlay(pathname)) {
     const accountId = accountIdFromPath(pathname);
     if (!accountId) return null;
