@@ -64,14 +64,15 @@ function mediaImgSizes(size: PostMediaSize, collage: boolean): string {
 export const FEED_MEDIA_RESOLVE_FALLBACK_MS = 8_000;
 
 /**
- * Open / focused / quote single seat. 4:3 holds the slot before decode;
- * persisted hints or a measured ratio take over (same handoff as main).
+ * Open / focused / quote single seat. Persisted hints, a session-cached
+ * feed measure, or loadedmetadata set the real ratio. Unknown returns null
+ * so the seat stays main-like (`auto`) instead of locking 4:3 then snapping.
  */
 export function resolveReservedSeatAspect(
   hintWidth: number | undefined,
   hintHeight: number | undefined,
   measuredRatio: number | null
-): string {
+): string | null {
   const hint = postMediaItemRatio({ width: hintWidth, height: hintHeight });
   if (hint != null && hintWidth != null && hintHeight != null) {
     return `${Math.round(hintWidth)} / ${Math.round(hintHeight)}`;
@@ -79,7 +80,29 @@ export function resolveReservedSeatAspect(
   if (measuredRatio != null && Number.isFinite(measuredRatio) && measuredRatio > 0) {
     return String(measuredRatio);
   }
-  return '4 / 3';
+  return null;
+}
+
+/**
+ * Session ratio cache — feed compact tiles learn width/height on decode but
+ * keep a fixed 4:3 cover seat. Open / focused / quote singles read the same
+ * url → ratio on first paint so a feed tap never flashes 4:3 then snaps.
+ */
+const feedMediaMeasuredRatios = new Map<string, number>();
+
+export function rememberFeedMediaRatio(url: string, ratio: number): void {
+  if (!url || !(ratio > 0) || !Number.isFinite(ratio)) return;
+  feedMediaMeasuredRatios.set(url, ratio);
+}
+
+export function lookupFeedMediaRatio(url: string): number | null {
+  const ratio = feedMediaMeasuredRatios.get(url);
+  return ratio != null && Number.isFinite(ratio) && ratio > 0 ? ratio : null;
+}
+
+/** Test helper — drop session ratios between cases. */
+export function clearFeedMediaMeasuredRatios(): void {
+  feedMediaMeasuredRatios.clear();
 }
 
 /** Survives window remount so scroll-back does not re-fade known media. */
@@ -152,8 +175,8 @@ interface PostMediaBlockProps {
   /** `sizes` paired with the CDN variant srcSet for this tile's slot. */
   imgSizes?: string;
   /**
-   * Page / focused / quote singles — 4:3 placeholder before decode; real
-   * ratio once persisted hints or loadedmetadata are known.
+   * Page / focused / quote singles — lock the real ratio once hints,
+   * session cache, or loadedmetadata are known (no 4:3→snap on open).
    */
   reserveRatio?: boolean;
   /** Audio jacket tap — open the in-sheet player. */
@@ -446,13 +469,24 @@ function PostVisualMediaBlock({
     return () => window.clearTimeout(timer);
   }, [isVideo, videoMounted, resolved, markResolved]);
 
-  const [measuredRatio, setMeasuredRatio] = useState<number | null>(null);
+  const [measuredRatio, setMeasuredRatio] = useState<number | null>(() =>
+    lookupFeedMediaRatio(item.url)
+  );
+  const [ratioTrackedUrl, setRatioTrackedUrl] = useState(item.url);
+  if (ratioTrackedUrl !== item.url) {
+    setRatioTrackedUrl(item.url);
+    setMeasuredRatio(lookupFeedMediaRatio(item.url));
+  }
   const tileNodeRef = useRef<HTMLElement | null>(null);
   const seatAnchorScrollRef = useRef<number | null>(null);
+  const mediaUrl = item.url;
 
   const rememberRatio = (width: number, height: number) => {
     if (!(width > 0 && height > 0)) return;
     const ratio = width / height;
+    // Always cache — compact feed seats do not resize, but an open/focused
+    // remount must read the learned ratio on first paint (no 4:3 flash).
+    rememberFeedMediaRatio(mediaUrl, ratio);
     onRatio?.(ratio);
     if (!reserveRatio) return;
     setMeasuredRatio((current) => {
@@ -471,6 +505,59 @@ function PostVisualMediaBlock({
       return ratio;
     });
   };
+
+  // Soft-focus / remount: reserveRatio may flip on after the feed already
+  // measured — adopt the session cache before paint without a 4:3 frame.
+  useLayoutEffect(() => {
+    if (!reserveRatio || measuredRatio != null) return;
+    const cached = lookupFeedMediaRatio(mediaUrl);
+    if (cached != null) setMeasuredRatio(cached);
+  }, [reserveRatio, mediaUrl, measuredRatio]);
+
+  // Cold hard load — no persisted dims, no session cache. Probe off-DOM
+  // (same pattern as quote duration) so metadata can win before / with the
+  // on-screen <video>, then hand off scroll-anchored. No height animation.
+  useEffect(() => {
+    if (!reserveRatio) return;
+    if (postMediaItemRatio(item) != null) return;
+    if (measuredRatio != null) return;
+    if (lookupFeedMediaRatio(mediaUrl) != null) return;
+    let cancelled = false;
+    if (isVideo) {
+      const video = document.createElement('video');
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = 'metadata';
+      video.onloadedmetadata = () => {
+        if (cancelled) return;
+        rememberRatio(video.videoWidth, video.videoHeight);
+      };
+      video.onerror = () => {
+        /* leave unlocked until a later decode */
+      };
+      video.src = mediaUrl;
+      return () => {
+        cancelled = true;
+        video.onloadedmetadata = null;
+        video.onerror = null;
+        video.removeAttribute('src');
+        video.load();
+      };
+    }
+    const img = new Image();
+    img.onload = () => {
+      if (cancelled) return;
+      rememberRatio(img.naturalWidth, img.naturalHeight);
+    };
+    img.src = mediaUrl;
+    return () => {
+      cancelled = true;
+      img.onload = null;
+      img.src = '';
+    };
+    // rememberRatio closes over reserveRatio / mediaUrl; re-run when those change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional cold probe
+  }, [reserveRatio, mediaUrl, isVideo, item.width, item.height, measuredRatio]);
 
   useLayoutEffect(() => {
     const anchor = seatAnchorScrollRef.current;
@@ -496,17 +583,13 @@ function PostVisualMediaBlock({
   ]
     .filter(Boolean)
     .join(' ');
-  // Page / quote / focused: 4:3 until hints or metadata; then the real seat.
+  // Page / quote / focused: real ratio once known; unknown stays main-like.
+  const reservedAspect = reserveRatio
+    ? resolveReservedSeatAspect(item.width, item.height, measuredRatio)
+    : null;
   const tileStyle =
-    reserveRatio
-      ? ({
-          ...style,
-          aspectRatio: resolveReservedSeatAspect(
-            item.width,
-            item.height,
-            measuredRatio
-          ),
-        } satisfies CSSProperties)
+    reservedAspect != null
+      ? ({ ...style, aspectRatio: reservedAspect } satisfies CSSProperties)
       : style;
 
   const bindTileNode = (node: HTMLDivElement | HTMLButtonElement | null) => {

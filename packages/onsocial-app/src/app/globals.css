@@ -24424,30 +24424,21 @@ a.os-surface-row,
   }
 
   /*
-   * Open / focused single — 4:3 placeholder before decode. Inline
-   * aspect-ratio from hints or loadedmetadata overrides once known so a
-   * 16:9 clip does not letterbox in a locked 4:3 seat (mute stays on-frame).
+   * Open / focused single — main-like until hints / session cache /
+   * loadedmetadata set an inline aspect-ratio (no 4:3→snap). Compact
+   * feed tiles still learn into the session cache for feed→open.
    */
   .post-media-strip--1 .post-media-tile--page,
   .post-media-strip--1.is-page .post-media-tile,
   .post-media-strip--1.is-focused .post-media-tile {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 4 / 3;
     max-height: min(28rem, 70vh);
     border: 0;
     border-radius: 0.65rem;
     background: transparent;
   }
 
-  .post-media-strip--1 .post-media-tile--page .post-media-element,
   .post-media-strip--1.is-page .post-media-element,
   .post-media-strip--1.is-focused .post-media-element {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    max-height: none;
     object-fit: contain;
     background: transparent;
   }
@@ -24517,23 +24508,11 @@ a.os-surface-row,
     margin-top: 0;
   }
 
-  /* Quote single — same 4:3 → real-ratio handoff as open/focused. */
+  /* Quote single — real ratio once known; unknown stays main-like. */
   .post-media-strip.is-quote.post-media-strip--1 .post-media-tile {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 4 / 3;
     max-height: 7.5rem;
     border-radius: 0.5rem;
     border: 0;
-  }
-
-  .post-media-strip.is-quote.post-media-strip--1 .post-media-element {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    max-height: none;
-    object-fit: cover;
   }
 
   .post-media-strip.is-quote.is-collage {

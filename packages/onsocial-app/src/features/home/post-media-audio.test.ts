@@ -1,9 +1,16 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
-import { PostMediaBlock, PostMediaStrip } from './post-media';
+import { beforeEach, describe, expect, it } from 'vitest';
+import {
+  clearFeedMediaMeasuredRatios,
+  PostMediaBlock,
+  PostMediaStrip,
+} from './post-media';
 
 describe('post audio attachments', () => {
+  beforeEach(() => {
+    clearFeedMediaMeasuredRatios();
+  });
   it('renders feed audio as a jacket that opens the player, not an inline row', () => {
     const html = renderToStaticMarkup(
       createElement(PostMediaStrip, {
@@ -76,7 +83,7 @@ describe('post audio attachments', () => {
     expect(html).not.toContain('post-audio-jacket');
   });
 
-  it('reserves a 4:3 page seat when media has no width/height hints', () => {
+  it('does not force a 4:3 page seat when media has no width/height hints', () => {
     const html = renderToStaticMarkup(
       createElement(PostMediaStrip, {
         items: [
@@ -90,7 +97,7 @@ describe('post audio attachments', () => {
     );
 
     expect(html).toContain('post-media-tile--page');
-    expect(html).toMatch(/aspect-ratio:\s*4\s*\/\s*3/);
+    expect(html).not.toMatch(/aspect-ratio:\s*4\s*\/\s*3/);
   });
 
   it('prefers persisted dims over the 4:3 page fallback', () => {
