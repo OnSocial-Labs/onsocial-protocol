@@ -20,6 +20,7 @@ import {
 } from '@/lib/post-display';
 import { parsePostMedia } from '@/lib/post-media';
 import { isRepostRefType } from '@/lib/post-relation';
+import type { ThreadReplyRow } from '@/lib/thread-display';
 
 type QuoteMap = Record<string, PostRow>;
 
@@ -177,4 +178,13 @@ export function personalFeedBlockEstimatePx(
   quotedPosts: QuoteMap
 ): number {
   return feedBlockEstimatePx(block, quotedPosts);
+}
+
+/** Thread-page reply row — post card or fold coil. */
+export function threadReplyRowEstimatePx(
+  row: ThreadReplyRow,
+  quotedPosts: QuoteMap = {}
+): number {
+  if (row.kind === 'more') return FEED_WINDOW_FOLD_ESTIMATE_PX;
+  return feedCardEstimatePx(row.post, quotedPosts);
 }

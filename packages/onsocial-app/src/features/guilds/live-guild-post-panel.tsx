@@ -121,6 +121,7 @@ import {
   withoutIndexedPosts,
   type ThreadReplyRow,
 } from '@/lib/thread-display';
+import { threadReplyRowEstimatePx } from '@/features/home/feed-block-estimate';
 import { useFeedWindow } from '@/features/home/use-feed-window';
 import { THREAD_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
 import { resolveThreadFoldLabel } from '@/lib/thread-fold-label';
@@ -454,6 +455,13 @@ export function LiveGuildPostPanel({
     () => sortedReplyRows.map(threadReplyRowKey),
     [sortedReplyRows]
   );
+  const replyRowEstimates = useMemo(
+    () =>
+      sortedReplyRows.map((row) =>
+        threadReplyRowEstimatePx(row, quotedPosts)
+      ),
+    [sortedReplyRows, quotedPosts]
+  );
   const replyStackRef = useRef<HTMLDivElement | null>(null);
   const focusPinKey = useMemo(() => {
     const pending = threadFocus.pendingPostId;
@@ -478,6 +486,7 @@ export function LiveGuildPostPanel({
     hostRef: replyStackRef,
     pinnedKey: focusPinKey,
     anchorQuery: THREAD_ANCHOR_QUERY,
+    estimate: replyRowEstimates,
   });
 
   useEffect(() => {

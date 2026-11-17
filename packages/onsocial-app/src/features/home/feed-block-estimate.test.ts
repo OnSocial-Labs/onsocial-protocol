@@ -5,6 +5,7 @@ import {
   feedBlockEstimatePx,
   feedBlockIsPollRow,
   feedCardEstimateKind,
+  threadReplyRowEstimatePx,
 } from './feed-block-estimate';
 import {
   FEED_WINDOW_ESTIMATE_PX,
@@ -171,5 +172,39 @@ describe('feedBlockEstimatePx', () => {
     );
     expect(feedBlockIsPollRow({ posts: [poll, reply] }, {})).toBe(false);
     expect(feedWindowRowEstimatePx('quote')).toBe(FEED_WINDOW_QUOTE_ESTIMATE_PX);
+  });
+});
+
+describe('threadReplyRowEstimatePx', () => {
+  it('sizes a media reply and a fold coil', () => {
+    const mediaReply = row('alice.near', 'r1', {
+      value: JSON.stringify({
+        text: 'pic',
+        media: ['https://example.test/a.jpg'],
+      }),
+    });
+    expect(
+      threadReplyRowEstimatePx(
+        { kind: 'post', post: mediaReply, connectedToPrevious: false },
+        {}
+      )
+    ).toBe(FEED_WINDOW_MEDIA_ESTIMATE_PX);
+    expect(
+      threadReplyRowEstimatePx({
+        kind: 'more',
+        branchKey: 'alice.near/post/r1',
+        hiddenCount: 4,
+        hidden: [],
+      })
+    ).toBe(FEED_WINDOW_FOLD_ESTIMATE_PX);
+    expect(
+      threadReplyRowEstimatePx({
+        kind: 'post',
+        post: row('alice.near', 'r2', {
+          value: JSON.stringify({ text: 'ok' }),
+        }),
+        connectedToPrevious: true,
+      })
+    ).toBe(FEED_WINDOW_ESTIMATE_PX);
   });
 });

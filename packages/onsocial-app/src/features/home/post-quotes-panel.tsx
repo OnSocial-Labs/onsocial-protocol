@@ -34,6 +34,7 @@ import { GUILDS_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { OsLoadMore } from '@/lib/os-load-more';
 import { SECONDARY_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
+import { feedBlockEstimatePx } from '@/features/home/feed-block-estimate';
 import { useFeedWindow } from '@/features/home/use-feed-window';
 import { fetchIndexedPost } from '@/lib/fetch-personal-post';
 import {
@@ -293,6 +294,13 @@ export function PostQuotesPanel({
   const quotesListRef = useRef<HTMLDivElement>(null);
   const repostersListRef = useRef<HTMLDivElement>(null);
   const quoteKeys = useMemo(() => quotes.map(postKey), [quotes]);
+  const quoteEstimates = useMemo(
+    () =>
+      quotes.map((quote) =>
+        feedBlockEstimatePx({ posts: [quote] }, quotedPosts)
+      ),
+    [quotes, quotedPosts]
+  );
   const reposterKeys = useMemo(
     () => reposters.map((row) => `${row.accountId}:${row.repostId}`),
     [reposters]
@@ -301,7 +309,7 @@ export function PostQuotesPanel({
     keys: quoteKeys,
     hostRef: quotesListRef,
     anchorQuery: SECONDARY_ANCHOR_QUERY,
-    estimate: 320,
+    estimate: quoteEstimates,
   });
   const repostersWindow = useFeedWindow({
     keys: reposterKeys,
