@@ -620,6 +620,7 @@ function PostThreadSheet({
           >
             <OsRouteSettle
               ready={threadPainted}
+              present
               skeleton={
                 quotes ? <PostQuotesPageSkeleton /> : <PostThreadPageSkeleton />
               }

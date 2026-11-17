@@ -23,9 +23,18 @@ describe('OsPageBodyAppear first paint', () => {
     expect(className(html)).toBe('os-page-body-appear');
   });
 
-  it('mounts an already-ready body present, so it does not fade from empty', () => {
+  it('keeps the fade when a body mounts ready without present', () => {
     const html = renderToStaticMarkup(
       createElement(OsPageBodyAppear, { ready: true }, 'Painted')
+    );
+
+    expect(className(html)).toContain('is-ready');
+    expect(className(html)).not.toContain('is-present');
+  });
+
+  it('mounts an already-ready body present, so it does not fade from empty', () => {
+    const html = renderToStaticMarkup(
+      createElement(OsPageBodyAppear, { ready: true, present: true }, 'Painted')
     );
 
     expect(className(html)).toContain('is-ready');

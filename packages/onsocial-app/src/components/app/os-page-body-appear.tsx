@@ -13,17 +13,23 @@ import { useLayoutEffect, useState, type PropsWithChildren } from 'react';
  */
 export function OsPageBodyAppear({
   ready,
+  present = false,
   children,
   className,
 }: PropsWithChildren<{
   ready?: boolean;
+  /**
+   * Skip the 280ms fade when this body mounts already ready. Quotes omit
+   * this so the sheet fade still runs.
+   */
+  present?: boolean;
   className?: string;
 }>) {
   const managed = ready !== undefined;
   const [autoReady, setAutoReady] = useState(false);
   // Mounting already ready must not run the from-0 keyframe. That fade has
   // no skeleton behind it, so the header sits over an empty body.
-  const [bornReady] = useState(() => managed && Boolean(ready));
+  const [bornReady] = useState(() => present && managed && Boolean(ready));
   useLayoutEffect(() => {
     if (!managed) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot appear after layout so opacity keyframe runs on a painted sheet

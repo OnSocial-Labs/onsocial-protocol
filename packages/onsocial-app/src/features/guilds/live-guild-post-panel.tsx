@@ -1334,6 +1334,7 @@ export function LiveGuildPostPanel({
     >
       <OsRouteSettle
         ready={permalinkReady}
+        present
         skeleton={<PostThreadPageSkeleton />}
       >
         {threadBody}
