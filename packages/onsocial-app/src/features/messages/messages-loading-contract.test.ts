@@ -55,6 +55,7 @@ describe('messages loading contract', () => {
     expect(rowsSource).toContain(
       'aria-busy={refreshing || skeleton || undefined}'
     );
+    expect(panelSource).toContain('OsLoadMore');
     expect(panelSource).toContain('pending={loadingOlder}');
     expect(panelSource).not.toContain('MessagesThreadAppendSkeleton');
     expect(skeletonSource).not.toContain('MessagesThreadAppendSkeleton');

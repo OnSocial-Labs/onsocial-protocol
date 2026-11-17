@@ -381,20 +381,18 @@ test.describe('authenticated messages loading', () => {
     await page.goto(`/messages?thread=${encodeURIComponent(MESSAGES_E2E_THREAD)}`, {
       waitUntil: 'domcontentloaded',
     });
-    await expect(page.getByRole('button', { name: 'Earlier' })).toBeVisible({
+    // Pending hides the "Earlier" accessible name; host locator stays stable.
+    const earlier = page.locator('.messages-load-older button');
+    await expect(earlier).toBeVisible({
       timeout: 30_000,
     });
 
-    await page.getByRole('button', { name: 'Earlier' }).click();
-    await expect(page.getByRole('button', { name: 'Earlier' })).toHaveClass(
-      /is-pending/
-    );
+    await earlier.click();
+    await expect(earlier).toHaveClass(/is-pending/);
     await expect(page.locator('.messages-bubble--skeleton')).toHaveCount(0);
 
     stub.releaseAppend();
-    await expect(page.getByRole('button', { name: 'Earlier' })).not.toHaveClass(
-      /is-pending/
-    );
+    await expect(earlier).not.toHaveClass(/is-pending/);
   });
 
   test('shows an append error over the painted thread and retries', async ({

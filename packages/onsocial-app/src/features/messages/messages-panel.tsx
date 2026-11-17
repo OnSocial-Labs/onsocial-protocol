@@ -12,7 +12,6 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { DmMessageRecord, DmThreadSummary, OnSocial } from '@onsocial/sdk';
 import {
-  OsSheetAction,
   OsIconAction,
   PulsingDots,
   QuestionMarkCircleFillIcon,
@@ -43,6 +42,7 @@ import {
   createListScrollMemory,
   scrollTopToPersist,
 } from '@/lib/list-scroll-restore';
+import { OsLoadMore } from '@/lib/os-load-more';
 import {
   peekMessagesInboxSession,
   readMessagesInboxSession,
@@ -1994,15 +1994,12 @@ export function MessagesPanel() {
                 <>
                   {hasMoreMessages ? (
                     <div className="messages-load-older">
-                      <OsSheetAction
-                        type="button"
-                        ready={!loadingOlder}
+                      <OsLoadMore
                         pending={loadingOlder}
-                        pendingLabel="Loading…"
                         onClick={() => void loadOlderMessages()}
                       >
                         Earlier
-                      </OsSheetAction>
+                      </OsLoadMore>
                     </div>
                   ) : null}
                   <ul
