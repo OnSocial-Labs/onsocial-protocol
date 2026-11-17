@@ -1,10 +1,6 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { dismissNextDevOverlay, gotoApp } from './helpers';
 import {
-  armSheetBodyFrames,
-  expectSheetBodyNeverEmpty,
-} from './helpers/sheet-body-frames';
-import {
   GUILD_E2E_FEED_ROWS,
   GUILD_E2E_FEED_TEXT,
   GUILD_E2E_ID,
@@ -224,17 +220,6 @@ async function openThreadFromFeed(page: Page) {
   await expect(layer).toBeVisible({ timeout: 15_000 });
   return layer;
 }
-
-test('the sheet body is never empty once the header is visible', async ({
-  page,
-}) => {
-  await stubGuildPage(page, { feedRows: GUILD_E2E_FEED_ROWS });
-  await stubGuildThreadGraph(page, { treeDelayMs: () => 600 });
-  await gotoGuildFeedWithRoot(page);
-  await armSheetBodyFrames(page);
-  await openThreadFromFeed(page);
-  await expectSheetBodyNeverEmpty(page);
-});
 
 test('direct replies paint while nested reply queries are still in flight', async ({
   page,

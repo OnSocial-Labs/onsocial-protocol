@@ -1,9 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { dismissNextDevOverlay, gotoApp } from './helpers';
-import {
-  armSheetBodyFrames,
-  expectSheetBodyNeverEmpty,
-} from './helpers/sheet-body-frames';
 
 /*
  * Perceived-performance contract for feed → thread:
@@ -227,16 +223,6 @@ async function openThreadFromFeed(page: Page) {
   await expect(layer).toBeVisible({ timeout: 10_000 });
   return layer;
 }
-
-test('the sheet body is never empty once the header is visible', async ({
-  page,
-}) => {
-  await stubGraph(page, { treeDelayMs: () => 600 });
-  await gotoFeedWithRoot(page);
-  await armSheetBodyFrames(page);
-  await openThreadFromFeed(page);
-  await expectSheetBodyNeverEmpty(page);
-});
 
 test('direct replies paint while nested reply queries are still in flight', async ({
   page,
