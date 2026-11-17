@@ -7,7 +7,21 @@ import {
   prefetchPortfolioHref,
 } from '@/components/portfolio/account-place-link';
 import { isPortfolioOverlayPath, portfolioPath } from '@/lib/overlay-routes';
+import { isPortfolioShelfHop } from '@/lib/portfolio-shelf-hop';
 import { startWritingShelfWarm } from '@/lib/writing-shelf-warm';
+
+/**
+ * Continue from a face `?shelf=` landing to the real shelf path.
+ * Soft replace only when a Home shelf hop already painted Writing chrome.
+ * A cold document landing must hard-nav — router.replace races the streaming
+ * HTML and never reaches domcontentloaded (pill / shelf e2e hang).
+ */
+export function continuePortfolioShelfHref(input: {
+  href: string;
+  shelfHopActive: boolean;
+}): 'soft' | 'hard' {
+  return input.shelfHopActive ? 'soft' : 'hard';
+}
 
 /**
  * Home cannot open Writing directly. The face hop lands here, then this
@@ -37,6 +51,14 @@ function PortfolioPanelContinueInner({ accountId }: { accountId: string }) {
     const qs = next.toString();
     const href = qs ? `${target}?${qs}` : target;
     startWritingShelfWarm(accountId);
+    const mode = continuePortfolioShelfHref({
+      href,
+      shelfHopActive: isPortfolioShelfHop(),
+    });
+    if (mode === 'hard') {
+      window.location.replace(href);
+      return;
+    }
     prefetchPortfolioHref(
       router.prefetch as (href: string, options?: { kind: 'full' }) => void,
       href

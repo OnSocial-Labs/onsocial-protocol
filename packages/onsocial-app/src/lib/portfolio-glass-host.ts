@@ -16,6 +16,8 @@ export { resolveOverlaySlotMode, type OverlaySlotMode };
  * - The network map is always the full screen, including a soft nav from Standing.
  * - Full-page panel routes (hard refresh) never mount glass.
  * - Articles (`writing:`) are always a solid page — never glass.
+ * - Writing / about soft shelves may glass; they are not face peeks. Only
+ *   endorsements and standing use the face-peek underlay exception below.
  * - Soft intercepts mount when the @overlay slot is active or portfolio is still
  *   the main child (empty layout segments under [accountId]).
  * - A standing peek over the network page still mounts: the underlay segment

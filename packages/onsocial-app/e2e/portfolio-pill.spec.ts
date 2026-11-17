@@ -154,41 +154,17 @@ test.describe('portfolio swipe-up pill', () => {
 
   test('stays off writing and another user’s writing', async ({ page }) => {
     await setE2eGraphWriting(page, 'shelf');
+    // Cold `?shelf=` hard-continues to the Writing screen (no face glass).
     await gotoApp(page, '/@alice.testnet?shelf=/writing');
     await page.waitForURL(/\/@alice\.testnet\/writing\/?$/, {
       timeout: E2E_CHROME_TIMEOUT_MS,
     });
-    await expect
-      .poll(
-        () =>
-          page.evaluate(() =>
-            document
-              .querySelector('.portfolio-frame')
-              ?.classList.contains('is-portfolio-swipe')
-          ),
-        { timeout: E2E_CHROME_TIMEOUT_MS }
-      )
-      .toBe(false);
     await expect(
       page.getByRole('button', { name: 'Open page', exact: true })
     ).toHaveCount(0);
-    const clearance = await page.evaluate(() => {
-      const frame = document.querySelector('.portfolio-frame');
-      const slot = document.querySelector('.portfolio-face-slot');
-      if (!(frame instanceof HTMLElement) || !(slot instanceof HTMLElement)) {
-        return null;
-      }
-      return {
-        swipe: frame.classList.contains('is-portfolio-swipe'),
-        clearance: getComputedStyle(frame)
-          .getPropertyValue('--portfolio-face-clearance')
-          .trim(),
-        slot: Number.parseFloat(getComputedStyle(slot).height),
-      };
-    });
-    expect(clearance?.swipe).toBe(false);
-    expect(clearance?.clearance).toBe('0px');
-    expect(clearance?.slot ?? 99).toBeLessThan(90);
+    await expect(page.locator('.portfolio-frame.is-portfolio-swipe')).toHaveCount(
+      0
+    );
 
     await gotoApp(page, '/@bob.testnet');
     await dismissNextDevOverlay(page);
@@ -203,6 +179,9 @@ test.describe('portfolio swipe-up pill', () => {
     await expect(
       page.getByRole('button', { name: 'Open page', exact: true })
     ).toHaveCount(0);
+    await expect(page.locator('.portfolio-frame.is-portfolio-swipe')).toHaveCount(
+      0
+    );
   });
 });
 

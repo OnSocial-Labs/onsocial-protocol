@@ -169,6 +169,23 @@ describe('shouldMountPortfolioGlassHost', () => {
     ).toBe(false);
   });
 
+  it('does not treat writing or about as face peeks over their own underlay', () => {
+    expect(
+      shouldMountPortfolioGlassHost({
+        pathname: '/@alice.testnet/writing',
+        layoutSegments: ['writing'],
+        overlaySlotMode: 'intercept',
+      })
+    ).toBe(false);
+    expect(
+      shouldMountPortfolioGlassHost({
+        pathname: '/@alice.testnet/about',
+        layoutSegments: ['about'],
+        overlaySlotMode: 'intercept',
+      })
+    ).toBe(false);
+  });
+
   it('does not mount for collectibles PanelPage vault', () => {
     expect(
       shouldMountPortfolioGlassHost({
