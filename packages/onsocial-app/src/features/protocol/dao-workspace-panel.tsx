@@ -2002,39 +2002,45 @@ export function DaoWorkspacePanel({
         </>
       ) : null}
       {loadState === 'error' ? (
-        <div className="protocol-empty">
-          <p>{loadError || 'Could not load proposals.'}</p>
-          <button
-            type="button"
-            className="protocol-retry"
-            onClick={() => void loadFeed()}
-          >
-            Retry
-          </button>
-        </div>
+        <OsPageBodyAppear>
+          <div className="protocol-empty">
+            <p>{loadError || 'Could not load proposals.'}</p>
+            <button
+              type="button"
+              className="protocol-retry"
+              onClick={() => void loadFeed()}
+            >
+              Retry
+            </button>
+          </div>
+        </OsPageBodyAppear>
       ) : null}
       {drawerContentReady &&
       loadState === 'ready' &&
       applications.length === 0 ? (
-        <p className="protocol-empty">
-          {hideTools ? 'No proposals yet.' : 'No protocol proposals yet.'}
-        </p>
+        <OsPageBodyAppear>
+          <p className="protocol-empty">
+            {hideTools ? 'No proposals yet.' : 'No protocol proposals yet.'}
+          </p>
+        </OsPageBodyAppear>
       ) : null}
       {drawerContentReady &&
       loadState === 'ready' &&
       applications.length > 0 &&
       filteredApplications.length === 0 ? (
-        <p className="protocol-empty">
-          {searchQuery
-            ? emptyCopy.noMatches
-            : votedOnly
-              ? 'No proposals you have voted on.'
-              : familyFilter !== 'all'
-                ? `No ${statusFilter === 'all' ? '' : statusFilter === 'open' ? 'open ' : `${statusFilter} `}${PROTOCOL_FEED_FAMILY_OPTIONS.find((o) => o.id === familyFilter)?.label.toLowerCase() ?? familyFilter} proposals.`
-                : statusFilter === 'all'
-                  ? 'No proposals.'
-                  : `No ${statusFilter === 'open' ? 'open' : statusFilter} proposals.`}
-        </p>
+        <OsPageBodyAppear>
+          <p className="protocol-empty">
+            {searchQuery
+              ? emptyCopy.noMatches
+              : votedOnly
+                ? 'No proposals you have voted on.'
+                : familyFilter !== 'all'
+                  ? `No ${statusFilter === 'all' ? '' : statusFilter === 'open' ? 'open ' : `${statusFilter} `}${PROTOCOL_FEED_FAMILY_OPTIONS.find((o) => o.id === familyFilter)?.label.toLowerCase() ?? familyFilter} proposals.`
+                  : statusFilter === 'all'
+                    ? 'No proposals.'
+                    : `No ${statusFilter === 'open' ? 'open' : statusFilter} proposals.`}
+          </p>
+        </OsPageBodyAppear>
       ) : null}
       {drawerContentReady && loadState === 'ready' && inProposalDetail ? (
         detailApplication ? (
@@ -2045,9 +2051,11 @@ export function DaoWorkspacePanel({
             })}
           </div>
         ) : (
-          <div className="protocol-empty">
-            <p>Proposal not found.</p>
-          </div>
+          <OsPageBodyAppear>
+            <div className="protocol-empty">
+              <p>Proposal not found.</p>
+            </div>
+          </OsPageBodyAppear>
         )
       ) : null}
       {drawerContentReady &&
@@ -2173,7 +2181,7 @@ export function DaoWorkspacePanel({
             <span id={titleId} className="sr-only">
               {inProposalDetail ? detailTitle : sheetTitle}
             </span>
-            <OsPageBodyAppear>{workspace}</OsPageBodyAppear>
+            {workspace}
           </OsAppScreen>
         </OsPageSheet>
       ) : (

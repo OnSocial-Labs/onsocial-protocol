@@ -773,12 +773,12 @@ function LeaderboardTrackPage({
             <ListLoadError message={pageError} onRetry={() => onRetry(track)} />
           ) : showSkeleton ? (
             <ProfileSocialListSkeleton count={6} rowVariant="leaderboard" />
-          ) : (
+          ) : empty ? (
             <OsPageBodyAppear>
-          {empty ? (
-            <p className="leaderboard-sheet-empty">
-              No rankings yet. Activity will appear once indexed.
-            </p>
+              <p className="leaderboard-sheet-empty">
+                No rankings yet. Activity will appear once indexed.
+              </p>
+            </OsPageBodyAppear>
           ) : (
             <>
               {track === 'influence' && rows ? (
@@ -833,8 +833,6 @@ function LeaderboardTrackPage({
                 </p>
               ) : null}
             </>
-          )}
-            </OsPageBodyAppear>
           )}
         </div>
       </div>
@@ -1426,36 +1424,34 @@ export function LeaderboardSheet({
             </div>
           }
         >
-          <OsPageBodyAppear>
-            <div className="leaderboard-sheet-content">
-              <div
-                ref={setPagerNode}
-                className="leaderboard-pager os-scrollbar-none"
-                onScroll={handlePagerScroll}
-              >
-                {LEADERBOARD_TRACKS.map((item) => (
-                  <LeaderboardTrackPage
-                    key={item.id}
-                    track={item.id}
-                    active={track === item.id}
-                    trackCache={cache[item.id]}
-                    pageError={pageErrors[item.id] ?? null}
-                    pinned={track === item.id && stickyViewer != null}
-                    viewerAccountId={viewerId}
-                    isConnected={isConnected}
-                    onNavigate={handleRowNavigate}
-                    onOpenFacts={setFactsEntry}
-                    onAppend={appendPage}
-                    onRetry={retryTrack}
-                    onPinnedChange={onPinnedChange}
-                    onScrollTop={onScrollTop}
-                    registerScroll={registerScroll}
-                    registerViewerRow={registerViewerRow}
-                  />
-                ))}
-              </div>
+          <div className="leaderboard-sheet-content">
+            <div
+              ref={setPagerNode}
+              className="leaderboard-pager os-scrollbar-none"
+              onScroll={handlePagerScroll}
+            >
+              {LEADERBOARD_TRACKS.map((item) => (
+                <LeaderboardTrackPage
+                  key={item.id}
+                  track={item.id}
+                  active={track === item.id}
+                  trackCache={cache[item.id]}
+                  pageError={pageErrors[item.id] ?? null}
+                  pinned={track === item.id && stickyViewer != null}
+                  viewerAccountId={viewerId}
+                  isConnected={isConnected}
+                  onNavigate={handleRowNavigate}
+                  onOpenFacts={setFactsEntry}
+                  onAppend={appendPage}
+                  onRetry={retryTrack}
+                  onPinnedChange={onPinnedChange}
+                  onScrollTop={onScrollTop}
+                  registerScroll={registerScroll}
+                  registerViewerRow={registerViewerRow}
+                />
+              ))}
             </div>
-          </OsPageBodyAppear>
+          </div>
         </OsAppScreen>
       </OsPageSheet>
 

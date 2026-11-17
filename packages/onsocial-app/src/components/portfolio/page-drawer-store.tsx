@@ -516,7 +516,6 @@ export function PageDrawerStoreList({
     <div className="portfolio-store">
       {loading && !showListings ? <MarketListSkeleton rows={3} /> : null}
 
-      <OsPageBodyAppear>
       {showListings ? (
         <section
           className="market-section"
@@ -648,20 +647,12 @@ export function PageDrawerStoreList({
         </section>
       ) : null}
 
-      {listingsState.status === 'error' ? (
-        showListings ? (
-          <OsChromeListAlert
-            message="Couldn’t refresh listings."
-            retryLabel="Retry"
-            onRetry={() => setRetryKey((value) => value + 1)}
-          />
-        ) : (
-          <ListLoadError
-            message="Couldn’t load listings."
-            retryLabel="Retry"
-            onRetry={() => setRetryKey((value) => value + 1)}
-          />
-        )
+      {listingsState.status === 'error' && showListings ? (
+        <OsChromeListAlert
+          message="Couldn’t refresh listings."
+          retryLabel="Retry"
+          onRetry={() => setRetryKey((value) => value + 1)}
+        />
       ) : null}
 
       {loadMoreFailed && showListings ? (
@@ -672,10 +663,21 @@ export function PageDrawerStoreList({
         />
       ) : null}
 
-      {isEmpty ? (
-        <p className="page-drawer-section-empty">Nothing for sale right now.</p>
+      {!showListings && !showDrops && !loading ? (
+        <OsPageBodyAppear>
+          {listingsState.status === 'error' ? (
+            <ListLoadError
+              message="Couldn’t load listings."
+              retryLabel="Retry"
+              onRetry={() => setRetryKey((value) => value + 1)}
+            />
+          ) : isEmpty ? (
+            <p className="page-drawer-section-empty">
+              Nothing for sale right now.
+            </p>
+          ) : null}
+        </OsPageBodyAppear>
       ) : null}
-      </OsPageBodyAppear>
 
       <ScarceBuySheet
         open={buyListing != null}

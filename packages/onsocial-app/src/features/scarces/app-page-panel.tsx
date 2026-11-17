@@ -696,135 +696,137 @@ export function AppPagePanel({
         !hubRouteYieldsLoadingSkeleton(clientMounted) ? (
           <HubPageSkeleton listOnly />
         ) : catalogShell === 'ready' || catalogShell === 'empty' ? (
-          <OsPageBodyAppear>
-        {catalogShell === 'ready' && heldRows.length > 0 ? (
-          <div
-            ref={heldListRef}
-            className="series-held-list market-listing-list"
-            role="list"
-          >
-            {heldWindow.windowed && heldWindow.topSpacer > 0 ? (
-              <div
-                style={{ height: heldWindow.topSpacer }}
-                aria-hidden="true"
-                data-feed-window-spacer="top"
-              />
-            ) : null}
-            {heldRows.slice(heldWindow.start, heldWindow.end).map((item) => (
-              <div
-                key={item.tokenId}
-                ref={heldWindow.registerRow(item.tokenId)}
-                data-catalog-key={item.tokenId}
-              >
-                <CollectiblesHoldingRow
-                  item={item}
-                  editionCount={item.editionCount}
-                  hideCreator
-                  onOpenEditions={
-                    item.editionCount > 1
-                      ? () =>
-                          setEditionPick({
-                            title: item.title,
-                            editions: item.editions.map(ownedScarceFromPeek),
-                          })
-                      : undefined
-                  }
-                />
-              </div>
-            ))}
-            {heldWindow.windowed && heldWindow.bottomSpacer > 0 ? (
-              <div
-                style={{ height: heldWindow.bottomSpacer }}
-                aria-hidden="true"
-                data-feed-window-spacer="bottom"
-              />
-            ) : null}
-          </div>
-        ) : null}
-
-        {catalogShell === 'ready' && storeDrops.length > 0 ? (
           <>
-            {heldRows.length > 0 ? (
-              <Divider variant="item" className="series-hero-divider" />
-            ) : null}
-            <div className="series-catalog">
-              {groups.map((group) => (
-                <section
-                  key={group.bucket}
-                  className="series-catalog-section"
-                  aria-label={group.label}
-                >
-                  {showSectionLabels ? (
-                    <p className="collection-section-label">{group.label}</p>
-                  ) : null}
-                  <SeriesShopGroupList
-                    drops={group.drops}
-                    nowMs={nowMs}
-                    showCreator
+            {catalogShell === 'ready' && heldRows.length > 0 ? (
+              <div
+                ref={heldListRef}
+                className="series-held-list market-listing-list"
+                role="list"
+              >
+                {heldWindow.windowed && heldWindow.topSpacer > 0 ? (
+                  <div
+                    style={{ height: heldWindow.topSpacer }}
+                    aria-hidden="true"
+                    data-feed-window-spacer="top"
                   />
-                </section>
-              ))}
-            </div>
-            {dropsLoadingMore ? (
-              <MarketListSkeleton rows={2} variant="drops" />
+                ) : null}
+                {heldRows.slice(heldWindow.start, heldWindow.end).map((item) => (
+                  <div
+                    key={item.tokenId}
+                    ref={heldWindow.registerRow(item.tokenId)}
+                    data-catalog-key={item.tokenId}
+                  >
+                    <CollectiblesHoldingRow
+                      item={item}
+                      editionCount={item.editionCount}
+                      hideCreator
+                      onOpenEditions={
+                        item.editionCount > 1
+                          ? () =>
+                              setEditionPick({
+                                title: item.title,
+                                editions: item.editions.map(ownedScarceFromPeek),
+                              })
+                          : undefined
+                      }
+                    />
+                  </div>
+                ))}
+                {heldWindow.windowed && heldWindow.bottomSpacer > 0 ? (
+                  <div
+                    style={{ height: heldWindow.bottomSpacer }}
+                    aria-hidden="true"
+                    data-feed-window-spacer="bottom"
+                  />
+                ) : null}
+              </div>
             ) : null}
-            {dropsLoadMoreFailed ? (
+
+            {catalogShell === 'ready' && storeDrops.length > 0 ? (
+              <>
+                {heldRows.length > 0 ? (
+                  <Divider variant="item" className="series-hero-divider" />
+                ) : null}
+                <div className="series-catalog">
+                  {groups.map((group) => (
+                    <section
+                      key={group.bucket}
+                      className="series-catalog-section"
+                      aria-label={group.label}
+                    >
+                      {showSectionLabels ? (
+                        <p className="collection-section-label">{group.label}</p>
+                      ) : null}
+                      <SeriesShopGroupList
+                        drops={group.drops}
+                        nowMs={nowMs}
+                        showCreator
+                      />
+                    </section>
+                  ))}
+                </div>
+                {dropsLoadingMore ? (
+                  <MarketListSkeleton rows={2} variant="drops" />
+                ) : null}
+                {dropsLoadMoreFailed ? (
+                  <OsChromeListAlert
+                    message="Couldn’t load more."
+                    retryLabel="Retry"
+                    onRetry={loadMoreDrops}
+                  />
+                ) : null}
+                {dropsHasMore && !dropsLoadMoreFailed ? (
+                  <div
+                    ref={dropsSentinelRef}
+                    className="standing-panel-sentinel"
+                    aria-hidden
+                  />
+                ) : null}
+              </>
+            ) : null}
+
+            {catalogShell === 'ready' &&
+            storeDrops.length === 0 &&
+            dropsLoadMoreFailed ? (
               <OsChromeListAlert
                 message="Couldn’t load more."
                 retryLabel="Retry"
                 onRetry={loadMoreDrops}
               />
             ) : null}
-            {dropsHasMore && !dropsLoadMoreFailed ? (
-              <div
-                ref={dropsSentinelRef}
-                className="standing-panel-sentinel"
-                aria-hidden
-              />
+
+            {(catalogShell === 'ready' || catalogShell === 'empty') &&
+            storeDrops.length === 0 &&
+            dropsHasMore &&
+            !dropsLoadMoreFailed ? (
+              <MarketListSkeleton rows={2} variant="drops" />
+            ) : null}
+
+            {catalogShell === 'empty' && !dropsHasMore ? (
+              <OsPageBodyAppear>
+                <div className="standing-panel-empty-block is-centered">
+                  <div className="standing-panel-empty-state">
+                    <p className="standing-panel-empty-primary">
+                      No drops in this hub yet.
+                    </p>
+                    {canCreate ? (
+                      <>
+                        <p className="standing-panel-empty-secondary">
+                          Start the next drop here from Create.
+                        </p>
+                        <OsEmptyAction
+                          href={createHref}
+                          className="series-empty-create"
+                        >
+                          Create a drop
+                        </OsEmptyAction>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              </OsPageBodyAppear>
             ) : null}
           </>
-        ) : null}
-
-        {catalogShell === 'ready' &&
-        storeDrops.length === 0 &&
-        dropsLoadMoreFailed ? (
-          <OsChromeListAlert
-            message="Couldn’t load more."
-            retryLabel="Retry"
-            onRetry={loadMoreDrops}
-          />
-        ) : null}
-
-        {(catalogShell === 'ready' || catalogShell === 'empty') &&
-        storeDrops.length === 0 &&
-        dropsHasMore &&
-        !dropsLoadMoreFailed ? (
-          <MarketListSkeleton rows={2} variant="drops" />
-        ) : null}
-
-        {catalogShell === 'empty' && !dropsHasMore ? (
-          <div className="standing-panel-empty-block is-centered">
-            <div className="standing-panel-empty-state">
-              <p className="standing-panel-empty-primary">
-                No drops in this hub yet.
-              </p>
-              {canCreate ? (
-                <>
-                  <p className="standing-panel-empty-secondary">
-                    Start the next drop here from Create.
-                  </p>
-                  <OsEmptyAction
-                    href={createHref}
-                    className="series-empty-create"
-                  >
-                    Create a drop
-                  </OsEmptyAction>
-                </>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-          </OsPageBodyAppear>
         ) : null}
       </div>
 

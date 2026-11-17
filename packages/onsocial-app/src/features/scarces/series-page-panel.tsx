@@ -426,7 +426,6 @@ export function SeriesPagePanel({
         data-series-use-first={useFirst ? '' : undefined}
         data-series-back={seriesBackHref}
       >
-        <OsPageBodyAppear>
         <header className="series-hero">
           <div className="series-hero-identity">
             <span className={`series-hero-logo${logoUrl ? ' has-media' : ''}`}>
@@ -580,28 +579,29 @@ export function SeriesPagePanel({
         ) : null}
 
         {storeDrops.length === 0 && heldRows.length === 0 && !seriesHasMore ? (
-          <div className="standing-panel-empty-block is-centered">
-            <div className="standing-panel-empty-state">
-              <p className="standing-panel-empty-primary">
-                No drops in this series yet.
-              </p>
-              {isOwner ? (
-                <>
-                  <p className="standing-panel-empty-secondary">
-                    Start the next drop in this line from Create.
-                  </p>
-                  <OsEmptyAction
-                    href={dropCreatePath({ series: title })}
-                    className="series-empty-create"
-                  >
-                    Create a drop
-                  </OsEmptyAction>
-                </>
-              ) : null}
+          <OsPageBodyAppear>
+            <div className="standing-panel-empty-block is-centered">
+              <div className="standing-panel-empty-state">
+                <p className="standing-panel-empty-primary">
+                  No drops in this series yet.
+                </p>
+                {isOwner ? (
+                  <>
+                    <p className="standing-panel-empty-secondary">
+                      Start the next drop in this line from Create.
+                    </p>
+                    <OsEmptyAction
+                      href={dropCreatePath({ series: title })}
+                      className="series-empty-create"
+                    >
+                      Create a drop
+                    </OsEmptyAction>
+                  </>
+                ) : null}
+              </div>
             </div>
-          </div>
+          </OsPageBodyAppear>
         ) : null}
-        </OsPageBodyAppear>
       </div>
 
       {isOwner ? (
