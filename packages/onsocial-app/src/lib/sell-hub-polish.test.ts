@@ -19,6 +19,15 @@ describe('sell / hub publish polish', () => {
     }
   });
 
+  it('wires play Manage to collectibles-play-sell-action, not market-listing-action', () => {
+    const menu = readFileSync(
+      join(appSrc, 'features/collectibles/collectibles-holding-row-menu.tsx'),
+      'utf8'
+    );
+    expect(menu).toContain('className="collectibles-play-sell-action"');
+    expect(menu).not.toContain('className="market-listing-action"');
+  });
+
   it('keeps Sell/Manage green as app surface ink, not a missing brand tone', () => {
     const css = readFileSync(join(appSrc, 'app/globals.css'), 'utf8');
     expect(css).toContain('collectibles-play-sell-action');

@@ -72,6 +72,8 @@ interface PersonalFeedListProps {
   windowSizeCache?: FeedWindowSizeCache;
   /** Row that must stay mounted this pass (re-rank scroll anchor). */
   pinnedFeedKey?: string | null;
+  /** Home passes a tighter overscan; profile keeps the default. */
+  overscan?: number;
 }
 
 /**
@@ -121,6 +123,7 @@ export function PersonalFeedList({
   initialScarceEmbeds = null,
   windowSizeCache,
   pinnedFeedKey = null,
+  overscan,
 }: PersonalFeedListProps) {
   const feedBlocks = useMemo(
     () =>
@@ -295,6 +298,7 @@ export function PersonalFeedList({
     sizeCache: windowSizeCache,
     pinnedKey: pinnedFeedKey,
     estimate: rowEstimates,
+    overscan,
   });
 
   if (feedBlocks.length === 0) return null;

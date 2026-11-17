@@ -6,7 +6,9 @@ import type { PostRow } from '@onsocial/sdk';
 import {
   clearHomeFeedSession,
   HOME_FEED_COLD_PROBE_DELAY_MS,
+  HOME_FEED_LIVE_POSTS_CAP,
   HOME_FEED_SESSION_HINT_COOKIE,
+  HOME_FEED_SESSION_PERSISTED_POSTS,
   HOME_FEED_SESSION_PROBE_DELAY_MS,
   HOME_FEED_SESSION_TTL_MS,
   HOME_FEED_SSR_SESSION_KEY,
@@ -378,7 +380,7 @@ describe('home feed session storage mirror', () => {
     expect(peekHomeFeedSession()?.scrollTop).toBe(12);
   });
 
-  it('caps the persisted list so longform bodies fit the quota', () => {
+  it('caps live memory and the stored copy to the shared live ceiling', () => {
     const map = stubSessionStorage();
     const posts = Array.from({ length: 80 }, (_, index) =>
       row('a.near', String(index))
@@ -391,13 +393,18 @@ describe('home feed session storage mirror', () => {
       offsetShiftApplied: 0,
       scrollTop: 0,
     });
-    // Memory keeps every row — only the stored copy is capped.
-    expect(peekHomeFeedSession()?.posts).toHaveLength(80);
+    expect(HOME_FEED_LIVE_POSTS_CAP).toBe(HOME_FEED_SESSION_PERSISTED_POSTS);
+    expect(HOME_FEED_SESSION_PERSISTED_POSTS).toBe(60);
+    expect(peekHomeFeedSession()?.posts).toHaveLength(
+      HOME_FEED_SESSION_PERSISTED_POSTS
+    );
     const raw = map.get('onsocial.home-feed-session');
     const parsed = JSON.parse(raw ?? '{}') as {
       snapshot: { posts: PostRow[] };
     };
-    expect(parsed.snapshot.posts).toHaveLength(60);
+    expect(parsed.snapshot.posts).toHaveLength(
+      HOME_FEED_SESSION_PERSISTED_POSTS
+    );
     expect(parsed.snapshot.posts.at(-1)?.postId).toBe('59');
   });
 });
