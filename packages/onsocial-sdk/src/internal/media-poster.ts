@@ -34,8 +34,9 @@ export function captureBlobVideoPoster(blob: Blob): Promise<Blob | null> {
 
   return new Promise((resolve) => {
     // Never reject — a throw here used to orphan the video upload (Promise.all).
+    let objectUrl: string | null = null;
     try {
-      const url = URL.createObjectURL(blob);
+      objectUrl = URL.createObjectURL(blob);
       const video = document.createElement('video');
       let settled = false;
       const settle = (value: Blob | null) => {
@@ -47,7 +48,8 @@ export function captureBlobVideoPoster(blob: Blob): Promise<Blob | null> {
         video.onerror = null;
         video.removeAttribute('src');
         video.load();
-        URL.revokeObjectURL(url);
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+        objectUrl = null;
         resolve(value);
       };
       const timer = setTimeout(() => settle(null), POSTER_TIMEOUT_MS);
@@ -95,8 +97,9 @@ export function captureBlobVideoPoster(blob: Blob): Promise<Blob | null> {
           grab();
         }
       };
-      video.src = url;
+      video.src = objectUrl;
     } catch {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
       resolve(null);
     }
   });

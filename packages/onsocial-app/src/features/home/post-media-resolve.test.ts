@@ -15,10 +15,23 @@ describe('feed media resolve settle', () => {
   it('settles video shimmer on metadata/canplay/error plus the named fallback', () => {
     const source = readFileSync(join(homeSrc, 'post-media.tsx'), 'utf8');
     expect(source).toContain('FEED_MEDIA_RESOLVE_FALLBACK_MS');
+    expect(source).toContain('useFeedMediaResolveFallback');
+    expect(source).toContain('feedMediaVideoSettleHandlers');
     expect(source).toContain('onLoadedMetadata');
     expect(source).toContain('onCanPlay');
-    expect(source).toMatch(/onLoadedMetadata=\{[\s\S]*markResolved/);
-    expect(source).toMatch(/onCanPlay=\{markResolved\}/);
     expect(source).toContain('setTimeout');
+  });
+
+  it('does not probe a second Image/video for seat ratio (learns from the shown element)', () => {
+    const source = readFileSync(join(homeSrc, 'post-media.tsx'), 'utf8');
+    expect(source).not.toMatch(/new Image\(\)/);
+    expect(source).not.toMatch(/document\.createElement\('video'\)/);
+    expect(source).toContain('feedMediaVideoSettleHandlers(markResolved)');
+    expect(source).toContain('rememberRatio(video.videoWidth, video.videoHeight)');
+    expect(source).toMatch(/mode: 'height'/);
+    // setMeasuredRatio updater stays pure — anchor capture is outside it.
+    expect(source).toMatch(
+      /setMeasuredRatio\(\(current\) =>\s*current != null && Math\.abs\(current - ratio\) < 0\.001 \? current : ratio/
+    );
   });
 });

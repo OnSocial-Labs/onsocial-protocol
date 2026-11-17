@@ -144,6 +144,57 @@ export function useFeedMediaResolved(src: string) {
   return { resolved, markResolved, bind };
 }
 
+/**
+ * Named fallback when decode events never fire (iOS metadata preload).
+ * Shared by feed tiles and quote thumbs — do not copy the timer.
+ */
+export function useFeedMediaResolveFallback(
+  active: boolean,
+  resolved: boolean,
+  markResolved: () => void
+) {
+  useEffect(() => {
+    if (!active || resolved) return;
+    const timer = window.setTimeout(
+      markResolved,
+      FEED_MEDIA_RESOLVE_FALLBACK_MS
+    );
+    return () => window.clearTimeout(timer);
+  }, [active, resolved, markResolved]);
+}
+
+type FeedMediaVideoSettleHandlers = {
+  onLoadedMetadata: (event: { currentTarget: HTMLVideoElement }) => void;
+  onCanPlay: () => void;
+  onLoadedData: () => void;
+  onError: () => void;
+};
+
+/**
+ * Settle video shimmer on metadata / canplay / loadeddata / error.
+ * Optional dimension callback runs from the element that is actually shown.
+ */
+export function feedMediaVideoSettleHandlers(
+  markResolved: () => void,
+  onDimensions?: (width: number, height: number) => void
+): FeedMediaVideoSettleHandlers {
+  return {
+    onLoadedMetadata: (event) => {
+      const video = event.currentTarget;
+      onDimensions?.(video.videoWidth, video.videoHeight);
+      markResolved();
+    },
+    onCanPlay: markResolved,
+    onLoadedData: markResolved,
+    onError: markResolved,
+  };
+}
+
+/** Test helper — drop session resolve marks between cases. */
+export function clearFeedMediaResolvedSrcs(): void {
+  feedMediaResolvedSrcs.clear();
+}
+
 interface PostMediaBlockProps {
   item: PostMediaItem;
   index?: number;
@@ -458,16 +509,13 @@ function PostVisualMediaBlock({
     setSoundOff(focusedVideoMuted);
   }, [focusedVideoMuted]);
 
-  // iOS / low-power often skip loadeddata with preload=metadata — settle on
-  // metadata/canplay/error, and clear the shimmer after the named fallback.
-  useEffect(() => {
-    if (!isVideo || !videoMounted || resolved) return;
-    const timer = window.setTimeout(
-      markResolved,
-      FEED_MEDIA_RESOLVE_FALLBACK_MS
-    );
-    return () => window.clearTimeout(timer);
-  }, [isVideo, videoMounted, resolved, markResolved]);
+  // iOS / low-power often skip decode events with preload=metadata — shared
+  // settle handlers + named fallback (same path as quote thumbs).
+  useFeedMediaResolveFallback(
+    isVideo && videoMounted,
+    resolved,
+    markResolved
+  );
 
   const [measuredRatio, setMeasuredRatio] = useState<number | null>(() =>
     lookupFeedMediaRatio(item.url)
@@ -478,7 +526,11 @@ function PostVisualMediaBlock({
     setMeasuredRatio(lookupFeedMediaRatio(item.url));
   }
   const tileNodeRef = useRef<HTMLElement | null>(null);
-  const seatAnchorScrollRef = useRef<number | null>(null);
+  const seatAnchorRef = useRef<
+    | { mode: 'height'; height: number }
+    | { mode: 'top'; top: number }
+    | null
+  >(null);
   const mediaUrl = item.url;
 
   const rememberRatio = (width: number, height: number) => {
@@ -489,21 +541,28 @@ function PostVisualMediaBlock({
     rememberFeedMediaRatio(mediaUrl, ratio);
     onRatio?.(ratio);
     if (!reserveRatio) return;
-    setMeasuredRatio((current) => {
-      if (current != null && Math.abs(current - ratio) < 0.001) return current;
-      const tile = tileNodeRef.current;
-      const scroller = tile?.closest('.os-app-screen-body');
-      if (tile instanceof HTMLElement && scroller instanceof HTMLElement) {
-        // Hold the reader's place when the seat grows/shrinks in view.
-        seatAnchorScrollRef.current =
-          tile.getBoundingClientRect().top -
-          scroller.getBoundingClientRect().top +
-          scroller.scrollTop;
+    const tile = tileNodeRef.current;
+    const scroller = tile?.closest('.os-app-screen-body');
+    if (tile instanceof HTMLElement && scroller instanceof HTMLElement) {
+      const tileRect = tile.getBoundingClientRect();
+      const scrollerRect = scroller.getBoundingClientRect();
+      // Above the viewport: pin by height so in-view content does not jump.
+      // In / intersecting view: pin the tile top (reader's place).
+      if (tileRect.bottom <= scrollerRect.top + 0.5) {
+        seatAnchorRef.current = { mode: 'height', height: tile.offsetHeight };
       } else {
-        seatAnchorScrollRef.current = null;
+        seatAnchorRef.current = {
+          mode: 'top',
+          top:
+            tileRect.top - scrollerRect.top + scroller.scrollTop,
+        };
       }
-      return ratio;
-    });
+    } else {
+      seatAnchorRef.current = null;
+    }
+    setMeasuredRatio((current) =>
+      current != null && Math.abs(current - ratio) < 0.001 ? current : ratio
+    );
   };
 
   // Soft-focus / remount: reserveRatio may flip on after the feed already
@@ -514,65 +573,29 @@ function PostVisualMediaBlock({
     if (cached != null) setMeasuredRatio(cached);
   }, [reserveRatio, mediaUrl, measuredRatio]);
 
-  // Cold hard load — no persisted dims, no session cache. Probe off-DOM
-  // (same pattern as quote duration) so metadata can win before / with the
-  // on-screen <video>, then hand off scroll-anchored. No height animation.
-  useEffect(() => {
-    if (!reserveRatio) return;
-    if (postMediaItemRatio(item) != null) return;
-    if (measuredRatio != null) return;
-    if (lookupFeedMediaRatio(mediaUrl) != null) return;
-    let cancelled = false;
-    if (isVideo) {
-      const video = document.createElement('video');
-      video.muted = true;
-      video.playsInline = true;
-      video.preload = 'metadata';
-      video.onloadedmetadata = () => {
-        if (cancelled) return;
-        rememberRatio(video.videoWidth, video.videoHeight);
-      };
-      video.onerror = () => {
-        /* leave unlocked until a later decode */
-      };
-      video.src = mediaUrl;
-      return () => {
-        cancelled = true;
-        video.onloadedmetadata = null;
-        video.onerror = null;
-        video.removeAttribute('src');
-        video.load();
-      };
-    }
-    const img = new Image();
-    img.onload = () => {
-      if (cancelled) return;
-      rememberRatio(img.naturalWidth, img.naturalHeight);
-    };
-    img.src = mediaUrl;
-    return () => {
-      cancelled = true;
-      img.onload = null;
-      img.src = '';
-    };
-    // rememberRatio closes over reserveRatio / mediaUrl; re-run when those change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional cold probe
-  }, [reserveRatio, mediaUrl, isVideo, item.width, item.height, measuredRatio]);
+  // Cold unhinted: learn ratio from the on-screen element (onLoad /
+  // loadedmetadata) — no off-DOM Image/video probe (duplicate network).
+  // Unknown stays main-like until that decode; no height animation.
 
   useLayoutEffect(() => {
-    const anchor = seatAnchorScrollRef.current;
-    seatAnchorScrollRef.current = null;
+    const anchor = seatAnchorRef.current;
+    seatAnchorRef.current = null;
     if (anchor == null) return;
     const tile = tileNodeRef.current;
     const scroller = tile?.closest('.os-app-screen-body');
     if (!(tile instanceof HTMLElement) || !(scroller instanceof HTMLElement)) {
       return;
     }
+    if (anchor.mode === 'height') {
+      const delta = tile.offsetHeight - anchor.height;
+      if (Math.abs(delta) > 0.5) scroller.scrollTop += delta;
+      return;
+    }
     const next =
       tile.getBoundingClientRect().top -
       scroller.getBoundingClientRect().top +
       scroller.scrollTop;
-    const delta = next - anchor;
+    const delta = next - anchor.top;
     if (Math.abs(delta) > 0.5) scroller.scrollTop += delta;
   }, [measuredRatio]);
 
@@ -612,6 +635,7 @@ function PostVisualMediaBlock({
   const mediaClassName = ['post-media-element', resolved ? 'is-resolved' : '']
     .filter(Boolean)
     .join(' ');
+  const videoSettle = feedMediaVideoSettleHandlers(markResolved);
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
   useEffect(() => {
     const video = videoElementRef.current;
@@ -666,14 +690,12 @@ function PostVisualMediaBlock({
             data-post-focus-video={isDetailVideo ? String(index) : undefined}
             {...(showSoundControl ? { 'data-os-sound-chip': '' } : {})}
             className={mediaClassName}
+            {...videoSettle}
             onLoadedMetadata={(event) => {
               const video = event.currentTarget;
               rememberRatio(video.videoWidth, video.videoHeight);
-              markResolved();
+              videoSettle.onLoadedMetadata(event);
             }}
-            onCanPlay={markResolved}
-            onLoadedData={markResolved}
-            onError={markResolved}
           />
         ) : null
       ) : (

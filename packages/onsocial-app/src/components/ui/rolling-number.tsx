@@ -2,7 +2,6 @@
 
 import {
   useEffect,
-  useLayoutEffect,
   useRef,
   useState,
   useSyncExternalStore,
@@ -54,7 +53,6 @@ function DigitRoll({
   rollSignal,
   playFrom,
   stepPx,
-  fromValue,
   toValue,
 }: {
   digit: number;
@@ -63,8 +61,7 @@ function DigitRoll({
   playFrom?: number;
   /** Fixed line height so the roll cannot change the count's box. */
   stepPx?: number;
-  /** Whole-counter previous value — zero crossings snap (no under-flash). */
-  fromValue?: number;
+  /** Whole-counter value — previous is latched in an effect ref (zero-crossing snap). */
   toValue?: number;
 }) {
   const reduced = usePrefersReducedMotion();
@@ -84,14 +81,19 @@ function DigitRoll({
   const skipRef = useRef(playFrom === undefined);
   const playedRef = useRef(false);
   const signalRef = useRef(rollSignal);
+  /** Previous whole value — read/updated only inside the effect (no render ref). */
+  const prevToValueRef = useRef(toValue);
 
   useEffect(() => {
     if (skipRef.current) {
       skipRef.current = false;
       signalRef.current = rollSignal;
+      prevToValueRef.current = toValue;
       return;
     }
 
+    const fromValue = prevToValueRef.current;
+    prevToValueRef.current = toValue;
     const motionKind = rollingMotion(rollSignal, signalRef.current, {
       fromValue,
       toValue,
@@ -169,7 +171,7 @@ function DigitRoll({
       window.cancelAnimationFrame(follow);
       window.clearTimeout(timer);
     };
-  }, [fromValue, playFrom, reduced, rollSignal, target, toValue]);
+  }, [playFrom, reduced, rollSignal, target, toValue]);
 
   const step = stepPx && stepPx > 0 ? stepPx : null;
   const cellStyle = step
@@ -239,19 +241,11 @@ export function RollingNumber({
 }) {
   const safe = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
   /*
-   * Previous whole value for zero-crossing snap. Lag via layout effect so
-   * DigitRoll sees from→to on the changing paint (adjust-during-render
-   * collapsed both before the first like could snap).
+   * Zero-crossing snap latches inside DigitRoll's effect (prevToValueRef) so
+   * there is no second sync render. useState+useLayoutEffect setFromValue used
+   * to re-run DigitRoll, cancel the first rAF before signalRef updated, and
+   * roll 0→1 through a parked 0.
    */
-  const [fromValue, setFromValue] = useState(safe);
-  useLayoutEffect(() => {
-    if (fromValue !== safe) {
-      // Lag one paint so DigitRoll sees from→to (0→1 snap). Sync setState is
-      // intentional — adjust-during-render collapsed both before commit.
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- lag previous whole value
-      setFromValue(safe);
-    }
-  }, [fromValue, safe]);
   const glyphs = rollingGlyphs(safe, grouped);
   return (
     <span
@@ -268,7 +262,6 @@ export function RollingNumber({
             key={glyph.key}
             digit={glyph.digit}
             rollSignal={rollSignal}
-            fromValue={fromValue}
             toValue={safe}
           />
         )

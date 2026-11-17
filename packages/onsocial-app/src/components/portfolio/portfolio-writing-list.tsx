@@ -96,15 +96,17 @@ export function WritingShelfLikeCount({
   if (!likeLabel) return null;
   const word = likeCount === 1 ? ' like' : ' likes';
   // Same separator sibling markup as main — keep ` · ` in the meta inline
-  // flow (not inside a flex seat) so spaces do not collapse.
+  // flow (not inside a flex seat) so spaces do not collapse. Visible digits
+  // stay aria-hidden; sr-only carries the name into the parent link.
   return (
     <>
       <span aria-hidden> · </span>
-      <span className="portfolio-writing-shelf-like" aria-label={likeLabel}>
+      <span className="portfolio-writing-shelf-like">
         <span aria-hidden>
           <RollingNumber value={likeCount} rollSignal={rollSignal} />
           {word}
         </span>
+        <span className="sr-only">{likeLabel}</span>
       </span>
     </>
   );
@@ -206,7 +208,6 @@ export const PortfolioWritingList = memo(function PortfolioWritingList({
                   href={articleHref}
                   className="portfolio-writing-card"
                   prefetch
-                  aria-label={article.title}
                   onClick={openArticle}
                 >
                   <div className="portfolio-writing-cover" aria-hidden>
