@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   FEED_WINDOW_ESTIMATE_PX,
+  FEED_WINDOW_OVERSCAN_PX,
   FEED_WINDOW_POLL_ESTIMATE_PX,
   FeedWindowSizeCache,
   buildFeedWindowOffsets,
@@ -195,6 +196,30 @@ describe('feedWindowRangeForScroll', () => {
         overscan: 1600,
       })
     ).toEqual({ start: 0, end: 0 });
+  });
+
+  it('default overscan keeps the e2e stub tail in range from the head', () => {
+    // Compact text stubs in feed-windowing.spec — CI painted win-00..win-42 with
+    // home overscan 1600 while win-47 stayed collapsed.
+    const rowCount = 48;
+    const rowHeight = 58;
+    const viewportHeight = 900;
+    const { offsets } = buildFeedWindowOffsets(rowCount, () => rowHeight);
+    const tight = feedWindowRangeForScroll({
+      offsets,
+      scrollTop: 0,
+      viewportHeight,
+      overscan: 1600,
+    });
+    const defaults = feedWindowRangeForScroll({
+      offsets,
+      scrollTop: 0,
+      viewportHeight,
+      overscan: FEED_WINDOW_OVERSCAN_PX,
+    });
+    expect(tight.end).toBeLessThan(rowCount);
+    expect(tight.end).toBeLessThanOrEqual(44);
+    expect(defaults.end).toBe(rowCount);
   });
 });
 

@@ -1628,7 +1628,6 @@ export function HomePagePanel({
                 initialScarceEmbeds={initialScarceEmbeds}
                 windowSizeCache={feedWindowCacheRef.current}
                 pinnedFeedKey={reRankAnchor?.key ?? null}
-                overscan={1600}
                 onReply={replyHandler}
                 onExpandReply={openFullReply}
                 onQuote={quoteHandler}
