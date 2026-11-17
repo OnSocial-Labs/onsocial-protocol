@@ -21,7 +21,10 @@ describe('guild loading contract', () => {
     const source = readFileSync(join(guildDir, 'live-guild-panel.tsx'), 'utf8');
 
     expect(source).toContain("showFeedRefreshing ? ' is-refreshing' : ''");
-    expect(source).toContain('showFeedAppendSkeleton');
+    expect(source).toContain('showFeedAppendPending');
+    expect(source).toContain("feedPresentation === 'append-pending'");
+    expect(source).toContain('PulsingDots');
+    expect(source).not.toContain('showFeedAppendSkeleton');
     expect(source).toContain('Guild posts could not refresh');
     expect(source).toContain('GUILD_FEED_LOAD_MORE_ERROR');
   });

@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react';
 import type { PostRow } from '@onsocial/sdk';
+import { PulsingDots } from '@onsocial/ui';
 import { OverlayPanelChrome } from '@/components/overlay/overlay-panel-chrome';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
@@ -251,9 +252,8 @@ function PortfolioWritingShelf({
           />
         </OsPageBodyAppear>
         {loadingMore ? (
-          <div className="portfolio-writing-pending" aria-hidden>
-            <span className="standing-row-shimmer portfolio-writing-pending-row" />
-            <span className="standing-row-shimmer portfolio-writing-pending-row" />
+          <div className="list-append-pending">
+            <PulsingDots size="sm" label="Loading more" />
           </div>
         ) : null}
         {moreFailed ? (

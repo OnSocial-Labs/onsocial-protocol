@@ -1,25 +1,18 @@
 'use client';
 
 import type { RefObject } from 'react';
-import {
-  ProfileSocialListSkeleton,
-  type ProfileSocialListSkeletonRowVariant,
-} from '@/components/panels/profile-social-list-row';
+import { PulsingDots } from '@onsocial/ui';
 
 export function StandingListLoadMoreFooter({
   loadMoreSentinelRef,
   resultsSummary,
   isLoadingMore,
   showSentinel,
-  skeletonCount = 2,
-  skeletonRowVariant = 'standing',
 }: {
   loadMoreSentinelRef: RefObject<HTMLDivElement | null>;
   resultsSummary?: string | null;
   isLoadingMore: boolean;
   showSentinel: boolean;
-  skeletonCount?: number;
-  skeletonRowVariant?: ProfileSocialListSkeletonRowVariant;
 }) {
   if (!showSentinel && !resultsSummary && !isLoadingMore) {
     return null;
@@ -38,11 +31,9 @@ export function StandingListLoadMoreFooter({
         <p className="standing-panel-load-more-summary">{resultsSummary}</p>
       ) : null}
       {isLoadingMore ? (
-        <ProfileSocialListSkeleton
-          count={skeletonCount}
-          variant="append"
-          rowVariant={skeletonRowVariant}
-        />
+        <div className="list-append-pending">
+          <PulsingDots size="sm" label="Loading more" />
+        </div>
       ) : null}
     </>
   );

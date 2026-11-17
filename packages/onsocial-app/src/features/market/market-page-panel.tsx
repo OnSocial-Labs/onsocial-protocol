@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 import {
   MultiplyIcon,
   ProtocolMotionArrow,
+  PulsingDots,
   StarMovingFillIcon,
 } from '@onsocial/ui';
 import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
@@ -1957,7 +1958,7 @@ export function MarketPagePanel({
         : null;
   const showListSkeleton = loadingPresentation === 'skeleton';
   const showCatalogRefreshing = loadingPresentation === 'preserve';
-  const showAppendSkeleton = loadingPresentation === 'append-skeleton';
+  const showAppendPending = loadingPresentation === 'append-pending';
   const errorPresentation = listingsError
     ? resolveAppLoadingPresentation('error', { hasPaintedRows })
     : null;
@@ -2406,7 +2407,11 @@ export function MarketPagePanel({
         !loadMoreFailed &&
         !showCatalogRefreshing ? (
           <>
-            {showAppendSkeleton ? <MarketListSkeleton rows={2} /> : null}
+            {showAppendPending ? (
+              <div className="list-append-pending">
+                <PulsingDots size="sm" label="Loading more" />
+              </div>
+            ) : null}
             <div
               ref={listingsSentinelRef}
               className="market-listing-sentinel"

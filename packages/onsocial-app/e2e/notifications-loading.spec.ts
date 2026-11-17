@@ -248,7 +248,7 @@ test.describe('authenticated notifications loading', () => {
     ).toHaveCount(0);
   });
 
-  test('adds append skeletons without replacing painted activity', async ({
+  test('shows footer pending dots without replacing painted activity', async ({
     page,
   }) => {
     const stub = await stubNotifications(page, { delayAppend: true });
@@ -259,11 +259,11 @@ test.describe('authenticated notifications loading', () => {
     // append on its own — no Load-earlier button anymore.
     await expect(page.getByText('First update', { exact: true })).toBeVisible();
     await expect(
-      page.locator('[data-notifications-append-skeleton]')
+      page.getByRole('status', { name: 'Loading more' })
     ).toBeVisible();
     await expect(
       page.locator('.notifications-activity-row--skeleton')
-    ).toHaveCount(2);
+    ).toHaveCount(0);
 
     stub.releaseAppend();
     await expect(page.getByText('Earlier update', { exact: true })).toBeVisible();

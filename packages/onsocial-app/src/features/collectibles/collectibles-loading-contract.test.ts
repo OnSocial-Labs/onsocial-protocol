@@ -19,7 +19,7 @@ describe('collectibles loading contract', () => {
     expect(source).toContain('showStateError');
   });
 
-  it('keeps painted vault rows during refresh and appends distinct skeleton rows', () => {
+  it('keeps painted vault rows during refresh and appends via OsLoadMore pending', () => {
     const source = readFileSync(
       join(collectiblesSrc, 'collectibles-page-panel.tsx'),
       'utf8'
@@ -31,16 +31,15 @@ describe('collectibles loading contract', () => {
 
     expect(source).toContain("hasPaintedRows ? 'refreshing' : 'cold'");
     expect(source).toContain("loadingPresentation === 'preserve'");
-    expect(source).toContain('CollectiblesLibraryAppendSkeleton');
-    expect(source).toContain("loadingPresentation === 'append-skeleton'");
+    expect(source).toContain('OsLoadMore');
+    expect(source).toContain('pending={loadingMore}');
     expect(source).toContain('refreshing={loadingPresentation ===');
-    expect(skeletonSource).toContain(
+    expect(source).not.toContain('CollectiblesLibraryAppendSkeleton');
+    expect(source).not.toContain('append-skeleton');
+    expect(skeletonSource).not.toContain(
       'data-collectibles-library-append-skeleton'
     );
     expect(skeletonSource).toContain('collectibles-holding-row--skeleton');
-    expect(skeletonSource).not.toContain(
-      'collectibles-holding-row collectibles-holding-row--skeleton'
-    );
   });
 
   it('uses the same query-aware vault shell for route loading', () => {

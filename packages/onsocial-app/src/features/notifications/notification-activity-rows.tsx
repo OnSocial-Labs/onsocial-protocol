@@ -137,28 +137,6 @@ export function NotificationActivitySkeleton({
   );
 }
 
-/** Rows-only shimmer appended after painted activity during pagination. */
-export function NotificationActivityAppendSkeleton({
-  count = 2,
-}: {
-  count?: number;
-}) {
-  return (
-    <div
-      className="standing-list notifications-activity-list standing-list-skeleton notifications-activity-append-skeleton"
-      data-notifications-append-skeleton
-      aria-hidden
-    >
-      {Array.from({ length: count }, (_, index) => (
-        <div key={index}>
-          {index > 0 ? <Divider variant="item" /> : null}
-          <NotificationActivitySkeletonRow />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function SystemMark({ family }: { family: NotificationSystemFamily }) {
   const Icon = SYSTEM_FAMILY_ICON[family];
   return (

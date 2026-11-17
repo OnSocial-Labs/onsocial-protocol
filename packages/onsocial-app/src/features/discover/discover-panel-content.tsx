@@ -118,7 +118,7 @@ export function DiscoverPanelContent() {
     : null;
   const showProfilesSkeleton = loadingPresentation === 'skeleton';
   const showListRefreshing = loadingPresentation === 'preserve';
-  const showAppendSkeleton = loadingPresentation === 'append-skeleton';
+  const showAppendPending = loadingPresentation === 'append-pending';
   const hasRecommended = recommendedShownIds.length > 0;
   if (tab === 'trending' && isDiscoverCatalogQuery(query)) {
     return (
@@ -202,7 +202,6 @@ export function DiscoverPanelContent() {
                   viewerAccountId={viewerAccountId}
                   showSolidarityBadge
                   standingTimeMode="viewer-only"
-                  skeletonRowVariant="discover"
                   viewerRelationshipsLoading={
                     isConnected &&
                     Boolean(viewerAccountId) &&
@@ -225,7 +224,7 @@ export function DiscoverPanelContent() {
                   }}
                   loadMoreSentinelRef={loadMoreRef}
                   footerSummary={footerSummary}
-                  isLoadingMore={showAppendSkeleton}
+                  isLoadingMore={showAppendPending}
                   showLoadMoreSentinel={showLoadMoreSentinel}
                   directoryLine={
                     face === 'offers' || face === 'hiring' ? face : undefined

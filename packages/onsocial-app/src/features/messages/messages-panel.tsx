@@ -119,10 +119,7 @@ import {
   MessagesInboxSkeleton,
   MessagesInboxThreadRows,
 } from '@/features/messages/messages-inbox-rows';
-import {
-  MessagesThreadAppendSkeleton,
-  MessagesThreadSkeleton,
-} from '@/features/messages/messages-thread-skeleton';
+import { MessagesThreadSkeleton } from '@/features/messages/messages-thread-skeleton';
 import {
   buildDmThreadId,
   messagingBlockedCopy,
@@ -2207,7 +2204,6 @@ export function MessagesPanel() {
                       />
                     ) : null}
                   </ul>
-                  {loadingOlder ? <MessagesThreadAppendSkeleton /> : null}
                 </>
               )}
             </section>

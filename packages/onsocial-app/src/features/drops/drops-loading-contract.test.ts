@@ -12,23 +12,20 @@ describe('drops loading contract', () => {
     expect(source).toContain('resolveAppLoadingPresentation');
     expect(source).toContain('showCatalogSkeleton');
     expect(source).toContain('catalogRefreshing');
-    expect(source).toContain('showAppendSkeleton');
+    expect(source).toContain('showAppendPending');
+    expect(source).toContain("loadingPresentation === 'append-pending'");
+    expect(source).toContain('PulsingDots');
     expect(source).toContain('errorPresentation');
+    expect(source).not.toContain('showAppendSkeleton');
   });
 
-  it('renders append skeleton rows without replacing painted drops', () => {
+  it('shows footer pending dots without replacing painted drops', () => {
     const source = readFileSync(join(dropsSrc, 'drops-page-panel.tsx'), 'utf8');
-    const skeletonSource = readFileSync(
-      join(dropsSrc, '../market/market-list-skeleton.tsx'),
-      'utf8'
-    );
 
     expect(source).toContain(
       "resolveAppLoadingPresentation(hasPaintedRows ? 'appending' : 'cold'"
     );
-    expect(source).toContain('showAppendSkeleton');
-    expect(source).toContain('variant="drops"');
-    expect(skeletonSource).toContain('drops-discovery-row--skeleton');
+    expect(source).toContain('list-append-pending');
     expect(source).toContain("failed && errorPresentation === 'overlay'");
   });
 

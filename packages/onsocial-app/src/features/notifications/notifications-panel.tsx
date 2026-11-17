@@ -12,7 +12,11 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { Notification } from '@onsocial/sdk';
-import { OsAppChromePage, OsAppChromePageStatus } from '@onsocial/ui';
+import {
+  OsAppChromePage,
+  OsAppChromePageStatus,
+  PulsingDots,
+} from '@onsocial/ui';
 import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
@@ -49,7 +53,6 @@ import {
 } from '@/lib/list-scroll-restore';
 import { ActivityStandGroupSheet } from '@/features/notifications/activity-stand-group-sheet';
 import {
-  NotificationActivityAppendSkeleton,
   NotificationActivityRows,
   NotificationActivitySkeleton,
 } from '@/features/notifications/notification-activity-rows';
@@ -652,7 +655,7 @@ export function NotificationsPanel() {
   const showActivitySkeleton =
     items == null || loadingPresentation === 'skeleton';
   const showActivityRefreshing = loadingPresentation === 'preserve';
-  const showAppendSkeleton = loadingPresentation === 'append-skeleton';
+  const showAppendPending = loadingPresentation === 'append-pending';
   const retryError = () => {
     if (errorSource === 'append') {
       void loadMore();
@@ -707,8 +710,10 @@ export function NotificationsPanel() {
               onOpen={openItem}
               refreshing={showActivityRefreshing}
             />
-            {showAppendSkeleton ? (
-              <NotificationActivityAppendSkeleton />
+            {showAppendPending ? (
+              <div className="list-append-pending">
+                <PulsingDots size="sm" label="Loading more" />
+              </div>
             ) : null}
             {nextCursor ? (
               <div

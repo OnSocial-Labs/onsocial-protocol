@@ -374,7 +374,7 @@ test.describe('authenticated messages loading', () => {
     ).toHaveCount(0);
   });
 
-  test('appends message skeletons without replacing the painted thread', async ({
+  test('loads older messages with Earlier pending dots, not bubble skeletons', async ({
     page,
   }) => {
     const stub = await stubMessages(page, { delayAppend: true });
@@ -386,15 +386,15 @@ test.describe('authenticated messages loading', () => {
     });
 
     await page.getByRole('button', { name: 'Earlier' }).click();
-    await expect(
-      page.locator('[data-messages-append-skeleton]')
-    ).toBeVisible();
-    await expect(
-      page.locator('.messages-bubble--skeleton')
-    ).toHaveCount(2);
+    await expect(page.getByRole('button', { name: 'Earlier' })).toHaveClass(
+      /is-pending/
+    );
+    await expect(page.locator('.messages-bubble--skeleton')).toHaveCount(0);
 
     stub.releaseAppend();
-    await expect(page.locator('.messages-bubble--skeleton')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Earlier' })).not.toHaveClass(
+      /is-pending/
+    );
   });
 
   test('shows an append error over the painted thread and retries', async ({

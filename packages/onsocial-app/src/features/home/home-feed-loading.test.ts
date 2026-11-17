@@ -10,8 +10,12 @@ describe('home feed loading contract', () => {
     const source = readFileSync(join(homeSrc, 'home-feed.tsx'), 'utf8');
 
     expect(source).toContain('resolveAppLoadingPresentation');
-    expect(source).toContain('showAppendSkeleton');
+    expect(source).toContain('showAppendPending');
+    expect(source).toContain("loadingPresentation === 'append-pending'");
+    expect(source).toContain('PulsingDots');
     expect(source).toContain('errorPresentation');
+    expect(source).not.toContain('showAppendSkeleton');
+    expect(source).not.toContain('HOME_FEED_APPEND_SKELETON_FRAMES');
   });
 
   it('guards every async feed commit against stale generations', () => {

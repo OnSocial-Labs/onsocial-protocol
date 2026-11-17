@@ -21,6 +21,7 @@ import {
   OnSocialMark,
   OsAppChromePage,
   OsAppChromeToolbarRail,
+  PulsingDots,
 } from '@onsocial/ui';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
@@ -98,7 +99,6 @@ import {
   shouldPrependOptimisticFeedPost,
 } from '@/features/home/personal-feed-list';
 import {
-  HOME_FEED_APPEND_SKELETON_FRAMES,
   HOME_FEED_COLD_SKELETON_FRAMES,
   PostRowSkeleton,
   postKey,
@@ -312,13 +312,13 @@ async function loadFocusedFeedPage(
 function HomeFeedLoadMoreFooter({
   loadMoreSentinelRef,
   showSentinel,
-  showAppendSkeleton,
+  showAppendPending,
 }: {
   loadMoreSentinelRef: RefObject<HTMLDivElement | null>;
   showSentinel: boolean;
-  showAppendSkeleton: boolean;
+  showAppendPending: boolean;
 }) {
-  if (!showSentinel && !showAppendSkeleton) return null;
+  if (!showSentinel && !showAppendPending) return null;
 
   return (
     <div className="home-feed-load-more">
@@ -329,8 +329,10 @@ function HomeFeedLoadMoreFooter({
           aria-hidden
         />
       ) : null}
-      {showAppendSkeleton ? (
-        <PostRowSkeleton rows={2} frames={HOME_FEED_APPEND_SKELETON_FRAMES} />
+      {showAppendPending ? (
+        <div className="list-append-pending">
+          <PulsingDots size="sm" label="Loading more" />
+        </div>
       ) : null}
     </div>
   );
@@ -1512,7 +1514,7 @@ export function HomePagePanel({
   const showColdSkeleton =
     loadingPresentation === 'skeleton' ||
     (walkingHiddenPage && !isRefreshing && !isLoading);
-  const showAppendSkeleton = loadingPresentation === 'append-skeleton';
+  const showAppendPending = loadingPresentation === 'append-pending';
   const showEmpty =
     !isLoading &&
     !isRefreshing &&
@@ -1616,7 +1618,7 @@ export function HomePagePanel({
               <HomeFeedLoadMoreFooter
                 loadMoreSentinelRef={loadMoreRef}
                 showSentinel={showLoadMoreSentinel}
-                showAppendSkeleton={showAppendSkeleton}
+                showAppendPending={showAppendPending}
               />
             </>
           ) : null}
