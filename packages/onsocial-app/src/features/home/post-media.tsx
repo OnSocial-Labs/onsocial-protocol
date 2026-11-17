@@ -63,6 +63,55 @@ function mediaImgSizes(size: PostMediaSize, collage: boolean): string {
  */
 export const FEED_MEDIA_RESOLVE_FALLBACK_MS = 8_000;
 
+/** Pure measured-ratio state step — safe under Strict Mode double invoke. */
+export function nextMeasuredRatio(
+  current: number | null,
+  ratio: number
+): number {
+  return current != null && Math.abs(current - ratio) < 0.001 ? current : ratio;
+}
+
+export type SeatScrollAnchor =
+  | { mode: 'height'; height: number }
+  | { mode: 'top'; top: number };
+
+/**
+ * Capture how to hold the reader's place when a reserved seat resizes.
+ * Above the viewport → pin by height; otherwise pin the tile top.
+ */
+export function captureSeatScrollAnchor(args: {
+  tileTop: number;
+  tileBottom: number;
+  tileHeight: number;
+  scrollerTop: number;
+  scrollTop: number;
+}): SeatScrollAnchor {
+  if (args.tileBottom <= args.scrollerTop + 0.5) {
+    return { mode: 'height', height: args.tileHeight };
+  }
+  return {
+    mode: 'top',
+    top: args.tileTop - args.scrollerTop + args.scrollTop,
+  };
+}
+
+/** Scroll delta that keeps in-view content still after a seat resize. */
+export function seatScrollDelta(
+  anchor: SeatScrollAnchor,
+  args: {
+    tileTop: number;
+    tileHeight: number;
+    scrollerTop: number;
+    scrollTop: number;
+  }
+): number {
+  if (anchor.mode === 'height') {
+    return args.tileHeight - anchor.height;
+  }
+  const next = args.tileTop - args.scrollerTop + args.scrollTop;
+  return next - anchor.top;
+}
+
 /**
  * Open / focused / quote single seat. Persisted hints, a session-cached
  * feed measure, or loadedmetadata set the real ratio. Unknown returns null
@@ -546,23 +595,17 @@ function PostVisualMediaBlock({
     if (tile instanceof HTMLElement && scroller instanceof HTMLElement) {
       const tileRect = tile.getBoundingClientRect();
       const scrollerRect = scroller.getBoundingClientRect();
-      // Above the viewport: pin by height so in-view content does not jump.
-      // In / intersecting view: pin the tile top (reader's place).
-      if (tileRect.bottom <= scrollerRect.top + 0.5) {
-        seatAnchorRef.current = { mode: 'height', height: tile.offsetHeight };
-      } else {
-        seatAnchorRef.current = {
-          mode: 'top',
-          top:
-            tileRect.top - scrollerRect.top + scroller.scrollTop,
-        };
-      }
+      seatAnchorRef.current = captureSeatScrollAnchor({
+        tileTop: tileRect.top,
+        tileBottom: tileRect.bottom,
+        tileHeight: tile.offsetHeight,
+        scrollerTop: scrollerRect.top,
+        scrollTop: scroller.scrollTop,
+      });
     } else {
       seatAnchorRef.current = null;
     }
-    setMeasuredRatio((current) =>
-      current != null && Math.abs(current - ratio) < 0.001 ? current : ratio
-    );
+    setMeasuredRatio((current) => nextMeasuredRatio(current, ratio));
   };
 
   // Soft-focus / remount: reserveRatio may flip on after the feed already
@@ -586,16 +629,14 @@ function PostVisualMediaBlock({
     if (!(tile instanceof HTMLElement) || !(scroller instanceof HTMLElement)) {
       return;
     }
-    if (anchor.mode === 'height') {
-      const delta = tile.offsetHeight - anchor.height;
-      if (Math.abs(delta) > 0.5) scroller.scrollTop += delta;
-      return;
-    }
-    const next =
-      tile.getBoundingClientRect().top -
-      scroller.getBoundingClientRect().top +
-      scroller.scrollTop;
-    const delta = next - anchor.top;
+    const tileRect = tile.getBoundingClientRect();
+    const scrollerRect = scroller.getBoundingClientRect();
+    const delta = seatScrollDelta(anchor, {
+      tileTop: tileRect.top,
+      tileHeight: tile.offsetHeight,
+      scrollerTop: scrollerRect.top,
+      scrollTop: scroller.scrollTop,
+    });
     if (Math.abs(delta) > 0.5) scroller.scrollTop += delta;
   }, [measuredRatio]);
 
