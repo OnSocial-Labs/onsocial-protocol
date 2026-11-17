@@ -78,7 +78,9 @@ describe('personal post server HTML', () => {
     expect(html).toContain('is-ready');
     expect(html).not.toContain('os-route-skeleton');
     expect(html).not.toContain('post-card--skeleton post-card--detail');
-    expect(html).toContain('aria-busy="true"');
+    expect(html).toContain('thread-replies-sort');
+    expect(html).toContain('>Replies');
+    expect(html).not.toContain('thread-controls-row is-idle');
     const repliesAt = html.indexOf('guild-connected-stack');
     expect(repliesAt).toBeGreaterThan(-1);
     expect(html.indexOf('post-row-skeleton-list', repliesAt)).toBeGreaterThan(

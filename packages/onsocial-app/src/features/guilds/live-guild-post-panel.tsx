@@ -1162,11 +1162,13 @@ export function LiveGuildPostPanel({
           {conversation.root ? (
             <div
               className={`thread-controls-row${
-                replyListRows.length > 0 || shareRow ? '' : ' is-idle'
+                !repliesResolved || replyListRows.length > 0 || shareRow
+                  ? ''
+                  : ' is-idle'
               }${rootContinued ? ' is-continued' : ''}`}
             >
               {rootContinued ? <ThreadRail through /> : null}
-              {replyListRows.length > 0 ? (
+              {!repliesResolved || replyListRows.length > 0 ? (
                 <ThreadRepliesSortButton
                   sort={replySort}
                   onChange={setReplySort}
@@ -1191,6 +1193,11 @@ export function LiveGuildPostPanel({
           ) : null}
 
           <div className="guild-connected-stack" ref={replyStackRef}>
+            {!repliesResolved && replyListRows.length === 0 ? (
+              <div aria-busy="true">
+                <PostRowSkeleton rows={POST_THREAD_REPLY_SKELETON_ROWS} />
+              </div>
+            ) : null}
             {/* Reserve Join seat until ACL resolves — no post-appear shove. */}
             {replyListRows.length === 0 &&
             !shareRow &&
@@ -1211,13 +1218,9 @@ export function LiveGuildPostPanel({
                 data-feed-window-spacer="top"
               />
             ) : null}
-            {!repliesResolved && replyListRows.length === 0 ? (
-              <div aria-busy="true">
-                <PostRowSkeleton rows={POST_THREAD_REPLY_SKELETON_ROWS} />
-              </div>
-            ) : replyListRows.length > 0 ? (
+            {replyListRows.length > 0 ? (
               replyListRows.slice(replyWindowStart, replyWindowEnd)
-            ) : emptyTailReady && !shareRow ? (
+            ) : repliesResolved && emptyTailReady && !shareRow ? (
               <ThreadDiscoverPeek
                 author={author}
                 excludePostId={postId}

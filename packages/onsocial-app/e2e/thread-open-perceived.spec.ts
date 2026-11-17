@@ -265,13 +265,33 @@ test('a seeded post stays visible while replies load', async ({ page }) => {
   await expect(
     layer.locator('.guild-connected-stack .post-row-skeleton-list')
   ).toBeVisible();
+  await expect(
+    layer.getByRole('button', { name: 'Sort replies' })
+  ).toBeVisible();
   await expect(layer.locator('.thread-discover-peek')).toHaveCount(0);
+
+  const skeletonTop = await layer
+    .locator('.guild-connected-stack .post-card--skeleton')
+    .first()
+    .evaluate((node) => node.getBoundingClientRect().top);
+  const rootTop = await layer
+    .locator('.guild-thread-root .post-identity-name')
+    .evaluate((node) => node.getBoundingClientRect().top);
 
   await root.evaluate((node) => {
     node.setAttribute('data-open-node', 'root');
   });
 
   await expect(layer.getByText(REPLY.text)).toBeVisible({ timeout: 10_000 });
+  const replyTop = await layer
+    .locator('.guild-connected-stack article.post-card')
+    .first()
+    .evaluate((node) => node.getBoundingClientRect().top);
+  const rootTopAfter = await layer
+    .locator('.guild-thread-root .post-identity-name')
+    .evaluate((node) => node.getBoundingClientRect().top);
+  expect(Math.abs(replyTop - skeletonTop)).toBeLessThanOrEqual(1);
+  expect(Math.abs(rootTopAfter - rootTop)).toBeLessThanOrEqual(1);
   await expect(root).toHaveAttribute('data-open-node', 'root');
   await expect(root).toHaveJSProperty('tagName', 'DIV');
   await expect(
@@ -335,6 +355,9 @@ test('an empty thread shows the root while replies load, then the discover peek'
   await expect(
     layer.locator('.guild-connected-stack .post-row-skeleton-list')
   ).toBeVisible();
+  await expect(
+    layer.getByRole('button', { name: 'Sort replies' })
+  ).toBeVisible();
 
   // Resolved and empty: the peek is the empty state, not a loading artifact.
   await expect(layer.locator('.thread-discover-peek-title')).toBeVisible({
@@ -344,4 +367,7 @@ test('an empty thread shows the root while replies load, then the discover peek'
   await expect(
     layer.locator('.guild-connected-stack .post-row-skeleton-list')
   ).toHaveCount(0);
+  await expect(layer.getByRole('button', { name: 'Sort replies' })).toHaveCount(
+    0
+  );
 });

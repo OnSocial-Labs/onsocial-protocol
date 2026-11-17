@@ -1201,11 +1201,13 @@ export function LivePersonalPostPanel({
 
           <div
             className={`thread-controls-row${
-              replyListRows.length > 0 || shareRow ? '' : ' is-idle'
+              !repliesResolved || replyListRows.length > 0 || shareRow
+                ? ''
+                : ' is-idle'
             }${rootContinued ? ' is-continued' : ''}`}
           >
             {rootContinued ? <ThreadRail through /> : null}
-            {replyListRows.length > 0 ? (
+            {!repliesResolved || replyListRows.length > 0 ? (
               <ThreadRepliesSortButton
                 sort={replySort}
                 onChange={setReplySort}
