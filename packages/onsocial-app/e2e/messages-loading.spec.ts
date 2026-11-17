@@ -185,7 +185,8 @@ async function stubMessages(
           contentType: 'application/json',
           body: JSON.stringify({
             messages: [earlierMessage],
-            hasMore: false,
+            // Keep Earlier mounted so the pending-clear assertion can see it.
+            hasMore: true,
           }),
         });
         return;

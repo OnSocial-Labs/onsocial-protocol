@@ -1519,6 +1519,11 @@ export function MessagesPanel() {
     if (!oldest) return;
     pinThreadToLatestRef.current = false;
     setLoadingOlder(true);
+    // Pending tracks the older-page fetch only. Decrypt soft-fills plaintext
+    // after OsLoadMore clears so a slow/stubbed open cannot leave Earlier
+    // stuck in is-pending after the page resolves.
+    let decryptClient: OnSocial | null = null;
+    let decryptMerged: DmMessageRecord[] | null = null;
     try {
       const gen = accountGenRef.current;
       const { client } = await withAuth();
@@ -1546,7 +1551,8 @@ export function MessagesPanel() {
       setHasMoreMessages(hasMore);
       setError(null);
       setErrorSource(null);
-      await decryptMessages(client, merged, activeThreadId);
+      decryptClient = client;
+      decryptMerged = merged;
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -1556,6 +1562,9 @@ export function MessagesPanel() {
       setErrorSource('older');
     } finally {
       setLoadingOlder(false);
+    }
+    if (decryptClient && decryptMerged) {
+      await decryptMessages(decryptClient, decryptMerged, activeThreadId);
     }
   }, [accountId, activeThreadId, decryptMessages, isCurrentAccount, withAuth]);
 

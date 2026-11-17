@@ -61,5 +61,16 @@ describe('messages loading contract', () => {
     expect(skeletonSource).not.toContain('MessagesThreadAppendSkeleton');
     expect(skeletonSource).not.toContain('data-messages-append-skeleton');
     expect(skeletonSource).toContain('MessagesThreadSkeleton');
+
+    // loadOlderMessages must clear pending in finally before decrypt soft-fill.
+    const loadOlderIdx = panelSource.indexOf('const loadOlderMessages');
+    const loadOlder = panelSource.slice(loadOlderIdx, loadOlderIdx + 2500);
+    const finallyIdx = loadOlder.indexOf('finally {');
+    const decryptAfterFinally = loadOlder.indexOf(
+      'await decryptMessages',
+      finallyIdx
+    );
+    expect(finallyIdx).toBeGreaterThan(-1);
+    expect(decryptAfterFinally).toBeGreaterThan(finallyIdx);
   });
 });
