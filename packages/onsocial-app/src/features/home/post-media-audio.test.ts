@@ -100,7 +100,7 @@ describe('post audio attachments', () => {
     expect(html).not.toMatch(/aspect-ratio:\s*4\s*\/\s*3/);
   });
 
-  it('prefers persisted dims over the 4:3 page fallback', () => {
+  it('locks the page seat to persisted dims when present', () => {
     const html = renderToStaticMarkup(
       createElement(PostMediaStrip, {
         items: [
