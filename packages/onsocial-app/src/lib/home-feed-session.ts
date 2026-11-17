@@ -14,8 +14,13 @@ export const HOME_FEED_SESSION_HINT_COOKIE = 'os-home-feed';
 const HOME_FEED_SESSION_HINT_REFRESH_MS = 30_000;
 /** Bump when the snapshot shape changes — old copies are ignored. */
 const HOME_FEED_SESSION_STORAGE_VERSION = 1;
-/** Longform values are large; a deep back-catalogue can blow the 5MB quota. */
-const HOME_FEED_SESSION_PERSISTED_POSTS = 60;
+/**
+ * Live in-memory + sessionStorage post cap. Soft refresh / load-more / catch-up
+ * trim to this so a long scroll session cannot grow without bound.
+ */
+export const HOME_FEED_SESSION_PERSISTED_POSTS = 60;
+/** Alias — same live list ceiling as the session snapshot. */
+export const HOME_FEED_LIVE_POSTS_CAP = HOME_FEED_SESSION_PERSISTED_POSTS;
 /** Same defensive cap as the window cache — heights are tiny but bounded. */
 const HOME_FEED_SESSION_PERSISTED_HEIGHTS = 400;
 
@@ -228,7 +233,7 @@ export function writeHomeFeedSession(input: {
   if (!sessionKey || input.posts.length === 0) return;
   snapshot = {
     sessionKey,
-    posts: [...input.posts],
+    posts: input.posts.slice(0, HOME_FEED_SESSION_PERSISTED_POSTS),
     nextOffset: input.nextOffset,
     standingNetworkIds: input.standingNetworkIds
       ? [...input.standingNetworkIds]

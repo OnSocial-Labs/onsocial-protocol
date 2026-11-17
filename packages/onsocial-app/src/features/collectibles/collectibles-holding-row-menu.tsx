@@ -492,7 +492,7 @@ export function CollectiblesHoldingRowMenu({
           tone="frosted-primary"
           size="sm"
           borderless
-          className="market-listing-action"
+          className="collectibles-play-sell-action"
         >
           <OsSheetAction
             type="button"

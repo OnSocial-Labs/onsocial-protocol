@@ -384,6 +384,11 @@ export function CollectiblesPlayPanel({
     };
   }, [ownedItem, view]);
   const isListed = ownedItem != null && ownedItem.listingKind != null;
+  /** Ownership fetch in flight — reserve the Manage seat so the title does not shove. */
+  const ownershipPending =
+    Boolean(ownershipKey) &&
+    isConnected &&
+    (ownedByKey == null || ownedByKey.key !== ownershipKey);
   const copiesKey =
     viewerAccountId && collectionId && sellItem
       ? `${viewerAccountId}:${collectionId}:${sellItem.tokenId}`
@@ -531,47 +536,57 @@ export function CollectiblesPlayPanel({
                   <p className="collectibles-play-edition">{editionMark}</p>
                 ) : null}
               </div>
-              {sellItem ? (
-                <CollectiblesHoldingRowMenu
-                  item={
-                    view?.burnable === true
-                      ? { ...sellItem, burnable: true }
-                      : view?.burnable === false
-                        ? { ...sellItem, burnable: false }
-                        : sellItem
-                  }
-                  trigger="label"
-                  onList={() => {
-                    setActionItem(null);
-                    setSellOpen(true);
-                  }}
-                  onTransfer={() => {
-                    if (playTransferOpen(copiesForPlay) === 'picker') {
-                      setEditionPickerOpen(true);
-                      return;
-                    }
-                    setActionItem(null);
-                    setTransferOpen(true);
-                  }}
-                  onDelisted={() => {
-                    if (!ownershipKey || !viewerAccountId || !collectionId)
-                      return;
-                    void (async () => {
-                      const next = tokenIdParam
-                        ? await fetchOwnedScarceByTokenId(
-                            viewerAccountId,
-                            tokenIdParam
-                          )
-                        : await fetchOwnedScarceForCollection(
-                            viewerAccountId,
-                            collectionId
-                          );
-                      setOwnedByKey({ key: ownershipKey, item: next });
-                    })();
-                  }}
-                />
-              ) : isListed ? (
-                <span className="collectibles-play-listed">Listed</span>
+              {sellItem || isListed || ownershipPending ? (
+                <div
+                  className={`collection-product-manage${
+                    ownershipPending && !sellItem && !isListed
+                      ? ' is-ownership-pending'
+                      : ''
+                  }`}
+                >
+                  {sellItem ? (
+                    <CollectiblesHoldingRowMenu
+                      item={
+                        view?.burnable === true
+                          ? { ...sellItem, burnable: true }
+                          : view?.burnable === false
+                            ? { ...sellItem, burnable: false }
+                            : sellItem
+                      }
+                      trigger="label"
+                      onList={() => {
+                        setActionItem(null);
+                        setSellOpen(true);
+                      }}
+                      onTransfer={() => {
+                        if (playTransferOpen(copiesForPlay) === 'picker') {
+                          setEditionPickerOpen(true);
+                          return;
+                        }
+                        setActionItem(null);
+                        setTransferOpen(true);
+                      }}
+                      onDelisted={() => {
+                        if (!ownershipKey || !viewerAccountId || !collectionId)
+                          return;
+                        void (async () => {
+                          const next = tokenIdParam
+                            ? await fetchOwnedScarceByTokenId(
+                                viewerAccountId,
+                                tokenIdParam
+                              )
+                            : await fetchOwnedScarceForCollection(
+                                viewerAccountId,
+                                collectionId
+                              );
+                          setOwnedByKey({ key: ownershipKey, item: next });
+                        })();
+                      }}
+                    />
+                  ) : isListed ? (
+                    <span className="collectibles-play-listed">Listed</span>
+                  ) : null}
+                </div>
               ) : null}
             </div>
 

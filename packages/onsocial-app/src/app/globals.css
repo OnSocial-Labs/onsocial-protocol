@@ -29713,6 +29713,11 @@ a.os-surface-row,
     height: 1.35rem;
   }
 
+  /* Play title — hold Manage width while ownership resolves (same seat as endorse CTA). */
+  .collectibles-play-title-row .collection-product-manage.is-ownership-pending {
+    min-width: 5.25rem;
+  }
+
   .drop-cancel-field {
     display: flex;
     flex-direction: column;

@@ -5,10 +5,19 @@ import { EndorsementsOverlayFrame } from '@/components/overlay/endorsements-over
 import { EndorsementListSkeleton } from '@/components/panels/endorsement-list-row';
 import { accountIdFromPath, panelLabel } from '@/lib/overlay-routes';
 
+/** Settled seat class while the list is still a skeleton (loading + Suspense). */
+export function EndorsementsPanelSeat() {
+  return (
+    <div className="endorsements-panel">
+      <EndorsementListSkeleton />
+    </div>
+  );
+}
+
 /**
  * Soft-open cold chrome while the endorsements overlay RSC loads.
- * Frame + panel seat match the settled route; list stays skeleton until
- * the intercept page replaces this slot (avoids a second live panel).
+ * Same job as StandingSheetOpening: frame + panel seat on the gesture,
+ * list stays skeleton until the intercept page fills in.
  */
 export function EndorsementsSheetOpening() {
   const pathname = usePathname() ?? '';
@@ -18,9 +27,7 @@ export function EndorsementsSheetOpening() {
 
   return (
     <EndorsementsOverlayFrame ariaTitle={title} title={title}>
-      <div className="endorsements-panel">
-        <EndorsementListSkeleton />
-      </div>
+      <EndorsementsPanelSeat />
     </EndorsementsOverlayFrame>
   );
 }
