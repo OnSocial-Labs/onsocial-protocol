@@ -15,7 +15,7 @@ export type AppLoadingPhase =
 export type AppLoadingPresentation =
   | 'skeleton'
   | 'preserve'
-  | 'append-skeleton'
+  | 'append-pending'
   | 'state'
   | 'overlay';
 
@@ -31,7 +31,8 @@ export function resolveAppLoadingPresentation(
     case 'refreshing':
       return hasPaintedRows ? 'preserve' : 'skeleton';
     case 'appending':
-      return 'append-skeleton';
+      // Footer PulsingDots / OsLoadMore only — never mid-list skeleton rows.
+      return 'append-pending';
     case 'empty':
       return 'state';
     case 'error':

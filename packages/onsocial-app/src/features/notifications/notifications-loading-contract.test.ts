@@ -18,13 +18,17 @@ describe('notifications loading contract', () => {
     expect(source).toContain('loadingPresentation');
     expect(source).toContain('showActivitySkeleton');
     expect(source).toContain('showActivityRefreshing');
-    expect(source).toContain('showAppendSkeleton');
+    expect(source).toContain('showAppendPending');
+    expect(source).toContain("loadingPresentation === 'append-pending'");
+    expect(source).toContain('PulsingDots');
     expect(source).toContain('showRestoredInbox');
     expect(source).toContain('peekActivityInboxSession');
     expect(source).toContain('errorPresentation');
+    expect(source).not.toContain('showAppendSkeleton');
+    expect(source).not.toContain('NotificationActivityAppendSkeleton');
   });
 
-  it('preserves painted activity on refresh and appends distinct skeleton rows', () => {
+  it('preserves painted activity on refresh and appends footer pending dots', () => {
     const source = readFileSync(
       join(notificationsSrc, 'notifications-panel.tsx'),
       'utf8'
@@ -33,19 +37,12 @@ describe('notifications loading contract', () => {
       join(notificationsSrc, 'notification-activity-rows.tsx'),
       'utf8'
     );
-    const skeletonSource = rowsSource.slice(
-      0,
-      rowsSource.indexOf('function SystemMark')
-    );
 
     expect(source).toContain('setItems((current) => current ?? [])');
     expect(source).toContain('refreshing={showActivityRefreshing}');
-    expect(source).toContain('NotificationActivityAppendSkeleton');
+    expect(source).toContain('list-append-pending');
     expect(source).toContain('errorSource');
-    expect(skeletonSource).toContain('data-notifications-append-skeleton');
-    expect(skeletonSource).toContain('notifications-activity-row--skeleton');
-    expect(skeletonSource).not.toContain(
-      'className="standing-row notifications-activity-row"'
-    );
+    expect(rowsSource).not.toContain('data-notifications-append-skeleton');
+    expect(rowsSource).toContain('notifications-activity-row--skeleton');
   });
 });

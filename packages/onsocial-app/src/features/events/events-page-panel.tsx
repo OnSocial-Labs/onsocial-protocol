@@ -16,6 +16,7 @@ import {
   OsAppChromeToolbarRail,
   OsSheetAction,
   OsSheetActions,
+  PulsingDots,
   osFloatingPanelTriggerChevronClassName,
   osFloatingPanelTriggerClassName,
   osFloatingPanelTriggerLabelClassName,
@@ -551,7 +552,7 @@ export function EventsPagePanel({
   const needsConnect = scope === 'mine' && !isConnected;
   const catalogPending =
     hasMore && items.length === 0 && !failed && !needsConnect;
-  const showAppendSkeleton = loading && items.length > 0 && !failed;
+  const showAppendPending = loading && items.length > 0 && !failed;
 
   useEffect(() => {
     if (!catalogPending || loading || loadMoreFailed || failed) return;
@@ -738,8 +739,10 @@ export function EventsPagePanel({
               );
             })
           )}
-          {showAppendSkeleton ? (
-            <MarketListSkeleton rows={2} variant="drops" />
+          {showAppendPending ? (
+            <div className="list-append-pending">
+              <PulsingDots size="sm" label="Loading more" />
+            </div>
           ) : null}
           {loadMoreFailed ? (
             <OsChromeListAlert

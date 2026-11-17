@@ -13,7 +13,9 @@ up to date when adding or changing a page.
 
 - Cold with no painted data → structural skeleton matching the final shell.
 - Refresh with painted data → keep rows; use a refresh treatment.
-- Load more → append skeleton rows; never replace painted rows.
+- Load more → silent happy path; late/in-flight = footer PulsingDots
+  (OsLoadMore / sentinel). Never append cold skeleton rows mid-list.
+  Failed append → same footer seat with retry (prefer OsLoadMore).
 - Empty or cold error → in-flow state.
 - Error with painted rows → `OsChromeListAlert` / whisper overlay.
 - Intermittent chrome → fixed overlay or `null`; never reserve hidden flow.

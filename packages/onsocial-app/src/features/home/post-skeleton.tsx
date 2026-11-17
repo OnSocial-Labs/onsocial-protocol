@@ -21,12 +21,6 @@ export const HOME_FEED_COLD_SKELETON_FRAMES = [
   'collage-2',
 ] as const satisfies readonly PostSkeletonFrame[];
 
-/** Next page — same reserved media boxes, shorter list. */
-export const HOME_FEED_APPEND_SKELETON_FRAMES = [
-  'single',
-  'collage-2',
-] as const satisfies readonly PostSkeletonFrame[];
-
 function PostSkeletonMedia({ frame }: { frame: PostSkeletonFrame }) {
   if (frame === 'text') return null;
   if (frame === 'quote') {

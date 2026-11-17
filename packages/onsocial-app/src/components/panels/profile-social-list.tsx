@@ -6,7 +6,6 @@ import { StandingListLoadMoreFooter } from '@/components/panels/standing-list-lo
 import {
   ProfileSocialListRow,
   ProfileSocialListSkeleton,
-  type ProfileSocialListSkeletonRowVariant,
   type ProfileStandingTimeMode,
 } from '@/components/panels/profile-social-list-row';
 import { useFeedWindow } from '@/features/home/use-feed-window';
@@ -19,7 +18,6 @@ export function ProfileSocialList({
   viewerAccountId,
   showSolidarityBadge,
   standingTimeMode = 'always',
-  skeletonRowVariant = 'standing',
   viewerRelationshipsLoading = false,
   canUpdateStandingFor,
   isPendingFor,
@@ -35,7 +33,6 @@ export function ProfileSocialList({
   viewerAccountId: string | null;
   showSolidarityBadge?: boolean;
   standingTimeMode?: ProfileStandingTimeMode;
-  skeletonRowVariant?: ProfileSocialListSkeletonRowVariant;
   viewerRelationshipsLoading?: boolean;
   canUpdateStandingFor: (account: ProfileListAccount) => boolean;
   isPendingFor: (accountId: string) => boolean;
@@ -116,7 +113,6 @@ export function ProfileSocialList({
         resultsSummary={footerSummary}
         isLoadingMore={isLoadingMore}
         showSentinel={showLoadMoreSentinel}
-        skeletonRowVariant={skeletonRowVariant}
       />
     </div>
   );

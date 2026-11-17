@@ -36,7 +36,11 @@ describe('messages loading contract', () => {
     expect(source).not.toContain('from their profile');
   });
 
-  it('keeps painted rows and appends distinct message skeletons', () => {
+  it('keeps painted rows and loads older via Earlier pending dots', () => {
+    const panelSource = readFileSync(
+      join(messagesDir, 'messages-panel.tsx'),
+      'utf8'
+    );
     const rowsSource = readFileSync(
       join(messagesDir, 'messages-inbox-rows.tsx'),
       'utf8'
@@ -51,7 +55,22 @@ describe('messages loading contract', () => {
     expect(rowsSource).toContain(
       'aria-busy={refreshing || skeleton || undefined}'
     );
-    expect(skeletonSource).toContain('MessagesThreadAppendSkeleton');
-    expect(skeletonSource).toContain('data-messages-append-skeleton');
+    expect(panelSource).toContain('OsLoadMore');
+    expect(panelSource).toContain('pending={loadingOlder}');
+    expect(panelSource).not.toContain('MessagesThreadAppendSkeleton');
+    expect(skeletonSource).not.toContain('MessagesThreadAppendSkeleton');
+    expect(skeletonSource).not.toContain('data-messages-append-skeleton');
+    expect(skeletonSource).toContain('MessagesThreadSkeleton');
+
+    // loadOlderMessages must clear pending in finally before decrypt soft-fill.
+    const loadOlderIdx = panelSource.indexOf('const loadOlderMessages');
+    const loadOlder = panelSource.slice(loadOlderIdx, loadOlderIdx + 2500);
+    const finallyIdx = loadOlder.indexOf('finally {');
+    const decryptAfterFinally = loadOlder.indexOf(
+      'await decryptMessages',
+      finallyIdx
+    );
+    expect(finallyIdx).toBeGreaterThan(-1);
+    expect(decryptAfterFinally).toBeGreaterThan(finallyIdx);
   });
 });

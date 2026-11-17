@@ -811,7 +811,6 @@ function LeaderboardTrackPage({
                 loadMoreSentinelRef={loadMoreSentinelRef}
                 isLoadingMore={loadingMore}
                 showSentinel={hasMore}
-                skeletonRowVariant="leaderboard"
                 resultsSummary={
                   hasMore
                     ? null

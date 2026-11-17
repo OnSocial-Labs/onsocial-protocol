@@ -191,7 +191,6 @@ export function DiscoverRecommendedPeek({
         viewerAccountId={viewerAccountId}
         showSolidarityBadge
         standingTimeMode="viewer-only"
-        skeletonRowVariant="discover"
         viewerRelationshipsLoading={false}
         canUpdateStandingFor={(account) =>
           isConnected &&

@@ -15,6 +15,7 @@ import {
 } from '@/lib/catalog-place-memory';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { PulsingDots } from '@onsocial/ui';
 import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
@@ -1132,7 +1133,7 @@ export function DropsPagePanel({
       : null;
   const showCatalogSkeleton = !failed && loadingPresentation === 'skeleton';
   const catalogRefreshing = loadingPresentation === 'preserve';
-  const showAppendSkeleton = loadingPresentation === 'append-skeleton';
+  const showAppendPending = loadingPresentation === 'append-pending';
   const searchSettled = !searching || needle === debouncedQuery.toLowerCase();
 
   useInfiniteScrollSentinel({
@@ -1306,8 +1307,10 @@ export function DropsPagePanel({
                     renderRow={renderRow}
                   />
                 )}
-                {showAppendSkeleton ? (
-                  <MarketListSkeleton rows={2} variant="drops" />
+                {showAppendPending ? (
+                  <div className="list-append-pending">
+                    <PulsingDots size="sm" label="Loading more" />
+                  </div>
                 ) : null}
               </>
             )}

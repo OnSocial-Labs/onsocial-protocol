@@ -288,7 +288,6 @@ interface PostCardProps
 }
 
 export {
-  HOME_FEED_APPEND_SKELETON_FRAMES,
   HOME_FEED_COLD_SKELETON_FRAMES,
   PostRowSkeleton,
 } from '@/features/home/post-skeleton';

@@ -42,10 +42,7 @@ import { sheetZIndexOverCopyList } from '@/features/collectibles/edition-sheet-s
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { ScarceTransferSheet } from '@/features/scarces/scarce-transfer-sheet';
 import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
-import {
-  CollectiblesLibraryAppendSkeleton,
-  CollectiblesLibrarySkeleton,
-} from '@/features/collectibles/collectibles-library-skeleton';
+import { CollectiblesLibrarySkeleton } from '@/features/collectibles/collectibles-library-skeleton';
 import { COLLECTIBLES_CONNECT_HINT } from '@/features/collectibles/collectibles-vault-voice';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
 import {
@@ -1111,10 +1108,6 @@ export function CollectiblesPagePanel({
           ) : null}
         </OsPageBodyAppear>
       )}
-
-      {loadingPresentation === 'append-skeleton' ? (
-        <CollectiblesLibraryAppendSkeleton />
-      ) : null}
 
       {showLoadMore ? (
         <>

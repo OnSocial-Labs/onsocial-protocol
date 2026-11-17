@@ -12,7 +12,6 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { DmMessageRecord, DmThreadSummary, OnSocial } from '@onsocial/sdk';
 import {
-  OsSheetAction,
   OsIconAction,
   PulsingDots,
   QuestionMarkCircleFillIcon,
@@ -43,6 +42,7 @@ import {
   createListScrollMemory,
   scrollTopToPersist,
 } from '@/lib/list-scroll-restore';
+import { OsLoadMore } from '@/lib/os-load-more';
 import {
   peekMessagesInboxSession,
   readMessagesInboxSession,
@@ -119,10 +119,7 @@ import {
   MessagesInboxSkeleton,
   MessagesInboxThreadRows,
 } from '@/features/messages/messages-inbox-rows';
-import {
-  MessagesThreadAppendSkeleton,
-  MessagesThreadSkeleton,
-} from '@/features/messages/messages-thread-skeleton';
+import { MessagesThreadSkeleton } from '@/features/messages/messages-thread-skeleton';
 import {
   buildDmThreadId,
   messagingBlockedCopy,
@@ -1522,6 +1519,11 @@ export function MessagesPanel() {
     if (!oldest) return;
     pinThreadToLatestRef.current = false;
     setLoadingOlder(true);
+    // Pending tracks the older-page fetch only. Decrypt soft-fills plaintext
+    // after OsLoadMore clears so a slow/stubbed open cannot leave Earlier
+    // stuck in is-pending after the page resolves.
+    let decryptClient: OnSocial | null = null;
+    let decryptMerged: DmMessageRecord[] | null = null;
     try {
       const gen = accountGenRef.current;
       const { client } = await withAuth();
@@ -1549,7 +1551,8 @@ export function MessagesPanel() {
       setHasMoreMessages(hasMore);
       setError(null);
       setErrorSource(null);
-      await decryptMessages(client, merged, activeThreadId);
+      decryptClient = client;
+      decryptMerged = merged;
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -1559,6 +1562,9 @@ export function MessagesPanel() {
       setErrorSource('older');
     } finally {
       setLoadingOlder(false);
+    }
+    if (decryptClient && decryptMerged) {
+      await decryptMessages(decryptClient, decryptMerged, activeThreadId);
     }
   }, [accountId, activeThreadId, decryptMessages, isCurrentAccount, withAuth]);
 
@@ -1997,15 +2003,12 @@ export function MessagesPanel() {
                 <>
                   {hasMoreMessages ? (
                     <div className="messages-load-older">
-                      <OsSheetAction
-                        type="button"
-                        ready={!loadingOlder}
+                      <OsLoadMore
                         pending={loadingOlder}
-                        pendingLabel="Loading…"
                         onClick={() => void loadOlderMessages()}
                       >
                         Earlier
-                      </OsSheetAction>
+                      </OsLoadMore>
                     </div>
                   ) : null}
                   <ul
@@ -2207,7 +2210,6 @@ export function MessagesPanel() {
                       />
                     ) : null}
                   </ul>
-                  {loadingOlder ? <MessagesThreadAppendSkeleton /> : null}
                 </>
               )}
             </section>

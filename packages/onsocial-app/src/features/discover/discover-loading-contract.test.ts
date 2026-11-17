@@ -15,8 +15,10 @@ describe('discover loading contract', () => {
     expect(source).toContain('resolveAppLoadingPresentation');
     expect(source).toContain('showProfilesSkeleton');
     expect(source).toContain('showListRefreshing');
-    expect(source).toContain('showAppendSkeleton');
+    expect(source).toContain('showAppendPending');
+    expect(source).toContain("loadingPresentation === 'append-pending'");
     expect(source).toContain('errorPresentation');
+    expect(source).not.toContain('showAppendSkeleton');
   });
 
   it('does not replace painted Discover rows with a cold skeleton', () => {

@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import {
-  CollectiblesLibraryAppendSkeleton,
-  CollectiblesLibrarySkeleton,
-} from '@/features/collectibles/collectibles-library-skeleton';
+import { CollectiblesLibrarySkeleton } from '@/features/collectibles/collectibles-library-skeleton';
 
 describe('CollectiblesLibrarySkeleton', () => {
   it('paints creator and series bones above use-first row bones', () => {
@@ -23,14 +20,5 @@ describe('CollectiblesLibrarySkeleton', () => {
       html.match(/collectibles-library-series-heading--skeleton/g)?.length
     ).toBe(1);
     expect(html.match(/collectibles-holding-row--skeleton/g)?.length).toBe(6);
-  });
-
-  it('keeps append bones distinct from painted holding rows', () => {
-    const html = renderToStaticMarkup(
-      createElement(CollectiblesLibraryAppendSkeleton)
-    );
-    expect(html).toContain('data-collectibles-library-append-skeleton');
-    expect(html.match(/collectibles-holding-row--skeleton/g)?.length).toBe(2);
-    expect(html).not.toContain('collectibles-holding-row"');
   });
 });

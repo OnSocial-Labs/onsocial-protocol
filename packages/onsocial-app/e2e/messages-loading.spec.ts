@@ -185,7 +185,8 @@ async function stubMessages(
           contentType: 'application/json',
           body: JSON.stringify({
             messages: [earlierMessage],
-            hasMore: false,
+            // Keep Earlier mounted so the pending-clear assertion can see it.
+            hasMore: true,
           }),
         });
         return;
@@ -374,27 +375,25 @@ test.describe('authenticated messages loading', () => {
     ).toHaveCount(0);
   });
 
-  test('appends message skeletons without replacing the painted thread', async ({
+  test('loads older messages with Earlier pending dots, not bubble skeletons', async ({
     page,
   }) => {
     const stub = await stubMessages(page, { delayAppend: true });
     await page.goto(`/messages?thread=${encodeURIComponent(MESSAGES_E2E_THREAD)}`, {
       waitUntil: 'domcontentloaded',
     });
-    await expect(page.getByRole('button', { name: 'Earlier' })).toBeVisible({
+    // Pending hides the "Earlier" accessible name; host locator stays stable.
+    const earlier = page.locator('.messages-load-older button');
+    await expect(earlier).toBeVisible({
       timeout: 30_000,
     });
 
-    await page.getByRole('button', { name: 'Earlier' }).click();
-    await expect(
-      page.locator('[data-messages-append-skeleton]')
-    ).toBeVisible();
-    await expect(
-      page.locator('.messages-bubble--skeleton')
-    ).toHaveCount(2);
+    await earlier.click();
+    await expect(earlier).toHaveClass(/is-pending/);
+    await expect(page.locator('.messages-bubble--skeleton')).toHaveCount(0);
 
     stub.releaseAppend();
-    await expect(page.locator('.messages-bubble--skeleton')).toHaveCount(0);
+    await expect(earlier).not.toHaveClass(/is-pending/);
   });
 
   test('shows an append error over the painted thread and retries', async ({

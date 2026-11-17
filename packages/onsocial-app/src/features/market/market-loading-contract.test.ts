@@ -15,9 +15,12 @@ describe('market loading contract', () => {
     expect(source).toContain('resolveAppLoadingPresentation');
     expect(source).toContain('showListSkeleton');
     expect(source).toContain('showCatalogRefreshing');
-    expect(source).toContain('showAppendSkeleton');
+    expect(source).toContain('showAppendPending');
+    expect(source).toContain("loadingPresentation === 'append-pending'");
+    expect(source).toContain('PulsingDots');
     expect(source).toContain('listingsError');
     expect(source).toContain('errorPresentation');
+    expect(source).not.toContain('showAppendSkeleton');
   });
 
   it('keeps refresh failures separate from the empty-list failure state', () => {

@@ -25,6 +25,7 @@ describe('os load more', () => {
       'features/home/live-personal-post-panel.tsx',
       'features/home/post-quotes-panel.tsx',
       'features/guilds/live-guild-post-panel.tsx',
+      'features/messages/messages-panel.tsx',
     ] as const;
     for (const file of wiring) {
       expect(readFileSync(join(appSrc, file), 'utf8')).toContain('OsLoadMore');

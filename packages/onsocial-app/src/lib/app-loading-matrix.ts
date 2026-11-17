@@ -27,7 +27,8 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     family: 'glass-list',
     cold: 'PostRowSkeleton',
     refreshing: 'Keep visible posts and apply is-refreshing',
-    appending: 'Append PostRowSkeleton rows',
+    appending:
+      'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',
     empty: 'home-feed-state',
     error: 'OsChromeListAlert with painted posts; in-flow state otherwise',
     routeFallback: 'preserve-shell',
@@ -42,7 +43,8 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     family: 'glass-list',
     cold: 'ProfileSocialListSkeleton or section skeleton',
     refreshing: 'Keep visible rows and apply is-refreshing',
-    appending: 'Append profile/community skeleton rows',
+    appending:
+      'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',
     empty: 'ListLoadError or standing empty state',
     error: 'OsChromeListAlert with painted rows',
     routeFallback: 'shell-skeleton',
@@ -60,7 +62,8 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     family: 'glass-list',
     cold: 'MarketLoadingScreen with MarketListSkeleton',
     refreshing: 'Keep visible listings',
-    appending: 'Append MarketListSkeleton rows',
+    appending:
+      'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',
     empty: 'Market empty state',
     error: 'OsChromeListAlert with painted listings',
     routeFallback: 'shell-skeleton',
@@ -76,7 +79,8 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     family: 'glass-list',
     cold: 'DropsLoadingScreen with MarketListSkeleton',
     refreshing: 'Keep visible listings',
-    appending: 'Append MarketListSkeleton rows',
+    appending:
+      'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',
     empty: 'Drops empty state',
     error: 'OsChromeListAlert with painted listings',
     routeFallback: 'shell-skeleton',
@@ -92,7 +96,8 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     family: 'glass-list',
     cold: 'EventsLoadingScreen with MarketListSkeleton',
     refreshing: 'Keep visible events',
-    appending: 'Append MarketListSkeleton rows',
+    appending:
+      'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',
     empty: 'Events empty state',
     error: 'ListLoadError or OsChromeListAlert with painted events',
     routeFallback: 'shell-skeleton',
@@ -108,7 +113,8 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     family: 'glass-list',
     cold: 'CollectiblesLibrarySkeleton',
     refreshing: 'Keep visible holdings',
-    appending: 'Append holding skeleton rows',
+    appending:
+      'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',
     empty: 'Collectibles empty state',
     error: 'OsChromeListAlert with painted holdings',
     routeFallback: 'shell-skeleton',
@@ -173,7 +179,8 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     family: 'immersive-detail',
     cold: 'GuildPageHeroSkeleton, filter skeleton, and PostRowSkeleton',
     refreshing: 'Keep shell preview and visible feed',
-    appending: 'Append PostRowSkeleton rows',
+    appending:
+      'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',
     empty: 'Guild state card',
     error: 'Guild state card with retry',
     routeFallback: 'shell-skeleton',
@@ -190,7 +197,8 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     family: 'immersive-detail',
     cold: 'PostThreadPageSkeleton under Post chrome until permalinkReady',
     refreshing: 'Keep visible thread',
-    appending: 'Append reply rows',
+    appending:
+      'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',
     empty: 'Post missing state',
     error: 'Post error state',
     routeFallback: 'shell-skeleton',
@@ -208,7 +216,8 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     family: 'immersive-detail',
     cold: 'PostThreadPageSkeleton under Post chrome until permalinkReady',
     refreshing: 'Keep visible thread',
-    appending: 'Append reply rows',
+    appending:
+      'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',
     empty: 'Post missing state',
     error: 'Post error state',
     routeFallback: 'shell-skeleton',
@@ -226,7 +235,8 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     family: 'immersive-detail',
     cold: 'PostQuotesPageSkeleton under Post reach chrome until pageReady',
     refreshing: 'Keep visible quotes or reposts',
-    appending: 'Append quote or reposter rows',
+    appending:
+      'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',
     empty: 'Quotes empty state',
     error: 'Quotes error state',
     routeFallback: 'shell-skeleton',
@@ -244,7 +254,8 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     family: 'immersive-detail',
     cold: 'PostQuotesPageSkeleton under Post reach chrome until pageReady',
     refreshing: 'Keep visible quotes or reposts',
-    appending: 'Append quote or reposter rows',
+    appending:
+      'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',
     empty: 'Quotes empty state',
     error: 'Quotes error state',
     routeFallback: 'shell-skeleton',
@@ -262,7 +273,8 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     family: 'immersive-detail',
     cold: 'CollectionPageSkeleton',
     refreshing: 'Keep resolved collection shell',
-    appending: 'CollectionActivitySkeleton',
+    appending:
+      'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',
     empty: 'Collection state',
     error: 'Collection state with retry',
     routeFallback: 'shell-skeleton',
@@ -278,7 +290,8 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     family: 'glass-list',
     cold: 'NotificationActivitySkeleton',
     refreshing: 'Keep visible activity',
-    appending: 'Append activity skeleton rows',
+    appending:
+      'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',
     empty: 'Notifications empty state',
     error: 'Notifications error state',
     routeFallback: 'shell-skeleton',
@@ -294,7 +307,8 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     family: 'private',
     cold: 'MessagesInboxSkeleton and MessagesThreadSkeleton after session and keys are available',
     refreshing: 'Keep inbox or thread state',
-    appending: 'Append MessagesThreadAppendSkeleton rows',
+    appending:
+      'Footer PulsingDots (Earlier pending / silent edge); cold skeletons only',
     empty: 'OsAppChromePageStatus',
     error: 'OsChromeListAlert when painted inbox rows exist',
     routeFallback: 'preserve-shell',
@@ -313,7 +327,8 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     family: 'glass-list',
     cold: 'ProfileSocialListSkeleton rowVariant leaderboard under Leaderboard chrome',
     refreshing: 'Keep visible rows and apply is-refreshing',
-    appending: 'Append leaderboard skeleton rows',
+    appending:
+      'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',
     empty: 'leaderboard-sheet-empty',
     error: 'OsChromeListAlert with painted rows',
     routeFallback: 'shell-skeleton',
@@ -330,7 +345,8 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     family: 'glass-list',
     cold: 'PortfolioWritingPending under Writing chrome',
     refreshing: 'Keep visible articles',
-    appending: 'portfolio-writing-pending append rows',
+    appending:
+      'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',
     empty: 'portfolio-writing-empty',
     error: 'OsChromeListAlert with painted articles',
     routeFallback: 'shell-skeleton',
@@ -385,7 +401,8 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     family: 'immersive-detail',
     cold: 'PostThreadPageSkeleton under Post chrome until onThreadPainted',
     refreshing: 'Keep visible thread',
-    appending: 'Append reply rows',
+    appending:
+      'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',
     empty: 'Post missing state',
     error: 'Post error state',
     routeFallback: 'shell-skeleton',

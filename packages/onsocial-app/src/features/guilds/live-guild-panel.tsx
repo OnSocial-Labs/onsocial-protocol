@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { postContentPath, type PostRow } from '@onsocial/sdk';
-import { Divider, replaceSheet } from '@onsocial/ui';
+import { Divider, PulsingDots, replaceSheet } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
@@ -558,7 +558,7 @@ export function LiveGuildPanel({
     { hasPaintedRows: feedPosts.length > 0 }
   );
   const showFeedRefreshing = feedPresentation === 'preserve';
-  const showFeedAppendSkeleton = feedPresentation === 'append-skeleton';
+  const showFeedAppendPending = feedPresentation === 'append-pending';
   // Confirmed-ledger facepile: the viewer knows they are a member before the
   // indexer does, so seed the stack with their own avatar until stats catch up.
   const facepileIds = useMemo(
@@ -1417,11 +1417,10 @@ export function LiveGuildPanel({
                           aria-hidden
                         />
                       ) : null}
-                      {showFeedAppendSkeleton ? (
-                        <PostRowSkeleton
-                          rows={2}
-                          showChannel={selectedFeedFilterId === 'all'}
-                        />
+                      {showFeedAppendPending ? (
+                        <div className="list-append-pending">
+                          <PulsingDots size="sm" label="Loading more" />
+                        </div>
                       ) : null}
                     </div>
                   ) : null}
