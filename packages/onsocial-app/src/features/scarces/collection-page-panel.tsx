@@ -1195,7 +1195,6 @@ export function CollectionPagePanel({
         data-collection-use-first={useFirst ? '' : undefined}
         data-collection-back={dropBackHref}
       >
-        <OsPageBodyAppear>
         <section className="collection-hero" aria-label="Drop cover">
           <div
             className={`collection-cover${coverSrc ? ' has-media' : ''}${
@@ -1837,7 +1836,6 @@ export function CollectionPagePanel({
             )}
           </section>
         ) : null}
-        </OsPageBodyAppear>
       </div>
 
       <OsHugSheet

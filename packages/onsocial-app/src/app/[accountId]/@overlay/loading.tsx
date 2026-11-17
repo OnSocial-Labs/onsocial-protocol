@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useSyncExternalStore } from 'react';
 import { PortfolioAboutOverlayLoading } from '@/components/portfolio/portfolio-about-route-loading';
 import { PortfolioWritingOverlayLoading } from '@/components/portfolio/portfolio-writing-route-loading';
+import { EndorsementsSheetOpening } from '@/components/panels/endorsements-sheet-opening';
 import { StandingSheetOpening } from '@/components/panels/standing-sheet-opening';
 import { accountIdFromPath } from '@/lib/overlay-routes';
 import {
@@ -21,6 +22,10 @@ function isAboutOverlay(pathname: string): boolean {
   return /\/about\/?$/.test(pathname);
 }
 
+function isEndorsementsOverlay(pathname: string): boolean {
+  return pathname.includes('/endorsements');
+}
+
 /**
  * Paint cold shells for overlays we can identify from the path. Other slots
  * stay empty so a shared fallback cannot flash over an unrelated profile.
@@ -33,6 +38,7 @@ export default function OverlayLoading() {
     getPortfolioShelfHopServerSnapshot
   );
   if (pathname.includes('/standing/')) return <StandingSheetOpening />;
+  if (isEndorsementsOverlay(pathname)) return <EndorsementsSheetOpening />;
   if (isWritingShelfOverlay(pathname)) {
     const accountId = accountIdFromPath(pathname);
     if (!accountId) return null;
