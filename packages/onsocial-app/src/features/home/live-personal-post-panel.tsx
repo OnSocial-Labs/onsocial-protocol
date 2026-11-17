@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { PostRow, ThreadNode } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
@@ -64,9 +58,7 @@ import {
   seedPostAuthorProfilesFromFeed,
   usePostAuthorProfiles,
 } from '@/hooks/use-post-author-profiles';
-import {
-  usePostEngagement,
-} from '@/hooks/use-post-engagement';
+import { usePostEngagement } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useThreadLandAppear } from '@/hooks/use-land-opened-post';
 import { useThreadFocusReply } from '@/hooks/use-thread-focus-reply';
@@ -431,8 +423,7 @@ export function LivePersonalPostPanel({
     shareTailReady &&
     (rootEngagementKey == null ||
       Boolean(
-        seeded?.engagement?.[rootEngagementKey] ||
-          engagement[rootEngagementKey]
+        seeded?.engagement?.[rootEngagementKey] || engagement[rootEngagementKey]
       ));
   const { landSettled } = useThreadLandAppear({
     openedPostRef,
@@ -1123,35 +1114,35 @@ export function LivePersonalPostPanel({
                     data-thread-focus-reply={ancestor.postId}
                     data-thread-focus-key={postKey(ancestor)}
                   >
-                <ThreadRail up={index > 0} down />
-                <ResolvedFeedPostCard
-                  post={ancestor}
-                  quotedPosts={quotedPosts}
-                  postAuthorProfiles={postAuthorProfiles}
-                  hrefForPost={hrefForPost}
-                  videoSoundControl
-                  returnToPost
-                  menuZIndex={nestMenuZ}
-                  showRelationBadge={index === 0}
-                  authorProfiles={postAuthorProfiles}
-                  engagement={engagement}
-                  isReactionPending={isReactionPending}
-                  isSavePending={isSavePending}
-                  isSharePending={isSharePending}
-                  onToggleReaction={toggleReaction}
-                  onToggleSave={toggleSave}
-                  onAmplifyConfirmed={confirmAmplify}
-                  onReply={replyHandler}
-                  onExpandReply={expandReply}
-                  onQuote={quoteHandler}
-                  onRepost={repostHandler}
-                  onUndoRepost={undoRepostHandler}
-                  pollTallyFor={pollTallyFor}
-                  isPollVotePending={isPollVotePending}
-                  onPollVote={(post, optionIndex) => {
-                    void castVote(post, optionIndex);
-                  }}
-                />
+                    <ThreadRail up={index > 0} down />
+                    <ResolvedFeedPostCard
+                      post={ancestor}
+                      quotedPosts={quotedPosts}
+                      postAuthorProfiles={postAuthorProfiles}
+                      hrefForPost={hrefForPost}
+                      videoSoundControl
+                      returnToPost
+                      menuZIndex={nestMenuZ}
+                      showRelationBadge={index === 0}
+                      authorProfiles={postAuthorProfiles}
+                      engagement={engagement}
+                      isReactionPending={isReactionPending}
+                      isSavePending={isSavePending}
+                      isSharePending={isSharePending}
+                      onToggleReaction={toggleReaction}
+                      onToggleSave={toggleSave}
+                      onAmplifyConfirmed={confirmAmplify}
+                      onReply={replyHandler}
+                      onExpandReply={expandReply}
+                      onQuote={quoteHandler}
+                      onRepost={repostHandler}
+                      onUndoRepost={undoRepostHandler}
+                      pollTallyFor={pollTallyFor}
+                      isPollVotePending={isPollVotePending}
+                      onPollVote={(post, optionIndex) => {
+                        void castVote(post, optionIndex);
+                      }}
+                    />
                   </div>
                 ))}
               </div>

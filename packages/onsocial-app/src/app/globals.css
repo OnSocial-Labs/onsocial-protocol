@@ -3663,8 +3663,8 @@ a.os-surface-row,
 @media (prefers-reduced-motion: no-preference) {
   .os-route-skeleton.is-done {
     animation: glass-sheet-appear var(--os-motion-appear, 280ms)
-      var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1))
-      reverse forwards;
+      var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1)) reverse
+      forwards;
   }
 }
 
@@ -25028,7 +25028,9 @@ a.os-surface-row,
     min-width: 0;
   }
 
-  .post-card-quote-inset--pending .post-card-quote-inset-body .post-row-skeleton-line-body {
+  .post-card-quote-inset--pending
+    .post-card-quote-inset-body
+    .post-row-skeleton-line-body {
     display: block;
     width: 100%;
     max-width: 100%;
@@ -25634,9 +25636,7 @@ a.os-surface-row,
   }
 
   .post-card-scarce-cta--pending {
-    min-height: calc(
-      0.4rem + 1.2 * var(--os-stamp-size, 0.75rem)
-    );
+    min-height: calc(0.4rem + 1.2 * var(--os-stamp-size, 0.75rem));
   }
 
   .post-card-scarce-cta--pending .post-row-skeleton-line-sm {
@@ -33047,7 +33047,9 @@ a.os-surface-row,
   .glass-sheet-panel.hub-manage-sheet-panel
     .hub-manage-slide
     .os-app-screen-body,
-  .os-slide-over.hub-manage-slide > .os-app-screen-column > .os-app-screen-body {
+  .os-slide-over.hub-manage-slide
+    > .os-app-screen-column
+    > .os-app-screen-body {
     padding: 0;
     scroll-padding-top: 0;
   }
@@ -33057,8 +33059,7 @@ a.os-surface-row,
     padding: 0 var(--os-screen-body-pad-x, 0.75rem) 1.35rem;
   }
 
-  .hub-manage-slide
-    .os-slide-over-content.hub-manage-slide-body {
+  .hub-manage-slide .os-slide-over-content.hub-manage-slide-body {
     padding-top: 0;
   }
 
@@ -36511,7 +36512,8 @@ a.os-surface-row,
         (
             var(--os-app-screen-nav-row-height, var(--os-nav-band, 2.35rem)) -
               (var(--os-title-size, 1.05rem) * 1.2)
-          ) / 2
+          ) /
+          2
       )
       0 0;
     height: calc(var(--os-title-size, 1.05rem) * 1.2);
@@ -45371,9 +45373,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   width: calc(100% + (2 * var(--look-preview-face-bleed)));
   max-width: none;
   margin-inline: calc(-1 * var(--look-preview-face-bleed));
-  height: calc(
-    env(safe-area-inset-top, 0px) + clamp(7.25rem, 26vw, 10.25rem)
-  );
+  height: calc(env(safe-area-inset-top, 0px) + clamp(7.25rem, 26vw, 10.25rem));
   border-radius: 0;
   overflow: hidden;
   background: rgb(var(--fg-rgb) / 0.06);

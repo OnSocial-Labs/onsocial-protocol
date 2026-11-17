@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
@@ -758,11 +752,7 @@ export function LiveGuildPostPanel({
     : undefined;
 
   const hrefForPost = (target: PostRow) =>
-    guildPostPath(
-      target.groupId ?? groupId,
-      target.accountId,
-      target.postId
-    );
+    guildPostPath(target.groupId ?? groupId, target.accountId, target.postId);
 
   const root = conversation.root;
   const writeTarget = dockTarget ?? root;
@@ -1051,212 +1041,212 @@ export function LiveGuildPostPanel({
   });
 
   const threadBody = (
-      <div className={GUILDS_PAGE_CLASS}>
-        {loadState === 'missing' ? (
-          <section className="guild-state-card">
-            <p>We could not find this guild post in the indexed feed yet.</p>
-            <OsEmptyAction onClick={() => void refresh()}>Retry</OsEmptyAction>
-          </section>
-        ) : null}
+    <div className={GUILDS_PAGE_CLASS}>
+      {loadState === 'missing' ? (
+        <section className="guild-state-card">
+          <p>We could not find this guild post in the indexed feed yet.</p>
+          <OsEmptyAction onClick={() => void refresh()}>Retry</OsEmptyAction>
+        </section>
+      ) : null}
 
-        {loadState === 'error' ? (
-          <section className="guild-state-card is-error">
-            <p>{error ?? GUILD_THREAD_LOAD_ERROR}</p>
-            <OsEmptyAction onClick={() => void refresh()}>Retry</OsEmptyAction>
-          </section>
-        ) : null}
+      {loadState === 'error' ? (
+        <section className="guild-state-card is-error">
+          <p>{error ?? GUILD_THREAD_LOAD_ERROR}</p>
+          <OsEmptyAction onClick={() => void refresh()}>Retry</OsEmptyAction>
+        </section>
+      ) : null}
 
-        {loadState === 'ready' && conversation.root ? (
-          <section
-            className={`guild-thread-column${rootContinued ? ' is-continued' : ''}`}
-          >
-            <div className="guild-thread-context">
-              {hasAncestorRows ? (
-                <div className="guild-thread-ancestors">
-                  {ancestorChain.map((ancestor, index) => (
-                    <div
-                      className={`guild-thread-ancestor post-thread-item post-thread-item--down${index > 0 ? ' post-thread-item--up' : ''}`}
-                      key={postKey(ancestor)}
-                    >
-                      <ThreadRail up={index > 0} down />
-                      <ResolvedFeedPostCard
-                        post={ancestor}
-                        quotedPosts={quotedPosts}
-                        postAuthorProfiles={postAuthorProfiles}
-                        hrefForPost={hrefForPost}
-                        videoSoundControl
-                        sheetContext={sheetContext}
-                        returnToPost
-                        // Top of chain keeps its context line if truncated.
-                        showRelationBadge={index === 0}
-                        authorProfiles={postAuthorProfiles}
-                        engagement={engagement}
-                        isReactionPending={isReactionPending}
-                        isSavePending={isSavePending}
-                        isSharePending={isSharePending}
-                        onToggleReaction={toggleReaction}
-                        onToggleSave={toggleSave}
-                        onAmplifyConfirmed={confirmAmplify}
-                        onReply={replyHandler}
-                        onExpandReply={expandReply}
-                        onQuote={quoteHandler}
-                        onRepost={repostHandler}
-                        onUndoRepost={undoRepostHandler}
-                        pollTallyFor={pollTallyFor}
-                        isPollVotePending={isPollVotePending}
-                        onPollVote={(post, optionIndex) => {
-                          void castVote(post, optionIndex);
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-
-              <div
-                ref={openedPostRef}
-                data-thread-opened-post={conversation.root.postId}
-                className={[
-                  'guild-thread-root',
-                  hasParent || rootContinued ? 'post-thread-item' : '',
-                  hasParent ? 'post-thread-item--up' : '',
-                  rootContinued ? 'post-thread-item--down' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-              >
-                <ThreadRail up={hasAncestorRows} down={rootContinued} />
-                <ResolvedFeedPostCard
-                  post={conversation.root}
-                  quotedPosts={quotedPosts}
-                  postAuthorProfiles={postAuthorProfiles}
-                  hrefForPost={hrefForPost}
-                  mediaFocused
-                  videoSoundControl
-                  mediaUnmuted={mediaUnmuted}
-                  mediaResumeIndex={mediaResumeIndex}
-                  detailLayout
-                  // Parent drawn above with a chain line already says "reply".
-                  showRelationBadge={!hasParent}
-                  authorProfiles={postAuthorProfiles}
-                  sheetContext={sheetContext}
-                  showGuildAttribution={showGuildLine}
-                  guildName={guildDisplayName(guildName, groupId)}
-                  showChannel={showRoom}
-                  channelTitleById={channelTitleById}
-                  engagement={engagement}
-                  isReactionPending={isReactionPending}
-                  isSavePending={isSavePending}
-                  isSharePending={isSharePending}
-                  onToggleReaction={toggleReaction}
-                  onToggleSave={toggleSave}
-                  onAmplifyConfirmed={confirmAmplify}
-                  onReply={replyHandler}
-                  onExpandReply={expandReply}
-                  onQuote={quoteHandler}
-                  onRepost={repostHandler}
-                  onUndoRepost={undoRepostHandler}
-                  pollTallyFor={pollTallyFor}
-                  isPollVotePending={isPollVotePending}
-                  onPollVote={(post, optionIndex) => {
-                    void castVote(post, optionIndex);
-                  }}
-                />
-              </div>
-            </div>
-
-            <Divider variant="detail" />
-
-            {conversation.root ? (
-              <div
-                className={`thread-controls-row${
-                  replyListRows.length > 0 || shareRow ? '' : ' is-idle'
-                }${rootContinued ? ' is-continued' : ''}`}
-              >
-                {rootContinued ? <ThreadRail through /> : null}
-                {replyListRows.length > 0 ? (
-                  <ThreadRepliesSortButton
-                    sort={replySort}
-                    onChange={setReplySort}
-                  />
-                ) : (
-                  <span className="thread-controls-spacer" aria-hidden />
-                )}
-                <ThreadViewQuotesRow
-                  href={
-                    shareRow
-                      ? threadShareRowHref(
-                          postQuotesPath(conversation.root),
-                          shareRow
-                        )
-                      : postQuotesPath(conversation.root)
-                  }
-                  label={shareRow?.label ?? 'View quotes'}
-                  count={shareRow?.count ?? 0}
-                  rollSignal={rootEngagement?.shareRoll ?? 0}
-                />
+      {loadState === 'ready' && conversation.root ? (
+        <section
+          className={`guild-thread-column${rootContinued ? ' is-continued' : ''}`}
+        >
+          <div className="guild-thread-context">
+            {hasAncestorRows ? (
+              <div className="guild-thread-ancestors">
+                {ancestorChain.map((ancestor, index) => (
+                  <div
+                    className={`guild-thread-ancestor post-thread-item post-thread-item--down${index > 0 ? ' post-thread-item--up' : ''}`}
+                    key={postKey(ancestor)}
+                  >
+                    <ThreadRail up={index > 0} down />
+                    <ResolvedFeedPostCard
+                      post={ancestor}
+                      quotedPosts={quotedPosts}
+                      postAuthorProfiles={postAuthorProfiles}
+                      hrefForPost={hrefForPost}
+                      videoSoundControl
+                      sheetContext={sheetContext}
+                      returnToPost
+                      // Top of chain keeps its context line if truncated.
+                      showRelationBadge={index === 0}
+                      authorProfiles={postAuthorProfiles}
+                      engagement={engagement}
+                      isReactionPending={isReactionPending}
+                      isSavePending={isSavePending}
+                      isSharePending={isSharePending}
+                      onToggleReaction={toggleReaction}
+                      onToggleSave={toggleSave}
+                      onAmplifyConfirmed={confirmAmplify}
+                      onReply={replyHandler}
+                      onExpandReply={expandReply}
+                      onQuote={quoteHandler}
+                      onRepost={repostHandler}
+                      onUndoRepost={undoRepostHandler}
+                      pollTallyFor={pollTallyFor}
+                      isPollVotePending={isPollVotePending}
+                      onPollVote={(post, optionIndex) => {
+                        void castVote(post, optionIndex);
+                      }}
+                    />
+                  </div>
+                ))}
               </div>
             ) : null}
 
-            <div className="guild-connected-stack" ref={replyStackRef}>
-              {/* Reserve Join seat until ACL resolves — no post-appear shove. */}
-              {replyListRows.length === 0 &&
-              !shareRow &&
-              (joinControl || !viewerAccessResolved) ? (
-                <div
-                  className={`guild-thread-join-dock is-with-post${
-                    joinControl ? '' : ' is-pending'
-                  }`}
-                  aria-hidden={joinControl ? undefined : true}
-                >
-                  {joinControl}
-                </div>
-              ) : null}
-              {replyWindowed && replyTopSpacer > 0 ? (
-                <div
-                  style={{ height: replyTopSpacer }}
-                  aria-hidden="true"
-                  data-feed-window-spacer="top"
-                />
-              ) : null}
-              {replyListRows.length > 0 ? (
-                replyListRows.slice(replyWindowStart, replyWindowEnd)
-              ) : emptyTailReady && !shareRow ? (
-                <ThreadDiscoverPeek
-                  author={author}
-                  excludePostId={postId}
-                  armed={repliesResolved}
-                  authorProfiles={postAuthorProfiles}
-                  onReply={replyHandler}
-                  onExpandReply={expandReply}
-                  onQuote={quoteHandler}
-                  onRepost={repostHandler}
-                  onUndoRepost={undoRepostHandler}
-                  onAmplifyConfirmed={confirmAmplify}
-                />
-              ) : null}
-              {replyWindowed && replyBottomSpacer > 0 ? (
-                <div
-                  style={{ height: replyBottomSpacer }}
-                  aria-hidden="true"
-                  data-feed-window-spacer="bottom"
-                />
-              ) : null}
-
-              <GuildThreadLoadMoreFooter
-                hasMore={hasMoreReplies}
-                loadingMore={loadingMore}
-                loadMoreError={loadMoreError}
-                idleLabel="Show more replies"
-                onLoadMore={loadMore}
+            <div
+              ref={openedPostRef}
+              data-thread-opened-post={conversation.root.postId}
+              className={[
+                'guild-thread-root',
+                hasParent || rootContinued ? 'post-thread-item' : '',
+                hasParent ? 'post-thread-item--up' : '',
+                rootContinued ? 'post-thread-item--down' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
+              <ThreadRail up={hasAncestorRows} down={rootContinued} />
+              <ResolvedFeedPostCard
+                post={conversation.root}
+                quotedPosts={quotedPosts}
+                postAuthorProfiles={postAuthorProfiles}
+                hrefForPost={hrefForPost}
+                mediaFocused
+                videoSoundControl
+                mediaUnmuted={mediaUnmuted}
+                mediaResumeIndex={mediaResumeIndex}
+                detailLayout
+                // Parent drawn above with a chain line already says "reply".
+                showRelationBadge={!hasParent}
+                authorProfiles={postAuthorProfiles}
+                sheetContext={sheetContext}
+                showGuildAttribution={showGuildLine}
+                guildName={guildDisplayName(guildName, groupId)}
+                showChannel={showRoom}
+                channelTitleById={channelTitleById}
+                engagement={engagement}
+                isReactionPending={isReactionPending}
+                isSavePending={isSavePending}
+                isSharePending={isSharePending}
+                onToggleReaction={toggleReaction}
+                onToggleSave={toggleSave}
+                onAmplifyConfirmed={confirmAmplify}
+                onReply={replyHandler}
+                onExpandReply={expandReply}
+                onQuote={quoteHandler}
+                onRepost={repostHandler}
+                onUndoRepost={undoRepostHandler}
+                pollTallyFor={pollTallyFor}
+                isPollVotePending={isPollVotePending}
+                onPollVote={(post, optionIndex) => {
+                  void castVote(post, optionIndex);
+                }}
               />
             </div>
-          </section>
-        ) : null}
-        {joinControl && (replyListRows.length > 0 || shareRow) ? (
-          <div className="guild-thread-join-dock">{joinControl}</div>
-        ) : null}
-      </div>
+          </div>
+
+          <Divider variant="detail" />
+
+          {conversation.root ? (
+            <div
+              className={`thread-controls-row${
+                replyListRows.length > 0 || shareRow ? '' : ' is-idle'
+              }${rootContinued ? ' is-continued' : ''}`}
+            >
+              {rootContinued ? <ThreadRail through /> : null}
+              {replyListRows.length > 0 ? (
+                <ThreadRepliesSortButton
+                  sort={replySort}
+                  onChange={setReplySort}
+                />
+              ) : (
+                <span className="thread-controls-spacer" aria-hidden />
+              )}
+              <ThreadViewQuotesRow
+                href={
+                  shareRow
+                    ? threadShareRowHref(
+                        postQuotesPath(conversation.root),
+                        shareRow
+                      )
+                    : postQuotesPath(conversation.root)
+                }
+                label={shareRow?.label ?? 'View quotes'}
+                count={shareRow?.count ?? 0}
+                rollSignal={rootEngagement?.shareRoll ?? 0}
+              />
+            </div>
+          ) : null}
+
+          <div className="guild-connected-stack" ref={replyStackRef}>
+            {/* Reserve Join seat until ACL resolves — no post-appear shove. */}
+            {replyListRows.length === 0 &&
+            !shareRow &&
+            (joinControl || !viewerAccessResolved) ? (
+              <div
+                className={`guild-thread-join-dock is-with-post${
+                  joinControl ? '' : ' is-pending'
+                }`}
+                aria-hidden={joinControl ? undefined : true}
+              >
+                {joinControl}
+              </div>
+            ) : null}
+            {replyWindowed && replyTopSpacer > 0 ? (
+              <div
+                style={{ height: replyTopSpacer }}
+                aria-hidden="true"
+                data-feed-window-spacer="top"
+              />
+            ) : null}
+            {replyListRows.length > 0 ? (
+              replyListRows.slice(replyWindowStart, replyWindowEnd)
+            ) : emptyTailReady && !shareRow ? (
+              <ThreadDiscoverPeek
+                author={author}
+                excludePostId={postId}
+                armed={repliesResolved}
+                authorProfiles={postAuthorProfiles}
+                onReply={replyHandler}
+                onExpandReply={expandReply}
+                onQuote={quoteHandler}
+                onRepost={repostHandler}
+                onUndoRepost={undoRepostHandler}
+                onAmplifyConfirmed={confirmAmplify}
+              />
+            ) : null}
+            {replyWindowed && replyBottomSpacer > 0 ? (
+              <div
+                style={{ height: replyBottomSpacer }}
+                aria-hidden="true"
+                data-feed-window-spacer="bottom"
+              />
+            ) : null}
+
+            <GuildThreadLoadMoreFooter
+              hasMore={hasMoreReplies}
+              loadingMore={loadingMore}
+              loadMoreError={loadMoreError}
+              idleLabel="Show more replies"
+              onLoadMore={loadMore}
+            />
+          </div>
+        </section>
+      ) : null}
+      {joinControl && (replyListRows.length > 0 || shareRow) ? (
+        <div className="guild-thread-join-dock">{joinControl}</div>
+      ) : null}
+    </div>
   );
 
   const threadChrome = (

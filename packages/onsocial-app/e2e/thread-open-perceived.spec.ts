@@ -260,9 +260,7 @@ test('body holds opacity 0 while the first reply page loads — the discover pee
   // Loading window: body not ready; peek title must not paint as content.
   await expect(layer.locator('.os-page-body-appear.is-ready')).toHaveCount(0);
   await page.waitForTimeout(500);
-  await expect(
-    layer.locator('.thread-discover-peek-title')
-  ).toHaveCount(0);
+  await expect(layer.locator('.thread-discover-peek-title')).toHaveCount(0);
 
   // Resolved: replies in, still no peek swap.
   await expect(layer.getByText(REPLY.text)).toBeVisible({ timeout: 10_000 });

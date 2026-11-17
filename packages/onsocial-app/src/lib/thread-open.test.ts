@@ -192,7 +192,9 @@ describe('threadContentInset', () => {
     };
     const previous = globalThis.getComputedStyle;
     globalThis.getComputedStyle = (() =>
-      ({ paddingTop: '8px' }) as CSSStyleDeclaration) as typeof getComputedStyle;
+      ({
+        paddingTop: '8px',
+      }) as CSSStyleDeclaration) as typeof getComputedStyle;
     try {
       expect(
         threadContentInset(

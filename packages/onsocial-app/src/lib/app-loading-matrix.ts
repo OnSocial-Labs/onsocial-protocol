@@ -1,7 +1,4 @@
-export type AppLoadingFamily =
-  | 'glass-list'
-  | 'immersive-detail'
-  | 'private';
+export type AppLoadingFamily = 'glass-list' | 'immersive-detail' | 'private';
 
 export type AppLoadingMatrixRow = {
   id: string;

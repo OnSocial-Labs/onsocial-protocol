@@ -75,7 +75,10 @@ export function threadContentInset(
 /** Card pad above the avatar — same token on every detail post. */
 function threadFacePad(post: HTMLElement, face: HTMLElement): number {
   if (face === post) return 0;
-  if (typeof face.closest !== 'function' || typeof getComputedStyle !== 'function') {
+  if (
+    typeof face.closest !== 'function' ||
+    typeof getComputedStyle !== 'function'
+  ) {
     return Math.max(
       0,
       face.getBoundingClientRect().top - post.getBoundingClientRect().top
@@ -119,8 +122,7 @@ export function openedPostPinDeficit(
 export function scrollOpenedPostUnderHeader(post: HTMLElement): boolean {
   const scroller = threadScroller(post);
   if (!scroller) return false;
-  const top =
-    openedPostPinDeficit(post, scroller) + scroller.scrollTop;
+  const top = openedPostPinDeficit(post, scroller) + scroller.scrollTop;
   if (Math.abs(scroller.scrollTop - top) < 0.5) return true;
   pinThreadScroll(scroller, top);
   return true;
