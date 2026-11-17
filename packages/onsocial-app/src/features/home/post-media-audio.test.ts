@@ -75,4 +75,40 @@ describe('post audio attachments', () => {
     expect(html).toContain('post-audio-row');
     expect(html).not.toContain('post-audio-jacket');
   });
+
+  it('reserves a 4:3 page seat when media has no width/height hints', () => {
+    const html = renderToStaticMarkup(
+      createElement(PostMediaStrip, {
+        items: [
+          {
+            url: 'https://example.com/still.jpg',
+            mime: 'image/jpeg',
+          },
+        ],
+        size: 'page',
+      })
+    );
+
+    expect(html).toContain('post-media-tile--page');
+    expect(html).toMatch(/aspect-ratio:\s*4\s*\/\s*3/);
+  });
+
+  it('prefers persisted dims over the 4:3 page fallback', () => {
+    const html = renderToStaticMarkup(
+      createElement(PostMediaStrip, {
+        items: [
+          {
+            url: 'https://example.com/tall.jpg',
+            mime: 'image/jpeg',
+            width: 9,
+            height: 16,
+          },
+        ],
+        size: 'page',
+      })
+    );
+
+    expect(html).toMatch(/aspect-ratio:\s*9\s*\/\s*16/);
+    expect(html).not.toMatch(/aspect-ratio:\s*4\s*\/\s*3/);
+  });
 });

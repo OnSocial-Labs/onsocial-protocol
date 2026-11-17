@@ -422,11 +422,16 @@ function PostVisualMediaBlock({
     .filter(Boolean)
     .join(' ');
   const hintRatio = postMediaItemRatio(item);
+  // Page / quote / focused: lock a seat before decode. Persisted dims win;
+  // otherwise 4:3 matches the CSS fallback so the thread does not grow.
   const tileStyle =
-    reserveRatio && hintRatio != null
+    reserveRatio
       ? ({
           ...style,
-          aspectRatio: `${Math.round(item.width!)} / ${Math.round(item.height!)}`,
+          aspectRatio:
+            hintRatio != null
+              ? `${Math.round(item.width!)} / ${Math.round(item.height!)}`
+              : '4 / 3',
         } satisfies CSSProperties)
       : style;
   const handleActivate = (event: {
