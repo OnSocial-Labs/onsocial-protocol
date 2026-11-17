@@ -38,7 +38,6 @@ import {
 import { postKey } from '@/features/home/post-card';
 import { ResolvedFeedPostCard } from '@/features/home/resolved-feed-post-card';
 import {
-  POST_THREAD_REPLY_SKELETON_ROWS,
   PostRowSkeleton,
   PostThreadPageSkeleton,
 } from '@/features/home/post-skeleton';
@@ -1240,7 +1239,7 @@ export function LivePersonalPostPanel({
             ) : null}
             {!repliesResolved && replyListRows.length === 0 ? (
               <div aria-busy="true">
-                <PostRowSkeleton rows={POST_THREAD_REPLY_SKELETON_ROWS} />
+                <PostRowSkeleton rows={2} />
               </div>
             ) : replyListRows.length > 0 ? (
               replyListRows.slice(replyWindowStart, replyWindowEnd)

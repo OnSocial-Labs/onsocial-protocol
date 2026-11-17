@@ -38,7 +38,6 @@ import {
 import { postKey } from '@/features/home/post-card';
 import { ResolvedFeedPostCard } from '@/features/home/resolved-feed-post-card';
 import {
-  POST_THREAD_REPLY_SKELETON_ROWS,
   PostRowSkeleton,
   PostThreadPageSkeleton,
 } from '@/features/home/post-skeleton';
@@ -1195,7 +1194,7 @@ export function LiveGuildPostPanel({
           <div className="guild-connected-stack" ref={replyStackRef}>
             {!repliesResolved && replyListRows.length === 0 ? (
               <div aria-busy="true">
-                <PostRowSkeleton rows={POST_THREAD_REPLY_SKELETON_ROWS} />
+                <PostRowSkeleton rows={2} />
               </div>
             ) : null}
             {/* Reserve Join seat until ACL resolves — no post-appear shove. */}

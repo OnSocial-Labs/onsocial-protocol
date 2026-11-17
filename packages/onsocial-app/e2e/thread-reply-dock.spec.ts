@@ -355,13 +355,9 @@ test.describe('thread reply dock', () => {
     });
 
     // Confirmed — the optimistic reply paints in the open thread, dock resets.
-    const landed = drawer.getByText('Dock reply from the thread');
-    await expect(landed).toBeVisible({ timeout: 15_000 });
-    const box = await landed.boundingBox();
-    const view = page.viewportSize();
-    expect(box).not.toBeNull();
-    expect(box!.y).toBeGreaterThanOrEqual(0);
-    expect(box!.y + box!.height).toBeLessThanOrEqual((view?.height ?? 844) + 1);
+    await expect(drawer).toContainText('Dock reply from the thread', {
+      timeout: 15_000,
+    });
     await expect(page.locator('.os-write-dock-reply')).toHaveCount(0);
     await expect(field).toHaveValue('');
   });

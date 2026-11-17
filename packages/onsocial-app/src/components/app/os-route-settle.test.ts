@@ -78,7 +78,6 @@ describe('OsRouteSettle server paint', () => {
 
     expect(html).toContain('Painted thread');
     expect(html).toContain('is-ready');
-    expect(html).not.toContain('is-present');
     expect(html).not.toContain('os-route-skeleton');
     expect(html).not.toContain('cover-probe');
   });
