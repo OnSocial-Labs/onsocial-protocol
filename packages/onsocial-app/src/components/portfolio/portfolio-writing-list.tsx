@@ -95,14 +95,18 @@ export function WritingShelfLikeCount({
   const likeLabel = formatWritingLikeLabel(likeCount);
   if (!likeLabel) return null;
   const word = likeCount === 1 ? ' like' : ' likes';
+  // Same separator sibling markup as main — keep ` · ` in the meta inline
+  // flow (not inside a flex seat) so spaces do not collapse.
   return (
-    <span className="portfolio-writing-shelf-like" aria-label={likeLabel}>
+    <>
       <span aria-hidden> · </span>
-      <span aria-hidden>
-        <RollingNumber value={likeCount} rollSignal={rollSignal} />
-        {word}
+      <span className="portfolio-writing-shelf-like" aria-label={likeLabel}>
+        <span aria-hidden>
+          <RollingNumber value={likeCount} rollSignal={rollSignal} />
+          {word}
+        </span>
       </span>
-    </span>
+    </>
   );
 }
 

@@ -11867,9 +11867,9 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
+  /* Inline like main's meta spans — do not flex-wrap the ` · ` separator. */
   .portfolio-writing-shelf-like {
-    display: inline-flex;
-    align-items: baseline;
+    display: inline;
   }
 
   .portfolio-writing-shelf-like.is-idle {
