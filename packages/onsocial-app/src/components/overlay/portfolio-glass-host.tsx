@@ -51,11 +51,17 @@ import { OsPageSheet, type GlassSheetPresentation } from '@onsocial/ui';
  * intercept) that never paints `.endorsements-panel` / `.standing-panel`
  * while the RSC flight hangs — cover that gap from the URL.
  */
-function FacePeekOverlayCover({ panelKey }: { panelKey: string }) {
+function FacePeekOverlayCover({
+  accountId,
+  panelKey,
+}: {
+  accountId: string;
+  panelKey: string;
+}) {
   if (panelKey === 'endorsements') {
     return (
       <OverlayInterceptRoot>
-        <EndorsementsSheetOpening />
+        <EndorsementsSheetOpening accountId={accountId} />
       </OverlayInterceptRoot>
     );
   }
@@ -312,7 +318,7 @@ export function PortfolioGlassHost({
       >
         {overlayPresent ? (
           facePeekCover && panelKey ? (
-            <FacePeekOverlayCover panelKey={panelKey} />
+            <FacePeekOverlayCover accountId={accountId} panelKey={panelKey} />
           ) : (
             overlay
           )

@@ -214,6 +214,12 @@ export async function softOpenPortfolioOverlay(
     .catch(async () => {
       await softNav;
     });
+  // Product soft-open must mount glass in the same turn as the URL. Waiting
+  // only on `_rsc` left endorse specs racing an empty @overlay slot.
+  await glassSheetVisible(page).waitFor({
+    state: 'visible',
+    timeout: 15_000,
+  });
 }
 
 /**

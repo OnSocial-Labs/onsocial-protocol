@@ -25,9 +25,14 @@ export function EndorsementsPanelSeat() {
  * Soft-open chrome while `@overlay/(.)endorsements` RSC lags or aborts.
  * Paint the seat on the gesture, then hand off to the live client panel so
  * Endorse / menu / stubbed rows work even when OverlayInterceptRoot never
- * lands.
+ * lands. Prefer an explicit accountId from the glass host so the seat
+ * paints even when the router pathname still lags the address bar.
  */
-export function EndorsementsSheetOpening() {
+export function EndorsementsSheetOpening({
+  accountId: accountIdProp,
+}: {
+  accountId?: string;
+} = {}) {
   const routerPath = usePathname() ?? '';
   const browserPath = useSyncExternalStore(
     subscribeBrowserPath,
@@ -35,13 +40,17 @@ export function EndorsementsSheetOpening() {
     getBrowserPathServerSnapshot
   );
   const pathname = browserPath || routerPath;
-  const accountId = accountIdFromPath(pathname);
+  const accountId = accountIdProp || accountIdFromPath(pathname);
   const [live, setLive] = useState(false);
   useEffect(() => {
     const frame = requestAnimationFrame(() => setLive(true));
     return () => cancelAnimationFrame(frame);
   }, []);
-  if (!accountId) return null;
+  if (!accountId) {
+    // Still paint the settled seat class so soft-open e2e / first paint
+    // never wait on a missing account parse while the URL catches up.
+    return <EndorsementsPanelSeat />;
+  }
   const title = panelLabel('endorsements');
 
   return (

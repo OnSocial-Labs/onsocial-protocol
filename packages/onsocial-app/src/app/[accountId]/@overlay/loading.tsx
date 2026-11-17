@@ -8,6 +8,11 @@ import { PortfolioWritingOverlayLoading } from '@/components/portfolio/portfolio
 import { EndorsementsSheetOpening } from '@/components/panels/endorsements-sheet-opening';
 import { StandingSheetOpening } from '@/components/panels/standing-sheet-opening';
 import { DiscoverSheetOpening } from '@/features/discover/discover-sheet-opening';
+import {
+  getBrowserPath,
+  getBrowserPathServerSnapshot,
+  subscribeBrowserPath,
+} from '@/lib/browser-path';
 import { accountIdFromPath } from '@/lib/overlay-routes';
 import {
   getPortfolioShelfHopServerSnapshot,
@@ -42,7 +47,15 @@ function isDiscoverOverlay(pathname: string): boolean {
  * and writing must not force intercept glass around the solid article reader.
  */
 export default function OverlayLoading() {
-  const pathname = usePathname() ?? '';
+  const routerPath = usePathname() ?? '';
+  const browserPath = useSyncExternalStore(
+    subscribeBrowserPath,
+    getBrowserPath,
+    getBrowserPathServerSnapshot
+  );
+  // Soft nav updates the address bar before usePathname; face peeks need the
+  // Opening shell on that first paint, not after the router catches up.
+  const pathname = browserPath || routerPath;
   const shelfHop = useSyncExternalStore(
     subscribePortfolioShelfHop,
     getPortfolioShelfHopSnapshot,
