@@ -4,9 +4,27 @@ type SheetBodyFrame = {
   header: boolean;
   opacity: number;
   routeSkeleton: boolean;
-  focalSkeleton: boolean;
+  /** PostThreadPageSkeleton focal block, including the dynamic chunk fallback. */
+  pageSkeleton: boolean;
   root: boolean;
+  kind: 'route-skeleton' | 'page-skeleton' | 'root' | 'empty';
 };
+
+/**
+ * Same order as the blank-frame log:
+ * route cover, then PostThreadPageSkeleton, then a visible root, else empty.
+ */
+function sheetBodyKind(frame: {
+  opacity: number;
+  routeSkeleton: boolean;
+  pageSkeleton: boolean;
+  root: boolean;
+}): SheetBodyFrame['kind'] {
+  if (frame.routeSkeleton) return 'route-skeleton';
+  if (frame.pageSkeleton) return 'page-skeleton';
+  if (frame.root && frame.opacity > 0.9) return 'root';
+  return 'empty';
+}
 
 /** Sample the open sheet from the click until the appear window has passed. */
 export async function armSheetBodyFrames(page: Page): Promise<void> {
@@ -22,10 +40,11 @@ export async function armSheetBodyFrames(page: Page): Promise<void> {
         header: Boolean(title && (title.textContent ?? '').includes('Post')),
         opacity: body ? Number(getComputedStyle(body).opacity) : 0,
         routeSkeleton: Boolean(sheet?.querySelector('.os-route-skeleton')),
-        focalSkeleton: Boolean(
+        pageSkeleton: Boolean(
           sheet?.querySelector('.post-card--skeleton.post-card--detail')
         ),
         root: Boolean(sheet?.querySelector('.guild-thread-root')),
+        kind: 'empty',
       });
       if (performance.now() - start < 900) requestAnimationFrame(tick);
     };
@@ -42,13 +61,9 @@ export async function expectSheetBodyNeverEmpty(page: Page): Promise<void> {
         .__sheetBodyFrames ?? []
     );
   });
-  const shown = frames.filter((frame) => frame.header);
+  const shown = frames
+    .filter((frame) => frame.header)
+    .map((frame) => ({ ...frame, kind: sheetBodyKind(frame) }));
   expect(shown.length).toBeGreaterThan(0);
-  const empty = shown.filter(
-    (frame) =>
-      !frame.routeSkeleton &&
-      !frame.focalSkeleton &&
-      !(frame.root && frame.opacity > 0.9)
-  );
-  expect(empty).toEqual([]);
+  expect(shown.filter((frame) => frame.kind === 'empty')).toEqual([]);
 }

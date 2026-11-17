@@ -76,6 +76,7 @@ describe('personal post server HTML', () => {
 
     expect(html).toContain(ROOT_TEXT);
     expect(html).toContain('is-ready');
+    expect(html).toContain('is-present');
     expect(html).not.toContain('os-route-skeleton');
     expect(html).not.toContain('post-card--skeleton post-card--detail');
     expect(html).toContain('thread-replies-sort');

@@ -385,3 +385,104 @@ test('an empty thread shows the root while replies load, then the discover peek'
     0
   );
 });
+
+test('a deep-linked reply scrolls into view', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await stubGraph(page, { treeDelayMs: () => 0 });
+  await page.route('**/api/onapi/graph/query', async (route) => {
+    const body = JSON.parse(route.request().postData() ?? '{}') as GraphBody;
+    const query = body.query ?? '';
+    const vars = body.variables ?? {};
+    if (
+      query.includes('threadReplies') &&
+      vars.parentPath === REPLY.parentPath
+    ) {
+      const replies = Array.from({ length: 14 }, (_, index) =>
+        replyRow({
+          accountId: 'bob.near',
+          postId: index === 13 ? 'reply-deep' : `pad-${index}`,
+          text:
+            index === 13
+              ? 'Deep linked reply'
+              : `Padding reply ${index} ${'line '.repeat(12)}`,
+          parentAuthor: 'alice.near',
+          parentPath: REPLY.parentPath,
+        })
+      );
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { threadReplies: replies } }),
+      });
+      return;
+    }
+    await route.fallback();
+  });
+
+  await gotoApp(page, '/@alice.near/posts/root-post?reply=reply-deep');
+  await dismissNextDevOverlay(page);
+  const target = page.locator('[data-thread-focus-reply="reply-deep"]');
+  await expect(target).toBeVisible({ timeout: 20_000 });
+  await expect
+    .poll(async () => {
+      const box = await target.boundingBox();
+      const view = page.viewportSize();
+      if (!box || !view) return false;
+      return box.y >= 0 && box.y + box.height <= view.height;
+    })
+    .toBe(true);
+});
+
+test('back from a thread restores the feed scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await stubGraph(page, { treeDelayMs: () => 0 });
+  await page.route('**/api/onapi/graph/query', async (route) => {
+    const body = JSON.parse(route.request().postData() ?? '{}') as GraphBody;
+    const query = body.query ?? '';
+    const vars = body.variables ?? {};
+    if (
+      (query.includes('postsFeed') || query.includes('postsCurrent')) &&
+      !vars.postId &&
+      vars.author !== ROOT.accountId
+    ) {
+      const field = query.includes('postsFeed') ? 'postsFeed' : 'postsCurrent';
+      const rows = [
+        feedRow(ROOT),
+        ...Array.from({ length: 16 }, (_, index) =>
+          feedRow({
+            accountId: 'bob.near',
+            postId: `pad-${index}`,
+            text: `Feed pad ${index} ${'line '.repeat(10)}`,
+          })
+        ),
+      ];
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { [field]: rows } }),
+      });
+      return;
+    }
+    await route.fallback();
+  });
+
+  await gotoFeedWithRoot(page);
+  const scroller = page.locator('.os-app-screen-body').first();
+  await scroller.evaluate((node) => {
+    node.scrollTop = 480;
+  });
+  const before = await scroller.evaluate((node) => node.scrollTop);
+  expect(before).toBeGreaterThan(200);
+
+  await openThreadFromFeed(page);
+  await page
+    .locator('.post-thread-sheet-panel')
+    .getByRole('button', { name: 'Back' })
+    .click();
+  await expect(
+    page.locator('.home-feed-list').getByText(ROOT.text).first()
+  ).toBeVisible();
+  await expect
+    .poll(async () => scroller.evaluate((node) => node.scrollTop))
+    .toBeGreaterThan(200);
+});

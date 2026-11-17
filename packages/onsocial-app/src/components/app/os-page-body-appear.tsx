@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useState, type ReactNode } from 'react';
+import { useLayoutEffect, useState, type PropsWithChildren } from 'react';
 
 /**
  * Soft-appear for OsPageSheet body under stable chrome (back + title).
@@ -15,11 +15,10 @@ export function OsPageBodyAppear({
   ready,
   children,
   className,
-}: {
+}: PropsWithChildren<{
   ready?: boolean;
-  children: ReactNode;
   className?: string;
-}) {
+}>) {
   const managed = ready !== undefined;
   const [autoReady, setAutoReady] = useState(false);
   // Mounting already ready must not run the from-0 keyframe. That fade has
