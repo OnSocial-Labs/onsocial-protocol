@@ -24424,9 +24424,9 @@ a.os-surface-row,
   }
 
   /*
-   * Open / focused single — same reserved frame as compact. Without a
-   * persisted ratio the slot stays 4:3; hint style can override. The file
-   * contains inside the box — decode must not grow the thread.
+   * Open / focused single — 4:3 placeholder before decode. Inline
+   * aspect-ratio from hints or loadedmetadata overrides once known so a
+   * 16:9 clip does not letterbox in a locked 4:3 seat (mute stays on-frame).
    */
   .post-media-strip--1 .post-media-tile--page,
   .post-media-strip--1.is-page .post-media-tile,
@@ -24517,6 +24517,7 @@ a.os-surface-row,
     margin-top: 0;
   }
 
+  /* Quote single — same 4:3 → real-ratio handoff as open/focused. */
   .post-media-strip.is-quote.post-media-strip--1 .post-media-tile {
     position: relative;
     width: 100%;

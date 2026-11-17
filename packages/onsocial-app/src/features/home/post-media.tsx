@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -61,6 +62,25 @@ function mediaImgSizes(size: PostMediaSize, collage: boolean): string {
  * Same 8s budget as SDK `POSTER_TIMEOUT_MS` — named, not a magic inline.
  */
 export const FEED_MEDIA_RESOLVE_FALLBACK_MS = 8_000;
+
+/**
+ * Open / focused / quote single seat. 4:3 holds the slot before decode;
+ * persisted hints or a measured ratio take over (same handoff as main).
+ */
+export function resolveReservedSeatAspect(
+  hintWidth: number | undefined,
+  hintHeight: number | undefined,
+  measuredRatio: number | null
+): string {
+  const hint = postMediaItemRatio({ width: hintWidth, height: hintHeight });
+  if (hint != null && hintWidth != null && hintHeight != null) {
+    return `${Math.round(hintWidth)} / ${Math.round(hintHeight)}`;
+  }
+  if (measuredRatio != null && Number.isFinite(measuredRatio) && measuredRatio > 0) {
+    return String(measuredRatio);
+  }
+  return '4 / 3';
+}
 
 /** Survives window remount so scroll-back does not re-fade known media. */
 const feedMediaResolvedSrcs = new Set<string>();
@@ -132,8 +152,8 @@ interface PostMediaBlockProps {
   /** `sizes` paired with the CDN variant srcSet for this tile's slot. */
   imgSizes?: string;
   /**
-   * Page / focused / quote singles — lock a seat before decode. Persisted
-   * width/height override the 4:3 fallback.
+   * Page / focused / quote singles — 4:3 placeholder before decode; real
+   * ratio once persisted hints or loadedmetadata are known.
    */
   reserveRatio?: boolean;
   /** Audio jacket tap — open the in-sheet player. */
@@ -426,9 +446,48 @@ function PostVisualMediaBlock({
     return () => window.clearTimeout(timer);
   }, [isVideo, videoMounted, resolved, markResolved]);
 
+  const [measuredRatio, setMeasuredRatio] = useState<number | null>(null);
+  const tileNodeRef = useRef<HTMLElement | null>(null);
+  const seatAnchorScrollRef = useRef<number | null>(null);
+
   const rememberRatio = (width: number, height: number) => {
-    if (width > 0 && height > 0) onRatio?.(width / height);
+    if (!(width > 0 && height > 0)) return;
+    const ratio = width / height;
+    onRatio?.(ratio);
+    if (!reserveRatio) return;
+    setMeasuredRatio((current) => {
+      if (current != null && Math.abs(current - ratio) < 0.001) return current;
+      const tile = tileNodeRef.current;
+      const scroller = tile?.closest('.os-app-screen-body');
+      if (tile instanceof HTMLElement && scroller instanceof HTMLElement) {
+        // Hold the reader's place when the seat grows/shrinks in view.
+        seatAnchorScrollRef.current =
+          tile.getBoundingClientRect().top -
+          scroller.getBoundingClientRect().top +
+          scroller.scrollTop;
+      } else {
+        seatAnchorScrollRef.current = null;
+      }
+      return ratio;
+    });
   };
+
+  useLayoutEffect(() => {
+    const anchor = seatAnchorScrollRef.current;
+    seatAnchorScrollRef.current = null;
+    if (anchor == null) return;
+    const tile = tileNodeRef.current;
+    const scroller = tile?.closest('.os-app-screen-body');
+    if (!(tile instanceof HTMLElement) || !(scroller instanceof HTMLElement)) {
+      return;
+    }
+    const next =
+      tile.getBoundingClientRect().top -
+      scroller.getBoundingClientRect().top +
+      scroller.scrollTop;
+    const delta = next - anchor;
+    if (Math.abs(delta) > 0.5) scroller.scrollTop += delta;
+  }, [measuredRatio]);
 
   const tileClassName = [
     'post-media-tile',
@@ -437,19 +496,25 @@ function PostVisualMediaBlock({
   ]
     .filter(Boolean)
     .join(' ');
-  const hintRatio = postMediaItemRatio(item);
-  // Page / quote / focused: lock a seat before decode. Persisted dims win;
-  // otherwise 4:3 matches the CSS fallback so the thread does not grow.
+  // Page / quote / focused: 4:3 until hints or metadata; then the real seat.
   const tileStyle =
     reserveRatio
       ? ({
           ...style,
-          aspectRatio:
-            hintRatio != null
-              ? `${Math.round(item.width!)} / ${Math.round(item.height!)}`
-              : '4 / 3',
+          aspectRatio: resolveReservedSeatAspect(
+            item.width,
+            item.height,
+            measuredRatio
+          ),
         } satisfies CSSProperties)
       : style;
+
+  const bindTileNode = (node: HTMLDivElement | HTMLButtonElement | null) => {
+    tileNodeRef.current = node;
+    if (playbackMode) {
+      containerRef.current = node instanceof HTMLDivElement ? node : null;
+    }
+  };
   const handleActivate = (event: {
     preventDefault(): void;
     stopPropagation(): void;
@@ -597,6 +662,7 @@ function PostVisualMediaBlock({
     return (
       <button
         type="button"
+        ref={bindTileNode}
         style={tileStyle}
         className={tileClassName}
         aria-label={activateLabel}
@@ -610,7 +676,7 @@ function PostVisualMediaBlock({
 
   return (
     <div
-      ref={playbackMode ? containerRef : undefined}
+      ref={bindTileNode}
       style={tileStyle}
       className={tileClassName}
       onClick={isActivatable ? handleActivate : undefined}
