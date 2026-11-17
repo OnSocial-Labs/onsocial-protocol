@@ -150,7 +150,9 @@ export function useToastDismissTimer({
     const startedAt = performance.now();
     const remainingAtStart = remainingRef.current;
 
+    let cancelled = false;
     const tick = (now: number) => {
+      if (cancelled || typeof window === 'undefined') return;
       const left = Math.max(0, remainingAtStart - (now - startedAt));
       remainingRef.current = left;
       const total = totalRef.current;
@@ -163,7 +165,12 @@ export function useToastDismissTimer({
     };
 
     frame = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frame);
+    return () => {
+      cancelled = true;
+      if (typeof window !== 'undefined') {
+        window.cancelAnimationFrame(frame);
+      }
+    };
   }, [active, durationMs, paused, paint]);
 
   const pauseHover = useCallback(() => {
