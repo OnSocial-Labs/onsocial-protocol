@@ -3,9 +3,9 @@ import { dismissNextDevOverlay, gotoApp } from './helpers';
 
 /*
  * Perceived-performance contract for feed → thread:
- * 1. The tapped post paints instantly with the counts the feed card showed.
- * 2. Body holds opacity 0 until land + first reply page — More-from never
- *    flashes in and gets replaced by replies.
+ * 1. The tapped post paints at once with the counts the feed card showed.
+ * 2. Replies skeleton underneath until the first page. The discover peek
+ *    never flashes in that window.
  * 3. Re-opening a thread this session paints replies from the session cache
  *    (stale-while-revalidate) even when the network is slow.
  */
@@ -250,21 +250,33 @@ test('the reply under a direct reply paints before nested queries finish', async
   });
 });
 
-test('body holds opacity 0 while the first reply page loads — the discover peek never flashes', async ({
-  page,
-}) => {
-  await stubGraph(page, { treeDelayMs: () => 1_500 });
+test('a seeded post stays visible while replies load', async ({ page }) => {
+  await stubGraph(page, { treeDelayMs: () => 2_500 });
   await gotoFeedWithRoot(page);
   const layer = await openThreadFromFeed(page);
+  const root = layer.locator('.guild-thread-root');
 
-  // Loading window: body not ready; peek title must not paint as content.
-  await expect(layer.locator('.os-page-body-appear.is-ready')).toHaveCount(0);
-  await page.waitForTimeout(500);
-  await expect(layer.locator('.thread-discover-peek-title')).toHaveCount(0);
-
-  // Resolved: replies in, still no peek swap.
-  await expect(layer.getByText(REPLY.text)).toBeVisible({ timeout: 10_000 });
+  await expect(root.getByText(ROOT.text)).toBeVisible({ timeout: 3_000 });
+  await expect(layer.getByText(REPLY.text)).toHaveCount(0);
   await expect(layer.locator('.os-page-body-appear.is-ready')).toBeVisible();
+  await expect(
+    layer.locator('.post-card--skeleton.post-card--detail')
+  ).toHaveCount(0);
+  await expect(
+    layer.locator('.guild-connected-stack .post-row-skeleton-list')
+  ).toBeVisible();
+  await expect(layer.locator('.thread-discover-peek')).toHaveCount(0);
+
+  await root.evaluate((node) => {
+    node.setAttribute('data-open-node', 'root');
+  });
+
+  await expect(layer.getByText(REPLY.text)).toBeVisible({ timeout: 10_000 });
+  await expect(root).toHaveAttribute('data-open-node', 'root');
+  await expect(root).toHaveJSProperty('tagName', 'DIV');
+  await expect(
+    layer.locator('.guild-connected-stack .post-row-skeleton-list')
+  ).toHaveCount(0);
   await expect(layer.locator('.thread-discover-peek')).toHaveCount(0);
 });
 
@@ -310,19 +322,26 @@ test('re-opening a thread paints replies instantly from the session cache', asyn
   await expect(layer.getByText(REPLY.text)).toBeVisible({ timeout: 2_000 });
 });
 
-test('an empty thread soft-appears the discover peek only after loading', async ({
+test('an empty thread shows the root while replies load, then the discover peek', async ({
   page,
 }) => {
-  await stubGraph(page, { replies: false, treeDelayMs: () => 1_200 });
+  await stubGraph(page, { replies: false, treeDelayMs: () => 2_500 });
   await gotoFeedWithRoot(page);
   const layer = await openThreadFromFeed(page);
 
-  await expect(layer.locator('.os-page-body-appear.is-ready')).toHaveCount(0);
+  await expect(layer.getByText(ROOT.text)).toBeVisible({ timeout: 3_000 });
+  await expect(layer.locator('.os-page-body-appear.is-ready')).toBeVisible();
   await expect(layer.locator('.thread-discover-peek-title')).toHaveCount(0);
+  await expect(
+    layer.locator('.guild-connected-stack .post-row-skeleton-list')
+  ).toBeVisible();
 
   // Resolved and empty: the peek is the empty state, not a loading artifact.
   await expect(layer.locator('.thread-discover-peek-title')).toBeVisible({
     timeout: 10_000,
   });
   await expect(layer.locator('.os-page-body-appear.is-ready')).toBeVisible();
+  await expect(
+    layer.locator('.guild-connected-stack .post-row-skeleton-list')
+  ).toHaveCount(0);
 });

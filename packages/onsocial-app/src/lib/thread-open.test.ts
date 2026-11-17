@@ -5,7 +5,37 @@ import {
   planThreadLoad,
   scrollOpenedPostUnderHeader,
   threadContentInset,
+  threadCoverReady,
 } from './thread-open';
+
+describe('threadCoverReady', () => {
+  it('opens the cover for a seeded root before replies resolve', () => {
+    expect(
+      threadCoverReady({
+        loadState: 'ready',
+        hasRoot: true,
+        repliesResolved: false,
+      })
+    ).toBe(true);
+  });
+
+  it('keeps the cover when a cold load has no root', () => {
+    expect(
+      threadCoverReady({
+        loadState: 'loading',
+        hasRoot: false,
+        repliesResolved: false,
+      })
+    ).toBe(false);
+  });
+
+  it('lifts the cover for a finished miss or error', () => {
+    expect(threadCoverReady({ loadState: 'missing', hasRoot: false })).toBe(
+      true
+    );
+    expect(threadCoverReady({ loadState: 'error', hasRoot: false })).toBe(true);
+  });
+});
 
 describe('planThreadLoad', () => {
   it('keeps a seeded thread in the background, including a second setup', () => {

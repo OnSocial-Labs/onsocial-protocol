@@ -37,7 +37,11 @@ import {
 } from '@/features/guilds/guild-composer-sheet';
 import { postKey } from '@/features/home/post-card';
 import { ResolvedFeedPostCard } from '@/features/home/resolved-feed-post-card';
-import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
+import {
+  POST_THREAD_REPLY_SKELETON_ROWS,
+  PostRowSkeleton,
+  PostThreadPageSkeleton,
+} from '@/features/home/post-skeleton';
 import { ThreadRail } from '@/features/home/thread-rail';
 import { ThreadDiscoverPeek } from '@/features/home/thread-discover-peek';
 import { ThreadRepliesSortButton } from '@/features/home/thread-replies-sort';
@@ -75,7 +79,7 @@ import {
   startThreadFirstPage,
   visibleReplyPaths,
 } from '@/lib/thread-first-page';
-import { planThreadLoad } from '@/lib/thread-open';
+import { planThreadLoad, threadCoverReady } from '@/lib/thread-open';
 import { collectRelationTargetAccountIds } from '@/lib/post-relation';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { fetchIndexedPost, fetchPersonalPost } from '@/lib/fetch-personal-post';
@@ -425,14 +429,13 @@ export function LivePersonalPostPanel({
       Boolean(
         seeded?.engagement?.[rootEngagementKey] || engagement[rootEngagementKey]
       ));
-  const { landSettled } = useThreadLandAppear({
+  useThreadLandAppear({
     openedPostRef,
     postId: conversation.root?.postId,
     hasParent,
     ancestorsReady,
     loadReady: loadState === 'ready',
     hasRoot: Boolean(conversation.root),
-    tailReady: repliesResolved,
     pinKey: ancestorsReady
       ? ancestorChain.map((post) => post.postId).join('\n')
       : '',
@@ -440,13 +443,11 @@ export function LivePersonalPostPanel({
     landSeat,
     onThreadPainted,
   });
-  const permalinkReady =
-    loadState === 'missing' ||
-    loadState === 'error' ||
-    (loadState === 'ready' &&
-      Boolean(conversation.root) &&
-      landSettled &&
-      repliesResolved);
+  const permalinkReady = threadCoverReady({
+    loadState,
+    hasRoot: Boolean(conversation.root),
+    repliesResolved,
+  });
   const sortedReplyRows = useMemo(
     () => sortThreadReplyRows(replyRows, replySort, engagement),
     [replyRows, replySort, engagement]
@@ -1235,7 +1236,11 @@ export function LivePersonalPostPanel({
                 data-feed-window-spacer="top"
               />
             ) : null}
-            {replyListRows.length > 0 ? (
+            {!repliesResolved && replyListRows.length === 0 ? (
+              <div aria-busy="true">
+                <PostRowSkeleton rows={POST_THREAD_REPLY_SKELETON_ROWS} />
+              </div>
+            ) : replyListRows.length > 0 ? (
               replyListRows.slice(replyWindowStart, replyWindowEnd)
             ) : emptyTailReady && !shareRow ? (
               <ThreadDiscoverPeek

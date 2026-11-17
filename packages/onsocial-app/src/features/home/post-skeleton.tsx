@@ -62,11 +62,18 @@ function PostSkeletonMedia({ frame }: { frame: PostSkeletonFrame }) {
   );
 }
 
+/** Reply rows under an opened post. The cold page skeleton uses the same count. */
+export const POST_THREAD_REPLY_SKELETON_ROWS = 2;
+
 /**
  * Opened post — focal block, replies label, then reply rows.
  * Sheets keep the reply fade; quotes full page uses PostQuotesPageSkeleton.
  */
-export function PostThreadPageSkeleton({ rows = 2 }: { rows?: number }) {
+export function PostThreadPageSkeleton({
+  rows = POST_THREAD_REPLY_SKELETON_ROWS,
+}: {
+  rows?: number;
+}) {
   return (
     <div className={GUILDS_PAGE_CLASS} aria-hidden>
       <div className="post-row-skeleton-list">

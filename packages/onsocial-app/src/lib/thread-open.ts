@@ -1,8 +1,24 @@
 import { adoptAppLenisScroll, getAppLenis } from '@/lib/app-lenis-registry';
 
+export type ThreadLoadState = 'loading' | 'ready' | 'missing' | 'error';
+
+/**
+ * The post cover lifts when the root is in hand, or the load has ended
+ * without one. Replies do not hold it — they skeleton in their own slot.
+ */
+export function threadCoverReady(input: {
+  loadState: ThreadLoadState;
+  hasRoot: boolean;
+  /** Present so callers can show it does not gate the cover. */
+  repliesResolved?: boolean;
+}): boolean {
+  if (input.loadState === 'missing' || input.loadState === 'error') return true;
+  return input.loadState === 'ready' && input.hasRoot;
+}
+
 /**
  * A painted thread reloads behind the card. A thread that is not on screen
- * yet holds opacity 0 until land + first reply page, then soft-appears.
+ * yet stays covered until its root is in hand. Replies fill in underneath.
  */
 export function planThreadLoad(
   paintedKey: string | null,

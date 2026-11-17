@@ -37,7 +37,11 @@ import {
 } from '@/lib/os-write-dock-draft';
 import { postKey } from '@/features/home/post-card';
 import { ResolvedFeedPostCard } from '@/features/home/resolved-feed-post-card';
-import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
+import {
+  POST_THREAD_REPLY_SKELETON_ROWS,
+  PostRowSkeleton,
+  PostThreadPageSkeleton,
+} from '@/features/home/post-skeleton';
 import { ThreadRail } from '@/features/home/thread-rail';
 import { ThreadDiscoverPeek } from '@/features/home/thread-discover-peek';
 import { ThreadRepliesSortButton } from '@/features/home/thread-replies-sort';
@@ -83,6 +87,7 @@ import {
 import { usePostEngagement } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useThreadLandAppear } from '@/hooks/use-land-opened-post';
+import { threadCoverReady } from '@/lib/thread-open';
 import { useThreadFocusReply } from '@/hooks/use-thread-focus-reply';
 import {
   asAncestorChainState,
@@ -413,27 +418,24 @@ export function LiveGuildPostPanel({
       Boolean(
         seededEngagement?.[rootEngagementKey] || engagement[rootEngagementKey]
       ));
-  const { landSettled } = useThreadLandAppear({
+  useThreadLandAppear({
     openedPostRef,
     postId: conversation.root?.postId,
     hasParent,
     ancestorsReady,
     loadReady: loadState === 'ready',
     hasRoot: Boolean(conversation.root),
-    tailReady: repliesResolved,
     pinKey: ancestorsReady
       ? ancestorChain.map((post) => post.postId).join('\n')
       : '',
     parked,
     onThreadPainted,
   });
-  const permalinkReady =
-    loadState === 'missing' ||
-    loadState === 'error' ||
-    (loadState === 'ready' &&
-      Boolean(conversation.root) &&
-      landSettled &&
-      repliesResolved);
+  const permalinkReady = threadCoverReady({
+    loadState,
+    hasRoot: Boolean(conversation.root),
+    repliesResolved,
+  });
   const sortedReplyRows = useMemo(
     () => sortThreadReplyRows(replyRows, replySort, engagement),
     [replyRows, replySort, engagement]
@@ -1209,7 +1211,11 @@ export function LiveGuildPostPanel({
                 data-feed-window-spacer="top"
               />
             ) : null}
-            {replyListRows.length > 0 ? (
+            {!repliesResolved && replyListRows.length === 0 ? (
+              <div aria-busy="true">
+                <PostRowSkeleton rows={POST_THREAD_REPLY_SKELETON_ROWS} />
+              </div>
+            ) : replyListRows.length > 0 ? (
               replyListRows.slice(replyWindowStart, replyWindowEnd)
             ) : emptyTailReady && !shareRow ? (
               <ThreadDiscoverPeek

@@ -90,7 +90,8 @@ import {
   walkBackOneStep,
 } from './post-thread-stack';
 
-// Panels load client-side; OsRouteSettle covers with thread skeleton until land.
+// Panels load client-side. A seeded root is ready immediately; a cold
+// open stays under the thread skeleton until the root paints.
 const LivePersonalPostPanel = dynamic(
   () =>
     import('@/features/home/live-personal-post-panel').then(
@@ -434,13 +435,14 @@ function PostThreadSheet({
   const [quotesTrackHost, setQuotesTrackHost] = useState<HTMLDivElement | null>(
     null
   );
-  // Settle waits on paint (`onThreadPainted`); key so a new layer never
-  // inherits the previous ready frame. Skeleton covers until then.
+  // A seeded post is the first frame. A cold open stays covered until the
+  // root paints (`onThreadPainted`). Key mismatch gates a later layer.
   const layerKey = `${layer.kind}:${layer.groupId ?? ''}:${layer.accountId}:${layer.postId}${
     layer.kind === 'quotes' ? `:${layer.tab}` : ''
   }`;
-  // Key mismatch already gates appear — no reset effect (set-state-in-effect).
-  const [paintedForKey, setPaintedForKey] = useState<string | null>(null);
+  const [paintedForKey, setPaintedForKey] = useState<string | null>(() =>
+    layer.kind === 'post' && layer.root ? layerKey : null
+  );
   const threadPainted = paintedForKey === layerKey;
   const title = quotes ? POST_REACH_TITLE : 'Post';
   const guildCard =
