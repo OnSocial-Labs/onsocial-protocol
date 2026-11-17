@@ -48,6 +48,8 @@ function DigitRoll({
   rollSignal,
   playFrom,
   stepPx,
+  fromValue,
+  toValue,
 }: {
   digit: number;
   rollSignal?: number;
@@ -55,6 +57,9 @@ function DigitRoll({
   playFrom?: number;
   /** Fixed line height so the roll cannot change the count's box. */
   stepPx?: number;
+  /** Whole-counter previous value — zero crossings snap (no under-flash). */
+  fromValue?: number;
+  toValue?: number;
 }) {
   const reduced = usePrefersReducedMotion();
   const target = mod10(digit);
@@ -81,7 +86,10 @@ function DigitRoll({
       return;
     }
 
-    const motionKind = rollingMotion(rollSignal, signalRef.current);
+    const motionKind = rollingMotion(rollSignal, signalRef.current, {
+      fromValue,
+      toValue,
+    });
     const from = posRef.current;
     let cancelled = false;
     let timer = 0;
@@ -155,7 +163,7 @@ function DigitRoll({
       window.cancelAnimationFrame(follow);
       window.clearTimeout(timer);
     };
-  }, [playFrom, reduced, rollSignal, target]);
+  }, [fromValue, playFrom, reduced, rollSignal, target, toValue]);
 
   const step = stepPx && stepPx > 0 ? stepPx : null;
   const cellStyle = step
@@ -223,7 +231,13 @@ export function RollingNumber({
   /** Face count: stable digit columns, parked and while rolling. */
   textRest?: boolean;
 }) {
-  const glyphs = rollingGlyphs(value, grouped);
+  const safe = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+  const prevValueRef = useRef(safe);
+  const fromValue = prevValueRef.current;
+  useEffect(() => {
+    prevValueRef.current = safe;
+  }, [safe]);
+  const glyphs = rollingGlyphs(safe, grouped);
   return (
     <span
       className={textRest ? 'os-rolling-number is-face' : 'os-rolling-number'}
@@ -239,6 +253,8 @@ export function RollingNumber({
             key={glyph.key}
             digit={glyph.digit}
             rollSignal={rollSignal}
+            fromValue={fromValue}
+            toValue={safe}
           />
         )
       )}

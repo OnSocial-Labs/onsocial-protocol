@@ -49,6 +49,15 @@ describe('rollingMotion', () => {
     expect(rollingMotion(1, 0)).toBe('roll');
     expect(rollingMotion(1, 1)).toBe('snap');
   });
+
+  it('snaps across zero so a parked 0 never flashes under the count', () => {
+    expect(rollingMotion(1, 0, { fromValue: 0, toValue: 1 })).toBe('snap');
+    expect(rollingMotion(2, 1, { fromValue: 1, toValue: 0 })).toBe('snap');
+    expect(rollingMotion(undefined, undefined, { fromValue: 0, toValue: 3 })).toBe(
+      'snap'
+    );
+    expect(rollingMotion(1, 0, { fromValue: 2, toValue: 3 })).toBe('roll');
+  });
 });
 
 describe('integerDigits', () => {

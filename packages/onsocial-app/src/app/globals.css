@@ -25355,6 +25355,7 @@ a.os-surface-row,
     margin: 0;
     padding: 0;
     overflow: hidden;
+    opacity: 0;
     pointer-events: none;
   }
 
@@ -25480,6 +25481,8 @@ a.os-surface-row,
     height: 1em;
     overflow: hidden;
     line-height: 1;
+    /* Wheel cells must not bleed the previous / zero face under the count. */
+    contain: paint;
   }
 
   .os-rolling-digit-strip {
