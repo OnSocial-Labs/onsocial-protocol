@@ -22,9 +22,9 @@ describe('os load more', () => {
       'components/portfolio/page-drawer-store.tsx',
       'features/protocol/dao-workspace-panel.tsx',
       'features/protocol/dao-discover-sheet.tsx',
+      // Personal thread: OsLoadMore only on load-more error retry.
       'features/home/live-personal-post-panel.tsx',
       'features/home/post-quotes-panel.tsx',
-      'features/guilds/live-guild-post-panel.tsx',
       'features/messages/messages-panel.tsx',
     ] as const;
     for (const file of wiring) {
@@ -44,6 +44,26 @@ describe('os load more', () => {
       expect(source).not.toContain('>More<');
       expect(source).not.toContain('Show more');
     }
+  });
+
+  it('pages thread replies by scroll with footer dots', () => {
+    for (const file of [
+      'features/home/live-personal-post-panel.tsx',
+      'features/guilds/live-guild-post-panel.tsx',
+    ]) {
+      const source = readFileSync(join(appSrc, file), 'utf8');
+      expect(source).toContain('useInfiniteScrollSentinel');
+      expect(source).toContain('list-append-pending');
+      expect(source).toContain('PulsingDots');
+      expect(source).not.toContain('Show more replies');
+    }
+    // Guild thread retries via OsEmptyAction, not OsLoadMore.
+    expect(
+      readFileSync(
+        join(appSrc, 'features/guilds/live-guild-post-panel.tsx'),
+        'utf8'
+      )
+    ).not.toContain('OsLoadMore');
   });
 
   it('drops leftover Show more class names', () => {
