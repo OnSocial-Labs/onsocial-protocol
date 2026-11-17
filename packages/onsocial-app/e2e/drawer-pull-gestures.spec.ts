@@ -139,7 +139,11 @@ test.describe('drawer pull gestures', () => {
     await expect(entry).toHaveAccessibleName('Open page');
     await expect(entry).toHaveAttribute('aria-haspopup', 'dialog');
     await expect(entry).toHaveAttribute('aria-expanded', 'false');
-    const tree = await page.locator('.portfolio-summon-dock').ariaSnapshot();
+    // Soft-nav / streaming can leave a second dock under a Suspense boundary
+    // (`[id="S:…"]`) for a beat — wait for the settled face dock.
+    const dock = page.locator('.portfolio-os-layer > .portfolio-summon-dock');
+    await expect(dock).toHaveCount(1, { timeout: E2E_CHROME_TIMEOUT_MS });
+    const tree = await dock.ariaSnapshot();
     expect(tree).toContain('Open page');
 
     await page.keyboard.press('Enter');

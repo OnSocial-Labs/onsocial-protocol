@@ -16,6 +16,8 @@ export { resolveOverlaySlotMode, type OverlaySlotMode };
  * - The network map is always the full screen, including a soft nav from Standing.
  * - Full-page panel routes (hard refresh) never mount glass.
  * - Articles (`writing:`) are always a solid page — never glass.
+ * - Writing / about soft shelves may glass; they are not face peeks. Only
+ *   endorsements and standing use the face-peek underlay exception below.
  * - Soft intercepts mount when the @overlay slot is active or portfolio is still
  *   the main child (empty layout segments under [accountId]).
  * - A standing peek over the network page still mounts: the underlay segment
@@ -46,17 +48,18 @@ export function shouldMountPortfolioGlassHost(input: {
     const underlay = input.layoutSegments[0] ?? '';
     const pathIsUnderlay =
       panelKey === underlay || panelKey.startsWith(`${underlay}:`);
-    // Face peeks hard-redirect on the children route. Soft open can briefly
-    // keep that segment while @overlay/loading (or the intercept page) is
-    // active — still mount glass so `.endorsements-panel` / `.standing-panel`
-    // can paint. Hard refresh stays idle + underlay → no glass.
+    // Face peeks hard-redirect on the children route. Soft open can leave
+    // children on that segment while @overlay still reads OverlayDefault
+    // (idle) or an opaque client reference (intercept without
+    // OverlayInterceptRoot) — mount glass so the Opening cover can paint
+    // `.endorsements-panel` / `.standing-panel`. Writing / about over their
+    // own underlay stay solid pages — never glass.
     const facePeek =
       panelKey === 'endorsements' || panelKey.startsWith('standing:');
-    if (
-      (pathIsUnderlay &&
-        !(facePeek && input.overlaySlotMode === 'intercept')) ||
-      (!pathIsUnderlay && input.overlaySlotMode !== 'intercept')
-    ) {
+    if (pathIsUnderlay) {
+      return facePeek;
+    }
+    if (input.overlaySlotMode !== 'intercept') {
       return false;
     }
   }

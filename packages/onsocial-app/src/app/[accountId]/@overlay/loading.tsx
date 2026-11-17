@@ -8,6 +8,11 @@ import { PortfolioWritingOverlayLoading } from '@/components/portfolio/portfolio
 import { EndorsementsSheetOpening } from '@/components/panels/endorsements-sheet-opening';
 import { StandingSheetOpening } from '@/components/panels/standing-sheet-opening';
 import { DiscoverSheetOpening } from '@/features/discover/discover-sheet-opening';
+import {
+  getBrowserPath,
+  getBrowserPathServerSnapshot,
+  subscribeBrowserPath,
+} from '@/lib/browser-path';
 import { accountIdFromPath } from '@/lib/overlay-routes';
 import {
   getPortfolioShelfHopServerSnapshot,
@@ -35,11 +40,22 @@ function isDiscoverOverlay(pathname: string): boolean {
 /**
  * Paint cold shells for overlays we can identify from the path. Other slots
  * stay empty so a shared fallback cannot flash over an unrelated profile.
- * Wrap in OverlayInterceptRoot so the glass host treats loading as intercept
- * (face peeks need that while children briefly match the peek segment).
+ *
+ * Face peeks (standing / endorsements) wrap in OverlayInterceptRoot so the
+ * glass host stays up while children briefly match the peek segment.
+ * Writing / about / discover loading stay unmarked — they are not face peeks,
+ * and writing must not force intercept glass around the solid article reader.
  */
 export default function OverlayLoading() {
-  const pathname = usePathname() ?? '';
+  const routerPath = usePathname() ?? '';
+  const browserPath = useSyncExternalStore(
+    subscribeBrowserPath,
+    getBrowserPath,
+    getBrowserPathServerSnapshot
+  );
+  // Soft nav updates the address bar before usePathname; face peeks need the
+  // Opening shell on that first paint, not after the router catches up.
+  const pathname = browserPath || routerPath;
   const shelfHop = useSyncExternalStore(
     subscribePortfolioShelfHop,
     getPortfolioShelfHopSnapshot,
@@ -60,11 +76,7 @@ export default function OverlayLoading() {
     );
   }
   if (isDiscoverOverlay(pathname)) {
-    return (
-      <OverlayInterceptRoot>
-        <DiscoverSheetOpening />
-      </OverlayInterceptRoot>
-    );
+    return <DiscoverSheetOpening />;
   }
   if (isWritingShelfOverlay(pathname)) {
     const accountId = accountIdFromPath(pathname);
@@ -75,20 +87,12 @@ export default function OverlayLoading() {
     ) {
       return null;
     }
-    return (
-      <OverlayInterceptRoot>
-        <PortfolioWritingOverlayLoading accountId={accountId} />
-      </OverlayInterceptRoot>
-    );
+    return <PortfolioWritingOverlayLoading accountId={accountId} />;
   }
   if (isAboutOverlay(pathname)) {
     const accountId = accountIdFromPath(pathname);
     if (!accountId) return null;
-    return (
-      <OverlayInterceptRoot>
-        <PortfolioAboutOverlayLoading accountId={accountId} />
-      </OverlayInterceptRoot>
-    );
+    return <PortfolioAboutOverlayLoading accountId={accountId} />;
   }
   return null;
 }

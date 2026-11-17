@@ -194,7 +194,32 @@ export async function softOpenPortfolioOverlay(
     }
     push(nextHref);
   }, href);
-  await softNav;
+  // Soft nav can leave the RSC flight open. Prefer the address bar over an
+  // early unrelated `_rsc` response — panel chrome paints from the URL.
+  await page
+    .waitForURL(
+      (url) => {
+        try {
+          const target = new URL(href, url.origin);
+          return (
+            url.pathname === target.pathname ||
+            url.pathname.startsWith(`${target.pathname}/`)
+          );
+        } catch {
+          return url.href.includes(href);
+        }
+      },
+      { timeout: 15_000 }
+    )
+    .catch(async () => {
+      await softNav;
+    });
+  // Product soft-open must mount glass in the same turn as the URL. Waiting
+  // only on `_rsc` left endorse specs racing an empty @overlay slot.
+  await glassSheetVisible(page).waitFor({
+    state: 'visible',
+    timeout: 15_000,
+  });
 }
 
 /**

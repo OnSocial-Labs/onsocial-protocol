@@ -11,6 +11,7 @@ import {
   parseEndorsementsMode,
 } from '@/lib/load-endorsements-page';
 import { loadProfileShell } from '@/lib/profile-shell';
+import { normalizeAccountRoute } from '@/lib/account-route';
 import {
   isInterceptMisfireSegment,
   resolveAccountId,
@@ -26,24 +27,30 @@ type OverlayRouteProps = {
 };
 
 async function EndorsementsOverlayBody({
-  accountId,
-  initialMode,
-}: {
-  accountId: string;
-  initialMode: 'received' | 'given';
-}) {
+  params,
+  searchParams,
+}: OverlayRouteProps) {
+  const accountId = await resolveAccountId(params);
+  const resolvedSearch = await searchParams;
+  const rawMode = Array.isArray(resolvedSearch?.mode)
+    ? resolvedSearch.mode[0]
+    : resolvedSearch?.mode;
+  const initialMode = parseEndorsementsMode(rawMode) ?? 'received';
   const [shell, initial] = await Promise.all([
     loadProfileShell(accountId),
     loadEndorsementsPageData(accountId),
   ]);
   return (
-    <EndorsementsPanel
-      accountId={accountId}
-      profileName={shell?.name ?? null}
-      avatarUrl={shell?.avatarUrl ?? null}
-      initial={initial}
-      initialMode={initialMode}
-    />
+    <>
+      <PortfolioFaceOverlayLeave accountId={accountId} />
+      <EndorsementsPanel
+        accountId={accountId}
+        profileName={shell?.name ?? null}
+        avatarUrl={shell?.avatarUrl ?? null}
+        initial={initial}
+        initialMode={initialMode}
+      />
+    </>
   );
 }
 
@@ -55,24 +62,25 @@ export default async function EndorsementsOverlay({
   if (isInterceptMisfireSegment(routeSegment)) {
     return <InterceptMisfireRecovery />;
   }
-  const accountId = await resolveAccountId(params);
-  const resolvedSearch = await searchParams;
-  const rawMode = Array.isArray(resolvedSearch?.mode)
-    ? resolvedSearch.mode[0]
-    : resolvedSearch?.mode;
-  const initialMode = parseEndorsementsMode(rawMode) ?? 'received';
+  // Frame + `.endorsements-panel` seat before resolveAccountId / list data.
+  // Soft-open must paint the intercept root immediately so glass stays up
+  // while children briefly match the peek segment.
+  const accountHint = normalizeAccountRoute(routeSegment) ?? routeSegment;
   const title = panelLabel('endorsements');
-  // Frame + `.endorsements-panel` seat first (Standing soft-open pattern).
-  // List data streams in under Suspense so a stalled indexer cannot blank
-  // the intercept while @overlay/loading is still swapping in.
   return (
     <OverlayInterceptRoot>
       <EndorsementsOverlayFrame ariaTitle={title} title={title}>
-        <PortfolioFaceOverlayLeave accountId={accountId} />
-        <Suspense fallback={<EndorsementsPanelSeat />}>
+        <Suspense
+          fallback={
+            <>
+              <PortfolioFaceOverlayLeave accountId={accountHint} />
+              <EndorsementsPanelSeat />
+            </>
+          }
+        >
           <EndorsementsOverlayBody
-            accountId={accountId}
-            initialMode={initialMode}
+            params={params}
+            searchParams={searchParams}
           />
         </Suspense>
       </EndorsementsOverlayFrame>
