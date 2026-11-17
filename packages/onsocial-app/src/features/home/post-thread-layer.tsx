@@ -613,7 +613,11 @@ function PostThreadSheet({
             <OsRouteSettle
               ready={threadPainted}
               skeleton={
-                quotes ? <PostQuotesPageSkeleton /> : <PostThreadPageSkeleton />
+                quotes ? (
+                  <PostQuotesPageSkeleton />
+                ) : (
+                  <PostThreadPageSkeleton />
+                )
               }
             >
               <PostQuotesTrackHostProvider

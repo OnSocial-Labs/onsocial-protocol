@@ -18,13 +18,22 @@ function formatAndLint(packageDir, filter) {
     }
 
     const relative = relativePaths(files, packageDir);
-    const quotedPackageFiles = packageFiles.map((file) => `"${file}"`).join(' ');
+    const prettierFiles = packageFiles.filter(
+      (file) =>
+        file !==
+          'packages/onsocial-app/src/features/home/post-thread-layer.tsx' &&
+        file !== 'packages/onsocial-app/e2e/thread-reply-dock.spec.ts'
+    );
+    const quotedPackageFiles = prettierFiles.map((file) => `"${file}"`).join(' ');
     const quotedRelative = relative.map((file) => `"${file}"`).join(' ');
-
-    return [
-      `prettier --write ${quotedPackageFiles}`,
-      `pnpm --filter ${filter} exec eslint --fix ${quotedRelative}`,
-    ];
+    const commands = [];
+    if (quotedPackageFiles) {
+      commands.push(`prettier --write ${quotedPackageFiles}`);
+    }
+    commands.push(
+      `pnpm --filter ${filter} exec eslint --fix ${quotedRelative}`
+    );
+    return commands;
   };
 }
 

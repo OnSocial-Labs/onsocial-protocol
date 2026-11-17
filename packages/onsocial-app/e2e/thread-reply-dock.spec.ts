@@ -434,9 +434,7 @@ test.describe('thread reply dock over the media face', () => {
 
   async function stubMediaThreadGraph(page: Page): Promise<void> {
     await page.route('**/api/onapi/graph/query', async (route: Route) => {
-      const body = JSON.parse(
-        route.request().postData() ?? '{}'
-      ) as GraphBody & {
+      const body = JSON.parse(route.request().postData() ?? '{}') as GraphBody & {
         variables?: { parentPath?: string; postId?: string };
       };
       const query = body.query ?? '';
@@ -540,7 +538,9 @@ test.describe('thread reply dock over the media face', () => {
     });
   }
 
-  test('a reply in the media drawer opens above the film', async ({ page }) => {
+  test('a reply in the media drawer opens above the film', async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await stubMediaThreadGraph(page);
     await stubMediaCdn(page);
@@ -588,7 +588,9 @@ test.describe('thread reply dock over the media face', () => {
     const layer = page.locator('.post-thread-sheet-panel');
     await expect(layer).toBeVisible({ timeout: 10_000 });
     await expect(layer).toContainText(FACE_REPLY.text);
-    const film = page.locator('[data-os-slide-over="true"]:not(.is-closing)');
+    const film = page.locator(
+      '[data-os-slide-over="true"]:not(.is-closing)'
+    );
     await expect(film).toHaveCount(1);
     await expect(drawer).toBeVisible();
 
