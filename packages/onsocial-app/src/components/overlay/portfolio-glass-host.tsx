@@ -68,7 +68,7 @@ function FacePeekOverlayCover({
   if (panelKey.startsWith('standing:')) {
     return (
       <OverlayInterceptRoot>
-        <StandingSheetOpening />
+        <StandingSheetOpening accountId={accountId} />
       </OverlayInterceptRoot>
     );
   }
