@@ -7,7 +7,12 @@ import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HomeFeedReveal } from '@/features/home/home-feed-reveal';
 import { FEED_MEDIA_RESOLVE_FALLBACK_MS } from '@/features/home/post-media';
-import { settleFeedSidePaint } from '@/lib/prepare-feed-paint';
+import {
+  FEED_SIDE_PAINT_CAP_MS,
+  sequenceFeedQuoteThenTally,
+  settleFeedSidePaint,
+  type FeedQuoteSeed,
+} from '@/lib/prepare-feed-paint';
 
 function RevealWhenDaoHangs() {
   const [posts, setPosts] = useState<string[] | null>(null);
@@ -17,7 +22,7 @@ function RevealWhenDaoHangs() {
       quotes: Promise.resolve({}),
       tallies: Promise.resolve({}),
       memberships: hang,
-      capMs: FEED_MEDIA_RESOLVE_FALLBACK_MS,
+      capMs: FEED_SIDE_PAINT_CAP_MS,
     }).then(() => setPosts(['Hello from the feed']));
   }, []);
   return createElement(
@@ -69,7 +74,7 @@ describe('feed paint cap', () => {
     expect(host.textContent).not.toContain('Hello from the feed');
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(FEED_MEDIA_RESOLVE_FALLBACK_MS);
+      await vi.advanceTimersByTimeAsync(FEED_SIDE_PAINT_CAP_MS);
     });
 
     expect(host.textContent).toContain('Hello from the feed');
@@ -86,7 +91,7 @@ describe('feed paint cap', () => {
           quotes: Promise.resolve({}),
           tallies: Promise.resolve({}),
           memberships: Promise.reject(new Error('dao down')),
-          capMs: FEED_MEDIA_RESOLVE_FALLBACK_MS,
+          capMs: FEED_SIDE_PAINT_CAP_MS,
         }).then((paint) => {
           expect(paint.memberships).toEqual({});
           setPosts(['Hello from the feed']);
@@ -109,5 +114,32 @@ describe('feed paint cap', () => {
       await Promise.resolve();
     });
     expect(host.textContent).toContain('Hello from the feed');
+  });
+});
+
+describe('sequenceFeedQuoteThenTally', () => {
+  it('uses the same budget as the media settle cap', () => {
+    expect(FEED_SIDE_PAINT_CAP_MS).toBe(FEED_MEDIA_RESOLVE_FALLBACK_MS);
+    expect(typeof FEED_SIDE_PAINT_CAP_MS).toBe('number');
+  });
+
+  it('starts the tally read only after the quote read settles', async () => {
+    let releaseQuotes: (value: FeedQuoteSeed) => void = () => {};
+    const quotes = new Promise<FeedQuoteSeed>((resolve) => {
+      releaseQuotes = resolve;
+    });
+    let talliesStarted = false;
+    const reads = sequenceFeedQuoteThenTally(quotes, () => {
+      talliesStarted = true;
+      return Promise.resolve({});
+    });
+    await Promise.resolve();
+    expect(talliesStarted).toBe(false);
+    releaseQuotes({ 'greenghost.onsocial.testnet/post/1': null });
+    await reads.tallies;
+    expect(talliesStarted).toBe(true);
+    await expect(reads.quotes).resolves.toHaveProperty(
+      'greenghost.onsocial.testnet/post/1'
+    );
   });
 });

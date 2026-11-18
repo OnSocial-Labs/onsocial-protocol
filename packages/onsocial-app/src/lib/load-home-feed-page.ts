@@ -2,11 +2,12 @@ import type { Paginated, PostRow } from '@onsocial/sdk';
 import type { HomeFeedSort } from '@/features/home/home-feed-sort';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import { resolveDaoMembershipsForAccounts } from '@/lib/fetch-page-drawer-meta';
-import { FEED_MEDIA_RESOLVE_FALLBACK_MS } from '@/features/home/post-media';
 import {
   feedAuthorIds,
+  FEED_SIDE_PAINT_CAP_MS,
   loadFeedPollTallies,
   loadFeedQuotes,
+  sequenceFeedQuoteThenTally,
   settleFeedSidePaint,
   type FeedQuoteSeed,
 } from '@/lib/prepare-feed-paint';
@@ -55,12 +56,13 @@ export async function loadHomeFeedPage(opts?: {
       loadPostEngagementMap(os, items),
       hydrateScarceEmbedsForPosts(os, items),
       settleFeedSidePaint({
-        quotes: loadFeedQuotes(items, os),
-        tallies: loadFeedPollTallies(items, os),
+        ...sequenceFeedQuoteThenTally(loadFeedQuotes(items, os), () =>
+          loadFeedPollTallies(items, os)
+        ),
         memberships: resolveDaoMembershipsForAccounts(
           feedAuthorIds(items, {})
         ),
-        capMs: FEED_MEDIA_RESOLVE_FALLBACK_MS,
+        capMs: FEED_SIDE_PAINT_CAP_MS,
       }),
     ]);
     return {

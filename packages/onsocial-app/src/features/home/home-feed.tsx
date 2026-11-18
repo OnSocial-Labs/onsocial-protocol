@@ -116,12 +116,13 @@ import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-cli
 import { fetchDaoRolesPage } from '@/lib/fetch-dao-roles-client';
 import {
   feedAuthorIds,
+  FEED_SIDE_PAINT_CAP_MS,
   loadFeedPollTallies,
   loadFeedQuotes,
+  sequenceFeedQuoteThenTally,
   settleFeedSidePaint,
   type FeedQuoteSeed,
 } from '@/lib/prepare-feed-paint';
-import { FEED_MEDIA_RESOLVE_FALLBACK_MS } from '@/features/home/post-media';
 import type { PollTally } from '@/lib/poll-votes';
 import type { ProtocolDaoMemberships } from '@/lib/protocol-dao-memberships';
 import {
@@ -333,11 +334,15 @@ async function loadFeedPaint(posts: PostRow[]): Promise<{
   };
   try {
     const client = createReadOnlyOnSocialClient();
+    const reads = sequenceFeedQuoteThenTally(
+      loadFeedQuotes(posts, client),
+      () => loadFeedPollTallies(posts, client)
+    );
     return await settleFeedSidePaint({
-      quotes: loadFeedQuotes(posts, client),
-      tallies: loadFeedPollTallies(posts, client),
+      quotes: reads.quotes,
+      tallies: reads.tallies,
       memberships: fetchDaoRolesPage(feedAuthorIds(posts, {})),
-      capMs: FEED_MEDIA_RESOLVE_FALLBACK_MS,
+      capMs: FEED_SIDE_PAINT_CAP_MS,
     });
   } catch {
     return empty;

@@ -208,9 +208,37 @@ export async function loadFeedPollTallies(
 }
 
 /**
+ * One budget for the quote, tally, and dao-role reads.
+ * Same 8s as `FEED_MEDIA_RESOLVE_FALLBACK_MS` in post-media.tsx. That
+ * export lives in a client module, so a server loader that imports it
+ * receives a function and the cap fires immediately. The paint-cap test
+ * locks the two numbers together.
+ */
+export const FEED_SIDE_PAINT_CAP_MS = 8_000;
+
+/**
+ * Quote hops finish before poll tallies start. Both reads share one
+ * OnSocial client. The cap timers in `settleFeedSidePaint` still start
+ * together, so the pair cannot hold the list past one cap.
+ */
+export function sequenceFeedQuoteThenTally(
+  quotes: Promise<FeedQuoteSeed>,
+  tallies: () => Promise<Record<string, PollTally>>
+): {
+  quotes: Promise<FeedQuoteSeed>;
+  tallies: Promise<Record<string, PollTally>>;
+} {
+  return {
+    quotes,
+    tallies: quotes.then(() => tallies()),
+  };
+}
+
+/**
  * Resolve `task`, or `fallback` if it rejects or is still pending when `ms`
- * elapses. Callers pass `FEED_MEDIA_RESOLVE_FALLBACK_MS` — the feed's existing
- * soft-fill cap — so a slow quote, tally, or dao-role fetch cannot hold the list.
+ * elapses. Callers pass `FEED_SIDE_PAINT_CAP_MS` — the same 8s budget as
+ * `FEED_MEDIA_RESOLVE_FALLBACK_MS` — so a slow quote, tally, or dao-role
+ * fetch cannot hold the list.
  */
 export function capFeedTask<T>(
   task: Promise<T>,
@@ -236,7 +264,7 @@ export async function settleFeedSidePaint(args: {
   quotes: Promise<FeedQuoteSeed>;
   tallies: Promise<Record<string, PollTally>>;
   memberships: Promise<Record<string, ProtocolDaoMemberships>>;
-  /** `FEED_MEDIA_RESOLVE_FALLBACK_MS`. */
+  /** `FEED_SIDE_PAINT_CAP_MS`. */
   capMs: number;
 }): Promise<{
   quoted: FeedQuoteSeed;
