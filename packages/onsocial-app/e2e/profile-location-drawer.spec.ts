@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { dismissNextDevOverlay, gotoApp } from './helpers';
 import { seedAuthenticatedNotifications } from './helpers/notifications-auth';
 
@@ -57,6 +57,16 @@ async function openEditor(page: Page): Promise<void> {
   });
 }
 
+/** Open end-state. `animation.finished` rejects with AbortError if enter is cancelled. */
+async function expectLocationDrawerOpen(drawer: Locator): Promise<Locator> {
+  await expect(drawer).toBeVisible();
+  await expect(drawer).toHaveClass(/is-open/);
+  const field = drawer.getByRole('textbox', { name: 'Based in' });
+  await expect(field).toBeVisible();
+  await expect(drawer.getByRole('button', { name: 'Done' })).toBeVisible();
+  return field;
+}
+
 test.describe('profile location drawer', () => {
   test('a person opens Based in in a drawer, then the line shows the place', async ({
     page,
@@ -72,12 +82,7 @@ test.describe('profile location drawer', () => {
 
     await location.click();
     const drawer = page.getByRole('dialog', { name: 'Location' });
-    await expect(drawer).toBeVisible();
-    const field = drawer.getByRole('textbox', { name: 'Based in' });
-    await expect(drawer).toHaveClass(/is-open/);
-    await drawer.evaluate((panel) =>
-      Promise.all(panel.getAnimations().map((animation) => animation.finished))
-    );
+    const field = await expectLocationDrawerOpen(drawer);
     await field.fill('Lisbon');
     await expect(drawer.getByRole('button', { name: 'Done' })).toBeInViewport();
     await page.screenshot({
@@ -102,17 +107,42 @@ test.describe('profile location drawer', () => {
     const editor = page.getByRole('dialog', { name: 'Edit profile' });
     await editor.getByRole('button', { name: 'Location, Location' }).click();
     const drawer = page.getByRole('dialog', { name: 'Location' });
-    const field = drawer.getByRole('textbox', { name: 'Based in' });
-    await expect(drawer).toHaveClass(/is-open/);
-    await drawer.evaluate((panel) =>
-      Promise.all(panel.getAnimations().map((animation) => animation.finished))
-    );
-    await expect(field).toBeVisible();
+    const field = await expectLocationDrawerOpen(drawer);
     await expect(drawer.getByRole('button', { name: 'Done' })).toBeInViewport();
     await page.screenshot({
       path: '/opt/cursor/artifacts/org-location-drawer.png',
     });
     await field.press('Enter');
     await expect(drawer).toBeHidden();
+  });
+
+  test('a cancelled enter animation still leaves the drawer open', async ({
+    page,
+  }) => {
+    await stubProfileEditor(page, 'person');
+    await openEditor(page);
+    const editor = page.getByRole('dialog', { name: 'Edit profile' });
+    await editor.getByRole('button', { name: 'Location, Based in' }).click();
+    const drawer = page.getByRole('dialog', { name: 'Location' });
+    await expect(drawer).toBeVisible();
+    const oldWait = await drawer.evaluate(async (panel) => {
+      panel.classList.add('glass-sheet-panel--enter');
+      await new Promise((resolve) => {
+        requestAnimationFrame(() => resolve(undefined));
+      });
+      const pending = panel
+        .getAnimations()
+        .map((animation) => animation.finished);
+      for (const animation of panel.getAnimations()) animation.cancel();
+      if (pending.length === 0) return 'empty';
+      try {
+        await Promise.all(pending);
+        return 'resolved';
+      } catch (error) {
+        return error instanceof DOMException ? error.name : 'error';
+      }
+    });
+    expect(oldWait).toBe('AbortError');
+    await expectLocationDrawerOpen(drawer);
   });
 });
