@@ -185,8 +185,8 @@ function useLandOpenedPost(
 /**
  * Same seat for roots and replies on the Post page / trail.
  * `landSeat: false` for media-band / hug embeds (no under-header pin).
- * `tailReady`: first reply page before appear. Graft / full tree / More-from
- * soft-fill below — industry: don't block the hero on secondary fetches.
+ * The pin runs on its own. It does not hold the cover.
+ * `tailReady` is an optional extra hold. The reply page does not use it.
  */
 export function useThreadLandAppear({
   openedPostRef,
@@ -207,7 +207,7 @@ export function useThreadLandAppear({
   ancestorsReady?: boolean;
   loadReady: boolean;
   hasRoot: boolean;
-  /** First reply page ready — appear waits; graft/tree/peek soft-fill below. */
+  /** Optional extra hold before `onThreadPainted`. Replies do not use this. */
   tailReady?: boolean;
   pinKey?: string;
   parked?: boolean;
@@ -232,9 +232,9 @@ export function useThreadLandAppear({
   );
 
   useLayoutEffect(() => {
-    if (parked || !loadReady || !hasRoot || !landSettled || !tailReady) return;
+    if (parked || !loadReady || !hasRoot || !tailReady) return;
     onThreadPainted?.();
-  }, [hasRoot, landSettled, loadReady, onThreadPainted, parked, tailReady]);
+  }, [hasRoot, loadReady, onThreadPainted, parked, tailReady]);
 
   return { landSettled };
 }

@@ -39,6 +39,11 @@ function insideFeedSession(node: HTMLElement): boolean {
   return Boolean(node.closest('[data-feed-session]'));
 }
 
+/** A frame rendered inside a sheet must not become that sheet's portal target. */
+function insideGlassSheet(node: HTMLElement): boolean {
+  return Boolean(node.closest('.glass-sheet-root, .glass-sheet-panel'));
+}
+
 const OsPortalHostContext = createContext<OsPortalHostContextValue | null>(
   null
 );
@@ -76,7 +81,7 @@ export function OsPortalHostProvider({ children }: { children: ReactNode }) {
   let feedHost: HTMLElement | null = null;
   for (let index = hosts.length - 1; index >= 0; index -= 1) {
     const node = hosts[index]!.node;
-    if (!node.isConnected) continue;
+    if (!node.isConnected || insideGlassSheet(node)) continue;
     if (insideFeedSession(node)) {
       if (!feedHost && !coveredFeedHost(node) && !frontCard) feedHost = node;
       continue;
