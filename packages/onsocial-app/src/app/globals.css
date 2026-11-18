@@ -8721,6 +8721,11 @@ a.os-surface-row,
     gap: 0.35rem;
   }
 
+  .portfolio-boost-network-stats {
+    grid-column: 2 / -1;
+    min-width: 0;
+  }
+
   .portfolio-boost-network-item {
     display: flex;
     min-width: 0;
@@ -33110,6 +33115,11 @@ a.os-surface-row,
   /* One inset layer — form owns pad; face banners bleed past it. */
   .hub-manage-slide .hub-manage-form {
     padding: 0 var(--os-screen-body-pad-x, 0.75rem) 1.35rem;
+  }
+
+  /* The slide header is absolute. A short error would sit under the title. */
+  .hub-manage-slide .hub-manage-form > .standing-panel-error-block {
+    margin-top: var(--os-screen-chrome-height);
   }
 
   .hub-manage-slide .os-slide-over-content.hub-manage-slide-body {

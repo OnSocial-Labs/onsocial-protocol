@@ -20,6 +20,7 @@ import {
   OsSheetActions,
   osFieldBorderedClassName,
 } from '@onsocial/ui';
+import { ListLoadError } from '@/components/panels/list-load-error';
 import { DaoPageSlideOverScreen } from '@/features/protocol/dao-page-slide-over-screen';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -108,6 +109,7 @@ export function DaoBoostSheet({
   const moodPreview = usePortfolioMoodPreviewOptional();
   const {
     loaded,
+    status,
     hasPosition,
     lockedYocto,
     claimableYocto,
@@ -161,7 +163,7 @@ export function DaoBoostSheet({
   }, [open, daoAccountId]);
 
   useEffect(() => {
-    if (!open || !loaded) return;
+    if (!open || !loaded || status === 'error') return;
     queueMicrotask(() => {
       if (!hasPosition) {
         setMode('lock');
@@ -169,7 +171,7 @@ export function DaoBoostSheet({
       }
       setMode(canUnlock ? 'unlock' : 'collect');
     });
-  }, [open, loaded, hasPosition, canUnlock]);
+  }, [open, loaded, hasPosition, canUnlock, status]);
 
   const normalizedAmount = finalizeAmountInput(
     amountInput,
@@ -215,7 +217,7 @@ export function DaoBoostSheet({
     ready: boolean;
     onClick: () => void;
   } | null => {
-    if (!loaded) return null;
+    if (!loaded || status === 'error') return null;
     if (mode === 'lock' || mode === 'increase') {
       return {
         label: mode === 'increase' ? 'Propose increase' : 'Propose Boost',
@@ -388,9 +390,11 @@ export function DaoBoostSheet({
   const showPeriodForNewLock = mode === 'lock';
   const subtitle = !loaded
     ? 'Loading Boost position…'
-    : hasPosition
-      ? `${formatSocialCompact(lockedYocto)} SOCIAL locked · live after approval`
-      : 'Lock treasury SOCIAL into Boost — live after approval.';
+    : status === 'error'
+      ? 'Boost unavailable'
+      : hasPosition
+        ? `${formatSocialCompact(lockedYocto)} SOCIAL locked · live after approval`
+        : 'Lock treasury SOCIAL into Boost — live after approval.';
 
   return (
     <>
@@ -425,197 +429,208 @@ export function DaoBoostSheet({
         }
       >
         <form id={formId} className="hub-manage-form" onSubmit={requestConfirm}>
-          {hasPosition ? (
-            <div className="dao-boost-position" aria-live="polite">
-              <p className="dao-boost-position-line">
-                Locked {formatSocialCompact(lockedYocto)} SOCIAL
-              </p>
-              <p className="dao-boost-position-line">
-                Claimable {formatSocialCompact(claimableYocto)} SOCIAL
-              </p>
-              {account?.unlock_at ? (
-                <p className="dao-boost-position-meta">
-                  {formatUnlockDateLabel(account.unlock_at)} ·{' '}
-                  {formatTimeRemainingLabel(account.unlock_at)}
+          {status === 'error' ? (
+            <ListLoadError
+              message="Couldn’t load the DAO’s lock."
+              onRetry={() => {
+                void refresh();
+              }}
+            />
+          ) : (
+            <>
+              {hasPosition ? (
+                <div className="dao-boost-position" aria-live="polite">
+                  <p className="dao-boost-position-line">
+                    Locked {formatSocialCompact(lockedYocto)} SOCIAL
+                  </p>
+                  <p className="dao-boost-position-line">
+                    Claimable {formatSocialCompact(claimableYocto)} SOCIAL
+                  </p>
+                  {account?.unlock_at ? (
+                    <p className="dao-boost-position-meta">
+                      {formatUnlockDateLabel(account.unlock_at)} ·{' '}
+                      {formatTimeRemainingLabel(account.unlock_at)}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {modeChips.length > 0 ? (
+                <div
+                  className="dao-boost-mode-chips"
+                  role="tablist"
+                  aria-label="Boost actions"
+                >
+                  {modeChips.map((chip) => (
+                    <button
+                      key={chip.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={mode === chip.id}
+                      className={`dao-boost-mode-chip os-disabled-ink${
+                        mode === chip.id ? ' is-selected' : ''
+                      }`}
+                      disabled={pending}
+                      onClick={() => {
+                        setMode(chip.id);
+                        setError(null);
+                        setAmountInput('');
+                        setExtendMonths(null);
+                      }}
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              {showAmountForm ? (
+                <>
+                  <OsField
+                    label="Amount"
+                    htmlFor={`${formId}-amount`}
+                    hint={
+                      treasuryLoading
+                        ? 'Loading treasury…'
+                        : treasuryYocto != null
+                          ? `Treasury ${formatSocialCompact(treasuryYocto.toString())} SOCIAL`
+                          : 'Treasury balance unavailable'
+                    }
+                  >
+                    <input
+                      id={`${formId}-amount`}
+                      inputMode="decimal"
+                      value={amountInput}
+                      placeholder={BOOST_MIN_LOCK_SOCIAL_LABEL}
+                      disabled={pending}
+                      onChange={(event) => {
+                        setAmountInput(
+                          normalizeAmountInput(
+                            event.target.value,
+                            SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS
+                          )
+                        );
+                        setError(null);
+                      }}
+                      className={osFieldBorderedClassName}
+                    />
+                  </OsField>
+
+                  {treasuryYocto != null && treasuryYocto > 0n ? (
+                    <button
+                      type="button"
+                      className="protocol-tool is-ghost"
+                      disabled={pending}
+                      onClick={() => {
+                        setAmountInput(
+                          finalizeAmountInput(
+                            yoctoToSocial(treasuryYocto.toString()),
+                            SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS
+                          )
+                        );
+                        setError(null);
+                      }}
+                    >
+                      Use full treasury
+                    </button>
+                  ) : null}
+                </>
+              ) : null}
+
+              {showPeriodForNewLock ? (
+                <div
+                  className="portfolio-boost-periods"
+                  role="group"
+                  aria-label="Lock period"
+                  style={
+                    {
+                      '--boost-period-cols': String(
+                        BOOST_LOCK_PERIOD_OPTIONS.length
+                      ),
+                    } as CSSProperties
+                  }
+                >
+                  {BOOST_LOCK_PERIOD_OPTIONS.map((option) => (
+                    <button
+                      key={option.months}
+                      type="button"
+                      className={`os-surface-chip${
+                        months === option.months ? ' is-selected' : ''
+                      }`}
+                      disabled={pending}
+                      onClick={() => setMonths(option.months)}
+                    >
+                      {option.short}
+                      <span className="portfolio-boost-period-bonus">
+                        +{option.bonusPercent}%
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              {mode === 'extend' ? (
+                <div
+                  className="portfolio-boost-periods"
+                  role="group"
+                  aria-label="Extend to"
+                  style={
+                    {
+                      '--boost-period-cols': String(
+                        Math.max(extendOptions.length, 1)
+                      ),
+                    } as CSSProperties
+                  }
+                >
+                  {extendOptions.map((option) => (
+                    <button
+                      key={option.months}
+                      type="button"
+                      className={`os-surface-chip${
+                        extendMonths === option.months ? ' is-selected' : ''
+                      }`}
+                      disabled={pending}
+                      onClick={() => setExtendMonths(option.months)}
+                    >
+                      {option.short}
+                      <span className="portfolio-boost-period-bonus">
+                        +{option.bonusPercent}%
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              {mode === 'renew' ? (
+                <p className="dao-edit-footnote">
+                  Renews for another{' '}
+                  {lockPeriodOption(currentLockMonths)?.label ??
+                    `${currentLockMonths} months`}{' '}
+                  without unlocking.
                 </p>
               ) : null}
-            </div>
-          ) : null}
 
-          {modeChips.length > 0 ? (
-            <div
-              className="dao-boost-mode-chips"
-              role="tablist"
-              aria-label="Boost actions"
-            >
-              {modeChips.map((chip) => (
-                <button
-                  key={chip.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={mode === chip.id}
-                  className={`dao-boost-mode-chip os-disabled-ink${
-                    mode === chip.id ? ' is-selected' : ''
-                  }`}
-                  disabled={pending}
-                  onClick={() => {
-                    setMode(chip.id);
-                    setError(null);
-                    setAmountInput('');
-                    setExtendMonths(null);
-                  }}
-                >
-                  {chip.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
+              {mode === 'collect' ? (
+                <p className="dao-edit-footnote">
+                  Rewards return to the DAO SOCIAL wallet after approval.
+                </p>
+              ) : null}
 
-          {showAmountForm ? (
-            <>
-              <OsField
-                label="Amount"
-                htmlFor={`${formId}-amount`}
-                hint={
-                  treasuryLoading
-                    ? 'Loading treasury…'
-                    : treasuryYocto != null
-                      ? `Treasury ${formatSocialCompact(treasuryYocto.toString())} SOCIAL`
-                      : 'Treasury balance unavailable'
-                }
-              >
-                <input
-                  id={`${formId}-amount`}
-                  inputMode="decimal"
-                  value={amountInput}
-                  placeholder={BOOST_MIN_LOCK_SOCIAL_LABEL}
-                  disabled={pending}
-                  onChange={(event) => {
-                    setAmountInput(
-                      normalizeAmountInput(
-                        event.target.value,
-                        SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS
-                      )
-                    );
-                    setError(null);
-                  }}
-                  className={osFieldBorderedClassName}
-                />
-              </OsField>
+              {mode === 'unlock' ? (
+                <p className="dao-edit-footnote">
+                  Unlocks principal and collects remaining rewards to the DAO.
+                </p>
+              ) : null}
 
-              {treasuryYocto != null && treasuryYocto > 0n ? (
-                <button
-                  type="button"
-                  className="protocol-tool is-ghost"
-                  disabled={pending}
-                  onClick={() => {
-                    setAmountInput(
-                      finalizeAmountInput(
-                        yoctoToSocial(treasuryYocto.toString()),
-                        SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS
-                      )
-                    );
-                    setError(null);
-                  }}
-                >
-                  Use full treasury
-                </button>
+              {error ? <p className="guild-form-error">{error}</p> : null}
+              {mode === 'lock' ? (
+                <p className="dao-edit-footnote">
+                  Minimum {BOOST_MIN_LOCK_SOCIAL_LABEL} SOCIAL. Position belongs
+                  to the DAO after council approval.
+                </p>
               ) : null}
             </>
-          ) : null}
-
-          {showPeriodForNewLock ? (
-            <div
-              className="portfolio-boost-periods"
-              role="group"
-              aria-label="Lock period"
-              style={
-                {
-                  '--boost-period-cols': String(
-                    BOOST_LOCK_PERIOD_OPTIONS.length
-                  ),
-                } as CSSProperties
-              }
-            >
-              {BOOST_LOCK_PERIOD_OPTIONS.map((option) => (
-                <button
-                  key={option.months}
-                  type="button"
-                  className={`os-surface-chip${
-                    months === option.months ? ' is-selected' : ''
-                  }`}
-                  disabled={pending}
-                  onClick={() => setMonths(option.months)}
-                >
-                  {option.short}
-                  <span className="portfolio-boost-period-bonus">
-                    +{option.bonusPercent}%
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          {mode === 'extend' ? (
-            <div
-              className="portfolio-boost-periods"
-              role="group"
-              aria-label="Extend to"
-              style={
-                {
-                  '--boost-period-cols': String(
-                    Math.max(extendOptions.length, 1)
-                  ),
-                } as CSSProperties
-              }
-            >
-              {extendOptions.map((option) => (
-                <button
-                  key={option.months}
-                  type="button"
-                  className={`os-surface-chip${
-                    extendMonths === option.months ? ' is-selected' : ''
-                  }`}
-                  disabled={pending}
-                  onClick={() => setExtendMonths(option.months)}
-                >
-                  {option.short}
-                  <span className="portfolio-boost-period-bonus">
-                    +{option.bonusPercent}%
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          {mode === 'renew' ? (
-            <p className="dao-edit-footnote">
-              Renews for another{' '}
-              {lockPeriodOption(currentLockMonths)?.label ??
-                `${currentLockMonths} months`}{' '}
-              without unlocking.
-            </p>
-          ) : null}
-
-          {mode === 'collect' ? (
-            <p className="dao-edit-footnote">
-              Rewards return to the DAO SOCIAL wallet after approval.
-            </p>
-          ) : null}
-
-          {mode === 'unlock' ? (
-            <p className="dao-edit-footnote">
-              Unlocks principal and collects remaining rewards to the DAO.
-            </p>
-          ) : null}
-
-          {error ? <p className="guild-form-error">{error}</p> : null}
-          {mode === 'lock' ? (
-            <p className="dao-edit-footnote">
-              Minimum {BOOST_MIN_LOCK_SOCIAL_LABEL} SOCIAL. Position belongs to
-              the DAO after council approval.
-            </p>
-          ) : null}
+          )}
         </form>
       </DaoPageSlideOverScreen>
 

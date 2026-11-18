@@ -346,26 +346,159 @@ export function formatTimeRemainingLabel(unlockAtNs: number): string {
 
 // ── Reads (boost contract views via the OnAPI gateway proxy) ──
 
-async function fetchBoostJson<T>(
+/**
+ * Above a slow contract view (several seconds). A hang is a failed read,
+ * not an empty lock.
+ */
+const BOOST_READ_TIMEOUT_MS = 15_000;
+
+/**
+ * Join a read already in flight for the same path and account.
+ * Dropped when that read settles — no cached result, so freshness is unchanged.
+ */
+const boostReadInflight = new Map<string, Promise<unknown>>();
+
+function boostRecord(value: unknown): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error('Boost read was empty');
+  }
+  return value as Record<string, unknown>;
+}
+
+function requireStringField(
+  record: Record<string, unknown>,
+  key: string
+): void {
+  if (typeof record[key] !== 'string') {
+    throw new Error(`Boost read missing ${key}`);
+  }
+}
+
+function requireNumberField(
+  record: Record<string, unknown>,
+  key: string
+): void {
+  const value = record[key];
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(`Boost read missing ${key}`);
+  }
+}
+
+function requireBooleanField(
+  record: Record<string, unknown>,
+  key: string
+): void {
+  if (typeof record[key] !== 'boolean') {
+    throw new Error(`Boost read missing ${key}`);
+  }
+}
+
+function requireFields(
+  record: Record<string, unknown>,
+  fields: {
+    string?: readonly string[];
+    number?: readonly string[];
+    boolean?: readonly string[];
+  }
+): void {
+  for (const key of fields.string ?? []) requireStringField(record, key);
+  for (const key of fields.number ?? []) requireNumberField(record, key);
+  for (const key of fields.boolean ?? []) requireBooleanField(record, key);
+}
+
+function parseBoostAccount(value: unknown): BoostAccountView {
+  const record = boostRecord(value);
+  requireFields(record, {
+    string: [
+      'locked_amount',
+      'effective_boost',
+      'claimable_rewards',
+      'boost_seconds',
+      'rewards_claimed',
+    ],
+    number: ['unlock_at', 'lock_months'],
+  });
+  return record as unknown as BoostAccountView;
+}
+
+function parseBoostLockStatus(value: unknown): BoostLockStatus {
+  const record = boostRecord(value);
+  requireFields(record, {
+    string: ['locked_amount', 'effective_boost'],
+    number: ['lock_months', 'unlock_at', 'time_remaining_ns', 'bonus_percent'],
+    boolean: ['is_locked', 'can_unlock', 'lock_expired'],
+  });
+  return record as unknown as BoostLockStatus;
+}
+
+function parseBoostRewardsLive(value: unknown): BoostRewardsLiveSnapshot {
+  const record = boostRecord(value);
+  requireFields(record, {
+    string: [
+      'claimable_rewards',
+      'rewards_per_second',
+      'effective_boost',
+      'total_effective_boost',
+    ],
+    number: ['as_of_timestamp_ns'],
+  });
+  return record as unknown as BoostRewardsLiveSnapshot;
+}
+
+function parseBoostStats(value: unknown): BoostContractStats {
+  const record = boostRecord(value);
+  requireFields(record, {
+    string: ['total_locked', 'scheduled_pool', 'total_effective_boost'],
+    number: ['active_weekly_rate_bps'],
+  });
+  return record as unknown as BoostContractStats;
+}
+
+async function readBoostJson<T>(
   path: string,
-  search?: URLSearchParams
+  search: URLSearchParams | undefined,
+  parse: (value: unknown) => T
 ): Promise<T> {
   const suffix = search?.toString() ? `?${search.toString()}` : '';
   const response = await fetch(`${BROWSER_GATEWAY_PROXY}/${path}${suffix}`, {
     cache: 'no-store',
+    signal: AbortSignal.timeout(BOOST_READ_TIMEOUT_MS),
   });
   if (!response.ok) {
     throw new Error(`Boost read failed (${response.status})`);
   }
-  return (await response.json()) as T;
+  return parse(await response.json());
 }
 
-async function fetchBoostView<T>(path: string, accountId: string): Promise<T> {
-  return fetchBoostJson<T>(path, new URLSearchParams({ accountId }));
+async function fetchBoostJson<T>(
+  path: string,
+  search: URLSearchParams | undefined,
+  parse: (value: unknown) => T
+): Promise<T> {
+  const accountId = search?.get('accountId') ?? '';
+  const key = `${path}\n${accountId}`;
+  const pending = boostReadInflight.get(key);
+  if (pending) return pending as Promise<T>;
+
+  const promise = readBoostJson(path, search, parse).finally(() => {
+    if (boostReadInflight.get(key) === promise) {
+      boostReadInflight.delete(key);
+    }
+  });
+  boostReadInflight.set(key, promise);
+  return promise;
+}
+
+async function fetchBoostView<T>(
+  path: string,
+  accountId: string,
+  parse: (value: unknown) => T
+): Promise<T> {
+  return fetchBoostJson(path, new URLSearchParams({ accountId }), parse);
 }
 
 export function fetchBoostStats(): Promise<BoostContractStats> {
-  return fetchBoostJson<BoostContractStats>('data/boost-stats');
+  return fetchBoostJson('data/boost-stats', undefined, parseBoostStats);
 }
 
 /** Indexed booster count — Graph aggregate, not the boost contract. */
@@ -386,21 +519,26 @@ export async function fetchActiveBoosterCount(): Promise<number | null> {
 export function fetchBoostAccount(
   accountId: string
 ): Promise<BoostAccountView> {
-  return fetchBoostView<BoostAccountView>('data/boost-account', accountId);
+  return fetchBoostView('data/boost-account', accountId, parseBoostAccount);
 }
 
 export function fetchBoostLockStatus(
   accountId: string
 ): Promise<BoostLockStatus> {
-  return fetchBoostView<BoostLockStatus>('data/boost-lock-status', accountId);
+  return fetchBoostView(
+    'data/boost-lock-status',
+    accountId,
+    parseBoostLockStatus
+  );
 }
 
 export function fetchBoostRewardsLiveSnapshot(
   accountId: string
 ): Promise<BoostRewardsLiveSnapshot> {
-  return fetchBoostView<BoostRewardsLiveSnapshot>(
+  return fetchBoostView(
     'data/boost-rewards-live',
-    accountId
+    accountId,
+    parseBoostRewardsLive
   );
 }
 
