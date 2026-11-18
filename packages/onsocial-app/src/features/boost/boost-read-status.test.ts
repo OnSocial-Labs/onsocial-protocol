@@ -466,8 +466,8 @@ describe('boost read status', () => {
         onClose: () => {},
       })
     );
-    expect((await screen.findByRole('alert')).textContent).toMatch(
-      /Couldn.t load your lock/
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'Couldn’t load the DAO’s lock.'
     );
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Propose Boost' })).toBeNull();

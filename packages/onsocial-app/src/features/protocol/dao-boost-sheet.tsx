@@ -431,7 +431,7 @@ export function DaoBoostSheet({
         <form id={formId} className="hub-manage-form" onSubmit={requestConfirm}>
           {status === 'error' ? (
             <ListLoadError
-              message="Couldn’t load your lock."
+              message="Couldn’t load the DAO’s lock."
               onRetry={() => {
                 void refresh();
               }}
