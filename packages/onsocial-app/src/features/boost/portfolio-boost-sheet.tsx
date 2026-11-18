@@ -29,6 +29,7 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
+import { ListLoadError } from '@/components/panels/list-load-error';
 import { SheetChromeHeader } from '@/components/panels/sheet-chrome-header';
 import { BoostNetworkPulse } from '@/features/boost/boost-network-pulse';
 import {
@@ -367,6 +368,7 @@ export function PortfolioBoostSheet({
   const {
     account,
     lockStatus,
+    status,
     loaded,
     hasPosition,
     lockedYocto,
@@ -563,6 +565,10 @@ export function PortfolioBoostSheet({
       scheduledPoolYocto={network.stats?.scheduled_pool ?? null}
       activeWeeklyRateBps={network.stats?.active_weekly_rate_bps ?? null}
       loading={!network.loaded}
+      error={network.statsError}
+      onRetry={() => {
+        void network.refresh();
+      }}
     />
   );
 
@@ -635,7 +641,8 @@ export function PortfolioBoostSheet({
           resetLiveCounterAfterClaim();
         }
         await input.onConfirmed?.();
-        await refresh();
+        // A failed confirm must not restore the pre-tx read.
+        await refresh({ discardLastGood: true });
         void network.refresh();
         if (celebrateCollect) {
           // RPC can lag — portal retries while the chip is up.
@@ -827,8 +834,10 @@ export function PortfolioBoostSheet({
       : []),
   ];
 
+  const readFailed = status === 'error';
+
   const footerState = ((): CommerceSheetFooterState | null => {
-    if (!loaded) return null;
+    if (!loaded || readFailed) return null;
 
     if (needsConnect) {
       return {
@@ -974,9 +983,11 @@ export function PortfolioBoostSheet({
                 aria-label={
                   !loaded
                     ? 'Loading boost'
-                    : hasPosition
-                      ? `${formatSocialCompact(lockedYocto)} SOCIAL locked`
-                      : 'Lock SOCIAL'
+                    : readFailed
+                      ? 'Boost unavailable'
+                      : hasPosition
+                        ? `${formatSocialCompact(lockedYocto)} SOCIAL locked`
+                        : 'Lock SOCIAL'
                 }
               >
                 {!loaded ? (
@@ -984,6 +995,8 @@ export function PortfolioBoostSheet({
                     className="standing-row-shimmer portfolio-boost-shimmer-title"
                     aria-hidden
                   />
+                ) : readFailed ? (
+                  <span aria-hidden>Boost unavailable</span>
                 ) : hasPosition ? (
                   <>
                     <span
@@ -1017,287 +1030,306 @@ export function PortfolioBoostSheet({
       <div className="portfolio-boost-sheet-body">
         {!loaded ? (
           <BoostSheetLoadingSkeleton />
+        ) : readFailed ? (
+          <ListLoadError
+            message="Couldn’t load your lock."
+            onRetry={() => {
+              void refresh();
+            }}
+          />
         ) : (
           <OsPageBodyAppear>
             {hasPosition && account ? (
               <div className="portfolio-boost-view">
-            <section className="portfolio-boost-collect" aria-live="off">
-              {claimCelebration ? (
-                <div
-                  key={claimCelebration.id}
-                  className="portfolio-boost-collect-celebration"
-                  aria-live="polite"
-                >
-                  <span
-                    className="portfolio-boost-collect-celebration-sweep"
-                    aria-hidden
-                  />
-                  <span className="portfolio-boost-collect-celebration-chip">
-                    <GiftFillIcon
-                      className="portfolio-boost-collect-celebration-icon"
-                      aria-hidden
-                    />
-                    +
-                    {formatYoctoSocialFixed(
-                      claimCelebration.amountYocto,
-                      LIVE_COUNTER_FRACTION_DIGITS
-                    )}
-                  </span>
-                </div>
-              ) : null}
-              <div
-                className={`portfolio-boost-collect-body${
-                  collectCelebrating ? ' is-celebrating' : ''
-                }`}
-                aria-hidden={collectCelebrating || undefined}
-              >
-                <p className="portfolio-payout-sheet-eyebrow">
-                  Ready to collect
-                </p>
-                <BoostLiveClaimableAmount
-                  valueYocto={displayClaimableYocto}
-                  celebrating={collectCelebrating}
-                />
-                {ratePerSecondYocto > 0n || collectCelebrating ? (
-                  <p
-                    className={`portfolio-boost-collect-rate${
+                <section className="portfolio-boost-collect" aria-live="off">
+                  {claimCelebration ? (
+                    <div
+                      key={claimCelebration.id}
+                      className="portfolio-boost-collect-celebration"
+                      aria-live="polite"
+                    >
+                      <span
+                        className="portfolio-boost-collect-celebration-sweep"
+                        aria-hidden
+                      />
+                      <span className="portfolio-boost-collect-celebration-chip">
+                        <GiftFillIcon
+                          className="portfolio-boost-collect-celebration-icon"
+                          aria-hidden
+                        />
+                        +
+                        {formatYoctoSocialFixed(
+                          claimCelebration.amountYocto,
+                          LIVE_COUNTER_FRACTION_DIGITS
+                        )}
+                      </span>
+                    </div>
+                  ) : null}
+                  <div
+                    className={`portfolio-boost-collect-body${
                       collectCelebrating ? ' is-celebrating' : ''
                     }`}
                     aria-hidden={collectCelebrating || undefined}
                   >
-                    +
-                    {formatYoctoSocialFixed(
-                      ratePerSecondYocto,
-                      LIVE_COUNTER_FRACTION_DIGITS
-                    )}
-                    /sec
-                  </p>
-                ) : null}
-              </div>
-            </section>
+                    <p className="portfolio-payout-sheet-eyebrow">
+                      Ready to collect
+                    </p>
+                    <BoostLiveClaimableAmount
+                      valueYocto={displayClaimableYocto}
+                      celebrating={collectCelebrating}
+                    />
+                    {ratePerSecondYocto > 0n || collectCelebrating ? (
+                      <p
+                        className={`portfolio-boost-collect-rate${
+                          collectCelebrating ? ' is-celebrating' : ''
+                        }`}
+                        aria-hidden={collectCelebrating || undefined}
+                      >
+                        +
+                        {formatYoctoSocialFixed(
+                          ratePerSecondYocto,
+                          LIVE_COUNTER_FRACTION_DIGITS
+                        )}
+                        /sec
+                      </p>
+                    ) : null}
+                  </div>
+                </section>
 
-            <div
-              className="portfolio-boost-mode-row"
-              role="group"
-              aria-label="Boost actions"
-            >
-              {(canUnlock ? completeChips : modeChips).map((chip) => (
-                <button
-                  key={chip.id}
-                  type="button"
-                  className={`os-surface-chip${
-                    mode === chip.id ? ' is-selected' : ''
-                  }`}
-                  aria-pressed={mode === chip.id}
-                  disabled={txBusy}
-                  onClick={() => switchMode(chip.id)}
+                <div
+                  className="portfolio-boost-mode-row"
+                  role="group"
+                  aria-label="Boost actions"
                 >
-                  {chip.label}
-                </button>
-              ))}
-            </div>
+                  {(canUnlock ? completeChips : modeChips).map((chip) => (
+                    <button
+                      key={chip.id}
+                      type="button"
+                      className={`os-surface-chip${
+                        mode === chip.id ? ' is-selected' : ''
+                      }`}
+                      aria-pressed={mode === chip.id}
+                      disabled={txBusy}
+                      onClick={() => switchMode(chip.id)}
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
 
-            <BoostModeSlot mode={mode}>
-              {canUnlock && mode === 'collect' ? (
-                <p className="portfolio-boost-note portfolio-boost-note--center">
-                  Release your lock and collect everything.
+                <BoostModeSlot mode={mode}>
+                  {canUnlock && mode === 'collect' ? (
+                    <p className="portfolio-boost-note portfolio-boost-note--center">
+                      Release your lock and collect everything.
+                    </p>
+                  ) : null}
+
+                  {!canUnlock && mode === 'increase' ? (
+                    <BoostAmountField
+                      amountInput={amountInput}
+                      onAmountInput={applyAmountInput}
+                      onMax={applyMaxAmount}
+                      balanceYocto={balanceYocto}
+                      tokenIconSrc={socialIcon}
+                      disabled={txBusy}
+                    />
+                  ) : null}
+
+                  {mode === 'extend' ? (
+                    extendOptions.length > 0 || currentOption ? (
+                      <div
+                        className="portfolio-boost-periods"
+                        role="group"
+                        aria-label="Extend lock period"
+                        style={
+                          {
+                            '--boost-period-cols': String(
+                              Math.max(
+                                (currentOption ? 1 : 0) + extendOptions.length,
+                                1
+                              )
+                            ),
+                          } as CSSProperties
+                        }
+                      >
+                        {currentOption ? (
+                          <button
+                            type="button"
+                            className={`os-surface-chip${
+                              extendMonths == null ? ' is-selected' : ''
+                            }`}
+                            disabled
+                            aria-current={
+                              extendMonths == null ? 'true' : undefined
+                            }
+                          >
+                            {currentOption.short}
+                            <span className="portfolio-boost-period-bonus">
+                              +{currentOption.bonusPercent}%
+                            </span>
+                          </button>
+                        ) : null}
+                        {extendOptions.map((option) => (
+                          <button
+                            key={option.months}
+                            type="button"
+                            className={`os-surface-chip${
+                              extendMonths === option.months
+                                ? ' is-selected'
+                                : ''
+                            }`}
+                            aria-pressed={extendMonths === option.months}
+                            disabled={txBusy}
+                            onClick={() =>
+                              setExtendMonths((current) =>
+                                current === option.months ? null : option.months
+                              )
+                            }
+                          >
+                            {option.short}
+                            <span className="portfolio-boost-period-bonus">
+                              +{option.bonusPercent}%
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="portfolio-boost-note">
+                        You’re already on the longest commitment.
+                      </p>
+                    )
+                  ) : null}
+
+                  {fieldError || amountError ? (
+                    <p className="profile-support-error" role="alert">
+                      {fieldError ?? amountError}
+                    </p>
+                  ) : null}
+                </BoostModeSlot>
+
+                <section
+                  className="portfolio-boost-summary"
+                  aria-label="Commitment"
+                >
+                  <div className="portfolio-boost-summary-row">
+                    <span className="portfolio-boost-summary-label">
+                      Influence
+                    </span>
+                    <span className="portfolio-boost-summary-value">
+                      {formatSocialCompact(
+                        summaryInfluenceYocto ?? account.effective_boost
+                      )}
+                    </span>
+                  </div>
+                  <div className="portfolio-boost-summary-row">
+                    <span className="portfolio-boost-summary-label">Share</span>
+                    {network.loaded ? (
+                      <span className="portfolio-boost-summary-value">
+                        {formatBoostSharePercent(sharePercent)}
+                      </span>
+                    ) : (
+                      <span
+                        className="standing-row-shimmer portfolio-boost-shimmer-value"
+                        aria-hidden
+                      />
+                    )}
+                  </div>
+                  {summaryBonusOption ? (
+                    <div className="portfolio-boost-summary-row">
+                      <span className="portfolio-boost-summary-label">
+                        Bonus
+                      </span>
+                      <span className="portfolio-boost-summary-value">
+                        +{summaryBonusOption.bonusPercent}%
+                      </span>
+                    </div>
+                  ) : null}
+                  <div className="portfolio-boost-summary-row">
+                    <span className="portfolio-boost-summary-label">
+                      Unlocks
+                    </span>
+                    <span className="portfolio-boost-summary-value">
+                      {summaryUnlockPreviewMonths != null ? (
+                        previewUnlockDateLabel(summaryUnlockPreviewMonths)
+                      ) : (
+                        <>
+                          {formatUnlockDateLabel(account.unlock_at)} ·{' '}
+                          {formatTimeRemainingLabel(account.unlock_at)}
+                        </>
+                      )}
+                    </span>
+                  </div>
+                  <div className="portfolio-boost-summary-row">
+                    <span className="portfolio-boost-summary-label">
+                      Collected
+                    </span>
+                    <span className="portfolio-boost-summary-value">
+                      {formatSocialCompact(account.rewards_claimed)}
+                    </span>
+                  </div>
+                </section>
+              </div>
+            ) : (
+              <div className="portfolio-boost-view">
+                <p className="portfolio-boost-intro">
+                  Longer commitments — more of the activity that drips back.
                 </p>
-              ) : null}
 
-              {!canUnlock && mode === 'increase' ? (
+                <div
+                  className="portfolio-boost-periods"
+                  role="group"
+                  aria-label="Lock period"
+                  style={
+                    {
+                      '--boost-period-cols': String(
+                        BOOST_LOCK_PERIOD_OPTIONS.length
+                      ),
+                    } as CSSProperties
+                  }
+                >
+                  {BOOST_LOCK_PERIOD_OPTIONS.map((option) => (
+                    <button
+                      key={option.months}
+                      type="button"
+                      className={`os-surface-chip${
+                        selectedMonths === option.months ? ' is-selected' : ''
+                      }`}
+                      disabled={txBusy || needsConnect}
+                      onClick={() => setSelectedMonths(option.months)}
+                    >
+                      {option.short}
+                      <span className="portfolio-boost-period-bonus">
+                        +{option.bonusPercent}%
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
                 <BoostAmountField
                   amountInput={amountInput}
                   onAmountInput={applyAmountInput}
                   onMax={applyMaxAmount}
                   balanceYocto={balanceYocto}
                   tokenIconSrc={socialIcon}
-                  disabled={txBusy}
-                />
-              ) : null}
-
-              {mode === 'extend' ? (
-                extendOptions.length > 0 || currentOption ? (
-                  <div
-                    className="portfolio-boost-periods"
-                    role="group"
-                    aria-label="Extend lock period"
-                    style={
-                      {
-                        '--boost-period-cols': String(
-                          Math.max(
-                            (currentOption ? 1 : 0) + extendOptions.length,
-                            1
-                          )
-                        ),
-                      } as CSSProperties
-                    }
-                  >
-                    {currentOption ? (
-                      <button
-                        type="button"
-                        className={`os-surface-chip${
-                          extendMonths == null ? ' is-selected' : ''
-                        }`}
-                        disabled
-                        aria-current={extendMonths == null ? 'true' : undefined}
-                      >
-                        {currentOption.short}
-                        <span className="portfolio-boost-period-bonus">
-                          +{currentOption.bonusPercent}%
-                        </span>
-                      </button>
-                    ) : null}
-                    {extendOptions.map((option) => (
-                      <button
-                        key={option.months}
-                        type="button"
-                        className={`os-surface-chip${
-                          extendMonths === option.months ? ' is-selected' : ''
-                        }`}
-                        aria-pressed={extendMonths === option.months}
-                        disabled={txBusy}
-                        onClick={() =>
-                          setExtendMonths((current) =>
-                            current === option.months ? null : option.months
-                          )
-                        }
-                      >
-                        {option.short}
-                        <span className="portfolio-boost-period-bonus">
-                          +{option.bonusPercent}%
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="portfolio-boost-note">
-                    You’re already on the longest commitment.
-                  </p>
-                )
-              ) : null}
-
-              {fieldError || amountError ? (
-                <p className="profile-support-error" role="alert">
-                  {fieldError ?? amountError}
-                </p>
-              ) : null}
-            </BoostModeSlot>
-
-            <section
-              className="portfolio-boost-summary"
-              aria-label="Commitment"
-            >
-              <div className="portfolio-boost-summary-row">
-                <span className="portfolio-boost-summary-label">Influence</span>
-                <span className="portfolio-boost-summary-value">
-                  {formatSocialCompact(
-                    summaryInfluenceYocto ?? account.effective_boost
-                  )}
-                </span>
-              </div>
-              <div className="portfolio-boost-summary-row">
-                <span className="portfolio-boost-summary-label">Share</span>
-                {network.loaded ? (
-                  <span className="portfolio-boost-summary-value">
-                    {formatBoostSharePercent(sharePercent)}
-                  </span>
-                ) : (
-                  <span
-                    className="standing-row-shimmer portfolio-boost-shimmer-value"
-                    aria-hidden
-                  />
-                )}
-              </div>
-              {summaryBonusOption ? (
-                <div className="portfolio-boost-summary-row">
-                  <span className="portfolio-boost-summary-label">Bonus</span>
-                  <span className="portfolio-boost-summary-value">
-                    +{summaryBonusOption.bonusPercent}%
-                  </span>
-                </div>
-              ) : null}
-              <div className="portfolio-boost-summary-row">
-                <span className="portfolio-boost-summary-label">Unlocks</span>
-                <span className="portfolio-boost-summary-value">
-                  {summaryUnlockPreviewMonths != null ? (
-                    previewUnlockDateLabel(summaryUnlockPreviewMonths)
-                  ) : (
-                    <>
-                      {formatUnlockDateLabel(account.unlock_at)} ·{' '}
-                      {formatTimeRemainingLabel(account.unlock_at)}
-                    </>
-                  )}
-                </span>
-              </div>
-              <div className="portfolio-boost-summary-row">
-                <span className="portfolio-boost-summary-label">Collected</span>
-                <span className="portfolio-boost-summary-value">
-                  {formatSocialCompact(account.rewards_claimed)}
-                </span>
-              </div>
-            </section>
-          </div>
-        ) : (
-          <div className="portfolio-boost-view">
-            <p className="portfolio-boost-intro">
-              Longer commitments — more of the activity that drips back.
-            </p>
-
-            <div
-              className="portfolio-boost-periods"
-              role="group"
-              aria-label="Lock period"
-              style={
-                {
-                  '--boost-period-cols': String(
-                    BOOST_LOCK_PERIOD_OPTIONS.length
-                  ),
-                } as CSSProperties
-              }
-            >
-              {BOOST_LOCK_PERIOD_OPTIONS.map((option) => (
-                <button
-                  key={option.months}
-                  type="button"
-                  className={`os-surface-chip${
-                    selectedMonths === option.months ? ' is-selected' : ''
-                  }`}
                   disabled={txBusy || needsConnect}
-                  onClick={() => setSelectedMonths(option.months)}
-                >
-                  {option.short}
-                  <span className="portfolio-boost-period-bonus">
-                    +{option.bonusPercent}%
-                  </span>
-                </button>
-              ))}
-            </div>
+                />
 
-            <BoostAmountField
-              amountInput={amountInput}
-              onAmountInput={applyAmountInput}
-              onMax={applyMaxAmount}
-              balanceYocto={balanceYocto}
-              tokenIconSrc={socialIcon}
-              disabled={txBusy || needsConnect}
-            />
+                {amountReady ? (
+                  <p className="portfolio-boost-note">
+                    Influence{' '}
+                    {formatSocialCompact(
+                      applyLockBonus(amountYocto, commitOption.bonusPercent)
+                    )}{' '}
+                    · Unlocks {previewUnlockDateLabel(commitOption.months)}
+                  </p>
+                ) : null}
 
-            {amountReady ? (
-              <p className="portfolio-boost-note">
-                Influence{' '}
-                {formatSocialCompact(
-                  applyLockBonus(amountYocto, commitOption.bonusPercent)
-                )}{' '}
-                · Unlocks {previewUnlockDateLabel(commitOption.months)}
-              </p>
-            ) : null}
-
-            {fieldError || amountError ? (
-              <p className="profile-support-error" role="alert">
-                {fieldError ?? amountError}
-              </p>
-            ) : null}
-          </div>
+                {fieldError || amountError ? (
+                  <p className="profile-support-error" role="alert">
+                    {fieldError ?? amountError}
+                  </p>
+                ) : null}
+              </div>
             )}
           </OsPageBodyAppear>
         )}

@@ -11,6 +11,8 @@ export interface BoostNetworkPulseState {
   stats: BoostContractStats | null;
   boosterCount: number | null;
   loaded: boolean;
+  /** True only when the stats read threw. A zero total is not an error. */
+  statsError: boolean;
   refresh: () => Promise<void>;
 }
 
@@ -22,18 +24,27 @@ export function useBoostNetworkPulse(live: boolean): BoostNetworkPulseState {
   const [stats, setStats] = useState<BoostContractStats | null>(null);
   const [boosterCount, setBoosterCount] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [statsError, setStatsError] = useState(false);
   const requestSeqRef = useRef(0);
 
   const refresh = useCallback(async () => {
     const seq = ++requestSeqRef.current;
     try {
-      const [nextStats, nextCount] = await Promise.all([
-        fetchBoostStats().catch(() => null),
+      const [statsResult, countResult] = await Promise.allSettled([
+        fetchBoostStats(),
         fetchActiveBoosterCount(),
       ]);
       if (seq !== requestSeqRef.current) return;
-      setStats(nextStats);
-      setBoosterCount(nextCount);
+      if (statsResult.status === 'fulfilled') {
+        setStats(statsResult.value);
+        setStatsError(false);
+      } else {
+        setStats(null);
+        setStatsError(true);
+      }
+      if (countResult.status === 'fulfilled') {
+        setBoosterCount(countResult.value);
+      }
     } finally {
       if (seq === requestSeqRef.current) setLoaded(true);
     }
@@ -44,5 +55,5 @@ export function useBoostNetworkPulse(live: boolean): BoostNetworkPulseState {
     void refresh();
   }, [live, refresh]);
 
-  return { stats, boosterCount, loaded, refresh };
+  return { stats, boosterCount, loaded, statsError, refresh };
 }

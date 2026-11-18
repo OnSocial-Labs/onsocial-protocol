@@ -1295,9 +1295,12 @@ export function LeaderboardSheet({
   const boostLockedLabel = boost.hasPosition
     ? formatSocialCompact(boost.lockedYocto)
     : '';
-  const boostAriaLabel = boost.hasPosition
-    ? `${boostLockedLabel} SOCIAL boosting — manage`
-    : 'Boost — lock SOCIAL to grow influence';
+  const boostAriaLabel =
+    boost.status === 'error'
+      ? 'Boost'
+      : boost.hasPosition
+        ? `${boostLockedLabel} SOCIAL boosting — manage`
+        : 'Boost — lock SOCIAL to grow influence';
 
   return (
     <>

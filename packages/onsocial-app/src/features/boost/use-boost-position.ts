@@ -23,9 +23,22 @@ const BOOST_LIVE_TICK_MS = 100;
 /** Focus resync only after the tab was hidden at least this long. */
 const BOOST_FOCUS_RESYNC_MS = BOOST_LIVE_RESYNC_MS;
 
+export type BoostReadStatus = 'loading' | 'ready' | 'error';
+
+export interface BoostPositionRefreshOptions {
+  /**
+   * Drop the previous read when this fetch fails. A confirmed tx must not
+   * restore the pre-tx position — committing again moves the whole stack's
+   * unlock date.
+   */
+  discardLastGood?: boolean;
+}
+
 export interface BoostPosition {
   account: BoostAccountView | null;
   lockStatus: BoostLockStatus | null;
+  /** `ready` is a real read (including a lock of 0). `error` is not a position. */
+  status: BoostReadStatus;
   loaded: boolean;
   hasPosition: boolean;
   lockedYocto: bigint;
@@ -33,7 +46,7 @@ export interface BoostPosition {
   claimableYocto: bigint;
   ratePerSecondYocto: bigint;
   canUnlock: boolean;
-  refresh: () => Promise<void>;
+  refresh: (options?: BoostPositionRefreshOptions) => Promise<void>;
   /** Freeze the live tick at the current displayed amount (confirming claim). */
   pauseLiveCounter: () => void;
   /** Resume ticks after a cancelled / failed claim without forcing a drop. */
@@ -73,11 +86,20 @@ export function useBoostPosition(
   const [snapshot, setSnapshot] = useState<BoostRewardsLiveSnapshot | null>(
     null
   );
+  const [status, setStatus] = useState<BoostReadStatus>('loading');
+  /** `kept` means the displayed read survived a later failure. */
+  const [readKind, setReadKind] = useState<'fresh' | 'kept'>('fresh');
   const [loaded, setLoaded] = useState(false);
   const [claimableYocto, setClaimableYocto] = useState(0n);
   const [ratePerSecondYocto, setRatePerSecondYocto] = useState(0n);
 
   const requestSeqRef = useRef(0);
+  const lastGoodRef = useRef<{
+    accountId: string;
+    account: BoostAccountView;
+    lockStatus: BoostLockStatus;
+    snapshot: BoostRewardsLiveSnapshot;
+  } | null>(null);
   const claimableYoctoRef = useRef(0n);
   const liveAnchorRef = useRef<BoostLiveCounterAnchor | null>(null);
   const livePausedRef = useRef(false);
@@ -127,72 +149,101 @@ export function useBoostPosition(
     [setClaimableYoctoValue]
   );
 
-  const refresh = useCallback(async () => {
-    if (!accountId.trim()) {
-      setAccount(null);
-      setLockStatus(null);
-      setSnapshot(null);
-      latestSnapshotRef.current = null;
-      setClaimableYoctoValue(0n);
-      setRatePerSecondYocto(0n);
-      liveAnchorRef.current = null;
-      lastAppliedAsOfRef.current = null;
-      setLoaded(true);
-      return;
-    }
-
-    const seq = ++requestSeqRef.current;
-    try {
-      const [nextAccount, nextLockStatus, nextSnapshot] = await Promise.all([
-        fetchBoostAccount(accountId),
-        fetchBoostLockStatus(accountId),
-        fetchBoostRewardsLiveSnapshot(accountId),
-      ]);
-      if (seq !== requestSeqRef.current) return;
-
-      latestSnapshotRef.current = nextSnapshot;
-      postClaimRefreshPendingRef.current = false;
-
-      setAccount(nextAccount);
-      setLockStatus(nextLockStatus);
-      setSnapshot(nextSnapshot);
-
-      // Celebration hold: keep optimistic 0 until endPostClaimHold batches
-      // with the chip clear — avoids a stale pre-claim flash on reveal.
-      if (postClaimHoldRef.current) {
-        // Notify listeners that a fresh snapshot landed while the hold is
-        // active so the sheet can clear the chip in the same paint.
-        for (const listener of postClaimSnapshotAppliedListenersRef.current) {
-          listener();
-        }
-        return;
-      }
-
-      // Initial load or post-claim: take chain. Soft refresh: never drop.
-      const allowDecrease =
-        allowDecreaseRef.current || liveAnchorRef.current == null;
-      allowDecreaseRef.current = false;
-      livePausedRef.current = false;
-
-      // Anchor before `loaded` so the sheet never paints 0 → real amount.
-      applySnapshotToCounter(nextSnapshot, { allowDecrease });
-    } catch {
-      if (seq !== requestSeqRef.current) return;
-      setAccount(null);
-      setLockStatus(null);
-      setSnapshot(null);
-      latestSnapshotRef.current = null;
-      if (!postClaimHoldRef.current) {
+  const refresh = useCallback(
+    async (options?: BoostPositionRefreshOptions) => {
+      const discardLastGood = options?.discardLastGood === true;
+      if (!accountId.trim()) {
+        requestSeqRef.current += 1;
+        lastGoodRef.current = null;
+        setAccount(null);
+        setLockStatus(null);
+        setSnapshot(null);
+        latestSnapshotRef.current = null;
         setClaimableYoctoValue(0n);
         setRatePerSecondYocto(0n);
         liveAnchorRef.current = null;
         lastAppliedAsOfRef.current = null;
+        setReadKind('fresh');
+        setStatus('ready');
+        setLoaded(true);
+        return;
       }
-      postClaimRefreshPendingRef.current = false;
-    } finally {
-      if (seq === requestSeqRef.current) setLoaded(true);
-    }
-  }, [accountId, applySnapshotToCounter, setClaimableYoctoValue]);
+
+      const seq = ++requestSeqRef.current;
+      try {
+        const [nextAccount, nextLockStatus, nextSnapshot] = await Promise.all([
+          fetchBoostAccount(accountId),
+          fetchBoostLockStatus(accountId),
+          fetchBoostRewardsLiveSnapshot(accountId),
+        ]);
+        if (seq !== requestSeqRef.current) return;
+
+        lastGoodRef.current = {
+          accountId,
+          account: nextAccount,
+          lockStatus: nextLockStatus,
+          snapshot: nextSnapshot,
+        };
+        latestSnapshotRef.current = nextSnapshot;
+        postClaimRefreshPendingRef.current = false;
+
+        setAccount(nextAccount);
+        setLockStatus(nextLockStatus);
+        setSnapshot(nextSnapshot);
+        setReadKind('fresh');
+        setStatus('ready');
+
+        // Celebration hold: keep optimistic 0 until endPostClaimHold batches
+        // with the chip clear — avoids a stale pre-claim flash on reveal.
+        if (postClaimHoldRef.current) {
+          // Notify listeners that a fresh snapshot landed while the hold is
+          // active so the sheet can clear the chip in the same paint.
+          for (const listener of postClaimSnapshotAppliedListenersRef.current) {
+            listener();
+          }
+          return;
+        }
+
+        // Initial load or post-claim: take chain. Soft refresh: never drop.
+        const allowDecrease =
+          allowDecreaseRef.current || liveAnchorRef.current == null;
+        allowDecreaseRef.current = false;
+        livePausedRef.current = false;
+
+        // Anchor before `loaded` so the sheet never paints 0 → real amount.
+        applySnapshotToCounter(nextSnapshot, { allowDecrease });
+      } catch {
+        if (seq !== requestSeqRef.current) return;
+        const kept = lastGoodRef.current;
+        if (!discardLastGood && kept?.accountId === accountId) {
+          setAccount(kept.account);
+          setLockStatus(kept.lockStatus);
+          setSnapshot(kept.snapshot);
+          latestSnapshotRef.current = kept.snapshot;
+          setReadKind('kept');
+          setStatus('ready');
+          return;
+        }
+        if (discardLastGood) lastGoodRef.current = null;
+        setAccount(null);
+        setLockStatus(null);
+        setSnapshot(null);
+        latestSnapshotRef.current = null;
+        setReadKind('fresh');
+        if (!postClaimHoldRef.current) {
+          setClaimableYoctoValue(0n);
+          setRatePerSecondYocto(0n);
+          liveAnchorRef.current = null;
+          lastAppliedAsOfRef.current = null;
+        }
+        postClaimRefreshPendingRef.current = false;
+        setStatus('error');
+      } finally {
+        if (seq === requestSeqRef.current) setLoaded(true);
+      }
+    },
+    [accountId, applySnapshotToCounter, setClaimableYoctoValue]
+  );
 
   const pauseLiveCounter = useCallback(() => {
     livePausedRef.current = true;
@@ -245,12 +296,30 @@ export function useBoostPosition(
     };
   }, []);
 
+  const [trackedAccountId, setTrackedAccountId] = useState(accountId);
+  if (trackedAccountId !== accountId) {
+    setTrackedAccountId(accountId);
+    setAccount(null);
+    setLockStatus(null);
+    setSnapshot(null);
+    latestSnapshotRef.current = null;
+    setLoaded(false);
+    setStatus('loading');
+    setReadKind('fresh');
+    setClaimableYoctoValue(0n);
+    setRatePerSecondYocto(0n);
+    liveAnchorRef.current = null;
+    lastAppliedAsOfRef.current = null;
+  }
+
   useEffect(() => {
     setAccount(null);
     setLockStatus(null);
     setSnapshot(null);
     latestSnapshotRef.current = null;
     setLoaded(false);
+    setStatus('loading');
+    setReadKind('fresh');
     setClaimableYoctoValue(0n);
     setRatePerSecondYocto(0n);
     liveAnchorRef.current = null;
@@ -262,6 +331,15 @@ export function useBoostPosition(
     tabHiddenAtRef.current = null;
     void refresh();
   }, [refresh, setClaimableYoctoValue]);
+
+  const wasLiveRef = useRef(live);
+  useEffect(() => {
+    const becameLive = live && !wasLiveRef.current;
+    wasLiveRef.current = live;
+    if (becameLive && status === 'error') {
+      void refresh();
+    }
+  }, [live, refresh, status]);
 
   // Periodic / focus resync only — refresh() applies its own snapshot.
   useEffect(() => {
@@ -339,18 +417,26 @@ export function useBoostPosition(
 
   const lockedYocto = account ? parseYoctoOrZero(account.locked_amount) : 0n;
   const hasPosition = lockedYocto > 0n;
+  const expiredByClock =
+    account != null &&
+    account.unlock_at > 0 &&
+    Date.now() * 1_000_000 >= account.unlock_at;
   const lockExpired =
     hasPosition &&
-    account != null &&
-    (lockStatus?.lock_expired ??
-      (account.unlock_at > 0 && Date.now() * 1_000_000 >= account.unlock_at));
+    (readKind === 'kept'
+      ? expiredByClock
+      : (lockStatus?.lock_expired ?? expiredByClock));
   const canUnlock = Boolean(
-    hasPosition && (lockStatus?.can_unlock ?? lockExpired)
+    hasPosition &&
+      (readKind === 'kept'
+        ? expiredByClock
+        : (lockStatus?.can_unlock ?? lockExpired))
   );
 
   return {
     account,
     lockStatus,
+    status,
     loaded,
     hasPosition,
     lockedYocto,

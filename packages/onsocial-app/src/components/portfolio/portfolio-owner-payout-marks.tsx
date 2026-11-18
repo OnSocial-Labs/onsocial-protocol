@@ -281,9 +281,11 @@ export function PortfolioOwnerPayoutMarks({
               className="portfolio-identity-gesture os-disabled-ink portfolio-identity-gesture--payout group"
               onClick={() => openBoostSheet()}
               aria-label={
-                boost.hasPosition
-                  ? `${boostLabel} SOCIAL boosting — manage`
-                  : 'Boost — lock SOCIAL to grow influence'
+                boost.status === 'error'
+                  ? 'Boost'
+                  : boost.hasPosition
+                    ? `${boostLabel} SOCIAL boosting — manage`
+                    : 'Boost — lock SOCIAL to grow influence'
               }
             >
               <span className="signal-group signal-group-standing" aria-hidden>
