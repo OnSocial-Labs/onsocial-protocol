@@ -12,21 +12,6 @@ export const dynamic = 'force-dynamic';
 
 const ACCOUNT_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/;
 
-const EMPTY_MEMBERSHIPS = {
-  governance: null,
-  treasury: null,
-  proposer: EMPTY_PROTOCOL_DAO_PROPOSER_FLAGS,
-} as const;
-
-/**
- * E2E stubs the feed and does not answer chain reads. Waiting on the RPC
- * timeout holds the home list behind the reveal cap, so every home spec
- * pays that wait. Return the empty membership the cap would fall back to.
- */
-function e2eDaoRolesSkip(): boolean {
-  return process.env.E2E_GRAPH_STUBS === '1';
-}
-
 export async function GET(request: NextRequest) {
   const batched = request.nextUrl.searchParams
     .getAll('accountIds')
@@ -34,14 +19,6 @@ export async function GET(request: NextRequest) {
     .map((id) => id.trim().toLowerCase())
     .filter((id) => ACCOUNT_ID_PATTERN.test(id));
   if (batched.length > 0) {
-    if (e2eDaoRolesSkip()) {
-      return NextResponse.json({
-        accounts: batched.map((id) => ({
-          accountId: id,
-          memberships: EMPTY_MEMBERSHIPS,
-        })),
-      });
-    }
     try {
       const memberships = await resolveDaoMembershipsForAccounts(batched);
       return NextResponse.json({
@@ -61,15 +38,6 @@ export async function GET(request: NextRequest) {
   const accountId = request.nextUrl.searchParams.get('accountId')?.trim();
   if (!accountId || !ACCOUNT_ID_PATTERN.test(accountId)) {
     return NextResponse.json({ error: 'Invalid accountId' }, { status: 400 });
-  }
-
-  if (e2eDaoRolesSkip()) {
-    return NextResponse.json({
-      accountId,
-      daoRoleIds: [],
-      daoRoleLabels: [],
-      memberships: EMPTY_MEMBERSHIPS,
-    });
   }
 
   try {

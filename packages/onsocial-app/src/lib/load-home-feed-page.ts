@@ -4,7 +4,8 @@ import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client'
 import { resolveDaoMembershipsForAccounts } from '@/lib/fetch-page-drawer-meta';
 import {
   feedAuthorIds,
-  FEED_SIDE_PAINT_CAP_MS,
+  FEED_REVEAL_BUDGET_MS,
+  seedDaoMembershipMisses,
   loadFeedPollTallies,
   loadFeedQuotes,
   sequenceFeedQuoteThenTally,
@@ -62,16 +63,17 @@ export async function loadHomeFeedPage(opts?: {
         memberships: resolveDaoMembershipsForAccounts(
           feedAuthorIds(items, {})
         ),
-        capMs: FEED_SIDE_PAINT_CAP_MS,
+        capMs: FEED_REVEAL_BUDGET_MS,
       }),
     ]);
+    const authorIds = feedAuthorIds(items, {});
     return {
       page,
       engagement,
       scarceEmbeds,
       quoted: prepared.quoted,
       tallies: prepared.tallies,
-      memberships: prepared.memberships,
+      memberships: seedDaoMembershipMisses(authorIds, prepared.memberships),
     };
   } catch {
     return null;

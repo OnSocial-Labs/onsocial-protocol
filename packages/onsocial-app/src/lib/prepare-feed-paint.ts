@@ -12,7 +12,10 @@ import {
   type PollTally,
   type PollVoteRow,
 } from '@/lib/poll-votes';
-import type { ProtocolDaoMemberships } from '@/lib/protocol-dao-memberships';
+import {
+  EMPTY_PROTOCOL_DAO_MEMBERSHIPS,
+  type ProtocolDaoMemberships,
+} from '@/lib/protocol-dao-memberships';
 
 const GROUP_POST_PATH = /^([^/]+)\/groups\/([^/]+)\/content\/post\/(.+)$/;
 const PERSONAL_POST_PATH = /^([^/]+)\/post\/(.+)$/;
@@ -208,13 +211,37 @@ export async function loadFeedPollTallies(
 }
 
 /**
- * One budget for the quote, tally, and dao-role reads.
- * Same 8s as `FEED_MEDIA_RESOLVE_FALLBACK_MS` in post-media.tsx. That
- * export lives in a client module, so a server loader that imports it
- * receives a function and the cap fires immediately. The paint-cap test
- * locks the two numbers together.
+ * Media-decode fallback. Same 8s as `FEED_MEDIA_RESOLVE_FALLBACK_MS` in
+ * post-media.tsx. That export lives in a client module, so a server loader
+ * that imports it receives a function and a timer fires immediately. The
+ * paint-cap test locks the two numbers together. The home list uses
+ * `FEED_REVEAL_BUDGET_MS` instead.
  */
 export const FEED_SIDE_PAINT_CAP_MS = 8_000;
+
+/**
+ * How long quote, tally, and dao-role reads may hold the home list.
+ * A cold dao-roles batch on this production build against testnet measured
+ * 1.622s at the worst of ten process restarts (p50 1.543s). 2.5s sits above
+ * that worst and well under the 8s media-decode fallback, so one hung read
+ * cannot hold first paint for the media cap. `FEED_SIDE_PAINT_CAP_MS` stays
+ * the media fallback only.
+ */
+export const FEED_REVEAL_BUDGET_MS = 2_500;
+
+/** Authors missing from a timed-out dao read get an empty seed, so no badge mounts later. */
+export function seedDaoMembershipMisses(
+  accountIds: readonly string[],
+  memberships: Record<string, ProtocolDaoMemberships>
+): Record<string, ProtocolDaoMemberships> {
+  let next: Record<string, ProtocolDaoMemberships> | null = null;
+  for (const id of accountIds) {
+    if (Object.prototype.hasOwnProperty.call(memberships, id)) continue;
+    next ??= { ...memberships };
+    next[id] = EMPTY_PROTOCOL_DAO_MEMBERSHIPS;
+  }
+  return next ?? memberships;
+}
 
 /**
  * Quote hops finish before poll tallies start. Both reads share one
@@ -236,9 +263,8 @@ export function sequenceFeedQuoteThenTally(
 
 /**
  * Resolve `task`, or `fallback` if it rejects or is still pending when `ms`
- * elapses. Callers pass `FEED_SIDE_PAINT_CAP_MS` — the same 8s budget as
- * `FEED_MEDIA_RESOLVE_FALLBACK_MS` — so a slow quote, tally, or dao-role
- * fetch cannot hold the list.
+ * elapses. The home reveal passes `FEED_REVEAL_BUDGET_MS`. The 8s
+ * `FEED_SIDE_PAINT_CAP_MS` stays paired with the media-decode fallback.
  */
 export function capFeedTask<T>(
   task: Promise<T>,

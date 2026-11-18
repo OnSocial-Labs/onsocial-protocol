@@ -116,7 +116,8 @@ import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-cli
 import { fetchDaoRolesPage } from '@/lib/fetch-dao-roles-client';
 import {
   feedAuthorIds,
-  FEED_SIDE_PAINT_CAP_MS,
+  FEED_REVEAL_BUDGET_MS,
+  seedDaoMembershipMisses,
   loadFeedPollTallies,
   loadFeedQuotes,
   sequenceFeedQuoteThenTally,
@@ -338,14 +339,22 @@ async function loadFeedPaint(posts: PostRow[]): Promise<{
       loadFeedQuotes(posts, client),
       () => loadFeedPollTallies(posts, client)
     );
-    return await settleFeedSidePaint({
+    const authorIds = feedAuthorIds(posts, {});
+    const paint = await settleFeedSidePaint({
       quotes: reads.quotes,
       tallies: reads.tallies,
-      memberships: fetchDaoRolesPage(feedAuthorIds(posts, {})),
-      capMs: FEED_SIDE_PAINT_CAP_MS,
+      memberships: fetchDaoRolesPage(authorIds),
+      capMs: FEED_REVEAL_BUDGET_MS,
     });
+    return {
+      ...paint,
+      memberships: seedDaoMembershipMisses(authorIds, paint.memberships),
+    };
   } catch {
-    return empty;
+    return {
+      ...empty,
+      memberships: seedDaoMembershipMisses(feedAuthorIds(posts, {}), {}),
+    };
   }
 }
 
@@ -425,6 +434,7 @@ export function HomePagePanel({
     Record<string, ProtocolDaoMemberships>
   >(() => initialMemberships ?? {});
   const [clientPaintReady, setClientPaintReady] = useState(serverPainted);
+  const clientRevealFlight = useRef(0);
   const [posts, setPosts] = useState<PostRow[]>(
     () => restoredSession?.posts ?? initialPage?.items ?? []
   );
@@ -837,6 +847,32 @@ export function HomePagePanel({
   );
 
   useEffect(() => {
+    const settleUnpaintedReveal = (items: PostRow[]) => {
+      if (serverPainted || clientRevealFlight.current !== 0) return;
+      const flight = 1;
+      clientRevealFlight.current = flight;
+      void loadFeedPaint(items).then(
+        (paint) => {
+          if (clientRevealFlight.current !== flight) return;
+          setQuotedSeed((current) => ({ ...current, ...paint.quoted }));
+          setPollSeed((current) => ({ ...current, ...paint.tallies }));
+          setDaoSeed((current) => ({ ...current, ...paint.memberships }));
+          setClientPaintReady(true);
+          isLoadingRef.current = false;
+          isRefreshingRef.current = false;
+          setIsLoading(false);
+          setIsRefreshing(false);
+        },
+        () => {
+          if (clientRevealFlight.current !== flight) return;
+          setClientPaintReady(true);
+          isLoadingRef.current = false;
+          isRefreshingRef.current = false;
+          setIsLoading(false);
+          setIsRefreshing(false);
+        }
+      );
+    };
     const focus = parseHomeFeedFocus({
       tag: tagParam,
       ticker: tickerParam,
@@ -883,10 +919,16 @@ export function HomePagePanel({
       feedSessionKeyRef.current = sessionKey;
       setSsrBootstrapDone(true);
       ssrBootstrapDoneRef.current = true;
-      isLoadingRef.current = false;
       isRefreshingRef.current = false;
-      setIsLoading(false);
       setIsRefreshing(false);
+      if (serverPainted) {
+        isLoadingRef.current = false;
+        setIsLoading(false);
+      } else {
+        isLoadingRef.current = true;
+        setIsLoading(true);
+        settleUnpaintedReveal(postsRef.current);
+      }
       return;
     }
 
@@ -912,10 +954,16 @@ export function HomePagePanel({
         ssrHotGlobalReloadNonceRef.current = reloadNonce;
         setSsrBootstrapDone(true);
         ssrBootstrapDoneRef.current = true;
-        isLoadingRef.current = false;
         isRefreshingRef.current = false;
-        setIsLoading(false);
         setIsRefreshing(false);
+        if (serverPainted) {
+          isLoadingRef.current = false;
+          setIsLoading(false);
+        } else {
+          isLoadingRef.current = true;
+          setIsLoading(true);
+          settleUnpaintedReveal(speculativePage.items);
+        }
         return;
       }
       // Stored standing lens or Recent sort — keep these rows on screen
@@ -957,10 +1005,18 @@ export function HomePagePanel({
       activeLens === 'global' &&
       reloadNonce === ssrHotGlobalReloadNonceRef.current
     ) {
-      isLoadingRef.current = false;
       isRefreshingRef.current = false;
-      setIsLoading(false);
       setIsRefreshing(false);
+      if (serverPainted || clientRevealFlight.current !== 0) {
+        if (clientRevealFlight.current === 0) {
+          isLoadingRef.current = false;
+          setIsLoading(false);
+        }
+      } else {
+        isLoadingRef.current = true;
+        setIsLoading(true);
+        settleUnpaintedReveal(postsRef.current);
+      }
       return;
     }
 
@@ -1121,6 +1177,7 @@ export function HomePagePanel({
     clearUnseenPosts,
     feedScrollTop,
     initialPage,
+    serverPainted,
     lensReady,
     reloadNonce,
     sort,
