@@ -3663,8 +3663,8 @@ a.os-surface-row,
 @media (prefers-reduced-motion: no-preference) {
   .os-route-skeleton.is-done {
     animation: glass-sheet-appear var(--os-motion-appear, 280ms)
-      var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1))
-      reverse forwards;
+      var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1)) reverse
+      forwards;
   }
 }
 
@@ -25049,7 +25049,9 @@ a.os-surface-row,
     min-width: 0;
   }
 
-  .post-card-quote-inset--pending .post-card-quote-inset-body .post-row-skeleton-line-body {
+  .post-card-quote-inset--pending
+    .post-card-quote-inset-body
+    .post-row-skeleton-line-body {
     display: block;
     width: 100%;
     max-width: 100%;
@@ -25660,9 +25662,7 @@ a.os-surface-row,
   }
 
   .post-card-scarce-cta--pending {
-    min-height: calc(
-      0.4rem + 1.2 * var(--os-stamp-size, 0.75rem)
-    );
+    min-height: calc(0.4rem + 1.2 * var(--os-stamp-size, 0.75rem));
   }
 
   .post-card-scarce-cta--pending .post-row-skeleton-line-sm {
@@ -33073,7 +33073,9 @@ a.os-surface-row,
   .glass-sheet-panel.hub-manage-sheet-panel
     .hub-manage-slide
     .os-app-screen-body,
-  .os-slide-over.hub-manage-slide > .os-app-screen-column > .os-app-screen-body {
+  .os-slide-over.hub-manage-slide
+    > .os-app-screen-column
+    > .os-app-screen-body {
     padding: 0;
     scroll-padding-top: 0;
   }
@@ -33083,8 +33085,7 @@ a.os-surface-row,
     padding: 0 var(--os-screen-body-pad-x, 0.75rem) 1.35rem;
   }
 
-  .hub-manage-slide
-    .os-slide-over-content.hub-manage-slide-body {
+  .hub-manage-slide .os-slide-over-content.hub-manage-slide-body {
     padding-top: 0;
   }
 
@@ -36537,7 +36538,8 @@ a.os-surface-row,
         (
             var(--os-app-screen-nav-row-height, var(--os-nav-band, 2.35rem)) -
               (var(--os-title-size, 1.05rem) * 1.2)
-          ) / 2
+          ) /
+          2
       )
       0 0;
     height: calc(var(--os-title-size, 1.05rem) * 1.2);
@@ -39614,6 +39616,11 @@ a.os-surface-row,
     overflow-anchor: none;
   }
 
+  /* The pin sets scrollTop. The scroller must not undo that 1px when replies replace the skeleton. */
+  .os-app-screen-body:has(.guild-thread-column) {
+    overflow-anchor: none;
+  }
+
   /* Root and the continuing reply share one stroke. Sort sits in the copy column. */
   .guild-thread-column.is-continued {
     gap: 0;
@@ -40972,9 +40979,9 @@ a.os-surface-row,
   }
 
   /*
-   * One controls row under the divider — `Replies ▾` sort left,
-   * `View quotes ›` or `View reposts ›` right. Quiet chrome:
-   * muted ink, fg on hover. No nested appear — OsPageBodyAppear owns fade.
+   * One controls row under the divider — Replies sort left, quotes right.
+   * The control stays mounted, so the seat is that label's own box.
+   * Hold hides it. Reveal fades it with the shared appear.
    */
   .thread-controls-row {
     position: relative;
@@ -40982,18 +40989,14 @@ a.os-surface-row,
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
-    /* One control-seat tall — idle stays reserved so the tail never jumps. */
+    /* Floor. The mounted control is the seat. */
     min-height: calc(0.9rem + var(--os-stamp-size, 0.75rem));
     margin: 0.1rem 0 0.35rem;
   }
 
-  .thread-controls-row.is-idle {
+  .thread-controls-hold {
     visibility: hidden;
     pointer-events: none;
-  }
-
-  .thread-controls-spacer {
-    flex: 0 0 auto;
   }
 
   .thread-replies-sort {
@@ -41072,17 +41075,22 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.35);
   }
 
-  /* Soft-fill under appear — opacity only; never reserve a seat. */
-  .thread-discover-peek {
-    margin-top: 0.35rem;
-    overflow-anchor: none;
+  /* Same fade as page sheets. Peek does not reserve a seat; the label does. */
+  .thread-discover-peek,
+  .thread-controls-reveal {
     opacity: 0;
     animation: glass-sheet-appear var(--os-motion-appear, 280ms)
       var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1)) forwards;
   }
 
+  .thread-discover-peek {
+    margin-top: 0.35rem;
+    overflow-anchor: none;
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .thread-discover-peek {
+    .thread-discover-peek,
+    .thread-controls-reveal {
       opacity: 1;
       animation: none;
     }
@@ -45396,9 +45404,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   width: calc(100% + (2 * var(--look-preview-face-bleed)));
   max-width: none;
   margin-inline: calc(-1 * var(--look-preview-face-bleed));
-  height: calc(
-    env(safe-area-inset-top, 0px) + clamp(7.25rem, 26vw, 10.25rem)
-  );
+  height: calc(env(safe-area-inset-top, 0px) + clamp(7.25rem, 26vw, 10.25rem));
   border-radius: 0;
   overflow: hidden;
   background: rgb(var(--fg-rgb) / 0.06);

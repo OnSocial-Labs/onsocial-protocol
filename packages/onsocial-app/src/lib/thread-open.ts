@@ -1,8 +1,32 @@
 import { adoptAppLenisScroll, getAppLenis } from '@/lib/app-lenis-registry';
 
+export type ThreadLoadState = 'loading' | 'ready' | 'missing' | 'error';
+
+/**
+ * The post cover lifts when the root is in hand, or the load has ended
+ * without one. Replies do not hold it — they skeleton in their own slot.
+ */
+export function threadCoverReady(input: {
+  loadState: ThreadLoadState;
+  hasRoot: boolean;
+  /** Present so callers can show it does not gate the cover. */
+  repliesResolved?: boolean;
+}): boolean {
+  if (input.loadState === 'missing' || input.loadState === 'error') return true;
+  return input.loadState === 'ready' && input.hasRoot;
+}
+
+/**
+ * The replies/quotes control stays in the row either way, so the seat does
+ * not move. Reveal uses the shared appear; hold keeps the box and hides it.
+ */
+export function threadControlPresenceClass(visible: boolean): string {
+  return visible ? 'thread-controls-reveal' : 'thread-controls-hold';
+}
+
 /**
  * A painted thread reloads behind the card. A thread that is not on screen
- * yet holds opacity 0 until land + first reply page, then soft-appears.
+ * yet stays covered until its root is in hand. Replies fill in underneath.
  */
 export function planThreadLoad(
   paintedKey: string | null,
@@ -75,7 +99,10 @@ export function threadContentInset(
 /** Card pad above the avatar — same token on every detail post. */
 function threadFacePad(post: HTMLElement, face: HTMLElement): number {
   if (face === post) return 0;
-  if (typeof face.closest !== 'function' || typeof getComputedStyle !== 'function') {
+  if (
+    typeof face.closest !== 'function' ||
+    typeof getComputedStyle !== 'function'
+  ) {
     return Math.max(
       0,
       face.getBoundingClientRect().top - post.getBoundingClientRect().top
@@ -119,9 +146,8 @@ export function openedPostPinDeficit(
 export function scrollOpenedPostUnderHeader(post: HTMLElement): boolean {
   const scroller = threadScroller(post);
   if (!scroller) return false;
-  const top =
-    openedPostPinDeficit(post, scroller) + scroller.scrollTop;
-  if (Math.abs(scroller.scrollTop - top) < 0.5) return true;
+  const top = openedPostPinDeficit(post, scroller) + scroller.scrollTop;
+  if (Math.abs(scroller.scrollTop - top) <= 1) return true;
   pinThreadScroll(scroller, top);
   return true;
 }

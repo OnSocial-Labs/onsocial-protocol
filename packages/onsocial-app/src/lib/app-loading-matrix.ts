@@ -1,7 +1,4 @@
-export type AppLoadingFamily =
-  | 'glass-list'
-  | 'immersive-detail'
-  | 'private';
+export type AppLoadingFamily = 'glass-list' | 'immersive-detail' | 'private';
 
 export type AppLoadingMatrixRow = {
   id: string;
@@ -195,7 +192,7 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     id: 'personal-post',
     route: '/[accountId]/posts/[postId]',
     family: 'immersive-detail',
-    cold: 'PostThreadPageSkeleton under Post chrome until permalinkReady',
+    cold: 'PostThreadPageSkeleton until a root exists; a root in hand paints, PostRowSkeleton only for replies',
     refreshing: 'Keep visible thread',
     appending:
       'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',
@@ -214,7 +211,7 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     id: 'guild-post',
     route: '/groups/[groupId]/posts/[author]/[postId]',
     family: 'immersive-detail',
-    cold: 'PostThreadPageSkeleton under Post chrome until permalinkReady',
+    cold: 'PostThreadPageSkeleton until a root exists; a root in hand paints, PostRowSkeleton only for replies',
     refreshing: 'Keep visible thread',
     appending:
       'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',
@@ -399,7 +396,7 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     id: 'post-overlay',
     route: 'post-thread-layer',
     family: 'immersive-detail',
-    cold: 'PostThreadPageSkeleton under Post chrome until onThreadPainted',
+    cold: 'PostThreadPageSkeleton until the seeded root paints; PostRowSkeleton only for replies',
     refreshing: 'Keep visible thread',
     appending:
       'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',

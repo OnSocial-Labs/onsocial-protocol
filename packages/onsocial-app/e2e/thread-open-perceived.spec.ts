@@ -3,9 +3,9 @@ import { dismissNextDevOverlay, gotoApp } from './helpers';
 
 /*
  * Perceived-performance contract for feed → thread:
- * 1. The tapped post paints instantly with the counts the feed card showed.
- * 2. Body holds opacity 0 until land + first reply page — More-from never
- *    flashes in and gets replaced by replies.
+ * 1. The tapped post paints at once with the counts the feed card showed.
+ * 2. Replies skeleton underneath until the first page. The discover peek
+ *    never flashes in that window.
  * 3. Re-opening a thread this session paints replies from the session cache
  *    (stale-while-revalidate) even when the network is slow.
  */
@@ -85,6 +85,56 @@ const REPLY = {
 };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+type ControlSeat = { row: number; root: number; dock: number };
+
+async function controlSeat(page: Page): Promise<ControlSeat> {
+  return page.evaluate(() => {
+    const row = document.querySelector(
+      '.post-thread-sheet-panel .guild-thread-column .thread-controls-row'
+    );
+    const root = document.querySelector(
+      '.post-thread-sheet-panel .guild-thread-root'
+    );
+    const dock = document.querySelector('.portfolio-summon-dock');
+    if (
+      !(row instanceof HTMLElement) ||
+      !(root instanceof HTMLElement) ||
+      !(dock instanceof HTMLElement)
+    ) {
+      throw new Error('controls seat is missing');
+    }
+    return {
+      row: row.getBoundingClientRect().height,
+      root: root.getBoundingClientRect().top,
+      dock: dock.getBoundingClientRect().top,
+    };
+  });
+}
+
+function expectSeatStable(before: ControlSeat, after: ControlSeat) {
+  const delta = {
+    row: Math.abs(after.row - before.row),
+    root: Math.abs(after.root - before.root),
+    dock: Math.abs(after.dock - before.dock),
+  };
+  const detail = JSON.stringify(delta);
+  expect.soft(delta.row, detail).toBeLessThan(1);
+  expect.soft(delta.root, detail).toBeLessThan(1);
+  expect.soft(delta.dock, detail).toBeLessThan(1);
+}
+
+async function labelMotion(page: Page) {
+  return page.evaluate(() => {
+    const button = document.querySelector(
+      '.post-thread-sheet-panel .thread-replies-sort'
+    );
+    const seat = button?.parentElement;
+    if (!(seat instanceof HTMLElement)) return { name: 'none', opacity: '0' };
+    const style = getComputedStyle(seat);
+    return { name: style.animationName, opacity: style.opacity };
+  });
+}
 
 async function stubGraph(
   page: Page,
@@ -250,23 +300,65 @@ test('the reply under a direct reply paints before nested queries finish', async
   });
 });
 
-test('body holds opacity 0 while the first reply page loads — the discover peek never flashes', async ({
-  page,
-}) => {
-  await stubGraph(page, { treeDelayMs: () => 1_500 });
+test('a seeded post stays visible while replies load', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await stubGraph(page, { treeDelayMs: () => 2_500 });
   await gotoFeedWithRoot(page);
   const layer = await openThreadFromFeed(page);
+  const root = layer.locator('.guild-thread-root');
 
-  // Loading window: body not ready; peek title must not paint as content.
-  await expect(layer.locator('.os-page-body-appear.is-ready')).toHaveCount(0);
-  await page.waitForTimeout(500);
-  await expect(
-    layer.locator('.thread-discover-peek-title')
-  ).toHaveCount(0);
-
-  // Resolved: replies in, still no peek swap.
-  await expect(layer.getByText(REPLY.text)).toBeVisible({ timeout: 10_000 });
+  await expect(root.getByText(ROOT.text)).toBeVisible({ timeout: 3_000 });
+  await expect(layer.getByText(REPLY.text)).toHaveCount(0);
   await expect(layer.locator('.os-page-body-appear.is-ready')).toBeVisible();
+  await expect(
+    layer.locator('.post-card--skeleton.post-card--detail')
+  ).toHaveCount(0);
+  await expect(
+    layer.locator('.guild-connected-stack .post-row-skeleton-list')
+  ).toBeVisible();
+  const labelWhileLoading = await layer
+    .getByRole('button', { name: 'Sort replies' })
+    .count();
+  const quotesWhileLoading = await layer
+    .getByRole('link', { name: /View quotes|View reposts/ })
+    .count();
+  const seatWhileLoading = await controlSeat(page);
+  await expect(layer.locator('.thread-discover-peek')).toHaveCount(0);
+
+  const skeletonTop = await layer
+    .locator('.guild-connected-stack .post-card--skeleton')
+    .first()
+    .evaluate((node) => node.getBoundingClientRect().top);
+  const rootTop = await layer
+    .locator('.guild-thread-root .post-identity-name')
+    .evaluate((node) => node.getBoundingClientRect().top);
+
+  await root.evaluate((node) => {
+    node.setAttribute('data-open-node', 'root');
+  });
+
+  await expect(layer.getByText(REPLY.text)).toBeVisible({ timeout: 10_000 });
+  const replyTop = await layer
+    .locator('.guild-connected-stack article.post-card')
+    .first()
+    .evaluate((node) => node.getBoundingClientRect().top);
+  const rootTopAfter = await layer
+    .locator('.guild-thread-root .post-identity-name')
+    .evaluate((node) => node.getBoundingClientRect().top);
+  expect(Math.abs(replyTop - skeletonTop)).toBeLessThanOrEqual(1);
+  expect(Math.abs(rootTopAfter - rootTop)).toBeLessThan(1);
+  expect.soft(labelWhileLoading).toBe(0);
+  expect.soft(quotesWhileLoading).toBe(0);
+  expectSeatStable(seatWhileLoading, await controlSeat(page));
+  await expect(
+    layer.getByRole('button', { name: 'Sort replies' })
+  ).toBeVisible();
+  expect.soft((await labelMotion(page)).name).toBe('glass-sheet-appear');
+  await expect(root).toHaveAttribute('data-open-node', 'root');
+  await expect(root).toHaveJSProperty('tagName', 'DIV');
+  await expect(
+    layer.locator('.guild-connected-stack .post-row-skeleton-list')
+  ).toHaveCount(0);
   await expect(layer.locator('.thread-discover-peek')).toHaveCount(0);
 });
 
@@ -312,19 +404,169 @@ test('re-opening a thread paints replies instantly from the session cache', asyn
   await expect(layer.getByText(REPLY.text)).toBeVisible({ timeout: 2_000 });
 });
 
-test('an empty thread soft-appears the discover peek only after loading', async ({
+test('an empty thread shows the root while replies load, then the discover peek', async ({
   page,
 }) => {
-  await stubGraph(page, { replies: false, treeDelayMs: () => 1_200 });
+  await stubGraph(page, { replies: false, treeDelayMs: () => 2_500 });
   await gotoFeedWithRoot(page);
   const layer = await openThreadFromFeed(page);
 
-  await expect(layer.locator('.os-page-body-appear.is-ready')).toHaveCount(0);
+  await expect(layer.getByText(ROOT.text)).toBeVisible({ timeout: 3_000 });
+  await expect(layer.locator('.os-page-body-appear.is-ready')).toBeVisible();
   await expect(layer.locator('.thread-discover-peek-title')).toHaveCount(0);
+  await expect(
+    layer.locator('.guild-connected-stack .post-row-skeleton-list')
+  ).toBeVisible();
+  const labelWhileLoading = await layer
+    .getByRole('button', { name: 'Sort replies' })
+    .count();
+  const quotesWhileLoading = await layer
+    .getByRole('link', { name: /View quotes|View reposts/ })
+    .count();
+  const seatWhileLoading = await controlSeat(page);
 
   // Resolved and empty: the peek is the empty state, not a loading artifact.
   await expect(layer.locator('.thread-discover-peek-title')).toBeVisible({
     timeout: 10_000,
   });
   await expect(layer.locator('.os-page-body-appear.is-ready')).toBeVisible();
+  await expect(
+    layer.locator('.guild-connected-stack .post-row-skeleton-list')
+  ).toHaveCount(0);
+  expect.soft(labelWhileLoading).toBe(0);
+  expect.soft(quotesWhileLoading).toBe(0);
+  expectSeatStable(seatWhileLoading, await controlSeat(page));
+  expect
+    .soft(await layer.getByRole('button', { name: 'Sort replies' }).count())
+    .toBe(0);
+  expect
+    .soft(
+      await layer
+        .getByRole('link', { name: /View quotes|View reposts/ })
+        .count()
+    )
+    .toBe(0);
+});
+
+test('a replies label does not animate when motion is reduced', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await stubGraph(page, { treeDelayMs: () => 2_500 });
+  await gotoFeedWithRoot(page);
+  const layer = await openThreadFromFeed(page);
+
+  await expect(layer.getByText(ROOT.text)).toBeVisible({ timeout: 3_000 });
+  const labelWhileLoading = await layer
+    .getByRole('button', { name: 'Sort replies' })
+    .count();
+  await expect(layer.getByText(REPLY.text)).toBeVisible({ timeout: 10_000 });
+  await expect(
+    layer.getByRole('button', { name: 'Sort replies' })
+  ).toBeVisible();
+  expect.soft(labelWhileLoading).toBe(0);
+  const motion = await labelMotion(page);
+  expect(motion.name).toBe('none');
+  expect(Number(motion.opacity)).toBe(1);
+});
+
+test('a deep-linked reply scrolls into view', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await stubGraph(page, { treeDelayMs: () => 0 });
+  await page.route('**/api/onapi/graph/query', async (route) => {
+    const body = JSON.parse(route.request().postData() ?? '{}') as GraphBody;
+    const query = body.query ?? '';
+    const vars = body.variables ?? {};
+    if (
+      query.includes('threadReplies') &&
+      vars.parentPath === REPLY.parentPath
+    ) {
+      const replies = Array.from({ length: 14 }, (_, index) =>
+        replyRow({
+          accountId: 'bob.near',
+          postId: index === 13 ? 'reply-deep' : `pad-${index}`,
+          text:
+            index === 13
+              ? 'Deep linked reply'
+              : `Padding reply ${index} ${'line '.repeat(12)}`,
+          parentAuthor: 'alice.near',
+          parentPath: REPLY.parentPath,
+        })
+      );
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { threadReplies: replies } }),
+      });
+      return;
+    }
+    await route.fallback();
+  });
+
+  await gotoApp(page, '/@alice.near/posts/root-post?reply=reply-deep');
+  await dismissNextDevOverlay(page);
+  const target = page.locator('[data-thread-focus-reply="reply-deep"]');
+  await expect(target).toBeVisible({ timeout: 20_000 });
+  await expect
+    .poll(async () => {
+      const box = await target.boundingBox();
+      const view = page.viewportSize();
+      if (!box || !view) return false;
+      return box.y >= 0 && box.y + box.height <= view.height;
+    })
+    .toBe(true);
+});
+
+test('back from a thread restores the feed scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await stubGraph(page, { treeDelayMs: () => 0 });
+  await page.route('**/api/onapi/graph/query', async (route) => {
+    const body = JSON.parse(route.request().postData() ?? '{}') as GraphBody;
+    const query = body.query ?? '';
+    const vars = body.variables ?? {};
+    if (
+      (query.includes('postsFeed') || query.includes('postsCurrent')) &&
+      !vars.postId &&
+      vars.author !== ROOT.accountId
+    ) {
+      const field = query.includes('postsFeed') ? 'postsFeed' : 'postsCurrent';
+      const rows = [
+        feedRow(ROOT),
+        ...Array.from({ length: 16 }, (_, index) =>
+          feedRow({
+            accountId: 'bob.near',
+            postId: `pad-${index}`,
+            text: `Feed pad ${index} ${'line '.repeat(10)}`,
+          })
+        ),
+      ];
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { [field]: rows } }),
+      });
+      return;
+    }
+    await route.fallback();
+  });
+
+  await gotoFeedWithRoot(page);
+  const scroller = page.locator('.os-app-screen-body').first();
+  await scroller.evaluate((node) => {
+    node.scrollTop = 480;
+  });
+  const before = await scroller.evaluate((node) => node.scrollTop);
+  expect(before).toBeGreaterThan(200);
+
+  await openThreadFromFeed(page);
+  await page
+    .locator('.post-thread-sheet-panel')
+    .getByRole('button', { name: 'Back' })
+    .click();
+  await expect(
+    page.locator('.home-feed-list').getByText(ROOT.text).first()
+  ).toBeVisible();
+  await expect
+    .poll(async () => scroller.evaluate((node) => node.scrollTop))
+    .toBeGreaterThan(200);
 });

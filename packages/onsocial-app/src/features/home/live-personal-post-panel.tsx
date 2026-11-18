@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { PostRow, ThreadNode } from '@onsocial/sdk';
 import { Divider, PulsingDots } from '@onsocial/ui';
@@ -44,7 +38,10 @@ import {
 } from '@/features/guilds/guild-composer-sheet';
 import { postKey } from '@/features/home/post-card';
 import { ResolvedFeedPostCard } from '@/features/home/resolved-feed-post-card';
-import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
+import {
+  PostRowSkeleton,
+  PostThreadPageSkeleton,
+} from '@/features/home/post-skeleton';
 import { ThreadRail } from '@/features/home/thread-rail';
 import { ThreadDiscoverPeek } from '@/features/home/thread-discover-peek';
 import { ThreadRepliesSortButton } from '@/features/home/thread-replies-sort';
@@ -65,9 +62,7 @@ import {
   seedPostAuthorProfilesFromFeed,
   usePostAuthorProfiles,
 } from '@/hooks/use-post-author-profiles';
-import {
-  usePostEngagement,
-} from '@/hooks/use-post-engagement';
+import { usePostEngagement } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useThreadLandAppear } from '@/hooks/use-land-opened-post';
 import { useThreadFocusReply } from '@/hooks/use-thread-focus-reply';
@@ -84,7 +79,11 @@ import {
   startThreadFirstPage,
   visibleReplyPaths,
 } from '@/lib/thread-first-page';
-import { planThreadLoad } from '@/lib/thread-open';
+import {
+  planThreadLoad,
+  threadControlPresenceClass,
+  threadCoverReady,
+} from '@/lib/thread-open';
 import { collectRelationTargetAccountIds } from '@/lib/post-relation';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { fetchIndexedPost, fetchPersonalPost } from '@/lib/fetch-personal-post';
@@ -437,17 +436,15 @@ export function LivePersonalPostPanel({
     shareTailReady &&
     (rootEngagementKey == null ||
       Boolean(
-        seeded?.engagement?.[rootEngagementKey] ||
-          engagement[rootEngagementKey]
+        seeded?.engagement?.[rootEngagementKey] || engagement[rootEngagementKey]
       ));
-  const { landSettled } = useThreadLandAppear({
+  useThreadLandAppear({
     openedPostRef,
     postId: conversation.root?.postId,
     hasParent,
     ancestorsReady,
     loadReady: loadState === 'ready',
     hasRoot: Boolean(conversation.root),
-    tailReady: repliesResolved,
     pinKey: ancestorsReady
       ? ancestorChain.map((post) => post.postId).join('\n')
       : '',
@@ -455,13 +452,11 @@ export function LivePersonalPostPanel({
     landSeat,
     onThreadPainted,
   });
-  const permalinkReady =
-    loadState === 'missing' ||
-    loadState === 'error' ||
-    (loadState === 'ready' &&
-      Boolean(conversation.root) &&
-      landSettled &&
-      repliesResolved);
+  const permalinkReady = threadCoverReady({
+    loadState,
+    hasRoot: Boolean(conversation.root),
+    repliesResolved,
+  });
   const sortedReplyRows = useMemo(
     () => sortThreadReplyRows(replyRows, replySort, engagement),
     [replyRows, replySort, engagement]
@@ -1127,6 +1122,9 @@ export function LivePersonalPostPanel({
     );
   });
 
+  const showReplyControl = repliesResolved && replyListRows.length > 0;
+  const showQuoteControl = repliesResolved && Boolean(shareRow);
+
   const thread = (
     <div
       ref={threadHostRef}
@@ -1160,35 +1158,35 @@ export function LivePersonalPostPanel({
                     data-thread-focus-reply={ancestor.postId}
                     data-thread-focus-key={postKey(ancestor)}
                   >
-                <ThreadRail up={index > 0} down />
-                <ResolvedFeedPostCard
-                  post={ancestor}
-                  quotedPosts={quotedPosts}
-                  postAuthorProfiles={postAuthorProfiles}
-                  hrefForPost={hrefForPost}
-                  videoSoundControl
-                  returnToPost
-                  menuZIndex={nestMenuZ}
-                  showRelationBadge={index === 0}
-                  authorProfiles={postAuthorProfiles}
-                  engagement={engagement}
-                  isReactionPending={isReactionPending}
-                  isSavePending={isSavePending}
-                  isSharePending={isSharePending}
-                  onToggleReaction={toggleReaction}
-                  onToggleSave={toggleSave}
-                  onAmplifyConfirmed={confirmAmplify}
-                  onReply={replyHandler}
-                  onExpandReply={expandReply}
-                  onQuote={quoteHandler}
-                  onRepost={repostHandler}
-                  onUndoRepost={undoRepostHandler}
-                  pollTallyFor={pollTallyFor}
-                  isPollVotePending={isPollVotePending}
-                  onPollVote={(post, optionIndex) => {
-                    void castVote(post, optionIndex);
-                  }}
-                />
+                    <ThreadRail up={index > 0} down />
+                    <ResolvedFeedPostCard
+                      post={ancestor}
+                      quotedPosts={quotedPosts}
+                      postAuthorProfiles={postAuthorProfiles}
+                      hrefForPost={hrefForPost}
+                      videoSoundControl
+                      returnToPost
+                      menuZIndex={nestMenuZ}
+                      showRelationBadge={index === 0}
+                      authorProfiles={postAuthorProfiles}
+                      engagement={engagement}
+                      isReactionPending={isReactionPending}
+                      isSavePending={isSavePending}
+                      isSharePending={isSharePending}
+                      onToggleReaction={toggleReaction}
+                      onToggleSave={toggleSave}
+                      onAmplifyConfirmed={confirmAmplify}
+                      onReply={replyHandler}
+                      onExpandReply={expandReply}
+                      onQuote={quoteHandler}
+                      onRepost={repostHandler}
+                      onUndoRepost={undoRepostHandler}
+                      pollTallyFor={pollTallyFor}
+                      isPollVotePending={isPollVotePending}
+                      onPollVote={(post, optionIndex) => {
+                        void castVote(post, optionIndex);
+                      }}
+                    />
                   </div>
                 ))}
               </div>
@@ -1245,32 +1243,36 @@ export function LivePersonalPostPanel({
           <Divider variant="detail" />
 
           <div
-            className={`thread-controls-row${
-              replyListRows.length > 0 || shareRow ? '' : ' is-idle'
-            }${rootContinued ? ' is-continued' : ''}`}
+            className={`thread-controls-row${rootContinued ? ' is-continued' : ''}`}
           >
             {rootContinued ? <ThreadRail through /> : null}
-            {replyListRows.length > 0 ? (
+            <span
+              className={threadControlPresenceClass(showReplyControl)}
+              aria-hidden={showReplyControl ? undefined : true}
+            >
               <ThreadRepliesSortButton
                 sort={replySort}
                 onChange={setReplySort}
               />
-            ) : (
-              <span className="thread-controls-spacer" aria-hidden />
-            )}
-            <ThreadViewQuotesRow
-              href={
-                shareRow
-                  ? threadShareRowHref(
-                      personalPostQuotesPath(author, postId),
-                      shareRow
-                    )
-                  : personalPostQuotesPath(author, postId)
-              }
-              label={shareRow?.label ?? 'View quotes'}
-              count={shareRow?.count ?? 0}
-              rollSignal={rootEngagement?.shareRoll ?? 0}
-            />
+            </span>
+            <span
+              className={threadControlPresenceClass(showQuoteControl)}
+              aria-hidden={showQuoteControl ? undefined : true}
+            >
+              <ThreadViewQuotesRow
+                href={
+                  shareRow
+                    ? threadShareRowHref(
+                        personalPostQuotesPath(author, postId),
+                        shareRow
+                      )
+                    : personalPostQuotesPath(author, postId)
+                }
+                label={shareRow?.label ?? 'View quotes'}
+                count={shareRow?.count ?? 0}
+                rollSignal={rootEngagement?.shareRoll ?? 0}
+              />
+            </span>
           </div>
 
           <div className="guild-connected-stack" ref={replyStackRef}>
@@ -1281,7 +1283,11 @@ export function LivePersonalPostPanel({
                 data-feed-window-spacer="top"
               />
             ) : null}
-            {replyListRows.length > 0 ? (
+            {!repliesResolved && replyListRows.length === 0 ? (
+              <div aria-busy="true">
+                <PostRowSkeleton rows={2} />
+              </div>
+            ) : replyListRows.length > 0 ? (
               replyListRows.slice(replyWindowStart, replyWindowEnd)
             ) : emptyTailReady && !shareRow ? (
               <ThreadDiscoverPeek
