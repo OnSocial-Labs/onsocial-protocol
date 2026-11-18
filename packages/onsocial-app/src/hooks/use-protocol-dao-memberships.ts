@@ -6,7 +6,7 @@ import {
   useContext,
   useEffect,
   useState,
-  type ReactNode,
+  type PropsWithChildren,
 } from 'react';
 import { fetchDaoRolesClient } from '@/lib/fetch-dao-roles-client';
 import {
@@ -30,10 +30,9 @@ const FeedDaoMembershipsContext = createContext<Record<
 export function FeedDaoMembershipsProvider({
   memberships,
   children,
-}: {
+}: PropsWithChildren<{
   memberships: Record<string, ProtocolDaoMemberships> | null;
-  children: ReactNode;
-}) {
+}>) {
   return createElement(
     FeedDaoMembershipsContext.Provider,
     { value: memberships },

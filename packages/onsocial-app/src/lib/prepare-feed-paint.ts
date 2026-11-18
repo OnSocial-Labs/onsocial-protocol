@@ -12,6 +12,7 @@ import {
   type PollTally,
   type PollVoteRow,
 } from '@/lib/poll-votes';
+import type { ProtocolDaoMemberships } from '@/lib/protocol-dao-memberships';
 
 const GROUP_POST_PATH = /^([^/]+)\/groups\/([^/]+)\/content\/post\/(.+)$/;
 const PERSONAL_POST_PATH = /^([^/]+)\/post\/(.+)$/;
@@ -174,11 +175,11 @@ async function loadPollTallies(
   return out;
 }
 
-/** Quotes (including one hop through a repost) and poll tallies for a page. */
-export async function prepareFeedQuotesAndPolls(
+/** Quotes for a page, including one hop through a repost. */
+export async function loadFeedQuotes(
   posts: PostRow[],
   client: OnSocial
-): Promise<{ quoted: FeedQuoteSeed; tallies: Record<string, PollTally> }> {
+): Promise<FeedQuoteSeed> {
   const firstPaths = [
     ...new Set(
       posts
@@ -195,9 +196,57 @@ export async function prepareFeedQuotesAndPolls(
     ),
   ].filter((path) => !(path in first));
   const second = await quotedByPaths(secondPaths, client);
-  const [quoted, tallies] = await Promise.all([
-    Promise.resolve({ ...second, ...first }),
-    loadPollTallies(posts, client),
+  return { ...second, ...first };
+}
+
+/** Poll tallies for a page. */
+export async function loadFeedPollTallies(
+  posts: PostRow[],
+  client: OnSocial
+): Promise<Record<string, PollTally>> {
+  return loadPollTallies(posts, client);
+}
+
+/**
+ * Resolve `task`, or `fallback` if it rejects or is still pending when `ms`
+ * elapses. Callers pass `FEED_MEDIA_RESOLVE_FALLBACK_MS` — the feed's existing
+ * soft-fill cap — so a slow quote, tally, or dao-role fetch cannot hold the list.
+ */
+export function capFeedTask<T>(
+  task: Promise<T>,
+  fallback: T,
+  ms: number
+): Promise<T> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), ms);
+    task.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(fallback);
+      }
+    );
+  });
+}
+
+export async function settleFeedSidePaint(args: {
+  quotes: Promise<FeedQuoteSeed>;
+  tallies: Promise<Record<string, PollTally>>;
+  memberships: Promise<Record<string, ProtocolDaoMemberships>>;
+  /** `FEED_MEDIA_RESOLVE_FALLBACK_MS`. */
+  capMs: number;
+}): Promise<{
+  quoted: FeedQuoteSeed;
+  tallies: Record<string, PollTally>;
+  memberships: Record<string, ProtocolDaoMemberships>;
+}> {
+  const [quoted, tallies, memberships] = await Promise.all([
+    capFeedTask(args.quotes, {}, args.capMs),
+    capFeedTask(args.tallies, {}, args.capMs),
+    capFeedTask(args.memberships, {}, args.capMs),
   ]);
-  return { quoted, tallies };
+  return { quoted, tallies, memberships };
 }

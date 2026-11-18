@@ -43,12 +43,12 @@ describe('HomeFeedReveal', () => {
     expect(html).not.toContain('home-feed-reveal-body');
   });
 
-  it('paints server content in the document, with the appear class and no opacity gate', () => {
+  it('paints server content with the skeleton still under the fade', () => {
     const html = markup(false);
     expect(html).toContain('home-feed-reveal-body');
     expect(html).toContain('let’s try');
-    expect(html).not.toContain('post-row-skeleton-list');
+    expect(html).toContain('post-row-skeleton-list');
+    expect(html).toContain('home-feed-reveal-cover is-under');
     expect(html).not.toContain('opacity:0');
-    expect(html).not.toContain('hidden');
   });
 });

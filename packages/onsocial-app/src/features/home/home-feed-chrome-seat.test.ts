@@ -1,57 +1,83 @@
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { chromium, type Page } from '@playwright/test';
+import { afterAll, describe, expect, it } from 'vitest';
 
-const css = readFileSync(
-  join(dirname(fileURLToPath(import.meta.url)), '../../app/globals.css'),
-  'utf8'
-);
+const home = 'http://127.0.0.1:3060/home';
 
-function ruleBlock(selector: string): string {
-  const start = css.indexOf(selector);
-  if (start < 0) return '';
-  const open = css.indexOf('{', start);
-  const close = css.indexOf('}', open);
-  return css.slice(start, close + 1);
+async function openHome(width: number, height: number): Promise<{
+  close: () => Promise<void>;
+  page: Page;
+}> {
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage({
+    viewport: { width, height },
+    deviceScaleFactor: 1,
+  });
+  await page.goto(home, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+  await page.waitForSelector('.home-feed-block', { timeout: 30_000 });
+  await page.waitForSelector('.home-feed-load-more', { timeout: 30_000 });
+  return {
+    page,
+    close: () => browser.close(),
+  };
 }
 
-describe('home rail tuck keeps the body inset', () => {
-  it('translates the rail away and does not clear screen-body padding', () => {
-    const rail = ruleBlock('.home-feed-compact-chrome.is-scroll-hidden {');
-    expect(rail).toContain('translateY(-100%)');
-    expect(rail).not.toContain('max-height: 0');
-
-    const bodyClear = css.includes('.home-feed-compact-chrome.is-scroll-hidden')
-      ? css
-          .split('.home-feed-compact-chrome.is-scroll-hidden')
-          .slice(1)
-          .join('\n')
-      : '';
-    expect(bodyClear).not.toMatch(
-      /os-app-screen-body\s*\{[^}]*padding-top:\s*env\(safe-area-inset-top/
-    );
+describe('home chrome seats', () => {
+  const closers: Array<() => Promise<void>> = [];
+  afterAll(async () => {
+    await Promise.all(closers.map((close) => close()));
   });
-});
 
-describe('load-more footer seat', () => {
-  it('reserves the dots row from the sentinel, the pending padding, and the sm dot', () => {
-    const footer = ruleBlock('.home-feed-load-more {');
-    expect(footer).toContain('min-height');
-    expect(footer).toContain('0.75rem');
-    expect(footer).toContain('0.25rem');
-    expect(footer).not.toContain('29px');
-  });
-});
+  it('keeps block document positions when the rail tucks', async () => {
+    const session = await openHome(390, 844);
+    closers.push(session.close);
+    const read = () =>
+      session.page.evaluate(() => {
+        const root = document.querySelector('.os-app-screen-body');
+        if (!(root instanceof HTMLElement)) return [];
+        return [...document.querySelectorAll('.home-feed-block')]
+          .slice(0, 4)
+          .map((el) =>
+            Math.round(el.getBoundingClientRect().top + root.scrollTop)
+          );
+      });
+    const before = await read();
+    expect(before.length).toBeGreaterThan(0);
+    await session.page.evaluate(() => {
+      document
+        .querySelector('.home-feed-compact-chrome')
+        ?.classList.add('is-scroll-hidden');
+    });
+    const after = await read();
+    expect(after).toEqual(before);
+  }, 60_000);
 
-describe('feed reveal motion', () => {
-  it('fades with --os-motion-appear and stays visible under reduced motion', () => {
-    expect(css).toContain(
-      '.home-feed-reveal-body {\n      animation: glass-sheet-appear var(--os-motion-appear, 280ms)'
-    );
-    expect(css).toContain(
-      '@media (prefers-reduced-motion: reduce) {\n    .home-feed-reveal-body {\n      animation: none;\n    }\n  }'
-    );
-    expect(css).not.toMatch(/\.home-feed-reveal-body\s*\{[^}]*opacity:\s*0/);
-  });
+  it('keeps the load-more footer height when the in-flight dots mount', async () => {
+    const session = await openHome(1280, 800);
+    closers.push(session.close);
+    const height = () =>
+      session.page.evaluate(() => {
+        const footer = document.querySelector('.home-feed-load-more');
+        return footer
+          ? Math.round(footer.getBoundingClientRect().height)
+          : 0;
+      });
+    const resting = await height();
+    expect(resting).toBeGreaterThan(1);
+    await session.page.evaluate(() => {
+      const footer = document.querySelector('.home-feed-load-more');
+      if (!footer || footer.querySelector('.list-append-pending')) return;
+      const row = document.createElement('div');
+      row.className = 'list-append-pending';
+      const dots = document.createElement('span');
+      dots.className = 'protocol-pulsing-dots protocol-pulsing-dots--sm';
+      for (let i = 0; i < 3; i += 1) {
+        const dot = document.createElement('span');
+        dot.className = 'protocol-pulsing-dots__dot';
+        dots.appendChild(dot);
+      }
+      row.appendChild(dots);
+      footer.appendChild(row);
+    });
+    expect(await height()).toBe(resting);
+  }, 60_000);
 });

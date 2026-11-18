@@ -2,9 +2,12 @@ import type { Paginated, PostRow } from '@onsocial/sdk';
 import type { HomeFeedSort } from '@/features/home/home-feed-sort';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import { resolveDaoMembershipsForAccounts } from '@/lib/fetch-page-drawer-meta';
+import { FEED_MEDIA_RESOLVE_FALLBACK_MS } from '@/features/home/post-media';
 import {
   feedAuthorIds,
-  prepareFeedQuotesAndPolls,
+  loadFeedPollTallies,
+  loadFeedQuotes,
+  settleFeedSidePaint,
   type FeedQuoteSeed,
 } from '@/lib/prepare-feed-paint';
 import type { PollTally } from '@/lib/poll-votes';
@@ -51,18 +54,22 @@ export async function loadHomeFeedPage(opts?: {
     const [engagement, scarceEmbeds, prepared] = await Promise.all([
       loadPostEngagementMap(os, items),
       hydrateScarceEmbedsForPosts(os, items),
-      prepareFeedQuotesAndPolls(items, os),
+      settleFeedSidePaint({
+        quotes: loadFeedQuotes(items, os),
+        tallies: loadFeedPollTallies(items, os),
+        memberships: resolveDaoMembershipsForAccounts(
+          feedAuthorIds(items, {})
+        ),
+        capMs: FEED_MEDIA_RESOLVE_FALLBACK_MS,
+      }),
     ]);
-    const memberships = await resolveDaoMembershipsForAccounts(
-      feedAuthorIds(items, prepared.quoted)
-    ).catch(() => ({}));
     return {
       page,
       engagement,
       scarceEmbeds,
       quoted: prepared.quoted,
       tallies: prepared.tallies,
-      memberships,
+      memberships: prepared.memberships,
     };
   } catch {
     return null;

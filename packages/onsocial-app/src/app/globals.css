@@ -23091,6 +23091,30 @@ a.os-surface-row,
     }
   }
 
+  .home-feed-reveal {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .home-feed-reveal-body {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* Sits on the fading list so the slot is never the empty page color. */
+  .home-feed-reveal-cover.is-under {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
   .home-feed-sentinel {
     height: 1px;
   }
