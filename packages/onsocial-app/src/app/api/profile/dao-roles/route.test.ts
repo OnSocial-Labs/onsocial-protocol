@@ -68,4 +68,29 @@ describe('dao-roles route', () => {
     expect(memberships).not.toHaveBeenCalled();
     expect(body.accounts[0]?.accountId).toBe('bob.near');
   });
+
+  it('returns empty memberships without the chain when e2e stubs are on', async () => {
+    vi.stubEnv('E2E_GRAPH_STUBS', '1');
+    try {
+      const { GET } = await import('./route');
+      const response = await GET(
+        new NextRequest(
+          'http://localhost/api/profile/dao-roles?accountIds=bob.near'
+        )
+      );
+      const body = (await response.json()) as {
+        accounts: Array<{
+          accountId: string;
+          memberships: { governance: string | null };
+        }>;
+      };
+      expect(response.status).toBe(200);
+      expect(batched).not.toHaveBeenCalled();
+      expect(memberships).not.toHaveBeenCalled();
+      expect(body.accounts[0]?.accountId).toBe('bob.near');
+      expect(body.accounts[0]?.memberships.governance).toBeNull();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });
