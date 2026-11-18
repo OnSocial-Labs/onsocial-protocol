@@ -425,7 +425,7 @@
 
 /*
  * Home chip rail — nav-band seat (beats `.os-app-chrome-rail` 1.85rem).
- * On tuck: rail, header pad, body inset, and frost all clear — full bleed feed.
+ * Tuck translates the chips out and keeps this row, so the body inset stays.
  */
 .os-app-screen[data-compact-chrome='true'] .home-feed-compact-chrome {
   min-height: var(--os-app-screen-nav-row-height, 2.35rem);
