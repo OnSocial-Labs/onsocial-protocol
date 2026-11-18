@@ -6,6 +6,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HomeFeedReveal } from '@/features/home/home-feed-reveal';
+import { fetchDaoRolesPage } from '@/lib/fetch-dao-roles-client';
 import { FEED_MEDIA_RESOLVE_FALLBACK_MS } from '@/features/home/post-media';
 import { EMPTY_PROTOCOL_DAO_MEMBERSHIPS } from '@/lib/protocol-dao-memberships';
 import {
@@ -186,5 +187,119 @@ describe('sequenceFeedQuoteThenTally', () => {
     await expect(reads.quotes).resolves.toHaveProperty(
       'greenghost.onsocial.testnet/post/1'
     );
+  });
+});
+
+const HUNG_AUTHOR = 'greenghost.onsocial.testnet';
+
+function guardianBody() {
+  return JSON.stringify({
+    accounts: [
+      {
+        accountId: HUNG_AUTHOR,
+        memberships: {
+          governance: 'guardians',
+          treasury: null,
+          proposer: { governance: false, treasury: false },
+        },
+      },
+    ],
+  });
+}
+
+function DaoReveal({ generation }: { generation: number }) {
+  const [view, setView] = useState({ text: '', mark: false });
+  useEffect(() => {
+    let stop = false;
+    void settleFeedSidePaint({
+      quotes: Promise.resolve({}),
+      tallies: Promise.resolve({}),
+      memberships: (signal) => fetchDaoRolesPage([HUNG_AUTHOR], signal),
+      capMs: FEED_REVEAL_BUDGET_MS,
+    }).then((paint) => {
+      if (stop) return;
+      const seeded = seedDaoMembershipMisses([HUNG_AUTHOR], paint.memberships);
+      setView({
+        text: 'Hello from the feed',
+        mark: seeded[HUNG_AUTHOR]?.governance === 'guardians',
+      });
+    });
+    return () => {
+      stop = true;
+    };
+  }, [generation]);
+  return createElement(
+    'article',
+    null,
+    view.text,
+    view.mark
+      ? createElement('i', { className: 'protocol-identity-mark' })
+      : null
+  );
+}
+
+describe('dao read abort', () => {
+  let root: Root | null = null;
+  let host: HTMLDivElement | null = null;
+
+  beforeEach(() => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+  });
+
+  afterEach(() => {
+    act(() => root?.unmount());
+    host?.remove();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it('aborts a hung dao-roles read at the budget, then paints the mark on the next load', async () => {
+    vi.useFakeTimers();
+    let phase: 'hang' | 'ok' = 'hang';
+    const signals: AbortSignal[] = [];
+    vi.stubGlobal(
+      'fetch',
+      (_input: RequestInfo, init?: RequestInit) => {
+        const signal = init?.signal ?? null;
+        if (signal) signals.push(signal);
+        if (phase === 'hang') {
+          return new Promise<Response>((_resolve, reject) => {
+            signal?.addEventListener('abort', () => {
+              reject(new DOMException('The operation was aborted.', 'AbortError'));
+            });
+          });
+        }
+        return Promise.resolve(
+          new Response(guardianBody(), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        );
+      }
+    );
+
+    await act(async () => {
+      root?.render(createElement(DaoReveal, { generation: 0 }));
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(FEED_REVEAL_BUDGET_MS);
+    });
+
+    expect(host?.textContent).toContain('Hello from the feed');
+    expect(host?.querySelector('.protocol-identity-mark')).toBeNull();
+    expect(signals[0]?.aborted).toBe(true);
+
+    phase = 'ok';
+    await act(async () => {
+      root?.render(createElement(DaoReveal, { generation: 1 }));
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(host?.querySelector('.protocol-identity-mark')).not.toBeNull();
   });
 });

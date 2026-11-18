@@ -98,7 +98,11 @@ import {
   insertOptimisticFeedPost,
   shouldPrependOptimisticFeedPost,
 } from '@/features/home/personal-feed-list';
-import { HomeFeedReveal } from '@/features/home/home-feed-reveal';
+import {
+  coldLoadReveal,
+  HomeFeedReveal,
+  slowRefreshReveal,
+} from '@/features/home/home-feed-reveal';
 import {
   HOME_FEED_COLD_SKELETON_FRAMES,
   PostRowSkeleton,
@@ -343,7 +347,7 @@ async function loadFeedPaint(posts: PostRow[]): Promise<{
     const paint = await settleFeedSidePaint({
       quotes: reads.quotes,
       tallies: reads.tallies,
-      memberships: fetchDaoRolesPage(authorIds),
+      memberships: (signal) => fetchDaoRolesPage(authorIds, signal),
       capMs: FEED_REVEAL_BUDGET_MS,
     });
     return {
@@ -873,6 +877,22 @@ export function HomePagePanel({
         }
       );
     };
+    const releaseColdLoad = (items: PostRow[]) => {
+      const decision = coldLoadReveal({
+        serverPainted,
+        settleStarted: clientRevealFlight.current !== 0,
+      });
+      isRefreshingRef.current = false;
+      setIsRefreshing(false);
+      if (decision.loading === 'clear') {
+        isLoadingRef.current = false;
+        setIsLoading(false);
+      } else if (decision.loading === 'hold') {
+        isLoadingRef.current = true;
+        setIsLoading(true);
+      }
+      if (decision.startSettle) settleUnpaintedReveal(items);
+    };
     const focus = parseHomeFeedFocus({
       tag: tagParam,
       ticker: tickerParam,
@@ -919,16 +939,7 @@ export function HomePagePanel({
       feedSessionKeyRef.current = sessionKey;
       setSsrBootstrapDone(true);
       ssrBootstrapDoneRef.current = true;
-      isRefreshingRef.current = false;
-      setIsRefreshing(false);
-      if (serverPainted) {
-        isLoadingRef.current = false;
-        setIsLoading(false);
-      } else {
-        isLoadingRef.current = true;
-        setIsLoading(true);
-        settleUnpaintedReveal(postsRef.current);
-      }
+      releaseColdLoad(postsRef.current);
       return;
     }
 
@@ -954,16 +965,7 @@ export function HomePagePanel({
         ssrHotGlobalReloadNonceRef.current = reloadNonce;
         setSsrBootstrapDone(true);
         ssrBootstrapDoneRef.current = true;
-        isRefreshingRef.current = false;
-        setIsRefreshing(false);
-        if (serverPainted) {
-          isLoadingRef.current = false;
-          setIsLoading(false);
-        } else {
-          isLoadingRef.current = true;
-          setIsLoading(true);
-          settleUnpaintedReveal(speculativePage.items);
-        }
+        releaseColdLoad(speculativePage.items);
         return;
       }
       // Stored standing lens or Recent sort — keep these rows on screen
@@ -1005,18 +1007,7 @@ export function HomePagePanel({
       activeLens === 'global' &&
       reloadNonce === ssrHotGlobalReloadNonceRef.current
     ) {
-      isRefreshingRef.current = false;
-      setIsRefreshing(false);
-      if (serverPainted || clientRevealFlight.current !== 0) {
-        if (clientRevealFlight.current === 0) {
-          isLoadingRef.current = false;
-          setIsLoading(false);
-        }
-      } else {
-        isLoadingRef.current = true;
-        setIsLoading(true);
-        settleUnpaintedReveal(postsRef.current);
-      }
+      releaseColdLoad(postsRef.current);
       return;
     }
 
@@ -1060,10 +1051,11 @@ export function HomePagePanel({
 
     const keepPrevious = postsLengthRef.current > 0;
     if (keepPrevious) {
-      isRefreshingRef.current = true;
-      isLoadingRef.current = false;
-      setIsRefreshing(true);
-      setIsLoading(false);
+      const refresh = slowRefreshReveal();
+      isRefreshingRef.current = refresh.refreshing;
+      isLoadingRef.current = refresh.loading;
+      setIsRefreshing(refresh.refreshing);
+      setIsLoading(refresh.loading);
     } else {
       standingSourcesRef.current = null;
       setStandingNetworkIds(null);

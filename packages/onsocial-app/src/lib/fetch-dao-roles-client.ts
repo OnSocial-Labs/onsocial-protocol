@@ -190,7 +190,8 @@ export function daoRolesPageQuery(accountIds: string[]): string {
 
 /** One `/api/profile/dao-roles` round-trip for a page of authors. */
 export async function fetchDaoRolesPage(
-  accountIds: string[]
+  accountIds: string[],
+  signal?: AbortSignal
 ): Promise<Record<string, ProtocolDaoMemberships>> {
   const ids = [
     ...new Set(
@@ -199,10 +200,18 @@ export async function fetchDaoRolesPage(
         .filter((id) => id.length > 0)
     ),
   ].sort();
-  if (ids.length === 0) return {};
-  const res = await fetch(`/api/profile/dao-roles?${daoRolesPageQuery(ids)}`, {
-    cache: 'no-store',
-  });
+  if (ids.length === 0 || signal?.aborted) return {};
+  let res: Response;
+  try {
+    res = await fetch(`/api/profile/dao-roles?${daoRolesPageQuery(ids)}`, {
+      cache: 'no-store',
+      signal,
+    });
+  } catch {
+    // Abort and other failures store nothing. A later load asks again.
+    return {};
+  }
+  if (signal?.aborted) return {};
   if (!res.ok) return {};
   const body = (await res.json().catch(() => null)) as {
     accounts?: Array<{

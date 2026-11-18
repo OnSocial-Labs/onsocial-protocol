@@ -267,29 +267,31 @@ export function sequenceFeedQuoteThenTally(
  * `FEED_SIDE_PAINT_CAP_MS` stays paired with the media-decode fallback.
  */
 export function capFeedTask<T>(
-  task: Promise<T>,
+  task: Promise<T> | ((signal: AbortSignal) => Promise<T>),
   fallback: T,
   ms: number
 ): Promise<T> {
+  const controller = new AbortController();
+  const started = typeof task === 'function' ? task(controller.signal) : task;
   return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(fallback), ms);
-    task.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      () => {
-        clearTimeout(timer);
-        resolve(fallback);
-      }
-    );
+    const timer = setTimeout(() => {
+      controller.abort();
+      resolve(fallback);
+    }, ms);
+    const finish = (value: T) => {
+      clearTimeout(timer);
+      resolve(value);
+    };
+    started.then(finish, () => finish(fallback));
   });
 }
 
 export async function settleFeedSidePaint(args: {
   quotes: Promise<FeedQuoteSeed>;
   tallies: Promise<Record<string, PollTally>>;
-  memberships: Promise<Record<string, ProtocolDaoMemberships>>;
+  memberships:
+    | Promise<Record<string, ProtocolDaoMemberships>>
+    | ((signal: AbortSignal) => Promise<Record<string, ProtocolDaoMemberships>>);
   /** `FEED_SIDE_PAINT_CAP_MS`. */
   capMs: number;
 }): Promise<{
