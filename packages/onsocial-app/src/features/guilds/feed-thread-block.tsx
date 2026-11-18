@@ -33,6 +33,8 @@ interface FeedThreadBlockProps {
   guildNameById?: Record<string, string>;
   postAuthorProfiles: Record<string, PostAuthorProfile>;
   quotedPosts: Record<string, PostRow>;
+  /** Home: this post's quote ref already resolved (including a miss). */
+  quoteSettled?: (post: PostRow) => boolean;
   engagement: Record<string, PostEngagement>;
   isReactionPending: (post: PostRow) => boolean;
   isSavePending?: (post: PostRow) => boolean;
@@ -88,6 +90,7 @@ export function FeedThreadBlock({
   guildNameById,
   postAuthorProfiles,
   quotedPosts,
+  quoteSettled,
   engagement,
   isReactionPending,
   isSavePending,
@@ -108,11 +111,14 @@ export function FeedThreadBlock({
 }: FeedThreadBlockProps) {
   const collapsed = block.length > FEED_THREAD_MAX_UNCOLLAPSED;
   const foldLabel = collapsed
-    ? resolveThreadFoldLabel(block.slice(1, block.length - FEED_THREAD_TAIL_VISIBLE), {
-        noun: 'post',
-        earlier: true,
-        profiles: postAuthorProfiles,
-      })
+    ? resolveThreadFoldLabel(
+        block.slice(1, block.length - FEED_THREAD_TAIL_VISIBLE),
+        {
+          noun: 'post',
+          earlier: true,
+          profiles: postAuthorProfiles,
+        }
+      )
     : null;
   const standingTarget = standingHidden?.[0];
   const standingFoldLabel = standingHidden?.length
@@ -157,8 +163,7 @@ export function FeedThreadBlock({
       }
     : null;
 
-  const hrefForPost = (target: PostRow) =>
-    resolveThreadHref(target, groupId);
+  const hrefForPost = (target: PostRow) => resolveThreadHref(target, groupId);
 
   const renderRow = ({ post, up, down, first }: BlockRow) => {
     const itemClassName = [
@@ -175,6 +180,7 @@ export function FeedThreadBlock({
         <ResolvedFeedPostCard
           post={post}
           quotedPosts={quotedPosts}
+          quoteSettled={quoteSettled}
           postAuthorProfiles={postAuthorProfiles}
           hrefForPost={hrefForPost}
           showChannel={showChannel}

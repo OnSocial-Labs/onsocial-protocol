@@ -121,7 +121,10 @@ export function useResolvedGroupPosts(paths: Array<string | undefined>) {
 
       // Personal refs batch into ONE postsCurrent query; group refs keep the
       // per-path groups.post lane (rarer, no batch variant yet).
-      const personalMisses = new Map<string, { author: string; postId: string }>();
+      const personalMisses = new Map<
+        string,
+        { author: string; postId: string }
+      >();
       const groupMisses: string[] = [];
       for (const path of misses) {
         if (parseGroupPostPath(path)) {
@@ -190,7 +193,10 @@ export function useResolvedGroupPosts(paths: Array<string | undefined>) {
  * and if that original is itself a quote, its inset needs `refPath` resolved
  * too — otherwise the quote inset stays empty while loading.
  */
-export function useQuotedPosts(posts: PostRow[]) {
+export function useQuotedPosts(
+  posts: PostRow[],
+  seed?: Record<string, PostRow | null> | null
+) {
   const refPaths = useMemo(() => posts.map((post) => post.refPath), [posts]);
   const firstHop = useResolvedGroupPosts(refPaths);
   const secondHopPaths = useMemo(
@@ -201,9 +207,17 @@ export function useQuotedPosts(posts: PostRow[]) {
     [posts, firstHop]
   );
   const secondHop = useResolvedGroupPosts(secondHopPaths);
+  const seeded = useMemo(() => {
+    const out: Record<string, PostRow> = {};
+    if (!seed) return out;
+    for (const [path, post] of Object.entries(seed)) {
+      if (post) out[path] = post;
+    }
+    return out;
+  }, [seed]);
   return useMemo(
-    () => ({ ...secondHop, ...firstHop }),
-    [firstHop, secondHop]
+    () => ({ ...seeded, ...secondHop, ...firstHop }),
+    [firstHop, secondHop, seeded]
   );
 }
 

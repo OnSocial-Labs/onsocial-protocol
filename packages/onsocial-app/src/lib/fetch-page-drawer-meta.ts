@@ -128,13 +128,12 @@ export async function fetchDaoRoleIds(accountId: string): Promise<string[]> {
   );
 }
 
-export type ProtocolDaoCouncilRole = import('@/lib/protocol-dao-memberships').ProtocolDaoCouncilRole;
+export type ProtocolDaoCouncilRole =
+  import('@/lib/protocol-dao-memberships').ProtocolDaoCouncilRole;
 export type ProtocolDaoMemberships =
   import('@/lib/protocol-dao-memberships').ProtocolDaoMemberships;
 
-function primaryCouncilRole(
-  roleIds: string[]
-): ProtocolDaoCouncilRole | null {
+function primaryCouncilRole(roleIds: string[]): ProtocolDaoCouncilRole | null {
   const normalized = roleIds.map((id) => id.trim().toLowerCase());
   if (normalized.includes('guardians')) return 'guardians';
   if (normalized.includes('council')) return 'council';
@@ -144,12 +143,44 @@ function primaryCouncilRole(
 /** Per protocol DAO council membership — used for dual identity marks. */
 export async function fetchProtocolDaoMemberships(
   accountId: string
-): Promise<Omit<import('@/lib/protocol-dao-memberships').ProtocolDaoMemberships, 'proposer'>> {
+): Promise<
+  Omit<
+    import('@/lib/protocol-dao-memberships').ProtocolDaoMemberships,
+    'proposer'
+  >
+> {
   const { governance, treasury } = await loadDaoPolicies();
   return {
     governance: primaryCouncilRole(roleIdsForAccount(governance, accountId)),
     treasury: primaryCouncilRole(roleIdsForAccount(treasury, accountId)),
   };
+}
+
+/** One policy read for a page of authors, plus each account's proposer flags. */
+export async function resolveDaoMembershipsForAccounts(
+  accountIds: string[]
+): Promise<Record<string, ProtocolDaoMemberships>> {
+  const ids = [
+    ...new Set(
+      accountIds
+        .map((id) => id.trim().toLowerCase())
+        .filter((id) => id.length > 0)
+    ),
+  ];
+  if (ids.length === 0) return {};
+  const { governance, treasury } = await loadDaoPolicies();
+  const proposers = await Promise.all(
+    ids.map((id) => fetchProtocolDaoProposerFlags(id))
+  );
+  const out: Record<string, ProtocolDaoMemberships> = {};
+  ids.forEach((id, index) => {
+    out[id] = {
+      governance: primaryCouncilRole(roleIdsForAccount(governance, id)),
+      treasury: primaryCouncilRole(roleIdsForAccount(treasury, id)),
+      proposer: proposers[index] ?? EMPTY_PROTOCOL_DAO_PROPOSER_FLAGS,
+    };
+  });
+  return out;
 }
 
 function parseProtocolDaoProposerFlags(

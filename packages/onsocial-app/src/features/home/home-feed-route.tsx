@@ -13,6 +13,9 @@ export function HomeFeedRoute({ paint }: { paint: HomeFeedPaint | null }) {
       initialPage={paint?.page ?? null}
       initialEngagement={paint?.engagement ?? null}
       initialScarceEmbeds={paint?.scarceEmbeds ?? null}
+      initialQuoted={paint?.quoted ?? null}
+      initialTallies={paint?.tallies ?? null}
+      initialMemberships={paint?.memberships ?? null}
     />
   );
 }

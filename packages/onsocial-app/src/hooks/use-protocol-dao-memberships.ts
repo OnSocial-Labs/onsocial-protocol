@@ -1,6 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import {
+  createContext,
+  createElement,
+  useContext,
+  useEffect,
+  useState,
+  type PropsWithChildren,
+} from 'react';
 import { fetchDaoRolesClient } from '@/lib/fetch-dao-roles-client';
 import {
   EMPTY_PROTOCOL_DAO_MEMBERSHIPS,
@@ -14,21 +21,48 @@ function isAbortError(error: unknown): boolean {
   );
 }
 
+const FeedDaoMembershipsContext = createContext<Record<
+  string,
+  ProtocolDaoMemberships
+> | null>(null);
+
+/** Page-level dao-role batch. Keys are lowercase account ids. */
+export function FeedDaoMembershipsProvider({
+  memberships,
+  children,
+}: PropsWithChildren<{
+  memberships: Record<string, ProtocolDaoMemberships> | null;
+}>) {
+  return createElement(
+    FeedDaoMembershipsContext.Provider,
+    { value: memberships },
+    children
+  );
+}
+
 /**
  * Soft-fill protocol Governance / Treasury membership for person faces & lists.
- * Never blocks paint. Shares `/api/profile/dao-roles` cache with Joined facts.
+ * A page seed is the first paint. Otherwise the per-account fetch still runs.
  */
 export function useProtocolDaoMemberships(
   accountId: string,
   enabled: boolean
 ): ProtocolDaoMemberships | null {
   const normalized = accountId.trim().toLowerCase();
+  const pageSeed = useContext(FeedDaoMembershipsContext);
+  const seeded =
+    pageSeed && Object.prototype.hasOwnProperty.call(pageSeed, normalized)
+      ? pageSeed[normalized]
+      : undefined;
   const [memberships, setMemberships] = useState<ProtocolDaoMemberships | null>(
-    null
+    seeded ?? null
   );
-  const [resolvedKey, setResolvedKey] = useState<string | null>(null);
+  const [resolvedKey, setResolvedKey] = useState<string | null>(
+    seeded !== undefined ? normalized : null
+  );
 
   useEffect(() => {
+    if (seeded !== undefined) return;
     if (!enabled || !normalized) {
       return;
     }
@@ -54,8 +88,9 @@ export function useProtocolDaoMemberships(
       cancelled = true;
       controller.abort();
     };
-  }, [accountId, enabled, normalized]);
+  }, [accountId, enabled, normalized, seeded]);
 
+  if (seeded !== undefined) return seeded;
   if (!enabled || !normalized || resolvedKey !== normalized) {
     return null;
   }

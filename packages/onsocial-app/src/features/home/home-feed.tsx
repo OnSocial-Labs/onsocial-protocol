@@ -99,6 +99,11 @@ import {
   shouldPrependOptimisticFeedPost,
 } from '@/features/home/personal-feed-list';
 import {
+  coldLoadReveal,
+  HomeFeedReveal,
+  slowRefreshReveal,
+} from '@/features/home/home-feed-reveal';
+import {
   HOME_FEED_COLD_SKELETON_FRAMES,
   PostRowSkeleton,
   postKey,
@@ -112,6 +117,19 @@ import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel'
 import { useListScrollRestore } from '@/hooks/use-list-scroll-restore';
 import { sortPostsByHot } from '@/lib/amplify-heat';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { fetchDaoRolesPage } from '@/lib/fetch-dao-roles-client';
+import {
+  feedAuthorIds,
+  FEED_REVEAL_BUDGET_MS,
+  seedDaoMembershipMisses,
+  loadFeedPollTallies,
+  loadFeedQuotes,
+  sequenceFeedQuoteThenTally,
+  settleFeedSidePaint,
+  type FeedQuoteSeed,
+} from '@/lib/prepare-feed-paint';
+import type { PollTally } from '@/lib/poll-votes';
+import type { ProtocolDaoMemberships } from '@/lib/protocol-dao-memberships';
 import {
   fetchIndexedPostsByRefs,
   indexedPostRefKey,
@@ -309,6 +327,41 @@ async function loadFocusedFeedPage(
   return { ...page, items: sortPostsByHot(page.items) };
 }
 
+async function loadFeedPaint(posts: PostRow[]): Promise<{
+  quoted: FeedQuoteSeed;
+  tallies: Record<string, PollTally>;
+  memberships: Record<string, ProtocolDaoMemberships>;
+}> {
+  const empty = {
+    quoted: {} as FeedQuoteSeed,
+    tallies: {} as Record<string, PollTally>,
+    memberships: {} as Record<string, ProtocolDaoMemberships>,
+  };
+  try {
+    const client = createReadOnlyOnSocialClient();
+    const reads = sequenceFeedQuoteThenTally(
+      loadFeedQuotes(posts, client),
+      () => loadFeedPollTallies(posts, client)
+    );
+    const authorIds = feedAuthorIds(posts, {});
+    const paint = await settleFeedSidePaint({
+      quotes: reads.quotes,
+      tallies: reads.tallies,
+      memberships: (signal) => fetchDaoRolesPage(authorIds, signal),
+      capMs: FEED_REVEAL_BUDGET_MS,
+    });
+    return {
+      ...paint,
+      memberships: seedDaoMembershipMisses(authorIds, paint.memberships),
+    };
+  } catch {
+    return {
+      ...empty,
+      memberships: seedDaoMembershipMisses(feedAuthorIds(posts, {}), {}),
+    };
+  }
+}
+
 function HomeFeedLoadMoreFooter({
   loadMoreSentinelRef,
   showSentinel,
@@ -342,10 +395,16 @@ export function HomePagePanel({
   initialPage = null,
   initialEngagement = null,
   initialScarceEmbeds = null,
+  initialQuoted = null,
+  initialTallies = null,
+  initialMemberships = null,
 }: {
   initialPage?: Paginated<PostRow> | null;
   initialEngagement?: Record<string, PostEngagement> | null;
   initialScarceEmbeds?: Record<string, PostScarceEmbed> | null;
+  initialQuoted?: FeedQuoteSeed | null;
+  initialTallies?: Record<string, PollTally> | null;
+  initialMemberships?: Record<string, ProtocolDaoMemberships> | null;
 } = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -368,6 +427,18 @@ export function HomePagePanel({
     cache.prime(restoredSession?.blockHeights);
     feedWindowCacheRef.current = cache;
   }
+  const serverPainted = initialPage != null;
+  const [quotedSeed, setQuotedSeed] = useState<FeedQuoteSeed>(
+    () => initialQuoted ?? {}
+  );
+  const [pollSeed, setPollSeed] = useState<Record<string, PollTally>>(
+    () => initialTallies ?? {}
+  );
+  const [daoSeed, setDaoSeed] = useState<
+    Record<string, ProtocolDaoMemberships>
+  >(() => initialMemberships ?? {});
+  const [clientPaintReady, setClientPaintReady] = useState(serverPainted);
+  const clientRevealFlight = useRef(0);
   const [posts, setPosts] = useState<PostRow[]>(
     () => restoredSession?.posts ?? initialPage?.items ?? []
   );
@@ -780,6 +851,48 @@ export function HomePagePanel({
   );
 
   useEffect(() => {
+    const settleUnpaintedReveal = (items: PostRow[]) => {
+      if (serverPainted || clientRevealFlight.current !== 0) return;
+      const flight = 1;
+      clientRevealFlight.current = flight;
+      void loadFeedPaint(items).then(
+        (paint) => {
+          if (clientRevealFlight.current !== flight) return;
+          setQuotedSeed((current) => ({ ...current, ...paint.quoted }));
+          setPollSeed((current) => ({ ...current, ...paint.tallies }));
+          setDaoSeed((current) => ({ ...current, ...paint.memberships }));
+          setClientPaintReady(true);
+          isLoadingRef.current = false;
+          isRefreshingRef.current = false;
+          setIsLoading(false);
+          setIsRefreshing(false);
+        },
+        () => {
+          if (clientRevealFlight.current !== flight) return;
+          setClientPaintReady(true);
+          isLoadingRef.current = false;
+          isRefreshingRef.current = false;
+          setIsLoading(false);
+          setIsRefreshing(false);
+        }
+      );
+    };
+    const releaseColdLoad = (items: PostRow[]) => {
+      const decision = coldLoadReveal({
+        serverPainted,
+        settleStarted: clientRevealFlight.current !== 0,
+      });
+      isRefreshingRef.current = false;
+      setIsRefreshing(false);
+      if (decision.loading === 'clear') {
+        isLoadingRef.current = false;
+        setIsLoading(false);
+      } else if (decision.loading === 'hold') {
+        isLoadingRef.current = true;
+        setIsLoading(true);
+      }
+      if (decision.startSettle) settleUnpaintedReveal(items);
+    };
     const focus = parseHomeFeedFocus({
       tag: tagParam,
       ticker: tickerParam,
@@ -826,10 +939,7 @@ export function HomePagePanel({
       feedSessionKeyRef.current = sessionKey;
       setSsrBootstrapDone(true);
       ssrBootstrapDoneRef.current = true;
-      isLoadingRef.current = false;
-      isRefreshingRef.current = false;
-      setIsLoading(false);
-      setIsRefreshing(false);
+      releaseColdLoad(postsRef.current);
       return;
     }
 
@@ -855,10 +965,7 @@ export function HomePagePanel({
         ssrHotGlobalReloadNonceRef.current = reloadNonce;
         setSsrBootstrapDone(true);
         ssrBootstrapDoneRef.current = true;
-        isLoadingRef.current = false;
-        isRefreshingRef.current = false;
-        setIsLoading(false);
-        setIsRefreshing(false);
+        releaseColdLoad(speculativePage.items);
         return;
       }
       // Stored standing lens or Recent sort — keep these rows on screen
@@ -900,10 +1007,7 @@ export function HomePagePanel({
       activeLens === 'global' &&
       reloadNonce === ssrHotGlobalReloadNonceRef.current
     ) {
-      isLoadingRef.current = false;
-      isRefreshingRef.current = false;
-      setIsLoading(false);
-      setIsRefreshing(false);
+      releaseColdLoad(postsRef.current);
       return;
     }
 
@@ -947,10 +1051,11 @@ export function HomePagePanel({
 
     const keepPrevious = postsLengthRef.current > 0;
     if (keepPrevious) {
-      isRefreshingRef.current = true;
-      isLoadingRef.current = false;
-      setIsRefreshing(true);
-      setIsLoading(false);
+      const refresh = slowRefreshReveal();
+      isRefreshingRef.current = refresh.refreshing;
+      isLoadingRef.current = refresh.loading;
+      setIsRefreshing(refresh.refreshing);
+      setIsLoading(refresh.loading);
     } else {
       standingSourcesRef.current = null;
       setStandingNetworkIds(null);
@@ -977,6 +1082,12 @@ export function HomePagePanel({
         standingSourcesRef.current = result.standingSources;
         setStandingNetworkIds(result.standingSources);
         const items = result.page.items;
+        const paint = await loadFeedPaint(items);
+        if (!isCurrentLoadingRequest(loadIdRef.current, loadId)) return;
+        setQuotedSeed((current) => ({ ...current, ...paint.quoted }));
+        setPollSeed((current) => ({ ...current, ...paint.tallies }));
+        setDaoSeed((current) => ({ ...current, ...paint.memberships }));
+        setClientPaintReady(true);
         let insertedCount = 0;
         let hotHeadChanged = false;
         if (mergeHead && sort === 'hot' && postsLengthRef.current > 0) {
@@ -1024,6 +1135,7 @@ export function HomePagePanel({
         const message =
           cause instanceof Error ? cause.message : 'Could not load feed.';
         setLoadError(message);
+        setClientPaintReady(true);
         if (keepPrevious) {
           standingSourcesRef.current = previousStandingSources;
           setStandingNetworkIds(previousStandingSources);
@@ -1057,6 +1169,7 @@ export function HomePagePanel({
     clearUnseenPosts,
     feedScrollTop,
     initialPage,
+    serverPainted,
     lensReady,
     reloadNonce,
     sort,
@@ -1124,6 +1237,14 @@ export function HomePagePanel({
         if (pendingShift > 0) {
           offsetShiftAppliedRef.current += pendingShift;
         }
+        const appendedPaint = await loadFeedPaint(result.page.items);
+        if (!isCurrentLoadingRequest(loadIdRef.current, loadId)) return;
+        setQuotedSeed((current) => ({ ...current, ...appendedPaint.quoted }));
+        setPollSeed((current) => ({ ...current, ...appendedPaint.tallies }));
+        setDaoSeed((current) => ({
+          ...current,
+          ...appendedPaint.memberships,
+        }));
         if (focus != null && sort === 'hot') {
           // Focus Hot re-ranks the whole accumulated list on append, so a
           // hot post from a later page can outrank painted rows. Hold the
@@ -1590,38 +1711,52 @@ export function HomePagePanel({
             <OsChromeListAlert message={engagementError} />
           ) : null}
 
-          {showColdSkeleton ? (
-            <PostRowSkeleton rows={4} frames={HOME_FEED_COLD_SKELETON_FRAMES} />
-          ) : showEmpty ? (
-            <OsPageBodyAppear>
-              <div className="home-feed-state">{emptyCopy}</div>
-            </OsPageBodyAppear>
-          ) : showFeed ? (
-            <>
-              <PersonalFeedList
-                posts={visiblePosts}
-                includeForeignReplies={includeForeignReplies}
-                stoodWithAccountIds={stoodWithAccountIds}
-                showGuildAttribution
-                className={`home-feed-list${isRefreshing ? ' is-refreshing' : ''}`}
-                initialEngagement={initialEngagement}
-                initialScarceEmbeds={initialScarceEmbeds}
-                windowSizeCache={feedWindowCacheRef.current}
-                pinnedFeedKey={reRankAnchor?.key ?? null}
-                onReply={replyHandler}
-                onExpandReply={openFullReply}
-                onQuote={quoteHandler}
-                onRepost={repostHandler}
-                onUndoRepost={undoRepostHandler}
-                onEngagementError={(message) => setEngagementError(message)}
+          <HomeFeedReveal
+            showSkeleton={
+              (!serverPainted && !clientPaintReady) ||
+              (showColdSkeleton && !showFeed)
+            }
+            skeleton={
+              <PostRowSkeleton
+                rows={4}
+                frames={HOME_FEED_COLD_SKELETON_FRAMES}
               />
-              <HomeFeedLoadMoreFooter
-                loadMoreSentinelRef={loadMoreRef}
-                showSentinel={showLoadMoreSentinel}
-                showAppendPending={showAppendPending}
-              />
-            </>
-          ) : null}
+            }
+          >
+            {showEmpty ? (
+              <OsPageBodyAppear>
+                <div className="home-feed-state">{emptyCopy}</div>
+              </OsPageBodyAppear>
+            ) : showFeed ? (
+              <>
+                <PersonalFeedList
+                  posts={visiblePosts}
+                  includeForeignReplies={includeForeignReplies}
+                  stoodWithAccountIds={stoodWithAccountIds}
+                  showGuildAttribution
+                  className={`home-feed-list${isRefreshing ? ' is-refreshing' : ''}`}
+                  initialEngagement={initialEngagement}
+                  initialScarceEmbeds={initialScarceEmbeds}
+                  quotedSeed={quotedSeed}
+                  pollSeed={pollSeed}
+                  daoMemberships={daoSeed}
+                  windowSizeCache={feedWindowCacheRef.current}
+                  pinnedFeedKey={reRankAnchor?.key ?? null}
+                  onReply={replyHandler}
+                  onExpandReply={openFullReply}
+                  onQuote={quoteHandler}
+                  onRepost={repostHandler}
+                  onUndoRepost={undoRepostHandler}
+                  onEngagementError={(message) => setEngagementError(message)}
+                />
+                <HomeFeedLoadMoreFooter
+                  loadMoreSentinelRef={loadMoreRef}
+                  showSentinel={showLoadMoreSentinel}
+                  showAppendPending={showAppendPending}
+                />
+              </>
+            ) : null}
+          </HomeFeedReveal>
 
           {sheet}
         </OsAppChromePage>
@@ -1629,10 +1764,7 @@ export function HomePagePanel({
         <HomeFeedPullIndicator subscribe={pullRefresh.subscribe} />
 
         {showNewPostsPill ? (
-          <HomeFeedNewPostsChip
-            summary={unseenPosts}
-            onClick={applyNewPosts}
-          />
+          <HomeFeedNewPostsChip summary={unseenPosts} onClick={applyNewPosts} />
         ) : null}
         {showHotUpdatedPill ? (
           <HomeFeedHotUpdatedChip

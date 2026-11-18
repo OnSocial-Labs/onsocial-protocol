@@ -74,17 +74,17 @@ export function PostPollEmbedCard({
 }) {
   const [now] = useState(() => Date.now());
   const closed = poll.closesAt != null && poll.closesAt <= now;
+  const tallyReady = tally != null;
   const counts = tally?.counts ?? poll.options.map(() => 0);
   const total = tally?.total ?? 0;
   const viewerOptionIndex = tally?.viewerOptionIndex ?? null;
-  // Best-in-class: don't leak others' tallies before you've voted.
-  const showResults = closed || viewerOptionIndex != null;
+  // Closed polls stay quiet until the tally arrives — a zero is a real result.
+  const showResults = tallyReady && (closed || viewerOptionIndex != null);
   const canVote = Boolean(onVote) && !closed && !pending;
   const percents = showResults
     ? distributePollPercents(counts, total)
     : poll.options.map(() => 0);
-  const winningCount =
-    closed && total > 0 ? Math.max(...counts, 0) : null;
+  const winningCount = closed && total > 0 ? Math.max(...counts, 0) : null;
 
   return (
     <div className="post-poll-embed" aria-label="Poll">
@@ -161,8 +161,14 @@ export function PostPollEmbedCard({
         })}
       </ul>
       <p className="post-poll-footer">
-        {showResults ? voteCountLabel(total) : 'Vote to see results'}
-        <span aria-hidden> · </span>
+        {tallyReady
+          ? showResults
+            ? voteCountLabel(total)
+            : 'Vote to see results'
+          : closed
+            ? null
+            : 'Vote to see results'}
+        {tallyReady || !closed ? <span aria-hidden> · </span> : null}
         {closed ? 'Closed' : pollStatusLabel(poll.closesAt, now)}
       </p>
     </div>

@@ -29,7 +29,11 @@ interface PollVoteMap {
  */
 export function usePollVotes(
   posts: PostRow[],
-  opts: { onError?: (message: string) => void } = {}
+  opts: {
+    onError?: (message: string) => void;
+    /** Tallies already resolved for this page. Missing keys stay pending. */
+    initial?: Record<string, PollTally> | null;
+  } = {}
 ) {
   const { accountId, isConnected, connect } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
@@ -225,11 +229,14 @@ export function usePollVotes(
 
       try {
         const { client } = await getClient();
-        await client.social.set(pollVoteWritePath(post.accountId, post.postId), {
-          v: 1,
-          optionIndex,
-          timestamp: Date.now(),
-        });
+        await client.social.set(
+          pollVoteWritePath(post.accountId, post.postId),
+          {
+            v: 1,
+            optionIndex,
+            timestamp: Date.now(),
+          }
+        );
       } catch (cause) {
         setTallies((current) => ({ ...current, [key]: previous }));
         if (!isWalletUserCancellation(cause)) {
@@ -248,9 +255,10 @@ export function usePollVotes(
     [accountId, connect, getClient, isConnected, pendingKeys, tallies]
   );
 
+  const initial = opts.initial;
   const pollTallyFor = useCallback(
-    (post: PostRow) => tallies[postKey(post)],
-    [tallies]
+    (post: PostRow) => tallies[postKey(post)] ?? initial?.[postKey(post)],
+    [initial, tallies]
   );
 
   const isPollVotePending = useCallback(

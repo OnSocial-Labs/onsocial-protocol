@@ -30,6 +30,7 @@ export function ResolvedFeedPostCard({
   isSharePending,
   pollTallyFor,
   isPollVotePending,
+  quoteSettled,
   channelTitleById,
   guildNameById,
   showChannel,
@@ -49,6 +50,7 @@ export function ResolvedFeedPostCard({
   isSharePending?: (post: PostRow) => boolean;
   pollTallyFor?: (post: PostRow) => PollTally | undefined;
   isPollVotePending?: (post: PostRow) => boolean;
+  quoteSettled?: (post: PostRow) => boolean;
   /** Prefer maps so labels follow the painted card after bare-repost swap. */
   channelTitleById?: Record<string, string>;
   guildNameById?: Record<string, string>;
@@ -67,12 +69,9 @@ export function ResolvedFeedPostCard({
   | 'sharePending'
   | 'pollTally'
   | 'pollVotePending'
+  | 'quoteSettled'
 >) {
-  const resolved = resolveFeedRepostCard(
-    post,
-    quotedPosts,
-    postAuthorProfiles
-  );
+  const resolved = resolveFeedRepostCard(post, quotedPosts, postAuthorProfiles);
   if (resolved.pending) {
     const reposter = displayName(
       post.accountId,
@@ -95,8 +94,7 @@ export function ResolvedFeedPostCard({
       ? (channelTitleById?.[card.channel] ?? card.channel)
       : undefined);
   const resolvedGuildName =
-    guildName ??
-    (card.groupId ? guildNameById?.[card.groupId] : undefined);
+    guildName ?? (card.groupId ? guildNameById?.[card.groupId] : undefined);
   return (
     <PostCard
       {...rest}
@@ -119,6 +117,7 @@ export function ResolvedFeedPostCard({
       sharePending={isSharePending?.(card)}
       pollTally={pollTallyFor?.(card)}
       pollVotePending={isPollVotePending?.(card)}
+      {...(quoteSettled ? { quoteSettled: quoteSettled(card) } : {})}
     />
   );
 }

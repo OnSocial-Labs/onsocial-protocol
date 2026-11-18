@@ -1,11 +1,6 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useState,
-  type CSSProperties,
-} from 'react';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
@@ -61,9 +56,30 @@ import { postScarceAudio } from '@/features/scarces/scarce-post-preview';
  * Structure seat for a quote inset while `refPath` soft-fills. Matches the
  * live rail + head + body chassis so the row does not grow on paint.
  */
-export function QuotedPostInsetPending() {
+export function QuotedPostInsetPending(props: { post?: PostRow } = {}) {
+  const post = props.post;
+  if (post) {
+    const text = truncateQuoteText(parsePostText(post.value));
+    const name = displayName(post.accountId);
+    return (
+      <div className="post-card-quote-inset">
+        <Divider orientation="vertical" variant="detail" />
+        <div className="post-card-quote-inset-content">
+          <span className="post-card-quote-inset-head">
+            <span className="post-identity-name">{name}</span>
+          </span>
+          <div className="post-card-quote-inset-body-row">
+            <p className="post-card-quote-inset-body">{text}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
-    <div className="post-card-quote-inset post-card-quote-inset--pending" aria-hidden>
+    <div
+      className="post-card-quote-inset post-card-quote-inset--pending"
+      aria-hidden
+    >
       <Divider orientation="vertical" variant="detail" />
       <div className="post-card-quote-inset-content">
         <span className="post-card-quote-inset-head">
@@ -309,7 +325,6 @@ export function QuotedPostInset({
     </>
   );
 }
-
 
 /** Quote collage cell — exported for settle regression tests. */
 export function QuoteThumbTile({
