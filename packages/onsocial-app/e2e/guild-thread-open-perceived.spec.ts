@@ -35,6 +35,56 @@ const PEEK = {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+type ControlSeat = { row: number; root: number; dock: number };
+
+async function controlSeat(page: Page): Promise<ControlSeat> {
+  return page.evaluate(() => {
+    const row = document.querySelector(
+      '.post-thread-sheet-panel .guild-thread-column .thread-controls-row'
+    );
+    const root = document.querySelector(
+      '.post-thread-sheet-panel .guild-thread-root'
+    );
+    const dock = document.querySelector('.portfolio-summon-dock');
+    if (
+      !(row instanceof HTMLElement) ||
+      !(root instanceof HTMLElement) ||
+      !(dock instanceof HTMLElement)
+    ) {
+      throw new Error('controls seat is missing');
+    }
+    return {
+      row: row.getBoundingClientRect().height,
+      root: root.getBoundingClientRect().top,
+      dock: dock.getBoundingClientRect().top,
+    };
+  });
+}
+
+function expectSeatStable(before: ControlSeat, after: ControlSeat) {
+  const delta = {
+    row: Math.abs(after.row - before.row),
+    root: Math.abs(after.root - before.root),
+    dock: Math.abs(after.dock - before.dock),
+  };
+  const detail = JSON.stringify(delta);
+  expect.soft(delta.row, detail).toBeLessThan(1);
+  expect.soft(delta.root, detail).toBeLessThan(1);
+  expect.soft(delta.dock, detail).toBeLessThan(1);
+}
+
+async function labelMotion(page: Page) {
+  return page.evaluate(() => {
+    const button = document.querySelector(
+      '.post-thread-sheet-panel .thread-replies-sort'
+    );
+    const seat = button?.parentElement;
+    if (!(seat instanceof HTMLElement)) return { name: 'none', opacity: '0' };
+    const style = getComputedStyle(seat);
+    return { name: style.animationName, opacity: style.opacity };
+  });
+}
+
 function json(data: unknown) {
   return {
     status: 200,
@@ -252,6 +302,7 @@ test('the reply under a direct reply paints before nested queries finish', async
 test('a seeded guild post stays visible while replies load', async ({
   page,
 }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
   await stubGuildPage(page, { feedRows: GUILD_E2E_FEED_ROWS });
   await stubGuildThreadGraph(page, { treeDelayMs: () => 2_500 });
   await gotoGuildFeedWithRoot(page);
@@ -269,9 +320,13 @@ test('a seeded guild post stays visible while replies load', async ({
   await expect(
     layer.locator('.guild-connected-stack .post-row-skeleton-list')
   ).toBeVisible();
-  await expect(
-    layer.getByRole('button', { name: 'Sort replies' })
-  ).toBeVisible();
+  const labelWhileLoading = await layer
+    .getByRole('button', { name: 'Sort replies' })
+    .count();
+  const quotesWhileLoading = await layer
+    .getByRole('link', { name: /View quotes|View reposts/ })
+    .count();
+  const seatWhileLoading = await controlSeat(page);
   await expect(layer.locator('.thread-discover-peek')).toHaveCount(0);
 
   const skeletonTop = await layer
@@ -296,6 +351,13 @@ test('a seeded guild post stays visible while replies load', async ({
     .evaluate((node) => node.getBoundingClientRect().top);
   expect(Math.abs(replyTop - skeletonTop)).toBeLessThanOrEqual(1);
   expect(Math.abs(rootTopAfter - rootTop)).toBeLessThan(1);
+  expect.soft(labelWhileLoading).toBe(0);
+  expect.soft(quotesWhileLoading).toBe(0);
+  expectSeatStable(seatWhileLoading, await controlSeat(page));
+  await expect(
+    layer.getByRole('button', { name: 'Sort replies' })
+  ).toBeVisible();
+  expect.soft((await labelMotion(page)).name).toBe('glass-sheet-appear');
   await expect(root).toHaveAttribute('data-open-node', 'root');
   await expect(root).toHaveJSProperty('tagName', 'DIV');
   await expect(
@@ -372,9 +434,13 @@ test('an empty guild thread shows the root while replies load, then the discover
   await expect(
     layer.locator('.guild-connected-stack .post-row-skeleton-list')
   ).toBeVisible();
-  await expect(
-    layer.getByRole('button', { name: 'Sort replies' })
-  ).toBeVisible();
+  const labelWhileLoading = await layer
+    .getByRole('button', { name: 'Sort replies' })
+    .count();
+  const quotesWhileLoading = await layer
+    .getByRole('link', { name: /View quotes|View reposts/ })
+    .count();
+  const seatWhileLoading = await controlSeat(page);
 
   await expect(layer.locator('.thread-discover-peek-title')).toBeVisible({
     timeout: 15_000,
@@ -383,7 +449,42 @@ test('an empty guild thread shows the root while replies load, then the discover
   await expect(
     layer.locator('.guild-connected-stack .post-row-skeleton-list')
   ).toHaveCount(0);
-  await expect(layer.getByRole('button', { name: 'Sort replies' })).toHaveCount(
-    0
-  );
+  expect.soft(labelWhileLoading).toBe(0);
+  expect.soft(quotesWhileLoading).toBe(0);
+  expectSeatStable(seatWhileLoading, await controlSeat(page));
+  expect
+    .soft(await layer.getByRole('button', { name: 'Sort replies' }).count())
+    .toBe(0);
+  expect
+    .soft(
+      await layer
+        .getByRole('link', { name: /View quotes|View reposts/ })
+        .count()
+    )
+    .toBe(0);
+});
+
+test('a guild replies label does not animate when motion is reduced', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await stubGuildPage(page, { feedRows: GUILD_E2E_FEED_ROWS });
+  await stubGuildThreadGraph(page, { treeDelayMs: () => 2_500 });
+  await gotoGuildFeedWithRoot(page);
+  const layer = await openThreadFromFeed(page);
+
+  await expect(layer.getByText(GUILD_E2E_FEED_TEXT)).toBeVisible({
+    timeout: 3_000,
+  });
+  const labelWhileLoading = await layer
+    .getByRole('button', { name: 'Sort replies' })
+    .count();
+  await expect(layer.getByText(REPLY.text)).toBeVisible({ timeout: 15_000 });
+  await expect(
+    layer.getByRole('button', { name: 'Sort replies' })
+  ).toBeVisible();
+  expect.soft(labelWhileLoading).toBe(0);
+  const motion = await labelMotion(page);
+  expect(motion.name).toBe('none');
+  expect(Number(motion.opacity)).toBe(1);
 });

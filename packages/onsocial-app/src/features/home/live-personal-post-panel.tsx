@@ -78,7 +78,11 @@ import {
   startThreadFirstPage,
   visibleReplyPaths,
 } from '@/lib/thread-first-page';
-import { planThreadLoad, threadCoverReady } from '@/lib/thread-open';
+import {
+  planThreadLoad,
+  threadControlPresenceClass,
+  threadCoverReady,
+} from '@/lib/thread-open';
 import { collectRelationTargetAccountIds } from '@/lib/post-relation';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { fetchIndexedPost, fetchPersonalPost } from '@/lib/fetch-personal-post';
@@ -1082,6 +1086,9 @@ export function LivePersonalPostPanel({
     );
   });
 
+  const showReplyControl = repliesResolved && replyListRows.length > 0;
+  const showQuoteControl = repliesResolved && Boolean(shareRow);
+
   const thread = (
     <div
       className={hideRootMedia ? 'feed-media-thread-embed' : GUILDS_PAGE_CLASS}
@@ -1199,34 +1206,36 @@ export function LivePersonalPostPanel({
           <Divider variant="detail" />
 
           <div
-            className={`thread-controls-row${
-              !repliesResolved || replyListRows.length > 0 || shareRow
-                ? ''
-                : ' is-idle'
-            }${rootContinued ? ' is-continued' : ''}`}
+            className={`thread-controls-row${rootContinued ? ' is-continued' : ''}`}
           >
             {rootContinued ? <ThreadRail through /> : null}
-            {!repliesResolved || replyListRows.length > 0 ? (
+            <span
+              className={threadControlPresenceClass(showReplyControl)}
+              aria-hidden={showReplyControl ? undefined : true}
+            >
               <ThreadRepliesSortButton
                 sort={replySort}
                 onChange={setReplySort}
               />
-            ) : (
-              <span className="thread-controls-spacer" aria-hidden />
-            )}
-            <ThreadViewQuotesRow
-              href={
-                shareRow
-                  ? threadShareRowHref(
-                      personalPostQuotesPath(author, postId),
-                      shareRow
-                    )
-                  : personalPostQuotesPath(author, postId)
-              }
-              label={shareRow?.label ?? 'View quotes'}
-              count={shareRow?.count ?? 0}
-              rollSignal={rootEngagement?.shareRoll ?? 0}
-            />
+            </span>
+            <span
+              className={threadControlPresenceClass(showQuoteControl)}
+              aria-hidden={showQuoteControl ? undefined : true}
+            >
+              <ThreadViewQuotesRow
+                href={
+                  shareRow
+                    ? threadShareRowHref(
+                        personalPostQuotesPath(author, postId),
+                        shareRow
+                      )
+                    : personalPostQuotesPath(author, postId)
+                }
+                label={shareRow?.label ?? 'View quotes'}
+                count={shareRow?.count ?? 0}
+                rollSignal={rootEngagement?.shareRoll ?? 0}
+              />
+            </span>
           </div>
 
           <div className="guild-connected-stack" ref={replyStackRef}>

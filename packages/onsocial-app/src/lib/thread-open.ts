@@ -17,6 +17,14 @@ export function threadCoverReady(input: {
 }
 
 /**
+ * The replies/quotes control stays in the row either way, so the seat does
+ * not move. Reveal uses the shared appear; hold keeps the box and hides it.
+ */
+export function threadControlPresenceClass(visible: boolean): string {
+  return visible ? 'thread-controls-reveal' : 'thread-controls-hold';
+}
+
+/**
  * A painted thread reloads behind the card. A thread that is not on screen
  * yet stays covered until its root is in hand. Replies fill in underneath.
  */
