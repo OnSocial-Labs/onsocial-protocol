@@ -80,6 +80,11 @@ async function stubGraph(page: Page) {
 test('writing covers the open article instead of the feed', async ({
   page,
 }) => {
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => {
+    pageErrors.push(error.message);
+  });
+
   await page.setViewportSize({ width: 390, height: 844 });
   await stubGraph(page);
   await gotoApp(page, '/home');
@@ -103,4 +108,8 @@ test('writing covers the open article instead of the feed', async ({
   await expect(
     shelf.locator('.portfolio-writing-pending, .portfolio-writing-list')
   ).toBeVisible();
+  const depthErrors = pageErrors.filter((message) =>
+    /185|maximum update depth/i.test(message)
+  );
+  expect(depthErrors, depthErrors.join('\n')).toEqual([]);
 });
