@@ -449,7 +449,6 @@
     .home-feed-compact-chrome.is-scroll-hidden
   )::before {
   opacity: 0;
-  content: none;
 }
 
 /*
@@ -14498,7 +14497,6 @@ a.os-surface-row,
     > .os-app-screen-column
     > .os-app-screen-header::before {
     opacity: 0;
-    content: none;
   }
 
   /*
