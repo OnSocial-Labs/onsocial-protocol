@@ -23100,17 +23100,19 @@ a.os-surface-row,
   }
 
   .home-feed-reveal-body {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     width: 100%;
     min-width: 0;
   }
 
-  /* Sits on the fading list so the slot is never the empty page color. */
+  /* Under the fading list so the first transparent frames still show the skeleton. */
   .home-feed-reveal-cover.is-under {
     position: absolute;
     inset: 0;
-    z-index: 1;
+    z-index: 0;
     overflow: hidden;
     pointer-events: none;
   }
