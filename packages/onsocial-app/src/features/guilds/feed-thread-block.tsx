@@ -12,13 +12,11 @@ import type { PostEngagement } from '@/hooks/use-post-engagement';
 import type { PollTally } from '@/lib/poll-votes';
 import { resolveThreadFoldLabel } from '@/lib/thread-fold-label';
 import type { ThreadSheetContext } from '@/lib/guild-thread-card-context';
+import {
+  FEED_THREAD_MAX_UNCOLLAPSED,
+  FEED_THREAD_TAIL_VISIBLE,
+} from '@/lib/feed-threads';
 import { postThreadPath } from '@/lib/post-routes';
-
-/** Chains up to this long render in full; longer ones collapse the middle. */
-const BLOCK_MAX_UNCOLLAPSED = 3;
-
-/** Latest posts kept visible below the fold when a chain collapses. */
-const BLOCK_TAIL_VISIBLE = 2;
 
 interface FeedThreadBlockProps {
   /** Connected chain, oldest first (see `coalesceFeedThreads`). */
@@ -108,9 +106,9 @@ export function FeedThreadBlock({
   standingPeek,
   standingHidden,
 }: FeedThreadBlockProps) {
-  const collapsed = block.length > BLOCK_MAX_UNCOLLAPSED;
+  const collapsed = block.length > FEED_THREAD_MAX_UNCOLLAPSED;
   const foldLabel = collapsed
-    ? resolveThreadFoldLabel(block.slice(1, block.length - BLOCK_TAIL_VISIBLE), {
+    ? resolveThreadFoldLabel(block.slice(1, block.length - FEED_THREAD_TAIL_VISIBLE), {
         noun: 'post',
         earlier: true,
         profiles: postAuthorProfiles,
@@ -144,7 +142,7 @@ export function FeedThreadBlock({
 
   const tail: BlockRow[] = collapsed
     ? block
-        .slice(-BLOCK_TAIL_VISIBLE)
+        .slice(-FEED_THREAD_TAIL_VISIBLE)
         .map((post, index, posts) =>
           toRow(post, index, posts, { up: true, first: false })
         )

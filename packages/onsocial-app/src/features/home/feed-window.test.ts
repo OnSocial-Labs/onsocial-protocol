@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   FEED_WINDOW_ESTIMATE_PX,
+  FEED_WINDOW_JACKET_ESTIMATE_PX,
   FEED_WINDOW_OVERSCAN_PX,
   FEED_WINDOW_POLL_ESTIMATE_PX,
   FeedWindowSizeCache,
@@ -39,6 +40,12 @@ describe('feed window row estimates', () => {
     );
     expect(feedWindowRowEstimatePx('quote')).toBeGreaterThan(
       FEED_WINDOW_ESTIMATE_PX
+    );
+    expect(feedWindowRowEstimatePx('jacket')).toBe(
+      FEED_WINDOW_JACKET_ESTIMATE_PX
+    );
+    expect(feedWindowRowEstimatePx('jacket')).toBeGreaterThan(
+      feedWindowRowEstimatePx('media')
     );
   });
 

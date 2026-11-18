@@ -68,6 +68,9 @@ jobs:
       - name: Unit tests
         run: pnpm --filter @onsocial/app test
 
+      - name: SDK unit tests
+        run: pnpm --filter @onsocial/sdk test
+
       - name: Build
         run: pnpm --filter @onsocial/app exec next build
 

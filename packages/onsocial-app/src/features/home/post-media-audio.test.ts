@@ -1,9 +1,16 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
-import { PostMediaBlock, PostMediaStrip } from './post-media';
+import { beforeEach, describe, expect, it } from 'vitest';
+import {
+  clearFeedMediaMeasuredRatios,
+  PostMediaBlock,
+  PostMediaStrip,
+} from './post-media';
 
 describe('post audio attachments', () => {
+  beforeEach(() => {
+    clearFeedMediaMeasuredRatios();
+  });
   it('renders feed audio as a jacket that opens the player, not an inline row', () => {
     const html = renderToStaticMarkup(
       createElement(PostMediaStrip, {
@@ -74,5 +81,41 @@ describe('post audio attachments', () => {
 
     expect(html).toContain('post-audio-row');
     expect(html).not.toContain('post-audio-jacket');
+  });
+
+  it('does not force a 4:3 page seat when media has no width/height hints', () => {
+    const html = renderToStaticMarkup(
+      createElement(PostMediaStrip, {
+        items: [
+          {
+            url: 'https://example.com/still.jpg',
+            mime: 'image/jpeg',
+          },
+        ],
+        size: 'page',
+      })
+    );
+
+    expect(html).toContain('post-media-tile--page');
+    expect(html).not.toMatch(/aspect-ratio:\s*4\s*\/\s*3/);
+  });
+
+  it('locks the page seat to persisted dims when present', () => {
+    const html = renderToStaticMarkup(
+      createElement(PostMediaStrip, {
+        items: [
+          {
+            url: 'https://example.com/tall.jpg',
+            mime: 'image/jpeg',
+            width: 9,
+            height: 16,
+          },
+        ],
+        size: 'page',
+      })
+    );
+
+    expect(html).toMatch(/aspect-ratio:\s*9\s*\/\s*16/);
+    expect(html).not.toMatch(/aspect-ratio:\s*4\s*\/\s*3/);
   });
 });

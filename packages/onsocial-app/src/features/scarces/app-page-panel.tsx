@@ -15,6 +15,7 @@ import {
   InformationCircleIcon,
   IpfsImg,
   ipfsImgSrcSet,
+  PulsingDots,
   replaceSheet,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -766,7 +767,9 @@ export function AppPagePanel({
                   ))}
                 </div>
                 {dropsLoadingMore ? (
-                  <MarketListSkeleton rows={2} variant="drops" />
+                  <div className="list-append-pending">
+                    <PulsingDots size="sm" label="Loading more" />
+                  </div>
                 ) : null}
                 {dropsLoadMoreFailed ? (
                   <OsChromeListAlert

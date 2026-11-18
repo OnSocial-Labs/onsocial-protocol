@@ -29,6 +29,7 @@ import { OsEmptyAction } from '@/lib/os-empty-action';
 import {
   ChoiceDrawerMenu,
   Divider,
+  PulsingDots,
   SearchField,
   osFloatingPanelCountClassName,
   type ChoiceOption,
@@ -515,7 +516,9 @@ export function EndorsementsPanel({
         </div>
       ) : visibleItems.length === 0 && searching && hasMore ? (
         <div className="endorsements-load-more-error">
-          <p className="endorsements-loading-more">Loading more…</p>
+          <div className="list-append-pending">
+            <PulsingDots size="sm" label="Loading more" />
+          </div>
           <div ref={loadMoreRef} className="endorsements-load-more" />
         </div>
       ) : visibleItems.length === 0 ? (
@@ -580,7 +583,9 @@ export function EndorsementsPanel({
           ) : null}
           <div ref={loadMoreRef} className="endorsements-load-more" />
           {loadingMore ? (
-            <p className="endorsements-loading-more">Loading more…</p>
+            <div className="list-append-pending">
+              <PulsingDots size="sm" label="Loading more" />
+            </div>
           ) : loadMoreError ? (
             <div className="endorsements-load-more-error">
               <p className="endorsements-loading-more">{loadMoreError}</p>

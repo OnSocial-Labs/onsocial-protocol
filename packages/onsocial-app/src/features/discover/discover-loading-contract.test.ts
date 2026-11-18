@@ -30,4 +30,23 @@ describe('discover loading contract', () => {
     expect(source).toContain('!hasListRows');
     expect(source).toContain('setLoadError(message)');
   });
+
+  it('appends hubs/guilds/DAOs with footer dots, not mid-list skeletons', () => {
+    for (const file of [
+      'discover-hubs-panel.tsx',
+      'discover-guilds-panel.tsx',
+      'discover-daos-panel.tsx',
+    ] as const) {
+      const source = readFileSync(join(discoverSrc, file), 'utf8');
+      expect(source).toContain('list-append-pending');
+      expect(source).toContain('PulsingDots');
+      // Cold load may still use DiscoverCommunityListSkeleton; append must not.
+      expect(source).not.toContain('Loading more hubs');
+      expect(source).not.toContain('Loading more guilds');
+      expect(source).not.toContain('Loading more DAOs');
+      expect(source).not.toMatch(
+        /DiscoverCommunityListSkeleton\s*\n?\s*label="Loading more/
+      );
+    }
+  });
 });

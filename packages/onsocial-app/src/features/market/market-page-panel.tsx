@@ -2175,7 +2175,11 @@ export function MarketPagePanel({
               onMintDrop={handleMintDrop}
               onClear={clearNarrowFilter}
             />
-            {creatorDropsLoadingMore ? <MarketListSkeleton rows={2} /> : null}
+            {creatorDropsLoadingMore ? (
+              <div className="list-append-pending">
+                <PulsingDots size="sm" label="Loading more" />
+              </div>
+            ) : null}
             {creatorDropsLoadMoreFailed ? (
               <OsChromeListAlert
                 message="Couldn’t load more."
@@ -2480,7 +2484,11 @@ export function MarketPagePanel({
                 />
               ) : null}
             </div>
-            {ownedLoadingMore ? <MarketListSkeleton rows={2} /> : null}
+            {ownedLoadingMore ? (
+              <div className="list-append-pending">
+                <PulsingDots size="sm" label="Loading more" />
+              </div>
+            ) : null}
             {ownedLoadMoreFailed ? (
               <OsChromeListAlert
                 message="Couldn’t load more."

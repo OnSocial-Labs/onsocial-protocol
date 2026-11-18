@@ -217,10 +217,21 @@ function signCallCount(): number {
   );
 }
 
+/** Pending rAF→setTimeout ids from {@link installBrowser}; cleared on teardown. */
+const pendingBrowserFrames = new Set<ReturnType<typeof setTimeout>>();
+
+function flushBrowserFrames() {
+  for (const id of pendingBrowserFrames) {
+    globalThis.clearTimeout(id);
+  }
+  pendingBrowserFrames.clear();
+}
+
 function installBrowser() {
   const storage = new Map<string, string>();
   const listeners = new Map<string, Set<() => void>>();
   const documentListeners = new Map<string, Set<() => void>>();
+  flushBrowserFrames();
   const windowStub = {
     localStorage: {
       getItem: (key: string) => storage.get(key) ?? null,
@@ -253,9 +264,18 @@ function installBrowser() {
     clearTimeout: globalThis.clearTimeout.bind(globalThis),
     // Must match useToastDismissTimer's performance.now() clock — Date.now()
     // makes the first tick look like hours elapsed and dismisses info toasts.
-    requestAnimationFrame: (cb: FrameRequestCallback) =>
-      globalThis.setTimeout(() => cb(performance.now()), 16),
+    // Track ids so afterEach can clear deferred ticks before unstubbing window.
+    requestAnimationFrame: (cb: FrameRequestCallback) => {
+      const id = globalThis.setTimeout(() => {
+        pendingBrowserFrames.delete(id);
+        if (typeof window === 'undefined') return;
+        cb(performance.now());
+      }, 16);
+      pendingBrowserFrames.add(id);
+      return id as unknown as number;
+    },
     cancelAnimationFrame: (id: number) => {
+      pendingBrowserFrames.delete(id as unknown as ReturnType<typeof setTimeout>);
       globalThis.clearTimeout(id);
     },
     matchMedia: () => ({
@@ -496,6 +516,7 @@ describe('signed-out wallet picker', () => {
     renderer = null;
     sessionSpy?.mockRestore();
     vi.restoreAllMocks();
+    flushBrowserFrames();
     vi.unstubAllGlobals();
   });
 
@@ -2139,6 +2160,7 @@ describe('allow, renew, and session connect guard', () => {
     renderer = null;
     sessionSpy?.mockRestore();
     vi.restoreAllMocks();
+    flushBrowserFrames();
     vi.unstubAllGlobals();
     vi.useRealTimers();
   });

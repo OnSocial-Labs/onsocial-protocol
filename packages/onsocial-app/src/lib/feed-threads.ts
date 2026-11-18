@@ -66,6 +66,12 @@ export type CoalesceFeedThreadsOptions = {
   stoodWithAccountIds?: ReadonlySet<string>;
 };
 
+/** Chains up to this long render in full; longer ones collapse the middle. */
+export const FEED_THREAD_MAX_UNCOLLAPSED = 3;
+
+/** Latest posts kept visible below the fold when a chain collapses. */
+export const FEED_THREAD_TAIL_VISIBLE = 2;
+
 export type CoalescedFeedBlock = {
   /** Author's own connected chain — collapse uses first + last two of this only. */
   posts: PostRow[];

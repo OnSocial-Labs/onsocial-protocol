@@ -49,4 +49,18 @@ describe('profile feed empty state contract', () => {
     expect(css).toContain('.profile-feed-compose-teaser');
     expect(css).toContain('cursor: text');
   });
+
+  it('pages posts/replies/reposts with silent append dots', () => {
+    const source = readFileSync(
+      join(homeSrc, 'profile-feed-client.tsx'),
+      'utf8'
+    );
+
+    expect(source).toContain('PROFILE_FEED_PAGE_SIZE');
+    expect(source).toContain('fetchSectionPage');
+    expect(source).toContain('sectionSentinelRef');
+    expect(source).toContain('list-append-pending');
+    expect(source).toContain("section,");
+    expect(source).toContain('page.nextOffset');
+  });
 });

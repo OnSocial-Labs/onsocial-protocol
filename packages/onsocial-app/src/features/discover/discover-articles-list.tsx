@@ -8,7 +8,7 @@ import {
   useState,
   type MouseEvent,
 } from 'react';
-import { ChevronLeftIcon, NoteTextFillIcon } from '@onsocial/ui';
+import { ChevronLeftIcon, NoteTextFillIcon, PulsingDots } from '@onsocial/ui';
 import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { DiscoverArticleRow } from '@/features/discover/discover-article-row';
@@ -241,7 +241,11 @@ export function DiscoverArticlesList({
           />
         ) : null}
       </div>
-      {loadingMore ? <MarketListSkeleton rows={2} /> : null}
+      {loadingMore ? (
+        <div className="list-append-pending">
+          <PulsingDots size="sm" label="Loading more" />
+        </div>
+      ) : null}
       {loadMoreFailed ? (
         <OsChromeListAlert
           message="Couldn’t load more."

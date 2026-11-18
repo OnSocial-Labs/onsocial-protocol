@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { postContentPath, type PostRow } from '@onsocial/sdk';
+import { PulsingDots } from '@onsocial/ui';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePageContentDrawer } from '@/contexts/page-content-drawer-context';
 import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
@@ -34,6 +35,60 @@ import { isRepostRefType } from '@/lib/post-relation';
 
 /** Profile feed sections — Posts / Replies / Reposts / Media. */
 export type ProfileFeedTab = 'posts' | 'replies' | 'reposts' | 'media';
+
+/** Text-section page size — matches the prior one-shot section fetch. */
+export const PROFILE_FEED_PAGE_SIZE = 24;
+
+type ProfileTextTab = Exclude<ProfileFeedTab, 'media'>;
+
+type SectionPager = {
+  nextOffset: number;
+  hasMore: boolean;
+  started: boolean;
+};
+
+export type ProfileSectionInFlight = Record<ProfileTextTab, boolean>;
+
+export function emptyProfileSectionInFlight(): ProfileSectionInFlight {
+  return { posts: false, replies: false, reposts: false };
+}
+
+/** Per-section lock — a mid-load tab switch can start the new section. */
+export function beginProfileSectionFetch(
+  inFlight: ProfileSectionInFlight,
+  section: ProfileTextTab
+): boolean {
+  if (inFlight[section]) return false;
+  inFlight[section] = true;
+  return true;
+}
+
+export function endProfileSectionFetch(
+  inFlight: ProfileSectionInFlight,
+  section: ProfileTextTab
+): void {
+  inFlight[section] = false;
+}
+
+function emptySectionPagers(): Record<ProfileTextTab, SectionPager> {
+  return {
+    posts: { nextOffset: 0, hasMore: false, started: false },
+    replies: { nextOffset: 0, hasMore: false, started: false },
+    reposts: { nextOffset: 0, hasMore: false, started: false },
+  };
+}
+
+function emptySectionFlags(): Record<ProfileTextTab, boolean> {
+  return emptyProfileSectionInFlight();
+}
+
+function emptySectionRequests(): Record<ProfileTextTab, number> {
+  return { posts: 0, replies: 0, reposts: 0 };
+}
+
+function isProfileTextTab(tab: ProfileFeedTab | undefined): tab is ProfileTextTab {
+  return tab === 'posts' || tab === 'replies' || tab === 'reposts';
+}
 
 const FEED_TAB_EMPTY: Record<ProfileFeedTab, string> = {
   posts: 'No posts yet',
@@ -98,14 +153,17 @@ export function ProfileFeedClient({
   const mediaSentinelRef = useRef<HTMLDivElement | null>(null);
   const mediaAccountRef = useRef(accountId);
 
+  const [sectionPages, setSectionPages] = useState(emptySectionPagers);
+  const [sectionPagingMap, setSectionPagingMap] = useState(emptySectionFlags);
+  const [sectionFailedMap, setSectionFailedMap] = useState(emptySectionFlags);
+  const sectionPagingRef = useRef(emptyProfileSectionInFlight());
+  const sectionRequestRef = useRef(emptySectionRequests());
+  const sectionSentinelRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
     postsRef.current = posts;
   }, [posts]);
 
-  // Per-tab top-up: the SSR seed is only the newest ~24 posts overall, so a
-  // section can look empty even when older rows exist. Fetch each section
-  // once on first view and merge into the pool.
-  const fetchedTabsRef = useRef<Set<ProfileFeedTab>>(new Set());
   const [pendingTab, setPendingTab] = useState<ProfileFeedTab | null>(() =>
     tab === 'posts' && initialPosts.length === 0 && postCount > 0
       ? 'posts'
@@ -171,38 +229,87 @@ export function ProfileFeedClient({
     [accountId]
   );
 
+  const fetchSectionPage = useCallback(
+    (section: ProfileTextTab, offset: number) => {
+      if (!beginProfileSectionFetch(sectionPagingRef.current, section)) return;
+      const requestId = sectionRequestRef.current[section];
+      queueMicrotask(() => {
+        setSectionPagingMap((current) => ({ ...current, [section]: true }));
+        setSectionFailedMap((current) => ({ ...current, [section]: false }));
+        if (offset === 0) setPendingTab(section);
+      });
+      const client = createReadOnlyOnSocialClient();
+      void client.query.feed
+        .recent({
+          author: accountId,
+          limit: PROFILE_FEED_PAGE_SIZE,
+          offset,
+          section,
+        })
+        .then((page) => {
+          if (requestId !== sectionRequestRef.current[section]) return;
+          setPosts((current) => mergePostRows(current, page.items));
+          setSectionFailedMap((current) => ({ ...current, [section]: false }));
+          setSectionPages((current) => ({
+            ...current,
+            [section]: {
+              nextOffset: page.nextOffset ?? offset,
+              hasMore: page.nextOffset != null,
+              started: true,
+            },
+          }));
+        })
+        .catch(() => {
+          if (requestId !== sectionRequestRef.current[section]) return;
+          setSectionFailedMap((current) => ({ ...current, [section]: true }));
+          setSectionPages((current) => ({
+            ...current,
+            [section]: {
+              ...current[section],
+              started: true,
+              hasMore: true,
+            },
+          }));
+        })
+        .finally(() => {
+          if (requestId !== sectionRequestRef.current[section]) return;
+          endProfileSectionFetch(sectionPagingRef.current, section);
+          setSectionPagingMap((current) => ({ ...current, [section]: false }));
+          setPendingTab((current) => (current === section ? null : current));
+        });
+    },
+    [accountId]
+  );
+
   useEffect(() => {
     if (mediaAccountRef.current === accountId) return;
     mediaAccountRef.current = accountId;
     mediaRequestRef.current += 1;
+    sectionRequestRef.current = {
+      posts: sectionRequestRef.current.posts + 1,
+      replies: sectionRequestRef.current.replies + 1,
+      reposts: sectionRequestRef.current.reposts + 1,
+    };
     mediaPagingRef.current = false;
+    sectionPagingRef.current = emptyProfileSectionInFlight();
     queueMicrotask(() => {
       setMediaFailed(false);
       setMediaPaging(false);
       setMediaPage({ nextOffset: 0, hasMore: false, started: false });
+      setSectionFailedMap(emptySectionFlags());
+      setSectionPagingMap(emptySectionFlags());
+      setSectionPages(emptySectionPagers());
     });
   }, [accountId]);
 
+  const activeTextStarted = isProfileTextTab(tab)
+    ? sectionPages[tab].started
+    : true;
+
   useEffect(() => {
-    if (!tab || tab === 'media' || fetchedTabsRef.current.has(tab)) return;
-    fetchedTabsRef.current.add(tab);
-    const requested = tab;
-    queueMicrotask(() => {
-      setPendingTab(requested);
-    });
-    const client = createReadOnlyOnSocialClient();
-    const request = client.query.feed.recent({
-      author: accountId,
-      limit: 24,
-      section: tab,
-    });
-    void request
-      .then((page) => setPosts((current) => mergePostRows(current, page.items)))
-      .catch(() => undefined)
-      .finally(() =>
-        setPendingTab((current) => (current === tab ? null : current))
-      );
-  }, [tab, accountId]);
+    if (!isProfileTextTab(tab) || activeTextStarted) return;
+    fetchSectionPage(tab, 0);
+  }, [tab, activeTextStarted, fetchSectionPage]);
 
   useEffect(() => {
     if (tab !== 'media' || mediaPage.started) return;
@@ -296,6 +403,11 @@ export function ProfileFeedClient({
     );
   }, [posts, tab]);
 
+  const activeSection = isProfileTextTab(tab) ? tab : null;
+  const activeSectionPage = activeSection
+    ? sectionPages[activeSection]
+    : null;
+
   const mediaLooking =
     tab === 'media' &&
     visiblePosts.length === 0 &&
@@ -307,6 +419,28 @@ export function ProfileFeedClient({
     setMediaFailed(false);
     fetchMediaPage(mediaPage.nextOffset);
   }, [tab, mediaPage.hasMore, mediaPage.nextOffset, fetchMediaPage]);
+
+  const sectionPaging = activeSection
+    ? sectionPagingMap[activeSection]
+    : false;
+  const sectionFailed = activeSection
+    ? sectionFailedMap[activeSection]
+    : false;
+
+  const loadOlderSection = useCallback(() => {
+    if (!activeSection || !activeSectionPage) return;
+    if (
+      !activeSectionPage.hasMore ||
+      sectionPagingRef.current[activeSection]
+    ) {
+      return;
+    }
+    setSectionFailedMap((current) => ({
+      ...current,
+      [activeSection]: false,
+    }));
+    fetchSectionPage(activeSection, activeSectionPage.nextOffset);
+  }, [activeSection, activeSectionPage, fetchSectionPage]);
 
   // No covers yet — keep walking so an older photo is not reported missing.
   useEffect(() => {
@@ -324,6 +458,18 @@ export function ProfileFeedClient({
       !mediaPaging &&
       visiblePosts.length > 0,
     onIntersect: loadOlderMedia,
+  });
+
+  useInfiniteScrollSentinel({
+    root: scrollNode,
+    sentinelRef: sectionSentinelRef,
+    enabled:
+      Boolean(activeSection) &&
+      Boolean(activeSectionPage?.hasMore) &&
+      !sectionFailed &&
+      !sectionPaging &&
+      visiblePosts.length > 0,
+    onIntersect: loadOlderSection,
   });
 
   const emptyTitle = tab
@@ -349,7 +495,11 @@ export function ProfileFeedClient({
     if (
       (tab && pendingTab === tab) ||
       mediaLooking ||
-      (tab === 'media' && mediaPaging && visiblePosts.length === 0)
+      (tab === 'media' && mediaPaging && visiblePosts.length === 0) ||
+      (activeSection &&
+        sectionPaging &&
+        visiblePosts.length === 0 &&
+        !sectionFailed)
     ) {
       return (
         <>
@@ -371,6 +521,22 @@ export function ProfileFeedClient({
               <span>{emptyHint}</span>
             </div>
             <OsLoadMore onClick={loadOlderMedia} pending={mediaPaging}>
+              Show earlier
+            </OsLoadMore>
+          </OsPageBodyAppear>
+          {sheet}
+        </>
+      );
+    }
+    if (activeSection && sectionFailed) {
+      return (
+        <>
+          <OsPageBodyAppear>
+            <div className="home-feed-state">
+              <span>{emptyTitle}</span>
+              <span>{emptyHint}</span>
+            </div>
+            <OsLoadMore onClick={loadOlderSection} pending={sectionPaging}>
               Show earlier
             </OsLoadMore>
           </OsPageBodyAppear>
@@ -431,19 +597,37 @@ export function ProfileFeedClient({
           )}
         </>
       ) : (
-        <PersonalFeedList
-          posts={visiblePosts}
-          includeForeignReplies={tab === 'replies'}
-          onReply={replyHandler}
-          onExpandReply={openFullReply}
-          onQuote={quoteHandler}
-          onRepost={repostHandler}
-          onUndoRepost={undoRepostHandler}
-          className="home-feed-list"
-        />
+        <>
+          <PersonalFeedList
+            posts={visiblePosts}
+            includeForeignReplies={tab === 'replies'}
+            onReply={replyHandler}
+            onExpandReply={openFullReply}
+            onQuote={quoteHandler}
+            onRepost={repostHandler}
+            onUndoRepost={undoRepostHandler}
+            className="home-feed-list"
+          />
+          {activeSection ? (
+            sectionFailed ? (
+              <OsLoadMore onClick={loadOlderSection} pending={sectionPaging}>
+                Show earlier
+              </OsLoadMore>
+            ) : activeSectionPage?.hasMore ? (
+              <div
+                ref={sectionSentinelRef}
+                className="home-feed-sentinel"
+                aria-hidden
+              />
+            ) : null
+          ) : null}
+        </>
       )}
-      {tab === 'media' && mediaPaging ? (
-        <PageDrawerMediaGridSkeleton cards={2} />
+      {(tab === 'media' && mediaPaging) ||
+      (activeSection && sectionPaging && visiblePosts.length > 0) ? (
+        <div className="list-append-pending">
+          <PulsingDots size="sm" label="Loading more" />
+        </div>
       ) : null}
       {sheet}
     </>

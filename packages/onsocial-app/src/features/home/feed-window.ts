@@ -10,13 +10,24 @@ export const FEED_WINDOW_ESTIMATE_PX = 280;
 export const FEED_WINDOW_MEDIA_ESTIMATE_PX = 480;
 /** Quote inset under a text/media card. */
 export const FEED_WINDOW_QUOTE_ESTIMATE_PX = 420;
+/** Scarce / article 300² jacket + identity + actions. */
+export const FEED_WINDOW_JACKET_ESTIMATE_PX = 560;
+/** Quote inset under a media/jacket card (composed, not a solo quote row). */
+export const FEED_WINDOW_QUOTE_INSET_PX = 140;
+/** Thread fold link between collapsed head and tail. */
+export const FEED_WINDOW_FOLD_ESTIMATE_PX = 44;
 /**
  * Poll feed blocks measure 214–245px. Midpoint of the measured range —
  * shared by every windowed feed.
  */
 export const FEED_WINDOW_POLL_ESTIMATE_PX = Math.round((214 + 245) / 2);
 
-export type FeedWindowRowKind = 'text' | 'media' | 'quote' | 'poll';
+export type FeedWindowRowKind =
+  | 'text'
+  | 'media'
+  | 'quote'
+  | 'poll'
+  | 'jacket';
 
 /** Typed unmeasured-row height — keeps spacers closer to real desktop rows. */
 export function feedWindowRowEstimatePx(
@@ -32,6 +43,8 @@ export function feedWindowRowEstimatePx(
       return FEED_WINDOW_MEDIA_ESTIMATE_PX;
     case 'quote':
       return FEED_WINDOW_QUOTE_ESTIMATE_PX;
+    case 'jacket':
+      return FEED_WINDOW_JACKET_ESTIMATE_PX;
     default:
       return FEED_WINDOW_ESTIMATE_PX;
   }
