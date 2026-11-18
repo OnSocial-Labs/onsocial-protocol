@@ -434,26 +434,9 @@
 
 .os-app-screen[data-compact-chrome='true']
   .home-feed-compact-chrome.is-scroll-hidden {
-  min-height: 0;
-  max-height: 0;
-  transform: none;
-}
-
-.os-app-screen-header:has(.home-feed-compact-chrome.is-scroll-hidden) {
-  overflow: hidden;
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: 0;
-  /* No residual chrome box — a few px of pad still painted the frost plate. */
-  min-height: 0;
-}
-
-.os-app-screen[data-glass-chrome='true']:has(
-    .home-feed-compact-chrome.is-scroll-hidden
-  )
-  > .os-app-screen-column
-  > .os-app-screen-body {
-  padding-top: env(safe-area-inset-top, 0px);
-  scroll-padding-top: env(safe-area-inset-top, 0px);
+  /* Slide the chips out. The row keeps its height so the body inset stays. */
+  transform: translateY(-100%);
+  pointer-events: none;
 }
 
 /* Header frost + screen-top scrim — both off while the home rail is tucked. */
@@ -14521,7 +14504,7 @@ a.os-surface-row,
   /*
    * Shared chrome glass screens (Home / Market / Discover / Guilds / Post):
    * header overlays the scroller; body offsets by resting chrome height.
-   * Frost is always on; tuck collapses header + body pad together under it.
+   * Home tuck translates the rail and leaves this inset in place.
    */
   .os-app-screen[data-glass-chrome='true']
     > .os-app-screen-column
@@ -23088,6 +23071,26 @@ a.os-surface-row,
   .home-feed-load-more {
     display: flex;
     flex-direction: column;
+    /* Sentinel (1px) + the in-flight dots row (its padding + the sm dot). */
+    min-height: calc(1px + 0.75rem + 0.75rem + 0.25rem);
+  }
+
+  /*
+   * First list paint. Resting opacity stays 1 so a hard load is not hidden
+   * until JavaScript. Motion matches sheet appear; reduced motion skips it.
+   */
+  @media (prefers-reduced-motion: no-preference) {
+    .home-feed-reveal-body {
+      animation: glass-sheet-appear var(--os-motion-appear, 280ms)
+        var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1))
+        forwards;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .home-feed-reveal-body {
+      animation: none;
+    }
   }
 
   .home-feed-sentinel {

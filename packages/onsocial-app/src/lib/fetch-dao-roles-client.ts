@@ -66,9 +66,7 @@ function parseProposerFlags(value: unknown): ProtocolDaoProposerFlags {
   };
 }
 
-function parseCouncilRole(
-  value: unknown
-): ProtocolDaoCouncilRole | null {
+function parseCouncilRole(value: unknown): ProtocolDaoCouncilRole | null {
   return value === 'guardians' || value === 'council' ? value : null;
 }
 
@@ -182,4 +180,41 @@ export async function fetchDaoRolesClient(
     if (isAbortError(error)) throw error;
     return emptyPayload(accountId);
   }
+}
+
+export function daoRolesPageQuery(accountIds: string[]): string {
+  const params = new URLSearchParams();
+  for (const id of accountIds) params.append('accountIds', id);
+  return params.toString();
+}
+
+/** One `/api/profile/dao-roles` round-trip for a page of authors. */
+export async function fetchDaoRolesPage(
+  accountIds: string[]
+): Promise<Record<string, ProtocolDaoMemberships>> {
+  const ids = [
+    ...new Set(
+      accountIds
+        .map((id) => normalizeAccountId(id))
+        .filter((id) => id.length > 0)
+    ),
+  ].sort();
+  if (ids.length === 0) return {};
+  const res = await fetch(`/api/profile/dao-roles?${daoRolesPageQuery(ids)}`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) return {};
+  const body = (await res.json().catch(() => null)) as {
+    accounts?: Array<{
+      accountId?: string;
+      memberships?: ProtocolDaoMemberships;
+    }>;
+  } | null;
+  const out: Record<string, ProtocolDaoMemberships> = {};
+  for (const row of body?.accounts ?? []) {
+    const id = normalizeAccountId(row.accountId ?? '');
+    if (!id || !row.memberships) continue;
+    out[id] = row.memberships;
+  }
+  return out;
 }

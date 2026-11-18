@@ -231,6 +231,11 @@ export interface PostCardQuoteProps {
   quotedAuthorProfile?: PostAuthorProfile;
   /** Click-through to the quoted post's own page. */
   quotedHref?: string;
+  /**
+   * Home page already resolved this quote (hit or miss). A miss paints no
+   * inset. Unset keeps the gray seat for feeds that still fill in later.
+   */
+  quoteSettled?: boolean;
 }
 
 interface PostCardProps
@@ -309,6 +314,7 @@ function PostCardImpl({
   quotedPost,
   quotedAuthorProfile,
   quotedHref,
+  quoteSettled = false,
   showRelationBadge = true,
   authorProfiles,
   showChannel = false,
@@ -1603,7 +1609,7 @@ function PostCardImpl({
             expanded={detailLayout}
             sheetContext={sheetContext}
           />
-        ) : postNeedsQuoteSeat(post) ? (
+        ) : postNeedsQuoteSeat(post) && !quoteSettled ? (
           <QuotedPostInsetPending />
         ) : null}
         {detailLayout ? (

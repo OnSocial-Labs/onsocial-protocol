@@ -81,7 +81,8 @@ export function indexedPostRefKey(author: string, postId: string): string {
  * Map keys are `${author}\\0${postId}`.
  */
 export async function fetchIndexedPostsByRefs(
-  refs: Array<{ author: string; postId: string }>
+  refs: Array<{ author: string; postId: string }>,
+  client: OnSocial = createReadOnlyOnSocialClient()
 ): Promise<Map<string, PostRow>> {
   const unique = new Map<string, { author: string; postId: string }>();
   for (const ref of refs) {
@@ -93,7 +94,6 @@ export async function fetchIndexedPostsByRefs(
   if (unique.size === 0) return new Map();
 
   const list = [...unique.values()];
-  const client = createReadOnlyOnSocialClient();
   const res = await client.query.graphql<{ postsCurrent: PostRow[] }>({
     query: `query IndexedPostsByRefs($or: [PostsCurrentBoolExp!]!, $limit: Int!) {
       postsCurrent(

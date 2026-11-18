@@ -1,8 +1,8 @@
 /**
  * Glass chrome inset sync — measure resting header height into
  * `--os-screen-chrome-height`, and freeze that value while scroll-tuck is
- * visual-only (search / chip rails). Home’s full rail tuck also collapses
- * body pad in CSS; freeze still covers search-tuck and other rails.
+ * visual-only (search / chip rails). Home translates the rail and keeps
+ * the body inset, so this freeze is not what holds the feed still.
  *
  * Prefer `data-os-chrome-tucked` (set by screen / toolbar rails). Class
  * sniffing remains a fallback for older markup.

@@ -1,6 +1,14 @@
 import type { Paginated, PostRow } from '@onsocial/sdk';
 import type { HomeFeedSort } from '@/features/home/home-feed-sort';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
+import { resolveDaoMembershipsForAccounts } from '@/lib/fetch-page-drawer-meta';
+import {
+  feedAuthorIds,
+  prepareFeedQuotesAndPolls,
+  type FeedQuoteSeed,
+} from '@/lib/prepare-feed-paint';
+import type { PollTally } from '@/lib/poll-votes';
+import type { ProtocolDaoMemberships } from '@/lib/protocol-dao-memberships';
 import {
   hydrateScarceEmbedsForPosts,
   loadPostEngagementMap,
@@ -14,6 +22,9 @@ export type HomeFeedPaint = {
   page: Paginated<PostRow>;
   engagement: PostEngagementMap;
   scarceEmbeds: PostScarceEmbedMap;
+  quoted: FeedQuoteSeed;
+  tallies: Record<string, PollTally>;
+  memberships: Record<string, ProtocolDaoMemberships>;
 };
 
 /** Public/recent home feed shell + engagement/scarce paint for SSR. */
@@ -37,11 +48,22 @@ export async function loadHomeFeedPage(opts?: {
       sort: opts?.sort ?? 'hot',
     });
     const items = page.items ?? [];
-    const [engagement, scarceEmbeds] = await Promise.all([
+    const [engagement, scarceEmbeds, prepared] = await Promise.all([
       loadPostEngagementMap(os, items),
       hydrateScarceEmbedsForPosts(os, items),
+      prepareFeedQuotesAndPolls(items, os),
     ]);
-    return { page, engagement, scarceEmbeds };
+    const memberships = await resolveDaoMembershipsForAccounts(
+      feedAuthorIds(items, prepared.quoted)
+    ).catch(() => ({}));
+    return {
+      page,
+      engagement,
+      scarceEmbeds,
+      quoted: prepared.quoted,
+      tallies: prepared.tallies,
+      memberships,
+    };
   } catch {
     return null;
   }

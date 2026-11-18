@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  useCallback,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Divider } from '@onsocial/ui';
 import {
   postContentPath,
@@ -31,11 +25,15 @@ import {
   type PostEngagement,
 } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
+import { FeedDaoMembershipsProvider } from '@/hooks/use-protocol-dao-memberships';
+import type { ProtocolDaoMemberships } from '@/lib/protocol-dao-memberships';
+import type { PollTally } from '@/lib/poll-votes';
 import { useQuotedPosts } from '@/hooks/use-quoted-posts';
 import { coalesceFeedThreads } from '@/lib/feed-threads';
 import {
   withRepostOriginals,
   collectRelationTargetAccountIds,
+  postNeedsQuoteSeat,
 } from '@/lib/post-relation';
 import { useFeedWindow } from '@/features/home/use-feed-window';
 import { feedBlockEstimatePx } from '@/features/home/feed-block-estimate';
@@ -70,6 +68,12 @@ interface PersonalFeedListProps {
   initialEngagement?: Record<string, PostEngagement> | null;
   /** SSR scarce CTA seed — Buy/Bid without IntersectionObserver wait. */
   initialScarceEmbeds?: Record<string, PostScarceEmbed> | null;
+  /** Quote refs already resolved for this page, including confirmed misses. */
+  quotedSeed?: Record<string, PostRow | null> | null;
+  /** Poll tallies already resolved. Missing keys stay pending. */
+  pollSeed?: Record<string, PollTally> | null;
+  /** Lowercase account id → dao marks for the first paint of this page. */
+  daoMemberships?: Record<string, ProtocolDaoMemberships> | null;
   /** Shared row-height cache for windowing (session persistence in home). */
   windowSizeCache?: FeedWindowSizeCache;
   /** Row that must stay mounted this pass (re-rank scroll anchor). */
@@ -91,6 +95,9 @@ export function PersonalFeedList({
   showGuildAttribution = false,
   initialEngagement = null,
   initialScarceEmbeds = null,
+  quotedSeed = null,
+  pollSeed = null,
+  daoMemberships = null,
   windowSizeCache,
   pinnedFeedKey = null,
 }: PersonalFeedListProps) {
@@ -102,14 +109,11 @@ export function PersonalFeedList({
       }),
     [includeForeignReplies, posts, stoodWithAccountIds]
   );
-  const quotedPosts = useQuotedPosts(posts);
+  const quotedPosts = useQuotedPosts(posts, quotedSeed);
 
   /*
-   * Hydration parity: SSR paints bylines and guild chips from a warm
-   * server-side cache, so the first client render must seed synchronously
-   * too. Every later reseed (appended pages, resolved quotes, fresh SSR
-   * embeds) goes through the layout effects below with notify — module
-   * caches are no longer written on every render.
+   * Bylines stay off the server snapshot (generation 0). Seed synchronously
+   * so the client snapshot matches before paint. Later pages notify.
    */
   useState(() => {
     seedPostAuthorProfilesFromFeed(posts);
@@ -186,7 +190,22 @@ export function PersonalFeedList({
     engagementPosts,
     {
       onError: onEngagementError,
+      initial: pollSeed,
     }
+  );
+  const quoteSettled = useCallback(
+    (post: PostRow) => {
+      const path = post.refPath?.trim();
+      if (!path || !postNeedsQuoteSeat(post)) return true;
+      if (
+        quotedSeed &&
+        Object.prototype.hasOwnProperty.call(quotedSeed, path)
+      ) {
+        return true;
+      }
+      return Boolean(quotedPosts[path]);
+    },
+    [quotedPosts, quotedSeed]
   );
 
   /*
@@ -252,8 +271,7 @@ export function PersonalFeedList({
     [feedBlocks]
   );
   const rowEstimates = useMemo(
-    () =>
-      feedBlocks.map((block) => feedBlockEstimatePx(block, quotedPosts)),
+    () => feedBlocks.map((block) => feedBlockEstimatePx(block, quotedPosts)),
     [feedBlocks, quotedPosts]
   );
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -271,73 +289,76 @@ export function PersonalFeedList({
     feedWindow;
 
   return (
-    <div ref={hostRef} className={className ?? 'home-feed-list'}>
-      {windowed && topSpacer > 0 ? (
-        <div
-          style={{ height: topSpacer }}
-          aria-hidden="true"
-          data-feed-window-spacer="top"
-        />
-      ) : null}
-      {feedBlocks
-        .slice(start, end)
-        .map(({ posts, standingPeek, standingHidden }, sliceIndex) => {
-          const blockIndex = start + sliceIndex;
-          const key = blockKeys[blockIndex]!;
-          return (
-            <div
-              key={key}
-              ref={registerRow(key)}
-              className={
-                windowed
-                  ? 'home-feed-block home-feed-block--windowed'
-                  : 'home-feed-block'
-              }
-              data-feed-key={key}
-            >
-              <Divider
-                variant="item"
+    <FeedDaoMembershipsProvider memberships={daoMemberships}>
+      <div ref={hostRef} className={className ?? 'home-feed-list'}>
+        {windowed && topSpacer > 0 ? (
+          <div
+            style={{ height: topSpacer }}
+            aria-hidden="true"
+            data-feed-window-spacer="top"
+          />
+        ) : null}
+        {feedBlocks
+          .slice(start, end)
+          .map(({ posts, standingPeek, standingHidden }, sliceIndex) => {
+            const blockIndex = start + sliceIndex;
+            const key = blockKeys[blockIndex]!;
+            return (
+              <div
+                key={key}
+                ref={registerRow(key)}
                 className={
-                  blockIndex > 0
-                    ? 'post-row-divider'
-                    : 'post-row-divider post-row-divider--leading-hidden'
+                  windowed
+                    ? 'home-feed-block home-feed-block--windowed'
+                    : 'home-feed-block'
                 }
-              />
-              <FeedThreadBlock
-                block={posts}
-                standingPeek={standingPeek}
-                standingHidden={standingHidden}
-                postAuthorProfiles={postAuthorProfiles}
-                quotedPosts={quotedPosts}
-                engagement={engagement}
-                isReactionPending={isReactionPending}
-                isSavePending={isSavePending}
-                isSharePending={isSharePending}
-                onToggleReaction={toggleReaction}
-                onToggleSave={toggleSave}
-                onAmplifyConfirmed={handleAmplifyConfirmed}
-                pollTallyFor={pollTallyFor}
-                isPollVotePending={isPollVotePending}
-                onPollVote={handlePollVote}
-                onReply={onReply}
-                onExpandReply={onExpandReply}
-                onQuote={onQuote}
-                onRepost={onRepost ? handleRepost : undefined}
-                onUndoRepost={onUndoRepost ? handleUndoRepost : undefined}
-                showGuildAttribution={showGuildAttribution}
-                guildNameById={guildNameById}
-              />
-            </div>
-          );
-        })}
-      {windowed && bottomSpacer > 0 ? (
-        <div
-          style={{ height: bottomSpacer }}
-          aria-hidden="true"
-          data-feed-window-spacer="bottom"
-        />
-      ) : null}
-    </div>
+                data-feed-key={key}
+              >
+                <Divider
+                  variant="item"
+                  className={
+                    blockIndex > 0
+                      ? 'post-row-divider'
+                      : 'post-row-divider post-row-divider--leading-hidden'
+                  }
+                />
+                <FeedThreadBlock
+                  block={posts}
+                  standingPeek={standingPeek}
+                  standingHidden={standingHidden}
+                  postAuthorProfiles={postAuthorProfiles}
+                  quotedPosts={quotedPosts}
+                  quoteSettled={quoteSettled}
+                  engagement={engagement}
+                  isReactionPending={isReactionPending}
+                  isSavePending={isSavePending}
+                  isSharePending={isSharePending}
+                  onToggleReaction={toggleReaction}
+                  onToggleSave={toggleSave}
+                  onAmplifyConfirmed={handleAmplifyConfirmed}
+                  pollTallyFor={pollTallyFor}
+                  isPollVotePending={isPollVotePending}
+                  onPollVote={handlePollVote}
+                  onReply={onReply}
+                  onExpandReply={onExpandReply}
+                  onQuote={onQuote}
+                  onRepost={onRepost ? handleRepost : undefined}
+                  onUndoRepost={onUndoRepost ? handleUndoRepost : undefined}
+                  showGuildAttribution={showGuildAttribution}
+                  guildNameById={guildNameById}
+                />
+              </div>
+            );
+          })}
+        {windowed && bottomSpacer > 0 ? (
+          <div
+            style={{ height: bottomSpacer }}
+            aria-hidden="true"
+            data-feed-window-spacer="bottom"
+          />
+        ) : null}
+      </div>
+    </FeedDaoMembershipsProvider>
   );
 }
 
