@@ -8,6 +8,7 @@ import { PostRichText } from '@/features/home/post-rich-text';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useWritingComposeOpen } from '@/contexts/writing-compose-context';
 import { useEssayReturnSearch } from '@/hooks/use-essay-return-search';
+import { RollingNumber } from '@/components/ui/rolling-number';
 import {
   articleExcerpt,
   articleMatchesQuery,
@@ -76,6 +77,38 @@ export function PortfolioWritingPending({ rowCount = 2 }: { rowCount?: number })
         ))}
       </div>
     </WritingShelfFrame>
+  );
+}
+
+/**
+ * Shelf meta likes — RollingNumber for the digit, main's
+ * `formatWritingLikeLabel` wording for the word + accessible name.
+ * Hidden at 0. Digit + word stay aria-hidden so the label is read once.
+ */
+export function WritingShelfLikeCount({
+  likeCount,
+  rollSignal,
+}: {
+  likeCount: number;
+  rollSignal?: number;
+}) {
+  const likeLabel = formatWritingLikeLabel(likeCount);
+  if (!likeLabel) return null;
+  const word = likeCount === 1 ? ' like' : ' likes';
+  // Same separator sibling markup as main — keep ` · ` in the meta inline
+  // flow (not inside a flex seat) so spaces do not collapse. Visible digits
+  // stay aria-hidden; sr-only carries the name into the parent link.
+  return (
+    <>
+      <span aria-hidden> · </span>
+      <span className="portfolio-writing-shelf-like">
+        <span aria-hidden>
+          <RollingNumber value={likeCount} rollSignal={rollSignal} />
+          {word}
+        </span>
+        <span className="sr-only">{likeLabel}</span>
+      </span>
+    </>
   );
 }
 
@@ -149,9 +182,9 @@ export const PortfolioWritingList = memo(function PortfolioWritingList({
             const iso = postTimestampIso(post.blockTimestamp);
             const readLabel = formatWritingReadLabel(parsePostText(post.value));
             const shelfTime = formatWritingShelfTimestamp(post.blockTimestamp);
-            const likeLabel = formatWritingLikeLabel(
-              (engagement[postKey(post)] ?? EMPTY_POST_ENGAGEMENT).reactionCount
-            );
+            const likeRow =
+              engagement[postKey(post)] ?? EMPTY_POST_ENGAGEMENT;
+            const likeCount = likeRow.reactionCount;
             const articleHref = withEssayReturnSearch(
               writingArticlePath(post.accountId, post.postId),
               returnSearch
@@ -175,7 +208,6 @@ export const PortfolioWritingList = memo(function PortfolioWritingList({
                   href={articleHref}
                   className="portfolio-writing-card"
                   prefetch
-                  aria-label={article.title}
                   onClick={openArticle}
                 >
                   <div className="portfolio-writing-cover" aria-hidden>
@@ -215,12 +247,10 @@ export const PortfolioWritingList = memo(function PortfolioWritingList({
                           <span>{readLabel}</span>
                         </>
                       ) : null}
-                      {likeLabel ? (
-                        <>
-                          <span aria-hidden> · </span>
-                          <span>{likeLabel}</span>
-                        </>
-                      ) : null}
+                      <WritingShelfLikeCount
+                        likeCount={likeCount}
+                        rollSignal={likeRow.reactionRoll}
+                      />
                     </p>
                   </div>
                 </Link>

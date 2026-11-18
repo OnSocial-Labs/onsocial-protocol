@@ -41,6 +41,8 @@ import { formatPostTimestamp, parsePostText } from '@/lib/post-display';
 import { isAppPostSheetHref } from '@/lib/post-routes';
 import {
   PostMediaStrip,
+  feedMediaVideoSettleHandlers,
+  useFeedMediaResolveFallback,
   useFeedMediaResolved,
 } from '@/features/home/post-media';
 import { usePostVideoPlayback } from '@/hooks/use-post-list-video';
@@ -309,7 +311,8 @@ export function QuotedPostInset({
 }
 
 
-function QuoteThumbTile({
+/** Quote collage cell — exported for settle regression tests. */
+export function QuoteThumbTile({
   item,
   style,
   onRatio,
@@ -322,6 +325,7 @@ function QuoteThumbTile({
   const { containerRef, bindVideoEl, videoPreload, videoMounted } =
     usePostVideoPlayback(isVideo ? 'poster' : null);
   const { resolved, markResolved, bind } = useFeedMediaResolved(item.url);
+  useFeedMediaResolveFallback(isVideo && videoMounted, resolved, markResolved);
   const remember = (width: number, height: number) => {
     if (width > 0 && height > 0) onRatio(item.url, width / height);
   };
@@ -335,6 +339,7 @@ function QuoteThumbTile({
   ]
     .filter(Boolean)
     .join(' ');
+  const videoSettle = feedMediaVideoSettleHandlers(markResolved, remember);
   return (
     <span
       className="post-card-quote-thumb-cell"
@@ -347,10 +352,15 @@ function QuoteThumbTile({
           aria-hidden
         />
       )}
-      {isVideo ? null : <IpfsBlurPreview src={item.url} mime={item.mime} />}
       {isVideo ? (
-        // Poster gate: far-off quote thumbs unmount; the grid cell holds
-        // the row height. Remounts warm a viewport before paint.
+        item.posterUrl ? (
+          <IpfsBlurPreview src={item.posterUrl} mime="image/jpeg" />
+        ) : null
+      ) : (
+        <IpfsBlurPreview src={item.url} mime={item.mime} />
+      )}
+      {isVideo ? (
+        // Far-off quote thumbs unmount; cell + poster stand-in hold height.
         videoMounted ? (
           <video
             ref={bindVideo}
@@ -358,13 +368,9 @@ function QuoteThumbTile({
             muted
             playsInline
             preload={videoPreload}
+            {...(item.posterUrl ? { poster: item.posterUrl } : {})}
             className={mediaClassName}
-            onLoadedMetadata={(event) => {
-              const video = event.currentTarget;
-              remember(video.videoWidth, video.videoHeight);
-              markResolved();
-            }}
-            onError={markResolved}
+            {...videoSettle}
           />
         ) : null
       ) : (

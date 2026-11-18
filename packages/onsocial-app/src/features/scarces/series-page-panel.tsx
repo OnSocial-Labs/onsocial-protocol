@@ -14,6 +14,7 @@ import Link from 'next/link';
 import {
   Divider,
   OsIconAction,
+  PulsingDots,
   SettingsIcon,
   ShopFillIcon,
   standingIdentityLabel,
@@ -542,7 +543,9 @@ export function SeriesPagePanel({
               ))}
             </div>
             {seriesLoadingMore ? (
-              <MarketListSkeleton rows={2} variant="drops" />
+              <div className="list-append-pending">
+                <PulsingDots size="sm" label="Loading more" />
+              </div>
             ) : null}
             {seriesLoadMoreFailed ? (
               <OsChromeListAlert

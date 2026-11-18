@@ -189,7 +189,7 @@ describe('personalFeedBlockIsPollRow', () => {
     ).toBe('quote');
   });
 
-  it('keeps threads and media rows on the generic estimate', () => {
+  it('does not treat threads or media+poll as poll rows', () => {
     const poll: PostRow = {
       ...row('alice.near', 'poll'),
       value: pollValue('Favorite color?'),

@@ -13,6 +13,7 @@ import { SECONDARY_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor'
 import { useFeedWindow } from '@/features/home/use-feed-window';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
+import { PulsingDots } from '@onsocial/ui';
 import { discoverHubsLead } from '@/lib/discover-tab-lead';
 import {
   creatorAccessShort,
@@ -434,10 +435,9 @@ export function DiscoverHubsPanel() {
                 aria-hidden
               />
               {moreLoading ? (
-                <DiscoverCommunityListSkeleton
-                  label="Loading more hubs…"
-                  count={2}
-                />
+                <div className="list-append-pending">
+                  <PulsingDots size="sm" label="Loading more" />
+                </div>
               ) : null}
             </div>
           ) : null}

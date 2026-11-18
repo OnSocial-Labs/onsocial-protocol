@@ -15,7 +15,7 @@ export function isBareRepostShell(
 }
 
 export type ResolvedFeedRepostCard = {
-  /** Hold a skeleton seat until the original lands. */
+  /** Hold attribution + text chassis until the original lands. */
   pending: boolean;
   card: PostRow;
   quoted: PostRow | undefined;

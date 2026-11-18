@@ -36,15 +36,17 @@ import { coalesceFeedThreads } from '@/lib/feed-threads';
 import {
   withRepostOriginals,
   collectRelationTargetAccountIds,
-  isRepostRefType,
 } from '@/lib/post-relation';
-import { parsePostPollEmbed, parsePostText } from '@/lib/post-display';
-import { parsePostMedia } from '@/lib/post-media';
 import { useFeedWindow } from '@/features/home/use-feed-window';
-import {
-  feedWindowRowEstimatePx,
-  type FeedWindowSizeCache,
-} from '@/features/home/feed-window';
+import { feedBlockEstimatePx } from '@/features/home/feed-block-estimate';
+import type { FeedWindowSizeCache } from '@/features/home/feed-window';
+
+export {
+  feedBlockEstimatePx,
+  feedBlockIsPollRow,
+  personalFeedBlockEstimateKind,
+  personalFeedBlockIsPollRow,
+} from '@/features/home/feed-block-estimate';
 
 interface PersonalFeedListProps {
   posts: PostRow[];
@@ -72,36 +74,6 @@ interface PersonalFeedListProps {
   windowSizeCache?: FeedWindowSizeCache;
   /** Row that must stay mounted this pass (re-rank scroll anchor). */
   pinnedFeedKey?: string | null;
-}
-
-/**
- * Typed spacer estimate for one feed block. Polls are short; media / quote
- * rows are taller — a flat 320px estimate jiggled desktop scroll-back.
- */
-export function personalFeedBlockEstimateKind(
-  block: { posts: PostRow[]; standingPeek?: PostRow },
-  quotedPosts: Record<string, PostRow>
-): 'text' | 'media' | 'quote' | 'poll' {
-  if (block.posts.length !== 1 || block.standingPeek) return 'text';
-  const post = block.posts[0]!;
-  const quoted = post.refPath ? quotedPosts[post.refPath] : undefined;
-  const repostOriginal =
-    isRepostRefType(post.refType) && !parsePostText(post.value).trim()
-      ? quoted
-      : undefined;
-  const card = repostOriginal ?? post;
-  if (parsePostMedia(card.value).length > 0) return 'media';
-  if (parsePostPollEmbed(card.value) != null) return 'poll';
-  if (post.refPath?.trim() && !isRepostRefType(post.refType)) return 'quote';
-  return 'text';
-}
-
-/** @deprecated Prefer {@link personalFeedBlockEstimateKind}. */
-export function personalFeedBlockIsPollRow(
-  block: { posts: PostRow[]; standingPeek?: PostRow },
-  quotedPosts: Record<string, PostRow>
-): boolean {
-  return personalFeedBlockEstimateKind(block, quotedPosts) === 'poll';
 }
 
 /** Shared home/profile feed rendering — thread blocks + quote insets + polls. */
@@ -281,11 +253,7 @@ export function PersonalFeedList({
   );
   const rowEstimates = useMemo(
     () =>
-      feedBlocks.map((block) =>
-        feedWindowRowEstimatePx(
-          personalFeedBlockEstimateKind(block, quotedPosts)
-        )
-      ),
+      feedBlocks.map((block) => feedBlockEstimatePx(block, quotedPosts)),
     [feedBlocks, quotedPosts]
   );
   const hostRef = useRef<HTMLDivElement | null>(null);

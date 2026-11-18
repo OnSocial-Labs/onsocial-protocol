@@ -13,6 +13,7 @@ import { discoverDaosLead } from '@/lib/discover-tab-lead';
 import { APP_DAOS_PATH, daosCreateHref } from '@/lib/app-routes';
 import { emptyCopy } from '@/lib/empty-copy';
 import { OsEmptyAction } from '@/lib/os-empty-action';
+import { PulsingDots } from '@onsocial/ui';
 
 /**
  * Discover → DAOs — factory catalog find. Create / My DAOs live in the DAOs app.
@@ -93,10 +94,9 @@ export function DiscoverDaosPanel() {
             aria-hidden
           />
           {pending && rows != null ? (
-            <DiscoverCommunityListSkeleton
-              label="Loading more DAOs…"
-              count={2}
-            />
+            <div className="list-append-pending">
+              <PulsingDots size="sm" label="Loading more" />
+            </div>
           ) : null}
         </div>
       ) : null}

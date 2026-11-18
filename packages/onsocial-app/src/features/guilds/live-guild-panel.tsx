@@ -62,6 +62,7 @@ import {
 } from '@/features/guilds/guild-structure';
 import { inheritedGuildReplyFeedMeta } from '@/features/guilds/guild-post-feed-meta';
 import { FeedThreadBlock } from '@/features/guilds/feed-thread-block';
+import { feedBlockEstimatePx } from '@/features/home/feed-block-estimate';
 import { useFeedWindow } from '@/features/home/use-feed-window';
 import {
   collaborativeJoinNeedsStorage,
@@ -520,13 +521,16 @@ export function LiveGuildPanel({
     () => feedBlocks.map((block) => postKey(block.posts[0]!)),
     [feedBlocks]
   );
+  const quotedPosts = useQuotedPosts(feedPosts);
+  const feedRowEstimates = useMemo(
+    () =>
+      feedBlocks.map((block) => feedBlockEstimatePx(block, quotedPosts)),
+    [feedBlocks, quotedPosts]
+  );
   const feedListRef = useRef<HTMLDivElement | null>(null);
   /*
-   * Feed windowing — the home feed integration, unchanged: past the row
-   * threshold far blocks collapse into spacers, and height corrections
-   * anchor on .home-feed-block[data-feed-key] via the default
-   * FEED_ANCHOR_QUERY. The guild feed renders the same FeedThreadBlock
-   * rows into the same home-feed-list chrome, so the same classes apply.
+   * Same windowing + typed block estimates as home PersonalFeedList —
+   * media/thread/jacket spacers so scroll-back does not jiggle.
    */
   const {
     windowed: feedWindowed,
@@ -535,8 +539,11 @@ export function LiveGuildPanel({
     topSpacer: feedTopSpacer,
     bottomSpacer: feedBottomSpacer,
     registerRow: registerFeedRow,
-  } = useFeedWindow({ keys: feedBlockKeys, hostRef: feedListRef });
-  const quotedPosts = useQuotedPosts(feedPosts);
+  } = useFeedWindow({
+    keys: feedBlockKeys,
+    hostRef: feedListRef,
+    estimate: feedRowEstimates,
+  });
   const shellPresentation = resolveAppLoadingPresentation(
     loadState === 'loading'
       ? 'cold'

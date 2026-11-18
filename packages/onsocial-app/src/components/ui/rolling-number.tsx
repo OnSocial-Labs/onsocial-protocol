@@ -1,6 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import {
   ROLLING_DIGIT_MS,
   mod10,
@@ -48,6 +53,7 @@ function DigitRoll({
   rollSignal,
   playFrom,
   stepPx,
+  toValue,
 }: {
   digit: number;
   rollSignal?: number;
@@ -55,6 +61,8 @@ function DigitRoll({
   playFrom?: number;
   /** Fixed line height so the roll cannot change the count's box. */
   stepPx?: number;
+  /** Whole-counter value — previous is latched in an effect ref (zero-crossing snap). */
+  toValue?: number;
 }) {
   const reduced = usePrefersReducedMotion();
   const target = mod10(digit);
@@ -73,15 +81,23 @@ function DigitRoll({
   const skipRef = useRef(playFrom === undefined);
   const playedRef = useRef(false);
   const signalRef = useRef(rollSignal);
+  /** Previous whole value — read/updated only inside the effect (no render ref). */
+  const prevToValueRef = useRef(toValue);
 
   useEffect(() => {
     if (skipRef.current) {
       skipRef.current = false;
       signalRef.current = rollSignal;
+      prevToValueRef.current = toValue;
       return;
     }
 
-    const motionKind = rollingMotion(rollSignal, signalRef.current);
+    const fromValue = prevToValueRef.current;
+    prevToValueRef.current = toValue;
+    const motionKind = rollingMotion(rollSignal, signalRef.current, {
+      fromValue,
+      toValue,
+    });
     const from = posRef.current;
     let cancelled = false;
     let timer = 0;
@@ -155,7 +171,7 @@ function DigitRoll({
       window.cancelAnimationFrame(follow);
       window.clearTimeout(timer);
     };
-  }, [playFrom, reduced, rollSignal, target]);
+  }, [playFrom, reduced, rollSignal, target, toValue]);
 
   const step = stepPx && stepPx > 0 ? stepPx : null;
   const cellStyle = step
@@ -223,7 +239,14 @@ export function RollingNumber({
   /** Face count: stable digit columns, parked and while rolling. */
   textRest?: boolean;
 }) {
-  const glyphs = rollingGlyphs(value, grouped);
+  const safe = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+  /*
+   * Zero-crossing snap latches inside DigitRoll's effect (prevToValueRef) so
+   * there is no second sync render. useState+useLayoutEffect setFromValue used
+   * to re-run DigitRoll, cancel the first rAF before signalRef updated, and
+   * roll 0→1 through a parked 0.
+   */
+  const glyphs = rollingGlyphs(safe, grouped);
   return (
     <span
       className={textRest ? 'os-rolling-number is-face' : 'os-rolling-number'}
@@ -239,6 +262,7 @@ export function RollingNumber({
             key={glyph.key}
             digit={glyph.digit}
             rollSignal={rollSignal}
+            toValue={safe}
           />
         )
       )}

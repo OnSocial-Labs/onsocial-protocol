@@ -60,6 +60,26 @@ describe('blurred image preview', () => {
     expect(external).not.toContain('ipfs-blur-preview');
   });
 
+  it('paints the poster blur in the video seat before the decoder mounts', () => {
+    const html = renderToStaticMarkup(
+      createElement(PostMediaStrip, {
+        items: [
+          {
+            url: `${CDN}/ipfs/bafyvideo`,
+            mime: 'video/mp4',
+            posterUrl: `${CDN}/ipfs/${CID}`,
+          },
+        ],
+      })
+    );
+
+    // List videos stay unmounted far from the fold — the still fills the
+    // reserved seat so the tile is never empty shimmer-only.
+    expect(html).toContain('ipfs-blur-preview');
+    expect(html).toContain(`src="${PREVIEW}"`);
+    expect(html).not.toContain('<video');
+  });
+
   it('paints the same preview under an avatar', () => {
     const html = renderToStaticMarkup(
       createElement(ProfileAvatar, { src: PHOTO, fallbackInitial: 'A' })

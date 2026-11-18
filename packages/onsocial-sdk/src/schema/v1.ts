@@ -27,6 +27,11 @@ export interface MediaRef {
   height?: number;
   alt?: string;
   blurhash?: string;
+  /**
+   * Still-image CID for video (and rare non-image) refs — feed/list
+   * stand-in before the decoder paints a frame. Omit for photos.
+   */
+  poster?: string;
 }
 
 // ── Profile ─────────────────────────────────────────────────────────────────
@@ -242,6 +247,8 @@ function validateMedia(m: unknown): string | null {
   if (m.alt !== undefined && !isStr(m.alt)) return 'media.alt must be string';
   if (m.blurhash !== undefined && !isStr(m.blurhash))
     return 'media.blurhash must be string';
+  if (m.poster !== undefined && !isStr(m.poster))
+    return 'media.poster must be string';
   return null;
 }
 
