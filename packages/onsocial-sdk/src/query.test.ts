@@ -934,6 +934,64 @@ describe('QueryModule', () => {
       expect(latched.query).toContain('amplifyHeat: DESC');
     });
 
+    it('falls back to postsFeed when feedRecent is not deployed', async () => {
+      const queries: string[] = [];
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        queries.push(query);
+        if (query.includes('feedRecent')) {
+          return {
+            errors: [
+              {
+                message: "field 'feedRecent' not found in type: 'query_root'",
+              },
+            ],
+            data: null,
+          };
+        }
+        return {
+          data: {
+            postsFeed: [
+              {
+                accountId: 'a.near',
+                postId: 'p1',
+                value: '{}',
+                blockHeight: 1,
+                blockTimestamp: 0,
+              },
+            ],
+          },
+        };
+      });
+
+      const page = await os.query.feed.recent({ author: 'a.near', limit: 20 });
+      expect(page.items).toHaveLength(1);
+      expect(queries[0]).toContain('feedRecent');
+      expect(queries[1]).toContain('postsFeed(');
+      expect(queries[1]).toContain('accountId: {_eq: $author}');
+      expect(queries[1]).toContain('blockHeight: DESC');
+
+      await os.query.feed.recent({ author: 'a.near', limit: 20 });
+      expect(fetch).toHaveBeenCalledTimes(3);
+      const latched = JSON.parse(String(fetch.mock.calls[2][1].body));
+      expect(latched.query).not.toContain('feedRecent');
+      expect(latched.query).toContain('postsFeed(');
+      expect(latched.query).toContain('accountId: {_eq: $author}');
+      expect(latched.query).toContain('blockHeight: DESC');
+    });
+
+    it('rejects a feedRecent database error instead of falling back', async () => {
+      const { os, fetch } = makeOsWithGraph(() => ({
+        errors: [{ message: 'database query error' }],
+        data: null,
+      }));
+
+      await expect(
+        os.query.feed.recent({ author: 'a.near', limit: 20 })
+      ).rejects.toThrow(/database query error/);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
     // Indexer stores empty strings (not NULLs) for parentPath / refType —
     // section filters must use equality, never _isNull.
     it('filters roots without repost shells for section posts', async () => {
