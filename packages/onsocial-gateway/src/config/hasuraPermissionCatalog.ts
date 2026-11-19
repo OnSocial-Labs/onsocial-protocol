@@ -1378,6 +1378,7 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
 export const PUBLIC_FUNCTIONS = [
   'feed_pulse',
   'feed_hot',
+  'feed_recent',
   'thread_visible_replies',
 ] as const;
 

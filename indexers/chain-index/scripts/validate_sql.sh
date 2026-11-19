@@ -465,6 +465,21 @@ fresh"
       echo "feed_hot count aggregate max loops=$hot_max"
       apply_sql "$db" /work/tests/fixtures/feed_hot_cleanup.sql
 
+      # Pulse pages match the pre-fix function, and count aggregates stay on
+      # the page. The unfenced copy must still exceed the page, or this check
+      # is not catching the flatten.
+      apply_sql "$db" /work/tests/fixtures/feed_pulse_page_check.sql
+      pulse_page="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atf /work/tests/fixtures/feed_pulse_page_assert.sql)"
+      if [ "$pulse_page" != "ok" ]; then
+        echo "error: feed_pulse page did not match the pre-fix rows in $db" >&2
+        echo "  actual: ${pulse_page:-missing}" >&2
+        apply_sql "$db" /work/tests/fixtures/feed_pulse_page_cleanup.sql
+        exit 1
+      fi
+
+      apply_sql "$db" /work/tests/fixtures/feed_pulse_page_plan.sql
+      apply_sql "$db" /work/tests/fixtures/feed_pulse_page_cleanup.sql
+
       visible_fn="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
         SELECT COUNT(*) FROM pg_proc WHERE proname = '"'"'thread_visible_replies'"'"';
       ")"
@@ -608,6 +623,7 @@ SQLEOF
 -- Dependents of groups_current must drop first (posts_feed / members / bans / ranks).
 DROP FUNCTION IF EXISTS feed_pulse(text[], integer, integer, text);
 DROP FUNCTION IF EXISTS feed_hot(integer, integer, text, text, text, text[], boolean);
+DROP FUNCTION IF EXISTS feed_recent(integer, integer, text, text, text, text[], boolean, text, text);
 DROP VIEW IF EXISTS posts_feed;
 DROP VIEW IF EXISTS posts_feed_rank;
 DROP VIEW IF EXISTS groups_by_member_count;
