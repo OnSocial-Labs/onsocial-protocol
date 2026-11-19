@@ -5,12 +5,16 @@ import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   coldLoadReveal,
   HomeFeedReveal,
   slowRefreshReveal,
 } from '@/features/home/home-feed-reveal';
+
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/home',
+}));
 
 function markup(showSkeleton: boolean) {
   return renderToStaticMarkup(
@@ -49,16 +53,14 @@ describe('HomeFeedReveal', () => {
     const html = markup(true);
     expect(html).toContain('post-row-skeleton-list');
     expect(html).not.toContain('let’s try');
-    expect(html).not.toContain('home-feed-reveal-body');
   });
 
-  it('paints server content with the skeleton still under the fade', () => {
+  it('paints a ready list without a second skeleton', () => {
     const html = markup(false);
-    expect(html).toContain('home-feed-reveal-body');
     expect(html).toContain('let’s try');
-    expect(html).toContain('post-row-skeleton-list');
-    expect(html).toContain('home-feed-reveal-cover is-under');
-    expect(html).not.toContain('opacity:0');
+    expect(html).toContain('home-feed-reveal');
+    expect(html).not.toContain('post-row-skeleton-list');
+    expect(html).not.toContain('os-route-skeleton');
   });
 });
 
@@ -144,7 +146,7 @@ describe('cold load reveal', () => {
     expect(clears).toBe(1);
     await paint(true, false);
     expect(host?.querySelector('.home-feed-list')?.textContent).toBe('Hello');
-    expect(host?.querySelector('.post-row-skeleton-list')).not.toBeNull();
+    expect(host?.querySelector('.post-row-skeleton-list')).toBeNull();
   });
 
   it('holds loading on an SSR miss and clears it once when the settle finishes', async () => {
@@ -183,6 +185,7 @@ describe('cold load reveal', () => {
       root?.render(createElement(ColdLoadFrame, { shown: true, refreshing: false }));
     });
     expect(host?.querySelector('.home-feed-list')?.textContent).toBe('Hello');
+    expect(host?.querySelector('.os-route-skeleton')).not.toBeNull();
   });
 
   it('keeps the list up during a slow refresh and clears refreshing once', async () => {

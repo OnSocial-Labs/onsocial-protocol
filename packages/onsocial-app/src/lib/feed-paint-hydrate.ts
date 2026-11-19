@@ -18,6 +18,7 @@ import {
   postKey,
 } from '@/lib/post-display';
 import { isRepostRefType } from '@/lib/post-relation';
+import { publicCountsOnFeedRow } from '@/lib/prepare-feed-paint';
 
 export type PostEngagementMap = Record<string, PostEngagement>;
 export type PostScarceEmbedMap = Record<string, PostScarceEmbed>;
@@ -383,12 +384,41 @@ export async function loadPostEngagementMap(
   }
   const paths = targets.map((t) => t.path);
 
+  const painted = new Map<
+    string,
+    {
+      replyCount: number;
+      quoteCount: number;
+      repostCount: number;
+      reactionCount: number;
+    }
+  >();
+  for (const post of posts) {
+    const own = publicCountsOnFeedRow(post);
+    if (own) painted.set(postKey(post), own);
+    const quoted =
+      post.quotedPost && typeof post.quotedPost === 'object'
+        ? post.quotedPost
+        : null;
+    const quotedCounts = publicCountsOnFeedRow(quoted);
+    if (quoted && quotedCounts) painted.set(postKey(quoted), quotedCounts);
+  }
+  const missing = targets.filter((target) => !painted.has(target.key));
+  const missingPaths = missing.map((target) => target.path);
+
   const [threadResult, reactionResult, amplifyResult] =
     await Promise.allSettled([
-      os.query.threads.countsByPaths(paths),
-      os.query.reactions.statesForPosts(
-        targets.map((t) => ({ owner: t.owner, postId: t.postId }))
-      ),
+      missing.length > 0
+        ? os.query.threads.countsByPaths(missingPaths)
+        : Promise.resolve({}),
+      missing.length > 0
+        ? os.query.reactions.statesForPosts(
+            missing.map((target) => ({
+              owner: target.owner,
+              postId: target.postId,
+            }))
+          )
+        : Promise.resolve({}),
       os.query.socialSpend.amplifyCountsForPostPaths(paths),
     ]);
 
@@ -404,12 +434,13 @@ export async function loadPostEngagementMap(
     const counts = threadCounts[target.path];
     const reactions = reactionStates[`${target.owner}:${target.postId}`];
     const amplify = amplifyCounts[target.path];
+    const onRow = painted.get(target.key);
     next[target.key] = {
       ...EMPTY_POST_ENGAGEMENT,
-      replyCount: counts?.replyCount ?? 0,
-      quoteCount: counts?.quoteCount ?? 0,
-      repostCount: counts?.repostCount ?? 0,
-      reactionCount: reactions?.counts.total ?? 0,
+      replyCount: onRow?.replyCount ?? counts?.replyCount ?? 0,
+      quoteCount: onRow?.quoteCount ?? counts?.quoteCount ?? 0,
+      repostCount: onRow?.repostCount ?? counts?.repostCount ?? 0,
+      reactionCount: onRow?.reactionCount ?? reactions?.counts.total ?? 0,
       amplifyCount: amplify?.amplifyCount ?? 0,
     };
   }

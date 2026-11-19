@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { resolveProtocolDaoProposerFlags } from '../../src/services/governance-dao-proposer-flags.js';
+import {
+  resolveProtocolDaoProposerFlags,
+  proposerFlagsByAccount,
+} from '../../src/services/governance-dao-proposer-flags.js';
 
 describe('resolveProtocolDaoProposerFlags', () => {
   const governance = 'governance.onsocial.testnet';
@@ -29,5 +32,33 @@ describe('resolveProtocolDaoProposerFlags', () => {
     expect(
       resolveProtocolDaoProposerFlags(['community.near'], governance, treasury)
     ).toEqual({ governance: false, treasury: false });
+  });
+});
+
+describe('proposerFlagsByAccount', () => {
+  const governance = 'governance.onsocial.testnet';
+  const treasury = 'treasury.onsocial.testnet';
+
+  it('maps one snapshot read onto every requested account', () => {
+    expect(
+      proposerFlagsByAccount(
+        [
+          {
+            proposerAccountId: 'Alice.Near',
+            daoAccountId: governance,
+          },
+          {
+            proposerAccountId: 'alice.near',
+            daoAccountId: treasury,
+          },
+        ],
+        ['alice.near', 'bob.near'],
+        governance,
+        treasury
+      )
+    ).toEqual({
+      'alice.near': { governance: true, treasury: true },
+      'bob.near': { governance: false, treasury: false },
+    });
   });
 });

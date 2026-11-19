@@ -116,6 +116,30 @@ function mergeStandingAttachment(
   }
 }
 
+function postRecency(post: PostRow): number {
+  const timestamp = post.blockTimestamp ?? 0;
+  const height = post.blockHeight ?? 0;
+  return timestamp * 1_000_000_000 + height;
+}
+
+/** Keep one continuation under a parent. A later, older sibling is dropped. */
+function attachNewestSelfChain(
+  block: CoalescedFeedBlock,
+  parent: PostRow,
+  chain: PostRow[]
+): void {
+  const parentKey = postRefKey(parent.accountId, parent.postId);
+  const parentIndex = block.posts.findIndex(
+    (post) => postRefKey(post.accountId, post.postId) === parentKey
+  );
+  if (parentIndex < 0 || chain.length === 0) return;
+  const tail = block.posts[block.posts.length - 1]!;
+  const incoming = chain[chain.length - 1]!;
+  const hasContinuation = block.posts.length > parentIndex + 1;
+  if (hasContinuation && postRecency(tail) >= postRecency(incoming)) return;
+  block.posts = [...block.posts.slice(0, parentIndex + 1), ...chain];
+}
+
 function tryMergeStandingIntoBlock(
   blocks: CoalescedFeedBlock[],
   parent: PostRow,
@@ -149,9 +173,10 @@ function tryMergeStandingIntoBlock(
  *   self-thread keeps the skipped replies for the fold between them.
  * - A self-reply whose parent isn't on this page stays a single-post block
  *   with its `Replying to @x` context line.
+ * - A self-reply whose parent is already in a block stays there. The newest
+ *   continuation replaces an older one. It does not paint again lower down.
  *
- * Blocks are anchored where the newest member sits, and a parent joins only
- * its newest on-page child.
+ * Blocks are anchored where the newest member sits.
  */
 export function coalesceFeedThreads(
   posts: PostRow[],
@@ -183,20 +208,20 @@ export function coalesceFeedThreads(
     const root = chain[0]!;
 
     // Pulse flattens a card as [original, reply]. Global is newest-first
-    // [reply, original]. If the parent was already listed alone, tuck this
-    // self-reply under it — same block as the Global walk.
+    // [reply, original]. A self-reply whose parent is already in a block
+    // stays on that block — the newest continuation wins. An older sibling
+    // must not become a second card further down the feed.
     if (root.parentPath && parentAuthorOf(root) === root.accountId) {
       const already = parentOnPage(root.parentPath, byPath, byRef);
       if (already && consumed.has(already)) {
         const parentKey = postRefKey(already.accountId, already.postId);
-        const listed = blocks.find(
-          (block) =>
-            block.posts.length === 1 &&
-            postRefKey(block.posts[0]!.accountId, block.posts[0]!.postId) ===
-              parentKey
+        const listed = blocks.find((block) =>
+          block.posts.some(
+            (post) => postRefKey(post.accountId, post.postId) === parentKey
+          )
         );
         if (listed) {
-          listed.posts.push(...chain);
+          attachNewestSelfChain(listed, already, chain);
           continue;
         }
       }

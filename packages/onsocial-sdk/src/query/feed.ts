@@ -7,10 +7,12 @@ import type { QueryModule } from './index.js';
 import type { FeedFilter, Paginated, PostRow } from './types.js';
 import {
   FEED_POST_ROW_FIELDS,
+  FEED_POST_ROW_PAINT_FIELDS,
   GraphQLValidationError,
   POST_ROW_FIELDS,
   audienceLikeValue,
   feedOrderByClause,
+  stripFeedPaintFields,
   type FeedSection,
   type FeedSort,
 } from './_shared.js';
@@ -74,6 +76,22 @@ function isAmplifyHeatUnavailableError(err: unknown): boolean {
   return hay.includes('amplifyheat') || hay.includes('amplify_heat');
 }
 
+function isFeedPaintUnavailableError(err: unknown): boolean {
+  if (!(err instanceof GraphQLValidationError)) return false;
+  const hay =
+    `${err.message} ${err.errors.map((e) => e.message ?? '').join(' ')}`.toLowerCase();
+  return (
+    hay.includes('replycount') ||
+    hay.includes('quotecount') ||
+    hay.includes('repostcount') ||
+    hay.includes('reactioncount') ||
+    hay.includes('quotedpost') ||
+    hay.includes('quotedrefpost') ||
+    hay.includes('reply_count') ||
+    hay.includes('quoted_post')
+  );
+}
+
 /** Topic index `heat` column not tracked yet (deploy lag). */
 function isTopicHeatUnavailableError(err: unknown): boolean {
   if (!(err instanceof GraphQLValidationError)) return false;
@@ -102,6 +120,9 @@ export class FeedQuery {
 
   /** Set when GraphQL rejects `amplifyHeat` (column not tracked yet). */
   private amplifyHeatFallback = new SchemaFallback();
+
+  /** Set when the public-count / quoted-post columns are not tracked yet. */
+  private feedPaintFallback = new SchemaFallback();
 
   /** Set when topic index views reject `heat` ordering (column not tracked yet). */
   private topicHeatFallback = new SchemaFallback();
@@ -194,32 +215,71 @@ export class FeedQuery {
     /** Chrono-only postsFeed query when amplifyHeat is not tracked yet. */
     postsFeedQueryNoHeat?: string;
   }): Promise<PostRow[]> {
+    const postsFeedQuery = this.feedPaintFallback.active
+      ? stripFeedPaintFields(args.postsFeedQuery)
+      : args.postsFeedQuery;
+    const postsFeedQueryNoHeat = args.postsFeedQueryNoHeat
+      ? this.feedPaintFallback.active
+        ? stripFeedPaintFields(args.postsFeedQueryNoHeat)
+        : args.postsFeedQueryNoHeat
+      : undefined;
+
     if (!this.postsFeedFallback.active) {
       const useNoHeat =
-        this.amplifyHeatFallback.active && Boolean(args.postsFeedQueryNoHeat);
-      const feedQuery = useNoHeat
-        ? args.postsFeedQueryNoHeat!
-        : args.postsFeedQuery;
+        this.amplifyHeatFallback.active && Boolean(postsFeedQueryNoHeat);
+      const feedQuery = useNoHeat ? postsFeedQueryNoHeat! : postsFeedQuery;
       try {
         const res = await this._q.graphql<{ postsFeed: PostRow[] }>({
           query: feedQuery,
           variables: args.variables,
         });
-        // A full-heat success means the column is tracked again.
         if (!useNoHeat) this.amplifyHeatFallback.clear();
+        if (feedQuery.includes(FEED_POST_ROW_PAINT_FIELDS)) {
+          this.feedPaintFallback.clear();
+        }
         return res.data?.postsFeed ?? [];
       } catch (err) {
         if (
+          feedQuery.includes('replyCount') &&
+          isFeedPaintUnavailableError(err)
+        ) {
+          this.feedPaintFallback.trip();
+          return this.queryFeedRows({
+            ...args,
+            postsFeedQuery: stripFeedPaintFields(args.postsFeedQuery),
+            postsFeedQueryNoHeat: args.postsFeedQueryNoHeat
+              ? stripFeedPaintFields(args.postsFeedQueryNoHeat)
+              : undefined,
+          });
+        }
+        if (
           !useNoHeat &&
-          args.postsFeedQueryNoHeat &&
+          postsFeedQueryNoHeat &&
           isAmplifyHeatUnavailableError(err)
         ) {
           this.amplifyHeatFallback.trip();
-          const res = await this._q.graphql<{ postsFeed: PostRow[] }>({
-            query: args.postsFeedQueryNoHeat,
-            variables: args.variables,
-          });
-          return res.data?.postsFeed ?? [];
+          try {
+            const res = await this._q.graphql<{ postsFeed: PostRow[] }>({
+              query: postsFeedQueryNoHeat,
+              variables: args.variables,
+            });
+            return res.data?.postsFeed ?? [];
+          } catch (heatlessErr) {
+            if (
+              postsFeedQueryNoHeat.includes('replyCount') &&
+              isFeedPaintUnavailableError(heatlessErr)
+            ) {
+              this.feedPaintFallback.trip();
+              return this.queryFeedRows({
+                ...args,
+                postsFeedQuery: stripFeedPaintFields(args.postsFeedQuery),
+                postsFeedQueryNoHeat: stripFeedPaintFields(
+                  postsFeedQueryNoHeat
+                ),
+              });
+            }
+            throw heatlessErr;
+          }
         }
         if (!isPostsFeedUnavailableError(err)) throw err;
         this.postsFeedFallback.trip();

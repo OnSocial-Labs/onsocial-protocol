@@ -108,35 +108,38 @@ describe('restoreFeedAnchor', () => {
     );
   });
 
-  it('tells the smooth-scroll layer the corrected position', () => {
+  it('shifts the smooth-scroll coast instead of snapping it', () => {
     const root = fakeRoot(100, [
       fakeBlock({ top: 300, height: 200, key: 'a/2' }),
     ]);
     const order: string[] = [];
-    const scrollTo = vi.fn(() => {
-      order.push('scroll');
-      expect(root.scrollTop).toBe(340);
-    });
-    smoothScroll.registerAppLenis(root, {
+    const lenis = {
       limit: 5000,
       scroll: 0,
+      animatedScroll: 0,
+      targetScroll: 80,
       resize: () => {
         order.push('resize');
       },
-      scrollTo,
+      scrollTo: () => {
+        order.push('scroll');
+      },
+      setScroll: (value: number) => {
+        order.push('set');
+        expect(value).toBe(340);
+      },
       stop: () => {
         order.push('stop');
       },
       start: () => {
         order.push('start');
       },
-    });
+    };
+    smoothScroll.registerAppLenis(root, lenis);
     restoreFeedAnchor(root, { key: 'a/2', top: -140 });
-    expect(order).toEqual(['stop', 'resize', 'scroll', 'start']);
-    expect(scrollTo).toHaveBeenCalledWith(340, {
-      immediate: true,
-      force: true,
-    });
+    expect(order).toEqual(['set']);
+    expect(lenis.animatedScroll).toBe(340);
+    expect(lenis.targetScroll).toBe(420);
     smoothScroll.unregisterAppLenis(root);
   });
 

@@ -205,9 +205,16 @@ function engagementStatClassName(
   return className ? `${base} ${className}` : base;
 }
 
+function countSlotClass(count: number, countsReady: boolean): string {
+  if (!countsReady) return ' is-pending';
+  if (count > 0) return '';
+  return ' is-idle';
+}
+
 function EngagementStat({
   icon,
   count,
+  countsReady = true,
   label,
   actionLabel,
   onActivate,
@@ -219,6 +226,7 @@ function EngagementStat({
 }: {
   icon: React.ReactNode;
   count: number;
+  countsReady?: boolean;
   label: string;
   actionLabel?: string;
   onActivate?: () => void;
@@ -230,7 +238,7 @@ function EngagementStat({
   rollSignal?: number;
 }) {
   const countNode = (
-    <span className={`post-card-count-slot${count > 0 ? '' : ' is-idle'}`}>
+    <span className={`post-card-count-slot${countSlotClass(count, countsReady)}`}>
       <RollingNumber value={count} rollSignal={rollSignal} />
     </span>
   );
@@ -274,6 +282,11 @@ function EngagementStat({
 /** Engagement data + actions every row on the card shares from the shell. */
 export type PostEngagementRowBaseProps = {
   engagement: PostEngagement;
+  /**
+   * False while the count fetch is still out. The digit seat keeps its
+   * width and the figure fades in. A settled zero stays quiet.
+   */
+  countsReady?: boolean;
   post: PostRow;
   reactionPending?: boolean;
   savePending?: boolean;
@@ -301,6 +314,7 @@ export const PostEngagementRow = memo(function PostEngagementRow({
   onToggleSave,
   onAmplify,
   shareDrawerZIndex,
+  countsReady = true,
   post,
 }: PostEngagementRowBaseProps & {
   shareHref: string;
@@ -381,6 +395,7 @@ export const PostEngagementRow = memo(function PostEngagementRow({
         <EngagementStat
           icon={<MessageRoundIcon aria-hidden />}
           count={engagement.replyCount}
+          countsReady={countsReady}
           rollSignal={engagement.replyRoll}
           label="replies"
           tone="reply"
@@ -390,6 +405,7 @@ export const PostEngagementRow = memo(function PostEngagementRow({
         <EngagementStat
           icon={<RepeatIcon aria-hidden />}
           count={shareCount}
+          countsReady={countsReady}
           rollSignal={engagement.shareRoll}
           label="shares"
           tone="quote"
@@ -450,7 +466,7 @@ export const PostEngagementRow = memo(function PostEngagementRow({
           )}
           <button
             type="button"
-            className={`post-card-like-count${likeLabel ? '' : ' is-idle'}`}
+            className={`post-card-like-count${countSlotClass(engagement.reactionCount, countsReady)}`}
             aria-label={likeLabel ? `View who liked — ${likeLabel}` : undefined}
             aria-hidden={likeLabel ? undefined : true}
             tabIndex={likeLabel ? undefined : -1}
@@ -473,6 +489,7 @@ export const PostEngagementRow = memo(function PostEngagementRow({
         <EngagementStat
           icon={<AmplifyIcon filled={engagement.viewerAmplified} />}
           count={engagement.amplifyCount}
+          countsReady={countsReady}
           rollSignal={engagement.amplifyRoll}
           label="amplifies"
           tone="amplify"

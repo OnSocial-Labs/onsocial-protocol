@@ -553,6 +553,7 @@ SQLEOF
 -- Dependents of groups_current must drop first (posts_feed / members / bans / ranks).
 DROP FUNCTION IF EXISTS feed_pulse(text[], integer, integer, text);
 DROP VIEW IF EXISTS posts_feed;
+DROP VIEW IF EXISTS posts_feed_rank;
 DROP VIEW IF EXISTS groups_by_member_count;
 DROP VIEW IF EXISTS group_member_counts;
 DROP VIEW IF EXISTS group_members_current;

@@ -126,7 +126,11 @@ export function resolveReservedSeatAspect(
   if (hint != null && hintWidth != null && hintHeight != null) {
     return `${Math.round(hintWidth)} / ${Math.round(hintHeight)}`;
   }
-  if (measuredRatio != null && Number.isFinite(measuredRatio) && measuredRatio > 0) {
+  if (
+    measuredRatio != null &&
+    Number.isFinite(measuredRatio) &&
+    measuredRatio > 0
+  ) {
     return String(measuredRatio);
   }
   return null;
@@ -162,7 +166,9 @@ const feedMediaResolvedSrcs = new Set<string>();
  * bind; a session Set keeps remounts from flashing opacity 0 again.
  */
 export function useFeedMediaResolved(src: string) {
-  const [resolved, setResolved] = useState(() => feedMediaResolvedSrcs.has(src));
+  const [resolved, setResolved] = useState(() =>
+    feedMediaResolvedSrcs.has(src)
+  );
   const [trackedSrc, setTrackedSrc] = useState(src);
   if (trackedSrc !== src) {
     setTrackedSrc(src);
@@ -560,11 +566,7 @@ function PostVisualMediaBlock({
 
   // iOS / low-power often skip decode events with preload=metadata — shared
   // settle handlers + named fallback (same path as quote thumbs).
-  useFeedMediaResolveFallback(
-    isVideo && videoMounted,
-    resolved,
-    markResolved
-  );
+  useFeedMediaResolveFallback(isVideo && videoMounted, resolved, markResolved);
 
   const [measuredRatio, setMeasuredRatio] = useState<number | null>(() =>
     lookupFeedMediaRatio(item.url)
@@ -714,8 +716,8 @@ function PostVisualMediaBlock({
         <IpfsBlurPreview src={item.url} mime={item.mime} />
       )}
       {isVideo ? (
-        // Far-off list videos unmount — the ratio-held box (and poster
-        // stand-in) stay. Remounts warm up a viewport before paint.
+        // Far-off list videos unmount — the ratio-held box and poster stay,
+        // so the row does not move when the decoder comes back.
         videoMounted ? (
           <video
             ref={bindVideo}

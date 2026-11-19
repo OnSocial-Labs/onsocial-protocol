@@ -1,6 +1,11 @@
 import type { PostRow } from '@onsocial/sdk';
 import type { HomeFeedLens } from '@/features/home/home-feed-lens';
 import type { HomeFeedSort } from '@/features/home/home-feed-sort';
+import type { PostEngagement } from '@/hooks/use-post-engagement';
+import type { PollTally } from '@/lib/poll-votes';
+import { postKey } from '@/lib/post-display';
+import type { FeedQuoteSeed } from '@/lib/prepare-feed-paint';
+import type { ProtocolDaoMemberships } from '@/lib/protocol-dao-memberships';
 
 /**
  * Same tab only — memory first, mirrored to sessionStorage so a hard
@@ -68,6 +73,15 @@ export type HomeFeedSessionSnapshot = {
    * estimate placeholders. Optional — older copies stay readable.
    */
   blockHeights?: Record<string, number>;
+  /**
+   * Quotes, counts, poll totals, and marks for `posts`. Present only after
+   * a paint finished — a return then shows that page without a second read.
+   * Older copies omit these and still restore the rows.
+   */
+  quoted?: FeedQuoteSeed;
+  tallies?: Record<string, PollTally>;
+  memberships?: Record<string, ProtocolDaoMemberships>;
+  engagement?: Record<string, PostEngagement>;
 };
 
 export function homeFeedSessionKey(input: {
@@ -197,6 +211,44 @@ function writeStorage(next: HomeFeedSessionSnapshot): void {
   }
 }
 
+function quotedForPosts(
+  posts: readonly PostRow[],
+  quoted: FeedQuoteSeed
+): FeedQuoteSeed {
+  const keep = new Set<string>();
+  for (const post of posts) {
+    const path = post.refPath?.trim();
+    if (path) keep.add(path);
+  }
+  for (const path of keep) {
+    const next = quoted[path]?.refPath?.trim();
+    if (next) keep.add(next);
+  }
+  const out: FeedQuoteSeed = {};
+  for (const path of keep) {
+    if (Object.prototype.hasOwnProperty.call(quoted, path)) {
+      out[path] = quoted[path] ?? null;
+    }
+  }
+  return out;
+}
+
+function recordForPosts<T>(
+  posts: readonly PostRow[],
+  record: Record<string, T> | undefined,
+  keyOf: (post: PostRow) => string
+): Record<string, T> | undefined {
+  if (!record) return undefined;
+  const out: Record<string, T> = {};
+  for (const post of posts) {
+    const key = keyOf(post);
+    if (Object.prototype.hasOwnProperty.call(record, key)) {
+      out[key] = record[key] as T;
+    }
+  }
+  return out;
+}
+
 function clearStorage(): void {
   try {
     if (typeof sessionStorage === 'undefined') return;
@@ -223,15 +275,21 @@ export function writeHomeFeedSession(input: {
   standEpoch?: number;
   amplifyEpoch?: number;
   blockHeights?: Record<string, number>;
+  quoted?: FeedQuoteSeed;
+  tallies?: Record<string, PollTally>;
+  memberships?: Record<string, ProtocolDaoMemberships>;
+  engagement?: Record<string, PostEngagement>;
   now?: number;
   /** False keeps the in-memory copy only. Tab storage stays on leave and pagehide. */
   storage?: boolean;
 }): void {
   const sessionKey = input.sessionKey?.trim();
   if (!sessionKey || input.posts.length === 0) return;
+  const posts = input.posts.slice(0, HOME_FEED_SESSION_PERSISTED_POSTS);
+  const previous = snapshot?.sessionKey === sessionKey ? snapshot : null;
   snapshot = {
     sessionKey,
-    posts: input.posts.slice(0, HOME_FEED_SESSION_PERSISTED_POSTS),
+    posts,
     nextOffset: input.nextOffset,
     standingNetworkIds: input.standingNetworkIds
       ? [...input.standingNetworkIds]
@@ -242,6 +300,24 @@ export function writeHomeFeedSession(input: {
     standEpoch: input.standEpoch,
     amplifyEpoch: input.amplifyEpoch,
     blockHeights: sanitizeBlockHeights(input.blockHeights),
+    quoted:
+      input.quoted !== undefined
+        ? quotedForPosts(posts, input.quoted)
+        : previous?.quoted,
+    tallies:
+      input.tallies !== undefined
+        ? recordForPosts(posts, input.tallies, postKey)
+        : previous?.tallies,
+    memberships:
+      input.memberships !== undefined
+        ? recordForPosts(posts, input.memberships, (post) =>
+            post.accountId.trim().toLowerCase()
+          )
+        : previous?.memberships,
+    engagement:
+      input.engagement !== undefined
+        ? recordForPosts(posts, input.engagement, postKey)
+        : previous?.engagement,
   };
   if (input.storage !== false) writeStorage(snapshot);
   touchHomeFeedSessionHint(input.storage !== false);

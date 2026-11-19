@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
@@ -331,10 +331,12 @@ export function QuoteThumbTile({
   item,
   style,
   onRatio,
+  onDuration,
 }: {
   item: PostMediaItem;
   style?: CSSProperties;
   onRatio: (url: string, ratio: number) => void;
+  onDuration?: (url: string, duration: number) => void;
 }) {
   const isVideo = isRenderablePostVideoMime(item.mime);
   const { containerRef, bindVideoEl, videoPreload, videoMounted } =
@@ -386,6 +388,13 @@ export function QuoteThumbTile({
             {...(item.posterUrl ? { poster: item.posterUrl } : {})}
             className={mediaClassName}
             {...videoSettle}
+            onLoadedMetadata={(event) => {
+              videoSettle.onLoadedMetadata(event);
+              const duration = event.currentTarget.duration;
+              if (Number.isFinite(duration) && duration > 0) {
+                onDuration?.(item.url, duration);
+              }
+            }}
           />
         ) : null
       ) : (
@@ -434,33 +443,13 @@ function QuoteMediaThumb({ items }: { items: PostMediaItem[] }) {
     url: string;
     label: string;
   } | null>(null);
+  const noteDuration = useCallback((url: string, duration: number) => {
+    setDurationByUrl({ url, label: formatMediaDuration(duration) });
+  }, []);
   const durationLabel =
     singleVideoUrl && durationByUrl?.url === singleVideoUrl
       ? durationByUrl.label
       : '';
-
-  useEffect(() => {
-    if (!singleVideoUrl) return;
-    let cancelled = false;
-    const video = document.createElement('video');
-    video.preload = 'metadata';
-    video.onloadedmetadata = () => {
-      if (cancelled) return;
-      setDurationByUrl({
-        url: singleVideoUrl,
-        label: formatMediaDuration(video.duration),
-      });
-    };
-    video.onerror = () => {
-      if (!cancelled) setDurationByUrl({ url: singleVideoUrl, label: '' });
-    };
-    video.src = singleVideoUrl;
-    return () => {
-      cancelled = true;
-      video.removeAttribute('src');
-      video.load();
-    };
-  }, [singleVideoUrl]);
 
   if (audioOnly) {
     return (
@@ -492,6 +481,7 @@ function QuoteMediaThumb({ items }: { items: PostMediaItem[] }) {
           item={item}
           style={collageCellStyle(index, visible.length, hero)}
           onRatio={onRatio}
+          onDuration={noteDuration}
         />
       ))}
       {durationLabel ? (

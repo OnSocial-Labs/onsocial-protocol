@@ -23,7 +23,7 @@ import {
   translateFeedWindowRange,
   type FeedWindowRange,
 } from '@/features/home/feed-window';
-import { adoptAppLenisScroll } from '@/lib/app-lenis-registry';
+import { adoptAppLenisScroll, shiftAppLenisScroll } from '@/lib/app-lenis-registry';
 import {
   captureVisibleFeedAnchor,
   restoreFeedAnchor,
@@ -143,6 +143,7 @@ export function useFeedWindow({
   });
 
   const rootRef = useRef<HTMLElement | null>(null);
+  const rangeAnchorRef = useRef<FeedScrollAnchor | null>(null);
   useLayoutEffect(() => {
     rootRef.current = root;
   });
@@ -176,14 +177,24 @@ export function useFeedWindow({
       viewportHeight: node.clientHeight,
       overscan: overscanRef.current,
     });
-    setRangeState((prev) =>
-      prev &&
-      prev.start === next.start &&
-      prev.end === next.end &&
-      feedWindowKeysEqual(prev.keys, keysRef.current)
-        ? prev
-        : { ...next, keys: keysRef.current }
-    );
+    setRangeState((prev) => {
+      if (
+        prev &&
+        prev.start === next.start &&
+        prev.end === next.end &&
+        feedWindowKeysEqual(prev.keys, keysRef.current)
+      ) {
+        return prev;
+      }
+      // Spacer swap is about to replace rows. Hold the visible one.
+      if (prev && !rangeAnchorRef.current) {
+        rangeAnchorRef.current = captureVisibleFeedAnchor(
+          node,
+          anchorQueryRef.current
+        );
+      }
+      return { ...next, keys: keysRef.current };
+    });
   }, [hostRef]);
 
   // Scroll root detection — every commit, cheap ancestor walk. State bail-out
@@ -242,6 +253,7 @@ export function useFeedWindow({
   useEffect(() => {
     const observer = new ResizeObserver((entries) => {
       let changed = false;
+      const node = rootRef.current;
       for (const entry of entries) {
         const key = rowKeyByEl.current.get(entry.target);
         if (!key) continue;
@@ -249,7 +261,20 @@ export function useFeedWindow({
           ? entry.borderBoxSize[0]
           : undefined;
         const px = borderBox ? borderBox.blockSize : entry.contentRect.height;
-        if (cache.set(key, px)) changed = true;
+        const prev = cache.get(key);
+        if (!cache.set(key, px)) continue;
+        changed = true;
+        // A row above the fold grew before paint. Shift by that delta so
+        // the reader does not see the next batch shove the one on screen.
+        if (
+          node &&
+          prev !== undefined &&
+          entry.target instanceof HTMLElement &&
+          entry.target.getBoundingClientRect().top <
+            node.getBoundingClientRect().top - 1
+        ) {
+          shiftAppLenisScroll(node, px - prev);
+        }
       }
       if (changed) {
         // Heights in the DOM already moved; remember where the reader is so
@@ -286,6 +311,15 @@ export function useFeedWindow({
     if (!pending) return;
     restoreFeedAnchor(rootRef.current, pending, anchorQueryRef.current);
   }, [offsets]);
+
+  // Window edge moved. The spacer swap has landed; put the visible row back
+  // before paint so loaded and preloaded batches don't hitch.
+  useLayoutEffect(() => {
+    const pending = rangeAnchorRef.current;
+    rangeAnchorRef.current = null;
+    if (!pending) return;
+    restoreFeedAnchor(rootRef.current, pending, anchorQueryRef.current);
+  }, [rangeState]);
 
   // List mutations (append / prepend / re-rank / filter) shift offsets —
   // re-derive the range before paint from the untouched scroll position.

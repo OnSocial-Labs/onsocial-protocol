@@ -77,7 +77,11 @@ import {
 } from '@/lib/sheet-z';
 import { PostLayerOwnerZProvider } from '@/features/home/post-layer-owner-z';
 import { seedPostAuthorProfilesFromFeed } from '@/hooks/use-post-author-profiles';
-import { threadContentPath, warmThreadOpen } from '@/lib/thread-first-page';
+import {
+  threadContentPath,
+  warmPostPanels,
+  warmThreadOpen,
+} from '@/lib/thread-first-page';
 import {
   appendTrailEntry,
   collapseTrailToTop,
@@ -435,12 +439,15 @@ function PostThreadSheet({
     null
   );
   // Settle waits on paint (`onThreadPainted`); key so a new layer never
-  // inherits the previous ready frame. Skeleton covers until then.
+  // inherits the previous ready frame. A root already on the feed starts
+  // painted — the sheet appear is the motion, and replies skeleton below.
   const layerKey = `${layer.kind}:${layer.groupId ?? ''}:${layer.accountId}:${layer.postId}${
     layer.kind === 'quotes' ? `:${layer.tab}` : ''
   }`;
-  // Key mismatch already gates appear — no reset effect (set-state-in-effect).
-  const [paintedForKey, setPaintedForKey] = useState<string | null>(null);
+  const seededRoot = layer.kind === 'post' && layer.root != null;
+  const [paintedForKey, setPaintedForKey] = useState<string | null>(() =>
+    seededRoot ? layerKey : null
+  );
   const threadPainted = paintedForKey === layerKey;
   const title = quotes ? POST_REACH_TITLE : 'Post';
   const guildCard =
@@ -613,11 +620,7 @@ function PostThreadSheet({
             <OsRouteSettle
               ready={threadPainted}
               skeleton={
-                quotes ? (
-                  <PostQuotesPageSkeleton />
-                ) : (
-                  <PostThreadPageSkeleton />
-                )
+                quotes ? <PostQuotesPageSkeleton /> : <PostThreadPageSkeleton />
               }
             >
               <PostQuotesTrackHostProvider
@@ -779,6 +782,16 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
 
   const mediaFaceCovered =
     stack.some((entry) => entry.id !== closingId) && isOsMediaFaceOpen();
+
+  useEffect(() => {
+    const warm = () => warmPostPanels();
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(warm, { timeout: 1200 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(warm, 400);
+    return () => window.clearTimeout(id);
+  }, []);
 
   useLayoutEffect(() => {
     setMediaFacesHeld(mediaFaceCovered);

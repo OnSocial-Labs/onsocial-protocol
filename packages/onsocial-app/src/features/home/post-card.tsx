@@ -179,6 +179,8 @@ import {
 /** Engagement data + per-post actions a feed host wires into the card. */
 export interface PostCardEngagementProps {
   engagement?: PostEngagement;
+  /** False until this post's counts have arrived. Omitted means settled. */
+  countsReady?: boolean;
   reactionPending?: boolean;
   savePending?: boolean;
   sharePending?: boolean;
@@ -322,6 +324,7 @@ function PostCardImpl({
   showGuildAttribution = false,
   guildName,
   engagement = EMPTY_POST_ENGAGEMENT,
+  countsReady = true,
   reactionPending,
   savePending,
   sharePending,
@@ -1624,6 +1627,7 @@ function PostCardImpl({
         <PostEngagementRow
           {...engagementActions}
           engagement={engagement}
+          countsReady={countsReady}
           shareHref={shareHref}
           shareTitle={name}
           onAmplify={openAmplify}
@@ -1775,6 +1779,7 @@ function PostCardImpl({
               <PostEngagementRow
                 {...engagementActions}
                 engagement={engagement}
+                countsReady={countsReady}
                 shareHref={shareHref}
                 shareTitle={name}
                 onReply={openPhotoThread}
@@ -1852,6 +1857,7 @@ function PostCardImpl({
               <PostEngagementRow
                 {...engagementActions}
                 engagement={engagement}
+                countsReady={countsReady}
                 shareHref={shareHref}
                 shareTitle={name}
                 onReply={openPhotoThread}
@@ -1955,6 +1961,7 @@ function PostCardImpl({
               <PostEngagementRow
                 {...engagementActions}
                 engagement={engagement}
+                countsReady={countsReady}
                 shareHref={shareHref}
                 shareTitle={name}
                 onReply={openPhotoThread}

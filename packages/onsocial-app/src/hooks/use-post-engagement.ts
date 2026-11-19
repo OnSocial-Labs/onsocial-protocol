@@ -229,8 +229,8 @@ export function seededEngagementCoversTargets(
  * for a list of visible posts, plus optimistic reaction / save toggles.
  * Reaction and save writes use `wait: true` so the faded pending state lasts
  * until chain confirmation (icons still flip immediately — not pulsing dots).
- * Pass `initial` from SSR so counts paint with the feed (viewer flags
- * soft-upgrade after wallet).
+ * Pass `initial` from the page paint so counts are final. A signed-in
+ * viewer then overlays like, save, and repost flags without recounting.
  */
 export function usePostEngagement(
   posts: PostRow[],
@@ -268,9 +268,31 @@ export function usePostEngagement(
   engagementRef.current = engagement;
   const loadIdRef = useRef(0);
   const initialRef = useRef<EngagementMap | null>(opts.initial ?? null);
-  const ssrSkipRef = useRef(
-    Boolean(opts.initial && Object.keys(opts.initial).length > 0)
-  );
+  const viewerOverlayRef = useRef<{
+    accountId: string;
+    keys: Set<string>;
+  } | null>(null);
+  const incomingInitial = opts.initial ?? null;
+  if (incomingInitial !== initialRef.current) {
+    initialRef.current = incomingInitial;
+    if (
+      incomingInitial &&
+      Object.keys(incomingInitial).some(
+        (key) => !(key in engagementRef.current)
+      )
+    ) {
+      setEngagement((prev) => {
+        let changed = false;
+        const next = { ...prev };
+        for (const [key, row] of Object.entries(incomingInitial)) {
+          if (key in next) continue;
+          next[key] = row;
+          changed = true;
+        }
+        return changed ? next : prev;
+      });
+    }
+  }
   const onErrorRef = useRef(opts.onError);
   onErrorRef.current = opts.onError;
 
@@ -294,26 +316,107 @@ export function usePostEngagement(
       return;
     }
 
-    const targetKeys = targets.map((t) => t.key);
+    const known = engagementRef.current;
+    const missing = targets.filter((target) => !(target.key in known));
+    const overlayFor =
+      accountId == null
+        ? []
+        : (() => {
+            const done = viewerOverlayRef.current;
+            if (!done || done.accountId !== accountId) return targets;
+            return targets.filter((target) => !done.keys.has(target.key));
+          })();
 
-    // SSR already seeded public counts — skip one duplicate until wallet/viewer,
-    // but only when the seed covers these exact rows (snapshot restores can swap them).
-    if (ssrSkipRef.current && !accountId) {
-      ssrSkipRef.current = false;
-      if (seededEngagementCoversTargets(initialRef.current, targetKeys)) {
-        return;
-      }
+    const rememberOverlay = (rows: typeof targets) => {
+      if (!accountId || rows.length === 0) return;
+      const done = viewerOverlayRef.current;
+      const keys =
+        done && done.accountId === accountId ? done.keys : new Set<string>();
+      for (const row of rows) keys.add(row.key);
+      viewerOverlayRef.current = { accountId, keys };
+    };
+
+    // Counts already on the row stay. A signed-in viewer only picks up
+    // their own like, save, and repost — a recount would roll the numbers.
+    if (missing.length === 0) {
+      if (overlayFor.length === 0 || !accountId) return;
+      const viewerId = accountId;
+      const loadId = ++loadIdRef.current;
+      const client = createReadOnlyOnSocialClient();
+      const paths = overlayFor.map((target) => target.path);
+      const overlayRows = overlayFor;
+      void Promise.allSettled([
+        client.query.reactions.statesForPosts(
+          overlayRows.map((target) => ({
+            owner: target.owner,
+            postId: target.postId,
+          })),
+          { viewer: viewerId }
+        ),
+        client.query.saves.forPaths(viewerId, paths),
+        client.query.threads.viewerReposts(viewerId, paths),
+        client.query.socialSpend.amplifyCountsForPostPaths(paths, {
+          viewer: viewerId,
+        }),
+      ]).then(
+        ([reactionResult, savesResult, viewerRepostResult, amplifyResult]) => {
+          if (loadIdRef.current !== loadId) return;
+          const reactionStates =
+            reactionResult.status === 'fulfilled' ? reactionResult.value : {};
+          const savedPaths = new Set(
+            savesResult.status === 'fulfilled'
+              ? savesResult.value.map((row) => row.contentPath)
+              : []
+          );
+          const viewerReposts = new Map(
+            (viewerRepostResult.status === 'fulfilled'
+              ? viewerRepostResult.value
+              : []
+            ).map((row) => [row.refPath, row])
+          );
+          const amplifyCounts =
+            amplifyResult.status === 'fulfilled' ? amplifyResult.value : {};
+          rememberOverlay(overlayRows);
+          setEngagement((current) => {
+            const next: EngagementMap = { ...current };
+            for (const target of overlayRows) {
+              const previous = current[target.key];
+              if (!previous) continue;
+              const reactions =
+                reactionStates[`${target.owner}:${target.postId}`];
+              const viewerRepost = viewerReposts.get(target.path);
+              const amplify = amplifyCounts[target.path];
+              next[target.key] = {
+                ...previous,
+                viewerReacted: (reactions?.viewerReacted.length ?? 0) > 0,
+                viewerSaved:
+                  savedPaths.has(target.path) || previous.viewerSaved,
+                viewerAmplified:
+                  amplify?.viewerAmplified || previous.viewerAmplified,
+                viewerReposted:
+                  Boolean(viewerRepost) || previous.viewerReposted,
+                viewerRepostId:
+                  viewerRepost?.repostId ?? previous.viewerRepostId,
+                viewerRepostGroupId:
+                  viewerRepost?.groupId ?? previous.viewerRepostGroupId,
+              };
+            }
+            return next;
+          });
+        }
+      );
+      return;
     }
-    ssrSkipRef.current = false;
 
     const loadId = ++loadIdRef.current;
     const client = createReadOnlyOnSocialClient();
-    const paths = targets.map((t) => t.path);
+    const pending = missing;
+    const paths = pending.map((target) => target.path);
 
     void Promise.allSettled([
       client.query.threads.countsByPaths(paths),
       client.query.reactions.statesForPosts(
-        targets.map((t) => ({ owner: t.owner, postId: t.postId })),
+        pending.map((t) => ({ owner: t.owner, postId: t.postId })),
         accountId ? { viewer: accountId } : {}
       ),
       client.query.socialSpend.amplifyCountsForPostPaths(
@@ -362,7 +465,7 @@ export function usePostEngagement(
         );
 
         const next: EngagementMap = {};
-        for (const target of targets) {
+        for (const target of pending) {
           const counts = threadCounts[target.path];
           const reactions = reactionStates[`${target.owner}:${target.postId}`];
           const amplify = amplifyCounts[target.path];
@@ -382,19 +485,21 @@ export function usePostEngagement(
             viewerRepostGroupId: viewerRepost?.groupId ?? null,
           };
         }
-        setEngagement((current) =>
-          mergeEngagementSoftUpgrade(
+        if (accountId) rememberOverlay(pending);
+        setEngagement((current) => ({
+          ...current,
+          ...mergeEngagementSoftUpgrade(
             current,
             next,
             pendingReactionKeysRef.current,
             pendingSaveKeysRef.current,
             unrepostedKeysRef.current
-          )
-        );
+          ),
+        }));
         setUnrepostedKeys((current) => {
           if (current.size === 0) return current;
           const nextKeys = new Set(current);
-          for (const target of targets) {
+          for (const target of pending) {
             const viewerRepost = viewerReposts.get(target.path);
             if (nextKeys.has(target.key) && !viewerRepost) {
               nextKeys.delete(target.key);

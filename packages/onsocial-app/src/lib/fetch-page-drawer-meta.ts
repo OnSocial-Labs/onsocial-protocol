@@ -156,7 +156,37 @@ export async function fetchProtocolDaoMemberships(
   };
 }
 
-/** One policy read for a page of authors, plus each account's proposer flags. */
+/** One proposer read for the page. Null when this backend has no batch route yet. */
+async function fetchProposerFlagsBatch(
+  accountIds: string[]
+): Promise<Record<string, ProtocolDaoProposerFlags> | null> {
+  try {
+    const res = await fetch(
+      `${ACTIVE_BACKEND_URL.replace(/\/$/, '')}/v1/governance/dao-proposer-flags`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ accountIds }),
+        cache: 'no-store',
+      }
+    );
+    if (!res.ok) return null;
+    const body = (await res.json().catch(() => null)) as {
+      proposers?: Record<string, unknown>;
+    } | null;
+    const proposers = body?.proposers;
+    if (!proposers || typeof proposers !== 'object') return null;
+    const out: Record<string, ProtocolDaoProposerFlags> = {};
+    for (const id of accountIds) {
+      out[id] = parseProtocolDaoProposerFlags(proposers[id]);
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+/** One policy read for a page of authors, plus one proposer read. */
 export async function resolveDaoMembershipsForAccounts(
   accountIds: string[]
 ): Promise<Record<string, ProtocolDaoMemberships>> {
@@ -168,18 +198,27 @@ export async function resolveDaoMembershipsForAccounts(
     ),
   ];
   if (ids.length === 0) return {};
-  const { governance, treasury } = await loadDaoPolicies();
-  const proposers = await Promise.all(
-    ids.map((id) => fetchProtocolDaoProposerFlags(id))
-  );
+  const [{ governance, treasury }, batched] = await Promise.all([
+    loadDaoPolicies(),
+    fetchProposerFlagsBatch(ids),
+  ]);
+  const proposers =
+    batched ??
+    Object.fromEntries(
+      await Promise.all(
+        ids.map(
+          async (id) => [id, await fetchProtocolDaoProposerFlags(id)] as const
+        )
+      )
+    );
   const out: Record<string, ProtocolDaoMemberships> = {};
-  ids.forEach((id, index) => {
+  for (const id of ids) {
     out[id] = {
       governance: primaryCouncilRole(roleIdsForAccount(governance, id)),
       treasury: primaryCouncilRole(roleIdsForAccount(treasury, id)),
-      proposer: proposers[index] ?? EMPTY_PROTOCOL_DAO_PROPOSER_FLAGS,
+      proposer: proposers[id] ?? EMPTY_PROTOCOL_DAO_PROPOSER_FLAGS,
     };
-  });
+  }
   return out;
 }
 

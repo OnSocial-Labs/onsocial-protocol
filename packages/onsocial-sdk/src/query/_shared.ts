@@ -52,6 +52,17 @@ export interface PostRow {
    * (decaying; 0 when cold / unavailable).
    */
   amplifyHeat?: number | null;
+  /**
+   * Public counts and the quoted post, when `posts_feed` is serving the
+   * paint columns. Absent until Hasura tracks them — callers keep the
+   * second read in that case.
+   */
+  replyCount?: number | string | null;
+  quoteCount?: number | string | null;
+  repostCount?: number | string | null;
+  reactionCount?: number | string | null;
+  quotedPost?: PostRow | string | null;
+  quotedRefPost?: PostRow | string | null;
   /** Present when client enrich hydrates quoted-author shells. */
   refAuthorName?: string | null;
   refAuthorAvatar?: string | null;
@@ -68,7 +79,16 @@ export const FEED_POST_ROW_FIELDS = `
   parentPath parentAuthor parentType refPath refAuthor refType channel kind audiences
   groupId isGroupContent
   authorName authorAvatar groupName amplifyHeat
+  replyCount quoteCount repostCount reactionCount quotedPost quotedRefPost
 `;
+
+/** Paint columns stripped when Hasura has not tracked them yet. */
+export const FEED_POST_ROW_PAINT_FIELDS =
+  'replyCount quoteCount repostCount reactionCount quotedPost quotedRefPost';
+
+export function stripFeedPaintFields(query: string): string {
+  return query.replace(FEED_POST_ROW_PAINT_FIELDS, '');
+}
 
 /** Home / list feed ranking. `hot` needs `posts_feed.amplify_heat`. */
 export type FeedSort = 'recent' | 'hot';
