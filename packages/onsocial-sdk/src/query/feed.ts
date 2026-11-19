@@ -188,7 +188,8 @@ function feedRecentQuery(
     params.push('$audience_like: String');
     args.push('audience_like: $audience_like');
   }
-  return `query PostsFeedRecent(${params.join(', ')}) {
+  // Operation name stays `Posts`. Thread discover-peek stubs match `query Posts(`.
+  return `query Posts(${params.join(', ')}) {
         postsFeed: feedRecent(args: { ${args.join(', ')} }) {
           ${fields}
         }
