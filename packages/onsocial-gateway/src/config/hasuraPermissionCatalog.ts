@@ -399,6 +399,13 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
       'amplify_heat',
       'root_path',
       'root_author',
+      'content_path',
+      'reply_count',
+      'quote_count',
+      'repost_count',
+      'reaction_count',
+      'quoted_post',
+      'quoted_ref_post',
     ],
   },
   {
@@ -1396,4 +1403,6 @@ export const INTENTIONALLY_UNEXPOSED_RELATIONS = [
   // Reputation helpers (joined into reputation_scores; not public GraphQL).
   'paid_support_inbound_events',
   'author_amplify_received',
+  // Pulse ranks on this. posts_feed adds counts and quotes for the page.
+  'posts_feed_rank',
 ];

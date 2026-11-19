@@ -294,7 +294,28 @@ describe('coalesceFeedThreads', () => {
 
     expect(coalesceFeedThreads([newer, older, parent])).toEqual([
       { posts: [parent, newer] },
-      { posts: [older] },
+    ]);
+  });
+
+  it('does not paint an older self-reply again below a hot parent', () => {
+    const parent = post({ postId: 'root', blockTimestamp: 1, blockHeight: 1 });
+    const older = post({
+      postId: 'r1',
+      blockTimestamp: 2,
+      blockHeight: 2,
+      parentPath: parentPathFor('alice.near', 'root'),
+      parentAuthor: 'alice.near',
+    });
+    const newer = post({
+      postId: 'r2',
+      blockTimestamp: 3,
+      blockHeight: 3,
+      parentPath: parentPathFor('alice.near', 'root'),
+      parentAuthor: 'alice.near',
+    });
+
+    expect(coalesceFeedThreads([parent, older, newer])).toEqual([
+      { posts: [parent, newer] },
     ]);
   });
 });

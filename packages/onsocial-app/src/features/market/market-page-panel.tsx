@@ -424,7 +424,17 @@ export function MarketPagePanel({
   const [listingsError, setListingsError] = useState<string | null>(null);
   const [catalogRefreshing, setCatalogRefreshing] = useState(false);
   const [sales, setSales] = useState<MarketSaleItem[] | null>(null);
-  const [ownedState, setOwnedState] = useState<OwnedState>(EMPTY_OWNED);
+  const [ownedState, setOwnedState] = useState<OwnedState>(() => {
+    if (!viewerAccountId) return EMPTY_OWNED;
+    const cached = peekOwnedVaultPage(viewerAccountId);
+    if (!cached) return EMPTY_OWNED;
+    return {
+      items: cached.items,
+      nextFromEnd: cached.nextFromEnd,
+      hasMore: cached.hasMore,
+      loaded: true,
+    };
+  });
   const [ownedLoadingMore, setOwnedLoadingMore] = useState(false);
   const [ownedLoadMoreFailed, setOwnedLoadMoreFailed] = useState(false);
   const [buyListing, setBuyListing] = useState<ScarceBuyListing | null>(null);
@@ -1965,6 +1975,13 @@ export function MarketPagePanel({
   // Yours stays independent (vault must not wait on browse/sales). When the
   // empty-listings hint is still undecided, reserve its line box so it cannot
   // shove Yours/sales after they paint.
+  const showOwnedLoadingSeat =
+    Boolean(viewerAccountId) &&
+    !ownedState.loaded &&
+    owned.length === 0 &&
+    !searching &&
+    !creatorFilter &&
+    !appFilter;
   const showOwnedSection =
     Boolean(viewerAccountId) &&
     owned.length > 0 &&
@@ -2424,8 +2441,12 @@ export function MarketPagePanel({
           </>
         ) : null}
 
-        {showOwnedSection ? (
-          <section className="market-section" aria-labelledby="market-yours">
+        {showOwnedSection || showOwnedLoadingSeat ? (
+          <section
+            className="market-section"
+            aria-labelledby="market-yours"
+            aria-busy={showOwnedLoadingSeat ? true : undefined}
+          >
             <div className="market-section-title-row">
               <h2 id="market-yours" className="market-section-title">
                 Yours

@@ -1,4 +1,4 @@
-import { adoptAppLenisScroll } from '@/lib/app-lenis-registry';
+import { shiftAppLenisScroll } from '@/lib/app-lenis-registry';
 
 /**
  * Scroll anchoring for in-place list re-ranks (Focus Hot append merges) and
@@ -136,7 +136,5 @@ export function restoreFeedAnchor(
     root.getBoundingClientRect().top -
     anchor.top;
   if (Math.abs(delta) <= 1) return;
-  root.scrollTop += delta;
-  // scrollTop alone is invisible to Lenis — adopt without the ±1 nudge.
-  adoptAppLenisScroll(root);
+  shiftAppLenisScroll(root, delta);
 }

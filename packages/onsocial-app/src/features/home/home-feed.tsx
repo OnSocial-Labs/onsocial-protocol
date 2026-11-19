@@ -101,6 +101,7 @@ import {
 import {
   coldLoadReveal,
   HomeFeedReveal,
+  nextColdLoadLoading,
   slowRefreshReveal,
 } from '@/features/home/home-feed-reveal';
 import {
@@ -116,6 +117,7 @@ import {
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { useListScrollRestore } from '@/hooks/use-list-scroll-restore';
 import { sortPostsByHot } from '@/lib/amplify-heat';
+import { loadPostEngagementMap } from '@/lib/feed-paint-hydrate';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { fetchDaoRolesPage } from '@/lib/fetch-dao-roles-client';
 import {
@@ -124,6 +126,7 @@ import {
   seedDaoMembershipMisses,
   loadFeedPollTallies,
   loadFeedQuotes,
+  quotedSeedFromFeedRows,
   sequenceFeedQuoteThenTally,
   settleFeedSidePaint,
   type FeedQuoteSeed,
@@ -339,8 +342,11 @@ async function loadFeedPaint(posts: PostRow[]): Promise<{
   };
   try {
     const client = createReadOnlyOnSocialClient();
+    const quotedFromRows = quotedSeedFromFeedRows(posts);
     const reads = sequenceFeedQuoteThenTally(
-      loadFeedQuotes(posts, client),
+      quotedFromRows
+        ? Promise.resolve(quotedFromRows)
+        : loadFeedQuotes(posts, client),
       () => loadFeedPollTallies(posts, client)
     );
     const authorIds = feedAuthorIds(posts, {});
@@ -429,15 +435,31 @@ export function HomePagePanel({
   }
   const serverPainted = initialPage != null;
   const [quotedSeed, setQuotedSeed] = useState<FeedQuoteSeed>(
-    () => initialQuoted ?? {}
+    () => restoredSession?.quoted ?? initialQuoted ?? {}
   );
   const [pollSeed, setPollSeed] = useState<Record<string, PollTally>>(
-    () => initialTallies ?? {}
+    () => restoredSession?.tallies ?? initialTallies ?? {}
   );
   const [daoSeed, setDaoSeed] = useState<
     Record<string, ProtocolDaoMemberships>
-  >(() => initialMemberships ?? {});
-  const [clientPaintReady, setClientPaintReady] = useState(serverPainted);
+  >(() => restoredSession?.memberships ?? initialMemberships ?? {});
+  const [engagementSeed, setEngagementSeed] = useState(
+    () => restoredSession?.engagement ?? initialEngagement
+  );
+  const quotedSeedRef = useRef(quotedSeed);
+  const pollSeedRef = useRef(pollSeed);
+  const daoSeedRef = useRef(daoSeed);
+  const engagementSeedRef = useRef(engagementSeed);
+  quotedSeedRef.current = quotedSeed;
+  pollSeedRef.current = pollSeed;
+  daoSeedRef.current = daoSeed;
+  engagementSeedRef.current = engagementSeed;
+  const sidePaintSavedRef = useRef(
+    serverPainted ||
+      (restoredSession?.quoted != null &&
+        restoredSession.memberships != null &&
+        restoredSession.tallies != null)
+  );
   const clientRevealFlight = useRef(0);
   const [posts, setPosts] = useState<PostRow[]>(
     () => restoredSession?.posts ?? initialPage?.items ?? []
@@ -582,6 +604,12 @@ export function HomePagePanel({
       standEpoch: getViewerStandEpoch(),
       amplifyEpoch: getViewerAmplifyEpoch(),
       blockHeights: feedWindowCacheRef.current?.toJSON(),
+      quoted: sidePaintSavedRef.current ? quotedSeedRef.current : undefined,
+      tallies: sidePaintSavedRef.current ? pollSeedRef.current : undefined,
+      memberships: sidePaintSavedRef.current ? daoSeedRef.current : undefined,
+      engagement: sidePaintSavedRef.current
+        ? (engagementSeedRef.current ?? undefined)
+        : undefined,
       storage: options?.storage !== false,
     });
   }, []);
@@ -625,6 +653,21 @@ export function HomePagePanel({
     scrollMemoryRef.current = createListScrollMemory(snap.scrollTop);
     ssrBootstrapDoneRef.current = true;
     isLoadingRef.current = false;
+    if (
+      snap.quoted != null &&
+      snap.memberships != null &&
+      snap.tallies != null
+    ) {
+      sidePaintSavedRef.current = true;
+      quotedSeedRef.current = snap.quoted;
+      pollSeedRef.current = snap.tallies;
+      daoSeedRef.current = snap.memberships;
+      if (snap.engagement) engagementSeedRef.current = snap.engagement;
+      setQuotedSeed(snap.quoted);
+      setPollSeed(snap.tallies);
+      setDaoSeed(snap.memberships);
+      if (snap.engagement) setEngagementSeed(snap.engagement);
+    }
     setPosts(snap.posts);
     setStandingNetworkIds(
       snap.standingNetworkIds ? [...snap.standingNetworkIds] : null
@@ -851,29 +894,20 @@ export function HomePagePanel({
   );
 
   useEffect(() => {
-    const settleUnpaintedReveal = (items: PostRow[]) => {
-      if (serverPainted || clientRevealFlight.current !== 0) return;
+    const fillSidePaint = (items: PostRow[]) => {
+      if (items.length === 0 || clientRevealFlight.current !== 0) return;
       const flight = 1;
       clientRevealFlight.current = flight;
       void loadFeedPaint(items).then(
         (paint) => {
           if (clientRevealFlight.current !== flight) return;
+          sidePaintSavedRef.current = true;
           setQuotedSeed((current) => ({ ...current, ...paint.quoted }));
           setPollSeed((current) => ({ ...current, ...paint.tallies }));
           setDaoSeed((current) => ({ ...current, ...paint.memberships }));
-          setClientPaintReady(true);
-          isLoadingRef.current = false;
-          isRefreshingRef.current = false;
-          setIsLoading(false);
-          setIsRefreshing(false);
         },
         () => {
-          if (clientRevealFlight.current !== flight) return;
-          setClientPaintReady(true);
-          isLoadingRef.current = false;
-          isRefreshingRef.current = false;
-          setIsLoading(false);
-          setIsRefreshing(false);
+          // Quotes, tallies, and marks fill when they can. The list stays.
         }
       );
     };
@@ -884,14 +918,14 @@ export function HomePagePanel({
       });
       isRefreshingRef.current = false;
       setIsRefreshing(false);
-      if (decision.loading === 'clear') {
-        isLoadingRef.current = false;
-        setIsLoading(false);
-      } else if (decision.loading === 'hold') {
-        isLoadingRef.current = true;
-        setIsLoading(true);
+      const loadingNow = nextColdLoadLoading(isLoadingRef.current, decision);
+      if (loadingNow !== isLoadingRef.current) {
+        isLoadingRef.current = loadingNow;
+        setIsLoading(loadingNow);
       }
-      if (decision.startSettle) settleUnpaintedReveal(items);
+      // The server paint and a saved snapshot already have quotes, tallies,
+      // and marks. A second read would land on the visible rows and move them.
+      if (!serverPainted && !sidePaintSavedRef.current) fillSidePaint(items);
     };
     const focus = parseHomeFeedFocus({
       tag: tagParam,
@@ -1082,12 +1116,18 @@ export function HomePagePanel({
         standingSourcesRef.current = result.standingSources;
         setStandingNetworkIds(result.standingSources);
         const items = result.page.items;
-        const paint = await loadFeedPaint(items);
-        if (!isCurrentLoadingRequest(loadIdRef.current, loadId)) return;
-        setQuotedSeed((current) => ({ ...current, ...paint.quoted }));
-        setPollSeed((current) => ({ ...current, ...paint.tallies }));
-        setDaoSeed((current) => ({ ...current, ...paint.memberships }));
-        setClientPaintReady(true);
+        if (!mergeHead) {
+          const [paint, engagement] = await Promise.all([
+            loadFeedPaint(items),
+            loadPostEngagementMap(createReadOnlyOnSocialClient(), items),
+          ]);
+          if (!isCurrentLoadingRequest(loadIdRef.current, loadId)) return;
+          sidePaintSavedRef.current = true;
+          setQuotedSeed((current) => ({ ...current, ...paint.quoted }));
+          setPollSeed((current) => ({ ...current, ...paint.tallies }));
+          setDaoSeed((current) => ({ ...current, ...paint.memberships }));
+          setEngagementSeed(engagement);
+        }
         let insertedCount = 0;
         let hotHeadChanged = false;
         if (mergeHead && sort === 'hot' && postsLengthRef.current > 0) {
@@ -1130,12 +1170,12 @@ export function HomePagePanel({
         }
         setSsrBootstrapDone(true);
         ssrBootstrapDoneRef.current = true;
+        if (mergeHead) fillSidePaint(items);
       } catch (cause) {
         if (!isCurrentLoadingRequest(loadIdRef.current, loadId)) return;
         const message =
           cause instanceof Error ? cause.message : 'Could not load feed.';
         setLoadError(message);
-        setClientPaintReady(true);
         if (keepPrevious) {
           standingSourcesRef.current = previousStandingSources;
           setStandingNetworkIds(previousStandingSources);
@@ -1237,13 +1277,24 @@ export function HomePagePanel({
         if (pendingShift > 0) {
           offsetShiftAppliedRef.current += pendingShift;
         }
-        const appendedPaint = await loadFeedPaint(result.page.items);
+        const [appendedPaint, appendedEngagement] = await Promise.all([
+          loadFeedPaint(result.page.items),
+          loadPostEngagementMap(
+            createReadOnlyOnSocialClient(),
+            result.page.items
+          ),
+        ]);
         if (!isCurrentLoadingRequest(loadIdRef.current, loadId)) return;
+        sidePaintSavedRef.current = true;
         setQuotedSeed((current) => ({ ...current, ...appendedPaint.quoted }));
         setPollSeed((current) => ({ ...current, ...appendedPaint.tallies }));
         setDaoSeed((current) => ({
           ...current,
           ...appendedPaint.memberships,
+        }));
+        setEngagementSeed((current) => ({
+          ...(current ?? {}),
+          ...appendedEngagement,
         }));
         if (focus != null && sort === 'hot') {
           // Focus Hot re-ranks the whole accumulated list on append, so a
@@ -1712,10 +1763,7 @@ export function HomePagePanel({
           ) : null}
 
           <HomeFeedReveal
-            showSkeleton={
-              (!serverPainted && !clientPaintReady) ||
-              (showColdSkeleton && !showFeed)
-            }
+            showSkeleton={showColdSkeleton && !showFeed}
             skeleton={
               <PostRowSkeleton
                 rows={4}
@@ -1735,7 +1783,7 @@ export function HomePagePanel({
                   stoodWithAccountIds={stoodWithAccountIds}
                   showGuildAttribution
                   className={`home-feed-list${isRefreshing ? ' is-refreshing' : ''}`}
-                  initialEngagement={initialEngagement}
+                  initialEngagement={engagementSeed}
                   initialScarceEmbeds={initialScarceEmbeds}
                   quotedSeed={quotedSeed}
                   pollSeed={pollSeed}

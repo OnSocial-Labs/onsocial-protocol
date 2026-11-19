@@ -23078,48 +23078,11 @@ a.os-surface-row,
     min-height: calc(1px + 0.75rem + 0.75rem + 0.25rem);
   }
 
-  /*
-   * First list paint. Resting opacity stays 1 so a hard load is not hidden
-   * until JavaScript. Motion matches sheet appear; reduced motion skips it.
-   */
-  @media (prefers-reduced-motion: no-preference) {
-    .home-feed-reveal-body {
-      animation: glass-sheet-appear var(--os-motion-appear, 280ms)
-        var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1))
-        forwards;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .home-feed-reveal-body {
-      animation: none;
-    }
-  }
-
   .home-feed-reveal {
-    position: relative;
     display: flex;
     flex-direction: column;
     width: 100%;
     min-width: 0;
-  }
-
-  .home-feed-reveal-body {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    min-width: 0;
-  }
-
-  /* Under the fading list so the first transparent frames still show the skeleton. */
-  .home-feed-reveal-cover.is-under {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    overflow: hidden;
-    pointer-events: none;
   }
 
   .home-feed-sentinel {
@@ -25388,6 +25351,27 @@ a.os-surface-row,
     pointer-events: none;
   }
 
+  /* Unknown count keeps a digit seat. The figure fades in; width does not grow. */
+  .post-card-like-count.is-pending,
+  .post-card-count-slot.is-pending {
+    min-width: 2ch;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .post-card-like-count,
+  .post-card-count-slot {
+    transition: opacity var(--os-motion-appear, 280ms)
+      var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .post-card-like-count,
+    .post-card-count-slot {
+      transition: none;
+    }
+  }
+
   .post-card-count-slot {
     display: inline-flex;
     height: 1em;
@@ -25693,7 +25677,9 @@ a.os-surface-row,
     overflow-anchor: none;
   }
 
-  .post-card-scarce-cta--pending {
+  .post-card-scarce-cta--pending,
+  .post-card-scarce-cta--muted,
+  .post-card-scarce-buy {
     min-height: calc(0.4rem + 1.2 * var(--os-stamp-size, 0.75rem));
   }
 
@@ -47032,6 +47018,14 @@ button.messages-bubble-quote:focus-visible {
     > .post-card-count-slot.is-idle
   )
   > svg,
+.post-card-stat:not(:hover):not(:focus-visible):not(.is-active):has(
+    > .post-card-count-slot.is-pending
+  )
+  > .mage-stroke-icon,
+.post-card-stat:not(:hover):not(:focus-visible):not(.is-active):has(
+    > .post-card-count-slot.is-pending
+  )
+  > svg,
 .post-card-react:not(:hover):not(:focus-visible):not(.is-active):has(
     .post-card-like-count.is-idle
   )
@@ -47039,6 +47033,16 @@ button.messages-bubble-quote:focus-visible {
   > .mage-stroke-icon,
 .post-card-react:not(:hover):not(:focus-visible):not(.is-active):has(
     .post-card-like-count.is-idle
+  )
+  .post-card-react-heart:not(:hover):not(:focus-visible)
+  > svg,
+.post-card-react:not(:hover):not(:focus-visible):not(.is-active):has(
+    .post-card-like-count.is-pending
+  )
+  .post-card-react-heart:not(:hover):not(:focus-visible)
+  > .mage-stroke-icon,
+.post-card-react:not(:hover):not(:focus-visible):not(.is-active):has(
+    .post-card-like-count.is-pending
   )
   .post-card-react-heart:not(:hover):not(:focus-visible)
   > svg {

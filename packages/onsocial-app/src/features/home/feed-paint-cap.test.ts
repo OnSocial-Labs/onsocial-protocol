@@ -5,6 +5,11 @@ import { createElement, useEffect, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/home',
+}));
+
 import { HomeFeedReveal } from '@/features/home/home-feed-reveal';
 import { fetchDaoRolesPage } from '@/lib/fetch-dao-roles-client';
 import { FEED_MEDIA_RESOLVE_FALLBACK_MS } from '@/features/home/post-media';

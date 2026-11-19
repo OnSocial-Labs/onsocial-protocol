@@ -939,6 +939,28 @@ describe('QueryModule', () => {
       });
     }
 
+    it('retries without the paint columns when they are not tracked yet', async () => {
+      const paintError = {
+        errors: [
+          { message: "field 'replyCount' not found in type: 'postsFeed'" },
+        ],
+        data: null,
+      };
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('replyCount')) return paintError;
+        return { data: { postsFeed: [feedRow] } };
+      });
+
+      const page = await os.query.feed.recent({ limit: 5 });
+      expect(page.items).toHaveLength(1);
+      expect(fetch).toHaveBeenCalledTimes(2);
+      const retry = JSON.parse(String(fetch.mock.calls[1][1].body));
+      expect(retry.query).not.toContain('replyCount');
+      expect(retry.query).not.toContain('quotedPost');
+      expect(retry.query).toContain('authorName');
+    });
+
     it('retries without heat and reuses the fallback on later calls', async () => {
       const { os, fetch } = heatRejectingGraph();
 

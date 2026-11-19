@@ -106,32 +106,29 @@ export function usePostVideoPlayback(
     setVideoEl(node);
   };
 
-  // List/poster videos fetch metadata only within two viewport heights of
-  // the fold — an unbounded feed otherwise holds a decoder/fetch per video
-  // ever loaded. The 200% margin settles collage ratios before they paint.
+  // Metadata only within half a viewport. A wider gate decoded every
+  // clip in the scroll window and kept the machine busy while coasting.
   useEffect(() => {
     if (mode !== 'list' && mode !== 'poster') return;
     const node = containerRef.current;
     if (!node) return;
     const observer = new IntersectionObserver(
       ([entry]) => setNearViewport(Boolean(entry?.isIntersecting)),
-      { rootMargin: '200% 0px' }
+      { rootMargin: '50% 0px' }
     );
     observer.observe(node);
     return () => observer.disconnect();
   }, [mode]);
 
-  // Further out the element itself unmounts, releasing the decoder and any
-  // buffered data. The 300% margin leaves a full viewport between mounting
-  // and the 200% preload gate, so scroll-back remounts are warm before
-  // they could paint.
+  // The element unmounts outside one viewport. The ratio box and poster
+  // stay, so the row does not move; the decoder is released.
   useEffect(() => {
     if (mode !== 'list' && mode !== 'poster') return;
     const node = containerRef.current;
     if (!node) return;
     const observer = new IntersectionObserver(
       ([entry]) => setNearMount(Boolean(entry?.isIntersecting)),
-      { rootMargin: '300% 0px' }
+      { rootMargin: '100% 0px' }
     );
     observer.observe(node);
     return () => observer.disconnect();

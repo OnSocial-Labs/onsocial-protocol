@@ -154,6 +154,16 @@ export function startThreadFirstPage(
   return promise;
 }
 
+/**
+ * The post sheet is its own chunk. Load it while a feed is on screen so a
+ * tap paints the row already in hand instead of waiting on the download.
+ * Replies stay a skeleton until that tap.
+ */
+export function warmPostPanels(): void {
+  void import('@/features/home/live-personal-post-panel');
+  void import('@/features/guilds/live-guild-post-panel');
+}
+
 /** Start the direct-reply page and the thread panel chunk on the tap. */
 export function warmThreadOpen(
   rootPath: string,

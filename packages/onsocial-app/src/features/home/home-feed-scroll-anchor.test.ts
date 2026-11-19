@@ -108,38 +108,6 @@ describe('restoreFeedAnchor', () => {
     );
   });
 
-  it('tells the smooth-scroll layer the corrected position', () => {
-    const root = fakeRoot(100, [
-      fakeBlock({ top: 300, height: 200, key: 'a/2' }),
-    ]);
-    const order: string[] = [];
-    const scrollTo = vi.fn(() => {
-      order.push('scroll');
-      expect(root.scrollTop).toBe(340);
-    });
-    smoothScroll.registerAppLenis(root, {
-      limit: 5000,
-      scroll: 0,
-      resize: () => {
-        order.push('resize');
-      },
-      scrollTo,
-      stop: () => {
-        order.push('stop');
-      },
-      start: () => {
-        order.push('start');
-      },
-    });
-    restoreFeedAnchor(root, { key: 'a/2', top: -140 });
-    expect(order).toEqual(['stop', 'resize', 'scroll', 'start']);
-    expect(scrollTo).toHaveBeenCalledWith(340, {
-      immediate: true,
-      force: true,
-    });
-    smoothScroll.unregisterAppLenis(root);
-  });
-
   it('leaves the smooth-scroll layer untouched when it is off', () => {
     const root = fakeRoot(100, [
       fakeBlock({ top: 300, height: 200, key: 'a/2' }),

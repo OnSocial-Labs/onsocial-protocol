@@ -91,6 +91,68 @@ describe('home feed session snapshot', () => {
     expect(readHomeFeedSession('pulse|hot||alice.near')).toBeNull();
   });
 
+  it('keeps quotes, counts, and marks with the posts', () => {
+    const posts = [{ ...row('a.near', '1'), refPath: 'bob.near/post/9' }];
+    const quoted = {
+      'bob.near/post/9': row('bob.near', '9'),
+    };
+    writeHomeFeedSession({
+      sessionKey: HOME_FEED_SSR_SESSION_KEY,
+      posts,
+      nextOffset: 24,
+      standingNetworkIds: null,
+      offsetShiftApplied: 0,
+      scrollTop: 0,
+      quoted,
+      tallies: {
+        'a.near:1': { counts: [1, 2], total: 3, viewerOptionIndex: null },
+      },
+      memberships: {
+        'a.near': {
+          governance: 'guardians',
+          treasury: null,
+          proposer: { governance: true, treasury: false },
+        },
+      },
+      engagement: {
+        'a.near:1': {
+          replyCount: 2,
+          quoteCount: 0,
+          repostCount: 0,
+          reactionCount: 4,
+          viewerReacted: false,
+          amplifyCount: 0,
+          viewerAmplified: false,
+          viewerSaved: false,
+          viewerReposted: false,
+          viewerRepostId: null,
+          viewerRepostGroupId: null,
+          reactionRoll: 0,
+          amplifyRoll: 0,
+          replyRoll: 0,
+          shareRoll: 0,
+        },
+      },
+    });
+
+    const snapped = peekHomeFeedSession();
+    expect(snapped?.quoted).toEqual(quoted);
+    expect(snapped?.tallies?.['a.near:1']?.total).toBe(3);
+    expect(snapped?.memberships?.['a.near']?.governance).toBe('guardians');
+    expect(snapped?.engagement?.['a.near:1']?.reactionCount).toBe(4);
+
+    writeHomeFeedSession({
+      sessionKey: HOME_FEED_SSR_SESSION_KEY,
+      posts,
+      nextOffset: 24,
+      standingNetworkIds: null,
+      offsetShiftApplied: 0,
+      scrollTop: 80,
+    });
+    expect(peekHomeFeedSession()?.quoted).toEqual(quoted);
+    expect(peekHomeFeedSession()?.scrollTop).toBe(80);
+  });
+
   it('does not store an empty list', () => {
     writeHomeFeedSession({
       sessionKey: HOME_FEED_SSR_SESSION_KEY,

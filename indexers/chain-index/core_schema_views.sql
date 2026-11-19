@@ -1093,52 +1093,276 @@ SELECT
 WHERE false;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 6d. posts_feed — posts + author shell + optional guild name + amplify heat
+-- 6d. posts_feed — posts + author shell + guild name + heat + public counts
+-- and the quoted post (plus that post's own quote, for a repost of a quote).
+-- Counts are this row's. A repost card reads them from quoted_post.
 -- ────────────────────────────────────────────────────────────────────────────
 
-CREATE OR REPLACE VIEW posts_feed AS
+CREATE OR REPLACE FUNCTION post_content_path(
+  account_id text,
+  post_id text,
+  group_id text
+) RETURNS text
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT CASE
+    WHEN group_id IS NOT NULL AND btrim(group_id) <> ''
+      THEN account_id || '/groups/' || group_id || '/content/post/' || post_id
+    ELSE account_id || '/post/' || post_id
+  END
+$$;
+
+CREATE OR REPLACE FUNCTION post_feed_shell(
+  account_id text,
+  post_id text,
+  value text,
+  block_height bigint,
+  block_timestamp bigint,
+  receipt_id text,
+  parent_path text,
+  parent_author text,
+  parent_type text,
+  ref_path text,
+  ref_author text,
+  ref_type text,
+  channel text,
+  kind text,
+  audiences text,
+  group_id text,
+  is_group_content boolean,
+  root_path text,
+  root_author text,
+  author_name text,
+  author_avatar text,
+  group_name text,
+  reply_count bigint,
+  quote_count bigint,
+  repost_count bigint,
+  reaction_count bigint
+) RETURNS jsonb
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT CASE
+    WHEN account_id IS NULL OR post_id IS NULL THEN NULL
+    ELSE jsonb_build_object(
+      'accountId', account_id,
+      'postId', post_id,
+      'value', value,
+      'blockHeight', block_height,
+      'blockTimestamp', block_timestamp,
+      'receiptId', receipt_id,
+      'parentPath', parent_path,
+      'parentAuthor', parent_author,
+      'parentType', parent_type,
+      'refPath', ref_path,
+      'refAuthor', ref_author,
+      'refType', ref_type,
+      'channel', channel,
+      'kind', kind,
+      'audiences', audiences,
+      'groupId', group_id,
+      'isGroupContent', is_group_content,
+      'rootPath', root_path,
+      'rootAuthor', root_author,
+      'authorName', author_name,
+      'authorAvatar', author_avatar,
+      'groupName', group_name,
+      'replyCount', reply_count,
+      'quoteCount', quote_count,
+      'repostCount', repost_count,
+      'reactionCount', reaction_count
+    )
+  END
+$$;
+
+-- Light row for ranking. Pulse scans every Circle post before it cuts a
+-- page; counts and quoted posts stay on posts_feed and apply to that page.
+CREATE OR REPLACE VIEW posts_feed_rank AS
 SELECT
-  p.account_id,
-  p.post_id,
-  p.value,
-  p.block_height,
-  p.block_timestamp,
-  p.receipt_id,
-  p.parent_path,
-  p.parent_author,
-  p.parent_type,
-  p.ref_path,
-  p.ref_author,
-  p.ref_type,
-  p.channel,
-  p.kind,
-  p.audiences,
-  p.group_id,
-  p.is_group_content,
+  src.account_id,
+  src.post_id,
+  src.value,
+  src.block_height,
+  src.block_timestamp,
+  src.receipt_id,
+  src.parent_path,
+  src.parent_author,
+  src.parent_type,
+  src.ref_path,
+  src.ref_author,
+  src.ref_type,
+  src.channel,
+  src.kind,
+  src.audiences,
+  src.group_id,
+  src.is_group_content,
   ps.name AS author_name,
   ps.avatar AS author_avatar,
   g.group_name AS group_name,
   COALESCE(h.heat, 0)::double precision AS amplify_heat,
-  p.root_path,
-  p.root_author
-FROM posts_current p
+  src.root_path,
+  src.root_author,
+  src.content_path
+FROM (
+  SELECT
+    p.*,
+    post_content_path(p.account_id, p.post_id, p.group_id) AS content_path
+  FROM posts_current p
+) src
 LEFT JOIN profile_search ps
-  ON ps.account_id = p.account_id
+  ON ps.account_id = src.account_id
 LEFT JOIN groups_current g
-  ON g.group_id = p.group_id
- AND p.group_id IS NOT NULL
- AND p.group_id <> ''
+  ON g.group_id = src.group_id
+ AND src.group_id IS NOT NULL
+ AND src.group_id <> ''
 LEFT JOIN post_amplify_heat h
-  ON h.post_path = CASE
-    WHEN p.group_id IS NOT NULL AND p.group_id <> ''
-      THEN p.account_id || '/groups/' || p.group_id || '/content/post/' || p.post_id
-    ELSE p.account_id || '/post/' || p.post_id
-  END;
+  ON h.post_path = src.content_path;
+
+-- feed_pulse returns SETOF posts_feed. Drop it before the column list grows;
+-- it is recreated below.
+DROP FUNCTION IF EXISTS feed_pulse(text[], integer, integer, text);
+
+CREATE OR REPLACE VIEW posts_feed AS
+SELECT
+  src.account_id,
+  src.post_id,
+  src.value,
+  src.block_height,
+  src.block_timestamp,
+  src.receipt_id,
+  src.parent_path,
+  src.parent_author,
+  src.parent_type,
+  src.ref_path,
+  src.ref_author,
+  src.ref_type,
+  src.channel,
+  src.kind,
+  src.audiences,
+  src.group_id,
+  src.is_group_content,
+  src.author_name,
+  src.author_avatar,
+  src.group_name,
+  src.amplify_heat,
+  src.root_path,
+  src.root_author,
+  src.content_path,
+  COALESCE(replies.reply_count, 0)::bigint AS reply_count,
+  COALESCE(quote_rows.quote_count, 0)::bigint AS quote_count,
+  COALESCE(repost_rows.repost_count, 0)::bigint AS repost_count,
+  COALESCE(reactions.reaction_count, 0)::bigint AS reaction_count,
+  post_feed_shell(
+    q.account_id, q.post_id, q.value, q.block_height, q.block_timestamp,
+    q.receipt_id, q.parent_path, q.parent_author, q.parent_type,
+    q.ref_path, q.ref_author, q.ref_type, q.channel, q.kind, q.audiences,
+    q.group_id, q.is_group_content, q.root_path, q.root_author,
+    qps.name, qps.avatar, qg.group_name,
+    COALESCE(q_replies.reply_count, 0),
+    COALESCE(q_quotes.quote_count, 0),
+    COALESCE(q_reposts.repost_count, 0),
+    COALESCE(q_reactions.reaction_count, 0)
+  ) AS quoted_post,
+  post_feed_shell(
+    q2.account_id, q2.post_id, q2.value, q2.block_height, q2.block_timestamp,
+    q2.receipt_id, q2.parent_path, q2.parent_author, q2.parent_type,
+    q2.ref_path, q2.ref_author, q2.ref_type, q2.channel, q2.kind, q2.audiences,
+    q2.group_id, q2.is_group_content, q2.root_path, q2.root_author,
+    q2ps.name, q2ps.avatar, q2g.group_name,
+    NULL, NULL, NULL, NULL
+  ) AS quoted_ref_post
+FROM posts_feed_rank src
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS reply_count
+  FROM posts_current r
+  WHERE r.parent_path = src.content_path
+    AND r.parent_author IS NOT NULL
+    AND btrim(r.parent_author) <> ''
+) replies ON true
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS quote_count
+  FROM posts_current c
+  WHERE c.ref_path = src.content_path
+    AND c.ref_author IS NOT NULL
+    AND btrim(c.ref_author) <> ''
+    AND lower(coalesce(nullif(btrim(c.ref_type), ''), 'quote')) = 'quote'
+) quote_rows ON true
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS repost_count
+  FROM posts_current c
+  WHERE c.ref_path = src.content_path
+    AND c.ref_author IS NOT NULL
+    AND btrim(c.ref_author) <> ''
+    AND lower(btrim(c.ref_type)) = 'repost'
+) repost_rows ON true
+LEFT JOIN LATERAL (
+  SELECT COALESCE(SUM(rc.reaction_count), 0)::bigint AS reaction_count
+  FROM reaction_counts rc
+  WHERE rc.post_owner = src.account_id
+    AND rc.post_path = 'post/' || src.post_id
+) reactions ON true
+LEFT JOIN posts_current q
+  ON src.ref_path IS NOT NULL
+ AND btrim(src.ref_path) <> ''
+ AND q.account_id = split_part(src.ref_path, '/', 1)
+ AND q.post_id = regexp_replace(src.ref_path, '^.*/post/', '')
+LEFT JOIN profile_search qps
+  ON qps.account_id = q.account_id
+LEFT JOIN groups_current qg
+  ON qg.group_id = q.group_id
+ AND q.group_id IS NOT NULL
+ AND q.group_id <> ''
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS reply_count
+  FROM posts_current r
+  WHERE q.account_id IS NOT NULL
+    AND r.parent_path = post_content_path(q.account_id, q.post_id, q.group_id)
+    AND r.parent_author IS NOT NULL
+    AND btrim(r.parent_author) <> ''
+) q_replies ON true
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS quote_count
+  FROM posts_current c
+  WHERE q.account_id IS NOT NULL
+    AND c.ref_path = post_content_path(q.account_id, q.post_id, q.group_id)
+    AND c.ref_author IS NOT NULL
+    AND btrim(c.ref_author) <> ''
+    AND lower(coalesce(nullif(btrim(c.ref_type), ''), 'quote')) = 'quote'
+) q_quotes ON true
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS repost_count
+  FROM posts_current c
+  WHERE q.account_id IS NOT NULL
+    AND c.ref_path = post_content_path(q.account_id, q.post_id, q.group_id)
+    AND c.ref_author IS NOT NULL
+    AND btrim(c.ref_author) <> ''
+    AND lower(btrim(c.ref_type)) = 'repost'
+) q_reposts ON true
+LEFT JOIN LATERAL (
+  SELECT COALESCE(SUM(rc.reaction_count), 0)::bigint AS reaction_count
+  FROM reaction_counts rc
+  WHERE q.account_id IS NOT NULL
+    AND rc.post_owner = q.account_id
+    AND rc.post_path = 'post/' || q.post_id
+) q_reactions ON true
+LEFT JOIN posts_current q2
+  ON q.ref_path IS NOT NULL
+ AND btrim(q.ref_path) <> ''
+ AND q2.account_id = split_part(q.ref_path, '/', 1)
+ AND q2.post_id = regexp_replace(q.ref_path, '^.*/post/', '')
+LEFT JOIN profile_search q2ps
+  ON q2ps.account_id = q2.account_id
+LEFT JOIN groups_current q2g
+  ON q2g.group_id = q2.group_id
+ AND q2.group_id IS NOT NULL
+ AND q2.group_id <> '';
 
 -- Pulse — one page of Home cards: Circle roots (plus newest self-reply)
--- and stranger roots a circle member replied into. `card_limit` /
--- `card_offset` page events, not raw rows. A card flattens to
--- [root, newest peek] when a reply lifted it.
+-- and stranger roots a circle member replied into. Rank uses posts_feed_rank
+-- (author, time, boost). Counts and quoted posts join from posts_feed onto
+-- the page only. `card_limit` / `card_offset` page events, not raw rows.
 CREATE OR REPLACE FUNCTION feed_pulse(
   accounts text[],
   card_limit integer,
@@ -1156,7 +1380,7 @@ AS $$
   ),
   native_roots AS (
     SELECT p.*
-    FROM posts_feed p
+    FROM posts_feed_rank p
     JOIN circle c ON c.account_id = p.account_id
     WHERE p.parent_path IS NULL
       OR btrim(p.parent_path) = ''
@@ -1175,7 +1399,7 @@ AS $$
         ) AS card_path,
         COALESCE(p.amplify_heat, 0) AS reply_heat,
         COALESCE(p.block_height, 0) AS reply_height
-      FROM posts_feed p
+      FROM posts_feed_rank p
       JOIN circle c ON c.account_id = p.account_id
       WHERE p.parent_path IS NOT NULL
         AND btrim(p.parent_path) <> ''
@@ -1226,7 +1450,7 @@ AS $$
       NULL::text AS peek_account_id,
       NULL::text AS peek_post_id
     FROM native_circle_replies r
-    JOIN posts_feed p
+    JOIN posts_feed_rank p
       ON p.account_id = r.account_id
      AND p.post_id = r.post_id
     WHERE NOT EXISTS (
@@ -1250,7 +1474,7 @@ AS $$
         ) AS card_path,
         COALESCE(p.amplify_heat, 0) AS reply_heat,
         COALESCE(p.block_height, 0) AS reply_height
-      FROM posts_feed p
+      FROM posts_feed_rank p
       JOIN circle c ON c.account_id = p.account_id
       WHERE p.parent_path IS NOT NULL
         AND btrim(p.parent_path) <> ''
@@ -1290,7 +1514,7 @@ AS $$
       b.account_id AS peek_account_id,
       b.post_id AS peek_post_id
     FROM best_bridge b
-    JOIN posts_feed root
+    JOIN posts_feed_rank root
       ON root.account_id = b.card_account_id
      AND root.post_id = b.card_post_id
     WHERE NOT EXISTS (
@@ -1396,7 +1620,14 @@ AS $$
     group_name,
     amplify_heat,
     root_path,
-    root_author
+    root_author,
+    content_path,
+    reply_count,
+    quote_count,
+    repost_count,
+    reaction_count,
+    quoted_post,
+    quoted_ref_post
   FROM out_rows
   ORDER BY rn, role;
 $$;

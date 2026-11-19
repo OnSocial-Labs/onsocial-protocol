@@ -5,12 +5,17 @@ import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   coldLoadReveal,
   HomeFeedReveal,
+  nextColdLoadLoading,
   slowRefreshReveal,
 } from '@/features/home/home-feed-reveal';
+
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/home',
+}));
 
 function markup(showSkeleton: boolean) {
   return renderToStaticMarkup(
@@ -49,16 +54,14 @@ describe('HomeFeedReveal', () => {
     const html = markup(true);
     expect(html).toContain('post-row-skeleton-list');
     expect(html).not.toContain('let’s try');
-    expect(html).not.toContain('home-feed-reveal-body');
   });
 
-  it('paints server content with the skeleton still under the fade', () => {
+  it('paints a ready list without a second skeleton', () => {
     const html = markup(false);
-    expect(html).toContain('home-feed-reveal-body');
     expect(html).toContain('let’s try');
-    expect(html).toContain('post-row-skeleton-list');
-    expect(html).toContain('home-feed-reveal-cover is-under');
-    expect(html).not.toContain('opacity:0');
+    expect(html).toContain('home-feed-reveal');
+    expect(html).not.toContain('post-row-skeleton-list');
+    expect(html).not.toContain('os-route-skeleton');
   });
 });
 
@@ -118,9 +121,7 @@ describe('cold load reveal', () => {
     document.body.appendChild(host);
     root = createRoot(host);
     await act(async () => {
-      root?.render(
-        createElement(ColdLoadFrame, { shown, refreshing })
-      );
+      root?.render(createElement(ColdLoadFrame, { shown, refreshing }));
     });
   }
 
@@ -144,44 +145,32 @@ describe('cold load reveal', () => {
     expect(clears).toBe(1);
     await paint(true, false);
     expect(host?.querySelector('.home-feed-list')?.textContent).toBe('Hello');
-    expect(host?.querySelector('.post-row-skeleton-list')).not.toBeNull();
+    expect(host?.querySelector('.post-row-skeleton-list')).toBeNull();
   });
 
-  it('holds loading on an SSR miss and clears it once when the settle finishes', async () => {
+  it('clears loading when an SSR miss adopts the page', async () => {
     let loading = true;
     let settleStarted = false;
-    let clears = 0;
     const apply = () => {
       const decision = coldLoadReveal({
         serverPainted: false,
         settleStarted,
       });
-      if (decision.loading === 'hold') loading = true;
+      const next = nextColdLoadLoading(loading, decision);
+      if (next !== loading) loading = next;
       if (decision.startSettle) settleStarted = true;
-      if (decision.loading === 'clear' && loading) {
-        loading = false;
-        clears += 1;
-      }
       return decision;
     };
     const first = apply();
-    const second = apply();
-    expect(first.startSettle).toBe(true);
-    expect(second.startSettle).toBe(false);
-    expect(second.loading).toBe('leave');
-    expect(loading).toBe(true);
-    expect(clears).toBe(0);
-    await paint(false, false);
-    expect(host?.querySelector('.home-feed-list')).toBeNull();
-    expect(host?.querySelector('.post-row-skeleton-list')).not.toBeNull();
-    loading = false;
-    clears += 1;
-    apply();
-    expect(clears).toBe(1);
+    expect(first).toEqual({ loading: 'hold', startSettle: true });
     expect(loading).toBe(false);
-    await act(async () => {
-      root?.render(createElement(ColdLoadFrame, { shown: true, refreshing: false }));
-    });
+
+    const second = apply();
+    expect(second).toEqual({ loading: 'leave', startSettle: false });
+    expect(nextColdLoadLoading(false, second)).toBe(false);
+    expect(loading).toBe(false);
+
+    await paint(true, false);
     expect(host?.querySelector('.home-feed-list')?.textContent).toBe('Hello');
   });
 
@@ -213,7 +202,9 @@ describe('cold load reveal', () => {
     start();
     expect(clears).toBe(1);
     await act(async () => {
-      root?.render(createElement(ColdLoadFrame, { shown: true, refreshing: false }));
+      root?.render(
+        createElement(ColdLoadFrame, { shown: true, refreshing: false })
+      );
     });
     expect(host?.querySelector('.home-feed-list.is-refreshing')).toBeNull();
     expect(host?.querySelector('.home-feed-list')?.textContent).toBe('Hello');

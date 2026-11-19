@@ -95,6 +95,9 @@ export function OsRouteSettle({
   const [autoReady, setAutoReady] = useState(false);
   const [cover, setCover] = useState<'hold' | 'leave' | 'off'>(() => {
     if (routeSettleHoldsCover(settle, ready)) return 'hold';
+    // Already painted — appear the body. A client hop must not put a
+    // skeleton back over a post the feed is holding.
+    if (ready === true) return 'off';
     if (typeof window === 'undefined') return 'off';
     return clientNav ? 'hold' : 'off';
   });

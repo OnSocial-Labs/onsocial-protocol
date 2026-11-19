@@ -24,7 +24,10 @@ import {
   resolveDaoCatalogAccount,
 } from '../services/governance-dao-catalog-sync.js';
 import { getDaoProposalPeeks } from '../services/governance-dao-proposal-peeks.js';
-import { getProtocolDaoProposerFlags } from '../services/governance-dao-proposer-flags.js';
+import {
+  getProtocolDaoProposerFlags,
+  getProtocolDaoProposerFlagsForAccounts,
+} from '../services/governance-dao-proposer-flags.js';
 import {
   DAO_PROPOSAL_PEEK_DAO_LIMIT,
   DAO_PROPOSAL_PEEK_ROW_LIMIT,
@@ -366,6 +369,24 @@ router.get(
           hasOnSocialProfile: row.hasOnSocialProfile,
         })),
       });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(400).json({ success: false, error: msg });
+    }
+  }
+);
+
+router.post(
+  '/dao-proposer-flags',
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const raw = (req.body as { accountIds?: unknown } | null)?.accountIds;
+      const accountIds = Array.isArray(raw)
+        ? raw.filter((id): id is string => typeof id === 'string').slice(0, 80)
+        : [];
+      const proposers =
+        await getProtocolDaoProposerFlagsForAccounts(accountIds);
+      res.json({ success: true, proposers });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       res.status(400).json({ success: false, error: msg });

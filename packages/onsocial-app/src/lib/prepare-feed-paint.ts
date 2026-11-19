@@ -178,6 +178,79 @@ async function loadPollTallies(
   return out;
 }
 
+function countFromFeedValue(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function postFromFeedValue(
+  value: PostRow | string | null | undefined
+): PostRow | null {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value) as PostRow;
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  return value;
+}
+
+/** True when this page came back with the posts_feed paint columns. */
+export function feedRowsIncludePublicCounts(posts: readonly PostRow[]): boolean {
+  if (posts.length === 0) return false;
+  return posts.every((post) => countFromFeedValue(post.replyCount) != null);
+}
+
+export type FeedPublicCounts = {
+  replyCount: number;
+  quoteCount: number;
+  repostCount: number;
+  reactionCount: number;
+};
+
+export function publicCountsOnFeedRow(
+  post: PostRow | null | undefined
+): FeedPublicCounts | null {
+  if (!post) return null;
+  const replyCount = countFromFeedValue(post.replyCount);
+  if (replyCount == null) return null;
+  return {
+    replyCount,
+    quoteCount: countFromFeedValue(post.quoteCount) ?? 0,
+    repostCount: countFromFeedValue(post.repostCount) ?? 0,
+    reactionCount: countFromFeedValue(post.reactionCount) ?? 0,
+  };
+}
+
+/**
+ * Quote bodies already on the feed rows. Null when the paint columns are
+ * absent, so the caller keeps the quote read.
+ */
+export function quotedSeedFromFeedRows(
+  posts: readonly PostRow[]
+): FeedQuoteSeed | null {
+  if (!feedRowsIncludePublicCounts(posts)) return null;
+  const quoted: FeedQuoteSeed = {};
+  const put = (path: string | null | undefined, row: PostRow | null) => {
+    const key = path?.trim();
+    if (!key || quoted[key]) return;
+    quoted[key] = row;
+  };
+  for (const post of posts) {
+    const quotedPost = postFromFeedValue(post.quotedPost);
+    put(post.refPath, quotedPost);
+    put(quotedPost?.refPath, postFromFeedValue(post.quotedRefPost));
+  }
+  return quoted;
+}
+
 /** Quotes for a page, including one hop through a repost. */
 export async function loadFeedQuotes(
   posts: PostRow[],
