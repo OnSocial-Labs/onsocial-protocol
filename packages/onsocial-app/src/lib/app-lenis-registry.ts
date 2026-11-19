@@ -42,9 +42,11 @@ export function adoptAppLenisScroll(root: HTMLElement): void {
 /**
  * Move the live scroll by `delta` without cancelling a wheel coast.
  * Lenis `resize()`, `stop()`, and `scrollTo({ immediate: true })` snap the
- * target — immediate `scrollTo` also `reset()`s the animation — and that
- * reads as a hitch when a preloaded row settles while the reader is still
- * moving. Private `setScroll` only writes the wrapper (`behavior: 'instant'`).
+ * target — immediate `scrollTo` also `reset()`s the animation.
+ * Writing `animatedScroll` alone lasts one frame: the in-flight animator
+ * assigns it back on the next `raf`. Shift that animator's `from` / `to` /
+ * `value` by the same delta so the coast continues from the new position.
+ * Public `scrollTo` would restart the ease and keep overwriting `scrollTop`.
  */
 export function shiftAppLenisScroll(root: HTMLElement, delta: number): void {
   if (!Number.isFinite(delta) || Math.abs(delta) < 1) return;
@@ -59,6 +61,23 @@ export function shiftAppLenisScroll(root: HTMLElement, delta: number): void {
   }
   smooth.animatedScroll += delta;
   smooth.targetScroll += delta;
+  // Lenis types mark the animator private. The instance still has it, and
+  // the next frame rebuilds `animatedScroll` from these three fields.
+  const animate = (
+    smooth as {
+      animate?: { from?: number; to?: number; value?: number };
+    }
+  ).animate;
+  if (
+    animate &&
+    typeof animate.from === 'number' &&
+    typeof animate.to === 'number' &&
+    typeof animate.value === 'number'
+  ) {
+    animate.from += delta;
+    animate.to += delta;
+    animate.value += delta;
+  }
   root.scrollTo({ top: smooth.animatedScroll, behavior: 'instant' });
 }
 

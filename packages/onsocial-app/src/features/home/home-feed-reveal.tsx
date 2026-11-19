@@ -5,8 +5,9 @@ import { OsRouteSettle } from '@/components/app/os-route-settle';
 
 /**
  * What the cold-load effect should do with the loading flag.
- * A settle already in flight owns the single clear. SSR clears now.
- * An SSR miss holds loading and starts that one settle.
+ * A settle already in flight is left alone. SSR clears now.
+ * An SSR miss starts one settle. The adopted page clears loading
+ * (`nextColdLoadLoading`) so side paint does not block the list.
  */
 export function coldLoadReveal(input: {
   serverPainted: boolean;
@@ -15,6 +16,19 @@ export function coldLoadReveal(input: {
   if (input.settleStarted) return { loading: 'leave', startSettle: false };
   if (input.serverPainted) return { loading: 'clear', startSettle: false };
   return { loading: 'hold', startSettle: true };
+}
+
+/**
+ * Loading flag once the cold page is the list. SSR, a saved session, and
+ * the speculative page are usable immediately. A settle already in flight
+ * keeps whatever the flag is now.
+ */
+export function nextColdLoadLoading(
+  loading: boolean,
+  decision: ReturnType<typeof coldLoadReveal>
+): boolean {
+  if (decision.loading === 'clear' || decision.startSettle) return false;
+  return loading;
 }
 
 /**

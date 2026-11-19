@@ -101,6 +101,7 @@ import {
 import {
   coldLoadReveal,
   HomeFeedReveal,
+  nextColdLoadLoading,
   slowRefreshReveal,
 } from '@/features/home/home-feed-reveal';
 import {
@@ -917,13 +918,10 @@ export function HomePagePanel({
       });
       isRefreshingRef.current = false;
       setIsRefreshing(false);
-      // The rows are already the list: SSR, a saved session, or the
-      // speculative hot page. Side paint fills quotes and marks afterwards.
-      // Holding loading closed the empty line, pull-to-check, and the next
-      // page — the old settle cleared this flag when that paint finished.
-      if (decision.loading === 'clear' || decision.startSettle) {
-        isLoadingRef.current = false;
-        setIsLoading(false);
+      const loadingNow = nextColdLoadLoading(isLoadingRef.current, decision);
+      if (loadingNow !== isLoadingRef.current) {
+        isLoadingRef.current = loadingNow;
+        setIsLoading(loadingNow);
       }
       // The server paint and a saved snapshot already have quotes, tallies,
       // and marks. A second read would land on the visible rows and move them.

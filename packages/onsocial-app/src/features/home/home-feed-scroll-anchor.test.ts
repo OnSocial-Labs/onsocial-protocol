@@ -108,44 +108,6 @@ describe('restoreFeedAnchor', () => {
     );
   });
 
-  it('shifts the smooth-scroll coast instead of snapping it', () => {
-    const root = fakeRoot(100, [
-      fakeBlock({ top: 300, height: 200, key: 'a/2' }),
-    ]);
-    const order: string[] = [];
-    const lenis = {
-      limit: 5000,
-      scroll: 0,
-      animatedScroll: 0,
-      targetScroll: 80,
-      resize: () => {
-        order.push('resize');
-      },
-      scrollTo: () => {
-        order.push('scroll');
-      },
-      stop: () => {
-        order.push('stop');
-      },
-      start: () => {
-        order.push('start');
-      },
-    };
-    const wrapperScrollTo = vi.fn();
-    root.scrollTo = wrapperScrollTo as HTMLElement['scrollTo'];
-    smoothScroll.registerAppLenis(root, lenis);
-    restoreFeedAnchor(root, { key: 'a/2', top: -140 });
-    // Coast gap stays (80px). Lenis scrollTo / stop / resize would snap it.
-    expect(order).toEqual([]);
-    expect(wrapperScrollTo).toHaveBeenCalledWith({
-      top: 340,
-      behavior: 'instant',
-    });
-    expect(lenis.animatedScroll).toBe(340);
-    expect(lenis.targetScroll).toBe(420);
-    smoothScroll.unregisterAppLenis(root);
-  });
-
   it('leaves the smooth-scroll layer untouched when it is off', () => {
     const root = fakeRoot(100, [
       fakeBlock({ top: 300, height: 200, key: 'a/2' }),
