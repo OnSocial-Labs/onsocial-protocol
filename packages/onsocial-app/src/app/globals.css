@@ -23730,6 +23730,23 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.34);
   }
 
+  /* Overlay so Edited / Deleted does not grow the time line. */
+  .post-card-detail-time.has-revision {
+    position: relative;
+  }
+
+  .post-card-detail-revision {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 1;
+    font: inherit;
+    line-height: inherit;
+    color: inherit;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
   .post-card--detail .post-card-engagement {
     margin-top: 0.35rem;
   }

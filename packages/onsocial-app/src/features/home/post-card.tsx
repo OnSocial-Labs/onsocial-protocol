@@ -59,6 +59,7 @@ import {
   usePostThreadLayer,
 } from '@/features/home/post-thread-layer';
 import { warmThreadOpen } from '@/lib/thread-first-page';
+import { pointerOpensThisPost } from '@/lib/post-row-pointer';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import { WritingReadDocument } from '@/features/scarces/scarce-writing-read-sheet';
 import { FeedArticleReadScreen } from '@/features/home/feed-article-read-screen';
@@ -283,6 +284,11 @@ interface PostCardProps
    */
   detailLayout?: boolean;
   /**
+   * Feed-row open only. The painted row stays; this is the background
+   * refetch's Edited / Deleted note on the detail time line.
+   */
+  rootRevisionLabel?: 'Edited' | 'Deleted' | null;
+  /**
    * Open `actionHref` even for titled articles — thread tail “More from”
    * must not intercept onto Writing over this same conversation.
    */
@@ -299,7 +305,6 @@ export {
   PostRowSkeleton,
 } from '@/features/home/post-skeleton';
 export type { PostSkeletonFrame } from '@/features/home/post-skeleton';
-
 
 /** Shared fallback so the scarce-CTA bundle keeps a stable embed identity. */
 const EMPTY_SCARCE_EMBED: PostScarceEmbed = {
@@ -345,6 +350,7 @@ function PostCardImpl({
   mediaUnmuted = false,
   mediaResumeIndex = 0,
   detailLayout = false,
+  rootRevisionLabel = null,
   preferActionHref = false,
   returnToPost = false,
   sheetContext = null,
@@ -456,7 +462,10 @@ function PostCardImpl({
   const dismissPhotoThread = useCallback(() => {
     setPhotoThreadOpen(false);
   }, []);
-  useEffect(() => onDismissReplyDrawers(dismissPhotoThread), [dismissPhotoThread]);
+  useEffect(
+    () => onDismissReplyDrawers(dismissPhotoThread),
+    [dismissPhotoThread]
+  );
   const [menuForceEmbed, setMenuForceEmbed] = useState(false);
   const [cancelScarcePending, setCancelScarcePending] = useState(false);
   const isSelf =
@@ -500,7 +509,9 @@ function PostCardImpl({
     force: isSelf || menuForceEmbed,
   });
   const scarceEmbed = collectionEmbed ?? tokenEmbed ?? fromPostScarceEmbed;
+  const articleRef = useRef<HTMLElement | null>(null);
   const scarceEmbedMergedRef = (node: HTMLElement | null) => {
+    articleRef.current = node;
     scarceEmbedRef.current = node;
     collectionEmbedRef.current = node;
     tokenEmbedRef.current = node;
@@ -693,6 +704,22 @@ function PostCardImpl({
     detailLayout,
     preferActionHref,
   });
+  useEffect(() => {
+    // The opened post is already on screen. Feed and guild rows warm on
+    // pointerdown so the reply page is in flight before touchend.
+    if (detailLayout || !openHref) return;
+    const node = articleRef.current;
+    if (!node) return;
+    const path = postContentPath(post);
+    const surface = post.groupId ? 'guild' : 'personal';
+    const onPointerDown = (event: globalThis.PointerEvent) => {
+      if (!event.isPrimary || event.button !== 0) return;
+      if (!pointerOpensThisPost(event.target)) return;
+      warmThreadOpen(path, surface);
+    };
+    node.addEventListener('pointerdown', onPointerDown, { passive: true });
+    return () => node.removeEventListener('pointerdown', onPointerDown);
+  }, [detailLayout, openHref, post]);
   const readHref = preferActionHref ? openHref : articleHref;
   const labels = parsePostContentLabels(post.value);
   const poll = parsePostPollEmbed(post.value);
@@ -741,8 +768,7 @@ function PostCardImpl({
     mediaItems.length === 0 &&
     !showScarceArt &&
     (Boolean(dropPaint) || hasCollectionEmbed || hasTokenEmbed);
-  const scarceCtaLive =
-    !isRepostShell && Boolean(scarceEmbed || canListScarce);
+  const scarceCtaLive = !isRepostShell && Boolean(scarceEmbed || canListScarce);
   /** Jacket known from paint/refs before commerce soft-fills — hold the CTA row. */
   const scarceCtaSeat =
     !isRepostShell &&
@@ -1617,11 +1643,18 @@ function PostCardImpl({
         ) : null}
         {detailLayout ? (
           <time
-            className="post-card-detail-time"
+            className={`post-card-detail-time${
+              rootRevisionLabel ? ' has-revision' : ''
+            }`}
             title={formatPostTimestamp(post.blockTimestamp)}
             {...(detailTimestampIso ? { dateTime: detailTimestampIso } : {})}
           >
             {formatPostTimestamp(post.blockTimestamp)}
+            {rootRevisionLabel ? (
+              <span className="post-card-detail-revision">
+                {rootRevisionLabel}
+              </span>
+            ) : null}
           </time>
         ) : null}
         <PostEngagementRow

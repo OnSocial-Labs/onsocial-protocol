@@ -84,6 +84,12 @@ import {
   threadControlPresenceClass,
   threadCoverReady,
 } from '@/lib/thread-open';
+import {
+  feedRowSeedMatches,
+  rowSeedRevision,
+  threadRootRevisionLabel,
+  type ThreadRootRevision,
+} from '@/lib/row-seed-root';
 import { collectRelationTargetAccountIds } from '@/lib/post-relation';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { fetchIndexedPost, fetchPersonalPost } from '@/lib/fetch-personal-post';
@@ -269,6 +275,9 @@ export function LivePersonalPostPanel({
   const [loadState, setLoadState] = useState<LoadState>(() =>
     seeded ? 'ready' : 'loading'
   );
+  const [rootRevision, setRootRevision] = useState<ThreadRootRevision | null>(
+    null
+  );
   const [conversation, setConversation] = useState<PersonalConversation>(() =>
     seeded
       ? {
@@ -323,6 +332,9 @@ export function LivePersonalPostPanel({
   const replyLoadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const paintedKeyRef = useRef<string | null>(seeded ? rootPath : null);
+  /** Latest open seed. A feed row omits `directRepliesResolved`; SSR sets it. */
+  const rowSeedRef = useRef(initial);
+  rowSeedRef.current = initial;
   const treePosts = useMemo(() => flattenTreePosts(replyTree), [replyTree]);
   const replyRows = useMemo(() => {
     const rows = buildReplyRows(replyTree, conversation.root?.accountId);
@@ -476,9 +488,7 @@ export function LivePersonalPostPanel({
   );
   const replyRowEstimates = useMemo(
     () =>
-      sortedReplyRows.map((row) =>
-        threadReplyRowEstimatePx(row, quotedPosts)
-      ),
+      sortedReplyRows.map((row) => threadReplyRowEstimatePx(row, quotedPosts)),
     [sortedReplyRows, quotedPosts]
   );
   const replyStackRef = useRef<HTMLDivElement | null>(null);
@@ -596,6 +606,10 @@ export function LivePersonalPostPanel({
         }
         if (refreshRequestIdRef.current !== requestId) return;
 
+        const keepRow =
+          Boolean(options.background) &&
+          feedRowSeedMatches(rowSeedRef.current, { author, postId });
+
         if (!root && !options.background) {
           const indexed = await fetchIndexedPost({ author, postId });
           if (indexed?.groupId) {
@@ -605,15 +619,25 @@ export function LivePersonalPostPanel({
             return;
           }
         }
-        // Soft refresh must not blank a painted SSR thread on a null miss.
+        // Soft refresh must not blank a painted thread on a null miss.
+        // A feed-row open keeps that row and only notes a tombstone.
+        const seedRoot = rowSeedRef.current?.root ?? null;
         if (options.background && !root) {
+          if (keepRow && seedRoot) {
+            setRootRevision(rowSeedRevision(seedRoot, null));
+          }
           return;
         }
 
-        setConversation((current) => ({
-          ...current,
-          root,
-        }));
+        if (keepRow && seedRoot) {
+          setRootRevision(rowSeedRevision(seedRoot, root));
+        } else {
+          setRootRevision(null);
+          setConversation((current) => ({
+            ...current,
+            root,
+          }));
+        }
         setRepliesResolved(true);
         if (!options.background) {
           setLoadState(root ? 'ready' : 'missing');
@@ -710,6 +734,10 @@ export function LivePersonalPostPanel({
       sessionSeed.fromCache,
     ]
   );
+
+  useEffect(() => {
+    setRootRevision(null);
+  }, [rootPath]);
 
   useEffect(() => {
     let cancelled = false;
@@ -816,10 +844,7 @@ export function LivePersonalPostPanel({
     scrollRootRef: threadScrollRef,
     sentinelRef: replyLoadMoreRef,
     enabled:
-      hasMoreReplies &&
-      !loadingMore &&
-      !loadMoreError &&
-      loadState === 'ready',
+      hasMoreReplies && !loadingMore && !loadMoreError && loadState === 'ready',
     onIntersect: () => {
       void loadMoreReplies();
     },
@@ -1217,6 +1242,7 @@ export function LivePersonalPostPanel({
                 mediaUnmuted={mediaUnmuted}
                 mediaResumeIndex={mediaResumeIndex}
                 detailLayout
+                rootRevisionLabel={threadRootRevisionLabel(rootRevision)}
                 showRelationBadge={!hasParent}
                 authorProfiles={postAuthorProfiles}
                 engagement={engagement}

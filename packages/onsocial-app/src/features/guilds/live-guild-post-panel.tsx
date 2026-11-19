@@ -154,6 +154,7 @@ import { postLayerOverlayZ } from '@/lib/sheet-z';
 import type { ThreadSheetContext } from '@/lib/guild-thread-card-context';
 import type { PostEngagementMap } from '@/lib/feed-paint-hydrate';
 import type { GuildPostPageData } from '@/lib/load-guild-post-page';
+import { threadRootRevisionLabel } from '@/lib/row-seed-root';
 
 interface LiveGuildPostPanelProps {
   groupId: string;
@@ -256,6 +257,7 @@ export function LiveGuildPostPanel({
   const {
     loadState,
     error,
+    rootRevision,
     repliesResolved,
     shareTailReady,
     seededEngagement,
@@ -1167,6 +1169,7 @@ export function LiveGuildPostPanel({
                 mediaUnmuted={mediaUnmuted}
                 mediaResumeIndex={mediaResumeIndex}
                 detailLayout
+                rootRevisionLabel={threadRootRevisionLabel(rootRevision)}
                 // Parent drawn above with a chain line already says "reply".
                 showRelationBadge={!hasParent}
                 authorProfiles={postAuthorProfiles}

@@ -39,6 +39,11 @@ import {
 import { scarceEmbedsForOpenRoot } from '@/features/scarces/scarce-embed-ledger';
 import { planThreadLoad } from '@/lib/thread-open';
 import {
+  feedRowSeedMatches,
+  rowSeedRevision,
+  type ThreadRootRevision,
+} from '@/lib/row-seed-root';
+import {
   readGuildThreadSession,
   writeGuildThreadSession,
 } from '@/lib/thread-session-cache';
@@ -92,6 +97,8 @@ export function useGuildThreadData({
 }): {
   loadState: GuildThreadLoadState;
   error: string | null;
+  /** Feed-row open: Edited / Deleted from the background refetch. */
+  rootRevision: ThreadRootRevision | null;
   /** False until the first tree fetch resolves — gates the discover peek. */
   repliesResolved: boolean;
   /** Empty-tail gate for More from — share counts known before peek mounts. */
@@ -161,6 +168,9 @@ export function useGuildThreadData({
   const [loadState, setLoadState] = useState<GuildThreadLoadState>(() =>
     seeded ? 'ready' : 'loading'
   );
+  const [rootRevision, setRootRevision] = useState<ThreadRootRevision | null>(
+    null
+  );
   const [conversation, setConversation] = useState<GroupConversation>(() =>
     conversationFromInitial(seeded)
   );
@@ -214,6 +224,9 @@ export function useGuildThreadData({
   const paginatedRef = useRef(false);
   const reconcileTimersRef = useRef<number[]>([]);
   const paintedKeyRef = useRef<string | null>(seeded ? threadKey : null);
+  /** Latest open seed. A feed row omits `directRepliesResolved`; SSR sets it. */
+  const rowSeedRef = useRef(initial);
+  rowSeedRef.current = initial;
   const loadMoreInFlightRef = useRef(false);
   const refreshRequestIdRef = useRef(0);
   /*
@@ -318,23 +331,40 @@ export function useGuildThreadData({
         if (threadKeyRef.current !== threadKey) return;
         if (refreshRequestIdRef.current !== requestId) return;
 
-        // Soft refresh must not blank a painted SSR thread on a null miss.
+        const keepRow =
+          Boolean(options.background) &&
+          feedRowSeedMatches(rowSeedRef.current, {
+            author,
+            postId,
+            groupId,
+          });
+
+        // Soft refresh must not blank a painted thread on a null miss.
+        // A feed-row open keeps that row and only notes a tombstone.
+        const seedRoot = rowSeedRef.current?.root ?? null;
         if (options.background && !root) {
+          if (keepRow && seedRoot) {
+            setRootRevision(rowSeedRevision(seedRoot, null));
+          }
           return;
         }
 
-        setConversation((current) => ({
-          ...current,
-          root,
-        }));
+        if (keepRow && seedRoot) {
+          setRootRevision(rowSeedRevision(seedRoot, root));
+        } else {
+          setRootRevision(null);
+          setConversation((current) => ({
+            ...current,
+            root,
+          }));
+        }
         setRepliesResolved(true);
         if (!options.background) {
           setLoadState(root ? 'ready' : 'missing');
         }
 
-        const [quotesResult, treeResult, configResult] = await Promise.allSettled(
-          [quotesPromise, treePromise, configPromise]
-        );
+        const [quotesResult, treeResult, configResult] =
+          await Promise.allSettled([quotesPromise, treePromise, configPromise]);
         if (threadKeyRef.current !== threadKey) return;
         if (refreshRequestIdRef.current !== requestId) return;
 
@@ -512,6 +542,10 @@ export function useGuildThreadData({
   );
 
   useEffect(() => {
+    setRootRevision(null);
+  }, [threadKey]);
+
+  useEffect(() => {
     setViewerAccessResolved(false);
     let cancelled = false;
     const key = threadKey;
@@ -622,6 +656,7 @@ export function useGuildThreadData({
   return {
     loadState,
     error,
+    rootRevision,
     repliesResolved,
     shareTailReady,
     seededEngagement: seeded?.engagement ?? null,
