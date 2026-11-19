@@ -852,12 +852,86 @@ describe('QueryModule', () => {
       expect(page.nextOffset).toBeUndefined();
     });
 
-    it('orders postsFeed by amplify heat when sort is hot', async () => {
+    it('reads the hot page from feedHot, ranked before counts', async () => {
       const { os, fetch } = makeOs({ data: { postsFeed: [] } });
-      await os.query.feed.recent({ limit: 20, sort: 'hot' });
+      await os.query.feed.recent({ limit: 24, offset: 0, sort: 'hot' });
       const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.query).toContain('amplifyHeat: DESC');
+      expect(body.query).toContain('feedHot');
+      expect(body.query).toContain('postsFeed: feedHot');
+      expect(body.query).toContain('row_limit: $limit');
+      expect(body.query).toContain('row_offset: $offset');
       expect(body.query).toContain('amplifyHeat');
+      expect(body.query).not.toContain('amplifyHeat: DESC');
+      expect(body.query).not.toContain('orderBy:');
+      expect(body.variables).toEqual({ limit: 24, offset: 0 });
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('passes hot filters into feedHot', async () => {
+      const { os, fetch } = makeOs({ data: { postsFeed: [] } });
+      await os.query.feed.recent({
+        author: 'a.near',
+        section: 'posts',
+        kind: 'longform',
+        limit: 18,
+        sort: 'hot',
+      });
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('feedHot');
+      expect(body.query).toContain('author: $author');
+      expect(body.query).toContain('section: $section');
+      expect(body.query).toContain('kind: $kind');
+      expect(body.variables).toMatchObject({
+        author: 'a.near',
+        section: 'posts',
+        kind: 'longform',
+        limit: 18,
+        offset: 0,
+      });
+    });
+
+    it('falls back to postsFeed when feedHot is not deployed', async () => {
+      const queries: string[] = [];
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        queries.push(query);
+        if (query.includes('feedHot')) {
+          return {
+            errors: [
+              {
+                message: "field 'feedHot' not found in type: 'query_root'",
+              },
+            ],
+            data: null,
+          };
+        }
+        return {
+          data: {
+            postsFeed: [
+              {
+                accountId: 'a.near',
+                postId: 'p1',
+                value: '{}',
+                blockHeight: 1,
+                blockTimestamp: 0,
+              },
+            ],
+          },
+        };
+      });
+
+      const page = await os.query.feed.recent({ limit: 24, sort: 'hot' });
+      expect(page.items).toHaveLength(1);
+      expect(queries[0]).toContain('feedHot');
+      expect(queries[1]).toContain('postsFeed(');
+      expect(queries[1]).toContain('amplifyHeat: DESC');
+      expect(queries[1]).toContain('blockHeight: DESC');
+
+      await os.query.feed.recent({ limit: 24, sort: 'hot' });
+      expect(fetch).toHaveBeenCalledTimes(3);
+      const latched = JSON.parse(String(fetch.mock.calls[2][1].body));
+      expect(latched.query).not.toContain('feedHot');
+      expect(latched.query).toContain('amplifyHeat: DESC');
     });
 
     // Indexer stores empty strings (not NULLs) for parentPath / refType —
@@ -890,6 +964,8 @@ describe('QueryModule', () => {
       await os.query.feed.recent({ limit: 5 });
       const body = JSON.parse(fetch.mock.calls[0][1].body);
       expect(body.query).not.toContain('where:');
+      expect(body.query).not.toContain('feedHot');
+      expect(body.query).toContain('blockHeight: DESC');
     });
 
     it('filters by kind server-side when set', async () => {
@@ -1191,6 +1267,24 @@ describe('QueryModule', () => {
       const body = JSON.parse(fetch.mock.calls[0][1].body);
       expect(body.query).toContain('parentPath: {_eq: ""}');
       expect(body.query).toContain('parentAuthor: {_in: $accounts}');
+      expect(body.query).not.toContain('feedHot');
+    });
+
+    it('reads Circle hot pages from feedHot', async () => {
+      const { os, fetch } = makeOs({ data: { postsFeed: [] } });
+      await os.query.feed.fromAccounts({
+        accounts: ['alice.near'],
+        nativeOnly: true,
+        sort: 'hot',
+        limit: 10,
+      });
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('feedHot');
+      expect(body.query).toContain('native_only: $native_only');
+      expect(body.query).toContain('$accounts: _text');
+      expect(body.variables.accounts).toBe('{"alice.near"}');
+      expect(body.variables.native_only).toBe(true);
+      expect(body.variables.limit).toBe(10);
     });
   });
 
