@@ -84,6 +84,13 @@ import {
   threadControlPresenceClass,
   threadCoverReady,
 } from '@/lib/thread-open';
+import {
+  feedRowSeedMatches,
+  paintedRootQueryKind,
+  rowSeedRevision,
+  threadRootRevisionLabel,
+  type ThreadRootRevision,
+} from '@/lib/row-seed-root';
 import { collectRelationTargetAccountIds } from '@/lib/post-relation';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { fetchIndexedPost, fetchPersonalPost } from '@/lib/fetch-personal-post';
@@ -269,6 +276,9 @@ export function LivePersonalPostPanel({
   const [loadState, setLoadState] = useState<LoadState>(() =>
     seeded ? 'ready' : 'loading'
   );
+  const [rootRevision, setRootRevision] = useState<ThreadRootRevision | null>(
+    null
+  );
   const [conversation, setConversation] = useState<PersonalConversation>(() =>
     seeded
       ? {
@@ -323,6 +333,9 @@ export function LivePersonalPostPanel({
   const replyLoadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const paintedKeyRef = useRef<string | null>(seeded ? rootPath : null);
+  /** Latest open seed. A feed row omits `directRepliesResolved`; SSR sets it. */
+  const rowSeedRef = useRef(initial);
+  rowSeedRef.current = initial;
   const treePosts = useMemo(() => flattenTreePosts(replyTree), [replyTree]);
   const replyRows = useMemo(() => {
     const rows = buildReplyRows(replyTree, conversation.root?.accountId);
@@ -596,6 +609,10 @@ export function LivePersonalPostPanel({
         }
         if (refreshRequestIdRef.current !== requestId) return;
 
+        const keepRow =
+          Boolean(options.background) &&
+          feedRowSeedMatches(rowSeedRef.current, { author, postId });
+
         if (!root && !options.background) {
           const indexed = await fetchIndexedPost({ author, postId });
           if (indexed?.groupId) {
@@ -605,15 +622,51 @@ export function LivePersonalPostPanel({
             return;
           }
         }
-        // Soft refresh must not blank a painted SSR thread on a null miss.
+        // Soft refresh must not blank a painted thread on a null miss.
+        // A feed-row open keeps that row and only notes a tombstone.
+        // A guild row in this pane is not a personal miss — read it with
+        // the group query, and leave the label alone if that read throws.
+        const seedRoot = rowSeedRef.current?.root ?? null;
+        const revisionRead = async (): Promise<PostRow | null | undefined> => {
+          if (!seedRoot || paintedRootQueryKind(seedRoot) === 'personal') {
+            return root;
+          }
+          const groupId = seedRoot.groupId?.trim();
+          if (!groupId) return undefined;
+          try {
+            return await client.query.groups.post({
+              author: seedRoot.accountId,
+              groupId,
+              postId: seedRoot.postId,
+            });
+          } catch {
+            return undefined;
+          }
+        };
         if (options.background && !root) {
+          if (keepRow && seedRoot) {
+            const read = await revisionRead();
+            if (refreshRequestIdRef.current !== requestId) return;
+            if (read !== undefined) {
+              setRootRevision(rowSeedRevision(seedRoot, read));
+            }
+          }
           return;
         }
 
-        setConversation((current) => ({
-          ...current,
-          root,
-        }));
+        if (keepRow && seedRoot) {
+          const read = await revisionRead();
+          if (refreshRequestIdRef.current !== requestId) return;
+          if (read !== undefined) {
+            setRootRevision(rowSeedRevision(seedRoot, read));
+          }
+        } else {
+          setRootRevision(null);
+          setConversation((current) => ({
+            ...current,
+            root,
+          }));
+        }
         setRepliesResolved(true);
         if (!options.background) {
           setLoadState(root ? 'ready' : 'missing');
@@ -710,6 +763,10 @@ export function LivePersonalPostPanel({
       sessionSeed.fromCache,
     ]
   );
+
+  useEffect(() => {
+    setRootRevision(null);
+  }, [rootPath]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1217,6 +1274,7 @@ export function LivePersonalPostPanel({
                 mediaUnmuted={mediaUnmuted}
                 mediaResumeIndex={mediaResumeIndex}
                 detailLayout
+                rootRevisionLabel={threadRootRevisionLabel(rootRevision)}
                 showRelationBadge={!hasParent}
                 authorProfiles={postAuthorProfiles}
                 engagement={engagement}
