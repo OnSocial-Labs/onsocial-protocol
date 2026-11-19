@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { act, createElement } from 'react';
+import { act, createElement, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PostRow } from '@onsocial/sdk';
@@ -40,7 +40,7 @@ vi.mock('next/link', () => ({
     onNavigate: _onNavigate,
     ...rest
   }: {
-    children?: unknown;
+    children?: ReactNode;
     href?: string;
     scroll?: boolean;
     onNavigate?: unknown;

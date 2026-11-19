@@ -20,8 +20,8 @@ type SeedPage = {
  * `directRepliesResolved`, so they keep today's root swap.
  */
 export function isFeedRowSeed(
-  initial: { directRepliesResolved?: boolean } | null | undefined
-): boolean {
+  initial: SeedPage | null | undefined
+): initial is SeedPage {
   return initial != null && typeof initial.directRepliesResolved !== 'boolean';
 }
 
