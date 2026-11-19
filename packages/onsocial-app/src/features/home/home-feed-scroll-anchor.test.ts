@@ -124,10 +124,6 @@ describe('restoreFeedAnchor', () => {
       scrollTo: () => {
         order.push('scroll');
       },
-      setScroll: (value: number) => {
-        order.push('set');
-        expect(value).toBe(340);
-      },
       stop: () => {
         order.push('stop');
       },
@@ -135,9 +131,16 @@ describe('restoreFeedAnchor', () => {
         order.push('start');
       },
     };
+    const wrapperScrollTo = vi.fn();
+    root.scrollTo = wrapperScrollTo as HTMLElement['scrollTo'];
     smoothScroll.registerAppLenis(root, lenis);
     restoreFeedAnchor(root, { key: 'a/2', top: -140 });
-    expect(order).toEqual(['set']);
+    // Coast gap stays (80px). Lenis scrollTo / stop / resize would snap it.
+    expect(order).toEqual([]);
+    expect(wrapperScrollTo).toHaveBeenCalledWith({
+      top: 340,
+      behavior: 'instant',
+    });
     expect(lenis.animatedScroll).toBe(340);
     expect(lenis.targetScroll).toBe(420);
     smoothScroll.unregisterAppLenis(root);

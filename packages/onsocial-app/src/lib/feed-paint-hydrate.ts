@@ -1,10 +1,12 @@
 import {
   postContentPath,
   type OnSocial,
+  type PostReactionState,
   type PostRow,
   type PostScarceEmbed,
   type ScarcesActiveListingRow,
   type ScarcesCollectionCurrentRow,
+  type ThreadCounts,
 } from '@onsocial/sdk';
 import { resolveScarceMediaUrl } from '@/features/market/market-listings';
 import { postScarceKey } from '@/features/scarces/scarce-embed-ledger';
@@ -405,12 +407,14 @@ export async function loadPostEngagementMap(
   }
   const missing = targets.filter((target) => !painted.has(target.key));
   const missingPaths = missing.map((target) => target.path);
+  const emptyThreadCounts: Record<string, ThreadCounts> = {};
+  const emptyReactionStates: Record<string, PostReactionState> = {};
 
   const [threadResult, reactionResult, amplifyResult] =
     await Promise.allSettled([
       missing.length > 0
         ? os.query.threads.countsByPaths(missingPaths)
-        : Promise.resolve({}),
+        : Promise.resolve(emptyThreadCounts),
       missing.length > 0
         ? os.query.reactions.statesForPosts(
             missing.map((target) => ({
@@ -418,14 +422,18 @@ export async function loadPostEngagementMap(
               postId: target.postId,
             }))
           )
-        : Promise.resolve({}),
+        : Promise.resolve(emptyReactionStates),
       os.query.socialSpend.amplifyCountsForPostPaths(paths),
     ]);
 
-  const threadCounts =
-    threadResult.status === 'fulfilled' ? threadResult.value : {};
-  const reactionStates =
-    reactionResult.status === 'fulfilled' ? reactionResult.value : {};
+  const threadCounts: Record<string, ThreadCounts> =
+    threadResult.status === 'fulfilled'
+      ? threadResult.value
+      : emptyThreadCounts;
+  const reactionStates: Record<string, PostReactionState> =
+    reactionResult.status === 'fulfilled'
+      ? reactionResult.value
+      : emptyReactionStates;
   const amplifyCounts =
     amplifyResult.status === 'fulfilled' ? amplifyResult.value : {};
 

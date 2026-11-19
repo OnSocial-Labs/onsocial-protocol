@@ -17,7 +17,6 @@ export type AppLenisScroll = {
   /** Coast target. Present on the Lenis instance. */
   targetScroll?: number;
   resize: () => void;
-  setScroll?: (scroll: number) => void;
   scrollTo: (target: number, options?: AppLenisScrollToOptions) => void;
   /** Cancel in-flight wheel coast before an immediate adopt. */
   stop?: () => void;
@@ -42,8 +41,10 @@ export function adoptAppLenisScroll(root: HTMLElement): void {
 
 /**
  * Move the live scroll by `delta` without cancelling a wheel coast.
- * Lenis `resize()` and `stop()` both snap the target and read as a hitch
- * when a preloaded row settles while the reader is still moving.
+ * Lenis `resize()`, `stop()`, and `scrollTo({ immediate: true })` snap the
+ * target — immediate `scrollTo` also `reset()`s the animation — and that
+ * reads as a hitch when a preloaded row settles while the reader is still
+ * moving. Private `setScroll` only writes the wrapper (`behavior: 'instant'`).
  */
 export function shiftAppLenisScroll(root: HTMLElement, delta: number): void {
   if (!Number.isFinite(delta) || Math.abs(delta) < 1) return;
@@ -58,7 +59,7 @@ export function shiftAppLenisScroll(root: HTMLElement, delta: number): void {
   }
   smooth.animatedScroll += delta;
   smooth.targetScroll += delta;
-  smooth.setScroll?.(smooth.animatedScroll);
+  root.scrollTo({ top: smooth.animatedScroll, behavior: 'instant' });
 }
 
 const byElement = new WeakMap<HTMLElement, AppLenisScroll>();
