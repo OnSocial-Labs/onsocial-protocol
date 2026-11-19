@@ -9,7 +9,7 @@ WHERE account_id IN ('hotfeed.near', 'hotfeed-src.near');
 
 INSERT INTO posts_current (
   account_id, post_id, value, block_height, block_timestamp,
-  parent_path, parent_author, ref_path, ref_author, ref_type, group_id
+  parent_path, parent_author, ref_path, ref_author, ref_type, group_id, kind
 )
 SELECT
   'hotfeed.near',
@@ -22,7 +22,12 @@ SELECT
   CASE WHEN i = 0 THEN 'hotfeed-src.near/post/quoted' ELSE '' END,
   CASE WHEN i = 0 THEN 'hotfeed-src.near' ELSE '' END,
   CASE WHEN i = 0 THEN 'quote' ELSE '' END,
-  ''
+  '',
+  CASE
+    WHEN i = 0 THEN 'longform'
+    WHEN i = 1 THEN 'note'
+    ELSE ''
+  END
 FROM generate_series(0, 47) AS i;
 
 INSERT INTO posts_current (

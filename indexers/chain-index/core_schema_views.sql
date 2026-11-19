@@ -1385,34 +1385,45 @@ AS $$
       p.account_id,
       p.post_id
     FROM posts_feed_rank p
-    WHERE (author IS NULL OR btrim(author) = '' OR p.account_id = author)
-      AND (kind IS NULL OR btrim(kind) = '' OR p.kind = kind)
+    WHERE (
+        feed_hot.author IS NULL
+        OR btrim(feed_hot.author) = ''
+        OR p.account_id = feed_hot.author
+      )
       AND (
-        section IS NULL
-        OR btrim(section) = ''
+        feed_hot.kind IS NULL
+        OR btrim(feed_hot.kind) = ''
+        OR p.kind = feed_hot.kind
+      )
+      AND (
+        feed_hot.section IS NULL
+        OR btrim(feed_hot.section) = ''
         OR (
-          section = 'posts'
+          feed_hot.section = 'posts'
           AND p.parent_path = ''
           AND p.ref_type <> 'repost'
         )
         OR (
-          section = 'replies'
+          feed_hot.section = 'replies'
           AND p.parent_path <> ''
         )
         OR (
-          section = 'reposts'
+          feed_hot.section = 'reposts'
           AND p.ref_type = 'repost'
         )
       )
-      AND (accounts IS NULL OR p.account_id = ANY (accounts))
       AND (
-        NOT COALESCE(native_only, false)
+        feed_hot.accounts IS NULL
+        OR p.account_id = ANY (feed_hot.accounts)
+      )
+      AND (
+        NOT COALESCE(feed_hot.native_only, false)
         OR p.parent_path = ''
-        OR p.parent_author = ANY (COALESCE(accounts, ARRAY[]::text[]))
+        OR p.parent_author = ANY (COALESCE(feed_hot.accounts, ARRAY[]::text[]))
       )
     ORDER BY p.amplify_heat DESC, p.block_height DESC
-    LIMIT GREATEST(COALESCE(row_limit, 0), 0)
-    OFFSET GREATEST(COALESCE(row_offset, 0), 0)
+    LIMIT GREATEST(COALESCE(feed_hot.row_limit, 0), 0)
+    OFFSET GREATEST(COALESCE(feed_hot.row_offset, 0), 0)
   )
   SELECT f.*
   FROM page pg

@@ -106,7 +106,34 @@ filters AS (
       )
       WHERE account_id = 'hotfeed.near'
         AND post_id = 'reply-a'
-    ) AS native_keep
+    ) AS native_keep,
+    (
+      SELECT COUNT(*)
+      FROM feed_hot(100, 0, NULL, 'longform')
+    ) AS longform_count,
+    (
+      SELECT COUNT(*)
+      FROM feed_hot(100, 0, NULL, 'longform')
+      WHERE account_id = 'hotfeed.near'
+        AND post_id = 'p00'
+    ) AS longform_hit,
+    (
+      SELECT COUNT(*)
+      FROM feed_hot(100, 0, NULL, 'note')
+      WHERE account_id = 'hotfeed.near'
+        AND post_id = 'p01'
+    ) AS note_hit,
+    (
+      SELECT COUNT(*)
+      FROM feed_hot(100, 0, 'hotfeed-src.near')
+      WHERE account_id = 'hotfeed.near'
+    ) AS author_leak,
+    (
+      SELECT COUNT(*)
+      FROM feed_hot(100, 0, 'hotfeed-src.near')
+      WHERE account_id = 'hotfeed-src.near'
+        AND post_id = 'origin'
+    ) AS author_hit
 )
 SELECT CASE
   WHEN (SELECT body FROM fn WHERE off = 0)
@@ -118,6 +145,11 @@ SELECT CASE
    AND (SELECT section_leak FROM filters) = 0
    AND (SELECT native_leak FROM filters) = 0
    AND (SELECT native_keep FROM filters) = 1
+   AND (SELECT longform_count FROM filters) = 1
+   AND (SELECT longform_hit FROM filters) = 1
+   AND (SELECT note_hit FROM filters) = 1
+   AND (SELECT author_leak FROM filters) = 0
+   AND (SELECT author_hit FROM filters) = 1
   THEN 'ok'
   ELSE concat(
     'bad spotlight=', COALESCE((SELECT body FROM spotlight), 'missing'),
@@ -125,6 +157,11 @@ SELECT CASE
     ' section_leak=', (SELECT section_leak FROM filters),
     ' native_leak=', (SELECT native_leak FROM filters),
     ' native_keep=', (SELECT native_keep FROM filters),
+    ' longform_count=', (SELECT longform_count FROM filters),
+    ' longform_hit=', (SELECT longform_hit FROM filters),
+    ' note_hit=', (SELECT note_hit FROM filters),
+    ' author_leak=', (SELECT author_leak FROM filters),
+    ' author_hit=', (SELECT author_hit FROM filters),
     E'\nfn0\n', COALESCE((SELECT body FROM fn WHERE off = 0), ''),
     E'\nvw0\n', COALESCE((SELECT body FROM vw WHERE off = 0), '')
   )
