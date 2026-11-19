@@ -934,29 +934,92 @@ describe('QueryModule', () => {
       expect(latched.query).toContain('amplifyHeat: DESC');
     });
 
+    it('falls back to postsFeed when feedRecent is not deployed', async () => {
+      const queries: string[] = [];
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        queries.push(query);
+        if (query.includes('feedRecent')) {
+          return {
+            errors: [
+              {
+                message: "field 'feedRecent' not found in type: 'query_root'",
+              },
+            ],
+            data: null,
+          };
+        }
+        return {
+          data: {
+            postsFeed: [
+              {
+                accountId: 'a.near',
+                postId: 'p1',
+                value: '{}',
+                blockHeight: 1,
+                blockTimestamp: 0,
+              },
+            ],
+          },
+        };
+      });
+
+      const page = await os.query.feed.recent({ author: 'a.near', limit: 20 });
+      expect(page.items).toHaveLength(1);
+      expect(queries[0]).toContain('feedRecent');
+      expect(queries[1]).toContain('postsFeed(');
+      expect(queries[1]).toContain('accountId: {_eq: $author}');
+      expect(queries[1]).toContain('blockHeight: DESC');
+
+      await os.query.feed.recent({ author: 'a.near', limit: 20 });
+      expect(fetch).toHaveBeenCalledTimes(3);
+      const latched = JSON.parse(String(fetch.mock.calls[2][1].body));
+      expect(latched.query).not.toContain('feedRecent');
+      expect(latched.query).toContain('postsFeed(');
+      expect(latched.query).toContain('accountId: {_eq: $author}');
+      expect(latched.query).toContain('blockHeight: DESC');
+    });
+
+    it('rejects a feedRecent database error instead of falling back', async () => {
+      const { os, fetch } = makeOsWithGraph(() => ({
+        errors: [{ message: 'database query error' }],
+        data: null,
+      }));
+
+      await expect(
+        os.query.feed.recent({ author: 'a.near', limit: 20 })
+      ).rejects.toThrow(/database query error/);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
     // Indexer stores empty strings (not NULLs) for parentPath / refType —
     // section filters must use equality, never _isNull.
     it('filters roots without repost shells for section posts', async () => {
       const { os, fetch } = makeOs({ data: { postsFeed: [] } });
       await os.query.feed.recent({ author: 'a.near', section: 'posts' });
       const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.query).toContain('accountId: {_eq: $author}');
-      expect(body.query).toContain('parentPath: {_eq: ""}');
-      expect(body.query).toContain('refType: {_neq: "repost"}');
+      expect(body.query).toContain('feedRecent');
+      expect(body.query).toContain('section: $section');
+      expect(body.variables).toMatchObject({
+        author: 'a.near',
+        section: 'posts',
+      });
     });
 
     it('filters replies by non-empty parentPath', async () => {
       const { os, fetch } = makeOs({ data: { postsFeed: [] } });
       await os.query.feed.recent({ author: 'a.near', section: 'replies' });
       const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.query).toContain('parentPath: {_neq: ""}');
+      expect(body.query).toContain('feedRecent');
+      expect(body.variables.section).toBe('replies');
     });
 
     it('filters reposts by refType', async () => {
       const { os, fetch } = makeOs({ data: { postsFeed: [] } });
       await os.query.feed.recent({ author: 'a.near', section: 'reposts' });
       const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.query).toContain('refType: {_eq: "repost"}');
+      expect(body.query).toContain('feedRecent');
+      expect(body.variables.section).toBe('reposts');
     });
 
     it('omits the where clause without author or section', async () => {
@@ -976,8 +1039,8 @@ describe('QueryModule', () => {
         kind: 'longform',
       });
       const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.query).toContain('kind: {_eq: $kind}');
-      expect(body.query).toContain('$kind: String!');
+      expect(body.query).toContain('feedRecent');
+      expect(body.query).toContain('kind: $kind');
       expect(body.variables).toMatchObject({ kind: 'longform' });
     });
 
@@ -985,6 +1048,7 @@ describe('QueryModule', () => {
       const { os, fetch } = makeOs({ data: { postsFeed: [] } });
       await os.query.feed.recent({ author: 'a.near', kind: '  ' });
       const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('feedRecent');
       expect(body.query).not.toContain('$kind');
       expect(body.variables).not.toHaveProperty('kind');
     });
@@ -1246,9 +1310,9 @@ describe('QueryModule', () => {
 
       expect(page.items).toHaveLength(1);
       const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.query).toContain('postsFeed');
-      expect(body.query).toContain('_in: $accounts');
-      expect(body.variables.accounts).toEqual(['bob.near', 'carol.near']);
+      expect(body.query).toContain('feedRecent');
+      expect(body.query).toContain('accounts: $accounts');
+      expect(body.variables.accounts).toBe('{"bob.near","carol.near"}');
     });
 
     it('returns empty for empty standing list', async () => {
@@ -1265,8 +1329,9 @@ describe('QueryModule', () => {
         nativeOnly: true,
       });
       const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.query).toContain('parentPath: {_eq: ""}');
-      expect(body.query).toContain('parentAuthor: {_in: $accounts}');
+      expect(body.query).toContain('feedRecent');
+      expect(body.query).toContain('native_only: $native_only');
+      expect(body.variables.native_only).toBe(true);
       expect(body.query).not.toContain('feedHot');
     });
 
@@ -1430,11 +1495,10 @@ describe('QueryModule', () => {
 
       expect(page.items).toHaveLength(1);
       const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.query).toContain('postsFeed');
-      expect(body.query).toContain('accountId: {_in: $accounts}');
-      expect(body.query).toContain('channel: {_eq: $channel}');
-      expect(body.query).toContain('kind: {_eq: $kind}');
-      expect(body.variables.accounts).toEqual(['bob.near', 'carol.near']);
+      expect(body.query).toContain('feedRecent');
+      expect(body.query).toContain('channel: $channel');
+      expect(body.query).toContain('kind: $kind');
+      expect(body.variables.accounts).toBe('{"bob.near","carol.near"}');
       expect(body.variables.channel).toBe('engineering');
       expect(body.variables.kind).toBe('announcement');
     });
@@ -1463,8 +1527,9 @@ describe('QueryModule', () => {
 
       expect(page.items).toHaveLength(1);
       const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.query).toContain('audiences: {_like: $audienceLike}');
-      expect(body.variables.audienceLike).toBe('%|employees|%');
+      expect(body.query).toContain('feedRecent');
+      expect(body.query).toContain('audience_like: $audience_like');
+      expect(body.variables.audience_like).toBe('%|employees|%');
     });
 
     it('returns empty for empty standing list', async () => {

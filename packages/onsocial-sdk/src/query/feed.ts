@@ -103,7 +103,8 @@ function isFeedHotUnavailableError(err: unknown): boolean {
 /**
  * Hot page via `feed_hot`. The alias keeps the payload on `postsFeed` so
  * callers and stubs that already read that field stay on one shape.
- * Recent sort does not use this — `block_height` can limit before counts.
+ * Unfiltered chronological reads can limit on `block_height` before counts.
+ * An author or account list cannot, so those pages use `feed_recent`.
  */
 function feedHotQuery(
   fields: string,
@@ -144,6 +145,64 @@ function feedHotQuery(
       }`;
 }
 
+/** Chronological page via `feed_recent`. Same alias as `feedHotQuery`. */
+function feedRecentQuery(
+  fields: string,
+  opts: {
+    author?: boolean;
+    kind?: boolean;
+    section?: boolean;
+    accounts?: boolean;
+    nativeOnly?: boolean;
+    channel?: boolean;
+    audience?: boolean;
+  }
+): string {
+  const params = ['$limit: Int!', '$offset: Int!'];
+  const args = ['row_limit: $limit', 'row_offset: $offset'];
+  if (opts.author) {
+    params.push('$author: String');
+    args.push('author: $author');
+  }
+  if (opts.kind) {
+    params.push('$kind: String');
+    args.push('kind: $kind');
+  }
+  if (opts.section) {
+    params.push('$section: String');
+    args.push('section: $section');
+  }
+  if (opts.accounts) {
+    params.push('$accounts: _text');
+    args.push('accounts: $accounts');
+  }
+  if (opts.nativeOnly) {
+    params.push('$native_only: Boolean');
+    args.push('native_only: $native_only');
+  }
+  if (opts.channel) {
+    params.push('$channel: String');
+    args.push('channel: $channel');
+  }
+  if (opts.audience) {
+    params.push('$audience_like: String');
+    args.push('audience_like: $audience_like');
+  }
+  // Operation name stays `Posts`. Thread discover-peek stubs match `query Posts(`.
+  return `query Posts(${params.join(', ')}) {
+        postsFeed: feedRecent(args: { ${args.join(', ')} }) {
+          ${fields}
+        }
+      }`;
+}
+
+function isFeedRecentUnavailableError(err: unknown): boolean {
+  if (!(err instanceof GraphQLValidationError)) return false;
+  const hay =
+    `${err.message} ${err.errors.map((e) => e.message ?? '').join(' ')}`.toLowerCase();
+  return hay.includes('feedrecent') || hay.includes('feed_recent');
+}
+
 /** Topic index `heat` column not tracked yet (deploy lag). */
 function isTopicHeatUnavailableError(err: unknown): boolean {
   if (!(err instanceof GraphQLValidationError)) return false;
@@ -178,6 +237,8 @@ export class FeedQuery {
 
   /** Set when GraphQL rejects `feedHot` (function not tracked yet). */
   private feedHotFallback = new SchemaFallback();
+  /** Set when GraphQL rejects `feedRecent` (function not tracked yet). */
+  private feedRecentFallback = new SchemaFallback();
 
   /** Set when topic index views reject `heat` ordering (column not tracked yet). */
   private topicHeatFallback = new SchemaFallback();
@@ -275,6 +336,12 @@ export class FeedQuery {
      */
     feedHotQuery?: string;
     feedHotVariables?: Record<string, unknown>;
+    /**
+     * Chronological page from `feed_recent`. Used when an author or account
+     * list would make `postsFeed` count every matching post before LIMIT.
+     */
+    feedRecentQuery?: string;
+    feedRecentVariables?: Record<string, unknown>;
   }): Promise<PostRow[]> {
     if (
       args.feedHotQuery &&
@@ -312,6 +379,45 @@ export class FeedQuery {
           this.feedHotFallback.trip();
         } else {
           throw err;
+        }
+      }
+    }
+
+    if (
+      args.feedRecentQuery &&
+      !this.feedRecentFallback.active &&
+      !this.amplifyHeatFallback.active
+    ) {
+      const recentQuery = this.feedPaintFallback.active
+        ? stripFeedPaintFields(args.feedRecentQuery)
+        : args.feedRecentQuery;
+      try {
+        const res = await this._q.graphql<{ postsFeed: PostRow[] }>({
+          query: recentQuery,
+          variables: args.feedRecentVariables ?? args.variables,
+        });
+        if (recentQuery.includes(FEED_POST_ROW_PAINT_FIELDS)) {
+          this.feedPaintFallback.clear();
+        }
+        this.feedRecentFallback.clear();
+        return res.data?.postsFeed ?? [];
+      } catch (err) {
+        if (
+          recentQuery.includes('replyCount') &&
+          isFeedPaintUnavailableError(err)
+        ) {
+          this.feedPaintFallback.trip();
+          return this.queryFeedRows({
+            ...args,
+            feedRecentQuery: stripFeedPaintFields(args.feedRecentQuery),
+          });
+        }
+        if (isAmplifyHeatUnavailableError(err)) {
+          this.amplifyHeatFallback.trip();
+        } else if (!isFeedRecentUnavailableError(err)) {
+          throw err;
+        } else {
+          this.feedRecentFallback.trip();
         }
       }
     }
@@ -518,6 +624,8 @@ export class FeedQuery {
 
     const chronoOrder = feedOrderByClause('recent');
     const hot = sort === 'hot';
+    const chronoNarrow =
+      !hot && (hasAuthor || Boolean(kind) || Boolean(opts.section));
     const rows = await this.queryFeedRows({
       variables,
       ...(hot
@@ -528,6 +636,22 @@ export class FeedQuery {
               section: Boolean(opts.section),
             }),
             feedHotVariables: {
+              limit,
+              offset,
+              ...(hasAuthor ? { author: opts.author } : {}),
+              ...(kind ? { kind } : {}),
+              ...(opts.section ? { section: opts.section } : {}),
+            },
+          }
+        : {}),
+      ...(chronoNarrow
+        ? {
+            feedRecentQuery: feedRecentQuery(FEED_POST_ROW_FIELDS, {
+              author: hasAuthor,
+              kind: Boolean(kind),
+              section: Boolean(opts.section),
+            }),
+            feedRecentVariables: {
               limit,
               offset,
               ...(hasAuthor ? { author: opts.author } : {}),
@@ -625,7 +749,18 @@ export class FeedQuery {
               ...(opts.nativeOnly ? { native_only: true } : {}),
             },
           }
-        : {}),
+        : {
+            feedRecentQuery: feedRecentQuery(FEED_POST_ROW_FIELDS, {
+              accounts: true,
+              nativeOnly: Boolean(opts.nativeOnly),
+            }),
+            feedRecentVariables: {
+              accounts: pulseAccountsTextArray(opts.accounts),
+              limit,
+              offset,
+              ...(opts.nativeOnly ? { native_only: true } : {}),
+            },
+          }),
       postsFeedQuery: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!) {
         postsFeed(
           ${where},
@@ -765,6 +900,22 @@ export class FeedQuery {
 
     const rows = await this.queryFeedRows({
       variables,
+      feedRecentQuery: feedRecentQuery(FEED_POST_ROW_FIELDS, {
+        accounts: true,
+        channel: opts.channel !== undefined,
+        kind: opts.kind !== undefined,
+        audience: opts.audience !== undefined,
+      }),
+      feedRecentVariables: {
+        accounts: pulseAccountsTextArray(opts.accounts),
+        limit,
+        offset,
+        ...(opts.channel !== undefined ? { channel: opts.channel } : {}),
+        ...(opts.kind !== undefined ? { kind: opts.kind } : {}),
+        ...(opts.audience !== undefined
+          ? { audience_like: audienceLikeValue(opts.audience) }
+          : {}),
+      },
       postsFeedQuery: `query FilteredFeed($accounts: [String!]!, $limit: Int!, $offset: Int!${filterExtras}) {
         postsFeed(
           where: {_and: [

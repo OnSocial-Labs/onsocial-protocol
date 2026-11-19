@@ -1220,10 +1220,11 @@ LEFT JOIN groups_current g
 LEFT JOIN post_amplify_heat h
   ON h.post_path = src.content_path;
 
--- feed_pulse and feed_hot return SETOF posts_feed. Drop them before the
--- column list grows; both are recreated below.
+-- feed_pulse, feed_hot, and feed_recent return SETOF posts_feed. Drop them
+-- before the column list grows; all three are recreated below.
 DROP FUNCTION IF EXISTS feed_pulse(text[], integer, integer, text);
 DROP FUNCTION IF EXISTS feed_hot(integer, integer, text, text, text, text[], boolean);
+DROP FUNCTION IF EXISTS feed_recent(integer, integer, text, text, text, text[], boolean, text, text);
 
 CREATE OR REPLACE VIEW posts_feed AS
 SELECT
@@ -1437,10 +1438,97 @@ AS $$
   ORDER BY f.amplify_heat DESC, f.block_height DESC;
 $$;
 
+-- Chronological page for profile, Circle, and filtered account lists.
+-- Same cut as feed_hot, ordered by block_height. An author filter on the
+-- posts_feed view itself sorts after the count laterals.
+CREATE OR REPLACE FUNCTION feed_recent(
+  row_limit integer,
+  row_offset integer,
+  author text DEFAULT NULL,
+  kind text DEFAULT NULL,
+  section text DEFAULT NULL,
+  accounts text[] DEFAULT NULL,
+  native_only boolean DEFAULT false,
+  channel text DEFAULT NULL,
+  audience_like text DEFAULT NULL
+)
+RETURNS SETOF posts_feed
+LANGUAGE sql
+STABLE
+AS $$
+  WITH page AS MATERIALIZED (
+    SELECT
+      p.account_id,
+      p.post_id
+    FROM posts_feed_rank p
+    WHERE (
+        feed_recent.author IS NULL
+        OR btrim(feed_recent.author) = ''
+        OR p.account_id = feed_recent.author
+      )
+      AND (
+        feed_recent.kind IS NULL
+        OR btrim(feed_recent.kind) = ''
+        OR p.kind = feed_recent.kind
+      )
+      AND (
+        feed_recent.section IS NULL
+        OR btrim(feed_recent.section) = ''
+        OR (
+          feed_recent.section = 'posts'
+          AND p.parent_path = ''
+          AND p.ref_type <> 'repost'
+        )
+        OR (
+          feed_recent.section = 'replies'
+          AND p.parent_path <> ''
+        )
+        OR (
+          feed_recent.section = 'reposts'
+          AND p.ref_type = 'repost'
+        )
+      )
+      AND (
+        feed_recent.accounts IS NULL
+        OR p.account_id = ANY (feed_recent.accounts)
+      )
+      AND (
+        NOT COALESCE(feed_recent.native_only, false)
+        OR p.parent_path = ''
+        OR p.parent_author = ANY (COALESCE(feed_recent.accounts, ARRAY[]::text[]))
+      )
+      AND (
+        feed_recent.channel IS NULL
+        OR btrim(feed_recent.channel) = ''
+        OR p.channel = feed_recent.channel
+      )
+      AND (
+        feed_recent.audience_like IS NULL
+        OR btrim(feed_recent.audience_like) = ''
+        OR p.audiences LIKE feed_recent.audience_like
+      )
+    ORDER BY p.block_height DESC
+    LIMIT GREATEST(COALESCE(feed_recent.row_limit, 0), 0)
+    OFFSET GREATEST(COALESCE(feed_recent.row_offset, 0), 0)
+  )
+  SELECT f.*
+  FROM page pg
+  JOIN LATERAL (
+    SELECT *
+    FROM posts_feed f
+    WHERE f.account_id = pg.account_id
+      AND f.post_id = pg.post_id
+    OFFSET 0
+  ) f ON true
+  ORDER BY f.block_height DESC;
+$$;
+
 -- Pulse — one page of Home cards: Circle roots (plus newest self-reply)
 -- and stranger roots a circle member replied into. Rank uses posts_feed_rank
--- (author, time, boost). Counts and quoted posts join from posts_feed onto
--- the page only. `card_limit` / `card_offset` page events, not raw rows.
+-- (author, time, boost). The page is materialized, then counts and quoted
+-- posts come from posts_feed for that page only. A zero offset keeps each
+-- join from being flattened back into a whole-view count.
+-- `card_limit` / `card_offset` page events, not raw rows.
 CREATE OR REPLACE FUNCTION feed_pulse(
   accounts text[],
   card_limit integer,
@@ -1637,7 +1725,7 @@ AS $$
       ) AS rn
     FROM events e
   ),
-  page AS (
+  page AS MATERIALIZED (
     SELECT *
     FROM ranked
     WHERE rn > GREATEST(COALESCE(card_offset, 0), 0)
@@ -1650,9 +1738,13 @@ AS $$
       1 AS role,
       p.*
     FROM page pg
-    JOIN posts_feed p
-      ON p.account_id = pg.account_id
-     AND p.post_id = pg.post_id
+    JOIN LATERAL (
+      SELECT *
+      FROM posts_feed f
+      WHERE f.account_id = pg.account_id
+        AND f.post_id = pg.post_id
+      OFFSET 0
+    ) p ON true
     WHERE pg.event_kind = 0
     UNION ALL
     SELECT
@@ -1660,9 +1752,13 @@ AS $$
       1 AS role,
       p.*
     FROM page pg
-    JOIN posts_feed p
-      ON p.account_id = pg.account_id
-     AND p.post_id = pg.post_id
+    JOIN LATERAL (
+      SELECT *
+      FROM posts_feed f
+      WHERE f.account_id = pg.account_id
+        AND f.post_id = pg.post_id
+      OFFSET 0
+    ) p ON true
     WHERE pg.event_kind = 1
     UNION ALL
     SELECT
@@ -1670,9 +1766,13 @@ AS $$
       2 AS role,
       p.*
     FROM page pg
-    JOIN posts_feed p
-      ON p.account_id = pg.peek_account_id
-     AND p.post_id = pg.peek_post_id
+    JOIN LATERAL (
+      SELECT *
+      FROM posts_feed f
+      WHERE f.account_id = pg.peek_account_id
+        AND f.post_id = pg.peek_post_id
+      OFFSET 0
+    ) p ON true
     WHERE pg.peek_account_id IS NOT NULL
   )
   SELECT
