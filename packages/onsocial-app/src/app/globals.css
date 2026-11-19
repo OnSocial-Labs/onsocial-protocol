@@ -23730,19 +23730,25 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.34);
   }
 
-  /* Overlay so Edited / Deleted does not grow the time line. */
-  .post-card-detail-time.has-revision {
+  /* Label sits beside the stamp. Padding keeps a long time off the word. */
+  .post-card-detail-meta {
     position: relative;
+  }
+
+  .post-card-detail-time.has-revision {
+    padding-right: 4.75rem;
   }
 
   .post-card-detail-revision {
     position: absolute;
-    top: 0;
+    top: 0.5rem;
     right: 0;
     z-index: 1;
-    font: inherit;
-    line-height: inherit;
-    color: inherit;
+    font-family: var(--app-font-sans);
+    font-size: var(--os-identity-meta-size, 0.875rem);
+    font-weight: 400;
+    line-height: 1.3;
+    color: rgb(var(--fg-rgb) / 0.34);
     pointer-events: none;
     white-space: nowrap;
   }

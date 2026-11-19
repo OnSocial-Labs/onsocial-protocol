@@ -86,6 +86,7 @@ import {
 } from '@/lib/thread-open';
 import {
   feedRowSeedMatches,
+  paintedRootQueryKind,
   rowSeedRevision,
   threadRootRevisionLabel,
   type ThreadRootRevision,
@@ -488,7 +489,9 @@ export function LivePersonalPostPanel({
   );
   const replyRowEstimates = useMemo(
     () =>
-      sortedReplyRows.map((row) => threadReplyRowEstimatePx(row, quotedPosts)),
+      sortedReplyRows.map((row) =>
+        threadReplyRowEstimatePx(row, quotedPosts)
+      ),
     [sortedReplyRows, quotedPosts]
   );
   const replyStackRef = useRef<HTMLDivElement | null>(null);
@@ -621,16 +624,42 @@ export function LivePersonalPostPanel({
         }
         // Soft refresh must not blank a painted thread on a null miss.
         // A feed-row open keeps that row and only notes a tombstone.
+        // A guild row in this pane is not a personal miss — read it with
+        // the group query, and leave the label alone if that read throws.
         const seedRoot = rowSeedRef.current?.root ?? null;
+        const revisionRead = async (): Promise<PostRow | null | undefined> => {
+          if (!seedRoot || paintedRootQueryKind(seedRoot) === 'personal') {
+            return root;
+          }
+          const groupId = seedRoot.groupId?.trim();
+          if (!groupId) return undefined;
+          try {
+            return await client.query.groups.post({
+              author: seedRoot.accountId,
+              groupId,
+              postId: seedRoot.postId,
+            });
+          } catch {
+            return undefined;
+          }
+        };
         if (options.background && !root) {
           if (keepRow && seedRoot) {
-            setRootRevision(rowSeedRevision(seedRoot, null));
+            const read = await revisionRead();
+            if (refreshRequestIdRef.current !== requestId) return;
+            if (read !== undefined) {
+              setRootRevision(rowSeedRevision(seedRoot, read));
+            }
           }
           return;
         }
 
         if (keepRow && seedRoot) {
-          setRootRevision(rowSeedRevision(seedRoot, root));
+          const read = await revisionRead();
+          if (refreshRequestIdRef.current !== requestId) return;
+          if (read !== undefined) {
+            setRootRevision(rowSeedRevision(seedRoot, read));
+          }
         } else {
           setRootRevision(null);
           setConversation((current) => ({
@@ -844,7 +873,10 @@ export function LivePersonalPostPanel({
     scrollRootRef: threadScrollRef,
     sentinelRef: replyLoadMoreRef,
     enabled:
-      hasMoreReplies && !loadingMore && !loadMoreError && loadState === 'ready',
+      hasMoreReplies &&
+      !loadingMore &&
+      !loadMoreError &&
+      loadState === 'ready',
     onIntersect: () => {
       void loadMoreReplies();
     },

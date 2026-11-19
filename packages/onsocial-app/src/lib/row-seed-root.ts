@@ -25,6 +25,20 @@ export function isFeedRowSeed(
   return initial != null && typeof initial.directRepliesResolved !== 'boolean';
 }
 
+/**
+ * Personal `postsCurrent` requires `isGroupContent: false`. A guild row
+ * opened in that pane (photo, audio, article) misses that filter. An empty
+ * personal read is not a tombstone for it — the group query is.
+ */
+export function paintedRootQueryKind(
+  root: { groupId?: string | null; isGroupContent?: boolean } | null | undefined
+): 'personal' | 'group' {
+  if (!root) return 'personal';
+  if (root.isGroupContent === true) return 'group';
+  if (root.groupId?.trim()) return 'group';
+  return 'personal';
+}
+
 /** The seed is the post this sheet is showing, not a stale open. */
 export function feedRowSeedMatches(
   initial: SeedPage | null | undefined,

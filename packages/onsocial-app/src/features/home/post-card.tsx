@@ -306,6 +306,7 @@ export {
 } from '@/features/home/post-skeleton';
 export type { PostSkeletonFrame } from '@/features/home/post-skeleton';
 
+
 /** Shared fallback so the scarce-CTA bundle keeps a stable embed identity. */
 const EMPTY_SCARCE_EMBED: PostScarceEmbed = {
   status: 'none',
@@ -462,10 +463,7 @@ function PostCardImpl({
   const dismissPhotoThread = useCallback(() => {
     setPhotoThreadOpen(false);
   }, []);
-  useEffect(
-    () => onDismissReplyDrawers(dismissPhotoThread),
-    [dismissPhotoThread]
-  );
+  useEffect(() => onDismissReplyDrawers(dismissPhotoThread), [dismissPhotoThread]);
   const [menuForceEmbed, setMenuForceEmbed] = useState(false);
   const [cancelScarcePending, setCancelScarcePending] = useState(false);
   const isSelf =
@@ -768,7 +766,8 @@ function PostCardImpl({
     mediaItems.length === 0 &&
     !showScarceArt &&
     (Boolean(dropPaint) || hasCollectionEmbed || hasTokenEmbed);
-  const scarceCtaLive = !isRepostShell && Boolean(scarceEmbed || canListScarce);
+  const scarceCtaLive =
+    !isRepostShell && Boolean(scarceEmbed || canListScarce);
   /** Jacket known from paint/refs before commerce soft-fills — hold the CTA row. */
   const scarceCtaSeat =
     !isRepostShell &&
@@ -1642,20 +1641,22 @@ function PostCardImpl({
           <QuotedPostInsetPending />
         ) : null}
         {detailLayout ? (
-          <time
-            className={`post-card-detail-time${
-              rootRevisionLabel ? ' has-revision' : ''
-            }`}
-            title={formatPostTimestamp(post.blockTimestamp)}
-            {...(detailTimestampIso ? { dateTime: detailTimestampIso } : {})}
-          >
-            {formatPostTimestamp(post.blockTimestamp)}
+          <div className="post-card-detail-meta">
+            <time
+              className={`post-card-detail-time${
+                rootRevisionLabel ? ' has-revision' : ''
+              }`}
+              title={formatPostTimestamp(post.blockTimestamp)}
+              {...(detailTimestampIso ? { dateTime: detailTimestampIso } : {})}
+            >
+              {formatPostTimestamp(post.blockTimestamp)}
+            </time>
             {rootRevisionLabel ? (
               <span className="post-card-detail-revision">
                 {rootRevisionLabel}
               </span>
             ) : null}
-          </time>
+          </div>
         ) : null}
         <PostEngagementRow
           {...engagementActions}

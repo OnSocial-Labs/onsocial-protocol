@@ -8,6 +8,7 @@ import type { PostRow } from '@onsocial/sdk';
 import type { PersonalPostPageData } from '@/lib/load-personal-post-page';
 
 const fetchPersonalPostMock = vi.hoisted(() => vi.fn());
+const groupsPost = vi.hoisted(() => vi.fn());
 const nav = vi.hoisted(() => ({
   router: {
     push: () => undefined,
@@ -56,6 +57,7 @@ function clientStub(): unknown {
   return new Proxy(call, {
     get(_target, prop) {
       if (prop === 'then') return undefined;
+      if (prop === 'post') return groupsPost;
       return clientStub();
     },
     apply() {
@@ -128,6 +130,8 @@ describe('personal post row seed', () => {
     clearThreadSessionCache();
     clearThreadFirstPageCache();
     fetchPersonalPostMock.mockReset();
+    groupsPost.mockReset();
+    groupsPost.mockResolvedValue(null);
     vi.stubGlobal('matchMedia', (query: string) => ({
       matches: false,
       media: query,
@@ -237,5 +241,56 @@ describe('personal post row seed', () => {
     expect(host.innerHTML).not.toContain('from the server');
     expect(host.innerHTML).not.toContain('Edited');
     expect(host.innerHTML).not.toContain('Deleted');
+  });
+
+  it('does not mark a live guild root Deleted from the personal miss', async () => {
+    const painted = indexedRow({
+      groupId: 'dao',
+      isGroupContent: true,
+      value: JSON.stringify({ v: 1, text: 'from the guild row' }),
+    });
+    fetchPersonalPostMock.mockResolvedValue(null);
+    groupsPost.mockResolvedValue(
+      fetched({
+        groupId: 'dao',
+        isGroupContent: true,
+        blockHeight: 200,
+        receiptId: 'receipt-row',
+        value: JSON.stringify({ v: 1, text: 'from the refetch' }),
+      })
+    );
+    await paint(page(painted));
+    expect(groupsPost).toHaveBeenCalledWith({
+      author: 'alice.near',
+      groupId: 'dao',
+      postId: 'p1',
+    });
+    expect(host.innerHTML).toContain('from the guild row');
+    expect(host.innerHTML).not.toContain('from the refetch');
+    expect(host.innerHTML).not.toContain('Deleted');
+    expect(host.innerHTML).not.toContain('Edited');
+
+    groupsPost.mockResolvedValue(
+      fetched({
+        groupId: 'dao',
+        isGroupContent: true,
+        blockHeight: 260,
+        receiptId: 'receipt-next',
+        value: JSON.stringify({ v: 1, text: 'from the refetch' }),
+      })
+    );
+    await paint(page(painted));
+    expect(host.innerHTML).toContain('from the guild row');
+    expect(host.innerHTML).toContain('Edited');
+    expect(host.innerHTML).not.toContain('Deleted');
+  });
+
+  it('leaves a guild root unlabeled when the group read throws', async () => {
+    fetchPersonalPostMock.mockResolvedValue(null);
+    groupsPost.mockRejectedValue(new Error('timeout'));
+    await paint(page(indexedRow({ groupId: 'dao', isGroupContent: true })));
+    expect(host.innerHTML).toContain('from the row');
+    expect(host.innerHTML).not.toContain('Deleted');
+    expect(host.innerHTML).not.toContain('post-card-detail-revision');
   });
 });

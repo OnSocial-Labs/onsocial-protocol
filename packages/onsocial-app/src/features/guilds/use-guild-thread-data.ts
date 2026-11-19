@@ -363,8 +363,9 @@ export function useGuildThreadData({
           setLoadState(root ? 'ready' : 'missing');
         }
 
-        const [quotesResult, treeResult, configResult] =
-          await Promise.allSettled([quotesPromise, treePromise, configPromise]);
+        const [quotesResult, treeResult, configResult] = await Promise.allSettled(
+          [quotesPromise, treePromise, configPromise]
+        );
         if (threadKeyRef.current !== threadKey) return;
         if (refreshRequestIdRef.current !== requestId) return;
 

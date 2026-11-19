@@ -3,6 +3,7 @@ import type { PostRow } from '@onsocial/sdk';
 import {
   feedRowSeedMatches,
   isFeedRowSeed,
+  paintedRootQueryKind,
   rowSeedRevision,
   threadRootRevisionLabel,
 } from '@/lib/row-seed-root';
@@ -56,6 +57,15 @@ describe('feed row seed', () => {
         { author: 'alice.near', postId: 'p1' }
       )
     ).toBe(false);
+  });
+});
+
+describe('paintedRootQueryKind', () => {
+  it('sends a guild row to the group read', () => {
+    expect(paintedRootQueryKind(row())).toBe('personal');
+    expect(paintedRootQueryKind(row({ groupId: 'dao' }))).toBe('group');
+    expect(paintedRootQueryKind(row({ isGroupContent: true }))).toBe('group');
+    expect(paintedRootQueryKind(null)).toBe('personal');
   });
 });
 
