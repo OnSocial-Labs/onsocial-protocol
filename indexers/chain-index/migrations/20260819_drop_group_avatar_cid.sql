@@ -6,6 +6,7 @@
 -- feed_pulse is RETURNS SETOF posts_feed — drop it before the view.
 
 DROP FUNCTION IF EXISTS feed_pulse(text[], integer, integer, text);
+DROP FUNCTION IF EXISTS feed_hot(integer, integer, text, text, text, text[], boolean);
 DROP VIEW IF EXISTS posts_feed;
 DROP VIEW IF EXISTS groups_by_member_count;
 DROP VIEW IF EXISTS group_member_counts;

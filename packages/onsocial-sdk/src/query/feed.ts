@@ -92,6 +92,58 @@ function isFeedPaintUnavailableError(err: unknown): boolean {
   );
 }
 
+/** `feed_hot` is not tracked yet (deploy lag). */
+function isFeedHotUnavailableError(err: unknown): boolean {
+  if (!(err instanceof GraphQLValidationError)) return false;
+  const hay =
+    `${err.message} ${err.errors.map((e) => e.message ?? '').join(' ')}`.toLowerCase();
+  return hay.includes('feedhot') || hay.includes('feed_hot');
+}
+
+/**
+ * Hot page via `feed_hot`. The alias keeps the payload on `postsFeed` so
+ * callers and stubs that already read that field stay on one shape.
+ * Recent sort does not use this — `block_height` can limit before counts.
+ */
+function feedHotQuery(
+  fields: string,
+  opts: {
+    author?: boolean;
+    kind?: boolean;
+    section?: boolean;
+    accounts?: boolean;
+    nativeOnly?: boolean;
+  }
+): string {
+  const params = ['$limit: Int!', '$offset: Int!'];
+  const args = ['row_limit: $limit', 'row_offset: $offset'];
+  if (opts.author) {
+    params.push('$author: String');
+    args.push('author: $author');
+  }
+  if (opts.kind) {
+    params.push('$kind: String');
+    args.push('kind: $kind');
+  }
+  if (opts.section) {
+    params.push('$section: String');
+    args.push('section: $section');
+  }
+  if (opts.accounts) {
+    params.push('$accounts: _text');
+    args.push('accounts: $accounts');
+  }
+  if (opts.nativeOnly) {
+    params.push('$native_only: Boolean');
+    args.push('native_only: $native_only');
+  }
+  return `query PostsFeedHot(${params.join(', ')}) {
+        postsFeed: feedHot(args: { ${args.join(', ')} }) {
+          ${fields}
+        }
+      }`;
+}
+
 /** Topic index `heat` column not tracked yet (deploy lag). */
 function isTopicHeatUnavailableError(err: unknown): boolean {
   if (!(err instanceof GraphQLValidationError)) return false;
@@ -123,6 +175,9 @@ export class FeedQuery {
 
   /** Set when the public-count / quoted-post columns are not tracked yet. */
   private feedPaintFallback = new SchemaFallback();
+
+  /** Set when GraphQL rejects `feedHot` (function not tracked yet). */
+  private feedHotFallback = new SchemaFallback();
 
   /** Set when topic index views reject `heat` ordering (column not tracked yet). */
   private topicHeatFallback = new SchemaFallback();
@@ -214,7 +269,53 @@ export class FeedQuery {
     variables: Record<string, unknown>;
     /** Chrono-only postsFeed query when amplifyHeat is not tracked yet. */
     postsFeedQueryNoHeat?: string;
+    /**
+     * Hot page from `feed_hot`. Tried before `postsFeed` so counts run for
+     * the page only. An unknown-function error falls through to `postsFeed`.
+     */
+    feedHotQuery?: string;
+    feedHotVariables?: Record<string, unknown>;
   }): Promise<PostRow[]> {
+    if (
+      args.feedHotQuery &&
+      !this.feedHotFallback.active &&
+      !this.amplifyHeatFallback.active
+    ) {
+      const hotQuery = this.feedPaintFallback.active
+        ? stripFeedPaintFields(args.feedHotQuery)
+        : args.feedHotQuery;
+      try {
+        const res = await this._q.graphql<{ postsFeed: PostRow[] }>({
+          query: hotQuery,
+          variables: args.feedHotVariables ?? args.variables,
+        });
+        if (hotQuery.includes(FEED_POST_ROW_PAINT_FIELDS)) {
+          this.feedPaintFallback.clear();
+        }
+        this.feedHotFallback.clear();
+        this.amplifyHeatFallback.clear();
+        return res.data?.postsFeed ?? [];
+      } catch (err) {
+        if (
+          hotQuery.includes('replyCount') &&
+          isFeedPaintUnavailableError(err)
+        ) {
+          this.feedPaintFallback.trip();
+          return this.queryFeedRows({
+            ...args,
+            feedHotQuery: stripFeedPaintFields(args.feedHotQuery),
+          });
+        }
+        if (isAmplifyHeatUnavailableError(err)) {
+          this.amplifyHeatFallback.trip();
+        } else if (isFeedHotUnavailableError(err)) {
+          this.feedHotFallback.trip();
+        } else {
+          throw err;
+        }
+      }
+    }
+
     const postsFeedQuery = this.feedPaintFallback.active
       ? stripFeedPaintFields(args.postsFeedQuery)
       : args.postsFeedQuery;
@@ -349,9 +450,11 @@ export class FeedQuery {
   /**
    * Recent / hot posts, optionally filtered by author and section.
    *
-   * `sort: 'hot'` orders by decaying amplify heat then block height
-   * (`posts_feed.amplify_heat`). Falls back to chronological when the
-   * enriched feed view is unavailable.
+   * `sort: 'hot'` orders by decaying amplify heat then block height.
+   * That page comes from `feed_hot`, which ranks on `posts_feed_rank` and
+   * attaches counts and quotes only for the rows returned. Falls back to
+   * `postsFeed` when the function is not deployed yet, and to chronological
+   * order when amplify heat is not tracked yet.
    *
    * `section` narrows server-side (indexer stores empty strings, not NULLs):
    * - `'posts'` — roots that are not repost shells
@@ -414,8 +517,25 @@ export class FeedQuery {
     ].join(', ');
 
     const chronoOrder = feedOrderByClause('recent');
+    const hot = sort === 'hot';
     const rows = await this.queryFeedRows({
       variables,
+      ...(hot
+        ? {
+            feedHotQuery: feedHotQuery(FEED_POST_ROW_FIELDS, {
+              author: hasAuthor,
+              kind: Boolean(kind),
+              section: Boolean(opts.section),
+            }),
+            feedHotVariables: {
+              limit,
+              offset,
+              ...(hasAuthor ? { author: opts.author } : {}),
+              ...(kind ? { kind } : {}),
+              ...(opts.section ? { section: opts.section } : {}),
+            },
+          }
+        : {}),
       postsFeedQuery: `query Posts(${params}) {
         postsFeed(${whereClause}limit: $limit, offset: $offset, orderBy: ${orderBy}) {
           ${FEED_POST_ROW_FIELDS}
@@ -488,9 +608,24 @@ export class FeedQuery {
     const chronoOrder = feedOrderByClause('recent');
     const where = accountsFeedWhere(Boolean(opts.nativeOnly));
     const variables = { accounts: opts.accounts, limit, offset };
+    const hot = sort === 'hot';
 
     const rows = await this.queryFeedRows({
       variables,
+      ...(hot
+        ? {
+            feedHotQuery: feedHotQuery(FEED_POST_ROW_FIELDS, {
+              accounts: true,
+              nativeOnly: Boolean(opts.nativeOnly),
+            }),
+            feedHotVariables: {
+              accounts: pulseAccountsTextArray(opts.accounts),
+              limit,
+              offset,
+              ...(opts.nativeOnly ? { native_only: true } : {}),
+            },
+          }
+        : {}),
       postsFeedQuery: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!) {
         postsFeed(
           ${where},

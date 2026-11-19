@@ -410,6 +410,61 @@ fresh"
         fi
       fi
 
+      hot_fn="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT COUNT(*) FROM pg_proc WHERE proname = '"'"'feed_hot'"'"';
+      ")"
+      if [ "$hot_fn" -lt 1 ]; then
+        echo "error: expected feed_hot() in $db" >&2
+        exit 1
+      fi
+
+      apply_sql "$db" /work/tests/fixtures/feed_hot_check.sql
+      hot_ok="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atf /work/tests/fixtures/feed_hot_assert.sql)"
+      if [ "$hot_ok" != "ok" ]; then
+        echo "error: feed_hot did not match posts_feed hot order in $db" >&2
+        echo "  actual: ${hot_ok:-missing}" >&2
+        exit 1
+      fi
+
+      # Counts stay on the returned page. Aggregate loops above the page
+      # size mean the laterals ran for the whole ranking set.
+      hot_plan="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc \
+        "EXPLAIN (ANALYZE, FORMAT TEXT) SELECT * FROM feed_hot(24, 0);")"
+      hot_max=0
+      hot_seen=0
+      hot_bad=0
+      hot_ifs=$IFS
+      IFS="
+"
+      set -f
+      for hot_line in $hot_plan; do
+        case "$hot_line" in
+          *Aggregate*)
+            hot_seen=1
+            hot_loops=${hot_line##*loops=}
+            hot_loops=${hot_loops%%[!0-9]*}
+            if [ -n "$hot_loops" ] && [ "$hot_loops" -gt "$hot_max" ]; then
+              hot_max=$hot_loops
+            fi
+            if [ -n "$hot_loops" ] && [ "$hot_loops" -gt 24 ]; then
+              echo "error: feed_hot count aggregate loops=$hot_loops (page is 24)" >&2
+              hot_bad=1
+            fi
+            ;;
+        esac
+      done
+      set +f
+      IFS=$hot_ifs
+      if [ "$hot_seen" -ne 1 ]; then
+        echo "error: feed_hot plan has no Aggregate (counts missing) in $db" >&2
+        exit 1
+      fi
+      if [ "$hot_bad" -ne 0 ]; then
+        exit 1
+      fi
+      echo "feed_hot count aggregate max loops=$hot_max"
+      apply_sql "$db" /work/tests/fixtures/feed_hot_cleanup.sql
+
       visible_fn="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
         SELECT COUNT(*) FROM pg_proc WHERE proname = '"'"'thread_visible_replies'"'"';
       ")"
@@ -552,6 +607,7 @@ SQLEOF
       psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 <<SQLEOF >/dev/null
 -- Dependents of groups_current must drop first (posts_feed / members / bans / ranks).
 DROP FUNCTION IF EXISTS feed_pulse(text[], integer, integer, text);
+DROP FUNCTION IF EXISTS feed_hot(integer, integer, text, text, text, text[], boolean);
 DROP VIEW IF EXISTS posts_feed;
 DROP VIEW IF EXISTS posts_feed_rank;
 DROP VIEW IF EXISTS groups_by_member_count;

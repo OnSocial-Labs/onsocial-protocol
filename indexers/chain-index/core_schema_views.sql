@@ -1220,9 +1220,10 @@ LEFT JOIN groups_current g
 LEFT JOIN post_amplify_heat h
   ON h.post_path = src.content_path;
 
--- feed_pulse returns SETOF posts_feed. Drop it before the column list grows;
--- it is recreated below.
+-- feed_pulse and feed_hot return SETOF posts_feed. Drop them before the
+-- column list grows; both are recreated below.
 DROP FUNCTION IF EXISTS feed_pulse(text[], integer, integer, text);
+DROP FUNCTION IF EXISTS feed_hot(integer, integer, text, text, text, text[], boolean);
 
 CREATE OR REPLACE VIEW posts_feed AS
 SELECT
@@ -1358,6 +1359,72 @@ LEFT JOIN groups_current q2g
   ON q2g.group_id = q2.group_id
  AND q2.group_id IS NOT NULL
  AND q2.group_id <> '';
+
+-- Hot home feed. Rank on the light row (same amplify_heat and block_height
+-- as posts_feed, same rows, no count or quote work), cut the page, then
+-- join posts_feed so the laterals run for that page only. `OFFSET 0` keeps
+-- the join from being flattened back into a whole-view count.
+-- Optional filters match the hot postsFeed where-clause:
+--   author / kind equality, section posts|replies|reposts, account list,
+--   and Circle native_only (root, or parent author in the list).
+CREATE OR REPLACE FUNCTION feed_hot(
+  row_limit integer,
+  row_offset integer,
+  author text DEFAULT NULL,
+  kind text DEFAULT NULL,
+  section text DEFAULT NULL,
+  accounts text[] DEFAULT NULL,
+  native_only boolean DEFAULT false
+)
+RETURNS SETOF posts_feed
+LANGUAGE sql
+STABLE
+AS $$
+  WITH page AS MATERIALIZED (
+    SELECT
+      p.account_id,
+      p.post_id
+    FROM posts_feed_rank p
+    WHERE (author IS NULL OR btrim(author) = '' OR p.account_id = author)
+      AND (kind IS NULL OR btrim(kind) = '' OR p.kind = kind)
+      AND (
+        section IS NULL
+        OR btrim(section) = ''
+        OR (
+          section = 'posts'
+          AND p.parent_path = ''
+          AND p.ref_type <> 'repost'
+        )
+        OR (
+          section = 'replies'
+          AND p.parent_path <> ''
+        )
+        OR (
+          section = 'reposts'
+          AND p.ref_type = 'repost'
+        )
+      )
+      AND (accounts IS NULL OR p.account_id = ANY (accounts))
+      AND (
+        NOT COALESCE(native_only, false)
+        OR p.parent_path = ''
+        OR p.parent_author = ANY (COALESCE(accounts, ARRAY[]::text[]))
+      )
+    ORDER BY p.amplify_heat DESC, p.block_height DESC
+    LIMIT GREATEST(COALESCE(row_limit, 0), 0)
+    OFFSET GREATEST(COALESCE(row_offset, 0), 0)
+  )
+  SELECT f.*
+  FROM page pg
+  JOIN LATERAL (
+    SELECT *
+    FROM posts_feed f
+    WHERE f.account_id = pg.account_id
+      AND f.post_id = pg.post_id
+    OFFSET 0
+  ) f ON true
+  ORDER BY f.amplify_heat DESC, f.block_height DESC;
+$$;
 
 -- Pulse — one page of Home cards: Circle roots (plus newest self-reply)
 -- and stranger roots a circle member replied into. Rank uses posts_feed_rank
