@@ -273,9 +273,8 @@ export class FeedQuery {
               return this.queryFeedRows({
                 ...args,
                 postsFeedQuery: stripFeedPaintFields(args.postsFeedQuery),
-                postsFeedQueryNoHeat: stripFeedPaintFields(
-                  postsFeedQueryNoHeat
-                ),
+                postsFeedQueryNoHeat:
+                  stripFeedPaintFields(postsFeedQueryNoHeat),
               });
             }
             throw heatlessErr;
