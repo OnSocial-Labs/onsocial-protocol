@@ -25,7 +25,7 @@ import {
   translateFeedWindowRange,
   type FeedWindowRange,
 } from '@/features/home/feed-window';
-import { adoptAppLenisScroll, shiftAppLenisScroll } from '@/lib/app-lenis-registry';
+import { adoptAppLenisScroll } from '@/lib/app-lenis-registry';
 import {
   captureVisibleFeedAnchor,
   restoreFeedAnchor,
@@ -268,7 +268,6 @@ export function useFeedWindow({
   useEffect(() => {
     const observer = new ResizeObserver((entries) => {
       let changed = false;
-      const node = rootRef.current;
       for (const entry of entries) {
         const key = rowKeyByEl.current.get(entry.target);
         if (!key) continue;
@@ -276,24 +275,12 @@ export function useFeedWindow({
           ? entry.borderBoxSize[0]
           : undefined;
         const px = borderBox ? borderBox.blockSize : entry.contentRect.height;
-        const prev = cache.get(key);
         if (!cache.set(key, px)) continue;
         changed = true;
-        // A row above the fold grew before paint. Shift by that delta so
-        // the reader does not see the next batch shove the one on screen.
-        if (
-          node &&
-          prev !== undefined &&
-          entry.target instanceof HTMLElement &&
-          entry.target.getBoundingClientRect().top <
-            node.getBoundingClientRect().top - 1
-        ) {
-          shiftAppLenisScroll(node, px - prev);
-        }
       }
       if (changed) {
-        // Heights in the DOM already moved; remember where the reader is so
-        // the spacer correction below can hold that row in place.
+        // One correction path: capture now, restore after spacers rebuild.
+        // Do not also Lenis-shift here — that double-moves with restore.
         pendingMeasureAnchorRef.current ??= captureVisibleFeedAnchor(
           rootRef.current,
           anchorQueryRef.current

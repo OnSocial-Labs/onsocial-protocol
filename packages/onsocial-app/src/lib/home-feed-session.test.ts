@@ -511,7 +511,34 @@ describe('clampHomeFeedSessionPagination', () => {
         offsetShiftApplied: 2,
         truncated: true,
       })
-    ).toEqual({ nextOffset: 60, offsetShiftApplied: 0 });
+    ).toEqual({
+      nextOffset: 60,
+      nextBeforeBlockHeight: undefined,
+      nextBeforeHeat: undefined,
+      nextBeforeEventKey: undefined,
+      offsetShiftApplied: 0,
+    });
+  });
+
+  it('snaps a truncated keyset cursor to the retained edge height', () => {
+    expect(
+      clampHomeFeedSessionPagination({
+        postCount: 60,
+        nextOffset: undefined,
+        nextBeforeBlockHeight: 10,
+        nextBeforeHeat: 9,
+        nextBeforeEventKey: 'deep/post/x',
+        edgeBlockHeight: 900,
+        offsetShiftApplied: 1,
+        truncated: true,
+      })
+    ).toEqual({
+      nextOffset: 60,
+      nextBeforeBlockHeight: 900,
+      nextBeforeHeat: undefined,
+      nextBeforeEventKey: undefined,
+      offsetShiftApplied: 0,
+    });
   });
 
   it('keeps a fill-walk cursor on a short unrestored list', () => {
@@ -521,7 +548,13 @@ describe('clampHomeFeedSessionPagination', () => {
         nextOffset: 48,
         offsetShiftApplied: 2,
       })
-    ).toEqual({ nextOffset: 48, offsetShiftApplied: 2 });
+    ).toEqual({
+      nextOffset: 48,
+      nextBeforeBlockHeight: undefined,
+      nextBeforeHeat: undefined,
+      nextBeforeEventKey: undefined,
+      offsetShiftApplied: 2,
+    });
   });
 
   it('keeps a cursor that still lands inside the restored head', () => {
@@ -531,7 +564,33 @@ describe('clampHomeFeedSessionPagination', () => {
         nextOffset: 48,
         offsetShiftApplied: 2,
       })
-    ).toEqual({ nextOffset: 48, offsetShiftApplied: 2 });
+    ).toEqual({
+      nextOffset: 48,
+      nextBeforeBlockHeight: undefined,
+      nextBeforeHeat: undefined,
+      nextBeforeEventKey: undefined,
+      offsetShiftApplied: 2,
+    });
+  });
+
+  it('does not snap keyset on a full unrestored session peek', () => {
+    expect(
+      clampHomeFeedSessionPagination({
+        postCount: 60,
+        nextOffset: undefined,
+        nextBeforeBlockHeight: 400,
+        nextBeforeHeat: 3,
+        nextBeforeEventKey: 'a/post/1',
+        edgeBlockHeight: 900,
+        offsetShiftApplied: 0,
+      })
+    ).toEqual({
+      nextOffset: undefined,
+      nextBeforeBlockHeight: 400,
+      nextBeforeHeat: 3,
+      nextBeforeEventKey: 'a/post/1',
+      offsetShiftApplied: 0,
+    });
   });
 
   it('leaves an exhausted feed alone', () => {
@@ -541,7 +600,13 @@ describe('clampHomeFeedSessionPagination', () => {
         nextOffset: undefined,
         offsetShiftApplied: 0,
       })
-    ).toEqual({ nextOffset: undefined, offsetShiftApplied: 0 });
+    ).toEqual({
+      nextOffset: undefined,
+      nextBeforeBlockHeight: undefined,
+      nextBeforeHeat: undefined,
+      nextBeforeEventKey: undefined,
+      offsetShiftApplied: 0,
+    });
   });
 });
 
