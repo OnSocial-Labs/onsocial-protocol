@@ -38,17 +38,39 @@ function feedRow(index: number) {
 const PAGE_ONE = Array.from({ length: 24 }, (_, index) => feedRow(index));
 const PAGE_TWO = Array.from({ length: 24 }, (_, index) => feedRow(index + 24));
 
+/** Offset page or Hot/Recent keyset load-more (offset stays 0 under keyset). */
+function isFeedPageTwo(variables?: {
+  offset?: number;
+  before_block_height?: number;
+  beforeBlockHeight?: number;
+  before_amplify_heat?: number;
+  before_post_key?: string;
+}): boolean {
+  const offset = variables?.offset ?? 0;
+  if (offset >= 24) return true;
+  if (variables?.before_block_height != null) return true;
+  if (variables?.beforeBlockHeight != null) return true;
+  if (variables?.before_amplify_heat != null) return true;
+  if (variables?.before_post_key) return true;
+  return false;
+}
+
 async function stubPagedFeedGraph(page: Page): Promise<void> {
   await page.route('**/api/onapi/graph/query', async (route) => {
     const body = JSON.parse(route.request().postData() ?? '{}') as {
       query?: string;
-      variables?: { offset?: number };
+      variables?: {
+        offset?: number;
+        before_block_height?: number;
+        beforeBlockHeight?: number;
+        before_amplify_heat?: number;
+        before_post_key?: string;
+      };
     };
     const query = body.query ?? '';
     if (query.includes('postsFeed') || query.includes('postsCurrent')) {
       const field = query.includes('postsFeed') ? 'postsFeed' : 'postsCurrent';
-      const offset = body.variables?.offset ?? 0;
-      const rows = offset === 0 ? PAGE_ONE : offset === 24 ? PAGE_TWO : [];
+      const rows = isFeedPageTwo(body.variables) ? PAGE_TWO : PAGE_ONE;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
