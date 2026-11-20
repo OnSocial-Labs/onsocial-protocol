@@ -24,6 +24,7 @@ import {
   postFeedPreviewLimit,
 } from '@/lib/post-display';
 import { parsePostMedia } from '@/lib/post-media';
+import { isBareRepostShell } from '@/lib/feed-repost-card';
 import { isRepostRefType } from '@/lib/post-relation';
 import type { ThreadReplyRow } from '@/lib/thread-display';
 
@@ -89,6 +90,9 @@ export function feedCardEstimateKind(
     }
     return 'quote';
   }
+  // Unresolved bare repost — reserve the compact media seat so the pending
+  // → original swap does not grow under a restored scroll.
+  if (isBareRepostShell(post) && card === post) return 'media';
   return 'text';
 }
 

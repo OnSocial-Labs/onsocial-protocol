@@ -3,15 +3,44 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   clearFeedMediaMeasuredRatios,
+  feedMediaMeasuredRatioCount,
   lookupFeedMediaRatio,
   PostMediaStrip,
   rememberFeedMediaRatio,
   resolveReservedSeatAspect,
+  scrollerOwnsFeedWindow,
 } from '@/features/home/post-media';
 
 describe('reserved open/focused/quote seat ratio', () => {
   beforeEach(() => {
     clearFeedMediaMeasuredRatios();
+  });
+
+  it('evicts the oldest ratios once the session cache is full', () => {
+    for (let i = 0; i < 205; i += 1) {
+      rememberFeedMediaRatio(`https://example.com/r${i}.jpg`, 1 + i / 1000);
+    }
+    expect(feedMediaMeasuredRatioCount()).toBe(200);
+    expect(lookupFeedMediaRatio('https://example.com/r0.jpg')).toBeNull();
+    expect(lookupFeedMediaRatio('https://example.com/r4.jpg')).toBeNull();
+    expect(lookupFeedMediaRatio('https://example.com/r5.jpg')).toBeCloseTo(
+      1 + 5 / 1000
+    );
+    expect(lookupFeedMediaRatio('https://example.com/r204.jpg')).toBeCloseTo(
+      1 + 204 / 1000
+    );
+  });
+
+  it('detects a windowed feed scroller that already owns scroll correction', () => {
+    const empty = {
+      querySelector: () => null,
+    } as unknown as ParentNode;
+    expect(scrollerOwnsFeedWindow(empty)).toBe(false);
+    const windowed = {
+      querySelector: (sel: string) =>
+        sel.includes('data-feed-window-spacer') ? {} : null,
+    } as unknown as ParentNode;
+    expect(scrollerOwnsFeedWindow(windowed)).toBe(true);
   });
 
   it('leaves the seat unlocked until dims are known, then takes the real ratio', () => {

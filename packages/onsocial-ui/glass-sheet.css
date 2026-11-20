@@ -462,7 +462,7 @@
   transform: none;
   opacity: 0;
   transition: opacity var(--os-motion-appear, 280ms)
-    var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1));
+    var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1));
 }
 
 .glass-sheet-panel[data-presentation='appear'].is-open {
@@ -472,7 +472,7 @@
 
 .glass-sheet-panel[data-presentation='appear'].is-open.glass-sheet-panel--enter {
   animation: glass-sheet-appear var(--os-motion-appear, 280ms)
-    var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1)) forwards;
+    var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1)) forwards;
   transition: none;
 }
 
@@ -499,7 +499,7 @@
 
 .os-page-body-appear.is-ready {
   animation: glass-sheet-appear var(--os-motion-appear, 280ms)
-    var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1)) forwards;
+    var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1)) forwards;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -10,6 +10,7 @@ import {
   type PostEngagement,
 } from '@/hooks/use-post-engagement';
 import { resolveFeedRepostCard } from '@/lib/feed-repost-card';
+import { peekGuildChannelTitle } from '@/lib/guild-channel-titles';
 import type { PollTally } from '@/lib/poll-votes';
 import { displayName } from '@/lib/profile-display';
 
@@ -99,8 +100,11 @@ export function ResolvedFeedPostCard({
         <span className="post-card-repost-line" aria-hidden>
           {`${reposter} reposted`}
         </span>
-        {/* Text chassis matches feedBlockEstimatePx for unresolved shells. */}
-        <PostRowSkeleton rows={1} />
+        {/*
+          Compact media chassis matches feedCardEstimateKind('media') for
+          unresolved bare-repost shells — swap must not grow the row.
+        */}
+        <PostRowSkeleton rows={1} frames={['single']} />
       </div>
     );
   }
@@ -116,7 +120,11 @@ export function ResolvedFeedPostCard({
   const resolvedChannelLabel =
     channelLabel ??
     (showChannel && card.channel
-      ? (channelTitleById?.[card.channel] ?? card.channel)
+      ? (channelTitleById?.[card.channel] ??
+        (card.groupId
+          ? peekGuildChannelTitle(card.groupId, card.channel)
+          : undefined) ??
+        card.channel)
       : undefined);
   const resolvedGuildName =
     guildName ??

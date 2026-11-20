@@ -3610,7 +3610,7 @@ a.os-surface-row,
 @media (prefers-reduced-motion: no-preference) {
   .os-page-enter {
     animation: glass-sheet-appear var(--os-motion-appear, 280ms)
-      var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1));
+      var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1));
   }
 }
 
@@ -3645,7 +3645,7 @@ a.os-surface-row,
 @media (prefers-reduced-motion: no-preference) {
   .os-route-skeleton.is-done {
     animation: glass-sheet-appear var(--os-motion-appear, 280ms)
-      var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1)) reverse
+      var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1)) reverse
       forwards;
   }
 }
@@ -22883,7 +22883,8 @@ a.os-surface-row,
 
   .home-feed-list.is-refreshing {
     opacity: 0.72;
-    transition: opacity 160ms ease;
+    transition: opacity var(--os-motion-appear, 280ms)
+      var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1));
   }
 
   /*
@@ -25049,6 +25050,14 @@ a.os-surface-row,
 
   .post-card-quote-inset-avatar {
     flex-shrink: 0;
+  }
+
+  /*
+   * Soft-fill quote seat — reserve FEED_WINDOW_QUOTE_INSET_PX (140) so the
+   * row does not grow when the cited card paints.
+   */
+  .post-card-quote-inset--pending {
+    min-height: 8.75rem;
   }
 
   /* Quote soft-fill seat — same chassis as live inset (sm avatar + identity). */

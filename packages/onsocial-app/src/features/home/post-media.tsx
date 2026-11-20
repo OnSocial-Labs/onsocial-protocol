@@ -141,12 +141,20 @@ export function resolveReservedSeatAspect(
  * Session ratio cache — feed compact tiles learn width/height on decode but
  * keep a fixed 4:3 cover seat. Open / focused / quote singles read the same
  * url → ratio on first paint so a feed tap never flashes 4:3 then snaps.
+ * Insertion-ordered Map + cap: oldest urls drop first (long-scroll bound).
  */
+const FEED_MEDIA_RATIO_CACHE_LIMIT = 200;
 const feedMediaMeasuredRatios = new Map<string, number>();
 
 export function rememberFeedMediaRatio(url: string, ratio: number): void {
   if (!url || !(ratio > 0) || !Number.isFinite(ratio)) return;
+  if (feedMediaMeasuredRatios.has(url)) feedMediaMeasuredRatios.delete(url);
   feedMediaMeasuredRatios.set(url, ratio);
+  while (feedMediaMeasuredRatios.size > FEED_MEDIA_RATIO_CACHE_LIMIT) {
+    const oldest = feedMediaMeasuredRatios.keys().next().value;
+    if (oldest == null) break;
+    feedMediaMeasuredRatios.delete(oldest);
+  }
 }
 
 export function lookupFeedMediaRatio(url: string): number | null {
@@ -157,6 +165,19 @@ export function lookupFeedMediaRatio(url: string): number | null {
 /** Test helper — drop session ratios between cases. */
 export function clearFeedMediaMeasuredRatios(): void {
   feedMediaMeasuredRatios.clear();
+}
+
+/** @internal test helper — current cache size after remember/evict. */
+export function feedMediaMeasuredRatioCount(): number {
+  return feedMediaMeasuredRatios.size;
+}
+
+/**
+ * Windowed feed lists already correct scroll via useFeedWindow anchors.
+ * A second Lenis shift from a reserved seat resize double-moves the viewport.
+ */
+export function scrollerOwnsFeedWindow(scroller: ParentNode): boolean {
+  return scroller.querySelector('[data-feed-window-spacer]') != null;
 }
 
 /** Survives window remount so scroll-back does not re-fade known media. */
@@ -594,7 +615,12 @@ function PostVisualMediaBlock({
     if (next === measuredRatio) return;
     const tile = tileNodeRef.current;
     const scroller = tile?.closest('.os-app-screen-body');
-    if (tile instanceof HTMLElement && scroller instanceof HTMLElement) {
+    // Windowed lists own Lenis correction — do not dual-shift.
+    if (
+      tile instanceof HTMLElement &&
+      scroller instanceof HTMLElement &&
+      !scrollerOwnsFeedWindow(scroller)
+    ) {
       const tileRect = tile.getBoundingClientRect();
       const scrollerRect = scroller.getBoundingClientRect();
       seatAnchorRef.current = captureSeatScrollAnchor({
@@ -631,6 +657,7 @@ function PostVisualMediaBlock({
     if (!(tile instanceof HTMLElement) || !(scroller instanceof HTMLElement)) {
       return;
     }
+    if (scrollerOwnsFeedWindow(scroller)) return;
     const tileRect = tile.getBoundingClientRect();
     const scrollerRect = scroller.getBoundingClientRect();
     const delta = seatScrollDelta(anchor, {

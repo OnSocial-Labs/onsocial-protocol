@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parseInAppDropLayerHref } from '@/lib/app-routes';
 import {
@@ -21,6 +24,8 @@ import {
   type PostStackEntry,
   type QuotesStackEntry,
 } from './post-thread-stack';
+
+const layerSrc = dirname(fileURLToPath(import.meta.url));
 
 let seq = 0;
 
@@ -266,5 +271,15 @@ describe('article place layer discipline', () => {
       false
     );
     expect(isPortfolioFaceHref('/home')).toBe(false);
+  });
+});
+
+describe('seeded thread open chunks', () => {
+  it('does not put a full-page skeleton in dynamic loading', () => {
+    const source = readFileSync(join(layerSrc, 'post-thread-layer.tsx'), 'utf8');
+    expect(source).not.toContain('loading: () => <PostThreadPageSkeleton');
+    expect(source).not.toContain('loading: () => <PostQuotesPageSkeleton');
+    expect(source).toContain('<Suspense fallback={null}>');
+    expect(source).toContain('warmPostPanels');
   });
 });

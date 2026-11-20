@@ -70,6 +70,29 @@ export function seedGuildDisplayNamesFromFeed(
   seedGuildDisplayNames(entries, options);
 }
 
+/** Live label from the feed name cache — no fetch. */
+export function peekGuildDisplayName(groupId: string): string | undefined {
+  const id = groupId.trim();
+  if (!id) return undefined;
+  return nameCache.get(id);
+}
+
+/**
+ * Guild chip label for a feed-row thread open. Prefer the row's `groupName`,
+ * then the display-name cache the feed already filled — never start null and
+ * flash a raw group id while config loads.
+ */
+export function guildNameForThreadSeed(root: {
+  groupId?: string | null;
+  groupName?: string | null;
+}): string | null {
+  const groupId = root.groupId?.trim();
+  if (!groupId) return null;
+  const fromRow = root.groupName?.trim();
+  if (fromRow) return guildDisplayName(fromRow, groupId);
+  return peekGuildDisplayName(groupId) ?? null;
+}
+
 async function fetchGuildDisplayNamesBatch(
   groupIds: string[]
 ): Promise<Record<string, string>> {

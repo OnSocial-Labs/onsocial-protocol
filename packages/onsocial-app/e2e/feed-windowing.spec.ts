@@ -115,11 +115,12 @@ test.describe('feed list windowing', () => {
     const feed = page.locator('.home-feed-list');
     await expect(feed).toContainText('Window row win-00');
 
-    // One page (24 blocks) stays fully rendered — under the threshold.
+    // One page (24 blocks) stays fully painted — cold overscan + minCount 12
+    // keep the first page mounted (not a spacer collapse).
     await expect(page.locator('.home-feed-block')).toHaveCount(24);
     await expect(page.locator('[data-feed-window-spacer]')).toHaveCount(0);
 
-    // Page two appends at the bottom — 48 blocks crosses the threshold.
+    // Page two appends at the bottom — deep scroll engages spacers.
     // The first scroll lands mid-list once the append grows the page, so
     // scroll twice: the second pass reaches the true bottom.
     await scrollFeedTo(page, 'bottom');
