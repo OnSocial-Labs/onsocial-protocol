@@ -9,7 +9,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from 'react';
-import type { GroupMemberRow, PostRow } from '@onsocial/sdk';
+import type { GroupMemberRow, Paginated, PostRow } from '@onsocial/sdk';
 import {
   normalizeGuildConfig,
   type GuildConfigSnapshot,
@@ -476,7 +476,7 @@ export function useGuildPageData({
       client.query.groups.byIds([groupId]).catch(() => []),
       client.query.groups
         .feed({ groupId, limit: 20 })
-        .catch(() => ({ items: [] as PostRow[], nextOffset: undefined })),
+        .catch((): Paginated<PostRow> => ({ items: [] })),
       client.query.groups
         .membersOf(groupId, { limit: 8 })
         .catch(() => ({ items: [] as GroupMemberRow[] })),
