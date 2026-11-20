@@ -48,10 +48,7 @@ import {
 } from '@/lib/os-write-dock-draft';
 import { postKey } from '@/features/home/post-card';
 import { ResolvedFeedPostCard } from '@/features/home/resolved-feed-post-card';
-import {
-  PostRowSkeleton,
-  PostThreadPageSkeleton,
-} from '@/features/home/post-skeleton';
+import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
 import { ThreadRail } from '@/features/home/thread-rail';
 import { ThreadDiscoverPeek } from '@/features/home/thread-discover-peek';
 import { ThreadRepliesSortButton } from '@/features/home/thread-replies-sort';
@@ -1243,11 +1240,6 @@ export function LiveGuildPostPanel({
           ) : null}
 
           <div className="guild-connected-stack" ref={replyStackRef}>
-            {!repliesResolved && sortedReplyRows.length === 0 ? (
-              <div aria-busy="true">
-                <PostRowSkeleton rows={2} />
-              </div>
-            ) : null}
             {replyWindowed && replyTopSpacer > 0 ? (
               <div
                 style={{ height: replyTopSpacer }}

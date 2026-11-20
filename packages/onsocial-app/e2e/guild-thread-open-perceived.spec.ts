@@ -317,8 +317,10 @@ test('a seeded guild post stays visible while replies load', async ({
   await expect(
     layer.locator('.post-card--skeleton.post-card--detail')
   ).toHaveCount(0);
+  // Empty-tail peek owns the seat while the first reply page is in flight.
+  await expect(layer.locator('.thread-discover-peek.is-pending')).toBeVisible();
   await expect(
-    layer.locator('.guild-connected-stack .post-row-skeleton-list')
+    layer.locator('.thread-discover-peek.is-pending .post-row-skeleton-list')
   ).toBeVisible();
   const labelWhileLoading = await layer
     .getByRole('button', { name: 'Sort replies' })
@@ -327,10 +329,9 @@ test('a seeded guild post stays visible while replies load', async ({
     .getByRole('link', { name: /View quotes|View reposts/ })
     .count();
   const seatWhileLoading = await controlSeat(page);
-  await expect(layer.locator('.thread-discover-peek')).toHaveCount(0);
 
   const skeletonTop = await layer
-    .locator('.guild-connected-stack .post-card--skeleton')
+    .locator('.thread-discover-peek.is-pending .post-card--skeleton')
     .first()
     .evaluate((node) => node.getBoundingClientRect().top);
   const rootTop = await layer
@@ -430,10 +431,7 @@ test('an empty guild thread shows the root while replies load, then the discover
     timeout: 3_000,
   });
   await expect(layer.locator('.os-page-body-appear.is-ready')).toBeVisible();
-  await expect(layer.locator('.thread-discover-peek-title')).toHaveCount(0);
-  await expect(
-    layer.locator('.guild-connected-stack .post-row-skeleton-list')
-  ).toBeVisible();
+  await expect(layer.locator('.thread-discover-peek.is-pending')).toBeVisible();
   const labelWhileLoading = await layer
     .getByRole('button', { name: 'Sort replies' })
     .count();
@@ -445,9 +443,10 @@ test('an empty guild thread shows the root while replies load, then the discover
   await expect(layer.locator('.thread-discover-peek-title')).toBeVisible({
     timeout: 15_000,
   });
+  await expect(layer.locator('.thread-discover-peek.is-pending')).toHaveCount(0);
   await expect(layer.locator('.os-page-body-appear.is-ready')).toBeVisible();
   await expect(
-    layer.locator('.guild-connected-stack .post-row-skeleton-list')
+    layer.locator('.thread-discover-peek .post-row-skeleton-list')
   ).toHaveCount(0);
   expect.soft(labelWhileLoading).toBe(0);
   expect.soft(quotesWhileLoading).toBe(0);
