@@ -102,6 +102,30 @@ describe('feedBlockEstimatePx', () => {
     expect(feedTextEstimatePx(long, false)).toBe(FEED_WINDOW_ESTIMATE_PX);
   });
 
+  it('counts hard breaks so multiline short posts are taller than one line', () => {
+    const one = feedTextEstimatePx('hello', false);
+    const multi = feedTextEstimatePx('one\ntwo\nthree', false);
+    expect(multi).toBeGreaterThan(one);
+  });
+
+  it('adds caption lines on top of the media seat', () => {
+    const bare = row('alice.near', 'photo', {
+      value: JSON.stringify({
+        text: 'hi',
+        media: ['https://example.test/a.jpg'],
+      }),
+    });
+    const captioned = row('alice.near', 'photo2', {
+      value: JSON.stringify({
+        text: 'line one\nline two\nline three',
+        media: ['https://example.test/a.jpg'],
+      }),
+    });
+    expect(feedBlockEstimatePx({ posts: [captioned] }, {})).toBeGreaterThan(
+      feedBlockEstimatePx({ posts: [bare] }, {})
+    );
+  });
+
   it('adds fold allowance when a long chain collapses', () => {
     const posts = [1, 2, 3, 4, 5].map((n) =>
       row('alice.near', `p${n}`, {
