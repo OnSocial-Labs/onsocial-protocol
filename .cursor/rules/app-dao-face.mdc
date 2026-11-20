@@ -1,0 +1,25 @@
+---
+description: DAO org face — Governance/Treasury switch, proposals, claim, boost, As Me|DAO
+globs: packages/onsocial-app/src/features/protocol/**/*dao*.{ts,tsx},packages/onsocial-app/src/features/protocol/protocol-proposal-family.ts,packages/onsocial-app/src/features/protocol/protocol-feed-filters.ts,packages/onsocial-app/src/features/protocol/protocol-eligibility.ts,packages/onsocial-app/src/features/protocol/protocol-entry-redirect.ts,packages/onsocial-app/src/features/protocol/protocol-settings-sheet.tsx,packages/onsocial-app/src/features/protocol/protocol-settings-action-sheet.tsx,packages/onsocial-app/src/features/protocol/protocol-create-sheet.tsx,packages/onsocial-app/src/features/protocol/protocol-propose-gate.ts,packages/onsocial-app/src/features/protocol/protocol-propose-kind-sheet.tsx,packages/onsocial-app/src/features/protocol/protocol-stake-sheet.tsx,packages/onsocial-app/src/components/portfolio/portfolio-dao-*.tsx,packages/onsocial-app/src/lib/**/*dao*.{ts,tsx},packages/onsocial-app/src/hooks/use-*-dao*.ts,packages/onsocial-app/src/hooks/use-dao-*.ts,packages/onsocial-app/src/contexts/dao-face-eligibility-context.tsx,packages/onsocial-app/src/app/(app)/dao/**/*.{ts,tsx},packages/onsocial-app/src/app/(app)/protocol/page.tsx,packages/onsocial-app/src/features/home/submit-dao-post-proposal.ts,packages/onsocial-app/src/features/home/use-personal-composer.tsx,packages/onsocial-app/src/features/guilds/use-composer-dao-authors.ts,packages/onsocial-app/src/features/guilds/composer-commit-copy.ts,packages/onsocial-app/src/features/guilds/guild-composer-sheet.tsx
+alwaysApply: false
+---
+
+# DAO org face
+
+`/@daoAccount` is the same route as a person, heuristic / catalog — not `kind: 'org'`. Crest (`1rem`) and the quiet “DAO” eyebrow: `app-portfolio-face.mdc`. Legacy DAOs with no `profile/kind` keep that look. Person gestures, drawer, mood: that rule. Hug chrome: `hug-drawer-actions.mdc`. Pulse and toast: `app-button-toast-contract.mdc`.
+
+Governance ↔ Treasury is a same-size highlight on the kind line (**Governance · Treasury**), not a second flipper under the tools. Tools row (standing style, overlays / slides): **Proposals · Members · Treasury · Manage**. Members: Group people + Member stake thresholds (viewer weight / **Stake to join**). Treasury: Support pot + wallet balances. DAO roles / tags stay in the Joined facts sheet.
+
+Disconnected: full face, no gesture row; standing count only when someone stands. Visitor: **Stand · Support · More** — no Endorse, no Message. Support credits the DAO social-spend pot. No **Dormant page / Connect to activate**. Owner: no person payout marks; Manage lives on the tools row.
+
+`viewerCanProposeOnDao` = Group member **or** Member stake threshold. That council can **Claim support** from Manage when the pot is > 0 (Call → `claim_target_balance`, live after approve, any DAO) and can **Propose mood** (Manage + mood preview).
+
+Before mood, profile, claim-support, Boost, Transfer, Signal, Settings, or membership proposals: hug confirm (**Propose** / **Discard**) via `DaoProposeConfirmSheet`. Show the bond. Gate on spendable NEAR. **Stake to propose** when short (`requestDaoStake` → Protocol stake sheet). Propose / Settings pickers hide permission-dead kinds; stake-short kinds stay visible (confirm handles stake). Edit, Claim, Propose mood, Boost, and As-DAO share that Group-or-stake capability.
+
+Create post (eligible): **As · Me | DAO**, then which DAO. Same hug; Call publishes under the DAO after approve, Public feed only.
+
+Manage **Boost** (council): lock / increase / collect / renew / extend / unlock treasury SOCIAL on the DAO Boost position via Call, same hug. The position belongs to the DAO.
+
+Proposals feed: status chips stay primary. Optional `?kind=` lens — Face · Boost · Support · Treasury · Members · Config — from the action badge: Mood/Post/Profile → Face; Boost → Boost; Support → Support; Transfer/Treasury → Treasury; join/leave/role/remove role/policy/parameters/vote policy/staking → Members; config/season/upgrade/ownership/signal/call and anything else → Config.
+
+`/dao/[account]` permanently redirects to `/@account` (query kept). Protocol launcher → `/@governance…` (`resolveProtocolEntryRedirect`).

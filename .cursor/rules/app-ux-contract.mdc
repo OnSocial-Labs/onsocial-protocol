@@ -22,7 +22,16 @@ Goal: every screen feels instant and stable. Zero layout shift, bounded memory, 
 - Navigation, lists, and prefetch: `OsRouteSettle`, `useFeedWindow`, `useListScrollRestore`, `IntentPrefetchHost`.
 - Seeds: `home-feed-session`, `PortfolioProfileSeed`, `standing-list-cache`, `writing-shelf-warm`, `launcher-mine-session`, `launcher-latest-session`.
 - Sheets: `OsHugSheet`, `OsGestureSheet`, or `GlassSheet`.
-- Follow sibling rules by concern (do not duplicate or invent alternatives): `app-loading-contract.mdc` (with `app-loading-contract.ts` + `app-loading-matrix.ts`), `app-button-toast-contract.mdc`, `app-chrome-spacing.mdc`, `app-empty-copy.mdc`, `app-mage-icons.mdc`, `hug-drawer-actions.mdc`, `app-gesture-opens-surface.mdc`, `app-indexer-first-paint.mdc`, `app-portfolio-face.mdc`, and `implement-clean.mdc`.
+- Follow sibling rules by concern (do not duplicate or invent alternatives): `app-loading-contract.mdc` (with `app-loading-contract.ts` + `app-loading-matrix.ts`), `app-button-toast-contract.mdc`, `app-chrome-spacing.mdc`, `app-dao-face.mdc`, `app-empty-copy.mdc`, `app-mage-icons.mdc`, `hug-drawer-actions.mdc`, `app-gesture-opens-surface.mdc`, `app-indexer-first-paint.mdc`, `app-portfolio-face.mdc`, and `implement-clean.mdc`.
+
+## Viewer mood on OS shells
+
+Portfolio and wallet mood live in `app-portfolio-face.mdc`. These shells only:
+
+- `OsAppScreen` and `OsSlideOverScreen` apply the connected **viewer** mood by default (`useViewerDockMood`). Do not re-thread `moodId` / `moodStyle` on every panel. `moodId={null}` keeps the blue-corner trial. Pass an explicit mood only as a rare override.
+- Outside those shells (compose post, manage flows, account sheets): resolve CSS vars (`portfolioMoodShellStyle` or the viewer hook `style`) and pass `moodId` + `moodStyle`, or omit them and let the shells default. Prefer a subtle `--mood-bg` under translucent glass — opaque glass that hides the wash does not count.
+- Compose and slide-over wash stays inside the app column on phone. Desktop gutters stay OS `--bg` (no outside mood glow). A slide-over clears card radius so host glow cannot bleed. The portfolio hairline ban is in `app-portfolio-face.mdc`.
+- `guild-composer-sheet` may still pass viewer mood explicitly. Most routes inherit `OsAppScreen`.
 
 ## Motion
 
