@@ -39,6 +39,18 @@ export function shouldPaintDirectReplies(input: {
   return !input.fromCache && !input.paginated && !input.directRepliesResolved;
 }
 
+/**
+ * Soft refresh must not replace quotes/reposters after load-more — a slow
+ * first-page fetch would wipe appended rows. Foreground reload may replace.
+ */
+export function shouldReplacePaginatedList(input: {
+  background: boolean;
+  paginated: boolean;
+}): boolean {
+  if (input.paginated && input.background) return false;
+  return true;
+}
+
 export function directRepliesToTree(replies: PostRow[]): ThreadNode[] {
   return replies.map((post) => leafThreadNode(post, postContentPath(post)));
 }

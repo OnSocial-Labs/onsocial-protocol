@@ -51,6 +51,7 @@ import { writeQuotesSession } from '@/lib/quotes-session-cache';
 import {
   quoteLoadMoreCursor,
   reposterLoadMoreCursor,
+  shouldReplacePaginatedList,
 } from '@/lib/thread-first-page';
 import { planThreadLoad } from '@/lib/thread-open';
 
@@ -108,17 +109,29 @@ export function PostQuotesPanel({
   );
   const pinRepostsRef = useRef(initialTab === 'reposts');
   const [error, setError] = useState<string | null>(null);
+  /** Load-more pages must survive a slow soft refresh of page one. */
+  const paginatedQuotesRef = useRef(false);
+  const paginatedRepostersRef = useRef(false);
+  const quotesLatestRef = useRef(quotes);
+  const repostersLatestRef = useRef(reposters);
+  const hasMoreQuotesLatestRef = useRef(hasMoreQuotes);
+  const hasMoreRepostersLatestRef = useRef(hasMoreReposters);
+  quotesLatestRef.current = quotes;
+  repostersLatestRef.current = reposters;
+  hasMoreQuotesLatestRef.current = hasMoreQuotes;
+  hasMoreRepostersLatestRef.current = hasMoreReposters;
 
   const refresh = useCallback(
     async (options: { background?: boolean } = {}) => {
-      if (!options.background) {
+      const background = Boolean(options.background);
+      if (!background) {
         setLoadState('loading');
         setError(null);
       }
       try {
         const client = createReadOnlyOnSocialClient();
         const fetchedRoot = await fetchIndexedPost({ author, postId });
-        if (options.background && !fetchedRoot) return;
+        if (background && !fetchedRoot) return;
         if (!fetchedRoot) {
           setLoadState('missing');
           return;
@@ -137,27 +150,47 @@ export function PostQuotesPanel({
           quotesResult.status === 'fulfilled' ? quotesResult.value : [];
         const fetchedReposters =
           repostersResult.status === 'fulfilled' ? repostersResult.value : [];
+        const replaceQuotes = shouldReplacePaginatedList({
+          background,
+          paginated: paginatedQuotesRef.current,
+        });
+        const replaceReposters = shouldReplacePaginatedList({
+          background,
+          paginated: paginatedRepostersRef.current,
+        });
         setRoot(fetchedRoot);
-        setQuotes(fetchedQuotes);
-        setReposters(fetchedReposters);
-        const hasMoreQuotesNext =
-          fetchedQuotes.length >= POST_QUOTES_PAGE_SIZE;
-        const hasMoreRepostersNext =
-          fetchedReposters.length >= POST_REPOSTERS_PAGE_SIZE;
-        setHasMoreQuotes(hasMoreQuotesNext);
-        setHasMoreReposters(hasMoreRepostersNext);
+        const nextQuotes = replaceQuotes
+          ? fetchedQuotes
+          : quotesLatestRef.current;
+        const nextReposters = replaceReposters
+          ? fetchedReposters
+          : repostersLatestRef.current;
+        const hasMoreQuotesNext = replaceQuotes
+          ? fetchedQuotes.length >= POST_QUOTES_PAGE_SIZE
+          : hasMoreQuotesLatestRef.current;
+        const hasMoreRepostersNext = replaceReposters
+          ? fetchedReposters.length >= POST_REPOSTERS_PAGE_SIZE
+          : hasMoreRepostersLatestRef.current;
+        if (replaceQuotes) {
+          setQuotes(fetchedQuotes);
+          setHasMoreQuotes(hasMoreQuotesNext);
+        }
+        if (replaceReposters) {
+          setReposters(fetchedReposters);
+          setHasMoreReposters(hasMoreRepostersNext);
+        }
         writeQuotesSession(path, {
           root: fetchedRoot,
-          quotes: fetchedQuotes,
-          reposters: fetchedReposters,
+          quotes: nextQuotes,
+          reposters: nextReposters,
           hasMoreQuotes: hasMoreQuotesNext,
           hasMoreReposters: hasMoreRepostersNext,
           engagement: {},
           scarceEmbeds: {},
         });
-        if (!options.background) setLoadState('ready');
+        if (!background) setLoadState('ready');
       } catch (cause) {
-        if (options.background) return;
+        if (background) return;
         setLoadState('error');
         setError(
           cause instanceof Error ? cause.message : 'Could not load quotes.'
@@ -174,6 +207,9 @@ export function PostQuotesPanel({
   useEffect(() => {
     let cancelled = false;
     const key = `${author}/${postId}`;
+    // New root — load-more flags belong to the previous post.
+    paginatedQuotesRef.current = false;
+    paginatedRepostersRef.current = false;
     // One load per setup. A second effect pass must not blank a painted card.
     queueMicrotask(() => {
       if (cancelled) return;
@@ -236,6 +272,7 @@ export function PostQuotesPanel({
             order: 'desc',
             ...cursor,
           });
+          paginatedQuotesRef.current = true;
           setQuotes((current) => {
             const seen = new Set(current.map(postKey));
             const fresh = page.filter((post) => {
@@ -253,6 +290,7 @@ export function PostQuotesPanel({
             limit: POST_REPOSTERS_PAGE_SIZE,
             ...cursor,
           });
+          paginatedRepostersRef.current = true;
           setReposters((current) => {
             const seen = new Set(
               current.map((row) => `${row.accountId}:${row.repostId}`)
