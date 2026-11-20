@@ -50,6 +50,13 @@ export function findFeedWindowScrollRoot(
   return null;
 }
 
+export type FeedWindowRangeChange = {
+  start: number;
+  end: number;
+  /** Block keys in the list, not the mounted slice. */
+  blockCount: number;
+};
+
 export type UseFeedWindowOptions = {
   /** Block keys in render order — the window translates across mutations. */
   keys: readonly string[];
@@ -61,6 +68,8 @@ export type UseFeedWindowOptions = {
   pinnedKey?: string | null;
   /** Row lookup for height-change anchoring — defaults to feed blocks. */
   anchorQuery?: FeedAnchorQuery;
+  /** Fired when the mounted slice or the block count changes. */
+  onRangeChange?: (range: FeedWindowRangeChange) => void;
   enabled?: boolean;
   /**
    * Unmeasured-row height. A number is every row; a list is index-aligned
@@ -103,6 +112,7 @@ export function useFeedWindow({
   sizeCache,
   pinnedKey = null,
   anchorQuery,
+  onRangeChange,
   enabled = true,
   estimate = FEED_WINDOW_ESTIMATE_PX,
   overscan,
@@ -170,6 +180,11 @@ export function useFeedWindow({
   const anchorQueryRef = useRef(anchorQuery);
   useLayoutEffect(() => {
     anchorQueryRef.current = anchorQuery;
+  });
+
+  const onRangeChangeRef = useRef(onRangeChange);
+  useLayoutEffect(() => {
+    onRangeChangeRef.current = onRangeChange;
   });
 
   const syncRange = useCallback(() => {
@@ -406,6 +421,14 @@ export function useFeedWindow({
     windowed && baseRange
       ? feedWindowRangeWithPinned(baseRange, pinnedIndex)
       : { start: 0, end: keys.length };
+
+  useLayoutEffect(() => {
+    onRangeChangeRef.current?.({
+      start: slice.start,
+      end: slice.end,
+      blockCount: keys.length,
+    });
+  }, [slice.start, slice.end, keys.length]);
 
   return {
     windowed,

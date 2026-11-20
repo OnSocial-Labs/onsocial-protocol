@@ -3610,7 +3610,7 @@ a.os-surface-row,
 @media (prefers-reduced-motion: no-preference) {
   .os-page-enter {
     animation: glass-sheet-appear var(--os-motion-appear, 280ms)
-      var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1));
+      var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1));
   }
 }
 
@@ -3645,7 +3645,7 @@ a.os-surface-row,
 @media (prefers-reduced-motion: no-preference) {
   .os-route-skeleton.is-done {
     animation: glass-sheet-appear var(--os-motion-appear, 280ms)
-      var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1)) reverse
+      var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1)) reverse
       forwards;
   }
 }

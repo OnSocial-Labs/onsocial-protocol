@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  guildNameForThreadSeed,
+  peekGuildDisplayName,
   seedGuildDisplayNames,
   seedGuildDisplayNamesFromFeed,
   subscribeGuildDisplayNames,
@@ -48,5 +50,29 @@ describe('guild display name seeding', () => {
     expect(listener).toHaveBeenCalledTimes(1);
 
     unsubscribe();
+  });
+
+  it('seeds a thread open from the row name, then the feed cache', () => {
+    expect(
+      guildNameForThreadSeed({
+        groupId: 'cool.guild',
+        groupName: 'Cool Guild',
+      })
+    ).toBe('Cool Guild');
+
+    seedGuildDisplayNames({ 'cached.guild': 'Cached Guild' });
+    expect(peekGuildDisplayName('cached.guild')).toBe('Cached Guild');
+    expect(
+      guildNameForThreadSeed({
+        groupId: 'cached.guild',
+        groupName: null,
+      })
+    ).toBe('Cached Guild');
+    expect(
+      guildNameForThreadSeed({
+        groupId: 'unknown.guild',
+        groupName: null,
+      })
+    ).toBeNull();
   });
 });

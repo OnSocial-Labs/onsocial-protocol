@@ -35,7 +35,10 @@ import {
   collectRelationTargetAccountIds,
   postNeedsQuoteSeat,
 } from '@/lib/post-relation';
-import { useFeedWindow } from '@/features/home/use-feed-window';
+import {
+  useFeedWindow,
+  type FeedWindowRangeChange,
+} from '@/features/home/use-feed-window';
 import { feedBlockEstimatePx } from '@/features/home/feed-block-estimate';
 import type { FeedWindowSizeCache } from '@/features/home/feed-window';
 
@@ -77,6 +80,8 @@ interface PersonalFeedListProps {
   windowSizeCache?: FeedWindowSizeCache;
   /** Row that must stay mounted this pass (re-rank scroll anchor). */
   pinnedFeedKey?: string | null;
+  /** Mounted block range, for the home feed memory trim. */
+  onWindowRangeChange?: (range: FeedWindowRangeChange) => void;
 }
 
 /** Shared home/profile feed rendering — thread blocks + quote insets + polls. */
@@ -99,6 +104,7 @@ export function PersonalFeedList({
   daoMemberships = null,
   windowSizeCache,
   pinnedFeedKey = null,
+  onWindowRangeChange,
 }: PersonalFeedListProps) {
   const feedBlocks = useMemo(
     () =>
@@ -178,6 +184,7 @@ export function PersonalFeedList({
     hostRef,
     sizeCache: windowSizeCache,
     pinnedKey: pinnedFeedKey,
+    onRangeChange: onWindowRangeChange,
     estimate: rowEstimates,
   });
   const { windowed, start, end, topSpacer, bottomSpacer, registerRow } =

@@ -58,6 +58,7 @@ import {
   isUnmodifiedPrimaryClick,
   usePostThreadLayer,
 } from '@/features/home/post-thread-layer';
+import { warmGuildChannelTitles } from '@/lib/guild-channel-titles';
 import { warmThreadOpen } from '@/lib/thread-first-page';
 import { pointerOpensThisPost } from '@/lib/post-row-pointer';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
@@ -458,6 +459,7 @@ function PostCardImpl({
   const [photoThreadOpen, setPhotoThreadOpen] = useState(false);
   const openPhotoThread = useCallback(() => {
     warmThreadOpen(postContentPath(post), post.groupId ? 'guild' : 'personal');
+    if (post.groupId) warmGuildChannelTitles(post.groupId);
     setPhotoThreadOpen(true);
   }, [post]);
   const dismissPhotoThread = useCallback(() => {
@@ -746,6 +748,7 @@ function PostCardImpl({
       if (!event.isPrimary || event.button !== 0) return;
       if (!pointerOpensThisPost(event.target)) return;
       warmThreadOpen(path, surface);
+      if (post.groupId) warmGuildChannelTitles(post.groupId);
     };
     node.addEventListener('pointerdown', onPointerDown, { passive: true });
     return () => node.removeEventListener('pointerdown', onPointerDown);

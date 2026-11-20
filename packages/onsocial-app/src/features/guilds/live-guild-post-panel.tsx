@@ -35,6 +35,10 @@ import {
   writeDockReplySpokenName,
 } from '@/lib/os-write-dock';
 import { GUILDS_PAGE_CLASS } from '@/lib/os-chrome-page';
+import {
+  guildChannelTitlesForGroup,
+  seedGuildChannelTitles,
+} from '@/lib/guild-channel-titles';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import {
   clearWriteDockDraft,
@@ -307,14 +311,20 @@ export function LiveGuildPostPanel({
   const [modalError, setModalError] = useState<string | null>(null);
   const [replySort, setReplySort] = useState<ThreadReplySort>('relevant');
   const channelTitleById = useMemo(() => {
-    if (!guildStructure) return {};
-    const titles: Record<string, string> = {};
+    const titles: Record<string, string> = {
+      ...guildChannelTitlesForGroup(groupId),
+    };
+    if (!guildStructure) return titles;
     for (const space of guildStructure.spaces) {
       titles[space.id] = space.title;
       titles[guildSpaceFeedChannel(space)] = space.title;
     }
     return titles;
-  }, [guildStructure]);
+  }, [groupId, guildStructure]);
+  useEffect(() => {
+    if (!guildStructure || Object.keys(channelTitleById).length === 0) return;
+    seedGuildChannelTitles(groupId, channelTitleById);
+  }, [channelTitleById, groupId, guildStructure]);
   const treePosts = useMemo(() => flattenTreePosts(replyTree), [replyTree]);
   // Author's thread + folded branches as display rows, with chain-confirmed
   // local replies appended until the indexer catches up.

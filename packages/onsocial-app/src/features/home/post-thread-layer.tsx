@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  Suspense,
   useCallback,
   useContext,
   useEffect,
@@ -81,6 +82,11 @@ import {
 import { PostLayerOwnerZProvider } from '@/features/home/post-layer-owner-z';
 import { seedPostAuthorProfilesFromFeed } from '@/hooks/use-post-author-profiles';
 import {
+  guildNameForThreadSeed,
+  seedGuildDisplayNamesFromFeed,
+} from '@/hooks/use-guild-display-names';
+import { warmGuildChannelTitles } from '@/lib/guild-channel-titles';
+import {
   threadContentPath,
   warmPostPanels,
   warmThreadOpen,
@@ -97,14 +103,18 @@ import {
   walkBackOneStep,
 } from './post-thread-stack';
 
-// Panels load client-side; loading matches the settle skeleton so a seeded
-// open never lifts the cover onto empty chrome while the chunk mounts.
+/*
+ * Seeded feed opens already paint the root — never put a full-page skeleton
+ * in `dynamic` `loading`. Cold opens keep the OsRouteSettle cover; chunk
+ * suspend uses null (same as feed-media-thread-sheet) so a warm open does
+ * not flash empty thread chrome.
+ */
 const LivePersonalPostPanel = dynamic(
   () =>
     import('@/features/home/live-personal-post-panel').then(
       (mod) => mod.LivePersonalPostPanel
     ),
-  { ssr: false, loading: () => <PostThreadPageSkeleton /> }
+  { ssr: false }
 );
 
 const CollectionPagePanel = dynamic(
@@ -120,7 +130,7 @@ const LiveGuildPostPanel = dynamic(
     import('@/features/guilds/live-guild-post-panel').then(
       (mod) => mod.LiveGuildPostPanel
     ),
-  { ssr: false, loading: () => <PostThreadPageSkeleton /> }
+  { ssr: false }
 );
 
 const PostQuotesPanel = dynamic(
@@ -128,7 +138,7 @@ const PostQuotesPanel = dynamic(
     import('@/features/home/post-quotes-panel').then(
       (mod) => mod.PostQuotesPanel
     ),
-  { ssr: false, loading: () => <PostQuotesPageSkeleton /> }
+  { ssr: false }
 );
 
 const POST_LAYER_STATE_KEY = 'onsocialPostLayer';
@@ -345,7 +355,7 @@ function seedGuildThread(
     quotes: [],
     replyTree: [],
     hasMoreReplies: false,
-    guildName: null,
+    guildName: guildNameForThreadSeed(root),
     memberDriven: false,
     accessGated: false,
     engagement: rootEngagement ? { [postKey(root)]: rootEngagement } : {},
@@ -643,47 +653,49 @@ function PostThreadSheet({
               <PostQuotesTrackHostProvider
                 value={quotes ? quotesTrackHost : null}
               >
-                {layer.kind === 'quotes' ? (
-                  <PostQuotesPanel
-                    key={`${layer.groupId ?? ''}:${layer.accountId}:${layer.postId}:${layer.tab}`}
-                    author={layer.accountId}
-                    postId={layer.postId}
-                    initial={layer.initial}
-                    embedded
-                    initialTab={layer.tab}
-                    onThreadPainted={noteThreadPainted}
-                  />
-                ) : layer.groupId ? (
-                  <LiveGuildPostPanel
-                    key={`${layer.groupId}:${layer.accountId}:${layer.postId}`}
-                    groupId={layer.groupId}
-                    author={layer.accountId}
-                    postId={layer.postId}
-                    initial={
-                      layer.root
-                        ? seedGuildThread(layer.root, layer.rootEngagement)
-                        : null
-                    }
-                    embedded
-                    replyDockEnabled={open && !parked}
-                    parked={parked}
-                    showGuildLine={guildCard?.showGuildLine ?? true}
-                    showChannel={guildCard?.showChannel ?? true}
-                    sheetContext={layer.context}
-                    onThreadPainted={noteThreadPainted}
-                  />
-                ) : (
-                  <LivePersonalPostPanel
-                    key={`${layer.accountId}:${layer.postId}`}
-                    author={layer.accountId}
-                    postId={layer.postId}
-                    initial={initial}
-                    embedded
-                    replyDockEnabled={open && !parked}
-                    parked={parked}
-                    onThreadPainted={noteThreadPainted}
-                  />
-                )}
+                <Suspense fallback={null}>
+                  {layer.kind === 'quotes' ? (
+                    <PostQuotesPanel
+                      key={`${layer.groupId ?? ''}:${layer.accountId}:${layer.postId}:${layer.tab}`}
+                      author={layer.accountId}
+                      postId={layer.postId}
+                      initial={layer.initial}
+                      embedded
+                      initialTab={layer.tab}
+                      onThreadPainted={noteThreadPainted}
+                    />
+                  ) : layer.groupId ? (
+                    <LiveGuildPostPanel
+                      key={`${layer.groupId}:${layer.accountId}:${layer.postId}`}
+                      groupId={layer.groupId}
+                      author={layer.accountId}
+                      postId={layer.postId}
+                      initial={
+                        layer.root
+                          ? seedGuildThread(layer.root, layer.rootEngagement)
+                          : null
+                      }
+                      embedded
+                      replyDockEnabled={open && !parked}
+                      parked={parked}
+                      showGuildLine={guildCard?.showGuildLine ?? true}
+                      showChannel={guildCard?.showChannel ?? true}
+                      sheetContext={layer.context}
+                      onThreadPainted={noteThreadPainted}
+                    />
+                  ) : (
+                    <LivePersonalPostPanel
+                      key={`${layer.accountId}:${layer.postId}`}
+                      author={layer.accountId}
+                      postId={layer.postId}
+                      initial={initial}
+                      embedded
+                      replyDockEnabled={open && !parked}
+                      parked={parked}
+                      onThreadPainted={noteThreadPainted}
+                    />
+                  )}
+                </Suspense>
               </PostQuotesTrackHostProvider>
             </OsRouteSettle>
           </OsAppScreen>
@@ -956,11 +968,13 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       if (root) {
         // Feed already painted this face — keep it for the sheet's first frame.
         seedPostAuthorProfilesFromFeed([root], { notify: true });
+        seedGuildDisplayNamesFromFeed([root], { notify: true });
       }
       warmThreadOpen(
         threadContentPath(parsed),
         parsed.groupId ? 'guild' : 'personal'
       );
+      if (parsed.groupId) warmGuildChannelTitles(parsed.groupId);
       const canonical = personal
         ? canonicalizePostLayerHref(href)
         : canonicalizeGuildPostLayerHref(href);

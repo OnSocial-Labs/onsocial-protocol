@@ -21,6 +21,7 @@ import {
 } from '@/contexts/compose-launcher-context';
 import { useFeedReplyWriteDock } from '@/hooks/use-feed-reply-write-dock';
 import { GUILDS_PAGE_CLASS } from '@/lib/os-chrome-page';
+import { seedGuildChannelTitles } from '@/lib/guild-channel-titles';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { useImmersiveTitleHandoff } from '@/hooks/use-immersive-title-handoff';
 import { OsEmptyAction } from '@/lib/os-empty-action';
@@ -457,6 +458,10 @@ export function LiveGuildPanel({
     }
     return titles;
   }, [feedSpaces]);
+  useEffect(() => {
+    if (!groupId || Object.keys(channelTitleById).length === 0) return;
+    seedGuildChannelTitles(groupId, channelTitleById);
+  }, [channelTitleById, groupId]);
   const postableSpaces = useMemo(
     () => (config ? composerGuildSpaces(config.structure, viewerAccess) : []),
     [config, viewerAccess]

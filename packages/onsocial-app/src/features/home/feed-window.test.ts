@@ -133,6 +133,21 @@ describe('FeedWindowSizeCache', () => {
     expect(roundTrip.get('a/2')).toBe(200);
   });
 
+  it('evicts heights whose keys are not retained', () => {
+    const cache = new FeedWindowSizeCache();
+    cache.set('a/1', 100);
+    cache.set('b/2', 200);
+    cache.set('c/3', 300);
+    cache.retain(['b/2', 'c/3', 'missing']);
+    expect(cache.get('a/1')).toBeUndefined();
+    expect(cache.get('b/2')).toBe(200);
+    expect(cache.get('c/3')).toBe(300);
+
+    cache.retain(new Set(['c/3']));
+    expect(cache.get('b/2')).toBeUndefined();
+    expect(cache.get('c/3')).toBe(300);
+  });
+
   it('keeps the most recent entries when over the persist cap', () => {
     const cache = new FeedWindowSizeCache();
     for (let i = 0; i < 10; i += 1) cache.set(`k/${i}`, 100 + i);

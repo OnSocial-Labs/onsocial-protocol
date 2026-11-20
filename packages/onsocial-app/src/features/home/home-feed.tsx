@@ -43,6 +43,7 @@ import {
   type FeedScrollAnchor,
 } from '@/features/home/home-feed-scroll-anchor';
 import { FeedWindowSizeCache } from '@/features/home/feed-window';
+import type { FeedWindowRangeChange } from '@/features/home/use-feed-window';
 import {
   homeFeedHasMore,
   isHomeFeedSocialLens,
@@ -159,7 +160,12 @@ import {
   recordForPosts,
   writeHomeFeedSession,
 } from '@/lib/home-feed-session';
-import { scrollFeedToNewest } from '@/lib/feed-scroll-to-newest';
+import { coalesceFeedThreads } from '@/lib/feed-threads';
+import {
+  FEED_CATCH_UP_SCROLLING_CLASS,
+  scrollFeedToNewest,
+} from '@/lib/feed-scroll-to-newest';
+import { warmPostPanels } from '@/lib/thread-first-page';
 import {
   reconcileFeedRows,
   selectFeedReconcileTargets,
@@ -174,7 +180,12 @@ import {
   scrollTopToPersist,
 } from '@/lib/list-scroll-restore';
 import { getAppLenis } from '@/lib/app-lenis-registry';
-import { trimHomeFeedWorkingSetKeepingHead } from '@/lib/home-feed-working-set';
+import {
+  HOME_FEED_MEMORY_TRIM_IDLE_MS,
+  HOME_FEED_WORKING_SET_POSTS,
+  planHomeFeedMemoryTrim,
+  trimHomeFeedWorkingSetKeepingHead,
+} from '@/lib/home-feed-working-set';
 import { revokeDroppedOptimisticMedia } from '@/lib/post-media';
 import { filterHiddenAuthors } from '@/lib/viewer-mute-block-filter';
 import {
@@ -255,6 +266,18 @@ export function HomePagePanel({
     cache.prime(restoredSession?.blockHeights);
     feedWindowCacheRef.current = cache;
   }
+  /** Mounted block band from the feed window — drives idle memory trim. */
+  const feedWindowRangeRef = useRef<FeedWindowRangeChange>({
+    start: 0,
+    end: 0,
+    blockCount: 0,
+  });
+  const memoryTrimTimerRef = useRef<number | null>(null);
+  const scheduleMemoryTrimRef = useRef<() => void>(() => {});
+  const isLoadingMoreRef = useRef(false);
+  const reRankAnchorRef = useRef<FeedScrollAnchor | null>(null);
+  const includeForeignRepliesRef = useRef(false);
+  const stoodWithAccountIdsRef = useRef<Set<string> | undefined>(undefined);
   const serverPainted = initialPage != null;
   const [quotedSeed, setQuotedSeed] = useState<FeedQuoteSeed>(
     () => restoredSession?.quoted ?? initialQuoted ?? {}
@@ -572,6 +595,10 @@ export function HomePagePanel({
     }
   }, [posts, reRankAnchor]);
 
+  useEffect(() => {
+    reRankAnchorRef.current = reRankAnchor;
+  }, [reRankAnchor]);
+
   // Drop quote/poll/dao/engagement keys for rows no longer in the model
   // (refresh replace, jump-to-newest tail trim). Load-more only adds keys.
   useEffect(() => {
@@ -588,17 +615,6 @@ export function HomePagePanel({
       return recordForPosts(posts, current, postKey) ?? {};
     });
   }, [posts]);
-
-  useEffect(() => {
-    const node = scrollRootRef.current;
-    if (!(node instanceof HTMLElement)) return;
-    const onScroll = (event: Event) => {
-      if (!event.isTrusted) return;
-      noteHomeFeedSessionScroll(node.scrollTop);
-    };
-    node.addEventListener('scroll', onScroll, { passive: true });
-    return () => node.removeEventListener('scroll', onScroll);
-  }, [posts.length]);
 
   /**
    * Cold first visit — ask for the public hot page before the wallet and
@@ -640,21 +656,19 @@ export function HomePagePanel({
   }, []);
 
   /**
-   * Warm the reply-thread chunk once the feed has painted, so the first
-   * Reply opens with the conversation instead of an empty drawer.
+   * Warm personal + guild + quotes chunks once the feed has rows so a
+   * seeded open paints the row already in hand (not a full-page skeleton).
    */
   const threadWarmRef = useRef(false);
   useEffect(() => {
     if (threadWarmRef.current || posts.length === 0) return;
     threadWarmRef.current = true;
-    const warm = () => {
-      void import('@/features/home/live-personal-post-panel');
-    };
+    const warm = () => warmPostPanels();
     if (typeof window.requestIdleCallback === 'function') {
-      const idleId = window.requestIdleCallback(warm, { timeout: 4000 });
+      const idleId = window.requestIdleCallback(warm, { timeout: 1200 });
       return () => window.cancelIdleCallback(idleId);
     }
-    const timerId = window.setTimeout(warm, 2000);
+    const timerId = window.setTimeout(warm, 400);
     return () => window.clearTimeout(timerId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [posts.length > 0]);
@@ -686,6 +700,10 @@ export function HomePagePanel({
   useEffect(() => {
     isRefreshingRef.current = isRefreshing;
   }, [isRefreshing]);
+
+  useEffect(() => {
+    isLoadingMoreRef.current = isLoadingMore;
+  }, [isLoadingMore]);
 
   useEffect(() => {
     unseenPostsRef.current = unseenPosts;
@@ -786,6 +804,8 @@ export function HomePagePanel({
     activeLens,
     activeFocus != null
   );
+  includeForeignRepliesRef.current = includeForeignReplies;
+  stoodWithAccountIdsRef.current = stoodWithAccountIds;
   const visibleCardCount = useMemo(
     () =>
       countVisibleHomeFeedCards(visiblePosts, {
@@ -1222,9 +1242,9 @@ export function HomePagePanel({
           setReRankAnchor(captureVisibleFeedAnchor(scrollRootRef.current));
         }
         const appended = result.page.items;
-        // Keep the full accumulated list — head trim on append orphans the
-        // prefix and makes scroll-up look reordered. DOM windowing bounds
-        // render; side maps project to live posts above.
+        // Keep the accumulated list on append — sync head trim orphans
+        // scroll-up. Idle memory trim bounds the JS working set after
+        // scroll settles; DOM windowing already bounds render.
         setPosts((current) => {
           const merged = mergeFeedPosts(current, appended);
           return focus != null && sort === 'hot'
@@ -1287,6 +1307,8 @@ export function HomePagePanel({
         if (isCurrentLoadingRequest(loadIdRef.current, loadId)) {
           setIsLoadingMore(false);
           appendInFlightRef.current = false;
+          // Idle trim after append settles — never sync-trim inside setPosts.
+          scheduleMemoryTrimRef.current();
         }
       }
     })();
@@ -1399,10 +1421,21 @@ export function HomePagePanel({
     setReloadNonce((value) => value + 1);
   }, []);
 
-  const trimFarBelowAfterJump = useCallback(() => {
-    setPosts((current) => {
-      const { posts: kept } = trimHomeFeedWorkingSetKeepingHead(current);
+  const retainFeedWindowHeights = useCallback((kept: readonly PostRow[]) => {
+    const blocks = coalesceFeedThreads([...kept], {
+      includeForeignReplies: includeForeignRepliesRef.current,
+      stoodWithAccountIds: stoodWithAccountIdsRef.current,
+    });
+    feedWindowCacheRef.current?.retain(
+      blocks.map((block) => postKey(block.posts[0]!))
+    );
+  }, []);
+
+  /** Clamp cursors, revoke media, retain heights after any working-set cut. */
+  const commitTrimmedWorkingSet = useCallback(
+    (kept: PostRow[], current: PostRow[]): PostRow[] => {
       if (kept.length === current.length) return current;
+      revokeDroppedOptimisticMedia(current, kept);
       const clamped = clampHomeFeedCursorAfterTrim({
         posts: kept,
         nextOffset: nextOffsetRef.current,
@@ -1420,9 +1453,93 @@ export function HomePagePanel({
       nextBeforeEventKeyRef.current = clamped.nextBeforeEventKey;
       setNextBeforeEventKey(clamped.nextBeforeEventKey);
       offsetShiftAppliedRef.current = clamped.offsetShiftApplied;
+      retainFeedWindowHeights(kept);
       return kept;
+    },
+    [retainFeedWindowHeights]
+  );
+
+  const trimFarBelowAfterJump = useCallback(() => {
+    setPosts((current) => {
+      const { posts: kept } = trimHomeFeedWorkingSetKeepingHead(current);
+      return commitTrimmedWorkingSet(kept, current);
     });
+  }, [commitTrimmedWorkingSet]);
+
+  const maybeTrimFeedMemory = useCallback(() => {
+    if (
+      isLoadingRef.current ||
+      isRefreshingRef.current ||
+      appendInFlightRef.current ||
+      isLoadingMoreRef.current ||
+      reRankAnchorRef.current
+    ) {
+      return;
+    }
+    const root = scrollRootRef.current;
+    if (root?.classList.contains(FEED_CATCH_UP_SCROLLING_CLASS)) return;
+    const current = postsRef.current;
+    if (current.length <= HOME_FEED_WORKING_SET_POSTS) return;
+    const range = feedWindowRangeRef.current;
+    const trimmed = planHomeFeedMemoryTrim({
+      posts: current,
+      scrollTop: feedScrollTop(),
+      windowStart: range.start,
+      windowEnd: range.end,
+      includeForeignReplies: includeForeignRepliesRef.current,
+      stoodWithAccountIds: stoodWithAccountIdsRef.current,
+    });
+    if (
+      trimmed.droppedHead.length === 0 &&
+      trimmed.droppedTail.length === 0
+    ) {
+      return;
+    }
+    // Head drop shifts document flow — pin the visible row for one restore.
+    // Tail-only cuts leave scroll alone.
+    if (trimmed.droppedHead.length > 0) {
+      setReRankAnchor(captureVisibleFeedAnchor(root));
+    }
+    setPosts((live) => {
+      // Append / refresh won the race — leave their list alone.
+      if (live !== current) return live;
+      return commitTrimmedWorkingSet(trimmed.posts, live);
+    });
+  }, [commitTrimmedWorkingSet, feedScrollTop]);
+
+  const scheduleMemoryTrim = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    if (memoryTrimTimerRef.current != null) {
+      window.clearTimeout(memoryTrimTimerRef.current);
+    }
+    memoryTrimTimerRef.current = window.setTimeout(() => {
+      memoryTrimTimerRef.current = null;
+      maybeTrimFeedMemory();
+    }, HOME_FEED_MEMORY_TRIM_IDLE_MS);
+  }, [maybeTrimFeedMemory]);
+  scheduleMemoryTrimRef.current = scheduleMemoryTrim;
+
+  const onWindowRangeChange = useCallback((range: FeedWindowRangeChange) => {
+    feedWindowRangeRef.current = range;
   }, []);
+
+  useEffect(() => {
+    const node = scrollRootRef.current;
+    if (!(node instanceof HTMLElement)) return;
+    const onScroll = (event: Event) => {
+      if (!event.isTrusted) return;
+      noteHomeFeedSessionScroll(node.scrollTop);
+      scheduleMemoryTrim();
+    };
+    node.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      node.removeEventListener('scroll', onScroll);
+      if (memoryTrimTimerRef.current != null) {
+        window.clearTimeout(memoryTrimTimerRef.current);
+        memoryTrimTimerRef.current = null;
+      }
+    };
+  }, [posts.length, scheduleMemoryTrim]);
 
   const applyNewPosts = useCallback(() => {
     clearUnseenPosts();
@@ -1791,6 +1908,7 @@ export function HomePagePanel({
                   daoMemberships={daoSeed}
                   windowSizeCache={feedWindowCacheRef.current}
                   pinnedFeedKey={reRankAnchor?.key ?? null}
+                  onWindowRangeChange={onWindowRangeChange}
                   onReply={replyHandler}
                   onExpandReply={openFullReply}
                   onQuote={quoteHandler}

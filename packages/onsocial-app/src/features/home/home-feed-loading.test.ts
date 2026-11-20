@@ -37,6 +37,9 @@ describe('home feed loading contract', () => {
     // Append keeps the accumulated list — head trim orphaned scroll-up order.
     expect(source).not.toContain('trimHomeFeedWorkingSet(');
     expect(source).toContain('trimHomeFeedWorkingSetKeepingHead');
+    expect(source).toContain('planHomeFeedMemoryTrim');
+    expect(source).toContain('onWindowRangeChange');
+    expect(source).toContain('warmPostPanels');
     expect(source).toContain('quotedForPosts');
     expect(source).toContain('recordForPosts');
     expect(source).toContain("[data-feed-session=\"covered\"]");

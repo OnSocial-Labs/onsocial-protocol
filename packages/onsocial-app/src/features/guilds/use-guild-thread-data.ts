@@ -430,14 +430,14 @@ export function useGuildThreadData({
         if (rawConfig) {
           setGuildStructure(parseGuildStructure(rawConfig));
           const named =
-            typeof rawConfig.name === 'string' ? rawConfig.name : null;
-          setGuildName(named);
+            typeof rawConfig.name === 'string' ? rawConfig.name.trim() : '';
+          // Config miss must not wipe a feed-seeded label back to raw group id.
+          if (named) setGuildName(named);
           setMemberDriven(
             rawConfig.member_driven === true || rawConfig.memberDriven === true
           );
         } else {
           setGuildStructure(null);
-          setGuildName(null);
           setMemberDriven(false);
         }
 

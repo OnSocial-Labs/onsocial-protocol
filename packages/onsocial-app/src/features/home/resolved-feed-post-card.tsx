@@ -10,6 +10,7 @@ import {
   type PostEngagement,
 } from '@/hooks/use-post-engagement';
 import { resolveFeedRepostCard } from '@/lib/feed-repost-card';
+import { peekGuildChannelTitle } from '@/lib/guild-channel-titles';
 import type { PollTally } from '@/lib/poll-votes';
 import { displayName } from '@/lib/profile-display';
 
@@ -116,7 +117,11 @@ export function ResolvedFeedPostCard({
   const resolvedChannelLabel =
     channelLabel ??
     (showChannel && card.channel
-      ? (channelTitleById?.[card.channel] ?? card.channel)
+      ? (channelTitleById?.[card.channel] ??
+        (card.groupId
+          ? peekGuildChannelTitle(card.groupId, card.channel)
+          : undefined) ??
+        card.channel)
       : undefined);
   const resolvedGuildName =
     guildName ??

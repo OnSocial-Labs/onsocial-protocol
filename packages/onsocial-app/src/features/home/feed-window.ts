@@ -111,6 +111,14 @@ export class FeedWindowSizeCache {
     return true;
   }
 
+  /** Drop heights for blocks that left the working set. */
+  retain(keys: Iterable<string>): void {
+    const keep = keys instanceof Set ? keys : new Set(keys);
+    for (const key of this.sizes.keys()) {
+      if (!keep.has(key)) this.sizes.delete(key);
+    }
+  }
+
   /** Fill missing keys from a persisted snapshot — live measurements win. */
   prime(record: Record<string, number> | undefined): void {
     if (!record) return;
