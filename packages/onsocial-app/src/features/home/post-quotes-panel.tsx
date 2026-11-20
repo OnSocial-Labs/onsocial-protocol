@@ -47,6 +47,7 @@ import { portfolioPath } from '@/lib/overlay-routes';
 import { displayName } from '@/lib/profile-display';
 import { POST_REACH_TITLE } from '@/lib/post-reach-title';
 import { postThreadPath, type PostQuotesTab } from '@/lib/post-routes';
+import { writeQuotesSession } from '@/lib/quotes-session-cache';
 import { planThreadLoad } from '@/lib/thread-open';
 
 type LoadState = 'loading' | 'ready' | 'missing' | 'error';
@@ -135,10 +136,21 @@ export function PostQuotesPanel({
         setRoot(fetchedRoot);
         setQuotes(fetchedQuotes);
         setReposters(fetchedReposters);
-        setHasMoreQuotes(fetchedQuotes.length >= POST_QUOTES_PAGE_SIZE);
-        setHasMoreReposters(
-          fetchedReposters.length >= POST_REPOSTERS_PAGE_SIZE
-        );
+        const hasMoreQuotesNext =
+          fetchedQuotes.length >= POST_QUOTES_PAGE_SIZE;
+        const hasMoreRepostersNext =
+          fetchedReposters.length >= POST_REPOSTERS_PAGE_SIZE;
+        setHasMoreQuotes(hasMoreQuotesNext);
+        setHasMoreReposters(hasMoreRepostersNext);
+        writeQuotesSession(path, {
+          root: fetchedRoot,
+          quotes: fetchedQuotes,
+          reposters: fetchedReposters,
+          hasMoreQuotes: hasMoreQuotesNext,
+          hasMoreReposters: hasMoreRepostersNext,
+          engagement: {},
+          scarceEmbeds: {},
+        });
         if (!options.background) setLoadState('ready');
       } catch (cause) {
         if (options.background) return;

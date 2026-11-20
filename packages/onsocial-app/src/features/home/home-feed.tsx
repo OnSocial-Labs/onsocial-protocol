@@ -1116,18 +1116,6 @@ export function HomePagePanel({
         standingSourcesRef.current = result.standingSources;
         setStandingNetworkIds(result.standingSources);
         const items = result.page.items;
-        if (!mergeHead) {
-          const [paint, engagement] = await Promise.all([
-            loadFeedPaint(items),
-            loadPostEngagementMap(createReadOnlyOnSocialClient(), items),
-          ]);
-          if (!isCurrentLoadingRequest(loadIdRef.current, loadId)) return;
-          sidePaintSavedRef.current = true;
-          setQuotedSeed((current) => ({ ...current, ...paint.quoted }));
-          setPollSeed((current) => ({ ...current, ...paint.tallies }));
-          setDaoSeed((current) => ({ ...current, ...paint.memberships }));
-          setEngagementSeed(engagement);
-        }
         let insertedCount = 0;
         let hotHeadChanged = false;
         if (mergeHead && sort === 'hot' && postsLengthRef.current > 0) {
@@ -1135,6 +1123,9 @@ export function HomePagePanel({
           setReRankAnchor(captureVisibleFeedAnchor(scrollRootRef.current));
         }
         let risingAuthors: string[] = [];
+        // Rows first — quotes/tallies/engagement soft-fill into reserved seats
+        // (same contract as SSR). Blocking setPosts on side paint left the
+        // footer stuck, then dumped a page of estimate→measure corrections.
         setPosts((current) => {
           if (mergeHead && current.length > 0) {
             const merged =
@@ -1170,7 +1161,21 @@ export function HomePagePanel({
         }
         setSsrBootstrapDone(true);
         ssrBootstrapDoneRef.current = true;
-        if (mergeHead) fillSidePaint(items);
+        fillSidePaint(items);
+        if (!mergeHead) {
+          void loadPostEngagementMap(
+            createReadOnlyOnSocialClient(),
+            items
+          ).then(
+            (engagement) => {
+              if (!isCurrentLoadingRequest(loadIdRef.current, loadId)) return;
+              setEngagementSeed(engagement);
+            },
+            () => {
+              // Counts soft-fill; EMPTY_POST_ENGAGEMENT holds the row seat.
+            }
+          );
+        }
       } catch (cause) {
         if (!isCurrentLoadingRequest(loadIdRef.current, loadId)) return;
         const message =
@@ -1277,25 +1282,6 @@ export function HomePagePanel({
         if (pendingShift > 0) {
           offsetShiftAppliedRef.current += pendingShift;
         }
-        const [appendedPaint, appendedEngagement] = await Promise.all([
-          loadFeedPaint(result.page.items),
-          loadPostEngagementMap(
-            createReadOnlyOnSocialClient(),
-            result.page.items
-          ),
-        ]);
-        if (!isCurrentLoadingRequest(loadIdRef.current, loadId)) return;
-        sidePaintSavedRef.current = true;
-        setQuotedSeed((current) => ({ ...current, ...appendedPaint.quoted }));
-        setPollSeed((current) => ({ ...current, ...appendedPaint.tallies }));
-        setDaoSeed((current) => ({
-          ...current,
-          ...appendedPaint.memberships,
-        }));
-        setEngagementSeed((current) => ({
-          ...(current ?? {}),
-          ...appendedEngagement,
-        }));
         if (focus != null && sort === 'hot') {
           // Focus Hot re-ranks the whole accumulated list on append, so a
           // hot post from a later page can outrank painted rows. Hold the
@@ -1303,14 +1289,44 @@ export function HomePagePanel({
           // content under the reader. The layout effect below applies it.
           setReRankAnchor(captureVisibleFeedAnchor(scrollRootRef.current));
         }
+        const appended = result.page.items;
         setPosts((current) => {
-          const merged = mergeFeedPosts(current, result.page.items);
+          const merged = mergeFeedPosts(current, appended);
           return focus != null && sort === 'hot'
             ? sortPostsByHot(merged)
             : merged;
         });
         setNextOffset(result.page.nextOffset);
         nextOffsetRef.current = result.page.nextOffset;
+        // Soft-fill after rows mount — quote/engagement seats already hold.
+        void Promise.all([
+          loadFeedPaint(appended),
+          loadPostEngagementMap(createReadOnlyOnSocialClient(), appended),
+        ]).then(
+          ([appendedPaint, appendedEngagement]) => {
+            if (!isCurrentLoadingRequest(loadIdRef.current, loadId)) return;
+            sidePaintSavedRef.current = true;
+            setQuotedSeed((current) => ({
+              ...current,
+              ...appendedPaint.quoted,
+            }));
+            setPollSeed((current) => ({
+              ...current,
+              ...appendedPaint.tallies,
+            }));
+            setDaoSeed((current) => ({
+              ...current,
+              ...appendedPaint.memberships,
+            }));
+            setEngagementSeed((current) => ({
+              ...(current ?? {}),
+              ...appendedEngagement,
+            }));
+          },
+          () => {
+            // Rows stay; seats fill on the next successful paint.
+          }
+        );
       } catch {
         // Keep the current list; the sentinel stays available to retry.
         if (isCurrentLoadingRequest(loadIdRef.current, loadId)) {
@@ -1833,4 +1849,3 @@ export function HomePagePanel({
 }
 
 /** @deprecated Prefer {@link HomePagePanel}. */
-export const HomeFeedPanel = HomePagePanel;

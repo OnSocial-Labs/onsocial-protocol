@@ -35,6 +35,8 @@ import { accountIdsEqual } from '@/lib/account-match';
 import { portfolioSwipeOpensPage } from '@/lib/portfolio-feed-reveal';
 import type { PersonalPostPageData } from '@/lib/load-personal-post-page';
 import type { GuildPostPageData } from '@/lib/load-guild-post-page';
+import type { PostQuotesPageData } from '@/lib/load-post-quotes-page';
+import { seedQuotesFromSession } from '@/lib/quotes-session-cache';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
 import {
   bumpMediaFaceCover,
@@ -94,13 +96,14 @@ import {
   walkBackOneStep,
 } from './post-thread-stack';
 
-// Panels load client-side; OsRouteSettle covers with thread skeleton until land.
+// Panels load client-side; loading matches the settle skeleton so a seeded
+// open never lifts the cover onto empty chrome while the chunk mounts.
 const LivePersonalPostPanel = dynamic(
   () =>
     import('@/features/home/live-personal-post-panel').then(
       (mod) => mod.LivePersonalPostPanel
     ),
-  { ssr: false }
+  { ssr: false, loading: () => <PostThreadPageSkeleton /> }
 );
 
 const CollectionPagePanel = dynamic(
@@ -116,7 +119,7 @@ const LiveGuildPostPanel = dynamic(
     import('@/features/guilds/live-guild-post-panel').then(
       (mod) => mod.LiveGuildPostPanel
     ),
-  { ssr: false }
+  { ssr: false, loading: () => <PostThreadPageSkeleton /> }
 );
 
 const PostQuotesPanel = dynamic(
@@ -124,7 +127,7 @@ const PostQuotesPanel = dynamic(
     import('@/features/home/post-quotes-panel').then(
       (mod) => mod.PostQuotesPanel
     ),
-  { ssr: false }
+  { ssr: false, loading: () => <PostQuotesPageSkeleton /> }
 );
 
 const POST_LAYER_STATE_KEY = 'onsocialPostLayer';
@@ -225,6 +228,8 @@ type QuotesLayerTarget = {
   /** Set for a guild thread. Personal posts leave this empty. */
   groupId: string | null;
   tab: PostQuotesTab;
+  /** Thread/session seed — paints root + quotes before the network returns. */
+  initial: PostQuotesPageData | null;
   zIndex: number;
   openedAboveMediaFace: boolean;
 };
@@ -444,7 +449,9 @@ function PostThreadSheet({
   const layerKey = `${layer.kind}:${layer.groupId ?? ''}:${layer.accountId}:${layer.postId}${
     layer.kind === 'quotes' ? `:${layer.tab}` : ''
   }`;
-  const seededRoot = layer.kind === 'post' && layer.root != null;
+  const seededRoot =
+    (layer.kind === 'post' && layer.root != null) ||
+    (layer.kind === 'quotes' && layer.initial?.root != null);
   const [paintedForKey, setPaintedForKey] = useState<string | null>(() =>
     seededRoot ? layerKey : null
   );
@@ -631,6 +638,7 @@ function PostThreadSheet({
                     key={`${layer.groupId ?? ''}:${layer.accountId}:${layer.postId}:${layer.tab}`}
                     author={layer.accountId}
                     postId={layer.postId}
+                    initial={layer.initial}
                     embedded
                     initialTab={layer.tab}
                     onThreadPainted={noteThreadPainted}
@@ -1147,6 +1155,11 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         postId: parsed.postId,
         groupId: parsed.groupId,
         tab,
+        initial: seedQuotesFromSession({
+          accountId: parsed.accountId,
+          postId: parsed.postId,
+          groupId: parsed.groupId,
+        }),
         zIndex:
           stackRef.current[0]?.zIndex ?? nextStackedLayerZ(stackRef.current),
         openedAboveMediaFace: isOsMediaFaceOpen(),

@@ -168,6 +168,9 @@ export function FeedSessionHost({
 
   const showFeed = onFeed || keepFeed || showParkedReader;
   const pinFeed = showFeed && (shelfHop || retainFeed || showParkedReader);
+  // Retained under another route → covered so probes/video/Lenis pause.
+  // On the home path the session stays live.
+  const feedSession = onFeed || !pinFeed ? 'live' : 'covered';
 
   useLayoutEffect(() => {
     notePortalHosts();
@@ -178,7 +181,7 @@ export function FeedSessionHost({
       {showFeed ? (
         <div
           ref={hostRef}
-          data-feed-session="live"
+          data-feed-session={feedSession}
           style={pinFeed ? SHELF_FEED_STYLE : undefined}
         >
           {showParkedReader && parked ? (

@@ -7,6 +7,7 @@ import {
   isUnmodifiedPrimaryClick,
   usePostThreadLayer,
 } from '@/features/home/post-thread-layer';
+import { warmQuotesOpen } from '@/lib/thread-first-page';
 
 interface ThreadViewQuotesRowProps {
   href: string;
@@ -36,6 +37,10 @@ export function ThreadViewQuotesRow({
       aria-hidden={idle ? true : undefined}
       tabIndex={idle ? -1 : undefined}
       scroll={false}
+      onPointerDown={() => {
+        if (idle) return;
+        warmQuotesOpen();
+      }}
       onClick={(event) => {
         if (!isUnmodifiedPrimaryClick(event)) return;
         if (!openPostQuotes({ href })) return;

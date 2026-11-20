@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { PostRow } from '@onsocial/sdk';
 import { postContentPath } from '@onsocial/sdk';
 import {
+  feedBlockEstimateKind,
+  feedBlockIsPollRow,
   insertOptimisticFeedPost,
-  personalFeedBlockEstimateKind,
-  personalFeedBlockIsPollRow,
   shouldPrependOptimisticFeedPost,
 } from './personal-feed-list';
 import {
@@ -140,14 +140,14 @@ function pollValue(question: string): string {
   });
 }
 
-describe('personalFeedBlockIsPollRow', () => {
+describe('feedBlockIsPollRow', () => {
   it('estimates a single poll card, including a bare repost of one', () => {
     const poll: PostRow = {
       ...row('alice.near', 'poll'),
       kind: 'poll',
       value: pollValue('Favorite color?'),
     };
-    expect(personalFeedBlockIsPollRow({ posts: [poll] }, {})).toBe(true);
+    expect(feedBlockIsPollRow({ posts: [poll] }, {})).toBe(true);
     expect(feedWindowRowEstimatePx(true)).toBe(FEED_WINDOW_POLL_ESTIMATE_PX);
 
     const shell: PostRow = {
@@ -157,14 +157,14 @@ describe('personalFeedBlockIsPollRow', () => {
       value: '',
     };
     expect(
-      personalFeedBlockIsPollRow(
+      feedBlockIsPollRow(
         { posts: [shell] },
         {
           'alice.near/post/poll': poll,
         }
       )
     ).toBe(true);
-    expect(personalFeedBlockIsPollRow({ posts: [shell] }, {})).toBe(false);
+    expect(feedBlockIsPollRow({ posts: [shell] }, {})).toBe(false);
   });
 
   it('types media and quote rows above the text estimate', () => {
@@ -176,7 +176,7 @@ describe('personalFeedBlockIsPollRow', () => {
       }),
     };
     expect(
-      personalFeedBlockEstimateKind({ posts: [withPhoto] }, {})
+      feedBlockEstimateKind({ posts: [withPhoto] }, {})
     ).toBe('media');
     const withQuote: PostRow = {
       ...row('alice.near', 'cite'),
@@ -185,7 +185,7 @@ describe('personalFeedBlockIsPollRow', () => {
       value: JSON.stringify({ text: 'citing' }),
     };
     expect(
-      personalFeedBlockEstimateKind({ posts: [withQuote] }, {})
+      feedBlockEstimateKind({ posts: [withQuote] }, {})
     ).toBe('quote');
   });
 
@@ -195,7 +195,7 @@ describe('personalFeedBlockIsPollRow', () => {
       value: pollValue('Favorite color?'),
     };
     const reply = row('alice.near', 'reply');
-    expect(personalFeedBlockIsPollRow({ posts: [poll, reply] }, {})).toBe(
+    expect(feedBlockIsPollRow({ posts: [poll, reply] }, {})).toBe(
       false
     );
     const withPhoto: PostRow = {
@@ -212,9 +212,9 @@ describe('personalFeedBlockIsPollRow', () => {
         ],
       }),
     };
-    expect(personalFeedBlockIsPollRow({ posts: [withPhoto] }, {})).toBe(false);
+    expect(feedBlockIsPollRow({ posts: [withPhoto] }, {})).toBe(false);
     expect(
-      personalFeedBlockIsPollRow({ posts: [poll], standingPeek: reply }, {})
+      feedBlockIsPollRow({ posts: [poll], standingPeek: reply }, {})
     ).toBe(false);
   });
 });
