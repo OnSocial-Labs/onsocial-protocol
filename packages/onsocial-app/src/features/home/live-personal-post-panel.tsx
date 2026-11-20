@@ -45,7 +45,10 @@ import {
 } from '@/features/guilds/guild-composer-sheet';
 import { postKey } from '@/features/home/post-card';
 import { ResolvedFeedPostCard } from '@/features/home/resolved-feed-post-card';
-import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
+import {
+  PostRowSkeleton,
+  PostThreadPageSkeleton,
+} from '@/features/home/post-skeleton';
 import { ThreadRail } from '@/features/home/thread-rail';
 import { ThreadDiscoverPeek } from '@/features/home/thread-discover-peek';
 import { ThreadRepliesSortButton } from '@/features/home/thread-replies-sort';
@@ -1461,13 +1464,18 @@ export function LivePersonalPostPanel({
             ) : null}
             {sortedReplyRows.length > 0 ? (
               replyListRows
+            ) : !repliesResolved ? (
+              // Reply-shaped seat until the first page lands — not the
+              // discover peek (title + card would jump when replies replace it).
+              <div aria-busy="true">
+                <PostRowSkeleton rows={2} />
+              </div>
             ) : shareRow ? null : (
-              // One peek host for the empty tail — it owns the skeleton seat
-              // through share settle and fetch so seats never swap/move.
+              // Confirmed empty — one peek host owns seat through fetch.
               <ThreadDiscoverPeek
                 author={author}
                 excludePostId={postId}
-                armed={repliesResolved && emptyTailReady}
+                armed={emptyTailReady}
                 allowEmptyCollapse={landSettled}
                 authorProfiles={postAuthorProfiles}
                 menuZIndex={nestMenuZ}

@@ -12,7 +12,8 @@ import {
 
 const HIGHLIGHT_MS = 2600;
 const SCROLL_RETRY_MS = 120;
-const SCROLL_MAX_ATTEMPTS = 24;
+/** Cover + land can eat the first few ticks before the focus row mounts. */
+const SCROLL_MAX_ATTEMPTS = 48;
 
 export function useThreadFocusReply(
   ready: boolean,

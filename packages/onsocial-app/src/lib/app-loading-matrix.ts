@@ -192,7 +192,7 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     id: 'personal-post',
     route: '/[accountId]/posts/[postId]',
     family: 'immersive-detail',
-    cold: 'PostThreadPageSkeleton until a root exists; a root in hand paints; ThreadDiscoverPeek seat until first reply page',
+    cold: 'PostThreadPageSkeleton until a root exists; a root in hand paints; PostRowSkeleton until first reply page, then ThreadDiscoverPeek when empty',
     refreshing: 'Keep visible thread',
     appending:
       'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',
@@ -211,7 +211,7 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     id: 'guild-post',
     route: '/groups/[groupId]/posts/[author]/[postId]',
     family: 'immersive-detail',
-    cold: 'PostThreadPageSkeleton until a root exists; a root in hand paints; ThreadDiscoverPeek seat until first reply page',
+    cold: 'PostThreadPageSkeleton until a root exists; a root in hand paints; PostRowSkeleton until first reply page, then ThreadDiscoverPeek when empty',
     refreshing: 'Keep visible thread',
     appending:
       'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',
@@ -396,7 +396,7 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     id: 'post-overlay',
     route: 'post-thread-layer',
     family: 'immersive-detail',
-    cold: 'PostThreadPageSkeleton until the seeded root paints; ThreadDiscoverPeek seat until first reply page',
+    cold: 'PostThreadPageSkeleton until the seeded root paints; PostRowSkeleton until first reply page, then ThreadDiscoverPeek when empty',
     refreshing: 'Keep visible thread',
     appending:
       'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',

@@ -48,7 +48,10 @@ import {
 } from '@/lib/os-write-dock-draft';
 import { postKey } from '@/features/home/post-card';
 import { ResolvedFeedPostCard } from '@/features/home/resolved-feed-post-card';
-import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
+import {
+  PostRowSkeleton,
+  PostThreadPageSkeleton,
+} from '@/features/home/post-skeleton';
 import { ThreadRail } from '@/features/home/thread-rail';
 import { ThreadDiscoverPeek } from '@/features/home/thread-discover-peek';
 import { ThreadRepliesSortButton } from '@/features/home/thread-replies-sort';
@@ -1249,11 +1252,15 @@ export function LiveGuildPostPanel({
             ) : null}
             {sortedReplyRows.length > 0 ? (
               replyListRows
+            ) : !repliesResolved ? (
+              <div aria-busy="true">
+                <PostRowSkeleton rows={2} />
+              </div>
             ) : shareRow ? null : (
               <ThreadDiscoverPeek
                 author={author}
                 excludePostId={postId}
-                armed={repliesResolved && emptyTailReady}
+                armed={emptyTailReady}
                 allowEmptyCollapse={landSettled}
                 authorProfiles={postAuthorProfiles}
                 onReply={replyHandler}
