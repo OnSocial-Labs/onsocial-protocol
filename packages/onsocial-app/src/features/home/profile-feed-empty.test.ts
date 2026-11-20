@@ -50,6 +50,17 @@ describe('profile feed empty state contract', () => {
     expect(css).toContain('cursor: text');
   });
 
+  it('keeps a durable FeedWindowSizeCache for the drawer visit', () => {
+    const source = readFileSync(
+      join(homeSrc, 'profile-feed-client.tsx'),
+      'utf8'
+    );
+
+    expect(source).toContain('FeedWindowSizeCache');
+    expect(source).toContain('windowSizeCache={windowSizeCache}');
+    expect(source).toContain('[accountId, tab]');
+  });
+
   it('pages posts/replies/reposts with silent append dots', () => {
     const source = readFileSync(
       join(homeSrc, 'profile-feed-client.tsx'),

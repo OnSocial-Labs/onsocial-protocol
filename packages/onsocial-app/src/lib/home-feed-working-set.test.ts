@@ -1,14 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { PostRow } from '@onsocial/sdk';
-import { FeedWindowSizeCache } from '@/features/home/feed-window';
 import {
   HOME_FEED_TRIM_HEAD_PAD_BLOCKS,
   HOME_FEED_TRIM_NEAR_TOP_PX,
   HOME_FEED_TRIM_TAIL_PAD_BLOCKS,
   HOME_FEED_WORKING_SET_POSTS,
-  homeFeedDroppedHeightPx,
   planHomeFeedMemoryTrim,
-  trimHomeFeedWorkingSet,
   trimHomeFeedWorkingSetAroundWindow,
   trimHomeFeedWorkingSetKeepingHead,
 } from './home-feed-working-set';
@@ -48,14 +45,7 @@ describe('trimHomeFeedWorkingSetKeepingHead', () => {
   });
 });
 
-describe('trimHomeFeedWorkingSet', () => {
-  it('still drops the head for legacy callers / tests', () => {
-    const posts = Array.from({ length: 5 }, (_, i) => row(`p${i}`));
-    const { posts: kept, dropped } = trimHomeFeedWorkingSet(posts, 3);
-    expect(kept.map((p) => p.postId)).toEqual(['p2', 'p3', 'p4']);
-    expect(dropped.map((p) => p.postId)).toEqual(['p0', 'p1']);
-  });
-
+describe('HOME_FEED_WORKING_SET_POSTS', () => {
   it('defaults above the session persist size', () => {
     expect(HOME_FEED_WORKING_SET_POSTS).toBeGreaterThanOrEqual(120);
   });
@@ -190,13 +180,5 @@ describe('home feed trim bounds', () => {
     expect(HOME_FEED_TRIM_NEAR_TOP_PX).toBe(480);
     expect(HOME_FEED_TRIM_HEAD_PAD_BLOCKS).toBe(20);
     expect(HOME_FEED_TRIM_TAIL_PAD_BLOCKS).toBe(40);
-  });
-});
-
-describe('homeFeedDroppedHeightPx', () => {
-  it('prefers measured cache heights over estimates', () => {
-    const cache = new FeedWindowSizeCache();
-    cache.set('alice.near:p0', 400);
-    expect(homeFeedDroppedHeightPx([row('p0')], cache)).toBe(400);
   });
 });

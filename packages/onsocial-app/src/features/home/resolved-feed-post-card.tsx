@@ -100,8 +100,11 @@ export function ResolvedFeedPostCard({
         <span className="post-card-repost-line" aria-hidden>
           {`${reposter} reposted`}
         </span>
-        {/* Text chassis matches feedBlockEstimatePx for unresolved shells. */}
-        <PostRowSkeleton rows={1} />
+        {/*
+          Compact media chassis matches feedCardEstimateKind('media') for
+          unresolved bare-repost shells — swap must not grow the row.
+        */}
+        <PostRowSkeleton rows={1} frames={['single']} />
       </div>
     );
   }

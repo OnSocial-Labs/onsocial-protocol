@@ -14,6 +14,7 @@ import {
 } from '@/components/portfolio/page-drawer-media-grid';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { OsLoadMore } from '@/lib/os-load-more';
+import { FeedWindowSizeCache } from '@/features/home/feed-window';
 import {
   PersonalFeedList,
   insertOptimisticFeedPost,
@@ -163,6 +164,12 @@ export function ProfileFeedClient({
   useEffect(() => {
     postsRef.current = posts;
   }, [posts]);
+
+  /** Durable for the drawer lifetime — survives tab remounts within a visit. */
+  const windowSizeCache = useMemo(
+    () => new FeedWindowSizeCache(),
+    [accountId, tab]
+  );
 
   const [pendingTab, setPendingTab] = useState<ProfileFeedTab | null>(() =>
     tab === 'posts' && initialPosts.length === 0 && postCount > 0
@@ -607,6 +614,7 @@ export function ProfileFeedClient({
             onRepost={repostHandler}
             onUndoRepost={undoRepostHandler}
             className="home-feed-list"
+            windowSizeCache={windowSizeCache}
           />
           {activeSection ? (
             sectionFailed ? (

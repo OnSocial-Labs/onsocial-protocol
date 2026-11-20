@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   FEED_WINDOW_ESTIMATE_PX,
   FEED_WINDOW_JACKET_ESTIMATE_PX,
+  FEED_WINDOW_MEDIA_ESTIMATE_PX,
   FEED_WINDOW_OVERSCAN_PX,
   FEED_WINDOW_OVERSCAN_WARM_PX,
   FEED_WINDOW_POLL_ESTIMATE_PX,
@@ -28,6 +29,19 @@ describe('feed window row estimates', () => {
     expect(FEED_WINDOW_POLL_ESTIMATE_PX).toBeGreaterThanOrEqual(220);
     expect(FEED_WINDOW_POLL_ESTIMATE_PX).toBeLessThanOrEqual(250);
     expect(FEED_WINDOW_POLL_ESTIMATE_PX).toBeLessThan(FEED_WINDOW_ESTIMATE_PX);
+  });
+
+  it('uses the midpoint of measured compact media and jacket cards', () => {
+    expect(FEED_WINDOW_MEDIA_ESTIMATE_PX).toBe(Math.round((320 + 380) / 2));
+    expect(FEED_WINDOW_MEDIA_ESTIMATE_PX).toBeGreaterThan(
+      FEED_WINDOW_ESTIMATE_PX
+    );
+    expect(FEED_WINDOW_MEDIA_ESTIMATE_PX).toBeLessThan(400);
+    expect(FEED_WINDOW_JACKET_ESTIMATE_PX).toBe(Math.round((400 + 440) / 2));
+    expect(FEED_WINDOW_JACKET_ESTIMATE_PX).toBeGreaterThan(
+      FEED_WINDOW_MEDIA_ESTIMATE_PX
+    );
+    expect(FEED_WINDOW_JACKET_ESTIMATE_PX).toBeLessThan(500);
   });
 
   it('keeps the first poll correction smaller than the generic estimate', () => {
@@ -290,13 +304,14 @@ describe('feedWindowRangeForScroll', () => {
 describe('feedWindowOverscanPx', () => {
   it('stays cold on short lists even when every row is measured', () => {
     expect(feedWindowOverscanPx(24, 24)).toBe(FEED_WINDOW_OVERSCAN_PX);
-    expect(feedWindowOverscanPx(47, 47)).toBe(FEED_WINDOW_OVERSCAN_PX);
+    expect(feedWindowOverscanPx(35, 35)).toBe(FEED_WINDOW_OVERSCAN_PX);
   });
 
   it('warms only on long lists once the measured ratio clears', () => {
     expect(feedWindowOverscanPx(0, 100)).toBe(FEED_WINDOW_OVERSCAN_PX);
-    expect(feedWindowOverscanPx(74, 100)).toBe(FEED_WINDOW_OVERSCAN_PX);
-    expect(feedWindowOverscanPx(75, 100)).toBe(FEED_WINDOW_OVERSCAN_WARM_PX);
+    expect(feedWindowOverscanPx(64, 100)).toBe(FEED_WINDOW_OVERSCAN_PX);
+    expect(feedWindowOverscanPx(65, 100)).toBe(FEED_WINDOW_OVERSCAN_WARM_PX);
+    expect(feedWindowOverscanPx(36, 36)).toBe(FEED_WINDOW_OVERSCAN_WARM_PX);
   });
 });
 

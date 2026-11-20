@@ -6,12 +6,19 @@
 
 /** Text-only row fallback when nothing is measured yet. */
 export const FEED_WINDOW_ESTIMATE_PX = 280;
-/** Compact 4:3 media + identity + actions. */
-export const FEED_WINDOW_MEDIA_ESTIMATE_PX = 480;
+/**
+ * Compact feed media card (identity + fixed 4:3 / max-height 14rem seat +
+ * one caption line + engagement). Measured ~320–380px — not an open-face
+ * budget. Midpoint keeps estimate→measure corrections small.
+ */
+export const FEED_WINDOW_MEDIA_ESTIMATE_PX = Math.round((320 + 380) / 2);
 /** Quote inset under a text/media card. */
 export const FEED_WINDOW_QUOTE_ESTIMATE_PX = 420;
-/** Scarce / article 300² jacket + identity + actions. */
-export const FEED_WINDOW_JACKET_ESTIMATE_PX = 560;
+/**
+ * Scarce / article 300² jacket + identity + one caption line + engagement.
+ * Measured ~400–440px.
+ */
+export const FEED_WINDOW_JACKET_ESTIMATE_PX = Math.round((400 + 440) / 2);
 /** Quote inset under a media/jacket card (composed, not a solo quote row). */
 export const FEED_WINDOW_QUOTE_INSET_PX = 140;
 /** Thread fold link between collapsed head and tail. */
@@ -78,9 +85,9 @@ export const FEED_WINDOW_OVERSCAN_PX = 2400;
  */
 export const FEED_WINDOW_OVERSCAN_WARM_PX = 900;
 /** Fraction of keys that must be measured before warm overscan engages. */
-export const FEED_WINDOW_OVERSCAN_WARM_RATIO = 0.75;
-/** Do not warm until the list is past ~two pages of 24. */
-export const FEED_WINDOW_OVERSCAN_WARM_MIN_COUNT = 48;
+export const FEED_WINDOW_OVERSCAN_WARM_RATIO = 0.65;
+/** Do not warm until the list is past ~1.5 pages of 24. */
+export const FEED_WINDOW_OVERSCAN_WARM_MIN_COUNT = 36;
 /**
  * Window once the first page is on screen. Was 30 (above page size 24), so
  * the first page never windowed and CV placeholders jiggled on scroll-back.

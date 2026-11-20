@@ -62,7 +62,10 @@ describe('ThreadFoldLink', () => {
       /<ThreadFoldLink[\s\S]*?root=\{block\[0\]\}[\s\S]*?context=\{sheetContext\}/
     );
     expect(feedBlock).toMatch(
-      /standingFoldLabel[\s\S]*<ThreadFoldLink[\s\S]*?root=\{standingTarget\}[\s\S]*?context=\{sheetContext\}[\s\S]*standingPeekRow/
+      /standingFoldLabel[\s\S]*<ThreadFoldLink[\s\S]*?root=\{standingFoldRoot\}[\s\S]*?context=\{sheetContext\}[\s\S]*standingPeekRow/
+    );
+    expect(feedBlock).toContain(
+      'not standingHidden[0] — that reply is not the thread root'
     );
   });
 });

@@ -61,6 +61,18 @@ describe('feedBlockEstimatePx', () => {
     );
   });
 
+  it('reserves media height for an unresolved bare repost shell', () => {
+    const shell = row('alice.near', 'rp', {
+      refType: 'repost',
+      refPath: 'bob.near/post/1',
+      value: '',
+    });
+    expect(feedCardEstimateKind(shell, {})).toBe('media');
+    expect(feedBlockEstimatePx({ posts: [shell] }, {})).toBe(
+      FEED_WINDOW_MEDIA_ESTIMATE_PX
+    );
+  });
+
   it('sums media root + reply instead of undercounting as text', () => {
     const withPhoto = row('alice.near', 'photo', {
       value: JSON.stringify({

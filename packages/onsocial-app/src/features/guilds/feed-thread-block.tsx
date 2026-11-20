@@ -120,9 +120,12 @@ export function FeedThreadBlock({
         }
       )
     : null;
-  const standingTarget = standingHidden?.[0];
-  const standingFoldLabel = standingHidden?.length
-    ? resolveThreadFoldLabel(standingHidden, {
+  // Fold opens the native conversation root (parent of the standing chain),
+  // not standingHidden[0] — that reply is not the thread root.
+  const standingFoldRoot =
+    standingHidden && standingHidden.length > 0 && block[0] ? block[0] : null;
+  const standingFoldLabel = standingFoldRoot
+    ? resolveThreadFoldLabel(standingHidden!, {
         profiles: postAuthorProfiles,
       })
     : null;
@@ -224,10 +227,10 @@ export function FeedThreadBlock({
         </ThreadFoldLink>
       ) : null}
       {tail.map(renderRow)}
-      {standingTarget && standingFoldLabel ? (
+      {standingFoldRoot && standingFoldLabel ? (
         <ThreadFoldLink
-          href={resolveThreadHref(standingTarget, groupId)}
-          root={standingTarget}
+          href={resolveThreadHref(standingFoldRoot, groupId)}
+          root={standingFoldRoot}
           context={sheetContext}
         >
           {standingFoldLabel}

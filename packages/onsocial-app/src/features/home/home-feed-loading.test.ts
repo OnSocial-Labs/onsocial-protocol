@@ -44,4 +44,28 @@ describe('home feed loading contract', () => {
     expect(source).toContain('recordForPosts');
     expect(source).toContain("[data-feed-session=\"covered\"]");
   });
+
+  it('soft-refresh and appear panels share the 280ms ease-out token', () => {
+    const css = readFileSync(join(homeSrc, '../../app/globals.css'), 'utf8');
+    const softRefresh = css.slice(
+      css.indexOf('.home-feed-list.is-refreshing'),
+      css.indexOf('.home-feed-list.is-refreshing') + 280
+    );
+    expect(softRefresh).toContain('var(--os-motion-appear, 280ms)');
+    expect(softRefresh).toContain('var(--os-motion-ease-out');
+    expect(softRefresh).not.toContain('160ms ease');
+
+    const sheet = readFileSync(
+      join(homeSrc, '../../../../onsocial-ui/glass-sheet.css'),
+      'utf8'
+    );
+    const appear = sheet.slice(
+      sheet.indexOf(".glass-sheet-panel[data-presentation='appear'] {"),
+      sheet.indexOf(
+        ".glass-sheet-panel[data-presentation='appear'].is-open.glass-sheet-panel--enter"
+      ) + 220
+    );
+    expect(appear).toContain('var(--os-motion-ease-out');
+    expect(appear).not.toContain('var(--os-motion-ease-standard');
+  });
 });
