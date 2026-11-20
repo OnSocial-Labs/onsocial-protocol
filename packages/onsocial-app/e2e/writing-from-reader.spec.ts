@@ -103,7 +103,9 @@ test('writing covers the open article instead of the feed', async ({
 
   const shelf = page.getByRole('dialog', { name: 'Writing' });
   await expect(shelf).toBeVisible({ timeout: 3_000 });
-  await expect(page.locator('[data-feed-session="live"]')).toHaveCount(1);
+  // Writing parks the feed under the shelf — session is covered so probes
+  // and autoplay pause while the list stays mounted for back.
+  await expect(page.locator('[data-feed-session="covered"]')).toHaveCount(1);
   await expect(reader).toBeAttached();
   await expect(
     shelf.locator('.portfolio-writing-pending, .portfolio-writing-list')

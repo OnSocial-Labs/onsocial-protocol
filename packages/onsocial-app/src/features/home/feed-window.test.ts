@@ -257,7 +257,12 @@ describe('feedWindowRangeForScroll', () => {
 });
 
 describe('feedWindowOverscanPx', () => {
-  it('stays cold until the measured ratio clears the warm bar', () => {
+  it('stays cold on short lists even when every row is measured', () => {
+    expect(feedWindowOverscanPx(24, 24)).toBe(FEED_WINDOW_OVERSCAN_PX);
+    expect(feedWindowOverscanPx(47, 47)).toBe(FEED_WINDOW_OVERSCAN_PX);
+  });
+
+  it('warms only on long lists once the measured ratio clears', () => {
     expect(feedWindowOverscanPx(0, 100)).toBe(FEED_WINDOW_OVERSCAN_PX);
     expect(feedWindowOverscanPx(74, 100)).toBe(FEED_WINDOW_OVERSCAN_PX);
     expect(feedWindowOverscanPx(75, 100)).toBe(FEED_WINDOW_OVERSCAN_WARM_PX);

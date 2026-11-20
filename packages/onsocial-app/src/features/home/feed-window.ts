@@ -72,12 +72,15 @@ export function feedWindowEstimateAt(
  */
 export const FEED_WINDOW_OVERSCAN_PX = 2400;
 /**
- * Warm overscan once most near-window heights are measured — ~one phone
- * viewport. Keeps fewer full PostCards mounted without scroll-back hitch.
+ * Warm overscan once most heights are measured on a long list — ~one phone
+ * viewport. First pages (≤ one–two API pages) stay on cold overscan so the
+ * whole first paint stays mounted (e2e + perceived first-page contract).
  */
 export const FEED_WINDOW_OVERSCAN_WARM_PX = 900;
 /** Fraction of keys that must be measured before warm overscan engages. */
 export const FEED_WINDOW_OVERSCAN_WARM_RATIO = 0.75;
+/** Do not warm until the list is past ~two pages of 24. */
+export const FEED_WINDOW_OVERSCAN_WARM_MIN_COUNT = 48;
 /**
  * Window once the first page is on screen. Was 30 (above page size 24), so
  * the first page never windowed and CV placeholders jiggled on scroll-back.
@@ -215,17 +218,19 @@ export function feedWindowRangeForScroll({
 }
 
 /**
- * Prefer the warm overscan once the height cache covers most of the list.
- * Cold lists keep the larger band so estimate corrections stay off-fold.
+ * Prefer the warm overscan once the list is long and mostly measured.
+ * Short lists keep the cold band so the first page never collapses into
+ * spacers under a tight viewport+overscan.
  */
 export function feedWindowOverscanPx(
   measuredCount: number,
   keyCount: number,
   cold: number = FEED_WINDOW_OVERSCAN_PX,
   warm: number = FEED_WINDOW_OVERSCAN_WARM_PX,
-  warmRatio: number = FEED_WINDOW_OVERSCAN_WARM_RATIO
+  warmRatio: number = FEED_WINDOW_OVERSCAN_WARM_RATIO,
+  warmMinCount: number = FEED_WINDOW_OVERSCAN_WARM_MIN_COUNT
 ): number {
-  if (keyCount <= 0) return cold;
+  if (keyCount < warmMinCount) return cold;
   if (measuredCount / keyCount >= warmRatio) return warm;
   return cold;
 }
