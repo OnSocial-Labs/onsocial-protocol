@@ -94,11 +94,12 @@ describe('post thread harden contracts', () => {
       '../guilds/live-guild-post-panel.tsx',
     ]) {
       const source = readFileSync(join(here, file), 'utf8');
-      // One peek host — seat lives inside; arm only after share settle.
-      expect(source).toContain('armed={repliesResolved && emptyTailReady}');
+      // Reply skeleton until the first page; peek only when confirmed empty.
+      expect(source).toContain('!repliesResolved');
+      expect(source).toContain('PostRowSkeleton rows={2}');
+      expect(source).toContain('armed={emptyTailReady}');
       expect(source).toContain('ThreadDiscoverPeek');
       expect(source).toContain('allowEmptyCollapse={landSettled}');
-      expect(source).not.toContain('!repliesResolved || !emptyTailReady');
     }
   });
 
