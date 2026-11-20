@@ -20,6 +20,7 @@ import {
   paginatePulseFunctionRows,
   pulseAccountsTextArray,
 } from './feed-pulse.js';
+import { postContentPath } from './threads.js';
 
 export type { FeedSection, FeedSort };
 
@@ -114,6 +115,7 @@ function feedHotQuery(
     section?: boolean;
     accounts?: boolean;
     nativeOnly?: boolean;
+    beforeKeyset?: boolean;
   }
 ): string {
   const params = ['$limit: Int!', '$offset: Int!'];
@@ -138,6 +140,18 @@ function feedHotQuery(
     params.push('$native_only: Boolean');
     args.push('native_only: $native_only');
   }
+  if (opts.beforeKeyset) {
+    params.push(
+      '$before_amplify_heat: float8',
+      '$before_block_height: bigint',
+      '$before_post_key: String'
+    );
+    args.push(
+      'before_amplify_heat: $before_amplify_heat',
+      'before_block_height: $before_block_height',
+      'before_post_key: $before_post_key'
+    );
+  }
   return `query PostsFeedHot(${params.join(', ')}) {
         postsFeed: feedHot(args: { ${args.join(', ')} }) {
           ${fields}
@@ -150,6 +164,11 @@ function normalizeBeforeBlockHeight(
   value: number | undefined
 ): number | undefined {
   if (value == null || !Number.isFinite(value) || value <= 0) return undefined;
+  return value;
+}
+
+function normalizeBeforeHeat(value: number | undefined): number | undefined {
+  if (value == null || !Number.isFinite(value)) return undefined;
   return value;
 }
 
@@ -183,6 +202,46 @@ function chronoDescPage(
       ? { nextBeforeBlockHeight: nextBefore }
       : {}),
   };
+}
+
+/**
+ * Hot page cursor — heat + height + content path (matches `feed_hot` ROW).
+ * Reuses Paginated heat/key fields shared with Pulse card cursors.
+ */
+function hotDescPage(
+  items: PostRow[],
+  limit: number,
+  opts: { offset: number; usedKeyset: boolean }
+): Paginated<PostRow> {
+  if (items.length < limit) return { items };
+  const edge = items[items.length - 1];
+  if (!edge) return { items };
+  const nextBeforeBlockHeight = normalizeBeforeBlockHeight(edge.blockHeight);
+  if (nextBeforeBlockHeight === undefined) {
+    return opts.usedKeyset
+      ? { items }
+      : { items, nextOffset: opts.offset + limit };
+  }
+  const keyset = {
+    nextBeforeBlockHeight,
+    nextBeforeHeat: edge.amplifyHeat ?? 0,
+    nextBeforeEventKey: postContentPath(edge),
+  };
+  if (opts.usedKeyset) return { items, ...keyset };
+  return { items, nextOffset: opts.offset + limit, ...keyset };
+}
+
+function isFeedHotBeforeKeyUnavailableError(err: unknown): boolean {
+  if (!(err instanceof GraphQLValidationError)) return false;
+  const hay =
+    `${err.message} ${err.errors.map((e) => e.message ?? '').join(' ')}`.toLowerCase();
+  return (
+    hay.includes('before_amplify_heat') ||
+    hay.includes('beforeamplifyheat') ||
+    hay.includes('before_post_key') ||
+    hay.includes('beforepostkey') ||
+    (hay.includes('before_block_height') && hay.includes('feedhot'))
+  );
 }
 
 function feedRecentQuery(
@@ -644,20 +703,27 @@ export class FeedQuery {
        */
       kind?: string;
       /**
-       * Exclusive upper bound for descending Recent pages. Prefer over
-       * `offset` under live inserts. Ignored when `sort` is `hot`.
+       * Exclusive upper bound for descending Recent pages, or the height
+       * leg of a Hot keyset (with `beforeHeat` / `beforePostKey`). Prefer
+       * over `offset` under live inserts.
        */
       beforeBlockHeight?: number;
+      /** Hot keyset heat leg (`feed_hot.before_amplify_heat`). */
+      beforeHeat?: number;
+      /** Hot keyset tie-break (`feed_hot.before_post_key` / content path). */
+      beforePostKey?: string;
     } = {}
   ): Promise<Paginated<PostRow>> {
     const limit = opts.limit ?? 20;
     const sort = opts.sort ?? 'recent';
     const hot = sort === 'hot';
-    const before = hot
-      ? undefined
-      : normalizeBeforeBlockHeight(opts.beforeBlockHeight);
-    const usedKeyset = before !== undefined;
-    const offset = usedKeyset ? 0 : (opts.offset ?? 0);
+    const before = normalizeBeforeBlockHeight(opts.beforeBlockHeight);
+    const beforeHeat = hot ? normalizeBeforeHeat(opts.beforeHeat) : undefined;
+    const beforePostKey =
+      hot && opts.beforePostKey?.trim() ? opts.beforePostKey.trim() : undefined;
+    const wantKeyset = before !== undefined;
+    let usedKeyset = wantKeyset;
+    let offset = usedKeyset ? 0 : (opts.offset ?? 0);
     const orderBy = feedOrderByClause(sort);
     const hasAuthor = !!opts.author;
     const kind = opts.kind?.trim() || '';
@@ -666,7 +732,7 @@ export class FeedQuery {
       ...(kind ? { kind } : {}),
       limit,
       offset,
-      ...(before !== undefined ? { beforeBlockHeight: before } : {}),
+      ...(before !== undefined && !hot ? { beforeBlockHeight: before } : {}),
     };
 
     const conditions: string[] = [];
@@ -679,7 +745,7 @@ export class FeedQuery {
     } else if (opts.section === 'reposts') {
       conditions.push('refType: {_eq: "repost"}');
     }
-    if (before !== undefined) {
+    if (before !== undefined && !hot) {
       conditions.push('blockHeight: {_lt: $beforeBlockHeight}');
     }
     const whereClause =
@@ -687,7 +753,7 @@ export class FeedQuery {
     const params = [
       ...(hasAuthor ? ['$author: String!'] : []),
       ...(kind ? ['$kind: String!'] : []),
-      ...(before !== undefined ? ['$beforeBlockHeight: bigint!'] : []),
+      ...(before !== undefined && !hot ? ['$beforeBlockHeight: bigint!'] : []),
       '$limit: Int!',
       '$offset: Int!',
     ].join(', ');
@@ -695,66 +761,100 @@ export class FeedQuery {
     const chronoOrder = feedOrderByClause('recent');
     const chronoNarrow =
       !hot && (hasAuthor || Boolean(kind) || Boolean(opts.section));
-    const rows = await this.queryFeedRows({
-      variables,
-      ...(hot
-        ? {
-            feedHotQuery: feedHotQuery(FEED_POST_ROW_FIELDS, {
-              author: hasAuthor,
-              kind: Boolean(kind),
-              section: Boolean(opts.section),
-            }),
-            feedHotVariables: {
-              limit,
-              offset,
-              ...(hasAuthor ? { author: opts.author } : {}),
-              ...(kind ? { kind } : {}),
-              ...(opts.section ? { section: opts.section } : {}),
-            },
-          }
-        : {}),
-      ...(chronoNarrow
-        ? {
-            feedRecentQuery: feedRecentQuery(FEED_POST_ROW_FIELDS, {
-              author: hasAuthor,
-              kind: Boolean(kind),
-              section: Boolean(opts.section),
-              beforeBlockHeight: usedKeyset,
-            }),
-            feedRecentVariables: {
-              limit,
-              offset,
-              ...(hasAuthor ? { author: opts.author } : {}),
-              ...(kind ? { kind } : {}),
-              ...(opts.section ? { section: opts.section } : {}),
-              ...(before !== undefined
-                ? { before_block_height: before }
-                : {}),
-            },
-          }
-        : {}),
-      postsFeedQuery: `query Posts(${params}) {
+
+    const loadHotRows = async (keyset: boolean) =>
+      this.queryFeedRows({
+        variables: { ...variables, offset: keyset ? 0 : (opts.offset ?? 0) },
+        feedHotQuery: feedHotQuery(FEED_POST_ROW_FIELDS, {
+          author: hasAuthor,
+          kind: Boolean(kind),
+          section: Boolean(opts.section),
+          beforeKeyset: keyset,
+        }),
+        feedHotVariables: {
+          limit,
+          offset: keyset ? 0 : (opts.offset ?? 0),
+          ...(hasAuthor ? { author: opts.author } : {}),
+          ...(kind ? { kind } : {}),
+          ...(opts.section ? { section: opts.section } : {}),
+          ...(keyset && before !== undefined
+            ? {
+                before_amplify_heat: beforeHeat ?? null,
+                before_block_height: before,
+                before_post_key: beforePostKey ?? null,
+              }
+            : {}),
+        },
+        postsFeedQuery: `query Posts(${params}) {
         postsFeed(${whereClause}limit: $limit, offset: $offset, orderBy: ${orderBy}) {
           ${FEED_POST_ROW_FIELDS}
         }
       }`,
-      postsFeedQueryNoHeat: `query Posts(${params}) {
+        postsFeedQueryNoHeat: `query Posts(${params}) {
         postsFeed(${whereClause}limit: $limit, offset: $offset, orderBy: ${chronoOrder}) {
           ${FEED_POST_ROW_FIELDS_NO_HEAT}
         }
       }`,
-      postsCurrentQuery: `query Posts(${params}) {
+        postsCurrentQuery: `query Posts(${params}) {
         postsCurrent(${whereClause}limit: $limit, offset: $offset, orderBy: [{blockHeight: DESC}]) {
           ${POST_ROW_FIELDS}
         }
       }`,
-    });
+      });
+
+    let rows: PostRow[];
+    if (hot) {
+      try {
+        rows = await loadHotRows(wantKeyset);
+      } catch (err) {
+        if (!wantKeyset || !isFeedHotBeforeKeyUnavailableError(err)) throw err;
+        usedKeyset = false;
+        offset = opts.offset ?? 0;
+        rows = await loadHotRows(false);
+      }
+    } else {
+      rows = await this.queryFeedRows({
+        variables,
+        ...(chronoNarrow
+          ? {
+              feedRecentQuery: feedRecentQuery(FEED_POST_ROW_FIELDS, {
+                author: hasAuthor,
+                kind: Boolean(kind),
+                section: Boolean(opts.section),
+                beforeBlockHeight: usedKeyset,
+              }),
+              feedRecentVariables: {
+                limit,
+                offset,
+                ...(hasAuthor ? { author: opts.author } : {}),
+                ...(kind ? { kind } : {}),
+                ...(opts.section ? { section: opts.section } : {}),
+                ...(before !== undefined
+                  ? { before_block_height: before }
+                  : {}),
+              },
+            }
+          : {}),
+        postsFeedQuery: `query Posts(${params}) {
+        postsFeed(${whereClause}limit: $limit, offset: $offset, orderBy: ${orderBy}) {
+          ${FEED_POST_ROW_FIELDS}
+        }
+      }`,
+        postsFeedQueryNoHeat: `query Posts(${params}) {
+        postsFeed(${whereClause}limit: $limit, offset: $offset, orderBy: ${chronoOrder}) {
+          ${FEED_POST_ROW_FIELDS_NO_HEAT}
+        }
+      }`,
+        postsCurrentQuery: `query Posts(${params}) {
+        postsCurrent(${whereClause}limit: $limit, offset: $offset, orderBy: [{blockHeight: DESC}]) {
+          ${POST_ROW_FIELDS}
+        }
+      }`,
+      });
+    }
 
     return hot
-      ? {
-          items: rows,
-          nextOffset: rows.length >= limit ? offset + limit : undefined,
-        }
+      ? hotDescPage(rows, limit, { offset, usedKeyset })
       : chronoDescPage(rows, limit, { offset, usedKeyset });
   }
 
@@ -799,23 +899,31 @@ export class FeedQuery {
     sort?: FeedSort;
     nativeOnly?: boolean;
     /**
-     * Exclusive upper bound for descending Recent pages. Prefer over
-     * `offset` under live inserts. Ignored when `sort` is `hot`.
+     * Exclusive upper bound for descending Recent pages, or the height
+     * leg of a Hot keyset (with `beforeHeat` / `beforePostKey`). Prefer
+     * over `offset` under live inserts.
      */
     beforeBlockHeight?: number;
+    /** Hot keyset heat leg (`feed_hot.before_amplify_heat`). */
+    beforeHeat?: number;
+    /** Hot keyset tie-break (`feed_hot.before_post_key` / content path). */
+    beforePostKey?: string;
   }): Promise<Paginated<PostRow>> {
     if (opts.accounts.length === 0) return { items: [] };
     const limit = opts.limit ?? 20;
     const sort = opts.sort ?? 'recent';
     const hot = sort === 'hot';
-    const before = hot
-      ? undefined
-      : normalizeBeforeBlockHeight(opts.beforeBlockHeight);
-    const usedKeyset = before !== undefined;
-    const offset = usedKeyset ? 0 : (opts.offset ?? 0);
+    const before = normalizeBeforeBlockHeight(opts.beforeBlockHeight);
+    const beforeHeat = hot ? normalizeBeforeHeat(opts.beforeHeat) : undefined;
+    const beforePostKey =
+      hot && opts.beforePostKey?.trim() ? opts.beforePostKey.trim() : undefined;
+    const wantKeyset = before !== undefined;
+    let usedKeyset = wantKeyset;
+    let offset = usedKeyset ? 0 : (opts.offset ?? 0);
     const orderBy = feedOrderByClause(sort);
     const chronoOrder = feedOrderByClause('recent');
     const nativeOnly = Boolean(opts.nativeOnly);
+    const chronoBefore = !hot && before !== undefined ? before : undefined;
     const where = nativeOnly
       ? `where: {_and: [
             {accountId: {_in: $accounts}},
@@ -824,58 +932,54 @@ export class FeedQuery {
               {parentAuthor: {_in: $accounts}}
             ]}
             ${
-              before !== undefined
+              chronoBefore !== undefined
                 ? ', {blockHeight: {_lt: $beforeBlockHeight}}'
                 : ''
             }
           ]}`
-      : before !== undefined
+      : chronoBefore !== undefined
         ? `where: {_and: [
             {accountId: {_in: $accounts}},
             {blockHeight: {_lt: $beforeBlockHeight}}
           ]}`
         : accountsFeedWhere(false);
     const beforeParam =
-      before !== undefined ? ', $beforeBlockHeight: bigint!' : '';
+      chronoBefore !== undefined ? ', $beforeBlockHeight: bigint!' : '';
     const variables = {
       accounts: opts.accounts,
       limit,
       offset,
-      ...(before !== undefined ? { beforeBlockHeight: before } : {}),
+      ...(chronoBefore !== undefined
+        ? { beforeBlockHeight: chronoBefore }
+        : {}),
     };
 
-    const rows = await this.queryFeedRows({
-      variables,
-      ...(hot
-        ? {
-            feedHotQuery: feedHotQuery(FEED_POST_ROW_FIELDS, {
-              accounts: true,
-              nativeOnly,
-            }),
-            feedHotVariables: {
-              accounts: pulseAccountsTextArray(opts.accounts),
-              limit,
-              offset,
-              ...(nativeOnly ? { native_only: true } : {}),
-            },
-          }
-        : {
-            feedRecentQuery: feedRecentQuery(FEED_POST_ROW_FIELDS, {
-              accounts: true,
-              nativeOnly,
-              beforeBlockHeight: usedKeyset,
-            }),
-            feedRecentVariables: {
-              accounts: pulseAccountsTextArray(opts.accounts),
-              limit,
-              offset,
-              ...(nativeOnly ? { native_only: true } : {}),
-              ...(before !== undefined
-                ? { before_block_height: before }
-                : {}),
-            },
-          }),
-      postsFeedQuery: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!${beforeParam}) {
+    const loadHotRows = async (keyset: boolean) =>
+      this.queryFeedRows({
+        variables: {
+          accounts: opts.accounts,
+          limit,
+          offset: keyset ? 0 : (opts.offset ?? 0),
+        },
+        feedHotQuery: feedHotQuery(FEED_POST_ROW_FIELDS, {
+          accounts: true,
+          nativeOnly,
+          beforeKeyset: keyset,
+        }),
+        feedHotVariables: {
+          accounts: pulseAccountsTextArray(opts.accounts),
+          limit,
+          offset: keyset ? 0 : (opts.offset ?? 0),
+          ...(nativeOnly ? { native_only: true } : {}),
+          ...(keyset && before !== undefined
+            ? {
+                before_amplify_heat: beforeHeat ?? null,
+                before_block_height: before,
+                before_post_key: beforePostKey ?? null,
+              }
+            : {}),
+        },
+        postsFeedQuery: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!${beforeParam}) {
         postsFeed(
           ${where},
           limit: $limit, offset: $offset,
@@ -884,7 +988,7 @@ export class FeedQuery {
           ${FEED_POST_ROW_FIELDS}
         }
       }`,
-      postsFeedQueryNoHeat: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!${beforeParam}) {
+        postsFeedQueryNoHeat: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!${beforeParam}) {
         postsFeed(
           ${where},
           limit: $limit, offset: $offset,
@@ -893,7 +997,7 @@ export class FeedQuery {
           ${FEED_POST_ROW_FIELDS_NO_HEAT}
         }
       }`,
-      postsCurrentQuery: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!${beforeParam}) {
+        postsCurrentQuery: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!${beforeParam}) {
         postsCurrent(
           ${where},
           limit: $limit, offset: $offset,
@@ -902,13 +1006,65 @@ export class FeedQuery {
           ${POST_ROW_FIELDS}
         }
       }`,
-    });
+      });
+
+    let rows: PostRow[];
+    if (hot) {
+      try {
+        rows = await loadHotRows(wantKeyset);
+      } catch (err) {
+        if (!wantKeyset || !isFeedHotBeforeKeyUnavailableError(err)) throw err;
+        usedKeyset = false;
+        offset = opts.offset ?? 0;
+        rows = await loadHotRows(false);
+      }
+    } else {
+      rows = await this.queryFeedRows({
+        variables,
+        feedRecentQuery: feedRecentQuery(FEED_POST_ROW_FIELDS, {
+          accounts: true,
+          nativeOnly,
+          beforeBlockHeight: usedKeyset,
+        }),
+        feedRecentVariables: {
+          accounts: pulseAccountsTextArray(opts.accounts),
+          limit,
+          offset,
+          ...(nativeOnly ? { native_only: true } : {}),
+          ...(before !== undefined ? { before_block_height: before } : {}),
+        },
+        postsFeedQuery: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!${beforeParam}) {
+        postsFeed(
+          ${where},
+          limit: $limit, offset: $offset,
+          orderBy: ${orderBy}
+        ) {
+          ${FEED_POST_ROW_FIELDS}
+        }
+      }`,
+        postsFeedQueryNoHeat: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!${beforeParam}) {
+        postsFeed(
+          ${where},
+          limit: $limit, offset: $offset,
+          orderBy: ${chronoOrder}
+        ) {
+          ${FEED_POST_ROW_FIELDS_NO_HEAT}
+        }
+      }`,
+        postsCurrentQuery: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!${beforeParam}) {
+        postsCurrent(
+          ${where},
+          limit: $limit, offset: $offset,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          ${POST_ROW_FIELDS}
+        }
+      }`,
+      });
+    }
 
     return hot
-      ? {
-          items: rows,
-          nextOffset: rows.length >= limit ? offset + limit : undefined,
-        }
+      ? hotDescPage(rows, limit, { offset, usedKeyset })
       : chronoDescPage(rows, limit, { offset, usedKeyset });
   }
 

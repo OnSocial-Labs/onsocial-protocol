@@ -867,6 +867,45 @@ describe('QueryModule', () => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
+    it('returns a heat keyset cursor for a full hot page', async () => {
+      const rows = Array.from({ length: 24 }, (_, i) => ({
+        accountId: 'a.near',
+        postId: `p${i}`,
+        value: '{}',
+        blockHeight: 1000 - i,
+        blockTimestamp: 0,
+        amplifyHeat: 50 - i,
+      }));
+      const { os } = makeOs({ data: { postsFeed: rows } });
+      const page = await os.query.feed.recent({ limit: 24, sort: 'hot' });
+      expect(page.nextOffset).toBe(24);
+      expect(page.nextBeforeBlockHeight).toBe(1000 - 23);
+      expect(page.nextBeforeHeat).toBe(50 - 23);
+      expect(page.nextBeforeEventKey).toBe('a.near/post/p23');
+    });
+
+    it('passes hot keyset args into feedHot', async () => {
+      const { os, fetch } = makeOs({ data: { postsFeed: [] } });
+      await os.query.feed.recent({
+        limit: 24,
+        sort: 'hot',
+        beforeBlockHeight: 900,
+        beforeHeat: 12.5,
+        beforePostKey: 'a.near/post/p9',
+      });
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('before_amplify_heat: $before_amplify_heat');
+      expect(body.query).toContain('before_block_height: $before_block_height');
+      expect(body.query).toContain('before_post_key: $before_post_key');
+      expect(body.variables).toMatchObject({
+        limit: 24,
+        offset: 0,
+        before_amplify_heat: 12.5,
+        before_block_height: 900,
+        before_post_key: 'a.near/post/p9',
+      });
+    });
+
     it('passes hot filters into feedHot', async () => {
       const { os, fetch } = makeOs({ data: { postsFeed: [] } });
       await os.query.feed.recent({
@@ -1385,6 +1424,27 @@ describe('QueryModule', () => {
       expect(body.variables.accounts).toBe('{"alice.near"}');
       expect(body.variables.native_only).toBe(true);
       expect(body.variables.limit).toBe(10);
+    });
+
+    it('passes Circle hot keyset into feedHot', async () => {
+      const { os, fetch } = makeOs({ data: { postsFeed: [] } });
+      await os.query.feed.fromAccounts({
+        accounts: ['alice.near'],
+        nativeOnly: true,
+        sort: 'hot',
+        limit: 10,
+        beforeBlockHeight: 800,
+        beforeHeat: 3,
+        beforePostKey: 'alice.near/post/x',
+      });
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('before_amplify_heat');
+      expect(body.variables).toMatchObject({
+        before_block_height: 800,
+        before_amplify_heat: 3,
+        before_post_key: 'alice.near/post/x',
+        offset: 0,
+      });
     });
   });
 

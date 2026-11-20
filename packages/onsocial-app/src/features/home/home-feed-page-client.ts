@@ -120,6 +120,8 @@ export async function fetchHomeFeedPageClient(
             offset,
             sort,
             beforeBlockHeight: cursor.beforeBlockHeight,
+            beforeHeat: cursor.beforeEventHeat,
+            beforePostKey: cursor.beforeEventKey,
           })
         : await fetchPulseFeedPage(client, sources, {
             limit,
@@ -137,6 +139,8 @@ export async function fetchHomeFeedPageClient(
       limit: pageLimit,
       offset: pageCursor.offset,
       beforeBlockHeight: pageCursor.beforeBlockHeight,
+      beforeHeat: pageCursor.beforeEventHeat,
+      beforePostKey: pageCursor.beforeEventKey,
       sort,
     });
   const page =

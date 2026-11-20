@@ -30,11 +30,14 @@ export interface Paginated<T> {
    */
   nextBeforeBlockHeight?: number;
   /**
-   * Pulse Hot card cursor — pair with `nextBeforeBlockHeight` and
-   * `nextBeforeEventKey` (`event_heat` / `event_key` in `feed_pulse`).
+   * Hot keyset heat — Pulse `event_heat` or Global/Circle `amplify_heat`.
+   * Pair with `nextBeforeBlockHeight` and `nextBeforeEventKey`.
    */
   nextBeforeHeat?: number;
-  /** Pulse card tie-break (`event_key` in `feed_pulse`). */
+  /**
+   * Hot keyset tie-break — Pulse `event_key` or Global/Circle content path
+   * (`feed_hot.before_post_key`).
+   */
   nextBeforeEventKey?: string;
 }
 

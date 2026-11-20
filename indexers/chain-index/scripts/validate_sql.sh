@@ -625,6 +625,7 @@ DROP FUNCTION IF EXISTS feed_pulse(text[], integer, integer, text);
 DROP FUNCTION IF EXISTS feed_pulse(text[], integer, integer, text, bigint, bigint, text);
 DROP FUNCTION IF EXISTS feed_pulse(text[], integer, integer, text, bigint, double precision, text);
 DROP FUNCTION IF EXISTS feed_hot(integer, integer, text, text, text, text[], boolean);
+DROP FUNCTION IF EXISTS feed_hot(integer, integer, text, text, text, text[], boolean, double precision, bigint, text);
 DROP FUNCTION IF EXISTS feed_recent(integer, integer, text, text, text, text[], boolean, text, text);
 DROP FUNCTION IF EXISTS feed_recent(integer, integer, text, text, text, text[], boolean, text, text, bigint);
 DROP VIEW IF EXISTS posts_feed;
