@@ -8,6 +8,7 @@ import { articleTeaseSource } from '@/lib/article-post-payload';
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
   postFeedBodyOverflows,
+  postFeedClosedLines,
   postFeedPreviewLimit,
   postPreviewNeedsExpand,
 } from '@/lib/post-display';
@@ -98,7 +99,7 @@ export function PostCardBody({
   );
   const previewLimit = postFeedPreviewLimit(hasMedia);
   /** Photo posts peek shorter. The full text stays mounted; the clip folds it. */
-  const closedLines = hasMedia ? 3 : 6;
+  const closedLines = postFeedClosedLines(hasMedia);
   const foldBody =
     !isArticle && !hideText && text.trim().length > 0;
   const tease = isArticle ? articleSource : text;

@@ -2,11 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { GroupPostRef, PostRow } from '@onsocial/sdk';
-import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   fetchIndexedGroupPostsByRefs,
   fetchIndexedPostsByRefs,
-  fetchPersonalPost,
   indexedGroupPostRefKey,
   indexedPostRefKey,
 } from '@/lib/fetch-personal-post';
@@ -69,10 +67,25 @@ async function fetchQuotedPost(refPath: string): Promise<PostRow | null> {
     return null;
   }
 
+  // Same indexed batch helpers as quote insets — one code path, shared cache.
   const request = (
     groupRef
-      ? createReadOnlyOnSocialClient().query.groups.post(groupRef)
-      : fetchPersonalPost(personalRef!)
+      ? fetchIndexedGroupPostsByRefs([groupRef]).then(
+          (map) =>
+            map.get(
+              indexedGroupPostRefKey(
+                groupRef.author,
+                groupRef.groupId,
+                groupRef.postId
+              )
+            ) ?? null
+        )
+      : fetchIndexedPostsByRefs([personalRef!]).then(
+          (map) =>
+            map.get(
+              indexedPostRefKey(personalRef!.author, personalRef!.postId)
+            ) ?? null
+        )
   )
     .then((post) => {
       cacheQuotedPost(refPath, post);

@@ -2,6 +2,8 @@ import type { PostRow } from '@onsocial/sdk';
 import {
   FEED_WINDOW_ESTIMATE_PX,
   FEED_WINDOW_FOLD_ESTIMATE_PX,
+  FEED_WINDOW_JACKET_ESTIMATE_PX,
+  FEED_WINDOW_MEDIA_ESTIMATE_PX,
   FEED_WINDOW_QUOTE_INSET_PX,
   feedWindowRowEstimatePx,
   type FeedWindowRowKind,
@@ -13,12 +15,12 @@ import {
   type CoalescedFeedBlock,
 } from '@/lib/feed-threads';
 import {
-  normalizePostPreviewText,
   parseDropPaintSnapshot,
   parsePostCollectionEmbed,
   parsePostPollEmbed,
   parsePostText,
   parsePostTokenEmbed,
+  postFeedClosedLines,
   postFeedPreviewLimit,
 } from '@/lib/post-display';
 import { parsePostMedia } from '@/lib/post-media';
@@ -27,8 +29,10 @@ import type { ThreadReplyRow } from '@/lib/thread-display';
 
 /** Identity + engagement chrome under a one-line text body. */
 const FEED_TEXT_BASE_PX = 168;
-/** Approximate closed-body line height at feed width. */
-const FEED_TEXT_LINE_PX = 22;
+/**
+ * Closed-body line height — `--os-post-body-size` (1rem) × leading (1.5).
+ */
+const FEED_TEXT_LINE_PX = 24;
 /** ~chars that fit one closed feed line before wrap. */
 const FEED_TEXT_CHARS_PER_LINE = 48;
 
@@ -109,36 +113,74 @@ export function feedBlockIsPollRow(
 }
 
 /**
+ * Preserve hard breaks for line count; collapse runs of spaces inside a
+ * line only. `normalizePostPreviewText` flattens newlines and must not
+ * feed the spacer math.
+ */
+function feedPreviewLines(text: string): string[] {
+  return text
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[ \t\f\v]+/g, ' ').trim())
+    .filter((line) => line.length > 0);
+}
+
+/**
  * Closed text-card height from the folded preview budget — short posts no
  * longer share the same 280px spacer as a full six-line body.
  */
 export function feedTextEstimatePx(text: string, hasMedia: boolean): number {
   const limit = postFeedPreviewLimit(hasMedia);
-  const normalized = normalizePostPreviewText(text);
-  if (!normalized) return FEED_TEXT_BASE_PX;
-  // Full closed preview (or Show more) uses the legacy spacer — only short
-  // bodies shrink below it.
-  if (normalized.length >= limit) return FEED_WINDOW_ESTIMATE_PX;
-  const hardBreaks = Math.min(
-    normalized.split(/\r?\n/).length,
-    hasMedia ? 3 : 6
-  );
-  const wrapped = Math.max(
-    1,
-    Math.ceil(normalized.length / FEED_TEXT_CHARS_PER_LINE)
-  );
-  const lines = Math.min(Math.max(hardBreaks, wrapped), hasMedia ? 3 : 6);
+  const closedLines = postFeedClosedLines(hasMedia);
+  const linesRaw = feedPreviewLines(text);
+  if (linesRaw.length === 0) return FEED_TEXT_BASE_PX;
+
+  const charCount = linesRaw.reduce((sum, line) => sum + line.length, 0);
+  // Full closed preview (or Show more) uses the legacy spacer.
+  if (charCount >= limit || linesRaw.length > closedLines) {
+    return FEED_WINDOW_ESTIMATE_PX;
+  }
+
+  let wrapped = 0;
+  for (const line of linesRaw) {
+    wrapped += Math.max(1, Math.ceil(line.length / FEED_TEXT_CHARS_PER_LINE));
+  }
+  const lines = Math.min(Math.max(linesRaw.length, wrapped), closedLines);
   const px = FEED_TEXT_BASE_PX + (lines - 1) * FEED_TEXT_LINE_PX;
   return Math.min(FEED_WINDOW_ESTIMATE_PX, px);
+}
+
+/**
+ * Extra px when a media/jacket caption peeks past one closed line. The
+ * flat media/jacket seats already budget identity + tile + ~one line.
+ */
+function feedCaptionExtraPx(text: string, hasMedia: boolean): number {
+  const closed = postFeedClosedLines(hasMedia);
+  const linesRaw = feedPreviewLines(text);
+  if (linesRaw.length === 0) return 0;
+  let wrapped = 0;
+  for (const line of linesRaw) {
+    wrapped += Math.max(1, Math.ceil(line.length / FEED_TEXT_CHARS_PER_LINE));
+  }
+  const lines = Math.min(Math.max(linesRaw.length, wrapped), closed);
+  if (lines <= 1) return 0;
+  return (lines - 1) * FEED_TEXT_LINE_PX;
 }
 
 function feedCardEstimatePx(post: PostRow, quotedPosts: QuoteMap): number {
   const card = feedEstimateCard(post, quotedPosts);
   const kind = feedCardEstimateKind(post, quotedPosts);
-  let px =
-    kind === 'text'
-      ? feedTextEstimatePx(parsePostText(card.value), false)
-      : feedWindowRowEstimatePx(kind);
+  const body = parsePostText(card.value);
+  let px: number;
+  if (kind === 'text') {
+    px = feedTextEstimatePx(body, false);
+  } else if (kind === 'media') {
+    px = FEED_WINDOW_MEDIA_ESTIMATE_PX + feedCaptionExtraPx(body, true);
+  } else if (kind === 'jacket') {
+    px = FEED_WINDOW_JACKET_ESTIMATE_PX + feedCaptionExtraPx(body, true);
+  } else {
+    px = feedWindowRowEstimatePx(kind);
+  }
   // Own media/jacket + quote ref → tile/jacket plus QuotedPostInset under it.
   // Quote-of-media (kind bumped via quoted payload) already uses jacket/media
   // height for the inset face — do not add a second inset.

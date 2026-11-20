@@ -468,6 +468,11 @@ export function postPreviewNeedsExpand(
   return normalizePostPreviewText(text).length > maxChars;
 }
 
+/** Closed feed body line budget — media peeks at 3; text at 6. */
+export function postFeedClosedLines(hasMedia: boolean): number {
+  return hasMedia ? 3 : 6;
+}
+
 /**
  * Feed body will not fit the closed line cap. Character length is the same
  * check as an article Read control. Extra hard breaks count too, because a
@@ -477,7 +482,7 @@ export function postFeedBodyOverflows(
   text: string,
   hasMedia: boolean
 ): boolean {
-  const closedLines = hasMedia ? 3 : 6;
+  const closedLines = postFeedClosedLines(hasMedia);
   if (text.split(/\r?\n/).length > closedLines) return true;
   return postPreviewNeedsExpand(text, postFeedPreviewLimit(hasMedia));
 }
