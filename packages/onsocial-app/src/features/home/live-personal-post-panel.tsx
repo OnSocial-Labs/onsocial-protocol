@@ -75,6 +75,7 @@ import {
   directRepliesToTree,
   enrichPaintedReplyTree,
   graftVisibleReplies,
+  scheduleThreadIdle,
   shouldPaintDirectReplies,
   startThreadFirstPage,
   visibleReplyPaths,
@@ -95,7 +96,6 @@ import { collectRelationTargetAccountIds } from '@/lib/post-relation';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { fetchIndexedPost, fetchPersonalPost } from '@/lib/fetch-personal-post';
 import {
-  THREAD_QUOTE_PAGE_SIZE,
   THREAD_REPLY_PAGE_SIZE,
   THREAD_REPLY_TREE_DEPTH,
   THREAD_REPLY_TREE_MAX_NODES,
@@ -143,7 +143,6 @@ import { readPostMediaUnmuteIndex } from '@/lib/post-media';
 type LoadState = 'loading' | 'ready' | 'missing' | 'error';
 
 const REPLY_PAGE_SIZE = THREAD_REPLY_PAGE_SIZE;
-const QUOTE_PAGE_SIZE = THREAD_QUOTE_PAGE_SIZE;
 const REPLY_TREE_DEPTH = THREAD_REPLY_TREE_DEPTH;
 const REPLY_TREE_MAX_NODES = THREAD_REPLY_TREE_MAX_NODES;
 const RECONCILE_DELAYS_MS = [2_000, 5_000];
@@ -433,15 +432,15 @@ export function LivePersonalPostPanel({
     }
   );
 
-  // Indexer quote total — the loaded page is capped at THREAD_QUOTE_PAGE_SIZE.
+  // Indexer quote total — share row uses counts; the quotes page loads on open.
   const rootEngagement = conversation.root
     ? engagement[postKey(conversation.root)]
     : undefined;
   const quoteTotal = Math.max(rootEngagement?.quoteCount ?? 0, quotes.length);
   const repostTotal = Math.max(0, rootEngagement?.repostCount ?? 0);
   const shareRow = resolveThreadShareRow(quoteTotal, repostTotal);
-  // Quotes fetch + root engagement both feed shareRow — wait for both before
-  // More from so a late repost count cannot unmount the peek.
+  // Share row uses engagement counts (quotes list loads on View quotes).
+  // Wait for root engagement so More from cannot unmount when counts arrive.
   const rootEngagementKey = conversation.root
     ? postKey(conversation.root)
     : null;
@@ -458,9 +457,8 @@ export function LivePersonalPostPanel({
     ancestorsReady,
     loadReady: loadState === 'ready',
     hasRoot: Boolean(conversation.root),
-    pinKey: ancestorsReady
-      ? ancestorChain.map((post) => post.postId).join('\n')
-      : '',
+    // Stable pin — ancestor soft-fill must not re-trigger land.
+    pinKey: conversation.root?.postId ?? '',
     parked,
     landSeat,
     onThreadPainted,
@@ -539,18 +537,9 @@ export function LivePersonalPostPanel({
         const firstPagePromise = paintDirect
           ? startThreadFirstPage(rootPath)
           : null;
-        // First reply page gates appear; quote/tree soft-fill after.
+        // First reply page gates appear; tree soft-fills on idle. Quotes list
+        // loads on View quotes (share row uses engagement counts).
         const rootPromise = fetchPersonalPost({ author, postId });
-        const quotesPromise = client.query.threads.quotes(author, postId, {
-          limit: QUOTE_PAGE_SIZE,
-          order: 'desc',
-        });
-        const treePromise = client.query.threads.treeByPath(rootPath, {
-          depth: REPLY_TREE_DEPTH,
-          includeQuotes: false,
-          replyLimit: REPLY_PAGE_SIZE,
-          maxNodes: REPLY_TREE_MAX_NODES,
-        });
 
         if (firstPagePromise) {
           try {
@@ -671,76 +660,76 @@ export function LivePersonalPostPanel({
         if (!options.background) {
           setLoadState(root ? 'ready' : 'missing');
         }
+        // Share / More from can settle from engagement alone — do not wait
+        // on the idle tree walk or a quotes page fetch.
+        setShareTailReady(true);
 
-        const [quotesResult, treeResult] = await Promise.allSettled([
-          quotesPromise,
-          treePromise,
-        ]);
-        if (refreshRequestIdRef.current !== requestId) return;
-
-        const fetchedQuotes =
-          quotesResult.status === 'fulfilled' ? quotesResult.value : [];
-        const treeOk = treeResult.status === 'fulfilled';
-        const fetchedTree = treeOk ? treeResult.value.replies : [];
-        const fetchedTreePosts = flattenTreePosts(fetchedTree);
-
-        setLocalReplies((current) =>
-          withoutIndexedPosts(current, fetchedTreePosts)
-        );
-        setLocalQuotes((current) =>
-          withoutIndexedPosts(current, fetchedQuotes)
-        );
-
-        if (!options.background || !paginatedRef.current) {
-          const keepFirstPage =
-            treeOk && firstPagePaintedRef.current && !paginatedRef.current;
-          setConversation((current) => ({
-            root: current.root ?? root,
-            replies: keepFirstPage
-              ? current.replies
-              : treeOk
-                ? fetchedTree.map((node) => node.post)
-                : current.replies,
-            quotes: fetchedQuotes,
-          }));
-          if (treeOk) {
-            if (keepFirstPage) {
-              // Enrich in place — never replace the painted first page order.
-              setReplyTree((current) => {
-                const next = enrichPaintedReplyTree(current, fetchedTree);
+        const enrichTree = () => {
+          if (refreshRequestIdRef.current !== requestId) return;
+          void client.query.threads
+            .treeByPath(rootPath, {
+              depth: REPLY_TREE_DEPTH,
+              includeQuotes: false,
+              replyLimit: REPLY_PAGE_SIZE,
+              maxNodes: REPLY_TREE_MAX_NODES,
+            })
+            .then((treeResult) => {
+              if (refreshRequestIdRef.current !== requestId) return;
+              const fetchedTree = treeResult.replies;
+              const fetchedTreePosts = flattenTreePosts(fetchedTree);
+              setLocalReplies((current) =>
+                withoutIndexedPosts(current, fetchedTreePosts)
+              );
+              if (options.background && paginatedRef.current) return;
+              const keepFirstPage =
+                firstPagePaintedRef.current && !paginatedRef.current;
+              setConversation((current) => ({
+                root: current.root ?? root,
+                replies: keepFirstPage
+                  ? current.replies
+                  : fetchedTree.map((node) => node.post),
+                quotes: current.quotes,
+              }));
+              const sessionQuotes = seeded?.quotes ?? [];
+              if (keepFirstPage) {
+                setReplyTree((current) => {
+                  const next = enrichPaintedReplyTree(current, fetchedTree);
+                  if (root) {
+                    writeThreadSession(rootPath, {
+                      root,
+                      replies: next.map((node) => node.post),
+                      quotes: sessionQuotes,
+                      replyTree: next,
+                      hasMoreReplies: hasMoreRepliesRef.current,
+                      engagement: engagementLatestRef.current,
+                      scarceEmbeds: scarceEmbedsForOpenRoot(root),
+                    });
+                  }
+                  return next;
+                });
+              } else {
+                setReplyTree(fetchedTree);
+                const more = fetchedTree.length >= REPLY_PAGE_SIZE;
+                setHasMoreReplies(more);
+                hasMoreRepliesRef.current = more;
                 if (root) {
                   writeThreadSession(rootPath, {
                     root,
-                    replies: next.map((node) => node.post),
-                    quotes: fetchedQuotes,
-                    replyTree: next,
-                    hasMoreReplies: hasMoreRepliesRef.current,
+                    replies: fetchedTree.map((node) => node.post),
+                    quotes: sessionQuotes,
+                    replyTree: fetchedTree,
+                    hasMoreReplies: more,
                     engagement: engagementLatestRef.current,
                     scarceEmbeds: scarceEmbedsForOpenRoot(root),
                   });
                 }
-                return next;
-              });
-            } else {
-              setReplyTree(fetchedTree);
-              const more = fetchedTree.length >= REPLY_PAGE_SIZE;
-              setHasMoreReplies(more);
-              hasMoreRepliesRef.current = more;
-              if (root) {
-                writeThreadSession(rootPath, {
-                  root,
-                  replies: fetchedTree.map((node) => node.post),
-                  quotes: fetchedQuotes,
-                  replyTree: fetchedTree,
-                  hasMoreReplies: more,
-                  engagement: engagementLatestRef.current,
-                  scarceEmbeds: scarceEmbedsForOpenRoot(root),
-                });
               }
-            }
-          }
-        }
-        setShareTailReady(true);
+            })
+            .catch(() => {
+              // First page / graft already on screen.
+            });
+        };
+        scheduleThreadIdle(enrichTree);
       } catch (cause) {
         if (options.background) return;
         if (refreshRequestIdRef.current !== requestId) return;

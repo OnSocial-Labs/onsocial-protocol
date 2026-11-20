@@ -214,6 +214,9 @@ export function useThreadLandAppear({
   landSeat?: boolean;
   onThreadPainted?: () => void;
 }): { landSettled: boolean } {
+  // Pin as soon as the seat exists. Ancestor soft-fill grows above and is
+  // absorbed by holdAgainstAboveResize — waiting on the full chain delayed
+  // reply-permalink land for every sequential parent hop.
   const armed = landSeat && (!hasParent || ancestorsReady);
   const [landSettled, setLandSettled] = useState(!landSeat);
 

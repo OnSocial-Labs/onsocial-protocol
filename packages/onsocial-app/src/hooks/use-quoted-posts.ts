@@ -253,9 +253,9 @@ export function asAncestorChainState(
 }
 
 /**
- * Walk reply parent edges up to the conversation root (full thread
- * context). Returns ancestors oldest-first; empty while loading or when the
- * post has no parent. Capped to keep pathological chains bounded.
+ * Walk reply parent edges up to the conversation root. Ready after the
+ * immediate parent settles so land can pin; further hops soft-fill above
+ * (ResizeObserver compensation holds the seat). Capped for pathological chains.
  */
 export function useAncestorChain(
   parentPath: string | undefined
@@ -264,6 +264,7 @@ export function useAncestorChain(
   const [resolved, setResolved] = useState<{
     path: string;
     posts: PostRow[];
+    ready: boolean;
   } | null>(null);
 
   useEffect(() => {
@@ -274,13 +275,18 @@ export function useAncestorChain(
     void (async () => {
       const ancestors: PostRow[] = [];
       let cursor: string | undefined = parentPath;
+      let ready = false;
       while (cursor && ancestors.length < ANCESTOR_CHAIN_CAP) {
         const post: PostRow | null = await fetchQuotedPost(cursor);
         if (!post || cancelled) break;
         ancestors.unshift(post);
+        ready = true;
+        setResolved({ path: parentPath, posts: [...ancestors], ready: true });
         cursor = post.parentPath;
       }
-      if (!cancelled) setResolved({ path: parentPath, posts: ancestors });
+      if (!cancelled && !ready) {
+        setResolved({ path: parentPath, posts: [], ready: true });
+      }
     })();
 
     return () => {
@@ -294,6 +300,6 @@ export function useAncestorChain(
   }
   return {
     ancestors: Array.isArray(resolved.posts) ? resolved.posts : NO_ANCESTORS,
-    ready: true,
+    ready: resolved.ready,
   };
 }

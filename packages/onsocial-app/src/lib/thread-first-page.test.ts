@@ -15,6 +15,7 @@ import {
   directRepliesToTree,
   enrichPaintedReplyTree,
   graftVisibleReplies,
+  scheduleThreadIdle,
   shouldPaintDirectReplies,
   startThreadFirstPage,
   THREAD_REPLY_FIRST_PAGE,
@@ -142,5 +143,14 @@ describe('thread first page', () => {
     await expect(second).resolves.toEqual(await first);
     await startThreadFirstPage('alice.near/post/root');
     expect(repliesByPath).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('scheduleThreadIdle', () => {
+  it('runs immediately in non-browser environments', () => {
+    const run = vi.fn();
+    const stop = scheduleThreadIdle(run, 1000);
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(() => stop()).not.toThrow();
   });
 });

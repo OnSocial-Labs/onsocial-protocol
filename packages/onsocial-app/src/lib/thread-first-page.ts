@@ -185,6 +185,26 @@ export function warmQuotesOpen(): void {
   void import('@/features/home/post-quotes-panel');
 }
 
+/**
+ * Run heavy thread enrich (tree walk) after first paint. Idle when available;
+ * timeout keeps enrich moving on busy main threads.
+ */
+export function scheduleThreadIdle(
+  run: () => void,
+  timeoutMs = 1500
+): () => void {
+  if (typeof window === 'undefined') {
+    run();
+    return () => {};
+  }
+  if (typeof window.requestIdleCallback === 'function') {
+    const id = window.requestIdleCallback(() => run(), { timeout: timeoutMs });
+    return () => window.cancelIdleCallback(id);
+  }
+  const timer = window.setTimeout(run, Math.min(timeoutMs, 200));
+  return () => window.clearTimeout(timer);
+}
+
 /** Test hook — module state must not leak between specs. */
 export function clearThreadFirstPageCache(): void {
   inflight.clear();

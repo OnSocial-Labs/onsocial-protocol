@@ -32,6 +32,7 @@ import {
   directRepliesToTree,
   enrichPaintedReplyTree,
   graftVisibleReplies,
+  scheduleThreadIdle,
   shouldPaintDirectReplies,
   startThreadFirstPage,
   visibleReplyPaths,
@@ -50,7 +51,6 @@ import {
 import { writeGuildMembershipCache } from '@/lib/guild-membership-cache';
 import type { GuildPostPageData } from '@/lib/load-guild-post-page';
 import {
-  THREAD_QUOTE_PAGE_SIZE,
   THREAD_REPLY_PAGE_SIZE,
   THREAD_REPLY_TREE_DEPTH,
   THREAD_REPLY_TREE_MAX_NODES,
@@ -69,7 +69,6 @@ export {
 } from '@/features/guilds/guild-thread-data';
 
 const REPLY_PAGE_SIZE = THREAD_REPLY_PAGE_SIZE;
-const QUOTE_PAGE_SIZE = THREAD_QUOTE_PAGE_SIZE;
 const REPLY_TREE_DEPTH = THREAD_REPLY_TREE_DEPTH;
 const REPLY_TREE_MAX_NODES = THREAD_REPLY_TREE_MAX_NODES;
 const RECONCILE_DELAYS_MS = [2_000, 5_000];
@@ -255,18 +254,9 @@ export function useGuildThreadData({
         const firstPagePromise = paintDirect
           ? startThreadFirstPage(rootPath)
           : null;
-        // First reply page gates appear; quotes/tree/config soft-fill after.
+        // First reply page gates appear; tree soft-fills on idle. Quotes list
+        // loads on View quotes; config still soft-fills in parallel.
         const rootPromise = client.query.groups.post(postRef);
-        const quotesPromise = client.query.groups.quotes(postRef, {
-          limit: QUOTE_PAGE_SIZE,
-          order: 'desc',
-        });
-        const treePromise = client.query.groups.threadTree(postRef, {
-          depth: REPLY_TREE_DEPTH,
-          includeQuotes: false,
-          replyLimit: REPLY_PAGE_SIZE,
-          maxNodes: REPLY_TREE_MAX_NODES,
-        });
         const configPromise = client.groups.getConfig(groupId);
 
         if (firstPagePromise) {
@@ -362,62 +352,78 @@ export function useGuildThreadData({
         if (!options.background) {
           setLoadState(root ? 'ready' : 'missing');
         }
+        setShareTailReady(true);
 
-        const [quotesResult, treeResult, configResult] = await Promise.allSettled(
-          [quotesPromise, treePromise, configPromise]
-        );
         if (threadKeyRef.current !== threadKey) return;
         if (refreshRequestIdRef.current !== requestId) return;
 
-        const fetchedQuotes =
-          quotesResult.status === 'fulfilled' ? quotesResult.value : [];
-        const treeOk = treeResult.status === 'fulfilled';
-        const fetchedTree = treeOk ? treeResult.value.replies : [];
-        const fetchedTreePosts = flattenTreePosts(fetchedTree);
+        const enrichTree = () => {
+          if (threadKeyRef.current !== threadKey) return;
+          if (refreshRequestIdRef.current !== requestId) return;
+          void client.query.groups
+            .threadTree(postRef, {
+              depth: REPLY_TREE_DEPTH,
+              includeQuotes: false,
+              replyLimit: REPLY_PAGE_SIZE,
+              maxNodes: REPLY_TREE_MAX_NODES,
+            })
+            .then((treeResult) => {
+              if (threadKeyRef.current !== threadKey) return;
+              if (refreshRequestIdRef.current !== requestId) return;
+              const fetchedTree = treeResult.replies;
+              const fetchedTreePosts = flattenTreePosts(fetchedTree);
+              setLocalReplies((current) =>
+                withoutIndexedPosts(current, fetchedTreePosts)
+              );
+              if (options.background && paginatedRef.current) return;
+              const keepFirstPage =
+                firstPagePaintedRef.current && !paginatedRef.current;
+              setConversation((current) => ({
+                root: current.root ?? root,
+                replies: keepFirstPage
+                  ? current.replies
+                  : fetchedTree.map((node) => node.post),
+                quotes: current.quotes,
+              }));
+              setLoadMoreError(null);
+              let sessionTree: ThreadNode[] | null = null;
+              if (keepFirstPage) {
+                setReplyTree((current) => {
+                  sessionTree = enrichPaintedReplyTree(current, fetchedTree);
+                  return sessionTree;
+                });
+              } else {
+                setReplyTree(fetchedTree);
+                sessionTree = fetchedTree;
+                const more = fetchedTree.length >= REPLY_PAGE_SIZE;
+                setHasMoreReplies(more);
+                hasMoreRepliesRef.current = more;
+              }
+              if (root && sessionTree) {
+                const meta = guildMetaRef.current;
+                writeGuildThreadSession(rootPath, {
+                  root,
+                  replies: sessionTree.map((node) => node.post),
+                  quotes: seeded?.quotes ?? [],
+                  replyTree: sessionTree,
+                  hasMoreReplies: hasMoreRepliesRef.current,
+                  guildName: meta.guildName,
+                  memberDriven: meta.memberDriven,
+                  accessGated: meta.accessGated,
+                  engagement: engagementLatestRef?.current ?? {},
+                  scarceEmbeds: scarceEmbedsForOpenRoot(root),
+                });
+              }
+            })
+            .catch(() => {
+              // First page / graft already on screen.
+            });
+        };
+        scheduleThreadIdle(enrichTree);
 
-        setLocalReplies((current) =>
-          withoutIndexedPosts(current, fetchedTreePosts)
-        );
-        setLocalQuotes((current) =>
-          withoutIndexedPosts(current, fetchedQuotes)
-        );
-
-        // Once the user paginated past the first page, a background
-        // first-page fetch would discard loaded pages — reconcile only.
-        // A failed walk keeps the direct page already on screen.
-        const keepFirstPage =
-          treeOk && firstPagePaintedRef.current && !paginatedRef.current;
-        let sessionTree: ThreadNode[] | null = null;
-        if (!options.background || !paginatedRef.current) {
-          setConversation((current) => ({
-            root: current.root ?? root,
-            replies: keepFirstPage
-              ? current.replies
-              : treeOk
-                ? fetchedTree.map((node) => node.post)
-                : current.replies,
-            quotes: fetchedQuotes,
-          }));
-          if (treeOk) {
-            setLoadMoreError(null);
-            if (keepFirstPage) {
-              setReplyTree((current) => {
-                sessionTree = enrichPaintedReplyTree(current, fetchedTree);
-                return sessionTree;
-              });
-            } else {
-              setReplyTree(fetchedTree);
-              sessionTree = fetchedTree;
-              const more = fetchedTree.length >= REPLY_PAGE_SIZE;
-              setHasMoreReplies(more);
-              hasMoreRepliesRef.current = more;
-            }
-          }
-        }
-        setShareTailReady(true);
-
-        const rawConfig =
-          configResult.status === 'fulfilled' ? configResult.value : null;
+        const rawConfig = await configPromise.catch(() => null);
+        if (threadKeyRef.current !== threadKey) return;
+        if (refreshRequestIdRef.current !== requestId) return;
 
         if (rawConfig) {
           setGuildStructure(parseGuildStructure(rawConfig));
@@ -431,36 +437,6 @@ export function useGuildThreadData({
           setGuildStructure(null);
           setGuildName(null);
           setMemberDriven(false);
-        }
-
-        if (
-          treeOk &&
-          root &&
-          sessionTree &&
-          (!options.background || !paginatedRef.current)
-        ) {
-          writeGuildThreadSession(rootPath, {
-            root,
-            replies: sessionTree.map((node) => node.post),
-            quotes: fetchedQuotes,
-            replyTree: sessionTree,
-            hasMoreReplies: keepFirstPage
-              ? hasMoreRepliesRef.current
-              : sessionTree.length >= REPLY_PAGE_SIZE,
-            guildName:
-              rawConfig && typeof rawConfig.name === 'string'
-                ? rawConfig.name
-                : guildMetaRef.current.guildName,
-            memberDriven: rawConfig
-              ? rawConfig.member_driven === true ||
-                rawConfig.memberDriven === true
-              : guildMetaRef.current.memberDriven,
-            accessGated: rawConfig
-              ? rawConfig.is_private === true || rawConfig.isPrivate === true
-              : guildMetaRef.current.accessGated,
-            engagement: engagementLatestRef?.current ?? {},
-            scarceEmbeds: scarceEmbedsForOpenRoot(root),
-          });
         }
 
         if (accountId && rawConfig) {
