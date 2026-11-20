@@ -441,9 +441,7 @@ export function LiveGuildPostPanel({
     ancestorsReady,
     loadReady: loadState === 'ready',
     hasRoot: Boolean(conversation.root),
-    pinKey: ancestorsReady
-      ? ancestorChain.map((post) => post.postId).join('\n')
-      : '',
+    pinKey: conversation.root?.postId ?? '',
     parked,
     onThreadPainted,
   });
