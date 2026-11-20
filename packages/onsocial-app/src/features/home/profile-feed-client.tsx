@@ -614,6 +614,7 @@ export function ProfileFeedClient({
   useLayoutEffect(() => {
     if (!trimAnchor || !(scrollNode instanceof HTMLElement)) return;
     if (restoreFeedAnchor(scrollNode, trimAnchor)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear pin after pre-paint scroll restore
       setTrimAnchor(null);
     }
   }, [posts, scrollNode, trimAnchor]);
