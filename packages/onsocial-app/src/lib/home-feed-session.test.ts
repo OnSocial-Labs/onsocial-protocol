@@ -11,6 +11,7 @@ import {
   HOME_FEED_SESSION_PROBE_DELAY_MS,
   HOME_FEED_SESSION_TTL_MS,
   HOME_FEED_SSR_SESSION_KEY,
+  clampHomeFeedSessionPagination,
   homeFeedSessionKey,
   homeFeedSessionProbeDelayMs,
   shouldKeepRestoredHomeFeed,
@@ -485,14 +486,62 @@ describe('home feed session storage mirror', () => {
     expect(peekHomeFeedSession()?.posts).toHaveLength(
       HOME_FEED_SESSION_PERSISTED_POSTS
     );
+    // Cursor must continue from the restored head — not the deep-scroll offset.
+    expect(peekHomeFeedSession()?.nextOffset).toBe(
+      HOME_FEED_SESSION_PERSISTED_POSTS
+    );
     const raw = map.get('onsocial.home-feed-session');
     const parsed = JSON.parse(raw ?? '{}') as {
-      snapshot: { posts: PostRow[] };
+      snapshot: { posts: PostRow[]; nextOffset?: number };
     };
     expect(parsed.snapshot.posts).toHaveLength(
       HOME_FEED_SESSION_PERSISTED_POSTS
     );
     expect(parsed.snapshot.posts.at(-1)?.postId).toBe('59');
+    expect(parsed.snapshot.nextOffset).toBe(HOME_FEED_SESSION_PERSISTED_POSTS);
+  });
+});
+
+describe('clampHomeFeedSessionPagination', () => {
+  it('clamps a truncated deep-scroll cursor and clears applied shift', () => {
+    expect(
+      clampHomeFeedSessionPagination({
+        postCount: 60,
+        nextOffset: 160,
+        offsetShiftApplied: 2,
+        truncated: true,
+      })
+    ).toEqual({ nextOffset: 60, offsetShiftApplied: 0 });
+  });
+
+  it('keeps a fill-walk cursor on a short unrestored list', () => {
+    expect(
+      clampHomeFeedSessionPagination({
+        postCount: 2,
+        nextOffset: 48,
+        offsetShiftApplied: 2,
+      })
+    ).toEqual({ nextOffset: 48, offsetShiftApplied: 2 });
+  });
+
+  it('keeps a cursor that still lands inside the restored head', () => {
+    expect(
+      clampHomeFeedSessionPagination({
+        postCount: 60,
+        nextOffset: 48,
+        offsetShiftApplied: 2,
+      })
+    ).toEqual({ nextOffset: 48, offsetShiftApplied: 2 });
+  });
+
+  it('leaves an exhausted feed alone', () => {
+    expect(
+      clampHomeFeedSessionPagination({
+        postCount: 12,
+        nextOffset: undefined,
+        offsetShiftApplied: 0,
+      })
+    ).toEqual({ nextOffset: undefined, offsetShiftApplied: 0 });
   });
 });
 

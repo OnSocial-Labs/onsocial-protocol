@@ -9,6 +9,10 @@ import {
   type CollectionView,
 } from '@/features/scarces/collections-data';
 import {
+  dropOverlayLinkHandlers,
+  useDropOverlayOpen,
+} from '@/features/scarces/drop-overlay-open';
+import {
   seriesShopActionLabel,
   seriesShopClock,
   shopRowCreatorLabel,
@@ -46,6 +50,8 @@ export function SeriesShopRow({
       : null;
   const action = seriesShopActionLabel(status);
   const href = collectionPath(view.collectionId);
+  const openDrop = useDropOverlayOpen();
+  const dropHandlers = dropOverlayLinkHandlers(href, openDrop, view);
   const creatorLabel = showCreator ? shopRowCreatorLabel(view.creatorId) : '';
   const price =
     dollarStickerLabel(view.usdE6) ??
@@ -76,6 +82,7 @@ export function SeriesShopRow({
         title={
           action === 'Collect' ? `Collect ${view.title}` : view.title
         }
+        {...dropHandlers}
       >
         <div
           className={`market-listing-thumb${showThumb ? ' has-media' : ''}`}

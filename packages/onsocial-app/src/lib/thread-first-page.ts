@@ -1,6 +1,11 @@
 import { postContentPath, type PostRow, type ThreadNode } from '@onsocial/sdk';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { invalidateQuotesSession } from '@/lib/quotes-session-cache';
 import { leafThreadNode } from '@/lib/thread-display';
+import {
+  invalidateGuildThreadSession,
+  invalidateThreadSession,
+} from '@/lib/thread-session-cache';
 
 /**
  * Direct replies that fill the post sheet and the reply drawer.
@@ -104,6 +109,58 @@ export function threadContentPath(input: {
   return `${input.accountId}/post/${input.postId}`;
 }
 
+/**
+ * Load-more cursor for ascending reply pages. Prefer the last confirmed
+ * `blockHeight` (keyset); fall back to offset when only optimistic rows
+ * (`blockHeight: 0`) sit at the tail.
+ */
+export function replyLoadMoreCursor(replies: readonly PostRow[]): {
+  afterBlockHeight?: number;
+  offset?: number;
+} {
+  for (let index = replies.length - 1; index >= 0; index -= 1) {
+    const height = replies[index]?.blockHeight;
+    if (typeof height === 'number' && height > 0) {
+      return { afterBlockHeight: height };
+    }
+  }
+  return { offset: replies.length };
+}
+
+/**
+ * Descending quotes load-more — older than the last painted row's height.
+ */
+export function quoteLoadMoreCursor(quotes: readonly PostRow[]): {
+  beforeBlockHeight?: number;
+  offset?: number;
+} {
+  for (let index = quotes.length - 1; index >= 0; index -= 1) {
+    const height = quotes[index]?.blockHeight;
+    if (typeof height === 'number' && height > 0) {
+      return { beforeBlockHeight: height };
+    }
+  }
+  return { offset: quotes.length };
+}
+
+/**
+ * Descending reposters load-more — older than the last painted timestamp.
+ */
+export function reposterLoadMoreCursor(
+  reposters: ReadonlyArray<{ blockTimestamp?: number | null }>
+): {
+  beforeBlockTimestamp?: number;
+  offset?: number;
+} {
+  for (let index = reposters.length - 1; index >= 0; index -= 1) {
+    const stamp = reposters[index]?.blockTimestamp;
+    if (typeof stamp === 'number' && stamp > 0) {
+      return { beforeBlockTimestamp: stamp };
+    }
+  }
+  return { offset: reposters.length };
+}
+
 const inflight = new Map<string, Promise<ThreadFirstPage>>();
 const settled = new Map<string, ThreadFirstPage>();
 
@@ -203,6 +260,27 @@ export function scheduleThreadIdle(
   }
   const timer = window.setTimeout(run, Math.min(timeoutMs, 200));
   return () => window.clearTimeout(timer);
+}
+
+/** Drop a settled first page so the next open refetches after a local write. */
+export function invalidateThreadFirstPage(rootPath: string): void {
+  const path = rootPath.trim();
+  if (!path) return;
+  settled.delete(path);
+  inflight.delete(path);
+}
+
+/**
+ * Local reply / quote / delete confirmed — drop SPA caches for this root so
+ * the next open refetches instead of painting a pre-write first page.
+ */
+export function invalidateThreadOpenCaches(rootPath: string): void {
+  const path = rootPath.trim();
+  if (!path) return;
+  invalidateThreadFirstPage(path);
+  invalidateThreadSession(path);
+  invalidateGuildThreadSession(path);
+  invalidateQuotesSession(path);
 }
 
 /** Test hook — module state must not leak between specs. */

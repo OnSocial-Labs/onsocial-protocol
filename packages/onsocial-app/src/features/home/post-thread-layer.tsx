@@ -29,6 +29,7 @@ import { OsRouteSettle } from '@/components/app/os-route-settle';
 import { PostQuotesTrackHostProvider } from '@/features/home/post-quotes-track-host';
 import { PostQuotesPageSkeleton } from '@/features/home/post-quotes-skeleton';
 import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
+import type { CollectionView } from '@/features/scarces/collections-data';
 import { scarceEmbedsForOpenRoot } from '@/features/scarces/scarce-embed-ledger';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { accountIdsEqual } from '@/lib/account-match';
@@ -216,6 +217,8 @@ type DropLayerTarget = {
   id: string;
   kind: 'drop';
   collectionId: string;
+  /** Cover/title seed — paints the drop shell before the indexer returns. */
+  initial: CollectionView | null;
   zIndex: number;
   openedAboveMediaFace: boolean;
 };
@@ -253,8 +256,15 @@ type PostThreadLayerValue = {
      */
     returnToPost?: boolean;
   }) => boolean;
-  openPostQuotes: (input: { href: string }) => boolean;
-  openDrop: (input: { href: string }) => boolean;
+  openPostQuotes: (input: {
+    href: string;
+    root?: PostRow | null;
+    rootEngagement?: PostEngagement | null;
+  }) => boolean;
+  openDrop: (input: {
+    href: string;
+    initial?: CollectionView | null;
+  }) => boolean;
   closePostThread: () => void;
 };
 
@@ -725,7 +735,7 @@ function DropLayerSheet({
         </span>
         <CollectionPagePanel
           collectionId={layer.collectionId}
-          initial={null}
+          initial={layer.initial}
           embedded
           onClose={onClose}
         />
@@ -1105,7 +1115,15 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   );
 
   const openPostQuotes = useCallback(
-    ({ href }: { href: string }) => {
+    ({
+      href,
+      root = null,
+      rootEngagement = null,
+    }: {
+      href: string;
+      root?: PostRow | null;
+      rootEngagement?: PostEngagement | null;
+    }) => {
       const personal = parseInAppPostQuotesHref(href);
       const guild = personal ? null : parseGuildPostQuotesHref(href);
       const parsed = personal
@@ -1159,6 +1177,8 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
           accountId: parsed.accountId,
           postId: parsed.postId,
           groupId: parsed.groupId,
+          root,
+          rootEngagement,
         }),
         zIndex:
           stackRef.current[0]?.zIndex ?? nextStackedLayerZ(stackRef.current),
@@ -1203,7 +1223,13 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   );
 
   const openDrop = useCallback(
-    ({ href }: { href: string }) => {
+    ({
+      href,
+      initial = null,
+    }: {
+      href: string;
+      initial?: CollectionView | null;
+    }) => {
       const parsed = parseInAppDropLayerHref(href);
       if (!parsed) return false;
       const canonical = canonicalizeDropLayerHref(href);
@@ -1226,11 +1252,18 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         return true;
       }
 
+      const seeded =
+        initial &&
+        collectionIdsEqual(initial.collectionId, parsed.collectionId)
+          ? initial
+          : null;
+
       if (stackRef.current.length > 0) {
         const next: DropLayerTarget = {
           id: `drop-layer-${++seqRef.current}`,
           kind: 'drop',
           collectionId: parsed.collectionId,
+          initial: seeded,
           zIndex: stackRef.current[0]?.zIndex ?? SHEET_Z.overlayHost,
           openedAboveMediaFace: isOsMediaFaceOpen(),
         };
@@ -1252,6 +1285,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         id: `drop-layer-${++seqRef.current}`,
         kind: 'drop',
         collectionId: parsed.collectionId,
+        initial: seeded,
         zIndex: nextStackedLayerZ(stackRef.current),
         openedAboveMediaFace: isOsMediaFaceOpen(),
       };

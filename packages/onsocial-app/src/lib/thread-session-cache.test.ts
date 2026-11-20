@@ -5,6 +5,7 @@ import type { PersonalPostPageData } from '@/lib/load-personal-post-page';
 import {
   clearGuildThreadSessionCache,
   clearThreadSessionCache,
+  invalidateThreadSession,
   readGuildThreadSession,
   readThreadSession,
   writeGuildThreadSession,
@@ -74,6 +75,14 @@ describe('thread-session-cache', () => {
     writeThreadSession('alice.near/post/new', data('new'));
     expect(readThreadSession('alice.near/post/p0')).not.toBeNull();
     expect(readThreadSession('alice.near/post/p1')).toBeNull();
+  });
+
+  it('invalidates a single path without clearing the rest', () => {
+    writeThreadSession('alice.near/post/x', data('x'));
+    writeThreadSession('alice.near/post/y', data('y'));
+    invalidateThreadSession('alice.near/post/x');
+    expect(readThreadSession('alice.near/post/x')).toBeNull();
+    expect(readThreadSession('alice.near/post/y')?.root.postId).toBe('y');
   });
 });
 

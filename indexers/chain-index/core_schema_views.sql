@@ -1223,8 +1223,11 @@ LEFT JOIN post_amplify_heat h
 -- feed_pulse, feed_hot, and feed_recent return SETOF posts_feed. Drop them
 -- before the column list grows; all three are recreated below.
 DROP FUNCTION IF EXISTS feed_pulse(text[], integer, integer, text);
+DROP FUNCTION IF EXISTS feed_pulse(text[], integer, integer, text, bigint, bigint, text);
+DROP FUNCTION IF EXISTS feed_pulse(text[], integer, integer, text, bigint, double precision, text);
 DROP FUNCTION IF EXISTS feed_hot(integer, integer, text, text, text, text[], boolean);
 DROP FUNCTION IF EXISTS feed_recent(integer, integer, text, text, text, text[], boolean, text, text);
+DROP FUNCTION IF EXISTS feed_recent(integer, integer, text, text, text, text[], boolean, text, text, bigint);
 
 CREATE OR REPLACE VIEW posts_feed AS
 SELECT
@@ -1441,6 +1444,8 @@ $$;
 -- Chronological page for profile, Circle, and filtered account lists.
 -- Same cut as feed_hot, ordered by block_height. An author filter on the
 -- posts_feed view itself sorts after the count laterals.
+-- `before_block_height` is an exclusive keyset upper bound (DESC pages).
+-- When set, `row_offset` is ignored so live inserts do not skip rows.
 CREATE OR REPLACE FUNCTION feed_recent(
   row_limit integer,
   row_offset integer,
@@ -1450,7 +1455,8 @@ CREATE OR REPLACE FUNCTION feed_recent(
   accounts text[] DEFAULT NULL,
   native_only boolean DEFAULT false,
   channel text DEFAULT NULL,
-  audience_like text DEFAULT NULL
+  audience_like text DEFAULT NULL,
+  before_block_height bigint DEFAULT NULL
 )
 RETURNS SETOF posts_feed
 LANGUAGE sql
@@ -1507,9 +1513,16 @@ AS $$
         OR btrim(feed_recent.audience_like) = ''
         OR p.audiences LIKE feed_recent.audience_like
       )
+      AND (
+        feed_recent.before_block_height IS NULL
+        OR p.block_height < feed_recent.before_block_height
+      )
     ORDER BY p.block_height DESC
     LIMIT GREATEST(COALESCE(feed_recent.row_limit, 0), 0)
-    OFFSET GREATEST(COALESCE(feed_recent.row_offset, 0), 0)
+    OFFSET CASE
+      WHEN feed_recent.before_block_height IS NOT NULL THEN 0
+      ELSE GREATEST(COALESCE(feed_recent.row_offset, 0), 0)
+    END
   )
   SELECT f.*
   FROM page pg
@@ -1529,11 +1542,16 @@ $$;
 -- posts come from posts_feed for that page only. A zero offset keeps each
 -- join from being flattened back into a whole-view count.
 -- `card_limit` / `card_offset` page events, not raw rows.
+-- Keyset: pass the previous page's last (event_height, event_heat, event_key).
+-- When `before_event_height` is set, `card_offset` is ignored.
 CREATE OR REPLACE FUNCTION feed_pulse(
   accounts text[],
   card_limit integer,
   card_offset integer,
-  sort text DEFAULT 'recent'
+  sort text DEFAULT 'recent',
+  before_event_height bigint DEFAULT NULL,
+  before_event_heat double precision DEFAULT NULL,
+  before_event_key text DEFAULT NULL
 )
 RETURNS SETOF posts_feed
 LANGUAGE sql
@@ -1721,15 +1739,41 @@ AS $$
         ORDER BY
           CASE WHEN sort = 'hot' THEN e.event_heat ELSE 0 END DESC,
           e.event_height DESC,
-          e.event_key
+          e.event_key DESC
       ) AS rn
     FROM events e
+    WHERE before_event_height IS NULL
+      OR (
+        CASE
+          WHEN sort = 'hot' THEN
+            ROW(
+              e.event_heat,
+              e.event_height,
+              e.event_key
+            ) < ROW(
+              COALESCE(before_event_heat, 'Infinity'::double precision),
+              before_event_height,
+              COALESCE(before_event_key, '')
+            )
+          ELSE
+            ROW(e.event_height, e.event_key) < ROW(
+              before_event_height,
+              COALESCE(before_event_key, '')
+            )
+        END
+      )
   ),
   page AS MATERIALIZED (
     SELECT *
     FROM ranked
-    WHERE rn > GREATEST(COALESCE(card_offset, 0), 0)
-      AND rn <= GREATEST(COALESCE(card_offset, 0), 0)
+    WHERE rn > CASE
+        WHEN before_event_height IS NOT NULL THEN 0
+        ELSE GREATEST(COALESCE(card_offset, 0), 0)
+      END
+      AND rn <= CASE
+        WHEN before_event_height IS NOT NULL THEN 0
+        ELSE GREATEST(COALESCE(card_offset, 0), 0)
+      END
         + GREATEST(COALESCE(card_limit, 0), 0)
   ),
   out_rows AS (

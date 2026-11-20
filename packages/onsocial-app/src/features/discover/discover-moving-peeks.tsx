@@ -21,6 +21,7 @@ import {
   isUnmodifiedPrimaryClick,
   usePostThreadLayer,
 } from '@/features/home/post-thread-layer';
+import { seedCollectionViewFromPeek } from '@/features/scarces/collection-page-view';
 import { appPath, collectionPath } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
 import type { DiscoverTrendingHub } from '@/lib/discover-trending-server';
@@ -305,6 +306,12 @@ export function MovingCoverPeekSection({
             : null;
           const meta = signal || scarce.appId?.trim() || null;
           const href = collectionPath(scarce.collectionId);
+          const initial = seedCollectionViewFromPeek({
+            collectionId: scarce.collectionId,
+            title: scarce.title,
+            coverUrl: scarce.coverUrl,
+            appId: scarce.appId,
+          });
           return (
             <li key={`${heading}-${scarce.collectionId}`}>
               <Link
@@ -312,13 +319,13 @@ export function MovingCoverPeekSection({
                 className="discover-cover-peek"
                 onClick={(event: MouseEvent<HTMLAnchorElement>) => {
                   if (!isUnmodifiedPrimaryClick(event)) return;
-                  if (openDrop({ href })) {
+                  if (openDrop({ href, initial })) {
                     event.preventDefault();
                     event.stopPropagation();
                   }
                 }}
                 onNavigate={(event) => {
-                  if (openDrop({ href })) event.preventDefault();
+                  if (openDrop({ href, initial })) event.preventDefault();
                 }}
               >
                 <MovingCoverThumb

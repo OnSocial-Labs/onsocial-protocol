@@ -43,7 +43,11 @@ import {
   type FeedScrollAnchor,
 } from '@/features/home/home-feed-scroll-anchor';
 import { FeedWindowSizeCache } from '@/features/home/feed-window';
-import { isHomeFeedSocialLens } from '@/features/home/home-feed-pulse';
+import {
+  homeFeedHasMore,
+  isHomeFeedSocialLens,
+  type HomeFeedPageCursor,
+} from '@/features/home/home-feed-pulse';
 import {
   countVisibleHomeFeedCards,
   homeFeedIncludeForeignReplies,
@@ -310,6 +314,22 @@ export function HomePagePanel({
   const [nextOffset, setNextOffset] = useState<number | undefined>(
     () => restoredSession?.nextOffset ?? initialPage?.nextOffset
   );
+  const [nextBeforeBlockHeight, setNextBeforeBlockHeight] = useState<
+    number | undefined
+  >(
+    () =>
+      restoredSession?.nextBeforeBlockHeight ??
+      initialPage?.nextBeforeBlockHeight
+  );
+  const [nextBeforeHeat, setNextBeforeHeat] = useState<number | undefined>(
+    () => restoredSession?.nextBeforeHeat ?? initialPage?.nextBeforeHeat
+  );
+  const [nextBeforeEventKey, setNextBeforeEventKey] = useState<
+    string | undefined
+  >(
+    () =>
+      restoredSession?.nextBeforeEventKey ?? initialPage?.nextBeforeEventKey
+  );
   const [isLoading, setIsLoading] = useState(
     () => restoredSession == null && initialPage == null
   );
@@ -373,6 +393,38 @@ export function HomePagePanel({
   const nextOffsetRef = useRef<number | undefined>(
     restoredSession?.nextOffset ?? initialPage?.nextOffset
   );
+  const nextBeforeBlockHeightRef = useRef<number | undefined>(
+    restoredSession?.nextBeforeBlockHeight ??
+      initialPage?.nextBeforeBlockHeight
+  );
+  const nextBeforeHeatRef = useRef<number | undefined>(
+    restoredSession?.nextBeforeHeat ?? initialPage?.nextBeforeHeat
+  );
+  const nextBeforeEventKeyRef = useRef<string | undefined>(
+    restoredSession?.nextBeforeEventKey ?? initialPage?.nextBeforeEventKey
+  );
+
+  const applyFeedPageCursor = useCallback((page: Paginated<PostRow>) => {
+    setNextOffset(page.nextOffset);
+    nextOffsetRef.current = page.nextOffset;
+    setNextBeforeBlockHeight(page.nextBeforeBlockHeight);
+    nextBeforeBlockHeightRef.current = page.nextBeforeBlockHeight;
+    setNextBeforeHeat(page.nextBeforeHeat);
+    nextBeforeHeatRef.current = page.nextBeforeHeat;
+    setNextBeforeEventKey(page.nextBeforeEventKey);
+    nextBeforeEventKeyRef.current = page.nextBeforeEventKey;
+  }, []);
+
+  const clearFeedPageCursor = useCallback(() => {
+    setNextOffset(undefined);
+    nextOffsetRef.current = undefined;
+    setNextBeforeBlockHeight(undefined);
+    nextBeforeBlockHeightRef.current = undefined;
+    setNextBeforeHeat(undefined);
+    nextBeforeHeatRef.current = undefined;
+    setNextBeforeEventKey(undefined);
+    nextBeforeEventKeyRef.current = undefined;
+  }, []);
   const postsLengthRef = useRef(
     restoredSession?.posts.length ?? initialPage?.items.length ?? 0
   );
@@ -415,6 +467,9 @@ export function HomePagePanel({
       sessionKey: feedSessionKeyRef.current,
       posts: postsRef.current,
       nextOffset: nextOffsetRef.current,
+      nextBeforeBlockHeight: nextBeforeBlockHeightRef.current,
+      nextBeforeHeat: nextBeforeHeatRef.current,
+      nextBeforeEventKey: nextBeforeEventKeyRef.current,
       standingNetworkIds: standingSourcesRef.current,
       offsetShiftApplied: offsetShiftAppliedRef.current,
       scrollTop: scrollTopToPersist(memory, line),
@@ -465,6 +520,9 @@ export function HomePagePanel({
       ? [...snap.standingNetworkIds]
       : null;
     nextOffsetRef.current = snap.nextOffset;
+    nextBeforeBlockHeightRef.current = snap.nextBeforeBlockHeight;
+    nextBeforeHeatRef.current = snap.nextBeforeHeat;
+    nextBeforeEventKeyRef.current = snap.nextBeforeEventKey;
     offsetShiftAppliedRef.current = snap.offsetShiftApplied;
     feedSessionKeyRef.current = snap.sessionKey;
     scrollMemoryRef.current = createListScrollMemory(snap.scrollTop);
@@ -490,6 +548,9 @@ export function HomePagePanel({
       snap.standingNetworkIds ? [...snap.standingNetworkIds] : null
     );
     setNextOffset(snap.nextOffset);
+    setNextBeforeBlockHeight(snap.nextBeforeBlockHeight);
+    setNextBeforeHeat(snap.nextBeforeHeat);
+    setNextBeforeEventKey(snap.nextBeforeEventKey);
     setSsrBootstrapDone(true);
     setIsLoading(false);
   }, []);
@@ -502,10 +563,12 @@ export function HomePagePanel({
 
   // Append re-rank captured an anchor just before setPosts; put the row
   // back at its viewport offset before paint so the merge is invisible.
+  // Pin may land one frame late — keep the anchor until the row mounts.
   useLayoutEffect(() => {
     if (!reRankAnchor) return;
-    setReRankAnchor(null);
-    restoreFeedAnchor(scrollRootRef.current, reRankAnchor);
+    if (restoreFeedAnchor(scrollRootRef.current, reRankAnchor)) {
+      setReRankAnchor(null);
+    }
   }, [posts, reRankAnchor]);
 
   // Drop quote/poll/dao/engagement keys for rows no longer in the model
@@ -562,7 +625,7 @@ export function HomePagePanel({
     }
     speculativeRequestedRef.current = true;
     let cancelled = false;
-    void fetchHomeFeedPageClient('global', null, 0, null, 'hot')
+    void fetchHomeFeedPageClient('global', null, { offset: 0 }, null, 'hot')
       .then((result) => {
         if (!cancelled) setSpeculativePage(result.page);
       })
@@ -600,6 +663,18 @@ export function HomePagePanel({
   useEffect(() => {
     nextOffsetRef.current = nextOffset;
   }, [nextOffset]);
+
+  useEffect(() => {
+    nextBeforeBlockHeightRef.current = nextBeforeBlockHeight;
+  }, [nextBeforeBlockHeight]);
+
+  useEffect(() => {
+    nextBeforeHeatRef.current = nextBeforeHeat;
+  }, [nextBeforeHeat]);
+
+  useEffect(() => {
+    nextBeforeEventKeyRef.current = nextBeforeEventKey;
+  }, [nextBeforeEventKey]);
 
   useEffect(() => {
     postsLengthRef.current = posts.length;
@@ -651,6 +726,8 @@ export function HomePagePanel({
 
   const growFeedWindow = useCallback((insertedCount: number) => {
     if (insertedCount <= 0) return;
+    // Keyset pages do not shift under head inserts.
+    if (nextBeforeBlockHeightRef.current !== undefined) return;
     const current = nextOffsetRef.current;
     if (current === undefined) return;
     const next = current + insertedCount;
@@ -825,8 +902,7 @@ export function HomePagePanel({
       setPosts(speculativePage.items);
       postsRef.current = speculativePage.items;
       postsLengthRef.current = speculativePage.items.length;
-      setNextOffset(speculativePage.nextOffset);
-      nextOffsetRef.current = speculativePage.nextOffset;
+      applyFeedPageCursor(speculativePage);
       feedSessionKeyRef.current = HOME_FEED_SSR_SESSION_KEY;
       if (speculativeFeedKeepsPaint(activeLens, sort)) {
         ssrHotGlobalSkipRef.current = true;
@@ -905,6 +981,9 @@ export function HomePagePanel({
     appendInFlightRef.current = false;
     const previousStandingSources = standingSourcesRef.current;
     const previousNextOffset = nextOffsetRef.current;
+    const previousBefore = nextBeforeBlockHeightRef.current;
+    const previousBeforeHeat = nextBeforeHeatRef.current;
+    const previousBeforeKey = nextBeforeEventKeyRef.current;
     hiddenWalksRef.current = 0;
     setHiddenWalkGaveUp(false);
     setEngagementError(null);
@@ -931,8 +1010,7 @@ export function HomePagePanel({
       isRefreshingRef.current = false;
       setIsLoading(true);
       setIsRefreshing(false);
-      setNextOffset(undefined);
-      nextOffsetRef.current = undefined;
+      clearFeedPageCursor();
     }
     setIsLoadingMore(false);
 
@@ -940,10 +1018,16 @@ export function HomePagePanel({
       try {
         const result = focus
           ? {
-              page: await loadFocusedFeedPage(focus, 0, { sort }),
+              page: await loadFocusedFeedPage(focus, { offset: 0 }, { sort }),
               standingSources: null as string[] | null,
             }
-          : await fetchHomeFeedPageClient(activeLens, accountId, 0, null, sort);
+          : await fetchHomeFeedPageClient(
+              activeLens,
+              accountId,
+              { offset: 0 },
+              null,
+              sort
+            );
 
         if (!isCurrentLoadingRequest(loadIdRef.current, loadId)) return;
 
@@ -989,8 +1073,7 @@ export function HomePagePanel({
             armHotUpdated(risingAuthors);
           }
         } else {
-          setNextOffset(result.page.nextOffset);
-          nextOffsetRef.current = result.page.nextOffset;
+          applyFeedPageCursor(result.page);
           clearHotUpdated();
         }
         setSsrBootstrapDone(true);
@@ -1020,10 +1103,15 @@ export function HomePagePanel({
           setStandingNetworkIds(previousStandingSources);
           setNextOffset(previousNextOffset);
           nextOffsetRef.current = previousNextOffset;
+          setNextBeforeBlockHeight(previousBefore);
+          nextBeforeBlockHeightRef.current = previousBefore;
+          setNextBeforeHeat(previousBeforeHeat);
+          nextBeforeHeatRef.current = previousBeforeHeat;
+          setNextBeforeEventKey(previousBeforeKey);
+          nextBeforeEventKeyRef.current = previousBeforeKey;
         } else {
           setPosts([]);
-          setNextOffset(undefined);
-          nextOffsetRef.current = undefined;
+          clearFeedPageCursor();
         }
       } finally {
         if (isCurrentLoadingRequest(loadIdRef.current, loadId)) {
@@ -1043,7 +1131,9 @@ export function HomePagePanel({
     accountId,
     activeFocusKey,
     activeLens,
+    applyFeedPageCursor,
     armHotUpdated,
+    clearFeedPageCursor,
     clearHotUpdated,
     clearUnseenPosts,
     feedScrollTop,
@@ -1065,8 +1155,9 @@ export function HomePagePanel({
     // Never race a full load / soft refresh — a load-more here would bump
     // loadIdRef, cancel the refresh, and append onto a stale list.
     if (isLoadingRef.current || isRefreshingRef.current) return;
+    const beforeHeight = nextBeforeBlockHeightRef.current;
     const baseOffset = nextOffsetRef.current;
-    if (baseOffset === undefined) return;
+    if (beforeHeight === undefined && baseOffset === undefined) return;
 
     const focus = parseHomeFeedFocus({
       tag: tagParam,
@@ -1074,18 +1165,24 @@ export function HomePagePanel({
       place: placeParam,
     });
 
-    // Chrono-paged surfaces (any Recent feed) shift when new posts land at
-    // the head; compensate so appended pages don't skip rows. Hot pages by
-    // heat order everywhere (topic indexes included), where chrono-new posts
-    // do not shift offsets.
-    const pendingShift = pendingFeedOffsetShift({
-      newPostCount: unseenPostsRef.current.count,
-      appliedShift: offsetShiftAppliedRef.current,
-      // Pulse/Circle cards move when a later reply lifts them. A chrono
-      // offset shift then skips the old bottom and jumps to older leftovers.
-      chronoPaged: sort !== 'hot' && !isHomeFeedSocialLens(activeLens),
-    });
-    const offset = baseOffset + pendingShift;
+    // Prefer keyset whenever the last page returned one (Recent everywhere;
+    // Pulse Hot card cursor). Offset + head-shift stays for Hot Global/Circle.
+    const useKeyset = beforeHeight !== undefined;
+    const pendingShift = useKeyset
+      ? 0
+      : pendingFeedOffsetShift({
+          newPostCount: unseenPostsRef.current.count,
+          appliedShift: offsetShiftAppliedRef.current,
+          chronoPaged: sort !== 'hot' && !isHomeFeedSocialLens(activeLens),
+        });
+    const cursor: HomeFeedPageCursor = useKeyset
+      ? {
+          beforeBlockHeight: beforeHeight,
+          beforeEventHeight: beforeHeight,
+          beforeEventHeat: nextBeforeHeatRef.current,
+          beforeEventKey: nextBeforeEventKeyRef.current,
+        }
+      : { offset: (baseOffset ?? 0) + pendingShift };
 
     const loadId = ++loadIdRef.current;
     appendInFlightRef.current = true;
@@ -1095,13 +1192,13 @@ export function HomePagePanel({
       try {
         const result = focus
           ? {
-              page: await loadFocusedFeedPage(focus, offset, { sort }),
+              page: await loadFocusedFeedPage(focus, cursor, { sort }),
               standingSources: standingSourcesRef.current,
             }
           : await fetchHomeFeedPageClient(
               activeLens,
               accountId,
-              offset,
+              cursor,
               standingSourcesRef.current,
               sort
             );
@@ -1133,8 +1230,7 @@ export function HomePagePanel({
             ? sortPostsByHot(merged)
             : merged;
         });
-        setNextOffset(result.page.nextOffset);
-        nextOffsetRef.current = result.page.nextOffset;
+        applyFeedPageCursor(result.page);
         // Soft-fill after rows mount — quote/engagement seats already hold.
         void Promise.all([
           loadFeedPaint(appended),
@@ -1167,9 +1263,14 @@ export function HomePagePanel({
       } catch {
         // Keep the current list; the sentinel stays available to retry.
         if (isCurrentLoadingRequest(loadIdRef.current, loadId)) {
-          // Restore offset so the next intersect can retry this page.
-          nextOffsetRef.current = baseOffset;
-          setNextOffset(baseOffset);
+          // Restore cursor so the next intersect can retry this page.
+          if (useKeyset) {
+            nextBeforeBlockHeightRef.current = beforeHeight;
+            setNextBeforeBlockHeight(beforeHeight);
+          } else if (baseOffset !== undefined) {
+            nextOffsetRef.current = baseOffset;
+            setNextOffset(baseOffset);
+          }
           const painted = countVisibleHomeFeedCards(
             filterHiddenAuthors(postsRef.current),
             {
@@ -1188,9 +1289,20 @@ export function HomePagePanel({
         }
       }
     })();
-  }, [accountId, activeLens, sort, tagParam, tickerParam, placeParam]);
+  }, [
+    accountId,
+    activeLens,
+    applyFeedPageCursor,
+    sort,
+    tagParam,
+    tickerParam,
+    placeParam,
+  ]);
 
-  const hasMore = nextOffset !== undefined;
+  const hasMore = homeFeedHasMore({
+    nextOffset,
+    nextBeforeBlockHeight,
+  });
   const showLoadMoreSentinel = hasMore && visibleCardCount > 0;
   const walkingHiddenPage =
     visibleCardCount === 0 && hasMore && !loadError && !hiddenWalkGaveUp;
@@ -1338,14 +1450,14 @@ export function HomePagePanel({
       // Always probe chronological head so “new” means newer content, not Hot churn.
       const result = focus
         ? {
-            page: await loadFocusedFeedPage(focus, 0, {
+            page: await loadFocusedFeedPage(focus, { offset: 0 }, {
               limit: HOME_FEED_NEW_PROBE_SIZE,
             }),
           }
         : await fetchHomeFeedPageClient(
             activeLens,
             accountId,
-            0,
+            { offset: 0 },
             standingSourcesRef.current,
             'recent',
             HOME_FEED_NEW_PROBE_SIZE,

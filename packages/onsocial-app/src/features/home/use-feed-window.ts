@@ -16,6 +16,7 @@ import {
   FeedWindowSizeCache,
   buildFeedWindowOffsets,
   feedWindowEstimateAt,
+  feedWindowEstimatesEqual,
   feedWindowKeysEqual,
   feedWindowOverscanPx,
   feedWindowRangeForScroll,
@@ -252,7 +253,7 @@ export function useFeedWindow({
   // paint. Remember the visible row while the DOM still has the old spacers.
   const estimateAnchorRef = useRef<FeedScrollAnchor | null>(null);
   const estimateSnapshotRef = useRef(estimate);
-  if (estimateSnapshotRef.current !== estimate) {
+  if (!feedWindowEstimatesEqual(estimateSnapshotRef.current, estimate)) {
     if (!pendingMeasureAnchorRef.current) {
       estimateAnchorRef.current = captureVisibleFeedAnchor(
         rootRef.current,
@@ -392,6 +393,14 @@ export function useFeedWindow({
     }
     return callback;
   }, []);
+
+  // Drop callbacks for keys that left the list — session depth otherwise grows forever.
+  useEffect(() => {
+    const live = new Set(keys);
+    for (const key of rowCallbacks.current.keys()) {
+      if (!live.has(key)) rowCallbacks.current.delete(key);
+    }
+  }, [keys]);
 
   // The stored range keys lag one render behind a list mutation; translate
   // so the same rows stay mounted until the pre-paint resync lands.

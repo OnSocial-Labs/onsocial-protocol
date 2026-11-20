@@ -28,10 +28,12 @@ import { resolveViewerAllowlistSpaceIds } from '@/features/guilds/guild-space-wr
 import { resolveGuildViewerAccess } from '@/features/guilds/guild-viewer-access';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import type { PostEngagementMap } from '@/lib/feed-paint-hydrate';
+import { postKey } from '@/lib/post-display';
 import {
   directRepliesToTree,
   enrichPaintedReplyTree,
   graftVisibleReplies,
+  replyLoadMoreCursor,
   scheduleThreadIdle,
   shouldPaintDirectReplies,
   startThreadFirstPage,
@@ -567,31 +569,46 @@ export function useGuildThreadData({
     setLoadingMore(true);
     setLoadMoreError(null);
     const requestKey = threadKey;
-    const repliesOffset = conversation.replies.length;
+    const cursor = replyLoadMoreCursor(conversation.replies);
     void (async () => {
       try {
         const client = createReadOnlyOnSocialClient();
         const page = await client.query.threads.repliesByPath(rootPath, {
           limit: REPLY_PAGE_SIZE,
-          offset: repliesOffset,
+          ...cursor,
         });
         if (threadKeyRef.current !== requestKey) return;
         paginatedRef.current = true;
-        setConversation((current) => ({
-          ...current,
-          replies: [...current.replies, ...page],
-        }));
+        setConversation((current) => {
+          const seen = new Set(current.replies.map(postKey));
+          const fresh = page.filter((post) => {
+            const key = postKey(post);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          return { ...current, replies: [...current.replies, ...fresh] };
+        });
         // Extra pages join as top-level rows; their own descendants
         // arrive with the next full refresh.
-        setReplyTree((current) => [
-          ...current,
-          ...page.map((post) =>
-            leafThreadNode(
-              post,
-              groupPostContentPath(post.accountId, groupId, post.postId)
-            )
-          ),
-        ]);
+        setReplyTree((current) => {
+          const seen = new Set(current.map((node) => postKey(node.post)));
+          const fresh = page.filter((post) => {
+            const key = postKey(post);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          return [
+            ...current,
+            ...fresh.map((post) =>
+              leafThreadNode(
+                post,
+                groupPostContentPath(post.accountId, groupId, post.postId)
+              )
+            ),
+          ];
+        });
         setHasMoreReplies(page.length >= REPLY_PAGE_SIZE);
       } catch (cause) {
         if (threadKeyRef.current !== requestKey) return;
@@ -604,7 +621,7 @@ export function useGuildThreadData({
         }
       }
     })();
-  }, [conversation.replies.length, groupId, rootPath, threadKey]);
+  }, [conversation.replies, groupId, rootPath, threadKey]);
 
   const applyMembershipOutcome = useCallback(
     (outcome: GuildMembershipOutcome) => {

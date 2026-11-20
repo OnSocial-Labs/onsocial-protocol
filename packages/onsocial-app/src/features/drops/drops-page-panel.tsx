@@ -51,6 +51,11 @@ import {
   type UpcomingBucket,
 } from '@/features/drops/drops-data';
 import {
+  dropOverlayLinkHandlers,
+  useDropOverlayOpen,
+} from '@/features/scarces/drop-overlay-open';
+import { seedCollectionViewFromPeek } from '@/features/scarces/collection-page-view';
+import {
   dropsListCoverAction,
   dropsListCoverLabel,
 } from '@/features/drops/drops-page-view';
@@ -300,6 +305,17 @@ function DropRow({
         ? 'Drop'
         : null;
   const href = collectionPath(item.collectionId);
+  const openDrop = useDropOverlayOpen();
+  const dropInitial =
+    item.view ??
+    seedCollectionViewFromPeek({
+      collectionId: item.collectionId,
+      title: item.title,
+      coverUrl: item.mediaUrl,
+      creatorId: item.creatorId,
+      kind: item.mediumKind,
+    });
+  const dropHandlers = dropOverlayLinkHandlers(href, openDrop, dropInitial);
   const coverAction = dropsListCoverAction(item);
   const thumbClass = `market-listing-thumb drops-discovery-thumb${
     item.mediaUrl ? ' has-media' : ''
@@ -328,6 +344,7 @@ function DropRow({
         scroll={false}
         className="market-listing-row-open"
         aria-label={`Open ${item.title}`}
+        {...dropHandlers}
       />
       {coverAction && onOpenCover ? (
         <button

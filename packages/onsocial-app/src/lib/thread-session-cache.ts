@@ -44,6 +44,10 @@ function createThreadSessionCache<TData>() {
       }
     },
 
+    invalidate(rootPath: string): void {
+      cache.delete(rootPath.trim());
+    },
+
     /** Test hook — module state must not leak between specs. */
     clear(): void {
       cache.clear();
@@ -67,6 +71,10 @@ export function writeThreadSession(
   personalCache.write(rootPath, data);
 }
 
+export function invalidateThreadSession(rootPath: string): void {
+  personalCache.invalidate(rootPath);
+}
+
 /** Test hook — module state must not leak between specs. */
 export function clearThreadSessionCache(): void {
   personalCache.clear();
@@ -83,6 +91,10 @@ export function writeGuildThreadSession(
   data: GuildPostPageData
 ): void {
   guildCache.write(rootPath, data);
+}
+
+export function invalidateGuildThreadSession(rootPath: string): void {
+  guildCache.invalidate(rootPath);
 }
 
 /** Test hook — module state must not leak between specs. */

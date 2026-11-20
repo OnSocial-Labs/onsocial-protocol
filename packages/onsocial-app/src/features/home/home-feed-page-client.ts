@@ -4,6 +4,7 @@ import {
   fetchCircleFeedPage,
   fetchPulseFeedPage,
   isHomeFeedSocialLens,
+  type HomeFeedPageCursor,
 } from '@/features/home/home-feed-pulse';
 import type { HomeFeedFocus } from '@/features/home/home-feed-focus';
 import type { HomeFeedLens } from '@/features/home/home-feed-lens';
@@ -90,13 +91,14 @@ async function resolveStandingSources(accountId: string): Promise<string[]> {
 export async function fetchHomeFeedPageClient(
   lens: HomeFeedLens,
   accountId: string | null,
-  offset: number,
+  cursor: HomeFeedPageCursor,
   standingSources: string[] | null,
   sort: HomeFeedSort,
   limit: number = HOME_FEED_PAGE_SIZE,
   options: { fillVisible?: boolean } = {}
 ): Promise<{ page: Paginated<PostRow>; standingSources: string[] | null }> {
   const client = createReadOnlyOnSocialClient();
+  const offset = cursor.offset ?? 0;
 
   if (lens === 'saved' && accountId) {
     const page = await fetchSavedFeedPage(accountId, offset, limit);
@@ -113,22 +115,35 @@ export async function fetchHomeFeedPageClient(
 
     const page =
       lens === 'circle'
-        ? await fetchCircleFeedPage(client, sources, { limit, offset, sort })
-        : await fetchPulseFeedPage(client, sources, { limit, offset, sort });
+        ? await fetchCircleFeedPage(client, sources, {
+            limit,
+            offset,
+            sort,
+            beforeBlockHeight: cursor.beforeBlockHeight,
+          })
+        : await fetchPulseFeedPage(client, sources, {
+            limit,
+            offset,
+            sort,
+            beforeEventHeight: cursor.beforeEventHeight,
+            beforeEventHeat: cursor.beforeEventHeat,
+            beforeEventKey: cursor.beforeEventKey,
+          });
     return { page, standingSources: sources };
   }
 
-  const fetchRecent = (pageOffset: number, pageLimit: number) =>
+  const fetchRecent = (pageCursor: HomeFeedPageCursor, pageLimit: number) =>
     client.query.feed.recent({
       limit: pageLimit,
-      offset: pageOffset,
+      offset: pageCursor.offset,
+      beforeBlockHeight: pageCursor.beforeBlockHeight,
       sort,
     });
   const page =
     options.fillVisible === false
-      ? await fetchRecent(offset, limit)
+      ? await fetchRecent(cursor, limit)
       : await fillVisibleFeedPage({
-          offset,
+          cursor,
           limit,
           fetchPage: fetchRecent,
           visibleCount: (posts) =>
@@ -139,31 +154,25 @@ export async function fetchHomeFeedPageClient(
 
 export async function loadFocusedFeedPage(
   focus: HomeFeedFocus,
-  offset: number,
+  cursor: HomeFeedPageCursor,
   {
     limit = HOME_FEED_PAGE_SIZE,
     sort = 'recent',
   }: { limit?: number; sort?: HomeFeedSort } = {}
 ): Promise<Paginated<PostRow>> {
   const client = createReadOnlyOnSocialClient();
+  const opts = {
+    limit,
+    offset: cursor.offset,
+    beforeBlockHeight: cursor.beforeBlockHeight,
+    sort,
+  };
   const page =
     focus.kind === 'ticker'
-      ? await client.query.feed.byTicker(focus.value, {
-          limit,
-          offset,
-          sort,
-        })
+      ? await client.query.feed.byTicker(focus.value, opts)
       : focus.kind === 'place'
-        ? await client.query.feed.byPlace(focus.value, {
-            limit,
-            offset,
-            sort,
-          })
-        : await client.query.feed.byHashtag(focus.value, {
-            limit,
-            offset,
-            sort,
-          });
+        ? await client.query.feed.byPlace(focus.value, opts)
+        : await client.query.feed.byHashtag(focus.value, opts);
   // Server orders topic indexes by heat under Hot (chrono while the heat
   // column rolls out). The local epsilon re-sort is idempotent on server
   // order; append paths re-rank the full accumulated list so cross-page

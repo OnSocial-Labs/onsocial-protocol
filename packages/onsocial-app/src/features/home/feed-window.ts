@@ -252,6 +252,20 @@ export function feedWindowKeysEqual(
   return true;
 }
 
+/** Value equality for window estimate inputs — array identity churn is not a resize. */
+export function feedWindowEstimatesEqual(
+  a: number | readonly number[],
+  b: number | readonly number[]
+): boolean {
+  if (a === b) return true;
+  if (typeof a === 'number' || typeof b === 'number') return a === b;
+  if (a.length !== b.length) return false;
+  for (let index = 0; index < a.length; index += 1) {
+    if (a[index] !== b[index]) return false;
+  }
+  return true;
+}
+
 /**
  * Re-anchor a range across a list mutation (prepend / re-rank / removal) so
  * the same rows stay mounted while a scroll-driven resync catches up.

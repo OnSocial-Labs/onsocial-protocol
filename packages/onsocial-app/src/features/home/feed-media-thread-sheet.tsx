@@ -74,8 +74,10 @@ export function FeedMediaThreadSheet({
 }) {
   const titleId = useId();
   const paintKey = `${author}:${postId}`;
-  // Key mismatch already gates appear — no reset effect (set-state-in-effect).
-  const [paintedForKey, setPaintedForKey] = useState<string | null>(null);
+  // Seeded root starts painted — match PostThreadSheet (appear is the motion).
+  const [paintedForKey, setPaintedForKey] = useState<string | null>(() =>
+    initialRoot ? paintKey : null
+  );
   const threadPainted = paintedForKey === paintKey;
   const noteThreadPainted = useCallback(() => {
     setPaintedForKey(paintKey);
@@ -171,6 +173,7 @@ export function FeedFaceThreadPane({
       }
     >
       <FeedMediaThreadSheet
+        key={`${author}:${postId}`}
         author={author}
         postId={postId}
         initialRoot={initialRoot}

@@ -1,8 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import type { PostRow } from '@onsocial/sdk';
 import { ChevronRightIcon } from '@onsocial/ui';
 import { RollingNumber } from '@/components/ui/rolling-number';
+import type { PostEngagement } from '@/hooks/use-post-engagement';
 import {
   isUnmodifiedPrimaryClick,
   usePostThreadLayer,
@@ -15,6 +17,9 @@ interface ThreadViewQuotesRowProps {
   count: number;
   /** Same confirm step as the post's share count. */
   rollSignal?: number;
+  /** Seed the quotes shell when session caches miss. */
+  root?: PostRow | null;
+  rootEngagement?: PostEngagement | null;
 }
 
 /**
@@ -26,6 +31,8 @@ export function ThreadViewQuotesRow({
   label,
   count,
   rollSignal = 0,
+  root = null,
+  rootEngagement = null,
 }: ThreadViewQuotesRowProps) {
   const { openPostQuotes } = usePostThreadLayer();
   const idle = count <= 0;
@@ -43,7 +50,7 @@ export function ThreadViewQuotesRow({
       }}
       onClick={(event) => {
         if (!isUnmodifiedPrimaryClick(event)) return;
-        if (!openPostQuotes({ href })) return;
+        if (!openPostQuotes({ href, root, rootEngagement })) return;
         event.preventDefault();
       }}
     >

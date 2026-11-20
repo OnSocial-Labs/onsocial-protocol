@@ -3,6 +3,14 @@ import type { FeedSort, OnSocial, Paginated, PostRow } from '@onsocial/sdk';
 /** Hasura standing page — keep fetching until a short page. */
 export const STANDING_SOURCE_PAGE = 100;
 
+export type HomeFeedPageCursor = {
+  offset?: number;
+  beforeBlockHeight?: number;
+  beforeEventHeight?: number;
+  beforeEventHeat?: number;
+  beforeEventKey?: string;
+};
+
 type OutgoingStandingPage = (
   accountId: string,
   opts: { limit: number; offset: number }
@@ -32,7 +40,12 @@ export async function collectOutgoingStandingSources(
 export async function fetchCircleFeedPage(
   client: OnSocial,
   sources: readonly string[],
-  opts: { limit?: number; offset?: number; sort?: FeedSort } = {}
+  opts: {
+    limit?: number;
+    offset?: number;
+    sort?: FeedSort;
+    beforeBlockHeight?: number;
+  } = {}
 ): Promise<Paginated<PostRow>> {
   if (sources.length === 0) return { items: [] };
   return client.query.feed.fromAccounts({
@@ -41,6 +54,7 @@ export async function fetchCircleFeedPage(
     offset: opts.offset,
     sort: opts.sort,
     nativeOnly: true,
+    beforeBlockHeight: opts.beforeBlockHeight,
   });
 }
 
@@ -51,7 +65,14 @@ export async function fetchCircleFeedPage(
 export async function fetchPulseFeedPage(
   client: OnSocial,
   sources: readonly string[],
-  opts: { limit?: number; offset?: number; sort?: FeedSort } = {}
+  opts: {
+    limit?: number;
+    offset?: number;
+    sort?: FeedSort;
+    beforeEventHeight?: number;
+    beforeEventHeat?: number;
+    beforeEventKey?: string;
+  } = {}
 ): Promise<Paginated<PostRow>> {
   if (sources.length === 0) return { items: [] };
   return client.query.feed.pulse({
@@ -59,6 +80,9 @@ export async function fetchPulseFeedPage(
     limit: opts.limit,
     offset: opts.offset,
     sort: opts.sort,
+    beforeEventHeight: opts.beforeEventHeight,
+    beforeEventHeat: opts.beforeEventHeat,
+    beforeEventKey: opts.beforeEventKey,
   });
 }
 
@@ -66,4 +90,19 @@ export function isHomeFeedSocialLens(
   lens: 'pulse' | 'circle' | 'global' | 'saved'
 ): lens is 'pulse' | 'circle' {
   return lens === 'pulse' || lens === 'circle';
+}
+
+/** Prefer keyset when the page returned one; else offset. */
+export function homeFeedHasMore(
+  page: Pick<
+    Paginated<unknown>,
+    | 'nextOffset'
+    | 'nextBeforeBlockHeight'
+    | 'nextBeforeHeat'
+    | 'nextBeforeEventKey'
+  >
+): boolean {
+  return (
+    page.nextBeforeBlockHeight !== undefined || page.nextOffset !== undefined
+  );
 }
