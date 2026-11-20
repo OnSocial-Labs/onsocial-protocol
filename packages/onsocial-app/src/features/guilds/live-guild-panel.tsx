@@ -593,11 +593,15 @@ export function LiveGuildPanel({
   );
   const postAuthorProfiles = usePostAuthorProfiles(postAuthorIds);
   seedScarceEmbedsFromSsr(initial?.scarceEmbeds);
-  // Repost rows render (and act on) the original post — engagement and poll
-  // tallies both key on the original, so both hooks need the expanded list.
+  // Engagement / poll for the mounted band only (+1 block pad).
+  const nearFeedPosts = useMemo(() => {
+    const from = Math.max(0, feedWindowStart - 1);
+    const to = Math.min(feedBlocks.length, feedWindowEnd + 1);
+    return feedBlocks.slice(from, to).flatMap((block) => block.posts);
+  }, [feedBlocks, feedWindowStart, feedWindowEnd]);
   const engagementPosts = useMemo(
-    () => withRepostOriginals(feedPosts, quotedPosts),
-    [feedPosts, quotedPosts]
+    () => withRepostOriginals(nearFeedPosts, quotedPosts),
+    [nearFeedPosts, quotedPosts]
   );
   const {
     engagement,

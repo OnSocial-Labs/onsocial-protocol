@@ -164,11 +164,34 @@ export function PersonalFeedList({
 
   const postAuthorProfiles = usePostAuthorProfiles(authorIds);
   const guildNameById = useGuildDisplayNames(guildIds);
-  // Repost rows render (and act on) the original post — engagement and poll
-  // tallies both key on the original, so both hooks need the expanded list.
+  const blockKeys = useMemo(
+    () => feedBlocks.map((block) => postKey(block.posts[0]!)),
+    [feedBlocks]
+  );
+  const rowEstimates = useMemo(
+    () => feedBlocks.map((block) => feedBlockEstimatePx(block, quotedPosts)),
+    [feedBlocks, quotedPosts]
+  );
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const feedWindow = useFeedWindow({
+    keys: blockKeys,
+    hostRef,
+    sizeCache: windowSizeCache,
+    pinnedKey: pinnedFeedKey,
+    estimate: rowEstimates,
+  });
+  const { windowed, start, end, topSpacer, bottomSpacer, registerRow } =
+    feedWindow;
+  // Engagement / poll only for the mounted band (+1 block pad). Hooks retain
+  // maps so scroll-back stays warm without fetching the whole working set.
+  const nearPosts = useMemo(() => {
+    const from = Math.max(0, start - 1);
+    const to = Math.min(feedBlocks.length, end + 1);
+    return feedBlocks.slice(from, to).flatMap((block) => block.posts);
+  }, [feedBlocks, start, end]);
   const engagementPosts = useMemo(
-    () => withRepostOriginals(posts, quotedPosts),
-    [posts, quotedPosts]
+    () => withRepostOriginals(nearPosts, quotedPosts),
+    [nearPosts, quotedPosts]
   );
   const {
     engagement,
@@ -265,27 +288,7 @@ export function PersonalFeedList({
     [confirmUnrepost, onUndoRepost, withSharePending]
   );
 
-  const blockKeys = useMemo(
-    () => feedBlocks.map((block) => postKey(block.posts[0]!)),
-    [feedBlocks]
-  );
-  const rowEstimates = useMemo(
-    () => feedBlocks.map((block) => feedBlockEstimatePx(block, quotedPosts)),
-    [feedBlocks, quotedPosts]
-  );
-  const hostRef = useRef<HTMLDivElement | null>(null);
-  const feedWindow = useFeedWindow({
-    keys: blockKeys,
-    hostRef,
-    sizeCache: windowSizeCache,
-    pinnedKey: pinnedFeedKey,
-    estimate: rowEstimates,
-  });
-
   if (feedBlocks.length === 0) return null;
-
-  const { windowed, start, end, topSpacer, bottomSpacer, registerRow } =
-    feedWindow;
 
   return (
     <FeedDaoMembershipsProvider memberships={daoMemberships}>

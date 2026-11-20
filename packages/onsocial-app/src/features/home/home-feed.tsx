@@ -183,7 +183,11 @@ import {
   scrollLineOnLeave,
   scrollTopToPersist,
 } from '@/lib/list-scroll-restore';
-import { getAppLenis } from '@/lib/app-lenis-registry';
+import { getAppLenis, shiftAppLenisScroll } from '@/lib/app-lenis-registry';
+import {
+  homeFeedDroppedHeightPx,
+  trimHomeFeedWorkingSet,
+} from '@/lib/home-feed-working-set';
 import { revokeDroppedOptimisticMedia } from '@/lib/post-media';
 import { filterHiddenAuthors } from '@/lib/viewer-mute-block-filter';
 import {
@@ -545,6 +549,8 @@ export function HomePagePanel({
   const appendInFlightRef = useRef(false);
   // State, not a ref: the windowed list pins this row's render for the pass
   // between the re-rank merge and the pre-paint anchor restore.
+  /** Head trim px to subtract from scroll so the visible row stays put. */
+  const pendingTrimScrollPxRef = useRef(0);
   const [reRankAnchor, setReRankAnchor] = useState<FeedScrollAnchor | null>(
     null
   );
@@ -690,6 +696,16 @@ export function HomePagePanel({
     setReRankAnchor(null);
     restoreFeedAnchor(scrollRootRef.current, reRankAnchor);
   }, [posts, reRankAnchor]);
+
+  // Working-set head trim removed far-above rows — shift scroll by that
+  // height so the card on screen does not jump.
+  useLayoutEffect(() => {
+    const delta = pendingTrimScrollPxRef.current;
+    if (delta <= 0) return;
+    pendingTrimScrollPxRef.current = 0;
+    const root = scrollRootRef.current;
+    if (root) shiftAppLenisScroll(root, -delta);
+  }, [posts]);
 
   useEffect(() => {
     const node = scrollRootRef.current;
@@ -1292,9 +1308,17 @@ export function HomePagePanel({
         const appended = result.page.items;
         setPosts((current) => {
           const merged = mergeFeedPosts(current, appended);
-          return focus != null && sort === 'hot'
-            ? sortPostsByHot(merged)
-            : merged;
+          const ordered =
+            focus != null && sort === 'hot' ? sortPostsByHot(merged) : merged;
+          const { posts: kept, dropped } = trimHomeFeedWorkingSet(ordered);
+          if (dropped.length > 0) {
+            pendingTrimScrollPxRef.current = homeFeedDroppedHeightPx(
+              dropped,
+              feedWindowCacheRef.current,
+              quotedSeedRef.current
+            );
+          }
+          return kept;
         });
         setNextOffset(result.page.nextOffset);
         nextOffsetRef.current = result.page.nextOffset;

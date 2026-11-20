@@ -533,9 +533,40 @@ function PostCardImpl({
       ? `${viewerAccountId}|${sourcePostPath}|${scarceTokenId}|${scarceCollectionId}`
       : null;
 
+  // Same near-viewport gate as scarce embed — ownership RPC stays off for
+  // overscan-mounted cards until the reader is close (or self/menu force).
+  const [ownershipNear, setOwnershipNear] = useState(false);
+  useEffect(() => {
+    if (!ownershipKey) {
+      setOwnershipNear(false);
+      return;
+    }
+    if (isSelf || menuForceEmbed) {
+      setOwnershipNear(true);
+      return;
+    }
+    const node = articleRef.current;
+    if (!node) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      const timer = window.setTimeout(() => setOwnershipNear(true), 0);
+      return () => window.clearTimeout(timer);
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setOwnershipNear(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '160px 0px', threshold: 0.01 }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [ownershipKey, isSelf, menuForceEmbed]);
+
   // Resolve owned edition so holders can Sell from the post (same as Mines).
   useEffect(() => {
-    if (!ownershipKey || !viewerAccountId) return;
+    if (!ownershipKey || !viewerAccountId || !ownershipNear) return;
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       return;
     }
@@ -571,6 +602,7 @@ function PostCardImpl({
     };
   }, [
     ownershipKey,
+    ownershipNear,
     viewerAccountId,
     scarceTokenId,
     scarceCollectionId,
