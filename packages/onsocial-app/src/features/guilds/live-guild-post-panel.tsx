@@ -93,6 +93,7 @@ import {
 import { usePostEngagement } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useThreadLandAppear } from '@/hooks/use-land-opened-post';
+import { invalidateThreadOpenCaches } from '@/lib/thread-first-page';
 import {
   threadControlPresenceClass,
   threadCoverReady,
@@ -622,6 +623,7 @@ export function LiveGuildPostPanel({
       setLocalReplies((current) => [...current, confirmedRow]);
       threadFocus.requestFocus(confirmedRow);
     }
+    invalidateThreadOpenCaches(rootPath);
     scheduleReconcile();
   };
 
@@ -1229,6 +1231,8 @@ export function LiveGuildPostPanel({
                   label={shareRow?.label ?? 'View quotes'}
                   count={shareRow?.count ?? 0}
                   rollSignal={rootEngagement?.shareRoll ?? 0}
+                  root={conversation.root}
+                  rootEngagement={rootEngagement}
                 />
               </span>
             </div>

@@ -7,6 +7,11 @@ import {
   marketCreatorDropMetaBits,
   marketCreatorDropMintable,
 } from '@/features/market/market-creator-view';
+import {
+  dropOverlayLinkHandlers,
+  seedCollectionViewFromStoreDrop,
+  useDropOverlayOpen,
+} from '@/features/scarces/drop-overlay-open';
 import { collectionPath } from '@/lib/app-routes';
 import { OsRowAction } from '@/lib/os-row-action';
 import type { ProfileStoreDrop } from '@/lib/profile-store-types';
@@ -25,6 +30,12 @@ export function MarketCreatorDropRow({
   const showThumb = Boolean(drop.mediaUrl) && brokenMediaUrl !== drop.mediaUrl;
   const mintable = Boolean(onMint) && marketCreatorDropMintable(drop);
   const href = collectionPath(drop.collectionId);
+  const openDrop = useDropOverlayOpen();
+  const dropHandlers = dropOverlayLinkHandlers(
+    href,
+    openDrop,
+    seedCollectionViewFromStoreDrop(drop)
+  );
   const meta = marketCreatorDropMetaBits(drop, { includeStatus: showStatus });
 
   return (
@@ -38,6 +49,7 @@ export function MarketCreatorDropRow({
         scroll={false}
         className="collectibles-holding-row-main"
         title={mintable ? `Mint ${drop.title}` : drop.title}
+        {...dropHandlers}
       >
         <div
           className={`market-listing-thumb${showThumb ? ' has-media' : ''}`}

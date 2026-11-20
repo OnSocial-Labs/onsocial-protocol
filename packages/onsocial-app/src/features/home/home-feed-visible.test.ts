@@ -66,8 +66,8 @@ describe('countVisibleHomeFeedCards', () => {
 
 describe('fillVisibleFeedPage', () => {
   it('walks a reply-only window and returns the next roots', async () => {
-    const fetchPage = vi.fn(async (offset: number) => {
-      if (offset === 0) {
+    const fetchPage = vi.fn(async (cursor: { offset?: number }) => {
+      if ((cursor.offset ?? 0) === 0) {
         return {
           items: [foreignReply('r1'), foreignReply('r2')],
           nextOffset: 2,
@@ -107,6 +107,37 @@ describe('fillVisibleFeedPage', () => {
 
     expect(fetchPage).toHaveBeenCalledTimes(1);
     expect(page.nextOffset).toBe(2);
+  });
+
+  it('walks by beforeBlockHeight when the page returns a keyset', async () => {
+    const fetchPage = vi.fn(async (cursor: { beforeBlockHeight?: number }) => {
+      if (cursor.beforeBlockHeight == null) {
+        return {
+          items: [foreignReply('r1'), foreignReply('r2')],
+          nextBeforeBlockHeight: 40,
+        };
+      }
+      return {
+        items: [post('cara.near', 'root', { blockHeight: 30 })],
+        nextBeforeBlockHeight: undefined,
+      };
+    });
+
+    const page = await fillVisibleFeedPage({
+      cursor: {},
+      limit: 2,
+      fetchPage,
+      visibleCount: (posts) => countVisibleHomeFeedCards(posts),
+    });
+
+    expect(fetchPage).toHaveBeenCalledTimes(2);
+    expect(fetchPage.mock.calls[1]?.[0]).toEqual({
+      beforeBlockHeight: 40,
+      beforeEventHeight: 40,
+      beforeEventHeat: undefined,
+      beforeEventKey: undefined,
+    });
+    expect(page.nextBeforeBlockHeight).toBeUndefined();
   });
 });
 

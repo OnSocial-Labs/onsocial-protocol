@@ -52,6 +52,10 @@ export type HomeFeedSessionSnapshot = {
   sessionKey: string;
   posts: PostRow[];
   nextOffset: number | undefined;
+  /** Descending Recent / Pulse card keyset — prefer over `nextOffset`. */
+  nextBeforeBlockHeight?: number;
+  nextBeforeHeat?: number;
+  nextBeforeEventKey?: string;
   standingNetworkIds: readonly string[] | null;
   offsetShiftApplied: number;
   scrollTop: number;
@@ -181,9 +185,17 @@ function readStorage(): HomeFeedSessionSnapshot | null {
     ) {
       return null;
     }
+    const posts = [...stored.posts];
+    const pagination = clampHomeFeedSessionPagination({
+      postCount: posts.length,
+      nextOffset: stored.nextOffset,
+      offsetShiftApplied: stored.offsetShiftApplied ?? 0,
+    });
     return {
       ...stored,
-      posts: [...stored.posts],
+      posts,
+      nextOffset: pagination.nextOffset,
+      offsetShiftApplied: pagination.offsetShiftApplied,
       standingNetworkIds: stored.standingNetworkIds
         ? [...stored.standingNetworkIds]
         : null,
@@ -274,6 +286,39 @@ function clearStorage(): void {
   }
 }
 
+/**
+ * After a deep-scroll truncate, a stored `nextOffset` past the restored head
+ * would skip the middle on load-more. Prefer a duplicate page (client
+ * dedupes) over a gap. Do **not** clamp ordinary fill-walk cursors where
+ * `nextOffset > postCount` with a short list — that is valid pagination.
+ * Resetting `offsetShiftApplied` when clamping avoids double-counting head
+ * inserts that were baked into the old cursor.
+ */
+export function clampHomeFeedSessionPagination(input: {
+  postCount: number;
+  nextOffset: number | undefined;
+  offsetShiftApplied: number;
+  /** Live list was longer than `postCount` (write path). */
+  truncated?: boolean;
+}): { nextOffset: number | undefined; offsetShiftApplied: number } {
+  if (input.nextOffset === undefined) {
+    return {
+      nextOffset: undefined,
+      offsetShiftApplied: input.offsetShiftApplied,
+    };
+  }
+  const truncatedSnapshot =
+    input.truncated === true ||
+    input.postCount >= HOME_FEED_SESSION_PERSISTED_POSTS;
+  if (truncatedSnapshot && input.nextOffset > input.postCount) {
+    return { nextOffset: input.postCount, offsetShiftApplied: 0 };
+  }
+  return {
+    nextOffset: input.nextOffset,
+    offsetShiftApplied: input.offsetShiftApplied,
+  };
+}
+
 export function clearHomeFeedSession(): void {
   snapshot = null;
   storageRead = false;
@@ -285,6 +330,9 @@ export function writeHomeFeedSession(input: {
   sessionKey: string | null;
   posts: readonly PostRow[];
   nextOffset: number | undefined;
+  nextBeforeBlockHeight?: number;
+  nextBeforeHeat?: number;
+  nextBeforeEventKey?: string;
   standingNetworkIds: readonly string[] | null;
   offsetShiftApplied: number;
   scrollTop: number;
@@ -302,15 +350,24 @@ export function writeHomeFeedSession(input: {
   const sessionKey = input.sessionKey?.trim();
   if (!sessionKey || input.posts.length === 0) return;
   const posts = input.posts.slice(0, HOME_FEED_SESSION_PERSISTED_POSTS);
+  const pagination = clampHomeFeedSessionPagination({
+    postCount: posts.length,
+    nextOffset: input.nextOffset,
+    offsetShiftApplied: input.offsetShiftApplied,
+    truncated: input.posts.length > posts.length,
+  });
   const previous = snapshot?.sessionKey === sessionKey ? snapshot : null;
   snapshot = {
     sessionKey,
     posts,
-    nextOffset: input.nextOffset,
+    nextOffset: pagination.nextOffset,
+    nextBeforeBlockHeight: input.nextBeforeBlockHeight,
+    nextBeforeHeat: input.nextBeforeHeat,
+    nextBeforeEventKey: input.nextBeforeEventKey,
     standingNetworkIds: input.standingNetworkIds
       ? [...input.standingNetworkIds]
       : null,
-    offsetShiftApplied: input.offsetShiftApplied,
+    offsetShiftApplied: pagination.offsetShiftApplied,
     scrollTop: Math.max(0, input.scrollTop),
     savedAt: input.now ?? Date.now(),
     standEpoch: input.standEpoch,
@@ -363,6 +420,21 @@ export function peekHomeFeedSession(
     return null;
   }
   if (snapshot.posts.length === 0) return null;
+  const pagination = clampHomeFeedSessionPagination({
+    postCount: snapshot.posts.length,
+    nextOffset: snapshot.nextOffset,
+    offsetShiftApplied: snapshot.offsetShiftApplied,
+  });
+  if (
+    pagination.nextOffset !== snapshot.nextOffset ||
+    pagination.offsetShiftApplied !== snapshot.offsetShiftApplied
+  ) {
+    snapshot = {
+      ...snapshot,
+      nextOffset: pagination.nextOffset,
+      offsetShiftApplied: pagination.offsetShiftApplied,
+    };
+  }
   return {
     ...snapshot,
     posts: [...snapshot.posts],

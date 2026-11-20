@@ -194,20 +194,22 @@ export function peekOwnedTokenForCollection(
   );
 }
 
-/**
- * Optimistic view seed when navigating from Now Playing ("View drop").
- * Paints the album cover, title, and tracks on frame 1 without a skeleton flash.
- */
-export function seedCollectionViewFromNowPlaying(
-  session: CollectiblesNowPlayingSession
-): CollectionView {
-  const firstTrack = session.tracks[0];
-  const artistId = firstTrack?.artist?.trim() || '';
+/** Shared placeholder — cover/title/tracks paint; commerce soft-fills. */
+function collectionViewPlaceholder(input: {
+  collectionId: string;
+  title: string;
+  mediaUrl: string | null;
+  creatorId?: string;
+  appId?: string | null;
+  kind?: string | null;
+  audioFormat?: CollectionView['audioFormat'];
+  playables?: CollectionView['playables'];
+}): CollectionView {
   return {
-    collectionId: session.collectionId,
-    creatorId: artistId,
-    title: session.title,
-    mediaUrl: session.poster,
+    collectionId: input.collectionId,
+    creatorId: input.creatorId?.trim() || '',
+    title: input.title,
+    mediaUrl: input.mediaUrl,
     priceNear: null,
     priceYocto: '0',
     totalSupply: 0,
@@ -222,12 +224,12 @@ export function seedCollectionViewFromNowPlaying(
     cancelled: false,
     soldOut: false,
     hasAllowlist: false,
-    appId: null,
+    appId: input.appId?.trim() || null,
     appCommissionBps: null,
-    kind: 'audio',
-    audioFormat: session.tracks.length > 1 ? 'album' : 'single',
+    kind: input.kind ?? null,
+    audioFormat: input.audioFormat ?? null,
     facets: [],
-    playables: session.tracks,
+    playables: input.playables ?? [],
     readables: [],
     bookPdf: null,
     writingFormat: null,
@@ -247,4 +249,52 @@ export function seedCollectionViewFromNowPlaying(
     accessEndsAtMs: null,
     royalty: null,
   };
+}
+
+/**
+ * Optimistic view seed when navigating from Now Playing ("View drop").
+ * Paints the album cover, title, and tracks on frame 1 without a skeleton flash.
+ */
+export function seedCollectionViewFromNowPlaying(
+  session: CollectiblesNowPlayingSession
+): CollectionView {
+  const firstTrack = session.tracks[0];
+  const artistId = firstTrack?.artist?.trim() || '';
+  return collectionViewPlaceholder({
+    collectionId: session.collectionId,
+    creatorId: artistId,
+    title: session.title,
+    mediaUrl: session.poster,
+    kind: 'audio',
+    audioFormat: session.tracks.length > 1 ? 'album' : 'single',
+    playables: session.tracks,
+  });
+}
+
+/**
+ * List / cover-peek seed — title + cover on frame 1; kind and commerce
+ * soft-fill from the indexer after open. Prefer a full `CollectionView`
+ * when the list already has one.
+ */
+export function seedCollectionViewFromPeek(input: {
+  collectionId: string;
+  title?: string | null;
+  coverUrl?: string | null;
+  appId?: string | null;
+  creatorId?: string | null;
+  kind?: string | null;
+  audioFormat?: CollectionView['audioFormat'];
+}): CollectionView | null {
+  const collectionId = input.collectionId.trim();
+  if (!collectionId) return null;
+  const title = input.title?.trim() || collectionId;
+  return collectionViewPlaceholder({
+    collectionId,
+    title,
+    mediaUrl: input.coverUrl?.trim() || null,
+    appId: input.appId,
+    creatorId: input.creatorId ?? undefined,
+    kind: input.kind ?? null,
+    audioFormat: input.audioFormat ?? null,
+  });
 }

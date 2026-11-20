@@ -41,6 +41,7 @@ describe('home-feed-pulse', () => {
       offset: undefined,
       sort: undefined,
       nativeOnly: true,
+      beforeBlockHeight: undefined,
     });
   });
 
@@ -77,6 +78,9 @@ describe('home-feed-pulse', () => {
       limit: 24,
       offset: undefined,
       sort: 'hot',
+      beforeEventHeight: undefined,
+      beforeEventHeat: undefined,
+      beforeEventKey: undefined,
     });
     expect(fromAccounts).not.toHaveBeenCalled();
   });

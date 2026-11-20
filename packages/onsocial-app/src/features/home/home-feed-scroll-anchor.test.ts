@@ -90,11 +90,11 @@ describe('restoreFeedAnchor', () => {
     const steady = fakeRoot(100, [
       fakeBlock({ top: -39.5, height: 200, key: 'a/2' }),
     ]);
-    restoreFeedAnchor(steady, { key: 'a/2', top: -140 });
+    expect(restoreFeedAnchor(steady, { key: 'a/2', top: -140 })).toBe(true);
     expect(steady.scrollTop).toBe(0);
 
     const gone = fakeRoot(100, [fakeBlock({ top: 0, height: 10, key: 'a/9' })]);
-    restoreFeedAnchor(gone, { key: 'a/2', top: -140 });
+    expect(restoreFeedAnchor(gone, { key: 'a/2', top: -140 })).toBe(false);
     expect(gone.scrollTop).toBe(0);
   });
 

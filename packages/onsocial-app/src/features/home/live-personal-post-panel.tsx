@@ -75,6 +75,8 @@ import {
   directRepliesToTree,
   enrichPaintedReplyTree,
   graftVisibleReplies,
+  invalidateThreadOpenCaches,
+  replyLoadMoreCursor,
   scheduleThreadIdle,
   shouldPaintDirectReplies,
   startThreadFirstPage,
@@ -807,14 +809,13 @@ export function LivePersonalPostPanel({
     setLoadMoreError(null);
     try {
       const client = createReadOnlyOnSocialClient();
+      const cursor = replyLoadMoreCursor(conversation.replies);
       const page = await client.query.threads.repliesByPath(rootPath, {
         limit: REPLY_PAGE_SIZE,
-        offset: conversation.replies.length,
+        ...cursor,
       });
       paginatedRef.current = true;
-      /* Offset paging with no cursor: replies landing between fetches shift
-       * the window, so drop rows we already have (same merge rule as the
-       * main feed's mergeFeedPosts) instead of painting duplicates. */
+      // Keyset is primary; client dedupe stays belt-and-suspenders.
       setConversation((current) => {
         const seen = new Set(current.replies.map(postKey));
         const fresh = page.filter((post) => {
@@ -849,7 +850,7 @@ export function LivePersonalPostPanel({
     } finally {
       setLoadingMore(false);
     }
-  }, [conversation.replies.length, loadingMore, rootPath]);
+  }, [conversation.replies, loadingMore, rootPath]);
 
   useEffect(() => {
     const host = threadHostRef.current;
@@ -886,6 +887,7 @@ export function LivePersonalPostPanel({
     if (mode === 'reply') {
       threadFocus.requestFocus(optimisticPost);
     }
+    invalidateThreadOpenCaches(rootPath);
     scheduleReconcile();
   };
 
@@ -1318,6 +1320,8 @@ export function LivePersonalPostPanel({
                 label={shareRow?.label ?? 'View quotes'}
                 count={shareRow?.count ?? 0}
                 rollSignal={rootEngagement?.shareRoll ?? 0}
+                root={conversation.root}
+                rootEngagement={rootEngagement}
               />
             </span>
           </div>

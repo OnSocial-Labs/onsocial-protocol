@@ -622,8 +622,11 @@ SQLEOF
       psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 <<SQLEOF >/dev/null
 -- Dependents of groups_current must drop first (posts_feed / members / bans / ranks).
 DROP FUNCTION IF EXISTS feed_pulse(text[], integer, integer, text);
+DROP FUNCTION IF EXISTS feed_pulse(text[], integer, integer, text, bigint, bigint, text);
+DROP FUNCTION IF EXISTS feed_pulse(text[], integer, integer, text, bigint, double precision, text);
 DROP FUNCTION IF EXISTS feed_hot(integer, integer, text, text, text, text[], boolean);
 DROP FUNCTION IF EXISTS feed_recent(integer, integer, text, text, text, text[], boolean, text, text);
+DROP FUNCTION IF EXISTS feed_recent(integer, integer, text, text, text, text[], boolean, text, text, bigint);
 DROP VIEW IF EXISTS posts_feed;
 DROP VIEW IF EXISTS posts_feed_rank;
 DROP VIEW IF EXISTS groups_by_member_count;

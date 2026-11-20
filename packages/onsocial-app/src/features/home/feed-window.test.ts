@@ -8,6 +8,7 @@ import {
   FeedWindowSizeCache,
   buildFeedWindowOffsets,
   feedWindowEstimateAt,
+  feedWindowEstimatesEqual,
   feedWindowKeysEqual,
   feedWindowOverscanPx,
   feedWindowRangeForScroll,
@@ -80,6 +81,21 @@ describe('feedWindowKeysEqual', () => {
     expect(feedWindowKeysEqual(['x', 'y'], ['x', 'z'])).toBe(false);
     expect(feedWindowKeysEqual(['x'], ['x', 'y'])).toBe(false);
     expect(feedWindowKeysEqual(['x', 'y'], ['x'])).toBe(false);
+  });
+});
+
+describe('feedWindowEstimatesEqual', () => {
+  it('treats equal px lists as the same estimate across identities', () => {
+    const a = [280, 480, 420];
+    expect(feedWindowEstimatesEqual(a, a)).toBe(true);
+    expect(feedWindowEstimatesEqual(a, [280, 480, 420])).toBe(true);
+    expect(feedWindowEstimatesEqual(280, 280)).toBe(true);
+  });
+
+  it('detects value drift without requiring a new array reference', () => {
+    expect(feedWindowEstimatesEqual([280, 480], [280, 420])).toBe(false);
+    expect(feedWindowEstimatesEqual([280], [280, 480])).toBe(false);
+    expect(feedWindowEstimatesEqual(280, [280])).toBe(false);
   });
 });
 

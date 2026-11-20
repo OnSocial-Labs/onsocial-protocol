@@ -83,6 +83,34 @@ function rankHeight(row: PostRow): number {
   return row.blockHeight ?? 0;
 }
 
+/**
+ * Mirror `feed_pulse` event_height / event_heat / event_key for the next
+ * card-keyset page. Bridge cards key off the circle peek; native cards use
+ * GREATEST(root, peek) and the root path.
+ */
+export function pulseCardEventCursor(
+  card: readonly PostRow[],
+  accounts: ReadonlySet<string>
+): { height: number; heat: number; key: string } | null {
+  if (card.length === 0) return null;
+  const first = card[0]!;
+  const isBridge = !accounts.has(first.accountId);
+  if (isBridge) {
+    const reply = card[1] ?? first;
+    return {
+      height: rankHeight(reply),
+      heat: rankHeat(reply),
+      key: postContentPath(first),
+    };
+  }
+  const peek = card[1];
+  return {
+    height: Math.max(rankHeight(first), peek ? rankHeight(peek) : 0),
+    heat: Math.max(rankHeat(first), peek ? rankHeat(peek) : 0),
+    key: postContentPath(first),
+  };
+}
+
 function comparePulseRank(
   a: { heat: number; height: number },
   b: { heat: number; height: number },
@@ -364,8 +392,11 @@ export function paginatePulseFunctionRows(input: {
   offset: number;
   limit: number;
   extraParents?: readonly PostRow[];
+  /** When true, prefer card keyset cursors over `nextOffset`. */
+  usedKeyset?: boolean;
+  sort?: FeedSort;
 }): Paginated<PostRow> {
-  // SQL already applied cardOffset and asked for limit+1 cards. Join
+  // SQL already applied cardOffset/keyset and asked for limit+1 cards. Join
   // originals onto replies after that — merged card count is not the
   // page window, or a first page of 24 events looks exhausted.
   const sqlCards = splitPulseFunctionRows(input.rows, input.accounts);
@@ -376,9 +407,29 @@ export function paginatePulseFunctionRows(input: {
     input.accounts
   );
   const sliced = cards.slice(0, input.limit);
+  if (!hasMore) return { items: sliced.flat() };
+
+  const accountSet = new Set(input.accounts);
+  const lastCard = sliced[sliced.length - 1];
+  const cursor = lastCard
+    ? pulseCardEventCursor(lastCard, accountSet)
+    : null;
+  const keyset = {
+    ...(cursor
+      ? {
+          nextBeforeBlockHeight: cursor.height,
+          nextBeforeEventKey: cursor.key,
+          ...(input.sort === 'hot' ? { nextBeforeHeat: cursor.heat } : {}),
+        }
+      : {}),
+  };
+  if (input.usedKeyset) {
+    return { items: sliced.flat(), ...keyset };
+  }
   return {
     items: sliced.flat(),
-    nextOffset: hasMore ? input.offset + input.limit : undefined,
+    nextOffset: input.offset + input.limit,
+    ...keyset,
   };
 }
 

@@ -146,6 +146,45 @@ function feedHotQuery(
 }
 
 /** Chronological page via `feed_recent`. Same alias as `feedHotQuery`. */
+function normalizeBeforeBlockHeight(
+  value: number | undefined
+): number | undefined {
+  if (value == null || !Number.isFinite(value) || value <= 0) return undefined;
+  return value;
+}
+
+/** Descending chrono page — keyset when the edge height is known. */
+function chronoDescPage(
+  items: PostRow[],
+  limit: number,
+  opts: {
+    offset: number;
+    usedKeyset: boolean;
+    /** Stub/raw count when hydrate can drop rows (topic indexes). */
+    edgeCount?: number;
+    edgeHeight?: number;
+  }
+): Paginated<PostRow> {
+  const edgeCount = opts.edgeCount ?? items.length;
+  if (edgeCount < limit) return { items };
+  const edge =
+    opts.edgeHeight ?? items[items.length - 1]?.blockHeight;
+  const nextBefore =
+    typeof edge === 'number' && Number.isFinite(edge) ? edge : undefined;
+  if (opts.usedKeyset) {
+    return nextBefore !== undefined
+      ? { items, nextBeforeBlockHeight: nextBefore }
+      : { items };
+  }
+  return {
+    items,
+    nextOffset: opts.offset + limit,
+    ...(nextBefore !== undefined
+      ? { nextBeforeBlockHeight: nextBefore }
+      : {}),
+  };
+}
+
 function feedRecentQuery(
   fields: string,
   opts: {
@@ -156,6 +195,7 @@ function feedRecentQuery(
     nativeOnly?: boolean;
     channel?: boolean;
     audience?: boolean;
+    beforeBlockHeight?: boolean;
   }
 ): string {
   const params = ['$limit: Int!', '$offset: Int!'];
@@ -188,12 +228,25 @@ function feedRecentQuery(
     params.push('$audience_like: String');
     args.push('audience_like: $audience_like');
   }
+  if (opts.beforeBlockHeight) {
+    params.push('$before_block_height: bigint');
+    args.push('before_block_height: $before_block_height');
+  }
   // Operation name stays `Posts`. Thread discover-peek stubs match `query Posts(`.
   return `query Posts(${params.join(', ')}) {
         postsFeed: feedRecent(args: { ${args.join(', ')} }) {
           ${fields}
         }
       }`;
+}
+
+function isFeedRecentBeforeHeightUnavailableError(err: unknown): boolean {
+  if (!(err instanceof GraphQLValidationError)) return false;
+  const hay =
+    `${err.message} ${err.errors.map((e) => e.message ?? '').join(' ')}`.toLowerCase();
+  return (
+    hay.includes('before_block_height') || hay.includes('beforeblockheight')
+  );
 }
 
 function isFeedRecentUnavailableError(err: unknown): boolean {
@@ -414,6 +467,8 @@ export class FeedQuery {
         }
         if (isAmplifyHeatUnavailableError(err)) {
           this.amplifyHeatFallback.trip();
+        } else if (isFeedRecentBeforeHeightUnavailableError(err)) {
+          // Keyset arg not tracked yet — fall through to postsFeed with _lt.
         } else if (!isFeedRecentUnavailableError(err)) {
           throw err;
         } else {
@@ -588,11 +643,21 @@ export class FeedQuery {
        * filtered walks (Writing shelf) from paging the raw feed client-side.
        */
       kind?: string;
+      /**
+       * Exclusive upper bound for descending Recent pages. Prefer over
+       * `offset` under live inserts. Ignored when `sort` is `hot`.
+       */
+      beforeBlockHeight?: number;
     } = {}
   ): Promise<Paginated<PostRow>> {
     const limit = opts.limit ?? 20;
-    const offset = opts.offset ?? 0;
     const sort = opts.sort ?? 'recent';
+    const hot = sort === 'hot';
+    const before = hot
+      ? undefined
+      : normalizeBeforeBlockHeight(opts.beforeBlockHeight);
+    const usedKeyset = before !== undefined;
+    const offset = usedKeyset ? 0 : (opts.offset ?? 0);
     const orderBy = feedOrderByClause(sort);
     const hasAuthor = !!opts.author;
     const kind = opts.kind?.trim() || '';
@@ -601,6 +666,7 @@ export class FeedQuery {
       ...(kind ? { kind } : {}),
       limit,
       offset,
+      ...(before !== undefined ? { beforeBlockHeight: before } : {}),
     };
 
     const conditions: string[] = [];
@@ -613,17 +679,20 @@ export class FeedQuery {
     } else if (opts.section === 'reposts') {
       conditions.push('refType: {_eq: "repost"}');
     }
+    if (before !== undefined) {
+      conditions.push('blockHeight: {_lt: $beforeBlockHeight}');
+    }
     const whereClause =
       conditions.length > 0 ? `where: {${conditions.join(', ')}}, ` : '';
     const params = [
       ...(hasAuthor ? ['$author: String!'] : []),
       ...(kind ? ['$kind: String!'] : []),
+      ...(before !== undefined ? ['$beforeBlockHeight: bigint!'] : []),
       '$limit: Int!',
       '$offset: Int!',
     ].join(', ');
 
     const chronoOrder = feedOrderByClause('recent');
-    const hot = sort === 'hot';
     const chronoNarrow =
       !hot && (hasAuthor || Boolean(kind) || Boolean(opts.section));
     const rows = await this.queryFeedRows({
@@ -650,6 +719,7 @@ export class FeedQuery {
               author: hasAuthor,
               kind: Boolean(kind),
               section: Boolean(opts.section),
+              beforeBlockHeight: usedKeyset,
             }),
             feedRecentVariables: {
               limit,
@@ -657,6 +727,9 @@ export class FeedQuery {
               ...(hasAuthor ? { author: opts.author } : {}),
               ...(kind ? { kind } : {}),
               ...(opts.section ? { section: opts.section } : {}),
+              ...(before !== undefined
+                ? { before_block_height: before }
+                : {}),
             },
           }
         : {}),
@@ -677,10 +750,12 @@ export class FeedQuery {
       }`,
     });
 
-    return {
-      items: rows,
-      nextOffset: rows.length >= limit ? offset + limit : undefined,
-    };
+    return hot
+      ? {
+          items: rows,
+          nextOffset: rows.length >= limit ? offset + limit : undefined,
+        }
+      : chronoDescPage(rows, limit, { offset, usedKeyset });
   }
 
   /**
@@ -723,16 +798,51 @@ export class FeedQuery {
     offset?: number;
     sort?: FeedSort;
     nativeOnly?: boolean;
+    /**
+     * Exclusive upper bound for descending Recent pages. Prefer over
+     * `offset` under live inserts. Ignored when `sort` is `hot`.
+     */
+    beforeBlockHeight?: number;
   }): Promise<Paginated<PostRow>> {
     if (opts.accounts.length === 0) return { items: [] };
     const limit = opts.limit ?? 20;
-    const offset = opts.offset ?? 0;
     const sort = opts.sort ?? 'recent';
+    const hot = sort === 'hot';
+    const before = hot
+      ? undefined
+      : normalizeBeforeBlockHeight(opts.beforeBlockHeight);
+    const usedKeyset = before !== undefined;
+    const offset = usedKeyset ? 0 : (opts.offset ?? 0);
     const orderBy = feedOrderByClause(sort);
     const chronoOrder = feedOrderByClause('recent');
-    const where = accountsFeedWhere(Boolean(opts.nativeOnly));
-    const variables = { accounts: opts.accounts, limit, offset };
-    const hot = sort === 'hot';
+    const nativeOnly = Boolean(opts.nativeOnly);
+    const where = nativeOnly
+      ? `where: {_and: [
+            {accountId: {_in: $accounts}},
+            {_or: [
+              {parentPath: {_eq: ""}},
+              {parentAuthor: {_in: $accounts}}
+            ]}
+            ${
+              before !== undefined
+                ? ', {blockHeight: {_lt: $beforeBlockHeight}}'
+                : ''
+            }
+          ]}`
+      : before !== undefined
+        ? `where: {_and: [
+            {accountId: {_in: $accounts}},
+            {blockHeight: {_lt: $beforeBlockHeight}}
+          ]}`
+        : accountsFeedWhere(false);
+    const beforeParam =
+      before !== undefined ? ', $beforeBlockHeight: bigint!' : '';
+    const variables = {
+      accounts: opts.accounts,
+      limit,
+      offset,
+      ...(before !== undefined ? { beforeBlockHeight: before } : {}),
+    };
 
     const rows = await this.queryFeedRows({
       variables,
@@ -740,28 +850,32 @@ export class FeedQuery {
         ? {
             feedHotQuery: feedHotQuery(FEED_POST_ROW_FIELDS, {
               accounts: true,
-              nativeOnly: Boolean(opts.nativeOnly),
+              nativeOnly,
             }),
             feedHotVariables: {
               accounts: pulseAccountsTextArray(opts.accounts),
               limit,
               offset,
-              ...(opts.nativeOnly ? { native_only: true } : {}),
+              ...(nativeOnly ? { native_only: true } : {}),
             },
           }
         : {
             feedRecentQuery: feedRecentQuery(FEED_POST_ROW_FIELDS, {
               accounts: true,
-              nativeOnly: Boolean(opts.nativeOnly),
+              nativeOnly,
+              beforeBlockHeight: usedKeyset,
             }),
             feedRecentVariables: {
               accounts: pulseAccountsTextArray(opts.accounts),
               limit,
               offset,
-              ...(opts.nativeOnly ? { native_only: true } : {}),
+              ...(nativeOnly ? { native_only: true } : {}),
+              ...(before !== undefined
+                ? { before_block_height: before }
+                : {}),
             },
           }),
-      postsFeedQuery: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!) {
+      postsFeedQuery: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!${beforeParam}) {
         postsFeed(
           ${where},
           limit: $limit, offset: $offset,
@@ -770,7 +884,7 @@ export class FeedQuery {
           ${FEED_POST_ROW_FIELDS}
         }
       }`,
-      postsFeedQueryNoHeat: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!) {
+      postsFeedQueryNoHeat: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!${beforeParam}) {
         postsFeed(
           ${where},
           limit: $limit, offset: $offset,
@@ -779,7 +893,7 @@ export class FeedQuery {
           ${FEED_POST_ROW_FIELDS_NO_HEAT}
         }
       }`,
-      postsCurrentQuery: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!) {
+      postsCurrentQuery: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!${beforeParam}) {
         postsCurrent(
           ${where},
           limit: $limit, offset: $offset,
@@ -790,10 +904,12 @@ export class FeedQuery {
       }`,
     });
 
-    return {
-      items: rows,
-      nextOffset: rows.length >= limit ? offset + limit : undefined,
-    };
+    return hot
+      ? {
+          items: rows,
+          nextOffset: rows.length >= limit ? offset + limit : undefined,
+        }
+      : chronoDescPage(rows, limit, { offset, usedKeyset });
   }
 
   private async queryFeedPulseRows(args: {
@@ -801,21 +917,39 @@ export class FeedQuery {
     cardLimit: number;
     cardOffset: number;
     sort: FeedSort;
+    beforeEventHeight?: number;
+    beforeEventHeat?: number;
+    beforeEventKey?: string;
   }): Promise<PostRow[]> {
-    const variables = {
+    const useKeyset = args.beforeEventHeight != null;
+    const variables: Record<string, unknown> = {
       accounts: pulseAccountsTextArray(args.accounts),
       card_limit: args.cardLimit,
-      card_offset: args.cardOffset,
+      card_offset: useKeyset ? 0 : args.cardOffset,
       sort: args.sort,
     };
+    const keysetParams = useKeyset
+      ? ', $before_event_height: bigint, $before_event_heat: float8, $before_event_key: String'
+      : '';
+    const keysetArgs = useKeyset
+      ? `,
+          before_event_height: $before_event_height,
+          before_event_heat: $before_event_heat,
+          before_event_key: $before_event_key`
+      : '';
+    if (useKeyset) {
+      variables.before_event_height = args.beforeEventHeight;
+      variables.before_event_heat = args.beforeEventHeat ?? null;
+      variables.before_event_key = args.beforeEventKey ?? null;
+    }
     const query = (
       fields: string
-    ) => `query Pulse($accounts: _text, $card_limit: Int!, $card_offset: Int!, $sort: String) {
+    ) => `query Pulse($accounts: _text, $card_limit: Int!, $card_offset: Int!, $sort: String${keysetParams}) {
         feedPulse(args: {
           accounts: $accounts,
           card_limit: $card_limit,
           card_offset: $card_offset,
-          sort: $sort
+          sort: $sort${keysetArgs}
         }) {
           ${fields}
         }
@@ -833,6 +967,16 @@ export class FeedQuery {
       });
       return this.enrichFeedPosts(res.data?.feedPulse ?? []);
     } catch (err) {
+      if (
+        useKeyset &&
+        err instanceof GraphQLValidationError &&
+        `${err.message} ${err.errors.map((e) => e.message ?? '').join(' ')}`
+          .toLowerCase()
+          .includes('before_event')
+      ) {
+        // Keyset args not tracked yet — caller falls back to offset.
+        throw err;
+      }
       if (!wantHeat || !isAmplifyHeatUnavailableError(err)) throw err;
       this.amplifyHeatFallback.trip();
       const res = await this._q.graphql<{ feedPulse?: PostRow[] }>({
@@ -850,6 +994,7 @@ export class FeedQuery {
    * `[threadRoot, newestCircleReply]`.
    *
    * SQL `feed_pulse` only. `limit` / `offset` page cards, not raw rows.
+   * Prefer `beforeEventHeight` (+ heat/key) for load-more under live lifts.
    *
    * ```ts
    * const { items } = await os.query.feed.pulse({ accounts, limit: 20, sort: 'hot' });
@@ -860,22 +1005,70 @@ export class FeedQuery {
     limit?: number;
     offset?: number;
     sort?: FeedSort;
+    beforeEventHeight?: number;
+    beforeEventHeat?: number;
+    beforeEventKey?: string;
   }): Promise<Paginated<PostRow>> {
     if (opts.accounts.length === 0) return { items: [] };
     const limit = opts.limit ?? 20;
-    const offset = opts.offset ?? 0;
     const sort = opts.sort ?? 'recent';
-    const rows = await this.queryFeedPulseRows({
-      accounts: opts.accounts,
-      cardLimit: limit + 1,
-      cardOffset: offset,
-      sort,
-    });
+    const beforeHeight = normalizeBeforeBlockHeight(opts.beforeEventHeight);
+    const usedKeyset = beforeHeight !== undefined;
+    const offset = usedKeyset ? 0 : (opts.offset ?? 0);
+    const beforeHeat =
+      usedKeyset &&
+      sort === 'hot' &&
+      opts.beforeEventHeat != null &&
+      Number.isFinite(opts.beforeEventHeat)
+        ? opts.beforeEventHeat
+        : undefined;
+    const beforeKey =
+      usedKeyset && opts.beforeEventKey?.trim()
+        ? opts.beforeEventKey.trim()
+        : undefined;
+
+    let rows: PostRow[];
+    let keysetApplied = usedKeyset;
+    try {
+      rows = await this.queryFeedPulseRows({
+        accounts: opts.accounts,
+        cardLimit: limit + 1,
+        cardOffset: offset,
+        sort,
+        ...(usedKeyset
+          ? {
+              beforeEventHeight: beforeHeight,
+              beforeEventHeat: beforeHeat,
+              beforeEventKey: beforeKey,
+            }
+          : {}),
+      });
+    } catch (err) {
+      if (
+        !usedKeyset ||
+        !(err instanceof GraphQLValidationError) ||
+        !`${err.message} ${err.errors.map((e) => e.message ?? '').join(' ')}`
+          .toLowerCase()
+          .includes('before_event')
+      ) {
+        throw err;
+      }
+      // Deploy lag — offset page until keyset args are tracked.
+      keysetApplied = false;
+      rows = await this.queryFeedPulseRows({
+        accounts: opts.accounts,
+        cardLimit: limit + 1,
+        cardOffset: opts.offset ?? 0,
+        sort,
+      });
+    }
     return paginatePulseFunctionRows({
       rows,
       accounts: opts.accounts,
-      offset,
+      offset: keysetApplied ? 0 : (opts.offset ?? 0),
       limit,
+      usedKeyset: keysetApplied,
+      sort,
     });
   }
 
@@ -971,10 +1164,21 @@ export class FeedQuery {
    */
   async byHashtag(
     hashtag: string,
-    opts: { limit?: number; offset?: number; sort?: FeedSort } = {}
+    opts: {
+      limit?: number;
+      offset?: number;
+      sort?: FeedSort;
+      beforeBlockHeight?: number;
+    } = {}
   ): Promise<Paginated<PostRow>> {
     const limit = opts.limit ?? 20;
-    const offset = opts.offset ?? 0;
+    const sort = opts.sort ?? 'recent';
+    const hot = sort === 'hot';
+    const before = hot
+      ? undefined
+      : normalizeBeforeBlockHeight(opts.beforeBlockHeight);
+    const usedKeyset = before !== undefined;
+    const offset = usedKeyset ? 0 : (opts.offset ?? 0);
     type HashtagStub = {
       accountId: string;
       postId: string;
@@ -983,12 +1187,16 @@ export class FeedQuery {
       blockTimestamp: number;
       groupId: string | null;
     };
+    const beforeParam =
+      before !== undefined ? ', $beforeBlockHeight: bigint!' : '';
+    const heightFilter =
+      before !== undefined ? ', blockHeight: {_lt: $beforeBlockHeight}' : '';
     const stubs = await this.queryTopicStubs<HashtagStub>({
       buildQuery: (
         orderBy
-      ) => `query PostsByHashtag($tag: String!, $limit: Int!, $offset: Int!) {
+      ) => `query PostsByHashtag($tag: String!, $limit: Int!, $offset: Int!${beforeParam}) {
         postHashtags(
-          where: {hashtag: {_eq: $tag}},
+          where: {hashtag: {_eq: $tag}${heightFilter}},
           orderBy: ${orderBy},
           limit: $limit,
           offset: $offset
@@ -1000,15 +1208,15 @@ export class FeedQuery {
         tag: hashtag.toLowerCase().replace(/^#/, ''),
         limit,
         offset,
+        ...(before !== undefined ? { beforeBlockHeight: before } : {}),
       },
-      sort: opts.sort ?? 'recent',
+      sort,
       pick: (data) =>
         (data as { postHashtags?: HashtagStub[] } | undefined)?.postHashtags,
     });
-    const nextOffset = stubs.length >= limit ? offset + limit : undefined;
 
     if (stubs.length === 0) {
-      return { items: [], nextOffset };
+      return { items: [] };
     }
 
     const items = await this.hydrateStubRows(
@@ -1016,7 +1224,17 @@ export class FeedQuery {
       stubs,
       limit
     );
-    return { items, nextOffset };
+    return hot
+      ? {
+          items,
+          nextOffset: stubs.length >= limit ? offset + limit : undefined,
+        }
+      : chronoDescPage(items, limit, {
+          offset,
+          usedKeyset,
+          edgeCount: stubs.length,
+          edgeHeight: stubs[stubs.length - 1]?.blockHeight,
+        });
   }
 
   /**
@@ -1030,10 +1248,21 @@ export class FeedQuery {
    */
   async byTicker(
     ticker: string,
-    opts: { limit?: number; offset?: number; sort?: FeedSort } = {}
+    opts: {
+      limit?: number;
+      offset?: number;
+      sort?: FeedSort;
+      beforeBlockHeight?: number;
+    } = {}
   ): Promise<Paginated<PostRow>> {
     const limit = opts.limit ?? 20;
-    const offset = opts.offset ?? 0;
+    const sort = opts.sort ?? 'recent';
+    const hot = sort === 'hot';
+    const before = hot
+      ? undefined
+      : normalizeBeforeBlockHeight(opts.beforeBlockHeight);
+    const usedKeyset = before !== undefined;
+    const offset = usedKeyset ? 0 : (opts.offset ?? 0);
     type TickerStub = {
       accountId: string;
       postId: string;
@@ -1042,12 +1271,16 @@ export class FeedQuery {
       blockTimestamp: number;
       groupId: string | null;
     };
+    const beforeParam =
+      before !== undefined ? ', $beforeBlockHeight: bigint!' : '';
+    const heightFilter =
+      before !== undefined ? ', blockHeight: {_lt: $beforeBlockHeight}' : '';
     const stubs = await this.queryTopicStubs<TickerStub>({
       buildQuery: (
         orderBy
-      ) => `query PostsByTicker($ticker: String!, $limit: Int!, $offset: Int!) {
+      ) => `query PostsByTicker($ticker: String!, $limit: Int!, $offset: Int!${beforeParam}) {
         postTickers(
-          where: {ticker: {_eq: $ticker}},
+          where: {ticker: {_eq: $ticker}${heightFilter}},
           orderBy: ${orderBy},
           limit: $limit,
           offset: $offset
@@ -1059,15 +1292,15 @@ export class FeedQuery {
         ticker: ticker.toLowerCase().replace(/^\$/, ''),
         limit,
         offset,
+        ...(before !== undefined ? { beforeBlockHeight: before } : {}),
       },
-      sort: opts.sort ?? 'recent',
+      sort,
       pick: (data) =>
         (data as { postTickers?: TickerStub[] } | undefined)?.postTickers,
     });
-    const nextOffset = stubs.length >= limit ? offset + limit : undefined;
 
     if (stubs.length === 0) {
-      return { items: [], nextOffset };
+      return { items: [] };
     }
 
     const items = await this.hydrateStubRows(
@@ -1075,7 +1308,17 @@ export class FeedQuery {
       stubs,
       limit
     );
-    return { items, nextOffset };
+    return hot
+      ? {
+          items,
+          nextOffset: stubs.length >= limit ? offset + limit : undefined,
+        }
+      : chronoDescPage(items, limit, {
+          offset,
+          usedKeyset,
+          edgeCount: stubs.length,
+          edgeHeight: stubs[stubs.length - 1]?.blockHeight,
+        });
   }
 
   /**
@@ -1089,10 +1332,21 @@ export class FeedQuery {
    */
   async byPlace(
     place: string,
-    opts: { limit?: number; offset?: number; sort?: FeedSort } = {}
+    opts: {
+      limit?: number;
+      offset?: number;
+      sort?: FeedSort;
+      beforeBlockHeight?: number;
+    } = {}
   ): Promise<Paginated<PostRow>> {
     const limit = opts.limit ?? 20;
-    const offset = opts.offset ?? 0;
+    const sort = opts.sort ?? 'recent';
+    const hot = sort === 'hot';
+    const before = hot
+      ? undefined
+      : normalizeBeforeBlockHeight(opts.beforeBlockHeight);
+    const usedKeyset = before !== undefined;
+    const offset = usedKeyset ? 0 : (opts.offset ?? 0);
     type PlaceStub = {
       accountId: string;
       postId: string;
@@ -1101,12 +1355,16 @@ export class FeedQuery {
       blockTimestamp: number;
       groupId: string | null;
     };
+    const beforeParam =
+      before !== undefined ? ', $beforeBlockHeight: bigint!' : '';
+    const heightFilter =
+      before !== undefined ? ', blockHeight: {_lt: $beforeBlockHeight}' : '';
     const stubs = await this.queryTopicStubs<PlaceStub>({
       buildQuery: (
         orderBy
-      ) => `query PostsByPlace($place: String!, $limit: Int!, $offset: Int!) {
+      ) => `query PostsByPlace($place: String!, $limit: Int!, $offset: Int!${beforeParam}) {
         postPlaces(
-          where: {place: {_eq: $place}},
+          where: {place: {_eq: $place}${heightFilter}},
           orderBy: ${orderBy},
           limit: $limit,
           offset: $offset
@@ -1118,15 +1376,15 @@ export class FeedQuery {
         place: place.toLowerCase().replace(/^#+/, ''),
         limit,
         offset,
+        ...(before !== undefined ? { beforeBlockHeight: before } : {}),
       },
-      sort: opts.sort ?? 'recent',
+      sort,
       pick: (data) =>
         (data as { postPlaces?: PlaceStub[] } | undefined)?.postPlaces,
     });
-    const nextOffset = stubs.length >= limit ? offset + limit : undefined;
 
     if (stubs.length === 0) {
-      return { items: [], nextOffset };
+      return { items: [] };
     }
 
     const items = await this.hydrateStubRows(
@@ -1134,6 +1392,16 @@ export class FeedQuery {
       stubs,
       limit
     );
-    return { items, nextOffset };
+    return hot
+      ? {
+          items,
+          nextOffset: stubs.length >= limit ? offset + limit : undefined,
+        }
+      : chronoDescPage(items, limit, {
+          offset,
+          usedKeyset,
+          edgeCount: stubs.length,
+          edgeHeight: stubs[stubs.length - 1]?.blockHeight,
+        });
   }
 }

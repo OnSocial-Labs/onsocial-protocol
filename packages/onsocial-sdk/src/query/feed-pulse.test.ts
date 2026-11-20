@@ -385,6 +385,8 @@ describe('splitPulseFunctionRows', () => {
     });
     expect(page.items.map((item) => item.postId)).toEqual(['root', 'r1']);
     expect(page.nextOffset).toBe(1);
+    expect(page.nextBeforeBlockHeight).toBeGreaterThan(0);
+    expect(page.nextBeforeEventKey).toBe('bob.near/post/root');
   });
 
   it('still has more after joining on-page originals onto replies', () => {
@@ -408,6 +410,20 @@ describe('splitPulseFunctionRows', () => {
       'x',
     ]);
     expect(page.nextOffset).toBe(2);
+  });
+
+  it('prefers card keyset when usedKeyset is set', () => {
+    const page = paginatePulseFunctionRows({
+      rows: [root, peek, native],
+      accounts,
+      offset: 0,
+      limit: 1,
+      usedKeyset: true,
+      sort: 'recent',
+    });
+    expect(page.nextOffset).toBeUndefined();
+    expect(page.nextBeforeBlockHeight).toBeDefined();
+    expect(page.nextBeforeEventKey).toBe('bob.near/post/root');
   });
 });
 

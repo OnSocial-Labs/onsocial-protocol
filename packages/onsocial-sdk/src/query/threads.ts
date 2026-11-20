@@ -224,38 +224,76 @@ export class ThreadsQuery {
 
   private async _repliesPageByPath(
     parentPath: string,
-    opts: { limit?: number; offset?: number } = {}
+    opts: {
+      limit?: number;
+      offset?: number;
+      /** Exclusive lower bound — prefer over offset under live inserts. */
+      afterBlockHeight?: number;
+    } = {}
   ): Promise<Paginated<PostRow>> {
+    const limit = positiveInt(opts.limit, DEFAULT_THREAD_LIMIT);
+    const after =
+      opts.afterBlockHeight != null &&
+      Number.isFinite(opts.afterBlockHeight) &&
+      opts.afterBlockHeight >= 0
+        ? opts.afterBlockHeight
+        : undefined;
+    const useKeyset = after !== undefined;
+    const offset = useKeyset ? 0 : nonNegativeInt(opts.offset, 0);
+    const where = useKeyset
+      ? `{parentAuthor: {_eq: $parentAuthor}, parentPath: {_eq: $parentPath}, blockHeight: {_gt: $afterBlockHeight}}`
+      : `{parentAuthor: {_eq: $parentAuthor}, parentPath: {_eq: $parentPath}}`;
+    const params = useKeyset
+      ? `$parentAuthor: String!, $parentPath: String!, $limit: Int!, $afterBlockHeight: bigint!`
+      : `$parentAuthor: String!, $parentPath: String!, $limit: Int!, $offset: Int!`;
+    const paging = useKeyset ? '' : 'offset: $offset,';
+    const variables: Record<string, unknown> = {
+      parentAuthor: accountFromContentPath(parentPath),
+      parentPath,
+      limit,
+    };
+    if (useKeyset) variables.afterBlockHeight = after;
+    else variables.offset = offset;
+
     const res = await this._q.graphql<{ threadReplies: ReplyRow[] }>({
-      query: `query RepliesByPath($parentAuthor: String!, $parentPath: String!, $limit: Int!, $offset: Int!) {
+      query: `query RepliesByPath(${params}) {
         threadReplies(
-          where: {parentAuthor: {_eq: $parentAuthor}, parentPath: {_eq: $parentPath}},
+          where: ${where},
           limit: $limit,
-          offset: $offset,
+          ${paging}
           orderBy: [{blockHeight: ASC}]
         ) {
           replyAuthor replyId value blockHeight blockTimestamp groupId
           parentAuthor parentPath parentType
         }
       }`,
-      variables: {
-        parentAuthor: accountFromContentPath(parentPath),
-        parentPath,
-        limit: positiveInt(opts.limit, DEFAULT_THREAD_LIMIT),
-        offset: nonNegativeInt(opts.offset, 0),
-      },
+      variables,
     });
     const items = (res.data?.threadReplies ?? []).map(mapReply);
-    const limit = positiveInt(opts.limit, DEFAULT_THREAD_LIMIT);
-    const offset = nonNegativeInt(opts.offset, 0);
+    if (items.length < limit) {
+      return { items };
+    }
+    const lastHeight = items[items.length - 1]?.blockHeight;
+    if (useKeyset) {
+      return {
+        items,
+        nextAfterBlockHeight:
+          typeof lastHeight === 'number' ? lastHeight : undefined,
+      };
+    }
     return {
       items,
-      nextOffset: items.length >= limit ? offset + limit : undefined,
+      nextOffset: offset + limit,
+      nextAfterBlockHeight:
+        typeof lastHeight === 'number' ? lastHeight : undefined,
     };
   }
 
   /**
    * Replies to a post by its full indexed content path.
+   *
+   * Prefer `afterBlockHeight` (keyset) for load-more under live inserts;
+   * `offset` remains for first-page / legacy callers.
    *
    * ```ts
    * const replies = await os.query.threads.repliesByPath(
@@ -265,7 +303,11 @@ export class ThreadsQuery {
    */
   async repliesByPath(
     parentPath: string,
-    opts: { limit?: number; offset?: number } = {}
+    opts: {
+      limit?: number;
+      offset?: number;
+      afterBlockHeight?: number;
+    } = {}
   ): Promise<PostRow[]> {
     return (await this._repliesPageByPath(parentPath, opts)).items;
   }
@@ -313,7 +355,13 @@ export class ThreadsQuery {
   async quotes(
     refAuthor: string,
     postId: string,
-    opts: { limit?: number; offset?: number; order?: 'asc' | 'desc' } = {}
+    opts: {
+      limit?: number;
+      offset?: number;
+      order?: 'asc' | 'desc';
+      afterBlockHeight?: number;
+      beforeBlockHeight?: number;
+    } = {}
   ): Promise<PostRow[]> {
     const refPath = `${refAuthor}/post/${postId}`;
     return (await this._quotesPageByPath(refPath, opts)).items;
@@ -321,39 +369,93 @@ export class ThreadsQuery {
 
   private async _quotesPageByPath(
     refPath: string,
-    opts: { limit?: number; offset?: number; order?: 'asc' | 'desc' } = {}
+    opts: {
+      limit?: number;
+      offset?: number;
+      order?: 'asc' | 'desc';
+      /** Exclusive lower bound for ascending pages. */
+      afterBlockHeight?: number;
+      /** Exclusive upper bound for descending pages. */
+      beforeBlockHeight?: number;
+    } = {}
   ): Promise<Paginated<PostRow>> {
-    const orderBy = opts.order === 'desc' ? 'DESC' : 'ASC';
+    const desc = opts.order === 'desc';
+    const orderBy = desc ? 'DESC' : 'ASC';
+    const limit = positiveInt(opts.limit, DEFAULT_THREAD_LIMIT);
+    const after =
+      !desc &&
+      opts.afterBlockHeight != null &&
+      Number.isFinite(opts.afterBlockHeight) &&
+      opts.afterBlockHeight >= 0
+        ? opts.afterBlockHeight
+        : undefined;
+    const before =
+      desc &&
+      opts.beforeBlockHeight != null &&
+      Number.isFinite(opts.beforeBlockHeight) &&
+      opts.beforeBlockHeight > 0
+        ? opts.beforeBlockHeight
+        : undefined;
+    const useKeyset = after !== undefined || before !== undefined;
+    const offset = useKeyset ? 0 : nonNegativeInt(opts.offset, 0);
+    const heightFilter =
+      after !== undefined
+        ? ', blockHeight: {_gt: $afterBlockHeight}'
+        : before !== undefined
+          ? ', blockHeight: {_lt: $beforeBlockHeight}'
+          : '';
+    const params = [
+      '$refAuthor: String!',
+      '$refPath: String!',
+      '$limit: Int!',
+      ...(after !== undefined ? ['$afterBlockHeight: bigint!'] : []),
+      ...(before !== undefined ? ['$beforeBlockHeight: bigint!'] : []),
+      ...(useKeyset ? [] : ['$offset: Int!']),
+    ].join(', ');
+    const paging = useKeyset ? '' : 'offset: $offset,';
+    const variables: Record<string, unknown> = {
+      refAuthor: accountFromContentPath(refPath),
+      refPath,
+      limit,
+    };
+    if (after !== undefined) variables.afterBlockHeight = after;
+    else if (before !== undefined) variables.beforeBlockHeight = before;
+    else variables.offset = offset;
+
     const res = await this._q.graphql<{ quotes: QuoteRow[] }>({
-      query: `query QuotesByPath($refAuthor: String!, $refPath: String!, $limit: Int!, $offset: Int!) {
+      query: `query QuotesByPath(${params}) {
         quotes(
-          where: {refAuthor: {_eq: $refAuthor}, refPath: {_eq: $refPath}},
+          where: {refAuthor: {_eq: $refAuthor}, refPath: {_eq: $refPath}${heightFilter}},
           limit: $limit,
-          offset: $offset,
+          ${paging}
           orderBy: [{blockHeight: ${orderBy}}]
         ) {
           quoteAuthor quoteId value blockHeight blockTimestamp groupId
           refAuthor refPath refType
         }
       }`,
-      variables: {
-        refAuthor: accountFromContentPath(refPath),
-        refPath,
-        limit: positiveInt(opts.limit, DEFAULT_THREAD_LIMIT),
-        offset: nonNegativeInt(opts.offset, 0),
-      },
+      variables,
     });
     const items = (res.data?.quotes ?? []).map(mapQuote);
-    const limit = positiveInt(opts.limit, DEFAULT_THREAD_LIMIT);
-    const offset = nonNegativeInt(opts.offset, 0);
+    if (items.length < limit) return { items };
+    const edgeHeight = items[items.length - 1]?.blockHeight;
+    if (useKeyset) {
+      // Desc pages key off `beforeBlockHeight` from the last item at the app.
+      if (desc || typeof edgeHeight !== 'number') return { items };
+      return { items, nextAfterBlockHeight: edgeHeight };
+    }
     return {
       items,
-      nextOffset: items.length >= limit ? offset + limit : undefined,
+      nextOffset: offset + limit,
+      nextAfterBlockHeight:
+        typeof edgeHeight === 'number' ? edgeHeight : undefined,
     };
   }
 
   /**
    * Quotes of a post by its full indexed content path.
+   *
+   * Descending load-more: `beforeBlockHeight`. Ascending: `afterBlockHeight`.
    *
    * ```ts
    * const quotes = await os.query.threads.quotesByPath(
@@ -363,7 +465,13 @@ export class ThreadsQuery {
    */
   async quotesByPath(
     refPath: string,
-    opts: { limit?: number; offset?: number; order?: 'asc' | 'desc' } = {}
+    opts: {
+      limit?: number;
+      offset?: number;
+      order?: 'asc' | 'desc';
+      afterBlockHeight?: number;
+      beforeBlockHeight?: number;
+    } = {}
   ): Promise<PostRow[]> {
     return (await this._quotesPageByPath(refPath, opts)).items;
   }
@@ -371,14 +479,40 @@ export class ThreadsQuery {
   /**
    * Accounts that reposted a post, newest first (repost shells, no value).
    *
+   * Prefer `beforeBlockTimestamp` for load-more under live inserts.
+   *
    * ```ts
    * const reposters = await os.query.threads.repostersByPath('alice.near/post/1');
    * ```
    */
   async repostersByPath(
     refPath: string,
-    opts: { limit?: number; offset?: number } = {}
+    opts: {
+      limit?: number;
+      offset?: number;
+      beforeBlockTimestamp?: number;
+    } = {}
   ): Promise<ReposterRow[]> {
+    const limit = positiveInt(opts.limit, DEFAULT_THREAD_LIMIT);
+    const before =
+      opts.beforeBlockTimestamp != null &&
+      Number.isFinite(opts.beforeBlockTimestamp) &&
+      opts.beforeBlockTimestamp > 0
+        ? opts.beforeBlockTimestamp
+        : undefined;
+    const useKeyset = before !== undefined;
+    const offset = useKeyset ? 0 : nonNegativeInt(opts.offset, 0);
+    const where = useKeyset
+      ? `{refPath: {_eq: $refPath}, blockTimestamp: {_lt: $beforeBlockTimestamp}}`
+      : `{refPath: {_eq: $refPath}}`;
+    const params = useKeyset
+      ? `$refPath: String!, $limit: Int!, $beforeBlockTimestamp: bigint!`
+      : `$refPath: String!, $limit: Int!, $offset: Int!`;
+    const paging = useKeyset ? '' : 'offset: $offset,';
+    const variables: Record<string, unknown> = { refPath, limit };
+    if (useKeyset) variables.beforeBlockTimestamp = before;
+    else variables.offset = offset;
+
     const res = await this._q.graphql<{
       reposts: Array<{
         repostAuthor: string;
@@ -387,21 +521,17 @@ export class ThreadsQuery {
         blockTimestamp: number;
       }>;
     }>({
-      query: `query RepostersByPath($refPath: String!, $limit: Int!, $offset: Int!) {
+      query: `query RepostersByPath(${params}) {
         reposts(
-          where: {refPath: {_eq: $refPath}},
+          where: ${where},
           limit: $limit,
-          offset: $offset,
+          ${paging}
           orderBy: [{blockTimestamp: DESC}]
         ) {
           repostAuthor repostId groupId blockTimestamp
         }
       }`,
-      variables: {
-        refPath,
-        limit: positiveInt(opts.limit, DEFAULT_THREAD_LIMIT),
-        offset: nonNegativeInt(opts.offset, 0),
-      },
+      variables,
     });
     return (res.data?.reposts ?? []).map((row) => ({
       accountId: row.repostAuthor,

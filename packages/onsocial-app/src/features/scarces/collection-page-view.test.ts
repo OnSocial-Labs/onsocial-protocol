@@ -21,6 +21,7 @@ import {
   peekOwnedTokenForCollection,
   resolveCollectionOwnership,
   seedCollectionViewFromNowPlaying,
+  seedCollectionViewFromPeek,
 } from '@/features/scarces/collection-page-view';
 
 describe('collection page view', () => {
@@ -318,5 +319,20 @@ describe('collection page view', () => {
     expect(view.kind).toBe('audio');
     expect(view.audioFormat).toBe('album');
     expect(view.playables).toHaveLength(2);
+  });
+
+  it('seeds a discover cover peek without a skeleton-only open', () => {
+    const view = seedCollectionViewFromPeek({
+      collectionId: 'just-sold',
+      title: 'Just Sold',
+      coverUrl: 'https://cdn.example/cover.jpg',
+      appId: 'hub.near',
+    });
+    expect(view?.collectionId).toBe('just-sold');
+    expect(view?.title).toBe('Just Sold');
+    expect(view?.mediaUrl).toBe('https://cdn.example/cover.jpg');
+    expect(view?.appId).toBe('hub.near');
+    expect(view?.playables).toEqual([]);
+    expect(seedCollectionViewFromPeek({ collectionId: '  ' })).toBeNull();
   });
 });

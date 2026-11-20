@@ -60,6 +60,34 @@ describe('quotes session cache', () => {
     expect(seed?.reposters).toEqual([]);
   });
 
+  it('seeds from an optional root when both caches miss', () => {
+    const seed = seedQuotesFromSession({
+      accountId: 'alice.near',
+      postId: '1',
+      root: post('1'),
+      rootEngagement: {
+        replyCount: 0,
+        quoteCount: 2,
+        repostCount: 0,
+        reactionCount: 0,
+        viewerReacted: false,
+        amplifyCount: 0,
+        viewerAmplified: false,
+        viewerSaved: false,
+        viewerReposted: false,
+        viewerRepostId: null,
+        viewerRepostGroupId: null,
+        reactionRoll: 0,
+        amplifyRoll: 0,
+        replyRoll: 0,
+        shareRoll: 0,
+      },
+    });
+    expect(seed?.root.postId).toBe('1');
+    expect(seed?.quotes).toEqual([]);
+    expect(seed?.engagement['alice.near:1']?.quoteCount).toBe(2);
+  });
+
   it('prefers dedicated quotes over thread fallback', () => {
     writeThreadSession('alice.near/post/1', {
       root: post('1'),

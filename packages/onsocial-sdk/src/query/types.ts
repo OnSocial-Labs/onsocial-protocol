@@ -19,6 +19,23 @@ export interface Paginated<T> {
   items: T[];
   /** Offset for the next page, or `undefined` if this was the last page. */
   nextOffset?: number;
+  /**
+   * Keyset cursor for ascending `blockHeight` pages (`_gt` on the next fetch).
+   * Prefer this over `nextOffset` when both are present.
+   */
+  nextAfterBlockHeight?: number;
+  /**
+   * Keyset cursor for descending `blockHeight` pages (`_lt` on the next fetch).
+   * Prefer this over `nextOffset` when both are present.
+   */
+  nextBeforeBlockHeight?: number;
+  /**
+   * Pulse Hot card cursor — pair with `nextBeforeBlockHeight` and
+   * `nextBeforeEventKey` (`event_heat` / `event_key` in `feed_pulse`).
+   */
+  nextBeforeHeat?: number;
+  /** Pulse card tie-break (`event_key` in `feed_pulse`). */
+  nextBeforeEventKey?: string;
 }
 
 /** Row from `hashtag_counts` view. */

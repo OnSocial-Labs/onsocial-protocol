@@ -120,21 +120,25 @@ export function captureVisibleFeedAnchor(
   return null;
 }
 
-/** Scroll so the anchored row sits at its captured viewport offset. */
+/**
+ * Scroll so the anchored row sits at its captured viewport offset.
+ * Returns false when the row is not mounted yet (caller may retry after pin).
+ */
 export function restoreFeedAnchor(
   root: HTMLElement | null,
   anchor: FeedScrollAnchor,
   query: FeedAnchorQuery = FEED_ANCHOR_QUERY
-): void {
-  if (!root) return;
+): boolean {
+  if (!root) return false;
   const block = root.querySelector<HTMLElement>(
     query.rowSelectorForKey(anchor.key)
   );
-  if (!block) return;
+  if (!block) return false;
   const delta =
     block.getBoundingClientRect().top -
     root.getBoundingClientRect().top -
     anchor.top;
-  if (Math.abs(delta) <= 1) return;
+  if (Math.abs(delta) <= 1) return true;
   shiftAppLenisScroll(root, delta);
+  return true;
 }

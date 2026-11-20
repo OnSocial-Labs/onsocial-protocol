@@ -1031,6 +1031,41 @@ describe('QueryModule', () => {
       expect(body.query).toContain('blockHeight: DESC');
     });
 
+    it('pages descending Recent by beforeBlockHeight keyset', async () => {
+      const rows = Array.from({ length: 5 }, (_, i) => ({
+        accountId: 'a.near',
+        postId: `p${i}`,
+        value: '{}',
+        blockHeight: 100 - i,
+        blockTimestamp: 0,
+      }));
+      const { os, fetch } = makeOs({ data: { postsFeed: rows } });
+      const page = await os.query.feed.recent({
+        limit: 5,
+        beforeBlockHeight: 101,
+      });
+      const body = JSON.parse(String(fetch.mock.calls[0][1].body));
+      expect(body.query).toContain('blockHeight: {_lt: $beforeBlockHeight}');
+      expect(body.variables.beforeBlockHeight).toBe(101);
+      expect(body.variables.offset).toBe(0);
+      expect(page.nextBeforeBlockHeight).toBe(96);
+      expect(page.nextOffset).toBeUndefined();
+    });
+
+    it('exposes nextBeforeBlockHeight on offset Recent pages', async () => {
+      const rows = Array.from({ length: 20 }, (_, i) => ({
+        accountId: 'a.near',
+        postId: `p${i}`,
+        value: '{}',
+        blockHeight: 100 - i,
+        blockTimestamp: 0,
+      }));
+      const { os } = makeOs({ data: { postsFeed: rows } });
+      const page = await os.query.feed.recent({ limit: 20 });
+      expect(page.nextOffset).toBe(20);
+      expect(page.nextBeforeBlockHeight).toBe(81);
+    });
+
     it('filters by kind server-side when set', async () => {
       const { os, fetch } = makeOs({ data: { postsFeed: [] } });
       await os.query.feed.recent({
@@ -2102,6 +2137,34 @@ describe('QueryModule', () => {
       expect(body.query).toContain('reposts');
       expect(body.variables.refPath).toBe('alice.near/post/p1');
     });
+
+    it('pages reposters by beforeBlockTimestamp keyset', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          reposts: [
+            {
+              repostAuthor: 'erin.near',
+              repostId: 'r3',
+              blockTimestamp: 1700000000000000000,
+            },
+          ],
+        },
+      });
+
+      await os.query.threads.repostersByPath('alice.near/post/p1', {
+        limit: 12,
+        beforeBlockTimestamp: 1710000000000000000,
+      });
+      const body = JSON.parse(fetch.mock.calls[0][1].body) as {
+        query: string;
+        variables: Record<string, unknown>;
+      };
+      expect(body.query).toContain(
+        'blockTimestamp: {_lt: $beforeBlockTimestamp}'
+      );
+      expect(body.query).not.toContain('$offset');
+      expect(body.variables.beforeBlockTimestamp).toBe(1710000000000000000);
+    });
   });
 
   describe('threads.countsByPaths()', () => {
@@ -2350,6 +2413,39 @@ describe('QueryModule', () => {
       );
     });
 
+    it('pages replies by afterBlockHeight keyset', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          threadReplies: [
+            {
+              replyAuthor: 'bob.near',
+              replyId: 'r2',
+              value: '{"v":1,"text":"later"}',
+              blockHeight: 30,
+              blockTimestamp: 40,
+              parentAuthor: 'alice.near',
+              parentPath: 'alice.near/post/root',
+              parentType: 'post',
+            },
+          ],
+        },
+      });
+
+      const replies = await os.query.threads.repliesByPath(
+        'alice.near/post/root',
+        { limit: 12, afterBlockHeight: 20 }
+      );
+      expect(replies).toHaveLength(1);
+      const body = JSON.parse(fetch.mock.calls[0][1].body) as {
+        query: string;
+        variables: Record<string, unknown>;
+      };
+      expect(body.query).toContain('blockHeight: {_gt: $afterBlockHeight}');
+      expect(body.query).not.toContain('$offset');
+      expect(body.variables.afterBlockHeight).toBe(20);
+      expect(body.variables.offset).toBeUndefined();
+    });
+
     it('loads the visible reply line in one call', async () => {
       const { os, fetch } = makeOs({
         data: {
@@ -2469,6 +2565,38 @@ describe('QueryModule', () => {
       expect(body.variables.refPath).toBe(
         'alice.near/groups/dao/content/post/root'
       );
+    });
+
+    it('pages descending quotes by beforeBlockHeight keyset', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          quotes: [
+            {
+              quoteAuthor: 'carol.near',
+              quoteId: 'q2',
+              value: '{"v":1,"text":"older"}',
+              blockHeight: 8,
+              blockTimestamp: 18,
+              refAuthor: 'alice.near',
+              refPath: 'alice.near/post/root',
+              refType: 'quote',
+            },
+          ],
+        },
+      });
+
+      await os.query.threads.quotesByPath('alice.near/post/root', {
+        limit: 12,
+        order: 'desc',
+        beforeBlockHeight: 10,
+      });
+      const body = JSON.parse(fetch.mock.calls[0][1].body) as {
+        query: string;
+        variables: Record<string, unknown>;
+      };
+      expect(body.query).toContain('blockHeight: {_lt: $beforeBlockHeight}');
+      expect(body.query).not.toContain('$offset');
+      expect(body.variables.beforeBlockHeight).toBe(10);
     });
   });
 

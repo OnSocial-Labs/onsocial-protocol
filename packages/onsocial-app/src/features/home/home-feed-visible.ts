@@ -1,5 +1,6 @@
 import type { Paginated, PostRow } from '@onsocial/sdk';
 import type { HomeFeedLens } from '@/features/home/home-feed-lens';
+import type { HomeFeedPageCursor } from '@/features/home/home-feed-pulse';
 import { coalesceFeedThreads } from '@/lib/feed-threads';
 import { postKey } from '@/lib/post-display';
 
@@ -56,41 +57,78 @@ function mergeUniquePosts(
   return merged;
 }
 
+function nextWalkCursor(
+  result: Paginated<PostRow>
+): HomeFeedPageCursor | undefined {
+  if (result.nextBeforeBlockHeight !== undefined) {
+    return {
+      beforeBlockHeight: result.nextBeforeBlockHeight,
+      beforeEventHeight: result.nextBeforeBlockHeight,
+      beforeEventHeat: result.nextBeforeHeat,
+      beforeEventKey: result.nextBeforeEventKey,
+    };
+  }
+  if (result.nextOffset !== undefined) {
+    return { offset: result.nextOffset };
+  }
+  return undefined;
+}
+
 /**
  * Page global (and any raw recent walk) by cards the list will paint.
  * A window of only foreign replies is consumed quietly until a card
  * appears, the page is full, or the walk cap is hit.
  */
 export async function fillVisibleFeedPage(opts: {
-  offset: number;
+  cursor?: HomeFeedPageCursor;
+  /** @deprecated Prefer `cursor.offset`. */
+  offset?: number;
   limit: number;
   maxPages?: number;
-  fetchPage: (offset: number, limit: number) => Promise<Paginated<PostRow>>;
+  fetchPage: (
+    cursor: HomeFeedPageCursor,
+    limit: number
+  ) => Promise<Paginated<PostRow>>;
   visibleCount: (posts: readonly PostRow[]) => number;
 }): Promise<Paginated<PostRow>> {
   const maxPages = opts.maxPages ?? HOME_FEED_VISIBLE_PAGE_WALK;
-  let offset = opts.offset;
+  let cursor: HomeFeedPageCursor = opts.cursor ?? {
+    offset: opts.offset ?? 0,
+  };
   let items: PostRow[] = [];
-  let nextOffset: number | undefined;
+  let last: Paginated<PostRow> | undefined;
 
   for (let page = 0; page < maxPages; page++) {
-    const result = await opts.fetchPage(offset, opts.limit);
+    const result = await opts.fetchPage(cursor, opts.limit);
+    last = result;
     items = mergeUniquePosts(items, result.items);
-    nextOffset = result.nextOffset;
+    const next = nextWalkCursor(result);
     if (
       opts.visibleCount(items) >= opts.limit ||
-      nextOffset === undefined ||
+      next === undefined ||
       result.items.length === 0
     ) {
+      if (result.items.length === 0) {
+        return { items };
+      }
       return {
         items,
-        nextOffset: result.items.length === 0 ? undefined : nextOffset,
+        nextOffset: result.nextOffset,
+        nextBeforeBlockHeight: result.nextBeforeBlockHeight,
+        nextBeforeHeat: result.nextBeforeHeat,
+        nextBeforeEventKey: result.nextBeforeEventKey,
       };
     }
-    offset = nextOffset;
+    cursor = next;
   }
 
-  return { items, nextOffset };
+  return {
+    items,
+    nextOffset: last?.nextOffset,
+    nextBeforeBlockHeight: last?.nextBeforeBlockHeight,
+    nextBeforeHeat: last?.nextBeforeHeat,
+    nextBeforeEventKey: last?.nextBeforeEventKey,
+  };
 }
 
 export type SaveFeedRef = { author: string; postId: string };

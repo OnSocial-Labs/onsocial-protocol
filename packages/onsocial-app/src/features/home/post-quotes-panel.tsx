@@ -48,6 +48,10 @@ import { displayName } from '@/lib/profile-display';
 import { POST_REACH_TITLE } from '@/lib/post-reach-title';
 import { postThreadPath, type PostQuotesTab } from '@/lib/post-routes';
 import { writeQuotesSession } from '@/lib/quotes-session-cache';
+import {
+  quoteLoadMoreCursor,
+  reposterLoadMoreCursor,
+} from '@/lib/thread-first-page';
 import { planThreadLoad } from '@/lib/thread-open';
 
 type LoadState = 'loading' | 'ready' | 'missing' | 'error';
@@ -226,19 +230,41 @@ export function PostQuotesPanel({
         const client = createReadOnlyOnSocialClient();
         const path = contentPathFor(root);
         if (tab === 'quotes') {
+          const cursor = quoteLoadMoreCursor(quotes);
           const page = await client.query.threads.quotesByPath(path, {
             limit: POST_QUOTES_PAGE_SIZE,
-            offset: quotes.length,
             order: 'desc',
+            ...cursor,
           });
-          setQuotes((current) => [...current, ...page]);
+          setQuotes((current) => {
+            const seen = new Set(current.map(postKey));
+            const fresh = page.filter((post) => {
+              const key = postKey(post);
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            });
+            return [...current, ...fresh];
+          });
           setHasMoreQuotes(page.length >= POST_QUOTES_PAGE_SIZE);
         } else {
+          const cursor = reposterLoadMoreCursor(reposters);
           const page = await client.query.threads.repostersByPath(path, {
             limit: POST_REPOSTERS_PAGE_SIZE,
-            offset: reposters.length,
+            ...cursor,
           });
-          setReposters((current) => [...current, ...page]);
+          setReposters((current) => {
+            const seen = new Set(
+              current.map((row) => `${row.accountId}:${row.repostId}`)
+            );
+            const fresh = page.filter((row) => {
+              const key = `${row.accountId}:${row.repostId}`;
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            });
+            return [...current, ...fresh];
+          });
           setHasMoreReposters(page.length >= POST_REPOSTERS_PAGE_SIZE);
         }
         setLoadMoreError(null);
@@ -249,7 +275,7 @@ export function PostQuotesPanel({
         setLoadingMore(false);
       }
     },
-    [loadingMore, root, quotes.length, reposters.length]
+    [loadingMore, root, quotes, reposters]
   );
 
   const quotesScrollRef = useRef<HTMLDivElement | null>(null);

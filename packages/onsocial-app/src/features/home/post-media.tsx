@@ -28,6 +28,7 @@ import {
   usePostVideoPlayback,
   type PostVideoPlaybackMode,
 } from '@/hooks/use-post-list-video';
+import { shiftAppLenisScroll } from '@/lib/app-lenis-registry';
 import type { PostMediaItem } from '@/lib/post-media';
 import {
   collageCellStyle,
@@ -638,7 +639,7 @@ function PostVisualMediaBlock({
       scrollerTop: scrollerRect.top,
       scrollTop: scroller.scrollTop,
     });
-    if (Math.abs(delta) > 0.5) scroller.scrollTop += delta;
+    if (Math.abs(delta) > 0.5) shiftAppLenisScroll(scroller, delta);
   }, [measuredRatio]);
 
   const tileClassName = [
