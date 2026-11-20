@@ -67,10 +67,17 @@ export function feedWindowEstimateAt(
   return FEED_WINDOW_ESTIMATE_PX;
 }
 /**
- * Rendered slack each side of the viewport — ~1.5 desktop viewports so
- * scroll-back remounts stay off the fold.
+ * Cold overscan — ~1.5 desktop viewports so estimate→measure remounts stay
+ * off the fold while the height cache is still filling.
  */
 export const FEED_WINDOW_OVERSCAN_PX = 2400;
+/**
+ * Warm overscan once most near-window heights are measured — ~one phone
+ * viewport. Keeps fewer full PostCards mounted without scroll-back hitch.
+ */
+export const FEED_WINDOW_OVERSCAN_WARM_PX = 900;
+/** Fraction of keys that must be measured before warm overscan engages. */
+export const FEED_WINDOW_OVERSCAN_WARM_RATIO = 0.75;
 /**
  * Window once the first page is on screen. Was 30 (above page size 24), so
  * the first page never windowed and CV placeholders jiggled on scroll-back.
@@ -146,6 +153,38 @@ export function buildFeedWindowOffsets(
   return { offsets, total: offsets[count] ?? 0 };
 }
 
+/** First index with `offsets[i] >= edge` (prefix-sum length `count + 1`). */
+function feedWindowLowerBoundGe(
+  offsets: readonly number[],
+  count: number,
+  edge: number
+): number {
+  let lo = 0;
+  let hi = count;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (offsets[mid]! < edge) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+/** First index with `offsets[i] > edge`. */
+function feedWindowLowerBoundGt(
+  offsets: readonly number[],
+  count: number,
+  edge: number
+): number {
+  let lo = 0;
+  let hi = count;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (offsets[mid]! <= edge) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
 /**
  * Rows intersecting `[scrollTop - overscan, scrollTop + viewport + overscan]`.
  * Always returns at least one row when the list is non-empty.
@@ -165,11 +204,30 @@ export function feedWindowRangeForScroll({
   if (count <= 0) return { start: 0, end: 0 };
   const top = Math.max(0, scrollTop - overscan);
   const bottom = scrollTop + viewportHeight + overscan;
-  let start = 0;
-  while (start < count - 1 && offsets[start + 1]! <= top) start += 1;
-  let end = count;
-  while (end > start + 1 && offsets[end - 1]! >= bottom) end -= 1;
+  // Binary search on prefix sums — O(log n) vs a linear walk per scroll sync.
+  let start = feedWindowLowerBoundGt(offsets, count, top) - 1;
+  if (start < 0) start = 0;
+  if (start > count - 1) start = count - 1;
+  let end = feedWindowLowerBoundGe(offsets, count, bottom);
+  if (end <= start) end = start + 1;
+  if (end > count) end = count;
   return { start, end };
+}
+
+/**
+ * Prefer the warm overscan once the height cache covers most of the list.
+ * Cold lists keep the larger band so estimate corrections stay off-fold.
+ */
+export function feedWindowOverscanPx(
+  measuredCount: number,
+  keyCount: number,
+  cold: number = FEED_WINDOW_OVERSCAN_PX,
+  warm: number = FEED_WINDOW_OVERSCAN_WARM_PX,
+  warmRatio: number = FEED_WINDOW_OVERSCAN_WARM_RATIO
+): number {
+  if (keyCount <= 0) return cold;
+  if (measuredCount / keyCount >= warmRatio) return warm;
+  return cold;
 }
 
 /**

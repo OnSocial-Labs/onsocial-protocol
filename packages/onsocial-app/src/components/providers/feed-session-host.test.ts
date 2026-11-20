@@ -39,6 +39,8 @@ describe('feed session host wiring', () => {
     expect(host).not.toContain("display: 'none'");
     expect(host).not.toContain('loadHomeFeedPage');
     expect(host).toContain('data-feed-session');
+    expect(host).toContain("data-feed-session={feedSession}");
+    expect(host).toContain("'covered'");
     expect(providers).toContain('FeedSessionHost');
     expect(providers).toContain('page={children}');
     expect(route).toContain('loadHomeFeedPage');

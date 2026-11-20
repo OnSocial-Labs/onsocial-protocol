@@ -1,5 +1,6 @@
 import type { PostRow } from '@onsocial/sdk';
 import {
+  FEED_WINDOW_ESTIMATE_PX,
   FEED_WINDOW_FOLD_ESTIMATE_PX,
   FEED_WINDOW_QUOTE_INSET_PX,
   feedWindowRowEstimatePx,
@@ -12,15 +13,24 @@ import {
   type CoalescedFeedBlock,
 } from '@/lib/feed-threads';
 import {
+  normalizePostPreviewText,
   parseDropPaintSnapshot,
   parsePostCollectionEmbed,
   parsePostPollEmbed,
   parsePostText,
   parsePostTokenEmbed,
+  postFeedPreviewLimit,
 } from '@/lib/post-display';
 import { parsePostMedia } from '@/lib/post-media';
 import { isRepostRefType } from '@/lib/post-relation';
 import type { ThreadReplyRow } from '@/lib/thread-display';
+
+/** Identity + engagement chrome under a one-line text body. */
+const FEED_TEXT_BASE_PX = 168;
+/** Approximate closed-body line height at feed width. */
+const FEED_TEXT_LINE_PX = 22;
+/** ~chars that fit one closed feed line before wrap. */
+const FEED_TEXT_CHARS_PER_LINE = 48;
 
 type QuoteMap = Record<string, PostRow>;
 
@@ -87,17 +97,6 @@ export function feedBlockEstimateKind(
   return feedCardEstimateKind(block.posts[0]!, quotedPosts);
 }
 
-/**
- * @deprecated Prefer {@link feedBlockEstimateKind} / {@link feedBlockEstimatePx}.
- * Kept for callers that still branch on poll vs everything else.
- */
-export function personalFeedBlockEstimateKind(
-  block: Pick<CoalescedFeedBlock, 'posts' | 'standingPeek'>,
-  quotedPosts: QuoteMap
-): FeedWindowRowKind {
-  return feedBlockEstimateKind(block, quotedPosts);
-}
-
 export function feedBlockIsPollRow(
   block: Pick<CoalescedFeedBlock, 'posts' | 'standingPeek'>,
   quotedPosts: QuoteMap
@@ -109,18 +108,37 @@ export function feedBlockIsPollRow(
   );
 }
 
-/** @deprecated Prefer {@link feedBlockIsPollRow}. */
-export function personalFeedBlockIsPollRow(
-  block: Pick<CoalescedFeedBlock, 'posts' | 'standingPeek'>,
-  quotedPosts: QuoteMap
-): boolean {
-  return feedBlockIsPollRow(block, quotedPosts);
+/**
+ * Closed text-card height from the folded preview budget — short posts no
+ * longer share the same 280px spacer as a full six-line body.
+ */
+export function feedTextEstimatePx(text: string, hasMedia: boolean): number {
+  const limit = postFeedPreviewLimit(hasMedia);
+  const normalized = normalizePostPreviewText(text);
+  if (!normalized) return FEED_TEXT_BASE_PX;
+  // Full closed preview (or Show more) uses the legacy spacer — only short
+  // bodies shrink below it.
+  if (normalized.length >= limit) return FEED_WINDOW_ESTIMATE_PX;
+  const hardBreaks = Math.min(
+    normalized.split(/\r?\n/).length,
+    hasMedia ? 3 : 6
+  );
+  const wrapped = Math.max(
+    1,
+    Math.ceil(normalized.length / FEED_TEXT_CHARS_PER_LINE)
+  );
+  const lines = Math.min(Math.max(hardBreaks, wrapped), hasMedia ? 3 : 6);
+  const px = FEED_TEXT_BASE_PX + (lines - 1) * FEED_TEXT_LINE_PX;
+  return Math.min(FEED_WINDOW_ESTIMATE_PX, px);
 }
 
 function feedCardEstimatePx(post: PostRow, quotedPosts: QuoteMap): number {
   const card = feedEstimateCard(post, quotedPosts);
   const kind = feedCardEstimateKind(post, quotedPosts);
-  let px = feedWindowRowEstimatePx(kind);
+  let px =
+    kind === 'text'
+      ? feedTextEstimatePx(parsePostText(card.value), false)
+      : feedWindowRowEstimatePx(kind);
   // Own media/jacket + quote ref → tile/jacket plus QuotedPostInset under it.
   // Quote-of-media (kind bumped via quoted payload) already uses jacket/media
   // height for the inset face — do not add a second inset.
@@ -167,17 +185,6 @@ export function feedBlockEstimatePx(
     total += FEED_WINDOW_FOLD_ESTIMATE_PX;
   }
   return total;
-}
-
-/** @deprecated Prefer {@link feedBlockEstimatePx}. */
-export function personalFeedBlockEstimatePx(
-  block: Pick<
-    CoalescedFeedBlock,
-    'posts' | 'standingPeek' | 'standingHidden'
-  >,
-  quotedPosts: QuoteMap
-): number {
-  return feedBlockEstimatePx(block, quotedPosts);
 }
 
 /** Thread-page reply row — post card or fold coil. */

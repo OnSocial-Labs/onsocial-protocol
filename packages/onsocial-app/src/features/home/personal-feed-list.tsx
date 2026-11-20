@@ -40,10 +40,9 @@ import { feedBlockEstimatePx } from '@/features/home/feed-block-estimate';
 import type { FeedWindowSizeCache } from '@/features/home/feed-window';
 
 export {
+  feedBlockEstimateKind,
   feedBlockEstimatePx,
   feedBlockIsPollRow,
-  personalFeedBlockEstimateKind,
-  personalFeedBlockIsPollRow,
 } from '@/features/home/feed-block-estimate';
 
 interface PersonalFeedListProps {

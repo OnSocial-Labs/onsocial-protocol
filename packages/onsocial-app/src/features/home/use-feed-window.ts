@@ -17,6 +17,7 @@ import {
   buildFeedWindowOffsets,
   feedWindowEstimateAt,
   feedWindowKeysEqual,
+  feedWindowOverscanPx,
   feedWindowRangeForScroll,
   feedWindowRangeWithPinned,
   feedWindowScrollTopForRow,
@@ -103,7 +104,7 @@ export function useFeedWindow({
   anchorQuery,
   enabled = true,
   estimate = FEED_WINDOW_ESTIMATE_PX,
-  overscan = FEED_WINDOW_OVERSCAN_PX,
+  overscan,
   minCount = FEED_WINDOW_MIN_COUNT,
 }: UseFeedWindowOptions): UseFeedWindowResult {
   const internalCacheRef = useRef<FeedWindowSizeCache | null>(null);
@@ -113,6 +114,18 @@ export function useFeedWindow({
   const cache = sizeCache ?? internalCacheRef.current;
 
   const [offsetsVersion, setOffsetsVersion] = useState(0);
+  const measuredCount = useMemo(() => {
+    let n = 0;
+    for (const key of keys) {
+      if (cache.get(key) !== undefined) n += 1;
+    }
+    return n;
+    // offsetsVersion bumps whenever the cache gains a measurement.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keys, offsetsVersion, cache]);
+  const resolvedOverscan =
+    overscan ??
+    feedWindowOverscanPx(measuredCount, keys.length, FEED_WINDOW_OVERSCAN_PX);
   const [root, setRoot] = useState<HTMLElement | null>(null);
   const [rangeState, setRangeState] = useState<
     | (FeedWindowRange & {
@@ -148,9 +161,9 @@ export function useFeedWindow({
     rootRef.current = root;
   });
 
-  const overscanRef = useRef(overscan);
+  const overscanRef = useRef(resolvedOverscan);
   useLayoutEffect(() => {
-    overscanRef.current = overscan;
+    overscanRef.current = resolvedOverscan;
   });
 
   const anchorQueryRef = useRef(anchorQuery);
@@ -206,7 +219,8 @@ export function useFeedWindow({
     setRoot((prev) => (prev === detected ? prev : detected));
   });
 
-  // Scroll + viewport-resize drive the range, rAF-coalesced.
+  // Scroll + viewport-resize drive the range, rAF-coalesced. Overscan warm
+  // also resyncs so the mounted band tightens once heights settle.
   useEffect(() => {
     if (!root) return undefined;
     let raf = 0;
@@ -226,7 +240,7 @@ export function useFeedWindow({
       observer.disconnect();
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [root, syncRange]);
+  }, [root, resolvedOverscan, syncRange]);
 
   const rowKeyByEl = useRef(new Map<Element, string>());
   const rowCallbacks = useRef(

@@ -3,11 +3,13 @@ import {
   FEED_WINDOW_ESTIMATE_PX,
   FEED_WINDOW_JACKET_ESTIMATE_PX,
   FEED_WINDOW_OVERSCAN_PX,
+  FEED_WINDOW_OVERSCAN_WARM_PX,
   FEED_WINDOW_POLL_ESTIMATE_PX,
   FeedWindowSizeCache,
   buildFeedWindowOffsets,
   feedWindowEstimateAt,
   feedWindowKeysEqual,
+  feedWindowOverscanPx,
   feedWindowRangeForScroll,
   feedWindowRangeWithPinned,
   feedWindowRowEstimatePx,
@@ -205,21 +207,45 @@ describe('feedWindowRangeForScroll', () => {
     ).toEqual({ start: 0, end: 0 });
   });
 
+  it('matches linear edges when a row starts exactly at the band', () => {
+    // Row 2 starts at 350. Viewport top 350 must include row 2, not skip it.
+    expect(
+      feedWindowRangeForScroll({
+        offsets,
+        scrollTop: 350,
+        viewportHeight: 50,
+        overscan: 0,
+      })
+    ).toEqual({ start: 2, end: 3 });
+    // Bottom exactly at a row start excludes that row.
+    expect(
+      feedWindowRangeForScroll({
+        offsets,
+        scrollTop: 0,
+        viewportHeight: 100,
+        overscan: 0,
+      })
+    ).toEqual({ start: 0, end: 1 });
+  });
+
   it('default overscan keeps the e2e stub tail in range from the head', () => {
     // Compact text stubs in feed-windowing.spec — CI painted win-00..win-42 with
     // home overscan 1600 while win-47 stayed collapsed.
     const rowCount = 48;
     const rowHeight = 58;
     const viewportHeight = 900;
-    const { offsets } = buildFeedWindowOffsets(rowCount, () => rowHeight);
+    const { offsets: stubOffsets } = buildFeedWindowOffsets(
+      rowCount,
+      () => rowHeight
+    );
     const tight = feedWindowRangeForScroll({
-      offsets,
+      offsets: stubOffsets,
       scrollTop: 0,
       viewportHeight,
       overscan: 1600,
     });
     const defaults = feedWindowRangeForScroll({
-      offsets,
+      offsets: stubOffsets,
       scrollTop: 0,
       viewportHeight,
       overscan: FEED_WINDOW_OVERSCAN_PX,
@@ -227,6 +253,14 @@ describe('feedWindowRangeForScroll', () => {
     expect(tight.end).toBeLessThan(rowCount);
     expect(tight.end).toBeLessThanOrEqual(44);
     expect(defaults.end).toBe(rowCount);
+  });
+});
+
+describe('feedWindowOverscanPx', () => {
+  it('stays cold until the measured ratio clears the warm bar', () => {
+    expect(feedWindowOverscanPx(0, 100)).toBe(FEED_WINDOW_OVERSCAN_PX);
+    expect(feedWindowOverscanPx(74, 100)).toBe(FEED_WINDOW_OVERSCAN_PX);
+    expect(feedWindowOverscanPx(75, 100)).toBe(FEED_WINDOW_OVERSCAN_WARM_PX);
   });
 });
 

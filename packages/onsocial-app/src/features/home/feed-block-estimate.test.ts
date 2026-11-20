@@ -5,6 +5,7 @@ import {
   feedBlockEstimatePx,
   feedBlockIsPollRow,
   feedCardEstimateKind,
+  feedTextEstimatePx,
   threadReplyRowEstimatePx,
 } from './feed-block-estimate';
 import {
@@ -75,7 +76,7 @@ describe('feedBlockEstimatePx', () => {
       'text'
     );
     expect(feedBlockEstimatePx({ posts: [withPhoto, reply] }, {})).toBe(
-      FEED_WINDOW_MEDIA_ESTIMATE_PX + FEED_WINDOW_ESTIMATE_PX
+      FEED_WINDOW_MEDIA_ESTIMATE_PX + feedTextEstimatePx('nice', false)
     );
   });
 
@@ -91,7 +92,14 @@ describe('feedBlockEstimatePx', () => {
     });
     expect(
       feedBlockEstimatePx({ posts: [root], standingPeek: peek }, {})
-    ).toBe(FEED_WINDOW_ESTIMATE_PX + FEED_WINDOW_MEDIA_ESTIMATE_PX);
+    ).toBe(feedTextEstimatePx('hello', false) + FEED_WINDOW_MEDIA_ESTIMATE_PX);
+  });
+
+  it('sizes short text below the generic 280px spacer', () => {
+    expect(feedTextEstimatePx('hi', false)).toBeLessThan(FEED_WINDOW_ESTIMATE_PX);
+    expect(feedTextEstimatePx('hi', false)).toBeGreaterThan(120);
+    const long = 'x'.repeat(280);
+    expect(feedTextEstimatePx(long, false)).toBe(FEED_WINDOW_ESTIMATE_PX);
   });
 
   it('adds fold allowance when a long chain collapses', () => {
@@ -101,8 +109,9 @@ describe('feedBlockEstimatePx', () => {
       })
     );
     // Visible: first + last two text cards + fold.
+    const short = feedTextEstimatePx('n1', false);
     expect(feedBlockEstimatePx({ posts }, {})).toBe(
-      FEED_WINDOW_ESTIMATE_PX * 3 + FEED_WINDOW_FOLD_ESTIMATE_PX
+      short * 3 + FEED_WINDOW_FOLD_ESTIMATE_PX
     );
   });
 
@@ -205,6 +214,6 @@ describe('threadReplyRowEstimatePx', () => {
         }),
         connectedToPrevious: true,
       })
-    ).toBe(FEED_WINDOW_ESTIMATE_PX);
+    ).toBe(feedTextEstimatePx('ok', false));
   });
 });

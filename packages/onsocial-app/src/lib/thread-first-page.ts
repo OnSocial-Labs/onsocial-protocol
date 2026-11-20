@@ -162,6 +162,7 @@ export function startThreadFirstPage(
 export function warmPostPanels(): void {
   void import('@/features/home/live-personal-post-panel');
   void import('@/features/guilds/live-guild-post-panel');
+  void import('@/features/home/post-quotes-panel');
 }
 
 /** Start the direct-reply page and the thread panel chunk on the tap. */
@@ -177,6 +178,11 @@ export function warmThreadOpen(
     return;
   }
   void import('@/features/home/live-personal-post-panel');
+}
+
+/** Prefetch the quotes panel chunk on View quotes intent. */
+export function warmQuotesOpen(): void {
+  void import('@/features/home/post-quotes-panel');
 }
 
 /** Test hook — module state must not leak between specs. */
