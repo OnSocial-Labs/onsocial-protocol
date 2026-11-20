@@ -539,7 +539,6 @@ export function EndorsementsPanel({
             {!searching && emptyState.showDiscover ? (
               <div className="standing-panel-empty-actions">
                 <DiscoverProfilesLink
-                  accountId={accountId}
                   tab="profiles"
                   ariaLabel="Discover profiles to endorse"
                 />

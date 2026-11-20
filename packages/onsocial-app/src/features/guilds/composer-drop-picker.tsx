@@ -23,7 +23,6 @@ const EMPTY_DROPS: PickerDrop[] = [];
 function DropThumb({ mediaUrl, title }: { mediaUrl?: string; title: string }) {
   if (mediaUrl) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
       <img
         className="guild-composer-drop-picker-thumb"
         src={mediaUrl}

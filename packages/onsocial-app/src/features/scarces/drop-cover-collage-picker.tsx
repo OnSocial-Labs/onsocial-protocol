@@ -331,7 +331,6 @@ export function DropCoverCollagePicker({
               }}
             >
               {value.previewUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- blob preview
                 <img src={value.previewUrl} alt="" />
               ) : (
                 <span className="drop-collage-thumb-empty">

@@ -9,6 +9,7 @@ import {
   protocolStakeActionBlocked,
   protocolStakeAmountError,
   protocolStakeAmountMeta,
+  stakeCooldownNowMs,
   formatProtocolStakeCooldownDuration,
   protocolStakeProgress,
   protocolStakeQuickFill,
@@ -217,5 +218,22 @@ describe('protocol-stake-amount', () => {
     expect(protocolStakeActionBlocked('delegate', true)).toBe(true);
     expect(protocolStakeActionBlocked('withdraw', true)).toBe(true);
     expect(protocolStakeActionBlocked('undelegate', true)).toBe(false);
+  });
+
+  it('samples a fresh clock when the cooldown minute tick advances', () => {
+    const nowMs = Date.UTC(2026, 0, 1, 12, 0, 0);
+    const endsAt = String(BigInt(nowMs + 90 * 60 * 1000) * 1_000_000n);
+    const meta = (tick: number, sample: number) =>
+      protocolStakeAmountMeta({
+        mode: 'delegate',
+        maxYocto: 0n,
+        isInCooldown: true,
+        nextActionTimestamp: endsAt,
+        nowMs: stakeCooldownNowMs(tick, sample),
+      });
+    expect(stakeCooldownNowMs(0, nowMs)).toBe(nowMs);
+    expect(stakeCooldownNowMs(1, nowMs)).toBe(nowMs);
+    expect(meta(0, nowMs)).toBe('Cooldown · 1h 30m left');
+    expect(meta(1, nowMs + 60 * 60 * 1000)).toBe('Cooldown · 30m left');
   });
 });

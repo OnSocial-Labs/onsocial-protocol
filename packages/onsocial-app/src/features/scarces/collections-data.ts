@@ -493,13 +493,6 @@ export function parseCoverMeta(metadataJson: string | null | undefined): {
   }
 }
 
-/** @deprecated Prefer parseCoverMeta — seat-only helper kept for call sites. */
-function parseCoverSeat(
-  metadataJson: string | null | undefined
-): number | null {
-  return parseCoverMeta(metadataJson).seat;
-}
-
 /** Parse `series` from the collection's freeform metadata blob. */
 function parseSeries(
   metadataJson: string | null | undefined

@@ -22,6 +22,7 @@ import {
   setGlobalEndorsePending,
   subscribeGlobalViewerEndorsementLedger,
 } from '@/lib/viewer-endorsement-global';
+import { snapshotForGeneration } from '@/lib/ledger-generation';
 
 export function useViewerEndorsement(listAccountId: string) {
   const ledgerRef = useRef(getGlobalViewerEndorsementLedger());
@@ -36,7 +37,11 @@ export function useViewerEndorsement(listAccountId: string) {
   }, []);
 
   const endorsementLedger = useMemo(
-    () => new Map(getGlobalViewerEndorsementLedger()),
+    () =>
+      snapshotForGeneration(
+        endorsementSyncVersion,
+        () => new Map(getGlobalViewerEndorsementLedger())
+      ),
     [endorsementSyncVersion]
   );
 

@@ -37,8 +37,6 @@ export function useDaoCatalogBrowse(opts: {
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [syncing, setSyncing] = useState(false);
-  const [factoryCount, setFactoryCount] = useState(0);
-  const [indexedCount, setIndexedCount] = useState(0);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -81,8 +79,6 @@ export function useDaoCatalogBrowse(opts: {
         );
         setTotal(response.total);
         setSyncing(response.syncing);
-        setFactoryCount(response.factoryCount);
-        setIndexedCount(response.indexedCount);
       })
       .catch((cause) => {
         if (cancelled || requestId !== requestIdRef.current) return;
@@ -123,8 +119,6 @@ export function useDaoCatalogBrowse(opts: {
           setRows(response.daos);
           setTotal(response.total);
           setSyncing(response.syncing);
-          setFactoryCount(response.factoryCount);
-          setIndexedCount(response.indexedCount);
           delay = response.syncing
             ? Math.min(Math.round(delay * 1.5), SOFT_POLL_MAX_MS)
             : SOFT_POLL_MS;

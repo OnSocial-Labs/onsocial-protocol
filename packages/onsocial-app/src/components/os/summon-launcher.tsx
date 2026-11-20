@@ -230,7 +230,7 @@ export function SummonLauncher({
 }: SummonLauncherProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { accountId, isConnected } = useAppWallet();
+  const { accountId } = useAppWallet();
   const rally = useRallySheetOptional();
   const activityUnread = useNotificationsUnreadCount();
   const dmUnread = useDmUnreadCount();

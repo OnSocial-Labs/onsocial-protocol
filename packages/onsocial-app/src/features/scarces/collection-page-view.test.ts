@@ -16,12 +16,15 @@ import {
   collectionShowCommerceMeter,
   collectionShowInlineTracks,
   collectionUseFirst,
+  collectionWritingHydrateKey,
+  mergeHydratedWriting,
   peekHoldsCollection,
   peekHoldsCollectionForDropPage,
   peekOwnedTokenForCollection,
   resolveCollectionOwnership,
   seedCollectionViewFromNowPlaying,
 } from '@/features/scarces/collection-page-view';
+import type { CollectionView } from '@/features/scarces/collections-data';
 
 describe('collection page view', () => {
   it('keeps Art as an inset square, not a 16/10 bleed', () => {
@@ -318,5 +321,124 @@ describe('collection page view', () => {
     expect(view.kind).toBe('audio');
     expect(view.audioFormat).toBe('album');
     expect(view.playables).toHaveLength(2);
+  });
+});
+
+function writingShell(
+  patch: Partial<
+    Pick<
+      CollectionView,
+      | 'collectionId'
+      | 'kind'
+      | 'writingManifestCid'
+      | 'sourcePostPath'
+      | 'readables'
+      | 'bookPdf'
+      | 'title'
+      | 'priceNear'
+      | 'writingFormat'
+      | 'textAlign'
+    >
+  > = {}
+): CollectionView {
+  return {
+    collectionId: 'chapter-one',
+    kind: 'writing',
+    writingManifestCid: 'bafy-manifest',
+    sourcePostPath: 'alice.near/posts/1',
+    readables: [],
+    bookPdf: null,
+    title: 'Chapter One',
+    priceNear: '1',
+    writingFormat: null,
+    textAlign: null,
+    ...patch,
+  } as CollectionView;
+}
+
+describe('collection writing hydrate effect', () => {
+  it('starts a hydrate for a writing shell and ignores price and title', () => {
+    const priced = writingShell({ priceNear: '4', title: 'Renamed' });
+    const cheap = writingShell({ priceNear: '1', title: 'Chapter One' });
+    expect(collectionWritingHydrateKey(priced)).toBe(
+      collectionWritingHydrateKey(cheap)
+    );
+    expect(collectionWritingHydrateKey(priced)).toContain('chapter-one');
+  });
+
+  it('does not hydrate again once chapters or a book pdf are painted', () => {
+    expect(
+      collectionWritingHydrateKey(
+        writingShell({
+          readables: [
+            { title: 'One', cid: 'c', url: 'u', mime: 'text/markdown' },
+          ],
+        })
+      )
+    ).toBeNull();
+    expect(
+      collectionWritingHydrateKey(
+        writingShell({
+          bookPdf: {
+            title: 'Book',
+            cid: 'c',
+            url: 'u',
+            mime: 'application/pdf',
+          },
+        })
+      )
+    ).toBeNull();
+  });
+
+  it('changes the key when the manifesto or source post changes', () => {
+    const base = collectionWritingHydrateKey(writingShell());
+    expect(
+      collectionWritingHydrateKey(
+        writingShell({ writingManifestCid: 'bafy-other' })
+      )
+    ).not.toBe(base);
+    expect(
+      collectionWritingHydrateKey(
+        writingShell({ sourcePostPath: 'alice.near/posts/2' })
+      )
+    ).not.toBe(base);
+    expect(collectionWritingHydrateKey(null)).toBeNull();
+    expect(
+      collectionWritingHydrateKey(
+        writingShell({
+          kind: 'audio',
+          writingManifestCid: null,
+          sourcePostPath: '',
+        })
+      )
+    ).toBeNull();
+  });
+
+  it('merges chapters onto the same collection and keeps a newer shell', () => {
+    const prev = writingShell({ priceNear: '3' });
+    const chapter = {
+      title: 'One',
+      cid: 'c',
+      url: 'u',
+      mime: 'text/markdown',
+    };
+    const merged = mergeHydratedWriting(prev, {
+      ...prev,
+      readables: [chapter],
+      writingFormat: 'book',
+      textAlign: 'left',
+    });
+    expect(merged?.readables).toEqual([chapter]);
+    expect(merged?.priceNear).toBe('3');
+    expect(merged?.writingFormat).toBe('book');
+    expect(
+      mergeHydratedWriting(writingShell({ collectionId: 'other' }), {
+        ...prev,
+        readables: [chapter],
+      })
+    ).toMatchObject({ collectionId: 'other', readables: [] });
+    expect(
+      mergeHydratedWriting(prev, { ...prev, readables: [], bookPdf: null })
+    ).toBe(prev);
   });
 });
