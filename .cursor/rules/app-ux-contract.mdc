@@ -12,7 +12,7 @@ Goal: every screen feels instant and stable. Zero layout shift, bounded memory, 
 
 - Read the code you'll touch and its callers first; note existing bugs, races, stale-request commits, or layout shift in that area. Fix those in scope as part of the change; list out-of-scope findings in the PR description rather than fixing them silently.
 - For any non-trivial UI/UX or data-flow change, briefly identify the industry best-in-class approach to the same problem and pick the one that feels most premium: instant, stable, smooth, minimal.
-- Then implement that approach through the existing primitives below. If they can't reach it, say so in the PR description and propose extending the primitive rather than adding a parallel system.
+- Then implement that approach through the existing primitives below. If they can't reach it, stop before building and say why (what falls short, with evidence, and the proposed extension or replacement); don't build a parallel system or replace a primitive without approval.
 - State the chosen approach and why in the PR description.
 
 ## Use what exists; never add a parallel system
