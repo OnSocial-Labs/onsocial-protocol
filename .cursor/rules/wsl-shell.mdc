@@ -1,9 +1,11 @@
 ---
-description: WSL shell execution conventions for this workspace
-alwaysApply: true
+description: Only for Green's local Windows laptop (WSL Ubuntu). Ignore on Linux and in cloud agents.
+alwaysApply: false
 ---
 
 # WSL Shell Commands
+
+Only for Green's local Windows laptop (WSL Ubuntu). Ignore on Linux and in cloud agents.
 
 This workspace lives in WSL Ubuntu at `/home/greenx/onsocial-protocol`.
 
