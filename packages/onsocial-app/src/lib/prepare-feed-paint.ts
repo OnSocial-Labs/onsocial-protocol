@@ -1,6 +1,8 @@
 import type { OnSocial, PostRow } from '@onsocial/sdk';
 import {
+  fetchIndexedGroupPostsByRefs,
   fetchIndexedPostsByRefs,
+  indexedGroupPostRefKey,
   indexedPostRefKey,
 } from '@/lib/fetch-personal-post';
 import { parsePostPollEmbed, postKey } from '@/lib/post-display';
@@ -85,20 +87,17 @@ async function quotedByPaths(
     }
   }
 
-  await Promise.all(
-    groups.map(async (ref) => {
-      try {
-        quoted[ref.path] =
-          (await client.query.groups.post({
-            author: ref.author,
-            groupId: ref.groupId,
-            postId: ref.postId,
-          })) ?? null;
-      } catch {
-        quoted[ref.path] = null;
-      }
-    })
-  );
+  if (groups.length > 0) {
+    const found = await fetchIndexedGroupPostsByRefs(groups, client).catch(
+      () => new Map<string, PostRow>()
+    );
+    for (const ref of groups) {
+      quoted[ref.path] =
+        found.get(
+          indexedGroupPostRefKey(ref.author, ref.groupId, ref.postId)
+        ) ?? null;
+    }
+  }
   return quoted;
 }
 

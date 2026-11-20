@@ -120,3 +120,79 @@ export async function fetchIndexedPostsByRefs(
   }
   return out;
 }
+
+function groupPostRefKey(
+  author: string,
+  groupId: string,
+  postId: string
+): string {
+  return `${author}\0${groupId}\0${postId}`;
+}
+
+/** Map key used by {@link fetchIndexedGroupPostsByRefs} results. */
+export function indexedGroupPostRefKey(
+  author: string,
+  groupId: string,
+  postId: string
+): string {
+  return groupPostRefKey(author, groupId, postId);
+}
+
+/**
+ * Batch-load guild posts for many (author, groupId, postId) pairs in one
+ * GraphQL round-trip — parity with {@link fetchIndexedPostsByRefs}.
+ */
+export async function fetchIndexedGroupPostsByRefs(
+  refs: Array<{ author: string; groupId: string; postId: string }>,
+  client: OnSocial = createReadOnlyOnSocialClient()
+): Promise<Map<string, PostRow>> {
+  const unique = new Map<
+    string,
+    { author: string; groupId: string; postId: string }
+  >();
+  for (const ref of refs) {
+    const author = ref.author.trim();
+    const groupId = ref.groupId.trim();
+    const postId = ref.postId.trim();
+    if (!author || !groupId || !postId) continue;
+    unique.set(groupPostRefKey(author, groupId, postId), {
+      author,
+      groupId,
+      postId,
+    });
+  }
+  if (unique.size === 0) return new Map();
+
+  const list = [...unique.values()];
+  const res = await client.query.graphql<{ postsCurrent: PostRow[] }>({
+    query: `query IndexedGroupPostsByRefs($or: [PostsCurrentBoolExp!]!, $limit: Int!) {
+      postsCurrent(
+        where: {
+          isGroupContent: {_eq: true},
+          _or: $or
+        },
+        limit: $limit,
+        orderBy: [{blockHeight: DESC}]
+      ) {
+        ${POST_ROW_SELECTION}
+      }
+    }`,
+    variables: {
+      or: list.map((ref) => ({
+        accountId: { _eq: ref.author },
+        groupId: { _eq: ref.groupId },
+        postId: { _eq: ref.postId },
+      })),
+      limit: list.length,
+    },
+  });
+
+  const out = new Map<string, PostRow>();
+  for (const row of res.data?.postsCurrent ?? []) {
+    const groupId = row.groupId?.trim();
+    if (!groupId) continue;
+    const key = groupPostRefKey(row.accountId, groupId, row.postId);
+    if (!out.has(key)) out.set(key, row);
+  }
+  return out;
+}

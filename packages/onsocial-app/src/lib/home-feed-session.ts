@@ -21,7 +21,8 @@ const HOME_FEED_SESSION_HINT_REFRESH_MS = 30_000;
 const HOME_FEED_SESSION_STORAGE_VERSION = 1;
 /**
  * Session restore only — hard refresh paints this many posts. Live scroll
- * keeps growing via load-more; DOM windowing owns render cost.
+ * is capped separately (`HOME_FEED_WORKING_SET_POSTS`); DOM windowing owns
+ * render cost.
  */
 export const HOME_FEED_SESSION_PERSISTED_POSTS = 60;
 /** Same defensive cap as the window cache — heights are tiny but bounded. */
