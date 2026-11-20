@@ -1,14 +1,15 @@
 import type { PostRow } from '@onsocial/sdk';
-import {
-  POST_QUOTES_PAGE_SIZE,
-  type PostQuotesPageData,
-} from '@/lib/load-post-quotes-page';
+import type { PostQuotesPageData } from '@/lib/load-post-quotes-page';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
 import { postKey } from '@/lib/post-display';
 import {
   readGuildThreadSession,
   readThreadSession,
 } from '@/lib/thread-session-cache';
+
+/** Match `POST_QUOTES_PAGE_SIZE` / `THREAD_QUOTE_PAGE_SIZE` — keep as a leaf so
+ * this cache never value-imports SSR loaders (circular TDZ on post pages). */
+const QUOTES_SESSION_PAGE_SIZE = 12;
 
 export interface QuotesSessionSnapshot extends PostQuotesPageData {
   fetchedAt: number;
@@ -91,7 +92,7 @@ export function seedQuotesFromSession(input: {
       root: thread.root,
       quotes: thread.quotes ?? [],
       reposters: [],
-      hasMoreQuotes: (thread.quotes?.length ?? 0) >= POST_QUOTES_PAGE_SIZE,
+      hasMoreQuotes: (thread.quotes?.length ?? 0) >= QUOTES_SESSION_PAGE_SIZE,
       hasMoreReposters: false,
       engagement: thread.engagement ?? {},
       scarceEmbeds: thread.scarceEmbeds ?? {},
