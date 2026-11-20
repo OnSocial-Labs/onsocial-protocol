@@ -4,6 +4,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import Lenis from 'lenis';
 import {
+  readAppScrollTop,
   registerAppLenis,
   shiftAppLenisScroll,
   unregisterAppLenis,
@@ -66,5 +67,23 @@ describe('shiftAppLenisScroll', () => {
     expect(root.scrollTop).toBeGreaterThan(animated + 250);
     unregisterAppLenis(root);
     lenis.destroy();
+  });
+});
+
+describe('readAppScrollTop', () => {
+  it('prefers the larger of native scrollTop and Lenis scroll', () => {
+    const root = document.createElement('div');
+    root.scrollTop = 120;
+    expect(readAppScrollTop(root)).toBe(120);
+    registerAppLenis(root, {
+      limit: 1000,
+      scroll: 400,
+      resize: () => {},
+      scrollTo: () => {},
+    });
+    expect(readAppScrollTop(root)).toBe(400);
+    root.scrollTop = 500;
+    expect(readAppScrollTop(root)).toBe(500);
+    unregisterAppLenis(root);
   });
 });

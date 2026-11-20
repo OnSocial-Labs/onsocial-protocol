@@ -97,3 +97,13 @@ export function unregisterAppLenis(element: HTMLElement): void {
 export function getAppLenis(element: HTMLElement): AppLenisScroll | null {
   return byElement.get(element) ?? null;
 }
+
+/**
+ * Live scroll position when Lenis owns the root — native `scrollTop` can lag
+ * the animator during coast. Capture / restore with this so underlays land
+ * where the reader actually was.
+ */
+export function readAppScrollTop(root: HTMLElement): number {
+  const lenisTop = getAppLenis(root)?.scroll ?? 0;
+  return Math.max(root.scrollTop, lenisTop);
+}

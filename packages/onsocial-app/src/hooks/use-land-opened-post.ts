@@ -22,7 +22,7 @@ function clearLandSpacer(scroller: HTMLElement | null | undefined): void {
   scroller?.querySelector('[data-thread-land-spacer]')?.remove();
 }
 
-/** Pin avatar to the under-header seat; spacer if the thread is short. */
+/** Pin focused post top to the under-header seat; spacer if the thread is short. */
 function alignOpenedPost(node: HTMLElement, scroller: HTMLElement): void {
   for (let pass = 0; pass < 4; pass += 1) {
     scrollOpenedPostUnderHeader(node);

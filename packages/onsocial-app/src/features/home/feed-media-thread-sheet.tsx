@@ -19,13 +19,21 @@ import { OsRouteSettle } from '@/components/app/os-route-settle';
 import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
 import { useFeedThreadBand } from '@/features/home/use-feed-thread-band';
 import { scarceEmbedsForOpenRoot } from '@/features/scarces/scarce-embed-ledger';
+import type { GuildPostPageData } from '@/lib/load-guild-post-page';
 import type { PersonalPostPageData } from '@/lib/load-personal-post-page';
 
-// Client panel; OsRouteSettle covers with thread skeleton until land.
+// Client panels; OsRouteSettle covers with thread skeleton until land.
 const LivePersonalPostPanel = dynamic(
   () =>
     import('@/features/home/live-personal-post-panel').then(
       (mod) => mod.LivePersonalPostPanel
+    ),
+  { ssr: false }
+);
+const LiveGuildPostPanel = dynamic(
+  () =>
+    import('@/features/guilds/live-guild-post-panel').then(
+      (mod) => mod.LiveGuildPostPanel
     ),
   { ssr: false }
 );
@@ -42,6 +50,21 @@ function seedEmbeddedThread(root: PostRow): PersonalPostPageData {
   };
 }
 
+function seedEmbeddedGuildThread(root: PostRow): GuildPostPageData {
+  return {
+    root,
+    replies: [],
+    quotes: [],
+    replyTree: [],
+    hasMoreReplies: false,
+    guildName: root.groupName ?? null,
+    memberDriven: false,
+    accessGated: false,
+    engagement: {},
+    scarceEmbeds: scarceEmbedsForOpenRoot(root),
+  };
+}
+
 export type FeedThreadGripHandlers = {
   onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
   onPointerMove: (event: ReactPointerEvent<HTMLElement>) => void;
@@ -51,11 +74,10 @@ export type FeedThreadGripHandlers = {
 };
 
 /**
- * Bottom thread pane on the media enlarge face — same conversation as
- * `/@account/posts/:id`, without a second jacket. Height is owned by the
- * face so the film can scale with the grabber. Chrome is the shared
- * band sheet (frost, scrim, grip, close under the grip) with no title row.
- * The scrim is clipped to this pane so the film above stays sharp.
+ * Bottom thread pane on the media enlarge face — same conversation as the
+ * post page, without a second jacket. Guild roots use the guild panel (ACL /
+ * channel); personal roots use the personal panel. Height is owned by the
+ * face so the film can scale with the grabber.
  */
 export function FeedMediaThreadSheet({
   author,
@@ -73,7 +95,10 @@ export function FeedMediaThreadSheet({
   onClose: () => void;
 }) {
   const titleId = useId();
-  const paintKey = `${author}:${postId}`;
+  const groupId = initialRoot?.groupId?.trim() || '';
+  const paintKey = groupId
+    ? `${groupId}:${author}:${postId}`
+    : `${author}:${postId}`;
   // Seeded root starts painted — match PostThreadSheet (appear is the motion).
   const [paintedForKey, setPaintedForKey] = useState<string | null>(() =>
     initialRoot ? paintKey : null
@@ -82,9 +107,15 @@ export function FeedMediaThreadSheet({
   const noteThreadPainted = useCallback(() => {
     setPaintedForKey(paintKey);
   }, [paintKey]);
-  const initial = useMemo(
-    () => (initialRoot ? seedEmbeddedThread(initialRoot) : null),
-    [initialRoot]
+  const personalInitial = useMemo(
+    () =>
+      initialRoot && !groupId ? seedEmbeddedThread(initialRoot) : null,
+    [initialRoot, groupId]
+  );
+  const guildInitial = useMemo(
+    () =>
+      initialRoot && groupId ? seedEmbeddedGuildThread(initialRoot) : null,
+    [initialRoot, groupId]
   );
 
   return (
@@ -129,15 +160,28 @@ export function FeedMediaThreadSheet({
         skeleton={<PostThreadPageSkeleton />}
       >
         <Suspense fallback={null}>
-          <LivePersonalPostPanel
-            author={author}
-            postId={postId}
-            initial={initial}
-            embedded
-            hideRootMedia
-            landSeat={false}
-            onThreadPainted={noteThreadPainted}
-          />
+          {groupId ? (
+            <LiveGuildPostPanel
+              groupId={groupId}
+              author={author}
+              postId={postId}
+              initial={guildInitial}
+              embedded
+              hideRootMedia
+              landSeat={false}
+              onThreadPainted={noteThreadPainted}
+            />
+          ) : (
+            <LivePersonalPostPanel
+              author={author}
+              postId={postId}
+              initial={personalInitial}
+              embedded
+              hideRootMedia
+              landSeat={false}
+              onThreadPainted={noteThreadPainted}
+            />
+          )}
         </Suspense>
       </OsRouteSettle>
     </GlassSheet>

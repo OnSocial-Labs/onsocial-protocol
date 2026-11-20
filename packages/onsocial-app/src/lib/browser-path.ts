@@ -3,13 +3,25 @@ type Listener = () => void;
 const listeners = new Set<Listener>();
 let patched = false;
 let lastHref = '';
+let emitQueued = false;
+
+/**
+ * Notify after the current stack. Next App Router can call replaceState from
+ * useInsertionEffect; sync useSyncExternalStore updates there are illegal.
+ */
+function flushListeners(): void {
+  emitQueued = false;
+  for (const listener of listeners) listener();
+}
 
 function emit(): void {
   if (typeof window === 'undefined') return;
   const next = `${window.location.pathname}${window.location.search}`;
   if (next === lastHref) return;
   lastHref = next;
-  for (const listener of listeners) listener();
+  if (emitQueued) return;
+  emitQueued = true;
+  queueMicrotask(flushListeners);
 }
 
 function ensureHistoryPatch(): void {

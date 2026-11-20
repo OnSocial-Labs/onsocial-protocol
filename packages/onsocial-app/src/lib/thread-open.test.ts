@@ -64,14 +64,13 @@ describe('planThreadLoad', () => {
 });
 
 describe('scrollOpenedPostUnderHeader', () => {
-  it('scrolls so the avatar sits under the header', () => {
+  it('scrolls so the post top sits under the header', () => {
     const scroller = {
       scrollTop: 0,
       getBoundingClientRect: () => ({ top: 80 }),
     };
     const post = {
       closest: () => scroller,
-      querySelector: () => null,
       getBoundingClientRect: () => ({ top: 640 }),
     };
     expect(scrollOpenedPostUnderHeader(post as unknown as HTMLElement)).toBe(
@@ -83,7 +82,6 @@ describe('scrollOpenedPostUnderHeader', () => {
   it('does nothing when the post is outside a thread scroller', () => {
     const post = {
       closest: () => null,
-      querySelector: () => null,
       getBoundingClientRect: () => ({ top: 0 }),
     };
     expect(scrollOpenedPostUnderHeader(post as unknown as HTMLElement)).toBe(
@@ -113,7 +111,6 @@ describe('scrollOpenedPostUnderHeader', () => {
     registerAppLenis(scroller as unknown as HTMLElement, lenis);
     const post = {
       closest: () => scroller,
-      querySelector: () => null,
       getBoundingClientRect: () => ({ top: 640 }),
     };
     expect(scrollOpenedPostUnderHeader(post as unknown as HTMLElement)).toBe(
@@ -125,14 +122,13 @@ describe('scrollOpenedPostUnderHeader', () => {
     expect(scroller.scrollTop).toBe(560);
   });
 
-  it('leaves the scroll alone when the avatar is already under the header', () => {
+  it('leaves the scroll alone when the post top is already under the header', () => {
     const scroller = {
       scrollTop: 120,
       getBoundingClientRect: () => ({ top: 80 }),
     };
     const post = {
       closest: () => scroller,
-      querySelector: () => null,
       getBoundingClientRect: () => ({ top: 80 }),
     };
     expect(scrollOpenedPostUnderHeader(post as unknown as HTMLElement)).toBe(
@@ -141,7 +137,7 @@ describe('scrollOpenedPostUnderHeader', () => {
     expect(scroller.scrollTop).toBe(120);
   });
 
-  it('pins by avatar, not the card wrapper top', () => {
+  it('pins post top, ignoring avatar offset below the card', () => {
     const scroller = {
       scrollTop: 0,
       getBoundingClientRect: () => ({ top: 80 }),
@@ -149,10 +145,8 @@ describe('scrollOpenedPostUnderHeader', () => {
     const page = {
       getBoundingClientRect: () => ({ top: 80 }),
     };
-    const card = {};
     const face = {
       getBoundingClientRect: () => ({ top: 200 }),
-      closest: (selector: string) => (selector === '.post-card' ? card : null),
     };
     const post = {
       closest: (selector: string) => {
@@ -164,17 +158,14 @@ describe('scrollOpenedPostUnderHeader', () => {
       getBoundingClientRect: () => ({ top: 160 }),
     };
     const previous = globalThis.getComputedStyle;
-    globalThis.getComputedStyle = ((el: { paddingTop?: string }) => {
-      if (el === card) return { paddingTop: '12px' } as CSSStyleDeclaration;
-      if (el === page) return { paddingTop: '0px' } as CSSStyleDeclaration;
-      return { paddingTop: '0px' } as CSSStyleDeclaration;
-    }) as typeof getComputedStyle;
+    globalThis.getComputedStyle = (() =>
+      ({ paddingTop: '0px' }) as CSSStyleDeclaration) as typeof getComputedStyle;
     try {
       expect(scrollOpenedPostUnderHeader(post as unknown as HTMLElement)).toBe(
         true
       );
-      // face 200 − (scroller 80 + page 0 + card 12) = 108
-      expect(scroller.scrollTop).toBe(108);
+      // post 160 − (scroller 80 + page inset 0) = 80
+      expect(scroller.scrollTop).toBe(80);
     } finally {
       globalThis.getComputedStyle = previous;
     }
@@ -182,7 +173,7 @@ describe('scrollOpenedPostUnderHeader', () => {
 });
 
 describe('compensateOpenedPostAboveShift', () => {
-  it('bumps scroll by above-growth so a long ancestor does not shove the avatar', () => {
+  it('bumps scroll by above-growth so a long ancestor does not shove the post', () => {
     let scrollTop = 200;
     const scroller = {
       get scrollTop() {
@@ -195,7 +186,6 @@ describe('compensateOpenedPostAboveShift', () => {
     };
     const post = {
       closest: () => scroller,
-      querySelector: () => null,
       getBoundingClientRect: () => ({ top: 120 }),
     };
     compensateOpenedPostAboveShift(

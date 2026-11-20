@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
   type RefObject,
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -137,6 +138,7 @@ import {
 import { threadReplyRowEstimatePx } from '@/features/home/feed-block-estimate';
 import { useFeedWindow } from '@/features/home/use-feed-window';
 import { THREAD_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
+import { threadWindowSizeCache } from '@/lib/thread-window-heights';
 import { resolveThreadFoldLabel } from '@/lib/thread-fold-label';
 import {
   applyMediaKindOverride,
@@ -168,10 +170,17 @@ interface LiveGuildPostPanelProps {
   initial?: GuildPostPageData | null;
   /** Sheet over a feed. The sheet already supplies the Post header. */
   embedded?: boolean;
+  /**
+   * Media-face reply drawer — root media already fills the film above; keep
+   * the card chrome without a second jacket.
+   */
+  hideRootMedia?: boolean;
   /** False while the sheet is parked under a profile. */
   replyDockEnabled?: boolean;
   /** Covered trail sheet — freeze land/scroll for identity back. */
   parked?: boolean;
+  /** Pin the opened post under the header. Off for media-band embeds. */
+  landSeat?: boolean;
   /** Muted guild name above the author. Off when this guild is already the screen. */
   showGuildLine?: boolean;
   /** Room line on the opened post. Off inside one room. */
@@ -225,8 +234,10 @@ export function LiveGuildPostPanel({
   postId,
   initial = null,
   embedded = false,
+  hideRootMedia = false,
   replyDockEnabled = true,
   parked = false,
+  landSeat = true,
   showGuildLine = true,
   showChannel: showRoom = true,
   sheetContext = null,
@@ -356,7 +367,10 @@ export function LiveGuildPostPanel({
     const rootAuthorId = conversation.root?.accountId;
     return rootAuthorId ? new Set([rootAuthorId]) : undefined;
   }, [conversation.root?.accountId]);
-  const threadFocus = useThreadFocusReply(loadState === 'ready', replyFocusKey);
+  const revealReplyRowRef = useRef<(key: string) => boolean>(() => false);
+  const resolveFocusRowKeyRef = useRef<(postId: string) => string | null>(
+    () => null
+  );
   // Quotes read newest-first — your fresh quote leads the list.
   const quotes = useMemo(
     () => [
@@ -365,13 +379,17 @@ export function LiveGuildPostPanel({
     ],
     [conversation.quotes, localQuotes]
   );
+  const replyPosts = useMemo(
+    () => replyRows.flatMap((row) => (row.kind === 'post' ? [row.post] : [])),
+    [replyRows]
+  );
   const threadPosts = useMemo(
     () => [
       ...(conversation.root ? [conversation.root] : []),
-      ...replyRows.flatMap((row) => (row.kind === 'post' ? [row.post] : [])),
+      ...replyPosts,
       ...quotes,
     ],
-    [conversation.root, replyRows, quotes]
+    [conversation.root, replyPosts, quotes]
   );
   // Full ancestor chain up to the conversation root, oldest first.
   const parentPath = conversation.root?.parentPath;
@@ -383,9 +401,14 @@ export function LiveGuildPostPanel({
   const threadHostRef = useRef<HTMLDivElement | null>(null);
   const threadScrollRef = useRef<HTMLElement | null>(null);
   const replyLoadMoreRef = useRef<HTMLDivElement | null>(null);
+  // Root + ancestors + replies — quotes page owns quote engagement paint.
   const engagementPosts = useMemo(
-    () => [...ancestorChain, ...threadPosts],
-    [ancestorChain, threadPosts]
+    () => [
+      ...ancestorChain,
+      ...(conversation.root ? [conversation.root] : []),
+      ...replyPosts,
+    ],
+    [ancestorChain, conversation.root, replyPosts]
   );
   const quotedPostSources = useMemo(
     () => [...threadPosts, ...ancestorChain],
@@ -445,7 +468,7 @@ export function LiveGuildPostPanel({
       Boolean(
         seededEngagement?.[rootEngagementKey] || engagement[rootEngagementKey]
       ));
-  useThreadLandAppear({
+  const { landSettled } = useThreadLandAppear({
     openedPostRef,
     postId: conversation.root?.postId,
     hasParent,
@@ -454,8 +477,18 @@ export function LiveGuildPostPanel({
     hasRoot: Boolean(conversation.root),
     pinKey: conversation.root?.postId ?? '',
     parked,
+    landSeat,
     onThreadPainted,
   });
+  // After under-header land — a concurrent scrollIntoView loses to the re-pin.
+  const threadFocus = useThreadFocusReply(
+    loadState === 'ready' && landSettled,
+    replyFocusKey,
+    {
+      resolveFocusRowKey: (postId) => resolveFocusRowKeyRef.current(postId),
+      revealRow: (key) => revealReplyRowRef.current(key),
+    }
+  );
   const permalinkReady = threadCoverReady({
     loadState,
     hasRoot: Boolean(conversation.root),
@@ -492,6 +525,10 @@ export function LiveGuildPostPanel({
     }
     return null;
   }, [sortedReplyRows, replyRowKeys, threadFocus.pendingPostId]);
+  const replySizeCache = useMemo(
+    () => threadWindowSizeCache(rootPath),
+    [rootPath]
+  );
   const {
     windowed: replyWindowed,
     start: replyWindowStart,
@@ -499,13 +536,25 @@ export function LiveGuildPostPanel({
     topSpacer: replyTopSpacer,
     bottomSpacer: replyBottomSpacer,
     registerRow: registerReplyRow,
+    revealRow: revealReplyRow,
   } = useFeedWindow({
     keys: replyRowKeys,
     hostRef: replyStackRef,
+    sizeCache: replySizeCache,
     pinnedKey: focusPinKey,
     anchorQuery: THREAD_ANCHOR_QUERY,
     estimate: replyRowEstimates,
   });
+  revealReplyRowRef.current = revealReplyRow;
+  resolveFocusRowKeyRef.current = (pendingId: string) => {
+    for (let index = 0; index < sortedReplyRows.length; index += 1) {
+      const row = sortedReplyRows[index]!;
+      if (row.kind === 'post' && row.post.postId === pendingId) {
+        return replyRowKeys[index]!;
+      }
+    }
+    return null;
+  };
 
   useEffect(() => {
     if (!mediaUnmuted) return;
@@ -972,7 +1021,14 @@ export function LiveGuildPostPanel({
     sortedReplyRows
   );
 
-  const replyListRows = sortedReplyRows.map((row, index) => {
+  const replyListRows: ReactNode[] = [];
+  for (
+    let index = replyWindowStart;
+    index < replyWindowEnd;
+    index += 1
+  ) {
+    const row = sortedReplyRows[index];
+    if (!row) continue;
     if (row.kind === 'more') {
       const foldLabel =
         resolveThreadFoldLabel(row.hidden, {
@@ -984,9 +1040,13 @@ export function LiveGuildPostPanel({
           : `Show ${row.hiddenCount} more replies`);
       const target = row.hidden[0];
       const foldKey = threadReplyRowKey(row);
-      if (!target) return null;
-      return (
-        <div key={foldKey} ref={registerReplyRow(foldKey)}>
+      if (!target) continue;
+      replyListRows.push(
+        <div
+          key={foldKey}
+          ref={registerReplyRow(foldKey)}
+          data-thread-focus-key={foldKey}
+        >
           <ThreadFoldLink
             href={guildPostPath(
               target.groupId ?? groupId,
@@ -1000,6 +1060,7 @@ export function LiveGuildPostPanel({
           </ThreadFoldLink>
         </div>
       );
+      continue;
     }
 
     const next = sortedReplyRows[index + 1];
@@ -1024,7 +1085,7 @@ export function LiveGuildPostPanel({
       .join(' ');
 
     const rowKey = threadReplyRowKey(row);
-    return (
+    replyListRows.push(
       <div key={rowKey} ref={registerReplyRow(rowKey)}>
         {index > 0 && !row.connectedToPrevious ? (
           <Divider variant="item" className="post-row-divider" />
@@ -1072,9 +1133,9 @@ export function LiveGuildPostPanel({
         </div>
       </div>
     );
-  });
+  }
 
-  const showReplyControl = repliesResolved && replyListRows.length > 0;
+  const showReplyControl = repliesResolved && sortedReplyRows.length > 0;
   const showQuoteControl = repliesResolved && Boolean(shareRow);
 
   useEffect(() => {
@@ -1094,7 +1155,10 @@ export function LiveGuildPostPanel({
   });
 
   const threadBody = (
-    <div ref={threadHostRef} className={GUILDS_PAGE_CLASS}>
+    <div
+      ref={threadHostRef}
+      className={hideRootMedia ? 'feed-media-thread-embed' : GUILDS_PAGE_CLASS}
+    >
       {loadState === 'missing' ? (
         <section className="guild-state-card">
           <p>We could not find this guild post in the indexed feed yet.</p>
@@ -1176,6 +1240,7 @@ export function LiveGuildPostPanel({
                 hrefForPost={hrefForPost}
                 mediaFocused
                 videoSoundControl
+                hideMedia={hideRootMedia}
                 mediaUnmuted={mediaUnmuted}
                 mediaResumeIndex={mediaResumeIndex}
                 detailLayout
@@ -1249,13 +1314,13 @@ export function LiveGuildPostPanel({
           ) : null}
 
           <div className="guild-connected-stack" ref={replyStackRef}>
-            {!repliesResolved && replyListRows.length === 0 ? (
+            {!repliesResolved && sortedReplyRows.length === 0 ? (
               <div aria-busy="true">
                 <PostRowSkeleton rows={2} />
               </div>
             ) : null}
             {/* Reserve Join seat until ACL resolves — no post-appear shove. */}
-            {replyListRows.length === 0 &&
+            {sortedReplyRows.length === 0 &&
             !shareRow &&
             (joinControl || !viewerAccessResolved) ? (
               <div
@@ -1274,8 +1339,8 @@ export function LiveGuildPostPanel({
                 data-feed-window-spacer="top"
               />
             ) : null}
-            {replyListRows.length > 0 ? (
-              replyListRows.slice(replyWindowStart, replyWindowEnd)
+            {sortedReplyRows.length > 0 ? (
+              replyListRows
             ) : repliesResolved && emptyTailReady && !shareRow ? (
               <ThreadDiscoverPeek
                 author={author}
@@ -1308,7 +1373,7 @@ export function LiveGuildPostPanel({
           </div>
         </section>
       ) : null}
-      {joinControl && (replyListRows.length > 0 || shareRow) ? (
+      {joinControl && (sortedReplyRows.length > 0 || shareRow) ? (
         <div className="guild-thread-join-dock">{joinControl}</div>
       ) : null}
     </div>
