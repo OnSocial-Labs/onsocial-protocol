@@ -52,22 +52,6 @@ function parsedPad(value: string): number {
   return Number.isFinite(pad) ? pad : 0;
 }
 
-/** Avatar (stable seat); falls back to the post wrapper. */
-export function threadPinFace(post: HTMLElement): HTMLElement {
-  if (typeof post.querySelector !== 'function') return post;
-  const face =
-    post.querySelector('.post-card-avatar') ??
-    post.querySelector('.post-card-avatar-link');
-  if (
-    face &&
-    typeof face === 'object' &&
-    typeof (face as HTMLElement).getBoundingClientRect === 'function'
-  ) {
-    return face as HTMLElement;
-  }
-  return post;
-}
-
 /** Content origin at scroll 0 (chrome + page pad). */
 export function threadContentInset(
   scroller: HTMLElement,
@@ -96,32 +80,6 @@ export function threadContentInset(
   return parsedPad(getComputedStyle(scroller).paddingTop);
 }
 
-/** Card pad above the avatar — same token on every detail post. */
-function threadFacePad(post: HTMLElement, face: HTMLElement): number {
-  if (face === post) return 0;
-  if (
-    typeof face.closest !== 'function' ||
-    typeof getComputedStyle !== 'function'
-  ) {
-    return Math.max(
-      0,
-      face.getBoundingClientRect().top - post.getBoundingClientRect().top
-    );
-  }
-  const card = face.closest('.post-card');
-  if (
-    card &&
-    typeof card === 'object' &&
-    typeof getComputedStyle === 'function'
-  ) {
-    return parsedPad(getComputedStyle(card as HTMLElement).paddingTop);
-  }
-  return Math.max(
-    0,
-    face.getBoundingClientRect().top - post.getBoundingClientRect().top
-  );
-}
-
 /** Pin scroll + Lenis (stop → resize → immediate scrollTo → start). */
 export function pinThreadScroll(scroller: HTMLElement, top: number): void {
   scroller.scrollTop = top;
@@ -129,20 +87,20 @@ export function pinThreadScroll(scroller: HTMLElement, top: number): void {
   adoptAppLenisScroll(scroller);
 }
 
-/** How far the avatar sits below (positive) or above the shared face seat. */
+/**
+ * How far the focused post top sits below (positive) or above the under-header
+ * seat. Landmark is the post block — same optical top for root, reply, repost.
+ */
 export function openedPostPinDeficit(
   post: HTMLElement,
   scroller: HTMLElement
 ): number {
-  const face = threadPinFace(post);
   const goal =
-    scroller.getBoundingClientRect().top +
-    threadContentInset(scroller, post) +
-    threadFacePad(post, face);
-  return face.getBoundingClientRect().top - goal;
+    scroller.getBoundingClientRect().top + threadContentInset(scroller, post);
+  return post.getBoundingClientRect().top - goal;
 }
 
-/** Put the opened post's avatar on the shared under-header seat. */
+/** Put the opened post's top on the shared under-header seat. */
 export function scrollOpenedPostUnderHeader(post: HTMLElement): boolean {
   const scroller = threadScroller(post);
   if (!scroller) return false;
@@ -152,20 +110,19 @@ export function scrollOpenedPostUnderHeader(post: HTMLElement): boolean {
   return true;
 }
 
-/** Document Y of the avatar inside the thread scroller. */
+/** Document Y of the focused post top inside the thread scroller. */
 export function openedPostDocumentTop(
   post: HTMLElement,
   scroller: HTMLElement
 ): number {
-  const face = threadPinFace(post);
   return (
-    face.getBoundingClientRect().top -
+    post.getBoundingClientRect().top -
     scroller.getBoundingClientRect().top +
     scroller.scrollTop
   );
 }
 
-/** Keep avatar still when content above grows — delta scroll, not re-pin. */
+/** Keep the focused post still when content above grows — delta scroll, not re-pin. */
 export function compensateOpenedPostAboveShift(
   post: HTMLElement,
   scroller: HTMLElement,
