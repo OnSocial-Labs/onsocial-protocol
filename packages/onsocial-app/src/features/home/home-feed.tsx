@@ -149,6 +149,7 @@ import {
 } from '@/lib/home-feed-amplify-epoch';
 import {
   HOME_FEED_SSR_SESSION_KEY,
+  clampHomeFeedCursorAfterTrim,
   homeFeedSessionKey,
   homeFeedSessionProbeDelayMs,
   shouldKeepRestoredHomeFeed,
@@ -1401,6 +1402,24 @@ export function HomePagePanel({
   const trimFarBelowAfterJump = useCallback(() => {
     setPosts((current) => {
       const { posts: kept } = trimHomeFeedWorkingSetKeepingHead(current);
+      if (kept.length === current.length) return current;
+      const clamped = clampHomeFeedCursorAfterTrim({
+        posts: kept,
+        nextOffset: nextOffsetRef.current,
+        nextBeforeBlockHeight: nextBeforeBlockHeightRef.current,
+        nextBeforeHeat: nextBeforeHeatRef.current,
+        nextBeforeEventKey: nextBeforeEventKeyRef.current,
+        offsetShiftApplied: offsetShiftAppliedRef.current,
+      });
+      nextOffsetRef.current = clamped.nextOffset;
+      setNextOffset(clamped.nextOffset);
+      nextBeforeBlockHeightRef.current = clamped.nextBeforeBlockHeight;
+      setNextBeforeBlockHeight(clamped.nextBeforeBlockHeight);
+      nextBeforeHeatRef.current = clamped.nextBeforeHeat;
+      setNextBeforeHeat(clamped.nextBeforeHeat);
+      nextBeforeEventKeyRef.current = clamped.nextBeforeEventKey;
+      setNextBeforeEventKey(clamped.nextBeforeEventKey);
+      offsetShiftAppliedRef.current = clamped.offsetShiftApplied;
       return kept;
     });
   }, []);

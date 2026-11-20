@@ -286,37 +286,115 @@ function clearStorage(): void {
   }
 }
 
+export type HomeFeedPaginationCursor = {
+  nextOffset: number | undefined;
+  nextBeforeBlockHeight?: number;
+  nextBeforeHeat?: number;
+  nextBeforeEventKey?: string;
+  offsetShiftApplied: number;
+};
+
 /**
- * After a deep-scroll truncate, a stored `nextOffset` past the restored head
- * would skip the middle on load-more. Prefer a duplicate page (client
- * dedupes) over a gap. Do **not** clamp ordinary fill-walk cursors where
+ * After a deep-scroll truncate, a stored cursor past the restored head would
+ * skip the middle on load-more. Prefer a duplicate page (client dedupes) over
+ * a gap. Do **not** clamp ordinary fill-walk offset cursors where
  * `nextOffset > postCount` with a short list — that is valid pagination.
- * Resetting `offsetShiftApplied` when clamping avoids double-counting head
- * inserts that were baked into the old cursor.
+ * Keyset cursors always snap to the retained edge height when truncated.
  */
 export function clampHomeFeedSessionPagination(input: {
   postCount: number;
   nextOffset: number | undefined;
+  nextBeforeBlockHeight?: number;
+  nextBeforeHeat?: number;
+  nextBeforeEventKey?: string;
+  /** Oldest retained row — keyset edge after a head-keeping trim. */
+  edgeBlockHeight?: number;
   offsetShiftApplied: number;
   /** Live list was longer than `postCount` (write path). */
   truncated?: boolean;
-}): { nextOffset: number | undefined; offsetShiftApplied: number } {
-  if (input.nextOffset === undefined) {
-    return {
-      nextOffset: undefined,
-      offsetShiftApplied: input.offsetShiftApplied,
-    };
-  }
+}): HomeFeedPaginationCursor {
   const truncatedSnapshot =
     input.truncated === true ||
     input.postCount >= HOME_FEED_SESSION_PERSISTED_POSTS;
-  if (truncatedSnapshot && input.nextOffset > input.postCount) {
-    return { nextOffset: input.postCount, offsetShiftApplied: 0 };
+  const hadMore =
+    input.nextOffset !== undefined ||
+    input.nextBeforeBlockHeight !== undefined;
+
+  if (!hadMore) {
+    return {
+      nextOffset: undefined,
+      nextBeforeBlockHeight: undefined,
+      nextBeforeHeat: undefined,
+      nextBeforeEventKey: undefined,
+      offsetShiftApplied: input.offsetShiftApplied,
+    };
   }
+
+  let nextOffset = input.nextOffset;
+  let offsetShiftApplied = input.offsetShiftApplied;
+  let nextBeforeBlockHeight = input.nextBeforeBlockHeight;
+  let nextBeforeHeat = input.nextBeforeHeat;
+  let nextBeforeEventKey = input.nextBeforeEventKey;
+
+  // Offset: only clamp when the cursor points past the restored head.
+  if (
+    truncatedSnapshot &&
+    nextOffset !== undefined &&
+    nextOffset > input.postCount
+  ) {
+    nextOffset = input.postCount;
+    offsetShiftApplied = 0;
+  }
+
+  // Keyset: on an explicit trim/persist of a longer list, snap to the
+  // retained edge so load-more does not skip the dropped middle.
+  if (input.truncated === true && nextBeforeBlockHeight !== undefined) {
+    const edge =
+      typeof input.edgeBlockHeight === 'number' &&
+      Number.isFinite(input.edgeBlockHeight) &&
+      input.edgeBlockHeight > 0
+        ? input.edgeBlockHeight
+        : undefined;
+    nextBeforeBlockHeight = edge;
+    nextBeforeHeat = undefined;
+    nextBeforeEventKey = undefined;
+    if (nextOffset === undefined && edge !== undefined) {
+      nextOffset = input.postCount;
+    } else if (nextOffset !== undefined) {
+      nextOffset = Math.min(nextOffset, input.postCount);
+    }
+    offsetShiftApplied = 0;
+  }
+
   return {
-    nextOffset: input.nextOffset,
-    offsetShiftApplied: input.offsetShiftApplied,
+    nextOffset,
+    nextBeforeBlockHeight,
+    nextBeforeHeat,
+    nextBeforeEventKey,
+    offsetShiftApplied,
   };
+}
+
+/** Live jump/trim — same edge clamp as session persist. */
+export function clampHomeFeedCursorAfterTrim(input: {
+  posts: readonly PostRow[];
+  nextOffset: number | undefined;
+  nextBeforeBlockHeight?: number;
+  nextBeforeHeat?: number;
+  nextBeforeEventKey?: string;
+  offsetShiftApplied: number;
+}): HomeFeedPaginationCursor {
+  const edge = input.posts[input.posts.length - 1]?.blockHeight;
+  return clampHomeFeedSessionPagination({
+    postCount: input.posts.length,
+    nextOffset: input.nextOffset,
+    nextBeforeBlockHeight: input.nextBeforeBlockHeight,
+    nextBeforeHeat: input.nextBeforeHeat,
+    nextBeforeEventKey: input.nextBeforeEventKey,
+    edgeBlockHeight: typeof edge === 'number' ? edge : undefined,
+    offsetShiftApplied: input.offsetShiftApplied,
+    truncated: true,
+  });
 }
 
 export function clearHomeFeedSession(): void {
@@ -350,9 +428,14 @@ export function writeHomeFeedSession(input: {
   const sessionKey = input.sessionKey?.trim();
   if (!sessionKey || input.posts.length === 0) return;
   const posts = input.posts.slice(0, HOME_FEED_SESSION_PERSISTED_POSTS);
+  const edge = posts[posts.length - 1]?.blockHeight;
   const pagination = clampHomeFeedSessionPagination({
     postCount: posts.length,
     nextOffset: input.nextOffset,
+    nextBeforeBlockHeight: input.nextBeforeBlockHeight,
+    nextBeforeHeat: input.nextBeforeHeat,
+    nextBeforeEventKey: input.nextBeforeEventKey,
+    edgeBlockHeight: typeof edge === 'number' ? edge : undefined,
     offsetShiftApplied: input.offsetShiftApplied,
     truncated: input.posts.length > posts.length,
   });
@@ -361,9 +444,9 @@ export function writeHomeFeedSession(input: {
     sessionKey,
     posts,
     nextOffset: pagination.nextOffset,
-    nextBeforeBlockHeight: input.nextBeforeBlockHeight,
-    nextBeforeHeat: input.nextBeforeHeat,
-    nextBeforeEventKey: input.nextBeforeEventKey,
+    nextBeforeBlockHeight: pagination.nextBeforeBlockHeight,
+    nextBeforeHeat: pagination.nextBeforeHeat,
+    nextBeforeEventKey: pagination.nextBeforeEventKey,
     standingNetworkIds: input.standingNetworkIds
       ? [...input.standingNetworkIds]
       : null,
@@ -420,18 +503,29 @@ export function peekHomeFeedSession(
     return null;
   }
   if (snapshot.posts.length === 0) return null;
+  const edge = snapshot.posts[snapshot.posts.length - 1]?.blockHeight;
   const pagination = clampHomeFeedSessionPagination({
     postCount: snapshot.posts.length,
     nextOffset: snapshot.nextOffset,
+    nextBeforeBlockHeight: snapshot.nextBeforeBlockHeight,
+    nextBeforeHeat: snapshot.nextBeforeHeat,
+    nextBeforeEventKey: snapshot.nextBeforeEventKey,
+    edgeBlockHeight: typeof edge === 'number' ? edge : undefined,
     offsetShiftApplied: snapshot.offsetShiftApplied,
   });
   if (
     pagination.nextOffset !== snapshot.nextOffset ||
+    pagination.nextBeforeBlockHeight !== snapshot.nextBeforeBlockHeight ||
+    pagination.nextBeforeHeat !== snapshot.nextBeforeHeat ||
+    pagination.nextBeforeEventKey !== snapshot.nextBeforeEventKey ||
     pagination.offsetShiftApplied !== snapshot.offsetShiftApplied
   ) {
     snapshot = {
       ...snapshot,
       nextOffset: pagination.nextOffset,
+      nextBeforeBlockHeight: pagination.nextBeforeBlockHeight,
+      nextBeforeHeat: pagination.nextBeforeHeat,
+      nextBeforeEventKey: pagination.nextBeforeEventKey,
       offsetShiftApplied: pagination.offsetShiftApplied,
     };
   }
