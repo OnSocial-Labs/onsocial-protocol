@@ -774,7 +774,10 @@ export function LiveGuildPanel({
     const current = state.posts;
     if (current.length <= HOME_FEED_WORKING_SET_POSTS) return;
     const root = scrollRootRef.current;
-    if (!(root instanceof HTMLElement)) return;
+    // react-test-renderer has no HTMLElement global — skip trim there.
+    if (typeof HTMLElement === 'undefined' || !(root instanceof HTMLElement)) {
+      return;
+    }
     let trimmed;
     if (localPosts.length > 0) {
       const keepHead = trimHomeFeedWorkingSetKeepingHead(current);
@@ -813,7 +816,9 @@ export function LiveGuildPanel({
   ]);
   useEffect(() => {
     const node = scrollRootRef.current;
-    if (!(node instanceof HTMLElement)) return;
+    if (typeof HTMLElement === 'undefined' || !(node instanceof HTMLElement)) {
+      return;
+    }
     const onScroll = () => {
       if (memoryTrimTimerRef.current != null) {
         window.clearTimeout(memoryTrimTimerRef.current);
