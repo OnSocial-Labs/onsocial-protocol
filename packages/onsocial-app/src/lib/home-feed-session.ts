@@ -20,9 +20,9 @@ const HOME_FEED_SESSION_HINT_REFRESH_MS = 30_000;
 /** Bump when the snapshot shape changes — old copies are ignored. */
 const HOME_FEED_SESSION_STORAGE_VERSION = 1;
 /**
- * Session restore only — hard refresh paints this many posts. Live scroll
- * is capped separately (`HOME_FEED_WORKING_SET_POSTS`); DOM windowing owns
- * render cost.
+ * Session restore only — hard refresh paints this many posts. Live load-more
+ * keeps the full accumulated list (DOM windowing owns render). Jump-to-newest
+ * may trim the far-below tail to `HOME_FEED_WORKING_SET_POSTS`.
  */
 export const HOME_FEED_SESSION_PERSISTED_POSTS = 60;
 /** Same defensive cap as the window cache — heights are tiny but bounded. */
@@ -212,7 +212,18 @@ function writeStorage(next: HomeFeedSessionSnapshot): void {
   }
 }
 
-function quotedForPosts(
+function sameRecordKeys(
+  a: Record<string, unknown>,
+  b: Record<string, unknown>
+): boolean {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  return aKeys.every((key) => Object.prototype.hasOwnProperty.call(b, key));
+}
+
+/** Keep quote seeds for live posts (+ one quote hop). Shared with live feed. */
+export function quotedForPosts(
   posts: readonly PostRow[],
   quoted: FeedQuoteSeed
 ): FeedQuoteSeed {
@@ -221,7 +232,7 @@ function quotedForPosts(
     const path = post.refPath?.trim();
     if (path) keep.add(path);
   }
-  for (const path of keep) {
+  for (const path of [...keep]) {
     const next = quoted[path]?.refPath?.trim();
     if (next) keep.add(next);
   }
@@ -231,10 +242,13 @@ function quotedForPosts(
       out[path] = quoted[path] ?? null;
     }
   }
+  // Avoid churning React state when load-more did not orphan any keys.
+  if (sameRecordKeys(out, quoted)) return quoted;
   return out;
 }
 
-function recordForPosts<T>(
+/** Keep record entries keyed to live posts. Shared with live feed. */
+export function recordForPosts<T>(
   posts: readonly PostRow[],
   record: Record<string, T> | undefined,
   keyOf: (post: PostRow) => string
@@ -247,6 +261,7 @@ function recordForPosts<T>(
       out[key] = record[key] as T;
     }
   }
+  if (sameRecordKeys(out, record)) return record;
   return out;
 }
 

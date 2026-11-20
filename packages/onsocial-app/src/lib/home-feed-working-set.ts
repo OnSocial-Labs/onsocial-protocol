@@ -6,9 +6,9 @@ import { HOME_FEED_SESSION_PERSISTED_POSTS } from '@/lib/home-feed-session';
 import { postKey } from '@/lib/post-display';
 
 /**
- * Live scroll working set — ~two session restores / five pages. DOM windowing
- * already bounds render; this bounds React state + engagement maps. Prefer
- * dropping far-above (head) rows so load-more at the tail stays intact.
+ * Bound for an explicit jump-to-newest / refresh trim. Live load-more does
+ * **not** drop the head — that orphaned the prefix on scroll-up. DOM
+ * windowing already bounds render; side-paint maps project to live posts.
  */
 export const HOME_FEED_WORKING_SET_POSTS = Math.max(
   120,
@@ -17,11 +17,32 @@ export const HOME_FEED_WORKING_SET_POSTS = Math.max(
 
 export type TrimHomeFeedWorkingSetResult = {
   posts: PostRow[];
-  /** Head rows removed; 0 when under the cap. */
+  /** Rows removed; 0 when under the cap. */
   dropped: PostRow[];
 };
 
-/** Drop oldest-above head rows once the live list exceeds the working set. */
+/**
+ * Drop far-below (tail) rows once the list exceeds the working set.
+ * Used after the reader jumps to newest — the head they landed on stays.
+ */
+export function trimHomeFeedWorkingSetKeepingHead(
+  posts: readonly PostRow[],
+  max: number = HOME_FEED_WORKING_SET_POSTS
+): TrimHomeFeedWorkingSetResult {
+  if (max <= 0 || posts.length <= max) {
+    return { posts: posts as PostRow[], dropped: [] };
+  }
+  return {
+    posts: posts.slice(0, max) as PostRow[],
+    dropped: posts.slice(max) as PostRow[],
+  };
+}
+
+/**
+ * @deprecated Prefer {@link trimHomeFeedWorkingSetKeepingHead} for jump paths.
+ * Dropping the head on load-more breaks scroll-up order — do not call from
+ * append. Kept for height helpers / tests that still name the old shape.
+ */
 export function trimHomeFeedWorkingSet(
   posts: readonly PostRow[],
   max: number = HOME_FEED_WORKING_SET_POSTS
@@ -38,7 +59,7 @@ export function trimHomeFeedWorkingSet(
 
 /**
  * Spacer px for head rows about to leave the model — used to shift scroll so
- * the visible card stays put when the working set trims.
+ * the visible card stays put when a head trim runs (legacy / tests).
  */
 export function homeFeedDroppedHeightPx(
   dropped: readonly PostRow[],

@@ -217,14 +217,23 @@ export function useQuotedPosts(
     [posts, firstHop]
   );
   const secondHop = useResolvedGroupPosts(secondHopPaths);
+  // Only seed paths the live list needs (+ one quote hop). Copying the
+  // whole session seed re-rendered every card after a long scroll.
   const seeded = useMemo(() => {
     const out: Record<string, PostRow> = {};
     if (!seed) return out;
-    for (const [path, post] of Object.entries(seed)) {
-      if (post) out[path] = post;
+    for (const path of refPaths) {
+      if (!path) continue;
+      const seededPost: PostRow | null | undefined = seed[path];
+      if (seededPost) out[path] = seededPost;
+      const hop = seededPost?.refPath?.trim();
+      if (hop) {
+        const hopPost: PostRow | null | undefined = seed[hop];
+        if (hopPost) out[hop] = hopPost;
+      }
     }
     return out;
-  }, [seed]);
+  }, [seed, refPaths]);
   return useMemo(
     () => ({ ...seeded, ...secondHop, ...firstHop }),
     [firstHop, secondHop, seeded]

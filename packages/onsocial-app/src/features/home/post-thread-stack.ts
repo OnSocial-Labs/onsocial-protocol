@@ -107,14 +107,17 @@ export function replyOpenedOverMediaFace(input: {
 }
 
 /**
- * Opening over an open reader trail appends — every prior entry stays in the
- * stack, so its sheet stays mounted (parked) with scroll/sort/fold intact.
+ * Opening over an open reader trail parks the previous top only. Deeper
+ * sheets unmount — long reply chains used to keep every LivePersonalPostPanel
+ * mounted and made the next open sluggish.
  */
 export function appendTrailEntry<S extends unknown[], E>(
   stack: S,
   next: E
 ): (S[number] | E)[] {
-  return [...stack, next];
+  if (stack.length === 0) return [next];
+  const parent = stack[stack.length - 1] as S[number];
+  return [parent, next];
 }
 
 /**

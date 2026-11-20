@@ -59,19 +59,22 @@ function dropEntry(collectionId: string): DropStackEntry {
 }
 
 describe('thread trail stack', () => {
-  it('keeps every trail sheet mounted when a reply opens over the thread', () => {
+  it('parks only the previous top when a reply opens over the thread', () => {
     const root = postEntry('alice.testnet', '1');
     const reply = postEntry('bob.testnet', '9');
 
     const trail = appendTrailEntry([root], reply);
 
     expect(trail).toHaveLength(2);
-    // Stable identities — React keys keep both sheets mounted (parked).
+    // Stable identities — React keys keep the parked parent + new top.
     expect(trail[0]).toBe(root);
     expect(trail[1]).toBe(reply);
-    expect(
-      appendTrailEntry(trail, quotesEntry('alice.testnet', '1'))
-    ).toHaveLength(3);
+    const quotes = quotesEntry('alice.testnet', '1');
+    const deeper = appendTrailEntry(trail, quotes);
+    // Deeper sheets unmount — only the previous top stays parked.
+    expect(deeper).toHaveLength(2);
+    expect(deeper[0]).toBe(reply);
+    expect(deeper[1]).toBe(quotes);
   });
 
   it('lifts a reply opened from a media face above that face', () => {
