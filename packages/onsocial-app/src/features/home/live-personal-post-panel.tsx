@@ -379,10 +379,6 @@ export function LivePersonalPostPanel({
     const rootAuthorId = conversation.root?.accountId;
     return rootAuthorId ? new Set([rootAuthorId]) : undefined;
   }, [conversation.root?.accountId]);
-  const threadFocus = useThreadFocusReply(loadState === 'ready', replyFocusKey, {
-    resolveFocusRowKey: (postId) => resolveFocusRowKeyRef.current(postId),
-    revealRow: (key) => revealReplyRowRef.current(key),
-  });
   const quotes = useMemo(
     () => [
       ...withoutIndexedPosts(localQuotes, conversation.quotes),
@@ -478,7 +474,7 @@ export function LivePersonalPostPanel({
       Boolean(
         seeded?.engagement?.[rootEngagementKey] || engagement[rootEngagementKey]
       ));
-  useThreadLandAppear({
+  const { landSettled } = useThreadLandAppear({
     openedPostRef,
     postId: conversation.root?.postId,
     hasParent,
@@ -491,6 +487,15 @@ export function LivePersonalPostPanel({
     landSeat,
     onThreadPainted,
   });
+  // After under-header land — a concurrent scrollIntoView loses to the re-pin.
+  const threadFocus = useThreadFocusReply(
+    loadState === 'ready' && landSettled,
+    replyFocusKey,
+    {
+      resolveFocusRowKey: (postId) => resolveFocusRowKeyRef.current(postId),
+      revealRow: (key) => revealReplyRowRef.current(key),
+    }
+  );
   const permalinkReady = threadCoverReady({
     loadState,
     hasRoot: Boolean(conversation.root),

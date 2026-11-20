@@ -42,6 +42,17 @@ describe('post thread harden contracts', () => {
     expect(focus).not.toContain("behavior: 'smooth'");
   });
 
+  it('deep-link focus waits for under-header land to settle', () => {
+    for (const file of [
+      'live-personal-post-panel.tsx',
+      '../guilds/live-guild-post-panel.tsx',
+    ]) {
+      const source = readFileSync(join(here, file), 'utf8');
+      expect(source).toContain('landSettled');
+      expect(source).toContain('loadState === \'ready\' && landSettled');
+    }
+  });
+
   it('captures underlay scroll with Lenis-aware top', () => {
     const layer = readFileSync(join(here, 'post-thread-layer.tsx'), 'utf8');
     expect(layer).toContain('readAppScrollTop');

@@ -361,10 +361,6 @@ export function LiveGuildPostPanel({
   const resolveFocusRowKeyRef = useRef<(postId: string) => string | null>(
     () => null
   );
-  const threadFocus = useThreadFocusReply(loadState === 'ready', replyFocusKey, {
-    resolveFocusRowKey: (postId) => resolveFocusRowKeyRef.current(postId),
-    revealRow: (key) => revealReplyRowRef.current(key),
-  });
   // Quotes read newest-first — your fresh quote leads the list.
   const quotes = useMemo(
     () => [
@@ -462,7 +458,7 @@ export function LiveGuildPostPanel({
       Boolean(
         seededEngagement?.[rootEngagementKey] || engagement[rootEngagementKey]
       ));
-  useThreadLandAppear({
+  const { landSettled } = useThreadLandAppear({
     openedPostRef,
     postId: conversation.root?.postId,
     hasParent,
@@ -474,6 +470,15 @@ export function LiveGuildPostPanel({
     landSeat,
     onThreadPainted,
   });
+  // After under-header land — a concurrent scrollIntoView loses to the re-pin.
+  const threadFocus = useThreadFocusReply(
+    loadState === 'ready' && landSettled,
+    replyFocusKey,
+    {
+      resolveFocusRowKey: (postId) => resolveFocusRowKeyRef.current(postId),
+      revealRow: (key) => revealReplyRowRef.current(key),
+    }
+  );
   const permalinkReady = threadCoverReady({
     loadState,
     hasRoot: Boolean(conversation.root),
