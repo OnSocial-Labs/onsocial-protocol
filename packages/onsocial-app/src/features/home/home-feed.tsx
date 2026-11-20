@@ -150,6 +150,8 @@ import {
   shouldKeepRestoredHomeFeed,
   noteHomeFeedSessionScroll,
   peekHomeFeedSession,
+  quotedForPosts,
+  recordForPosts,
   writeHomeFeedSession,
 } from '@/lib/home-feed-session';
 import { scrollFeedToNewest } from '@/lib/feed-scroll-to-newest';
@@ -166,11 +168,8 @@ import {
   scrollLineOnLeave,
   scrollTopToPersist,
 } from '@/lib/list-scroll-restore';
-import { getAppLenis, shiftAppLenisScroll } from '@/lib/app-lenis-registry';
-import {
-  homeFeedDroppedHeightPx,
-  trimHomeFeedWorkingSet,
-} from '@/lib/home-feed-working-set';
+import { getAppLenis } from '@/lib/app-lenis-registry';
+import { trimHomeFeedWorkingSetKeepingHead } from '@/lib/home-feed-working-set';
 import { revokeDroppedOptimisticMedia } from '@/lib/post-media';
 import { filterHiddenAuthors } from '@/lib/viewer-mute-block-filter';
 import {
@@ -363,8 +362,6 @@ export function HomePagePanel({
   const appendInFlightRef = useRef(false);
   // State, not a ref: the windowed list pins this row's render for the pass
   // between the re-rank merge and the pre-paint anchor restore.
-  /** Head trim px to subtract from scroll so the visible row stays put. */
-  const pendingTrimScrollPxRef = useRef(0);
   const [reRankAnchor, setReRankAnchor] = useState<FeedScrollAnchor | null>(
     null
   );
@@ -511,14 +508,21 @@ export function HomePagePanel({
     restoreFeedAnchor(scrollRootRef.current, reRankAnchor);
   }, [posts, reRankAnchor]);
 
-  // Working-set head trim removed far-above rows — shift scroll by that
-  // height so the card on screen does not jump.
-  useLayoutEffect(() => {
-    const delta = pendingTrimScrollPxRef.current;
-    if (delta <= 0) return;
-    pendingTrimScrollPxRef.current = 0;
-    const root = scrollRootRef.current;
-    if (root) shiftAppLenisScroll(root, -delta);
+  // Drop quote/poll/dao/engagement keys for rows no longer in the model
+  // (refresh replace, jump-to-newest tail trim). Load-more only adds keys.
+  useEffect(() => {
+    setQuotedSeed((current) => quotedForPosts(posts, current));
+    setPollSeed((current) => recordForPosts(posts, current, postKey) ?? {});
+    setDaoSeed(
+      (current) =>
+        recordForPosts(posts, current, (post) =>
+          post.accountId.trim().toLowerCase()
+        ) ?? {}
+    );
+    setEngagementSeed((current) => {
+      if (!current) return current;
+      return recordForPosts(posts, current, postKey) ?? {};
+    });
   }, [posts]);
 
   useEffect(() => {
@@ -1120,19 +1124,14 @@ export function HomePagePanel({
           setReRankAnchor(captureVisibleFeedAnchor(scrollRootRef.current));
         }
         const appended = result.page.items;
+        // Keep the full accumulated list — head trim on append orphans the
+        // prefix and makes scroll-up look reordered. DOM windowing bounds
+        // render; side maps project to live posts above.
         setPosts((current) => {
           const merged = mergeFeedPosts(current, appended);
-          const ordered =
-            focus != null && sort === 'hot' ? sortPostsByHot(merged) : merged;
-          const { posts: kept, dropped } = trimHomeFeedWorkingSet(ordered);
-          if (dropped.length > 0) {
-            pendingTrimScrollPxRef.current = homeFeedDroppedHeightPx(
-              dropped,
-              feedWindowCacheRef.current,
-              quotedSeedRef.current
-            );
-          }
-          return kept;
+          return focus != null && sort === 'hot'
+            ? sortPostsByHot(merged)
+            : merged;
         });
         setNextOffset(result.page.nextOffset);
         nextOffsetRef.current = result.page.nextOffset;
@@ -1287,19 +1286,32 @@ export function HomePagePanel({
     setReloadNonce((value) => value + 1);
   }, []);
 
+  const trimFarBelowAfterJump = useCallback(() => {
+    setPosts((current) => {
+      const { posts: kept } = trimHomeFeedWorkingSetKeepingHead(current);
+      return kept;
+    });
+  }, []);
+
   const applyNewPosts = useCallback(() => {
     clearUnseenPosts();
     clearHotUpdated();
     scrollFeedToNewest(scrollRootRef.current);
+    // Reload replaces the list; trim far-below first so the underlay sheds
+    // weight before the soft refresh paints.
+    trimFarBelowAfterJump();
     setReloadNonce((value) => value + 1);
-  }, [clearHotUpdated, clearUnseenPosts]);
+  }, [clearHotUpdated, clearUnseenPosts, trimFarBelowAfterJump]);
 
   const jumpToHotUpdated = useCallback(() => {
     // Keep the chip mounted through the ease — unmounting first flickers.
     scrollFeedToNewest(scrollRootRef.current, {
-      onComplete: clearHotUpdated,
+      onComplete: () => {
+        trimFarBelowAfterJump();
+        clearHotUpdated();
+      },
     });
-  }, [clearHotUpdated]);
+  }, [clearHotUpdated, trimFarBelowAfterJump]);
 
   const probeNewPosts = useCallback(async () => {
     const focus = parseHomeFeedFocus({
@@ -1450,7 +1462,11 @@ export function HomePagePanel({
       });
       // One new card at the head — not raw rows (reply + parent is still 1).
       if (grown > 0) growFeedWindow(1);
-      scrollFeedToNewest(scrollRootRef.current);
+      // A covered sheet owns the gesture — do not ease the parked underlay
+      // through every virtual band (that is what made long sessions sluggish).
+      const root = scrollRootRef.current;
+      if (root?.closest('[data-feed-session="covered"]')) return;
+      scrollFeedToNewest(root);
     },
     [clearUnseenPosts, growFeedWindow]
   );

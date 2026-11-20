@@ -30,4 +30,15 @@ describe('home feed loading contract', () => {
     expect(source).not.toContain('loadIdRef.current !== loadId');
     expect(source).not.toContain('loadIdRef.current === loadId');
   });
+
+  it('does not head-trim on load-more; projects seeds; skips covered underlay scroll', () => {
+    const source = readFileSync(join(homeSrc, 'home-feed.tsx'), 'utf8');
+
+    // Append keeps the accumulated list — head trim orphaned scroll-up order.
+    expect(source).not.toContain('trimHomeFeedWorkingSet(');
+    expect(source).toContain('trimHomeFeedWorkingSetKeepingHead');
+    expect(source).toContain('quotedForPosts');
+    expect(source).toContain('recordForPosts');
+    expect(source).toContain("[data-feed-session=\"covered\"]");
+  });
 });

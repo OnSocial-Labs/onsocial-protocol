@@ -16,9 +16,12 @@ import {
   shouldKeepRestoredHomeFeed,
   noteHomeFeedSessionScroll,
   peekHomeFeedSession,
+  quotedForPosts,
   readHomeFeedSession,
+  recordForPosts,
   writeHomeFeedSession,
 } from './home-feed-session';
+import { postKey } from './post-display';
 
 function row(accountId: string, postId: string): PostRow {
   return {
@@ -33,6 +36,30 @@ function row(accountId: string, postId: string): PostRow {
 
 afterEach(() => {
   clearHomeFeedSession();
+});
+
+describe('quotedForPosts / recordForPosts', () => {
+  it('drops orphan keys and returns the same object when nothing changed', () => {
+    const live = [
+      { ...row('a.near', '1'), refPath: 'a.near/post/1' },
+      { ...row('b.near', '2'), refPath: 'b.near/post/2' },
+    ] as PostRow[];
+    const quoted = {
+      'a.near/post/1': row('orig.near', '9'),
+      'orphan.near/post/3': row('orphan.near', '3'),
+    };
+    const projected = quotedForPosts(live, quoted);
+    expect(Object.keys(projected)).toEqual(['a.near/post/1']);
+    expect(quotedForPosts(live, projected)).toBe(projected);
+
+    const tallies = {
+      [postKey(live[0]!)]: { counts: [1], total: 1, viewerOptionIndex: null },
+      'gone.near:9': { counts: [0], total: 0, viewerOptionIndex: null },
+    };
+    const nextTallies = recordForPosts(live, tallies, postKey)!;
+    expect(Object.keys(nextTallies)).toEqual([postKey(live[0]!)]);
+    expect(recordForPosts(live, nextTallies, postKey)).toBe(nextTallies);
+  });
 });
 
 describe('homeFeedSessionKey', () => {

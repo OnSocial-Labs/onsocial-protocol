@@ -1395,6 +1395,7 @@ function PostCardImpl({
           href={openHref}
           className="post-card-hit"
           scroll={false}
+          prefetch={false}
           onClick={(event) => interceptOpenHref(event, openHref)}
           onNavigate={(event) => interceptOpenNavigate(event, openHref)}
           aria-label="Open post"

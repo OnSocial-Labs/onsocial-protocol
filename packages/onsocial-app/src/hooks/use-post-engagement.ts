@@ -745,6 +745,9 @@ export function usePostEngagement(
   const confirmReply = useCallback((post: PostRow) => {
     const key = postKey(post);
     setEngagement((current) => {
+      // Feed + each open sheet subscribe — skip maps that never loaded this
+      // parent so a reply does not copy a large unrelated engagement object.
+      if (!Object.prototype.hasOwnProperty.call(current, key)) return current;
       const previous = current[key] ?? EMPTY_POST_ENGAGEMENT;
       return {
         ...current,
