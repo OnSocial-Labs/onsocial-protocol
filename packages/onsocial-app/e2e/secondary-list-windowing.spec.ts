@@ -149,14 +149,15 @@ const repostRow = (index: number) => ({
 
 /**
  * The quotes screen SSR-misses on testnet and hydrates from these stubs.
- * Quotes page by offset (12/page → three load-more clicks); reposters
- * arrive in one page under the 50-row limit.
+ * Quotes/reposters page by keyset (`beforeBlockHeight` /
+ * `beforeBlockTimestamp`) — same contract as production load-more.
  */
-async function stubQuotesPage(
-  page: Page
-): Promise<{ quoteOffsets: number[]; reposterOffsets: number[] }> {
-  const quoteOffsets: number[] = [];
-  const reposterOffsets: number[] = [];
+async function stubQuotesPage(page: Page): Promise<{
+  quoteBefores: Array<number | null>;
+  reposterBefores: Array<number | null>;
+}> {
+  const quoteBefores: Array<number | null> = [];
+  const reposterBefores: Array<number | null> = [];
   const quotes = Array.from({ length: QUOTE_COUNT }, (_, index) =>
     quoteRow(index)
   );
@@ -166,7 +167,11 @@ async function stubQuotesPage(
   await page.route('**/api/onapi/graph/query', async (route) => {
     const payload = JSON.parse(route.request().postData() ?? '{}') as {
       query?: string;
-      variables?: { offset?: number };
+      variables?: {
+        offset?: number;
+        beforeBlockHeight?: number;
+        beforeBlockTimestamp?: number;
+      };
     };
     const query = String(payload.query);
     const json = (data: unknown) =>
@@ -176,17 +181,27 @@ async function stubQuotesPage(
         body: JSON.stringify({ data }),
       });
     if (query.includes('QuotesByPath')) {
-      const offset = Number(payload.variables?.offset ?? 0);
-      quoteOffsets.push(offset);
+      const before = payload.variables?.beforeBlockHeight;
+      quoteBefores.push(before ?? null);
+      const start =
+        before == null
+          ? 0
+          : quotes.findIndex((row) => row.blockHeight < before);
+      const from = start < 0 ? quotes.length : start;
       return json({
-        quotes: quotes.slice(offset, offset + POST_QUOTES_PAGE_SIZE),
+        quotes: quotes.slice(from, from + POST_QUOTES_PAGE_SIZE),
       });
     }
     if (query.includes('RepostersByPath')) {
-      const offset = Number(payload.variables?.offset ?? 0);
-      reposterOffsets.push(offset);
+      const before = payload.variables?.beforeBlockTimestamp;
+      reposterBefores.push(before ?? null);
+      const start =
+        before == null
+          ? 0
+          : reposts.findIndex((row) => row.blockTimestamp < before);
+      const from = start < 0 ? reposts.length : start;
       return json({
-        reposts: reposts.slice(offset, offset + POST_REPOSTERS_PAGE_SIZE),
+        reposts: reposts.slice(from, from + POST_REPOSTERS_PAGE_SIZE),
       });
     }
     if (query.includes('postsCurrent')) {
@@ -209,7 +224,7 @@ async function stubQuotesPage(
     }
     return route.continue();
   });
-  return { quoteOffsets, reposterOffsets };
+  return { quoteBefores, reposterBefores };
 }
 
 /**
@@ -370,7 +385,7 @@ test.describe('secondary list windowing', () => {
 
   test('post quotes panel windows quotes and reposters', async ({ page }) => {
     test.setTimeout(120_000);
-    const { quoteOffsets, reposterOffsets } = await stubQuotesPage(page);
+    const { quoteBefores, reposterBefores } = await stubQuotesPage(page);
     await gotoApp(page, '/@alice.testnet/posts/root-post/quotes');
     await dismissNextDevOverlay(page);
 
@@ -387,20 +402,22 @@ test.describe('secondary list windowing', () => {
       timeout: 30_000,
     });
     // First page (12) renders fully; the sentinel pages in the rest as the
-    // scroller reaches the end.
+    // scroller reaches the end. Last keyset page starts after index 35.
     await expect(quoteRows).toHaveCount(POST_QUOTES_PAGE_SIZE);
-    const lastQuoteOffset =
-      Math.floor((QUOTE_COUNT - 1) / POST_QUOTES_PAGE_SIZE) *
-      POST_QUOTES_PAGE_SIZE;
+    const lastQuoteBefore =
+      1_000_000 -
+      (Math.floor((QUOTE_COUNT - 1) / POST_QUOTES_PAGE_SIZE) *
+        POST_QUOTES_PAGE_SIZE -
+        1);
     for (
       let attempt = 0;
-      attempt < 10 && !quoteOffsets.includes(lastQuoteOffset);
+      attempt < 10 && !quoteBefores.includes(lastQuoteBefore);
       attempt += 1
     ) {
       await scrollScrollerTo(quotesScroller, 'bottom');
       await page.waitForTimeout(500);
     }
-    expect(quoteOffsets).toContain(lastQuoteOffset);
+    expect(quoteBefores).toContain(lastQuoteBefore);
     // All 44 rows in — the sentinel unmounts when hasMore flips false.
     await expect(
       quotesScroller.locator('.post-quotes-load-sentinel')
@@ -419,7 +436,7 @@ test.describe('secondary list windowing', () => {
       quotesHost.locator('[data-feed-window-spacer="top"]')
     ).toHaveCount(1);
 
-    // Reposters arrive in a 50-row page; one sentinel page crosses the overscan.
+    // Reposters: first 50, then keyset load-more for the rest.
     await page.getByRole('tab', { name: /Reposts/ }).click();
     const repostersScroller = page.locator(
       '#post-quotes-page-reposts .post-quotes-page-scroll'
@@ -432,15 +449,17 @@ test.describe('secondary list windowing', () => {
       );
 
     await expect(reposterWrapper(1)).toBeVisible({ timeout: 15_000 });
+    const firstReposterLoadMoreBefore =
+      1_700_000_000_000 - (POST_REPOSTERS_PAGE_SIZE - 1) * 1_000;
     for (
       let attempt = 0;
-      attempt < 8 && !reposterOffsets.includes(POST_REPOSTERS_PAGE_SIZE);
+      attempt < 8 && !reposterBefores.includes(firstReposterLoadMoreBefore);
       attempt += 1
     ) {
       await scrollScrollerTo(repostersScroller, 'bottom');
       await page.waitForTimeout(500);
     }
-    expect(reposterOffsets).toContain(POST_REPOSTERS_PAGE_SIZE);
+    expect(reposterBefores).toContain(firstReposterLoadMoreBefore);
     await expect(
       repostersScroller.locator('.post-quotes-load-sentinel')
     ).toHaveCount(0);
