@@ -7,14 +7,14 @@ implementation together.
 
 ## State contract
 
-| State | Required presentation |
-|---|---|
-| Cold, no painted data | Structural skeleton |
-| Refreshing painted data | Keep rows and show refresh state |
-| Loading more | Append skeleton rows |
-| Empty | In-flow state card |
-| Error with painted rows | Fixed overlay / whisper |
-| Error without painted rows | In-flow error state |
+| State                      | Required presentation                                              |
+| -------------------------- | ------------------------------------------------------------------ |
+| Cold, no painted data      | Structural skeleton                                                |
+| Refreshing painted data    | Keep rows and show refresh state                                   |
+| Loading more               | Footer `PulsingDots` / `OsLoadMore` (never mid-list skeleton rows) |
+| Empty                      | In-flow state card                                                 |
+| Error with painted rows    | Fixed overlay / whisper                                            |
+| Error without painted rows | In-flow error state                                                |
 
 Skeletons should share the final page shell and row geometry. Do not add
 placeholder `min-height` to intermittent chrome; use a skeleton only when it
@@ -24,7 +24,7 @@ represents real cold-load content.
 
 1. Update the real layout.
 2. Update the cold skeleton and route `loading.tsx`, if present.
-3. Preserve painted rows during refresh and append skeleton rows for pagination.
+3. Preserve painted rows during refresh and use footer `PulsingDots` / `OsLoadMore` for pagination (never mid-list skeleton rows).
 4. Update the matrix row and implementation references.
 5. Add or update the contract test.
 6. Add delayed-data Playwright coverage for cold, refresh, append, empty, and
