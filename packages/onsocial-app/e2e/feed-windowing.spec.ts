@@ -142,6 +142,23 @@ test.describe('feed list windowing', () => {
       page.locator(`.home-feed-block[data-feed-key="${headKey}"]`)
     ).toHaveCount(0);
 
+    // Deep scroll stays bounded — memory/DOM contract for long feeds.
+    const deepMounted = await renderedBlockCount(page);
+    expect(deepMounted).toBeLessThan(48);
+    expect(deepMounted).toBeGreaterThan(0);
+
+    // Mid-list scrollTop must not jump while the window holds spacers.
+    const midTop = await page.locator('.os-app-screen-body').evaluate((node) => {
+      const mid = Math.round(node.scrollHeight * 0.45);
+      node.scrollTop = mid;
+      return node.scrollTop;
+    });
+    await page.waitForTimeout(120);
+    const midAfter = await page
+      .locator('.os-app-screen-body')
+      .evaluate((node) => node.scrollTop);
+    expect(Math.abs(midAfter - midTop)).toBeLessThanOrEqual(2);
+
     // Scroll back up — the head row rematerializes with its content.
     await scrollFeedTo(page, 'top');
     const headBlock = page.locator(

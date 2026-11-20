@@ -232,32 +232,12 @@ export function PostQuotesPanel({
   }, [root, quotes, reposters]);
   const postAuthorProfiles = usePostAuthorProfiles(profileIds);
 
-  const engagementPosts = useMemo(
-    () => [...(root ? [root] : []), ...quotes],
-    [root, quotes]
-  );
   /** Quotes of this post cite the root — seed the shared resolve map. */
   const quotedPosts = useMemo(() => {
     if (!root) return {};
     return { [contentPathFor(root)]: root };
   }, [root]);
   const hrefForPost = (target: PostRow) => postThreadPath(target);
-  const {
-    engagement,
-    toggleReaction,
-    toggleSave,
-    isReactionPending,
-    isSavePending,
-  } = usePostEngagement(engagementPosts, {
-    initial: initial?.engagement ?? null,
-    onError: (message) => setTxResult({ type: 'error', msg: message }),
-  });
-  const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(
-    engagementPosts,
-    {
-      onError: (message) => setTxResult({ type: 'error', msg: message }),
-    }
-  );
 
   const loadMore = useCallback(
     (tab: QuotesTab) => {
@@ -358,13 +338,6 @@ export function PostQuotesPanel({
     ? postThreadPath(root)
     : postThreadPath({ accountId: author, postId });
 
-  // Indexer totals for tab counts — loaded arrays are page-limited.
-  const rootEngagement = root ? engagement[postKey(root)] : undefined;
-  const quoteTotal = Math.max(rootEngagement?.quoteCount ?? 0, quotes.length);
-  const repostTotal = Math.max(
-    rootEngagement?.repostCount ?? 0,
-    reposters.length
-  );
   const trackHost = usePostQuotesTrackHost();
   const pagerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -398,6 +371,35 @@ export function PostQuotesPanel({
     anchorQuery: SECONDARY_ANCHOR_QUERY,
     estimate: 76,
   });
+  // Engagement / poll for the mounted quote band (+1 row pad) plus root.
+  const engagementPosts = useMemo(() => {
+    const from = Math.max(0, quotesWindow.start - 1);
+    const to = Math.min(quotes.length, quotesWindow.end + 1);
+    return [...(root ? [root] : []), ...quotes.slice(from, to)];
+  }, [root, quotes, quotesWindow.start, quotesWindow.end]);
+  const {
+    engagement,
+    toggleReaction,
+    toggleSave,
+    isReactionPending,
+    isSavePending,
+  } = usePostEngagement(engagementPosts, {
+    initial: initial?.engagement ?? null,
+    onError: (message) => setTxResult({ type: 'error', msg: message }),
+  });
+  const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(
+    engagementPosts,
+    {
+      onError: (message) => setTxResult({ type: 'error', msg: message }),
+    }
+  );
+  // Indexer totals for tab counts — loaded arrays are page-limited.
+  const rootEngagement = root ? engagement[postKey(root)] : undefined;
+  const quoteTotal = Math.max(rootEngagement?.quoteCount ?? 0, quotes.length);
+  const repostTotal = Math.max(
+    rootEngagement?.repostCount ?? 0,
+    reposters.length
+  );
 
   const placeThumb = useCallback(() => {
     const pager = pagerRef.current;

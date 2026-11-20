@@ -2,6 +2,11 @@ import type { PostScarceEmbed } from '@onsocial/sdk';
 
 type Listener = () => void;
 
+/** SSR seeds for painted scarce CTAs — capped so deep scroll cannot grow forever. */
+export const SCARCE_EMBED_SEED_CACHE_LIMIT = 200;
+/** Optimistic overrides are rarer; keep a smaller LRU. */
+export const SCARCE_EMBED_OVERRIDE_CACHE_LIMIT = 64;
+
 const overrides = new Map<string, PostScarceEmbed>();
 /** SSR / page-level activeListings seed — first paint before per-card IO. */
 const ssrSeeds = new Map<string, PostScarceEmbed>();
@@ -9,6 +14,43 @@ const listeners = new Set<Listener>();
 
 function emit() {
   for (const listener of listeners) listener();
+}
+
+function setLruMapEntry<T>(
+  map: Map<string, T>,
+  key: string,
+  value: T,
+  limit: number
+): void {
+  map.delete(key);
+  map.set(key, value);
+  while (map.size > limit) {
+    const oldest = map.keys().next().value;
+    if (oldest == null) break;
+    map.delete(oldest);
+  }
+}
+
+function touchLruMapEntry<T>(map: Map<string, T>, key: string): T | undefined {
+  if (!map.has(key)) return undefined;
+  const value = map.get(key) as T;
+  map.delete(key);
+  map.set(key, value);
+  return value;
+}
+
+/** Test hook — drop seed + override maps between specs. */
+export function clearScarceEmbedLedger(): void {
+  overrides.clear();
+  ssrSeeds.clear();
+}
+
+export function scarceEmbedSeedCacheSize(): number {
+  return ssrSeeds.size;
+}
+
+export function scarceEmbedOverrideCacheSize(): number {
+  return overrides.size;
 }
 
 export function postScarceKey(accountId: string, postId: string): string {
@@ -45,19 +87,22 @@ export function seedScarceEmbedsFromSsr(
     if (!key || !embed) continue;
     if (overrides.has(key)) continue;
     const previous = ssrSeeds.get(key);
-    if (previous && scarceSeedPaintEqual(previous, embed)) continue;
-    ssrSeeds.set(key, embed);
+    if (previous && scarceSeedPaintEqual(previous, embed)) {
+      touchLruMapEntry(ssrSeeds, key);
+      continue;
+    }
+    setLruMapEntry(ssrSeeds, key, embed, SCARCE_EMBED_SEED_CACHE_LIMIT);
     changed = true;
   }
   if (changed && options?.notify) emit();
 }
 
 export function getScarceEmbedSeed(key: string): PostScarceEmbed | null {
-  return ssrSeeds.get(key) ?? null;
+  return touchLruMapEntry(ssrSeeds, key) ?? null;
 }
 
 export function getScarceEmbedOverride(key: string): PostScarceEmbed | null {
-  return overrides.get(key) ?? null;
+  return touchLruMapEntry(overrides, key) ?? null;
 }
 
 /** Feed ledger → sheet/session seed so CTA chrome does not remount empty. */
@@ -66,7 +111,7 @@ export function scarceEmbedsForOpenRoot(input: {
   postId: string;
 }): Record<string, PostScarceEmbed> {
   const key = postScarceKey(input.accountId, input.postId);
-  const embed = overrides.get(key) ?? ssrSeeds.get(key);
+  const embed = getScarceEmbedOverride(key) ?? getScarceEmbedSeed(key);
   return embed ? { [key]: embed } : {};
 }
 
@@ -74,7 +119,7 @@ export function setScarceEmbedOverride(
   key: string,
   embed: PostScarceEmbed
 ): void {
-  overrides.set(key, embed);
+  setLruMapEntry(overrides, key, embed, SCARCE_EMBED_OVERRIDE_CACHE_LIMIT);
   emit();
 }
 

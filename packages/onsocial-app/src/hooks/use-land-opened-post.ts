@@ -14,6 +14,13 @@ import {
   scrollOpenedPostUnderHeader,
 } from '@/lib/thread-open';
 
+/**
+ * After the first land, ancestor hops + quote/media soft-fill still grow
+ * above the opened post. Keep correcting for this window so reply threads
+ * do not settle “one seat lower” than roots.
+ */
+export const THREAD_LAND_SEAT_GUARD_MS = [48, 160, 360, 720, 1200] as const;
+
 function landSpacer(scroller: HTMLElement): HTMLElement | null {
   return scroller.querySelector('[data-thread-land-spacer]');
 }
@@ -66,33 +73,91 @@ function alignOpenedPost(node: HTMLElement, scroller: HTMLElement): void {
   }
 }
 
-/** Absorb ancestor soft-fill via scroll delta (incl. while parked). */
+/**
+ * Absorb ancestor soft-fill / extra hops above the opened post.
+ * ResizeObserver alone misses some inserts; MutationObserver + a short
+ * timed guard re-seat when the chain grows after the first land.
+ */
 function holdAgainstAboveResize(
   node: HTMLElement,
   scroller: HTMLElement
 ): () => void {
   let released = false;
   let prevTop = openedPostDocumentTop(node, scroller);
-  const ro = new ResizeObserver(() => {
+  let raf = 0;
+  const timers: number[] = [];
+
+  const correct = () => {
     if (released) return;
     prevTop = compensateOpenedPostAboveShift(node, scroller, prevTop);
-  });
+    // Delta can lag a multi-card hop; hard re-seat if still off the line.
+    if (Math.abs(openedPostPinDeficit(node, scroller)) > 1) {
+      alignOpenedPost(node, scroller);
+      prevTop = openedPostDocumentTop(node, scroller);
+    }
+  };
+
+  const schedule = () => {
+    if (released || raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      observeAbove();
+      correct();
+    });
+  };
+
+  const ro = new ResizeObserver(schedule);
+  const moAbove = new MutationObserver(schedule);
+  const moParent = new MutationObserver(schedule);
+
+  const observeAbove = () => {
+    ro.disconnect();
+    moAbove.disconnect();
+    const parent = node.parentElement;
+    if (!parent) return;
+    for (const child of parent.children) {
+      if (child === node) break;
+      if (child instanceof Element) {
+        ro.observe(child);
+        // childList only — attribute churn on media soft-fill is too hot and
+        // ResizeObserver already covers size changes.
+        moAbove.observe(child, { childList: true, subtree: true });
+      }
+    }
+  };
+
+  const parent = node.parentElement;
+  if (parent) {
+    moParent.observe(parent, { childList: true });
+  }
+  observeAbove();
 
   const release = () => {
     if (released) return;
     released = true;
     scroller.removeEventListener('wheel', release);
     scroller.removeEventListener('touchmove', release);
+    if (raf) cancelAnimationFrame(raf);
+    for (const id of timers) window.clearTimeout(id);
+    moAbove.disconnect();
+    moParent.disconnect();
     ro.disconnect();
   };
 
-  const parent = node.parentElement;
-  if (parent) {
-    for (const child of parent.children) {
-      if (child === node) break;
-      if (child instanceof Element) ro.observe(child);
-    }
+  for (const ms of THREAD_LAND_SEAT_GUARD_MS) {
+    timers.push(
+      window.setTimeout(() => {
+        if (released) return;
+        observeAbove();
+        correct();
+      }, ms)
+    );
   }
+  // Drop observers after the last guard beat — do not leave MutationObservers
+  // on parked trail sheets until the user scrolls.
+  const lastGuard =
+    THREAD_LAND_SEAT_GUARD_MS[THREAD_LAND_SEAT_GUARD_MS.length - 1] ?? 1200;
+  timers.push(window.setTimeout(release, lastGuard + 32));
 
   scroller.addEventListener('wheel', release, { passive: true });
   scroller.addEventListener('touchmove', release, { passive: true });
@@ -128,6 +193,13 @@ function useLandOpenedPost(
     );
     scrollerRef.current = null;
   }, [openedPostRef, postId]);
+
+  // Parked trail sheets must not keep land observers — release immediately.
+  useLayoutEffect(() => {
+    if (!parked) return;
+    releaseHoldRef.current?.();
+    releaseHoldRef.current = null;
+  }, [parked]);
 
   useLayoutEffect(() => {
     if (!postId || !armed || parked) return;
@@ -170,6 +242,8 @@ function useLandOpenedPost(
     return () => {
       cancelled = true;
       cancelAnimationFrame(raf);
+      releaseHoldRef.current?.();
+      releaseHoldRef.current = null;
     };
   }, [armed, openedPostRef, parked, pinKey, postId]);
 
@@ -186,7 +260,8 @@ function useLandOpenedPost(
  * Same seat for roots and replies on the Post page / trail.
  * `landSeat: false` for media-band / hug embeds (no under-header pin).
  * The pin runs on its own. It does not hold the cover.
- * `tailReady` is an optional extra hold. The reply page does not use it.
+ * `tailReady` holds paint until the first reply page is ready so OP + directs
+ * land in one frame (rail never joins after appear).
  */
 export function useThreadLandAppear({
   openedPostRef,
@@ -207,7 +282,7 @@ export function useThreadLandAppear({
   ancestorsReady?: boolean;
   loadReady: boolean;
   hasRoot: boolean;
-  /** Optional extra hold before `onThreadPainted`. Replies do not use this. */
+  /** First reply page ready — pair with `threadCoverReady`. */
   tailReady?: boolean;
   pinKey?: string;
   parked?: boolean;

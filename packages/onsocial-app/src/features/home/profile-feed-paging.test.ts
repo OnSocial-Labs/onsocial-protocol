@@ -28,4 +28,12 @@ describe('profile feed section paging', () => {
       /if \(sectionPagingRef\.current\) return;/
     );
   });
+
+  it('pages text sections with keyset when the edge is known', () => {
+    const source = readFileSync(join(homeSrc, 'profile-feed-client.tsx'), 'utf8');
+    expect(source).toContain('beforeBlockHeight');
+    expect(source).toContain('nextBeforeBlockHeight');
+    expect(source).toContain('planHomeFeedMemoryTrim');
+    expect(source).toContain('feedPageHasMore');
+  });
 });

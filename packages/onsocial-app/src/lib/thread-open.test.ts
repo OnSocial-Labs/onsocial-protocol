@@ -9,12 +9,19 @@ import {
 } from './thread-open';
 
 describe('threadCoverReady', () => {
-  it('opens the cover for a seeded root before replies resolve', () => {
+  it('holds the cover until the first reply page resolves with the root', () => {
     expect(
       threadCoverReady({
         loadState: 'ready',
         hasRoot: true,
         repliesResolved: false,
+      })
+    ).toBe(false);
+    expect(
+      threadCoverReady({
+        loadState: 'ready',
+        hasRoot: true,
+        repliesResolved: true,
       })
     ).toBe(true);
   });

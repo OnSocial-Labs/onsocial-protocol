@@ -104,6 +104,23 @@ export const SECONDARY_ANCHOR_QUERY: FeedAnchorQuery = {
   rowSelectorForKey: (key) => `[data-secondary-key="${CSS.escape(key)}"]`,
 };
 
+/**
+ * True when a list mutation can move painted rows under the viewport and
+ * must capture/restore a scroll anchor in the same turn as `setPosts`.
+ */
+export function feedListMutationNeedsScrollAnchor(input: {
+  removedKeys?: readonly string[];
+  updatedKeys?: readonly string[];
+  reordered?: boolean;
+  droppedHead?: boolean;
+}): boolean {
+  if (input.reordered) return true;
+  if (input.droppedHead) return true;
+  if (input.removedKeys != null && input.removedKeys.length > 0) return true;
+  if (input.updatedKeys != null && input.updatedKeys.length > 0) return true;
+  return false;
+}
+
 /** First row whose bottom edge is still inside the scroll root. */
 export function captureVisibleFeedAnchor(
   root: HTMLElement | null,

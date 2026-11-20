@@ -96,6 +96,24 @@ describe('homeFeedSessionKey', () => {
 });
 
 describe('home feed session snapshot', () => {
+  it('round-trips scroll anchor key with the snapshot', () => {
+    const posts = [row('a.near', '1'), row('b.near', '2')];
+    writeHomeFeedSession({
+      sessionKey: 'global|hot||',
+      posts,
+      nextOffset: 2,
+      standingNetworkIds: null,
+      offsetShiftApplied: 0,
+      scrollTop: 640,
+      scrollAnchorKey: 'a.near:1',
+      scrollAnchorTop: -40,
+      storage: false,
+    });
+    const snap = peekHomeFeedSession();
+    expect(snap?.scrollAnchorKey).toBe('a.near:1');
+    expect(snap?.scrollAnchorTop).toBe(-40);
+  });
+
   it('round-trips posts, offset, and scroll in memory', () => {
     const posts = [row('a.near', '1'), row('b.near', '2')];
     writeHomeFeedSession({

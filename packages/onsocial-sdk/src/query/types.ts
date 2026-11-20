@@ -79,6 +79,11 @@ export interface GroupFeedFilter {
   audience?: string;
   limit?: number;
   offset?: number;
+  /**
+   * Exclusive upper bound for descending pages (`blockHeight < before`).
+   * Prefer over `offset` under live inserts / working-set trim.
+   */
+  beforeBlockHeight?: number;
 }
 
 export interface FeedFilter {

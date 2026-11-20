@@ -32,6 +32,25 @@ describe('post thread harden contracts', () => {
     expect(quotes).toContain('loadMoreInFlightRef');
   });
 
+  it('personal + guild + quotes share useFeedWindow + anchor queries', () => {
+    for (const file of [
+      'live-personal-post-panel.tsx',
+      '../guilds/live-guild-post-panel.tsx',
+      'post-quotes-panel.tsx',
+    ]) {
+      const source = readFileSync(join(here, file), 'utf8');
+      expect(source).toContain('useFeedWindow');
+      expect(source).toMatch(/anchorQuery:\s*(THREAD_ANCHOR_QUERY|SECONDARY_ANCHOR_QUERY)/);
+    }
+    const guildFeed = readFileSync(
+      join(here, '../guilds/live-guild-panel.tsx'),
+      'utf8'
+    );
+    expect(guildFeed).toContain('useFeedWindow');
+    expect(guildFeed).toContain('data-feed-key={key}');
+    expect(guildFeed).toContain('feedBlockEstimatePx');
+  });
+
   it('focus uses window reveal + instant scrollIntoView', () => {
     const focus = readFileSync(
       join(here, '../../hooks/use-thread-focus-reply.ts'),
@@ -50,6 +69,36 @@ describe('post thread harden contracts', () => {
       const source = readFileSync(join(here, file), 'utf8');
       expect(source).toContain('landSettled');
       expect(source).toContain('loadState === \'ready\' && landSettled');
+      // First reply page already fetched — paint/land with it, not before.
+      expect(source).toContain('tailReady: repliesResolved');
+    }
+  });
+
+  it('under-header land keeps a seat guard for ancestor soft-fill', () => {
+    const land = readFileSync(
+      join(here, '../../hooks/use-land-opened-post.ts'),
+      'utf8'
+    );
+    expect(land).toContain('THREAD_LAND_SEAT_GUARD_MS');
+    expect(land).toContain('MutationObserver');
+    expect(land).toContain('holdAgainstAboveResize');
+    expect(land).toContain('openedPostPinDeficit');
+    // Observers must end with the guard — not linger on parked trail sheets.
+    expect(land).toContain('window.setTimeout(release, lastGuard + 32)');
+    expect(land).toContain('if (!parked) return');
+  });
+
+  it('empty-thread More from keeps a tail seat through share settle', () => {
+    for (const file of [
+      'live-personal-post-panel.tsx',
+      '../guilds/live-guild-post-panel.tsx',
+    ]) {
+      const source = readFileSync(join(here, file), 'utf8');
+      // One peek host — seat lives inside; arm only after share settle.
+      expect(source).toContain('armed={repliesResolved && emptyTailReady}');
+      expect(source).toContain('ThreadDiscoverPeek');
+      expect(source).toContain('allowEmptyCollapse={landSettled}');
+      expect(source).not.toContain('!repliesResolved || !emptyTailReady');
     }
   });
 

@@ -120,3 +120,49 @@ export function groupPostPathValue(pathOrRef: string | GroupPostRef): string {
 export function audienceLikeValue(audience: string): string {
   return `%|${audience}|%`;
 }
+
+/** Exclusive keyset upper bound — drop non-positive / non-finite. */
+export function normalizeBeforeBlockHeight(
+  value: number | undefined
+): number | undefined {
+  if (value == null || !Number.isFinite(value) || value <= 0) return undefined;
+  return value;
+}
+
+/**
+ * Descending chrono page cursor. Prefer `nextBeforeBlockHeight` over offset
+ * when both are present (live inserts / working-set trim).
+ */
+export function chronoDescPage(
+  items: PostRow[],
+  limit: number,
+  opts: {
+    offset: number;
+    usedKeyset: boolean;
+    /** Stub/raw count when hydrate can drop rows (topic indexes). */
+    edgeCount?: number;
+    edgeHeight?: number;
+  }
+): {
+  items: PostRow[];
+  nextOffset?: number;
+  nextBeforeBlockHeight?: number;
+} {
+  const edgeCount = opts.edgeCount ?? items.length;
+  if (edgeCount < limit) return { items };
+  const edge = opts.edgeHeight ?? items[items.length - 1]?.blockHeight;
+  const nextBefore =
+    typeof edge === 'number' && Number.isFinite(edge) ? edge : undefined;
+  if (opts.usedKeyset) {
+    return nextBefore !== undefined
+      ? { items, nextBeforeBlockHeight: nextBefore }
+      : { items };
+  }
+  return {
+    items,
+    nextOffset: opts.offset + limit,
+    ...(nextBefore !== undefined
+      ? { nextBeforeBlockHeight: nextBefore }
+      : {}),
+  };
+}

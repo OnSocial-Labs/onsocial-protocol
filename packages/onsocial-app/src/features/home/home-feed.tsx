@@ -39,9 +39,14 @@ import { HomeFeedSortToggle } from '@/features/home/home-feed-sort-toggle';
 import { APP_DISCOVER_PATH, APP_HOME_PATH } from '@/lib/app-routes';
 import {
   captureVisibleFeedAnchor,
+  feedListMutationNeedsScrollAnchor,
   restoreFeedAnchor,
   type FeedScrollAnchor,
 } from '@/features/home/home-feed-scroll-anchor';
+import {
+  canRunHomeFeedReconcile,
+  canStartHomeFeedAppend,
+} from '@/features/home/home-feed-load-gate';
 import { FeedWindowSizeCache } from '@/features/home/feed-window';
 import type { FeedWindowRangeChange } from '@/features/home/use-feed-window';
 import {
@@ -183,6 +188,7 @@ import { getAppLenis } from '@/lib/app-lenis-registry';
 import {
   HOME_FEED_MEMORY_TRIM_IDLE_MS,
   HOME_FEED_WORKING_SET_POSTS,
+  homeFeedMemoryTrimNeedsScrollAnchor,
   planHomeFeedMemoryTrim,
   trimHomeFeedWorkingSetKeepingHead,
 } from '@/lib/home-feed-working-set';
@@ -407,8 +413,26 @@ export function HomePagePanel({
   // State, not a ref: the windowed list pins this row's render for the pass
   // between the re-rank merge and the pre-paint anchor restore.
   const [reRankAnchor, setReRankAnchor] = useState<FeedScrollAnchor | null>(
-    null
+    () => {
+      const key = restoredSession?.scrollAnchorKey?.trim();
+      if (!key) return null;
+      const top = restoredSession?.scrollAnchorTop;
+      const anchor = {
+        key,
+        top: typeof top === 'number' && Number.isFinite(top) ? top : 0,
+      };
+      reRankAnchorRef.current = anchor;
+      return anchor;
+    }
   );
+
+  /** Capture before setPosts; sync the ref so trim / pin see it this frame. */
+  const holdFeedScrollAnchor = useCallback(() => {
+    const anchor = captureVisibleFeedAnchor(scrollRootRef.current);
+    reRankAnchorRef.current = anchor;
+    setReRankAnchor(anchor);
+    return anchor;
+  }, []);
   const standingSourcesRef = useRef<string[] | null>(
     restoredSession?.standingNetworkIds
       ? [...restoredSession.standingNetworkIds]
@@ -487,6 +511,8 @@ export function HomePagePanel({
     const line = memory.userAdjusted
       ? memory.landed
       : scrollLineOnLeave(Math.max(live, lenisTop), memory.landed);
+    const scrollAnchor =
+      reRankAnchorRef.current ?? captureVisibleFeedAnchor(node);
     writeHomeFeedSession({
       sessionKey: feedSessionKeyRef.current,
       posts: postsRef.current,
@@ -497,6 +523,8 @@ export function HomePagePanel({
       standingNetworkIds: standingSourcesRef.current,
       offsetShiftApplied: offsetShiftAppliedRef.current,
       scrollTop: scrollTopToPersist(memory, line),
+      scrollAnchorKey: scrollAnchor?.key ?? null,
+      scrollAnchorTop: scrollAnchor?.top,
       standEpoch: getViewerStandEpoch(),
       amplifyEpoch: getViewerAmplifyEpoch(),
       blockHeights: feedWindowCacheRef.current?.toJSON(),
@@ -1059,7 +1087,7 @@ export function HomePagePanel({
         let hotHeadChanged = false;
         if (mergeHead && sort === 'hot' && postsLengthRef.current > 0) {
           // Keep the visible card glued while Hot reorders above/below.
-          setReRankAnchor(captureVisibleFeedAnchor(scrollRootRef.current));
+          holdFeedScrollAnchor();
         }
         let risingAuthors: string[] = [];
         // Rows first — quotes/tallies/engagement soft-fill into reserved seats
@@ -1158,6 +1186,7 @@ export function HomePagePanel({
     clearHotUpdated,
     clearUnseenPosts,
     feedScrollTop,
+    holdFeedScrollAnchor,
     initialPage,
     serverPainted,
     lensReady,
@@ -1172,10 +1201,17 @@ export function HomePagePanel({
   ]);
 
   const loadMore = useCallback(() => {
-    if (appendInFlightRef.current) return;
     // Never race a full load / soft refresh — a load-more here would bump
     // loadIdRef, cancel the refresh, and append onto a stale list.
-    if (isLoadingRef.current || isRefreshingRef.current) return;
+    if (
+      !canStartHomeFeedAppend({
+        appendInFlight: appendInFlightRef.current,
+        isLoading: isLoadingRef.current,
+        isRefreshing: isRefreshingRef.current,
+      })
+    ) {
+      return;
+    }
     const beforeHeight = nextBeforeBlockHeightRef.current;
     const baseOffset = nextOffsetRef.current;
     if (beforeHeight === undefined && baseOffset === undefined) return;
@@ -1239,7 +1275,7 @@ export function HomePagePanel({
           // hot post from a later page can outrank painted rows. Hold the
           // first visible row at its offset — the merge must not shift
           // content under the reader. The layout effect below applies it.
-          setReRankAnchor(captureVisibleFeedAnchor(scrollRootRef.current));
+          holdFeedScrollAnchor();
         }
         const appended = result.page.items;
         // Keep the accumulated list on append — sync head trim orphans
@@ -1316,6 +1352,7 @@ export function HomePagePanel({
     accountId,
     activeLens,
     applyFeedPageCursor,
+    holdFeedScrollAnchor,
     sort,
     tagParam,
     tickerParam,
@@ -1497,15 +1534,15 @@ export function HomePagePanel({
     }
     // Head drop shifts document flow — pin the visible row for one restore.
     // Tail-only cuts leave scroll alone.
-    if (trimmed.droppedHead.length > 0) {
-      setReRankAnchor(captureVisibleFeedAnchor(root));
+    if (homeFeedMemoryTrimNeedsScrollAnchor(trimmed)) {
+      holdFeedScrollAnchor();
     }
     setPosts((live) => {
       // Append / refresh won the race — leave their list alone.
       if (live !== current) return live;
       return commitTrimmedWorkingSet(trimmed.posts, live);
     });
-  }, [commitTrimmedWorkingSet, feedScrollTop]);
+  }, [commitTrimmedWorkingSet, feedScrollTop, holdFeedScrollAnchor]);
 
   const scheduleMemoryTrim = useCallback(() => {
     if (typeof window === 'undefined') return;
@@ -1526,8 +1563,9 @@ export function HomePagePanel({
   useEffect(() => {
     const node = scrollRootRef.current;
     if (!(node instanceof HTMLElement)) return;
-    const onScroll = (event: Event) => {
-      if (!event.isTrusted) return;
+    // Lenis animates scrollTop with untrusted events — still note the line
+    // and schedule idle trim. Catch-up / re-rank guards live inside trim.
+    const onScroll = () => {
       noteHomeFeedSessionScroll(node.scrollTop);
       scheduleMemoryTrim();
     };
@@ -1629,16 +1667,20 @@ export function HomePagePanel({
       const reconcileTargets = selectFeedReconcileTargets(postsRef.current);
       if (
         reconcileTargets.length > 0 &&
-        !isLoadingRef.current &&
-        !isRefreshingRef.current &&
-        postsLengthRef.current > 0
+        canRunHomeFeedReconcile({
+          isLoading: isLoadingRef.current,
+          isRefreshing: isRefreshingRef.current,
+          postCount: postsLengthRef.current,
+        })
       ) {
         const reader = createReadOnlyOnSocialClient();
         const freshRows = await reader.query.feed.statesByIds(reconcileTargets);
         if (
-          !isLoadingRef.current &&
-          !isRefreshingRef.current &&
-          postsLengthRef.current > 0
+          canRunHomeFeedReconcile({
+            isLoading: isLoadingRef.current,
+            isRefreshing: isRefreshingRef.current,
+            postCount: postsLengthRef.current,
+          })
         ) {
           const { next, removedKeys, updatedKeys } = reconcileFeedRows(
             postsRef.current,
@@ -1646,7 +1688,10 @@ export function HomePagePanel({
             reconcileTargets
           );
           // The posts-effect sync resyncs postsRef/length/seen keys.
-          if (removedKeys.length > 0 || updatedKeys.length > 0) {
+          if (
+            feedListMutationNeedsScrollAnchor({ removedKeys, updatedKeys })
+          ) {
+            holdFeedScrollAnchor();
             setPosts(next);
           }
         }
@@ -1659,6 +1704,7 @@ export function HomePagePanel({
   }, [
     accountId,
     activeLens,
+    holdFeedScrollAnchor,
     lensReady,
     stoodWithAccountIds,
     tagParam,
@@ -1950,5 +1996,3 @@ export function HomePagePanel({
     </HomeActiveFocusProvider>
   );
 }
-
-/** @deprecated Prefer {@link HomePagePanel}. */

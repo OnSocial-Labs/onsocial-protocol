@@ -1,11 +1,14 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import type { PostScarceEmbed } from '@onsocial/sdk';
 import {
+  SCARCE_EMBED_SEED_CACHE_LIMIT,
+  clearScarceEmbedLedger,
   clearScarceEmbedOverride,
   getScarceEmbedOverride,
   getScarceEmbedSeed,
   reconcileScarceEmbedFromApi,
   resolveScarceEmbed,
+  scarceEmbedSeedCacheSize,
   seedScarceEmbedsFromSsr,
   setScarceEmbedOverride,
 } from '@/features/scarces/scarce-embed-ledger';
@@ -22,7 +25,25 @@ function embed(over: Partial<PostScarceEmbed>): PostScarceEmbed {
 
 describe('scarce-embed-ledger', () => {
   beforeEach(() => {
-    clearScarceEmbedOverride(KEY);
+    clearScarceEmbedLedger();
+  });
+
+  it('evicts the oldest SSR scarce seeds once the LRU cap is hit', () => {
+    const map: Record<string, PostScarceEmbed> = {};
+    for (let i = 0; i < SCARCE_EMBED_SEED_CACHE_LIMIT + 5; i += 1) {
+      map[`alice.near/post/lru-${i}`] = embed({
+        status: 'lazy_listing',
+        listingId: `ll:${i}`,
+      });
+    }
+    seedScarceEmbedsFromSsr(map);
+    expect(scarceEmbedSeedCacheSize()).toBe(SCARCE_EMBED_SEED_CACHE_LIMIT);
+    expect(getScarceEmbedSeed('alice.near/post/lru-0')).toBeNull();
+    expect(
+      getScarceEmbedSeed(
+        `alice.near/post/lru-${SCARCE_EMBED_SEED_CACHE_LIMIT + 4}`
+      )?.listingId
+    ).toBe(`ll:${SCARCE_EMBED_SEED_CACHE_LIMIT + 4}`);
   });
 
   it('override wins until reconciled', () => {

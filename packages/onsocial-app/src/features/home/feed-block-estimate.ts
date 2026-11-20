@@ -84,10 +84,9 @@ export function feedCardEstimateKind(
   if (parsePostPollEmbed(card.value) != null) return 'poll';
   if (postHasQuoteRef(post)) {
     const quoted = post.refPath ? quotedPosts[post.refPath] : undefined;
-    if (quoted) {
-      if (postHasJacket(quoted)) return 'jacket';
-      if (postHasMedia(quoted)) return 'media';
-    }
+    // Unresolved quote seats at `quote` (420). Soft-fill must not drop that
+    // to media (350) under an open scroll — jacket (~420) is fine to bump.
+    if (quoted && postHasJacket(quoted)) return 'jacket';
     return 'quote';
   }
   // Unresolved bare repost — reserve the compact media seat so the pending
@@ -186,8 +185,8 @@ function feedCardEstimatePx(post: PostRow, quotedPosts: QuoteMap): number {
     px = feedWindowRowEstimatePx(kind);
   }
   // Own media/jacket + quote ref → tile/jacket plus QuotedPostInset under it.
-  // Quote-of-media (kind bumped via quoted payload) already uses jacket/media
-  // height for the inset face — do not add a second inset.
+  // Text + quote (including quote-of-media soft-fill) stays on the quote
+  // seat above — do not add a second inset there.
   if (
     postHasQuoteRef(post) &&
     (postHasMedia(card) || postHasJacket(card))

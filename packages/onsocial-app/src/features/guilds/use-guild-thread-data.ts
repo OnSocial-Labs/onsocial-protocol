@@ -181,7 +181,10 @@ export function useGuildThreadData({
   /** First reply page ready — appear waits on this; graft/tree enrich after. */
   const [repliesResolved, setRepliesResolved] = useState(
     () =>
-      sessionSeed.fromCache || Boolean(sessionSeed.data?.directRepliesResolved)
+      sessionSeed.fromCache ||
+      Boolean(
+        sessionSeed.data?.directRepliesResolved ?? seeded?.directRepliesResolved
+      )
   );
   /**
    * Empty-tail gate for More from. Appear does not wait — peek must not mount
@@ -256,8 +259,8 @@ export function useGuildThreadData({
         const firstPagePromise = paintDirect
           ? startThreadFirstPage(rootPath)
           : null;
-        // First reply page soft-fills; tree enrich continues on idle. Quotes
-        // list loads on View quotes; config still soft-fills in parallel.
+        // First reply page runs with the root; cover waits for both. Quotes
+        // load on View quotes; config still soft-fills in parallel.
         const rootPromise = client.query.groups.post(postRef);
         const configPromise = client.groups.getConfig(groupId);
 

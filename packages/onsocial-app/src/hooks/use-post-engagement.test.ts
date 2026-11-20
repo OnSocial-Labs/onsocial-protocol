@@ -4,6 +4,7 @@ import {
   EMPTY_POST_ENGAGEMENT,
   mergeEngagementSoftUpgrade,
   pendingReactionEngagement,
+  pruneEngagementMap,
   reactionCountAfterToggle,
   seededEngagementCoversTargets,
   type PostEngagement,
@@ -12,6 +13,18 @@ import {
 function row(over: Partial<PostEngagement> = {}): PostEngagement {
   return { ...EMPTY_POST_ENGAGEMENT, ...over };
 }
+
+describe('pruneEngagementMap', () => {
+  it('drops keys that left the live band and keeps identity when unchanged', () => {
+    const current = {
+      'a:1': row({ reactionCount: 1 }),
+      'b:2': row({ reactionCount: 2 }),
+    };
+    const pruned = pruneEngagementMap(current, new Set(['a:1']));
+    expect(Object.keys(pruned)).toEqual(['a:1']);
+    expect(pruneEngagementMap(pruned, new Set(['a:1']))).toBe(pruned);
+  });
+});
 
 describe('reaction confirmation', () => {
   it('fills the heart and holds the count until the like confirms', () => {

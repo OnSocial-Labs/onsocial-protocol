@@ -11,7 +11,9 @@ import {
   GraphQLValidationError,
   POST_ROW_FIELDS,
   audienceLikeValue,
+  chronoDescPage,
   feedOrderByClause,
+  normalizeBeforeBlockHeight,
   stripFeedPaintFields,
   type FeedSection,
   type FeedSort,
@@ -159,49 +161,9 @@ function feedHotQuery(
       }`;
 }
 
-/** Chronological page via `feed_recent`. Same alias as `feedHotQuery`. */
-function normalizeBeforeBlockHeight(
-  value: number | undefined
-): number | undefined {
-  if (value == null || !Number.isFinite(value) || value <= 0) return undefined;
-  return value;
-}
-
 function normalizeBeforeHeat(value: number | undefined): number | undefined {
   if (value == null || !Number.isFinite(value)) return undefined;
   return value;
-}
-
-/** Descending chrono page — keyset when the edge height is known. */
-function chronoDescPage(
-  items: PostRow[],
-  limit: number,
-  opts: {
-    offset: number;
-    usedKeyset: boolean;
-    /** Stub/raw count when hydrate can drop rows (topic indexes). */
-    edgeCount?: number;
-    edgeHeight?: number;
-  }
-): Paginated<PostRow> {
-  const edgeCount = opts.edgeCount ?? items.length;
-  if (edgeCount < limit) return { items };
-  const edge =
-    opts.edgeHeight ?? items[items.length - 1]?.blockHeight;
-  const nextBefore =
-    typeof edge === 'number' && Number.isFinite(edge) ? edge : undefined;
-  if (opts.usedKeyset) {
-    return nextBefore !== undefined
-      ? { items, nextBeforeBlockHeight: nextBefore }
-      : { items };
-  }
-  return {
-    items,
-    nextOffset: opts.offset + limit,
-    ...(nextBefore !== undefined
-      ? { nextBeforeBlockHeight: nextBefore }
-      : {}),
-  };
 }
 
 /**

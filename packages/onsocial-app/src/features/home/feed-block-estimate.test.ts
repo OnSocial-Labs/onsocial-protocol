@@ -185,7 +185,7 @@ describe('feedBlockEstimatePx', () => {
     );
   });
 
-  it('bumps quote-of-media to the media estimate', () => {
+  it('keeps quote-of-media on the quote seat so soft-fill does not shrink', () => {
     const cited = row('bob.near', '1', {
       value: JSON.stringify({
         text: 'orig',
@@ -197,12 +197,16 @@ describe('feedBlockEstimatePx', () => {
       refPath: 'bob.near/post/1',
       value: JSON.stringify({ text: 'citing' }),
     });
+    expect(feedCardEstimateKind(cite, {})).toBe('quote');
     expect(
       feedCardEstimateKind(cite, { 'bob.near/post/1': cited })
-    ).toBe('media');
+    ).toBe('quote');
+    expect(feedBlockEstimatePx({ posts: [cite] }, {})).toBe(
+      FEED_WINDOW_QUOTE_ESTIMATE_PX
+    );
     expect(
       feedBlockEstimatePx({ posts: [cite] }, { 'bob.near/post/1': cited })
-    ).toBe(FEED_WINDOW_MEDIA_ESTIMATE_PX);
+    ).toBe(FEED_WINDOW_QUOTE_ESTIMATE_PX);
   });
 
   it('keeps solo polls on the poll estimate; chains are not poll rows', () => {

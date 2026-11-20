@@ -2825,12 +2825,6 @@ button.post-media-tile {
   .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
 .guild-hero
   .guild-hero-membership.os-sheet-actions--borderless
-  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-succeeded),
-.guild-thread-nav-membership.os-sheet-actions--borderless
-  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
-.guild-thread-nav-membership.os-sheet-actions--borderless
-  .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
-.guild-thread-nav-membership.os-sheet-actions--borderless
   .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-succeeded) {
   box-shadow: none;
 }
@@ -15638,10 +15632,16 @@ a.os-surface-row,
     min-height: 8rem;
   }
 
-  .discover-focus-list-body.is-refreshing,
-  .home-saved-feed-sheet-list.is-refreshing {
+  .discover-focus-list-body.is-refreshing {
     opacity: 0.72;
     transition: opacity 160ms ease;
+    pointer-events: none;
+  }
+
+  .home-saved-feed-sheet-list.is-refreshing {
+    opacity: 0.72;
+    transition: opacity var(--os-motion-appear, 280ms)
+      var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1));
     pointer-events: none;
   }
 
@@ -39720,35 +39720,6 @@ a.os-surface-row,
     --thread-rail-color: rgb(var(--fg-rgb) / 0.12);
   }
 
-  .guild-thread-join-dock {
-    position: sticky;
-    bottom: 0;
-    z-index: 2;
-    display: flex;
-    justify-content: center;
-    padding: 0.75rem 0 calc(0.75rem + env(safe-area-inset-bottom, 0px));
-    background: linear-gradient(
-      to top,
-      rgb(var(--bg-rgb) / 0.96) 55%,
-      rgb(var(--bg-rgb) / 0)
-    );
-  }
-
-  /* Empty thread: Join is the reply gate for this post, above More from. */
-  .guild-thread-join-dock.is-with-post {
-    position: static;
-    z-index: auto;
-    padding: 0.15rem 0 0.35rem;
-    background: none;
-    /* One membership control tall — pending ACL keeps the seat. */
-    min-height: calc(2.25rem + 0.5rem);
-  }
-
-  .guild-thread-join-dock.is-with-post.is-pending {
-    visibility: hidden;
-    pointer-events: none;
-  }
-
   .guild-thread-root > .post-card {
     margin: 0;
     padding: var(--os-post-open-pad-top) 0;
@@ -41020,11 +40991,6 @@ a.os-surface-row,
     word-break: break-word;
   }
 
-  /* Compact Join / Connect opposite the thread title. */
-  .guild-thread-nav-membership {
-    flex-shrink: 0;
-  }
-
   .guild-connected-stack {
     display: flex;
     flex-direction: column;
@@ -41130,12 +41096,12 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.35);
   }
 
-  /* Same fade as page sheets. Peek does not reserve a seat; the label does. */
-  .thread-discover-peek,
+  /* Same fade as page sheets. Pending peek keeps a skeleton seat. */
+  .thread-discover-peek:not(.is-pending),
   .thread-controls-reveal {
     opacity: 0;
     animation: glass-sheet-appear var(--os-motion-appear, 280ms)
-      var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1)) forwards;
+      var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1)) forwards;
   }
 
   .thread-discover-peek {
@@ -41143,8 +41109,12 @@ a.os-surface-row,
     overflow-anchor: none;
   }
 
+  .thread-discover-peek.is-pending {
+    opacity: 1;
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .thread-discover-peek,
+    .thread-discover-peek:not(.is-pending),
     .thread-controls-reveal {
       opacity: 1;
       animation: none;

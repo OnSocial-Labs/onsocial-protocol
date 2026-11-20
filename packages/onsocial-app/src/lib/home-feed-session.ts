@@ -59,6 +59,13 @@ export type HomeFeedSessionSnapshot = {
   standingNetworkIds: readonly string[] | null;
   offsetShiftApplied: number;
   scrollTop: number;
+  /**
+   * Visible feed block key (+ viewport offset) at save time. Lets restore
+   * pin that row so scrollTop alone cannot land on a trimmed spacer gap.
+   * Optional — older copies stay readable.
+   */
+  scrollAnchorKey?: string;
+  scrollAnchorTop?: number;
   savedAt: number;
   /**
    * Viewer stand epoch at write time. A stand confirmed after the snapshot
@@ -414,6 +421,8 @@ export function writeHomeFeedSession(input: {
   standingNetworkIds: readonly string[] | null;
   offsetShiftApplied: number;
   scrollTop: number;
+  scrollAnchorKey?: string | null;
+  scrollAnchorTop?: number;
   standEpoch?: number;
   amplifyEpoch?: number;
   blockHeights?: Record<string, number>;
@@ -452,6 +461,12 @@ export function writeHomeFeedSession(input: {
       : null,
     offsetShiftApplied: pagination.offsetShiftApplied,
     scrollTop: Math.max(0, input.scrollTop),
+    scrollAnchorKey: input.scrollAnchorKey?.trim() || undefined,
+    scrollAnchorTop:
+      typeof input.scrollAnchorTop === 'number' &&
+      Number.isFinite(input.scrollAnchorTop)
+        ? input.scrollAnchorTop
+        : undefined,
     savedAt: input.now ?? Date.now(),
     standEpoch: input.standEpoch,
     amplifyEpoch: input.amplifyEpoch,

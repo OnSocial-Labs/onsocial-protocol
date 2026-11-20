@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { postContentPath, type PostRow } from '@onsocial/sdk';
 import { PulsingDots } from '@onsocial/ui';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -16,16 +23,31 @@ import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel'
 import { OsLoadMore } from '@/lib/os-load-more';
 import { FeedWindowSizeCache } from '@/features/home/feed-window';
 import {
+  captureVisibleFeedAnchor,
+  restoreFeedAnchor,
+  type FeedScrollAnchor,
+} from '@/features/home/home-feed-scroll-anchor';
+import {
   PersonalFeedList,
   insertOptimisticFeedPost,
   shouldPrependOptimisticFeedPost,
 } from '@/features/home/personal-feed-list';
 import { PostRowSkeleton } from '@/features/home/post-card';
+import type { FeedWindowRangeChange } from '@/features/home/use-feed-window';
 import { usePersonalComposer } from '@/features/home/use-personal-composer';
 import { subscribePersonalReplyConfirmed } from '@/features/scarces/drop-compose-host';
 import { accountIdsEqual } from '@/lib/account-match';
 import { emptyCopy } from '@/lib/empty-copy';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { readAppScrollTop } from '@/lib/app-lenis-registry';
+import { feedPageHasMore } from '@/lib/feed-page-cursor';
+import { clampHomeFeedCursorAfterTrim } from '@/lib/home-feed-session';
+import {
+  HOME_FEED_MEMORY_TRIM_IDLE_MS,
+  HOME_FEED_WORKING_SET_POSTS,
+  homeFeedMemoryTrimNeedsScrollAnchor,
+  planHomeFeedMemoryTrim,
+} from '@/lib/home-feed-working-set';
 import { postKey } from '@/lib/post-display';
 import {
   parsePostMedia,
@@ -44,8 +66,14 @@ type ProfileTextTab = Exclude<ProfileFeedTab, 'media'>;
 
 type SectionPager = {
   nextOffset: number;
+  nextBeforeBlockHeight?: number;
   hasMore: boolean;
   started: boolean;
+};
+
+type FeedPageCursor = {
+  offset?: number;
+  beforeBlockHeight?: number;
 };
 
 export type ProfileSectionInFlight = Record<ProfileTextTab, boolean>;
@@ -144,9 +172,19 @@ export function ProfileFeedClient({
   const total = Math.max(postCount, posts.length);
   const [mediaPage, setMediaPage] = useState({
     nextOffset: 0,
+    nextBeforeBlockHeight: undefined as number | undefined,
     hasMore: false,
     started: false,
   });
+  const feedWindowRangeRef = useRef<FeedWindowRangeChange>({
+    start: 0,
+    end: 0,
+    blockCount: 0,
+  });
+  const [trimAnchor, setTrimAnchor] = useState<FeedScrollAnchor | null>(null);
+  const onWindowRangeChange = useCallback((range: FeedWindowRangeChange) => {
+    feedWindowRangeRef.current = range;
+  }, []);
   const [mediaPaging, setMediaPaging] = useState(false);
   const [mediaFailed, setMediaFailed] = useState(false);
   const mediaPagingRef = useRef(false);
@@ -178,20 +216,21 @@ export function ProfileFeedClient({
   );
 
   const fetchMediaPage = useCallback(
-    (offset: number) => {
+    (cursor: FeedPageCursor) => {
       if (mediaPagingRef.current) return;
       mediaPagingRef.current = true;
       const requestId = mediaRequestRef.current;
+      const isFirst = cursor.beforeBlockHeight == null && (cursor.offset ?? 0) === 0;
       queueMicrotask(() => {
         setMediaPaging(true);
-        if (offset === 0) setPendingTab('media');
+        if (isFirst) setPendingTab('media');
       });
       const client = createReadOnlyOnSocialClient();
       void client.query.feed
         .recent({
           author: accountId,
           limit: PROFILE_MEDIA_PAGE_SIZE,
-          offset,
+          ...cursor,
         })
         .then((page) => {
           if (requestId !== mediaRequestRef.current) return;
@@ -201,6 +240,7 @@ export function ProfileFeedClient({
           ).length;
           setPosts((current) => mergePostRows(current, page.items));
           setMediaFailed(false);
+          const offset = cursor.offset ?? 0;
           const advance = profileMediaAdvance({
             offset,
             pageSize: PROFILE_MEDIA_PAGE_SIZE,
@@ -209,10 +249,17 @@ export function ProfileFeedClient({
           });
           setMediaPage((current) => {
             // A repeated first window can land after paging has already moved on.
-            if (addedCount <= 0 && current.nextOffset > offset) return current;
+            if (
+              addedCount <= 0 &&
+              cursor.beforeBlockHeight == null &&
+              current.nextOffset > offset
+            ) {
+              return current;
+            }
             return {
-              nextOffset: advance.offset,
-              hasMore: advance.hasMore,
+              nextOffset: page.nextOffset ?? advance.offset,
+              nextBeforeBlockHeight: page.nextBeforeBlockHeight,
+              hasMore: feedPageHasMore(page) || advance.hasMore,
               started: true,
             };
           });
@@ -237,21 +284,23 @@ export function ProfileFeedClient({
   );
 
   const fetchSectionPage = useCallback(
-    (section: ProfileTextTab, offset: number) => {
+    (section: ProfileTextTab, cursor: FeedPageCursor) => {
       if (!beginProfileSectionFetch(sectionPagingRef.current, section)) return;
       const requestId = sectionRequestRef.current[section];
+      const isFirst =
+        cursor.beforeBlockHeight == null && (cursor.offset ?? 0) === 0;
       queueMicrotask(() => {
         setSectionPagingMap((current) => ({ ...current, [section]: true }));
         setSectionFailedMap((current) => ({ ...current, [section]: false }));
-        if (offset === 0) setPendingTab(section);
+        if (isFirst) setPendingTab(section);
       });
       const client = createReadOnlyOnSocialClient();
       void client.query.feed
         .recent({
           author: accountId,
           limit: PROFILE_FEED_PAGE_SIZE,
-          offset,
           section,
+          ...cursor,
         })
         .then((page) => {
           if (requestId !== sectionRequestRef.current[section]) return;
@@ -260,8 +309,9 @@ export function ProfileFeedClient({
           setSectionPages((current) => ({
             ...current,
             [section]: {
-              nextOffset: page.nextOffset ?? offset,
-              hasMore: page.nextOffset != null,
+              nextOffset: page.nextOffset ?? cursor.offset ?? 0,
+              nextBeforeBlockHeight: page.nextBeforeBlockHeight,
+              hasMore: feedPageHasMore(page),
               started: true,
             },
           }));
@@ -302,7 +352,12 @@ export function ProfileFeedClient({
     queueMicrotask(() => {
       setMediaFailed(false);
       setMediaPaging(false);
-      setMediaPage({ nextOffset: 0, hasMore: false, started: false });
+      setMediaPage({
+        nextOffset: 0,
+        nextBeforeBlockHeight: undefined,
+        hasMore: false,
+        started: false,
+      });
       setSectionFailedMap(emptySectionFlags());
       setSectionPagingMap(emptySectionFlags());
       setSectionPages(emptySectionPagers());
@@ -315,12 +370,12 @@ export function ProfileFeedClient({
 
   useEffect(() => {
     if (!isProfileTextTab(tab) || activeTextStarted) return;
-    fetchSectionPage(tab, 0);
+    fetchSectionPage(tab, { offset: 0 });
   }, [tab, activeTextStarted, fetchSectionPage]);
 
   useEffect(() => {
     if (tab !== 'media' || mediaPage.started) return;
-    fetchMediaPage(0);
+    fetchMediaPage({ offset: 0 });
   }, [tab, mediaPage.started, fetchMediaPage]);
 
   useEffect(() => {
@@ -424,8 +479,18 @@ export function ProfileFeedClient({
   const loadOlderMedia = useCallback(() => {
     if (tab !== 'media' || !mediaPage.hasMore || mediaPagingRef.current) return;
     setMediaFailed(false);
-    fetchMediaPage(mediaPage.nextOffset);
-  }, [tab, mediaPage.hasMore, mediaPage.nextOffset, fetchMediaPage]);
+    fetchMediaPage(
+      mediaPage.nextBeforeBlockHeight !== undefined
+        ? { beforeBlockHeight: mediaPage.nextBeforeBlockHeight }
+        : { offset: mediaPage.nextOffset }
+    );
+  }, [
+    tab,
+    mediaPage.hasMore,
+    mediaPage.nextBeforeBlockHeight,
+    mediaPage.nextOffset,
+    fetchMediaPage,
+  ]);
 
   const sectionPaging = activeSection
     ? sectionPagingMap[activeSection]
@@ -446,14 +511,112 @@ export function ProfileFeedClient({
       ...current,
       [activeSection]: false,
     }));
-    fetchSectionPage(activeSection, activeSectionPage.nextOffset);
+    fetchSectionPage(
+      activeSection,
+      activeSectionPage.nextBeforeBlockHeight !== undefined
+        ? { beforeBlockHeight: activeSectionPage.nextBeforeBlockHeight }
+        : { offset: activeSectionPage.nextOffset }
+    );
   }, [activeSection, activeSectionPage, fetchSectionPage]);
 
   // No covers yet — keep walking so an older photo is not reported missing.
   useEffect(() => {
     if (!mediaLooking || mediaPaging) return;
-    fetchMediaPage(mediaPage.nextOffset);
-  }, [mediaLooking, mediaPaging, mediaPage.nextOffset, fetchMediaPage]);
+    fetchMediaPage(
+      mediaPage.nextBeforeBlockHeight !== undefined
+        ? { beforeBlockHeight: mediaPage.nextBeforeBlockHeight }
+        : { offset: mediaPage.nextOffset }
+    );
+  }, [
+    mediaLooking,
+    mediaPaging,
+    mediaPage.nextBeforeBlockHeight,
+    mediaPage.nextOffset,
+    fetchMediaPage,
+  ]);
+
+  // Keyset load-more — around-window trim like home on the active tab.
+  const memoryTrimTimerRef = useRef<number | null>(null);
+  const maybeTrimFeedMemory = useCallback(() => {
+    if (sectionPaging || mediaPaging) return;
+    if (visiblePosts.length <= HOME_FEED_WORKING_SET_POSTS) return;
+    if (!(scrollNode instanceof HTMLElement)) return;
+    const range = feedWindowRangeRef.current;
+    const trimmed = planHomeFeedMemoryTrim({
+      posts: visiblePosts,
+      scrollTop: readAppScrollTop(scrollNode),
+      windowStart: range.start,
+      windowEnd: range.end,
+    });
+    if (
+      trimmed.droppedHead.length === 0 &&
+      trimmed.droppedTail.length === 0
+    ) {
+      return;
+    }
+    if (homeFeedMemoryTrimNeedsScrollAnchor(trimmed)) {
+      setTrimAnchor(captureVisibleFeedAnchor(scrollNode));
+    }
+    const keptKeys = new Set(trimmed.posts.map(postKey));
+    const visibleKeys = new Set(visiblePosts.map(postKey));
+    setPosts((current) =>
+      current.filter(
+        (row) => !visibleKeys.has(postKey(row)) || keptKeys.has(postKey(row))
+      )
+    );
+    if (activeSection) {
+      const clamped = clampHomeFeedCursorAfterTrim({
+        posts: trimmed.posts,
+        nextOffset: sectionPages[activeSection].nextOffset,
+        nextBeforeBlockHeight:
+          sectionPages[activeSection].nextBeforeBlockHeight,
+        offsetShiftApplied: 0,
+      });
+      setSectionPages((current) => ({
+        ...current,
+        [activeSection]: {
+          ...current[activeSection],
+          nextOffset: clamped.nextOffset ?? current[activeSection].nextOffset,
+          nextBeforeBlockHeight: clamped.nextBeforeBlockHeight,
+          hasMore: feedPageHasMore(clamped),
+        },
+      }));
+    }
+  }, [
+    activeSection,
+    mediaPaging,
+    scrollNode,
+    sectionPages,
+    sectionPaging,
+    visiblePosts,
+  ]);
+  useEffect(() => {
+    if (!(scrollNode instanceof HTMLElement)) return;
+    const onScroll = () => {
+      if (memoryTrimTimerRef.current != null) {
+        window.clearTimeout(memoryTrimTimerRef.current);
+      }
+      memoryTrimTimerRef.current = window.setTimeout(() => {
+        memoryTrimTimerRef.current = null;
+        maybeTrimFeedMemory();
+      }, HOME_FEED_MEMORY_TRIM_IDLE_MS);
+    };
+    scrollNode.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      scrollNode.removeEventListener('scroll', onScroll);
+      if (memoryTrimTimerRef.current != null) {
+        window.clearTimeout(memoryTrimTimerRef.current);
+        memoryTrimTimerRef.current = null;
+      }
+    };
+  }, [maybeTrimFeedMemory, scrollNode, visiblePosts.length]);
+
+  useLayoutEffect(() => {
+    if (!trimAnchor || !(scrollNode instanceof HTMLElement)) return;
+    if (restoreFeedAnchor(scrollNode, trimAnchor)) {
+      setTrimAnchor(null);
+    }
+  }, [posts, scrollNode, trimAnchor]);
 
   useInfiniteScrollSentinel({
     root: scrollNode,
@@ -615,6 +778,8 @@ export function ProfileFeedClient({
             onUndoRepost={undoRepostHandler}
             className="home-feed-list"
             windowSizeCache={windowSizeCache}
+            pinnedFeedKey={trimAnchor?.key ?? null}
+            onWindowRangeChange={onWindowRangeChange}
           />
           {activeSection ? (
             sectionFailed ? (

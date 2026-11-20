@@ -25,7 +25,10 @@ import {
   translateFeedWindowRange,
   type FeedWindowRange,
 } from '@/features/home/feed-window';
-import { adoptAppLenisScroll } from '@/lib/app-lenis-registry';
+import {
+  adoptAppLenisScroll,
+  readAppScrollTop,
+} from '@/lib/app-lenis-registry';
 import {
   captureVisibleFeedAnchor,
   restoreFeedAnchor,
@@ -190,19 +193,18 @@ export function useFeedWindow({
   const syncRange = useCallback(() => {
     const node = rootRef.current;
     if (!node) return;
-    // Offsets are list-relative while scrollTop is root-relative. Translate
-    // by the host's offset inside the scroll root so lists stacked below
-    // other content (market live + ended + vault, events windows, hub
-    // sections) window against their own top instead of the root's.
+    // Offsets are list-relative while scroll is root-relative. Use Lenis
+    // live top when it owns the root — native scrollTop lags during coast.
+    const scrollTop = readAppScrollTop(node);
     const host = hostRef.current;
     const hostTop = host
       ? host.getBoundingClientRect().top -
         node.getBoundingClientRect().top +
-        node.scrollTop
+        scrollTop
       : 0;
     const next = feedWindowRangeForScroll({
       offsets: offsetsRef.current.offsets,
-      scrollTop: node.scrollTop - hostTop,
+      scrollTop: scrollTop - hostTop,
       viewportHeight: node.clientHeight,
       overscan: overscanRef.current,
     });
@@ -352,10 +354,11 @@ export function useFeedWindow({
       if (index < 0 || !node || !host) return false;
       const rowOffset = offsetsRef.current.offsets[index] ?? 0;
       const rowEnd = offsetsRef.current.offsets[index + 1] ?? rowOffset;
+      const liveTop = readAppScrollTop(node);
       const hostTop =
         host.getBoundingClientRect().top -
         node.getBoundingClientRect().top +
-        node.scrollTop;
+        liveTop;
       const top = feedWindowScrollTopForRow({
         hostTop,
         rowOffset,
@@ -363,7 +366,7 @@ export function useFeedWindow({
         viewportHeight: node.clientHeight,
         maxScroll: Math.max(0, node.scrollHeight - node.clientHeight),
       });
-      if (node.scrollTop !== top) {
+      if (liveTop !== top) {
         node.scrollTop = top;
         adoptAppLenisScroll(node);
       }
