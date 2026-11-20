@@ -22,6 +22,7 @@ import {
   reposterLoadMoreCursor,
   scheduleThreadIdle,
   shouldPaintDirectReplies,
+  shouldReplacePaginatedList,
   startThreadFirstPage,
   THREAD_REPLY_FIRST_PAGE,
   threadContentPath,
@@ -73,6 +74,18 @@ describe('thread first page', () => {
         directRepliesResolved: true,
       })
     ).toBe(false);
+  });
+
+  it('keeps load-mored quotes/reposters across soft refresh', () => {
+    expect(
+      shouldReplacePaginatedList({ background: true, paginated: true })
+    ).toBe(false);
+    expect(
+      shouldReplacePaginatedList({ background: true, paginated: false })
+    ).toBe(true);
+    expect(
+      shouldReplacePaginatedList({ background: false, paginated: true })
+    ).toBe(true);
   });
 
   it('treats a full page as more replies', () => {
