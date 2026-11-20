@@ -1,6 +1,7 @@
 ---
 description: Portal transaction toast UX — placement, copy voice, and loading pattern for NEAR txs
-alwaysApply: true
+globs: packages/onsocial-portal/**/*.{ts,tsx}
+alwaysApply: false
 ---
 
 # Portal transaction toast

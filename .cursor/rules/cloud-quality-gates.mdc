@@ -10,11 +10,11 @@ alwaysApply: true
 For ordinary feature work:
 
 1. Implement on a `cursor/…` branch
-2. Push (`--no-verify` OK here — do not block on a full cloud suite)
+2. Typecheck and run touched tests, then push with `PRE_PUSH_E2E=0` (lint/format/build still run; local Playwright is skipped). Do not use `--no-verify`.
 3. Open / update the PR
-4. Let **GitHub CI + preview deployment** be the quality gate while the user reviews
+4. Let **GitHub CI + preview deployment** be the review gate. Full GitHub CI, including App CI Playwright, is the merge gate.
 
-Do **not** run full `pnpm check:push` before every feature PR. Prefer the faster PR → CI → preview loop.
+Do **not** run App Playwright locally before every feature PR. Ordinary cloud pushes use `PRE_PUSH_E2E=0 pnpm check:push`.
 
 ## Merge (locked)
 
@@ -26,9 +26,9 @@ When the user asks to **merge**:
 
 If checks are red or still running: wait / fix / re-push, then merge when green. Only run cloud `check:push` on merge when the user explicitly asks for an extra gate, or when landing to `main` **without** a PR that already ran those checks.
 
-## When to run `pnpm check:push` (cloud)
+## When to run full `pnpm check:push` (cloud)
 
-Rare. Use it when:
+Rare — this is the Playwright-inclusive run (`CURSOR_AGENT=1` with App CI paths, or `PRE_PUSH_E2E=1`). Ordinary pushes use `PRE_PUSH_E2E=0`. Use the full run when:
 
 - The user explicitly asks for a cloud pre-gate
 - Promoting / pushing to `main` **outside** a PR whose GitHub CI already covered the monitored paths
@@ -44,7 +44,7 @@ Command of record when used: `pnpm check:push` from repo root (same as husky).
 - Shared-lib edits (`rpc` / `sdk` / `text-card` / `ui`): `PRE_PUSH_DEPENDENTS=1` when dependents should be covered in that rare cloud run.
 - Skip package/indexer checks for docs-only, contract-only, or infra-only diffs outside those paths (contracts / relayer stay their own flows).
 
-If a cloud `check:push` was required for a direct `main` push: push with `--no-verify` only after that gate is green (avoids double suite / PC freeze). Feature-branch pushes may always use `--no-verify` so CI on the PR owns the gate.
+If a cloud `check:push` was required for a direct `main` push: after that gate is green, push with `PRE_PUSH_E2E=0` so Playwright does not run twice. Do not use `--no-verify`. Feature-branch pushes use `PRE_PUSH_E2E=0` so CI on the PR owns Playwright.
 
 ## Preview
 
@@ -57,8 +57,8 @@ If a cloud `check:push` was required for a direct `main` push: push with `--no-v
 ## Do not
 
 - Re-run `check:push` when the user asks to merge a PR whose GitHub CI is already green.
-- Block every feature PR on a full cloud `check:push` when GitHub CI will run the same paths.
-- Run full local `pnpm --filter @onsocial/app run check` or local `pnpm check:push` as the default pre-push (laptop dies).
+- Block every feature PR on local App Playwright when GitHub CI will run it.
+- Run full local `pnpm --filter @onsocial/app run check` or Playwright (`PRE_PUSH_E2E=1`) as the default pre-push (laptop dies). Ordinary cloud pushes use `PRE_PUSH_E2E=0`.
 - Double-run: local full check **and** cloud **and** husky / PR CI for the same change.
 - Put contract / relayer / non-substreams Docker work into this pnpm cloud gate unless the user asks.
 - Assume cloud VM edits appear on local `localhost` without `git pull` / checkout of that branch.

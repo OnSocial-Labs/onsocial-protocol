@@ -11,8 +11,15 @@ up to date when adding or changing a page.
 
 ## State behavior
 
+- Data already available (seed, session, SSR) renders with no skeleton over
+  real content.
 - Cold with no painted data → structural skeleton matching the final shell.
-- Refresh with painted data → keep rows; use a refresh treatment.
+- Client navigation without ready data: `OsRouteSettle` paints the skeleton
+  it is given on the first frame (`cover` starts at `hold`). No delay before
+  that paint. After settle, the cover fades off over `--os-motion-appear`
+  (280ms fallback) and then unmounts; `prefers-reduced-motion` drops the
+  cover immediately.
+- Refresh with painted data → keep rows and set `is-refreshing`.
 - Load more → silent happy path; late/in-flight = footer PulsingDots
   (OsLoadMore / sentinel). Never append cold skeleton rows mid-list.
   Failed append → same footer seat with retry (prefer OsLoadMore).
@@ -23,6 +30,8 @@ up to date when adding or changing a page.
 ## Geometry
 
 - Skeleton and production rows share layout primitives, variants, and tokens.
+- Cold skeletons match live row classes and box sizes (`PostRowSkeleton`,
+  `HOME_FEED_COLD_SKELETON_FRAMES`).
 - Route `loading.tsx` must preserve the page shell when the shell is known.
 - `Suspense fallback={null}` is only valid when an already-mounted shell remains
   visible and a blank first navigation is not possible.

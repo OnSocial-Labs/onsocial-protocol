@@ -1,0 +1,65 @@
+---
+description: App-wide UX contract for packages/onsocial-app (lists, motion, layout stability, quality gates)
+globs: packages/onsocial-app/**
+alwaysApply: false
+---
+
+# UX contract (onsocial-app)
+
+Goal: every screen feels instant and stable. Zero layout shift, bounded memory, one motion style. Match or beat best-in-class apps on feel; get there through the primitives below, not by replacing them.
+
+## Before you implement
+
+- Read the code you'll touch and its callers first; note existing bugs, races, stale-request commits, or layout shift in that area. Fix those in scope as part of the change; list out-of-scope findings in the PR description rather than fixing them silently.
+- For any non-trivial UI/UX or data-flow change, briefly identify the industry best-in-class approach to the same problem and pick the one that feels most premium: instant, stable, smooth, minimal.
+- Then implement that approach through the existing primitives below. If they can't reach it, stop before building and say why (what falls short, with evidence, and the proposed extension or replacement); don't build a parallel system or replace a primitive without approval.
+- State the chosen approach and why in the PR description.
+
+## Use what exists; never add a parallel system
+
+- Before using Next.js APIs, read the matching guide in `node_modules/next/dist/docs/` (this Next version differs from training data).
+- No `framer-motion` (portal-only), `react-query`, `SWR`, `react-window`, or parallel UI systems.
+- Navigation, lists, and prefetch: `OsRouteSettle`, `useFeedWindow`, `useListScrollRestore`, `IntentPrefetchHost`.
+- Seeds: `home-feed-session`, `PortfolioProfileSeed`, `standing-list-cache`, `writing-shelf-warm`, `launcher-mine-session`, `launcher-latest-session`.
+- Sheets: `OsHugSheet`, `OsGestureSheet`, or `GlassSheet`.
+- Follow sibling rules by concern (do not duplicate or invent alternatives): `app-loading-contract.mdc` (with `app-loading-contract.ts` + `app-loading-matrix.ts`), `app-button-toast-contract.mdc`, `app-chrome-spacing.mdc`, `app-dao-face.mdc`, `app-empty-copy.mdc`, `app-mage-icons.mdc`, `hug-drawer-actions.mdc`, `app-gesture-opens-surface.mdc`, `app-indexer-first-paint.mdc`, `app-portfolio-face.mdc`, and `implement-clean.mdc`.
+
+## Viewer mood on OS shells
+
+Portfolio and wallet mood live in `app-portfolio-face.mdc`. These shells only:
+
+- `OsAppScreen` and `OsSlideOverScreen` apply the connected **viewer** mood by default (`useViewerDockMood`). Do not re-thread `moodId` / `moodStyle` on every panel. `moodId={null}` keeps the blue-corner trial. Pass an explicit mood only as a rare override.
+- Outside those shells (compose post, manage flows, account sheets): resolve CSS vars (`portfolioMoodShellStyle` or the viewer hook `style`) and pass `moodId` + `moodStyle`, or omit them and let the shells default. Prefer a subtle `--mood-bg` under translucent glass — opaque glass that hides the wash does not count.
+- Compose and slide-over wash stays inside the app column on phone. Desktop gutters stay OS `--bg` (no outside mood glow). A slide-over clears card radius so host glow cannot bleed. The portfolio hairline ban is in `app-portfolio-face.mdc`.
+- `guild-composer-sheet` may still pass viewer mood explicitly. Most routes inherit `OsAppScreen`.
+
+## Motion
+
+- Content appear / route settle: `var(--os-motion-appear)` (280ms) + `var(--os-motion-ease-standard)`.
+- Scale: micro 120, chip 160, chrome 220, dock 260, overlay 320, `ease-out` (glass-sheet), `ease-soft` (expand / collapse), `ease-slide`.
+- No raw durations or cubic-beziers. Opacity only on nodes containing the fixed dock.
+- `prefers-reduced-motion`: no appear animation (`OsRouteSettle` drops the cover immediately; appear keyframes live under `no-preference`).
+
+## Loading
+
+Owned by `app-loading-contract.mdc` (+ `app-loading-contract.ts`, `app-loading-matrix.ts`). Do not restate it here.
+
+## Layout stability
+
+- Every image/video has a reserved height or `aspect-ratio` before decode.
+- Async UI (wallet state, counts, chips, banners) reserves its final size up front; swaps never change height.
+- Fonts via `next/font/local` only (`src/fonts/index.ts`; `next/font/google` is ESLint-banned).
+
+## Lists and data
+
+- Lists that can exceed 12 rows use `useFeedWindow` (`FEED_WINDOW_MIN_COUNT = 12`). Stable id keys (`[data-feed-key]`); index keys only for static placeholders.
+- Pagination: prefer the keyset the last page returned (`HomeFeedPageCursor.beforeBlockHeight` / `beforeEventHeat` / `beforeEventKey` — Recent, Pulse, and Hot Global/Circle heat). Fall back to `nextOffset` with head-insert compensation (`home-feed-new-posts.ts`) only when no keyset is present; never page a keyset feed by offset.
+- Async load, refresh, and append results commit only if `isCurrentLoadingRequest(loadId)`. Realtime subscribe handlers patch or reload directly without that gate.
+- Lists a user can leave and return to use `useListScrollRestore`. Don't set `history.scrollRestoration`.
+
+## Code and done means
+
+- Minimal diffs, no dead code, concise why-only inline docs.
+- CLS 0 on the portfolio face (`PerformanceObserver` probe in `e2e/portfolio-pill.spec.ts`); aim under 0.1 elsewhere.
+- Long scroll keeps `[data-feed-key]` count bounded (`e2e/feed-windowing.spec.ts`).
+- Typecheck (`pnpm --filter @onsocial/app run type-check`) and touched tests pass; push with `PRE_PUSH_E2E=0` — CI is the gate.

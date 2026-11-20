@@ -6,9 +6,9 @@ alwaysApply: true
 
 # Pre-push quality gates
 
-`pnpm check:push` (`scripts/pre-push-check.mjs`, also `.husky/pre-push`) runs lint/format/build/test for **directly changed** monitored packages, plus indexer checks when those paths change. Cloud agents also run **App Playwright** when App CI paths change (`CURSOR_AGENT=1` or `PRE_PUSH_E2E=1`) — same production `next start` job as GitHub OnSocial App CI. Laptop husky does not — that suite is what painted `main` red when only `check` was green.
+`pnpm check:push` (`scripts/pre-push-check.mjs`, also `.husky/pre-push`) runs lint/format/build/test for **directly changed** monitored packages, plus indexer checks when those paths change. `scripts/pre-push-check.mjs` enables App Playwright by default when `CURSOR_AGENT=1` and App CI paths change — the same production `next start` job as GitHub OnSocial App CI. `PRE_PUSH_E2E=0` skips that Playwright run and still runs lint/format/build. Laptop husky does not enable Playwright unless `PRE_PUSH_E2E=1`.
 
-**Agents:** follow [cloud-quality-gates.mdc](cloud-quality-gates.mdc) — ordinary feature work is **implement → push → PR / GitHub CI + preview**. On merge: ensure PR checks are green, then merge — do not re-run `check:push`. Use cloud `check:push` only when asked, or when landing to `main` without PR CI. Do not thrash the laptop with a full suite.
+**Agents:** ordinary feature work is **typecheck + touched tests → push with `PRE_PUSH_E2E=0` → PR / GitHub CI + preview**. Do not use `--no-verify`; `PRE_PUSH_E2E=0` already skips Playwright while keeping lint/format/build. Full GitHub CI, including App CI Playwright, is the merge gate. On merge: ensure those PR checks are green, then merge — do not re-run `check:push`. See [cloud-quality-gates.mdc](cloud-quality-gates.mdc). Do not thrash the laptop with Playwright.
 
 ## When checks apply
 
@@ -32,7 +32,8 @@ Skip for docs-only, contract-only, or infra-only changes outside those paths. Co
 ```bash
 pnpm check:push
 PRE_PUSH_DEPENDENTS=1 pnpm check:push   # after shared-lib changes
-PRE_PUSH_E2E=1 pnpm check:push          # force App Playwright (cloud already does this)
+PRE_PUSH_E2E=0 pnpm check:push          # cloud agents: skip local Playwright (CI owns it)
+PRE_PUSH_E2E=1 pnpm check:push          # force App Playwright locally
 ```
 
 Prefer cloud for substreams Docker + Rust golden checks.
@@ -43,4 +44,4 @@ Pre-commit: `lint-staged` on staged monitored-package files (prettier + eslint -
 
 ## CI
 
-Path-filtered workflows (portal, backend, gateway, pages, …) remain the merge safety net. App CI Playwright is the e2e net; cloud `check:push` should catch the same Playwright failures before a `main` push. Substreams CI still runs full cargo test + SQL + parity; cloud `check:push` should catch the same SQL + parity/golden failures before push.
+GitHub CI (including App CI Playwright) is the merge gate for PRs. Path-filtered workflows cover their own packages. Substreams CI runs full cargo test + SQL + parity.
