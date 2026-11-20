@@ -17,7 +17,13 @@ const SCROLL_MAX_ATTEMPTS = 24;
 export function useThreadFocusReply(
   ready: boolean,
   replyPresenceKey: string,
-  options?: { onFocusReply?: () => void }
+  options?: {
+    onFocusReply?: () => void;
+    /** Window key for a pending postId — rematerializes the row before scroll. */
+    resolveFocusRowKey?: (postId: string) => string | null;
+    /** Instant window scroll (Lenis-safe); prefer over smooth scrollIntoView. */
+    revealRow?: (key: string) => boolean;
+  }
 ) {
   const router = useRouter();
   const pathname = usePathname();
@@ -29,8 +35,12 @@ export function useThreadFocusReply(
   const [pendingPostId, setPendingPostId] = useState<string | null>(null);
   const clearedQueryRef = useRef(false);
   const onFocusReplyRef = useRef(options?.onFocusReply);
+  const resolveFocusRowKeyRef = useRef(options?.resolveFocusRowKey);
+  const revealRowRef = useRef(options?.revealRow);
   useEffect(() => {
     onFocusReplyRef.current = options?.onFocusReply;
+    resolveFocusRowKeyRef.current = options?.resolveFocusRowKey;
+    revealRowRef.current = options?.revealRow;
   });
 
   const stripFocusQuery = useCallback(() => {
@@ -103,6 +113,8 @@ export function useThreadFocusReply(
       if (cancelled) return;
       const targetId = pendingPostIdRef.current;
       if (!targetId) return;
+      const rowKey = resolveFocusRowKeyRef.current?.(targetId) ?? null;
+      if (rowKey) revealRowRef.current?.(rowKey);
       const node = document.querySelector<HTMLElement>(
         `[data-thread-focus-reply="${CSS.escape(targetId)}"]`
       );
@@ -117,8 +129,9 @@ export function useThreadFocusReply(
         return;
       }
 
-      node.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      const key = node.dataset.threadFocusKey?.trim() || null;
+      // Instant — window revealRow already set scrollTop; smooth fights Lenis.
+      node.scrollIntoView({ block: 'center', behavior: 'auto' });
+      const key = node.dataset.threadFocusKey?.trim() || rowKey || null;
       if (key) setHighlightKey(key);
       else {
         pendingPostIdRef.current = null;

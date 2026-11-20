@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
   type RefObject,
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -133,6 +134,7 @@ import {
 import { threadReplyRowEstimatePx } from '@/features/home/feed-block-estimate';
 import { useFeedWindow } from '@/features/home/use-feed-window';
 import { THREAD_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
+import { threadWindowSizeCache } from '@/lib/thread-window-heights';
 import { resolveThreadFoldLabel } from '@/lib/thread-fold-label';
 import {
   applyMediaKindOverride,
@@ -346,7 +348,14 @@ export function LiveGuildPostPanel({
     const rootAuthorId = conversation.root?.accountId;
     return rootAuthorId ? new Set([rootAuthorId]) : undefined;
   }, [conversation.root?.accountId]);
-  const threadFocus = useThreadFocusReply(loadState === 'ready', replyFocusKey);
+  const revealReplyRowRef = useRef<(key: string) => boolean>(() => false);
+  const resolveFocusRowKeyRef = useRef<(postId: string) => string | null>(
+    () => null
+  );
+  const threadFocus = useThreadFocusReply(loadState === 'ready', replyFocusKey, {
+    resolveFocusRowKey: (postId) => resolveFocusRowKeyRef.current(postId),
+    revealRow: (key) => revealReplyRowRef.current(key),
+  });
   // Quotes read newest-first — your fresh quote leads the list.
   const quotes = useMemo(
     () => [
@@ -355,13 +364,17 @@ export function LiveGuildPostPanel({
     ],
     [conversation.quotes, localQuotes]
   );
+  const replyPosts = useMemo(
+    () => replyRows.flatMap((row) => (row.kind === 'post' ? [row.post] : [])),
+    [replyRows]
+  );
   const threadPosts = useMemo(
     () => [
       ...(conversation.root ? [conversation.root] : []),
-      ...replyRows.flatMap((row) => (row.kind === 'post' ? [row.post] : [])),
+      ...replyPosts,
       ...quotes,
     ],
-    [conversation.root, replyRows, quotes]
+    [conversation.root, replyPosts, quotes]
   );
   // Full ancestor chain up to the conversation root, oldest first.
   const parentPath = conversation.root?.parentPath;
@@ -373,9 +386,14 @@ export function LiveGuildPostPanel({
   const threadHostRef = useRef<HTMLDivElement | null>(null);
   const threadScrollRef = useRef<HTMLElement | null>(null);
   const replyLoadMoreRef = useRef<HTMLDivElement | null>(null);
+  // Root + ancestors + replies — quotes page owns quote engagement paint.
   const engagementPosts = useMemo(
-    () => [...ancestorChain, ...threadPosts],
-    [ancestorChain, threadPosts]
+    () => [
+      ...ancestorChain,
+      ...(conversation.root ? [conversation.root] : []),
+      ...replyPosts,
+    ],
+    [ancestorChain, conversation.root, replyPosts]
   );
   const quotedPostSources = useMemo(
     () => [...threadPosts, ...ancestorChain],
@@ -482,6 +500,10 @@ export function LiveGuildPostPanel({
     }
     return null;
   }, [sortedReplyRows, replyRowKeys, threadFocus.pendingPostId]);
+  const replySizeCache = useMemo(
+    () => threadWindowSizeCache(rootPath),
+    [rootPath]
+  );
   const {
     windowed: replyWindowed,
     start: replyWindowStart,
@@ -489,13 +511,25 @@ export function LiveGuildPostPanel({
     topSpacer: replyTopSpacer,
     bottomSpacer: replyBottomSpacer,
     registerRow: registerReplyRow,
+    revealRow: revealReplyRow,
   } = useFeedWindow({
     keys: replyRowKeys,
     hostRef: replyStackRef,
+    sizeCache: replySizeCache,
     pinnedKey: focusPinKey,
     anchorQuery: THREAD_ANCHOR_QUERY,
     estimate: replyRowEstimates,
   });
+  revealReplyRowRef.current = revealReplyRow;
+  resolveFocusRowKeyRef.current = (pendingId: string) => {
+    for (let index = 0; index < sortedReplyRows.length; index += 1) {
+      const row = sortedReplyRows[index]!;
+      if (row.kind === 'post' && row.post.postId === pendingId) {
+        return replyRowKeys[index]!;
+      }
+    }
+    return null;
+  };
 
   useEffect(() => {
     if (!mediaUnmuted) return;
@@ -962,7 +996,14 @@ export function LiveGuildPostPanel({
     sortedReplyRows
   );
 
-  const replyListRows = sortedReplyRows.map((row, index) => {
+  const replyListRows: ReactNode[] = [];
+  for (
+    let index = replyWindowStart;
+    index < replyWindowEnd;
+    index += 1
+  ) {
+    const row = sortedReplyRows[index];
+    if (!row) continue;
     if (row.kind === 'more') {
       const foldLabel =
         resolveThreadFoldLabel(row.hidden, {
@@ -974,9 +1015,13 @@ export function LiveGuildPostPanel({
           : `Show ${row.hiddenCount} more replies`);
       const target = row.hidden[0];
       const foldKey = threadReplyRowKey(row);
-      if (!target) return null;
-      return (
-        <div key={foldKey} ref={registerReplyRow(foldKey)}>
+      if (!target) continue;
+      replyListRows.push(
+        <div
+          key={foldKey}
+          ref={registerReplyRow(foldKey)}
+          data-thread-focus-key={foldKey}
+        >
           <ThreadFoldLink
             href={guildPostPath(
               target.groupId ?? groupId,
@@ -990,6 +1035,7 @@ export function LiveGuildPostPanel({
           </ThreadFoldLink>
         </div>
       );
+      continue;
     }
 
     const next = sortedReplyRows[index + 1];
@@ -1014,7 +1060,7 @@ export function LiveGuildPostPanel({
       .join(' ');
 
     const rowKey = threadReplyRowKey(row);
-    return (
+    replyListRows.push(
       <div key={rowKey} ref={registerReplyRow(rowKey)}>
         {index > 0 && !row.connectedToPrevious ? (
           <Divider variant="item" className="post-row-divider" />
@@ -1062,9 +1108,9 @@ export function LiveGuildPostPanel({
         </div>
       </div>
     );
-  });
+  }
 
-  const showReplyControl = repliesResolved && replyListRows.length > 0;
+  const showReplyControl = repliesResolved && sortedReplyRows.length > 0;
   const showQuoteControl = repliesResolved && Boolean(shareRow);
 
   useEffect(() => {
@@ -1239,13 +1285,13 @@ export function LiveGuildPostPanel({
           ) : null}
 
           <div className="guild-connected-stack" ref={replyStackRef}>
-            {!repliesResolved && replyListRows.length === 0 ? (
+            {!repliesResolved && sortedReplyRows.length === 0 ? (
               <div aria-busy="true">
                 <PostRowSkeleton rows={2} />
               </div>
             ) : null}
             {/* Reserve Join seat until ACL resolves — no post-appear shove. */}
-            {replyListRows.length === 0 &&
+            {sortedReplyRows.length === 0 &&
             !shareRow &&
             (joinControl || !viewerAccessResolved) ? (
               <div
@@ -1264,8 +1310,8 @@ export function LiveGuildPostPanel({
                 data-feed-window-spacer="top"
               />
             ) : null}
-            {replyListRows.length > 0 ? (
-              replyListRows.slice(replyWindowStart, replyWindowEnd)
+            {sortedReplyRows.length > 0 ? (
+              replyListRows
             ) : repliesResolved && emptyTailReady && !shareRow ? (
               <ThreadDiscoverPeek
                 author={author}
@@ -1298,7 +1344,7 @@ export function LiveGuildPostPanel({
           </div>
         </section>
       ) : null}
-      {joinControl && (replyListRows.length > 0 || shareRow) ? (
+      {joinControl && (sortedReplyRows.length > 0 || shareRow) ? (
         <div className="guild-thread-join-dock">{joinControl}</div>
       ) : null}
     </div>

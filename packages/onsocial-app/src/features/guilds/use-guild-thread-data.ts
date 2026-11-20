@@ -256,8 +256,8 @@ export function useGuildThreadData({
         const firstPagePromise = paintDirect
           ? startThreadFirstPage(rootPath)
           : null;
-        // First reply page gates appear; tree soft-fills on idle. Quotes list
-        // loads on View quotes; config still soft-fills in parallel.
+        // First reply page soft-fills; tree enrich continues on idle. Quotes
+        // list loads on View quotes; config still soft-fills in parallel.
         const rootPromise = client.query.groups.post(postRef);
         const configPromise = client.groups.getConfig(groupId);
 

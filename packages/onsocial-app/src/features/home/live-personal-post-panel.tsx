@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { PostRow, ThreadNode } from '@onsocial/sdk';
 import { Divider, PulsingDots } from '@onsocial/ui';
@@ -107,6 +114,7 @@ import {
   readThreadSession,
   writeThreadSession,
 } from '@/lib/thread-session-cache';
+import { threadWindowSizeCache } from '@/lib/thread-window-heights';
 import { APP_HOME_PATH } from '@/lib/app-routes';
 import {
   appendThreadFocusReply,
@@ -292,7 +300,7 @@ export function LivePersonalPostPanel({
   const [replyTree, setReplyTree] = useState<ThreadNode[]>(
     () => seeded?.replyTree ?? []
   );
-  /** First reply page ready — appear waits on this; graft/tree enrich after. */
+  /** First reply page ready — skeleton → replies; graft/tree enrich after. */
   const [repliesResolved, setRepliesResolved] = useState(
     () =>
       sessionSeed.fromCache || Boolean(sessionSeed.data?.directRepliesResolved)
@@ -326,12 +334,17 @@ export function LivePersonalPostPanel({
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const paginatedRef = useRef(false);
+  const loadMoreInFlightRef = useRef(false);
   const refreshRequestIdRef = useRef(0);
   const reconcileTimersRef = useRef<number[]>([]);
   const openedPostRef = useRef<HTMLDivElement>(null);
   const threadHostRef = useRef<HTMLDivElement | null>(null);
   const threadScrollRef = useRef<HTMLElement | null>(null);
   const replyLoadMoreRef = useRef<HTMLDivElement | null>(null);
+  const revealReplyRowRef = useRef<(key: string) => boolean>(() => false);
+  const resolveFocusRowKeyRef = useRef<(postId: string) => string | null>(
+    () => null
+  );
 
   const paintedKeyRef = useRef<string | null>(seeded ? rootPath : null);
   /** Latest open seed. A feed row omits `directRepliesResolved`; SSR sets it. */
@@ -366,7 +379,10 @@ export function LivePersonalPostPanel({
     const rootAuthorId = conversation.root?.accountId;
     return rootAuthorId ? new Set([rootAuthorId]) : undefined;
   }, [conversation.root?.accountId]);
-  const threadFocus = useThreadFocusReply(loadState === 'ready', replyFocusKey);
+  const threadFocus = useThreadFocusReply(loadState === 'ready', replyFocusKey, {
+    resolveFocusRowKey: (postId) => resolveFocusRowKeyRef.current(postId),
+    revealRow: (key) => revealReplyRowRef.current(key),
+  });
   const quotes = useMemo(
     () => [
       ...withoutIndexedPosts(localQuotes, conversation.quotes),
@@ -374,22 +390,32 @@ export function LivePersonalPostPanel({
     ],
     [conversation.quotes, localQuotes]
   );
+  const replyPosts = useMemo(
+    () => replyRows.flatMap((row) => (row.kind === 'post' ? [row.post] : [])),
+    [replyRows]
+  );
   const threadPosts = useMemo(
     () => [
       ...(conversation.root ? [conversation.root] : []),
-      ...replyRows.flatMap((row) => (row.kind === 'post' ? [row.post] : [])),
+      ...replyPosts,
       ...quotes,
     ],
-    [conversation.root, replyRows, quotes]
+    [conversation.root, replyPosts, quotes]
   );
   const parentPath = conversation.root?.parentPath;
   const { ancestors: ancestorChain, ready: ancestorsReady } =
     asAncestorChainState(useAncestorChain(parentPath));
   const hasParent = Boolean(parentPath);
   const hasAncestorRows = ancestorChain.length > 0;
+  // Root + ancestors + replies — quote list lives on the quotes page; share
+  // row already reads root engagement counts.
   const engagementPosts = useMemo(
-    () => [...ancestorChain, ...threadPosts],
-    [ancestorChain, threadPosts]
+    () => [
+      ...ancestorChain,
+      ...(conversation.root ? [conversation.root] : []),
+      ...replyPosts,
+    ],
+    [ancestorChain, conversation.root, replyPosts]
   );
   const quotedPostSources = useMemo(
     () => [...threadPosts, ...ancestorChain],
@@ -506,6 +532,10 @@ export function LivePersonalPostPanel({
     }
     return null;
   }, [sortedReplyRows, replyRowKeys, threadFocus.pendingPostId]);
+  const replySizeCache = useMemo(
+    () => threadWindowSizeCache(rootPath),
+    [rootPath]
+  );
   const {
     windowed: replyWindowed,
     start: replyWindowStart,
@@ -513,13 +543,25 @@ export function LivePersonalPostPanel({
     topSpacer: replyTopSpacer,
     bottomSpacer: replyBottomSpacer,
     registerRow: registerReplyRow,
+    revealRow: revealReplyRow,
   } = useFeedWindow({
     keys: replyRowKeys,
     hostRef: replyStackRef,
+    sizeCache: replySizeCache,
     pinnedKey: focusPinKey,
     anchorQuery: THREAD_ANCHOR_QUERY,
     estimate: replyRowEstimates,
   });
+  revealReplyRowRef.current = revealReplyRow;
+  resolveFocusRowKeyRef.current = (pendingId: string) => {
+    for (let index = 0; index < sortedReplyRows.length; index += 1) {
+      const row = sortedReplyRows[index]!;
+      if (row.kind === 'post' && row.post.postId === pendingId) {
+        return replyRowKeys[index]!;
+      }
+    }
+    return null;
+  };
 
   const refresh = useCallback(
     async (options: { background?: boolean } = {}) => {
@@ -539,8 +581,8 @@ export function LivePersonalPostPanel({
         const firstPagePromise = paintDirect
           ? startThreadFirstPage(rootPath)
           : null;
-        // First reply page gates appear; tree soft-fills on idle. Quotes list
-        // loads on View quotes (share row uses engagement counts).
+        // First reply page soft-fills; tree enrich continues on idle. Quotes
+        // list loads on View quotes (share row uses engagement counts).
         const rootPromise = fetchPersonalPost({ author, postId });
 
         if (firstPagePromise) {
@@ -803,54 +845,58 @@ export function LivePersonalPostPanel({
     }
   }, [refresh]);
 
-  const loadMoreReplies = useCallback(async () => {
-    if (loadingMore) return;
+  const loadMoreReplies = useCallback(() => {
+    if (loadMoreInFlightRef.current) return;
+    loadMoreInFlightRef.current = true;
     setLoadingMore(true);
     setLoadMoreError(null);
-    try {
-      const client = createReadOnlyOnSocialClient();
-      const cursor = replyLoadMoreCursor(conversation.replies);
-      const page = await client.query.threads.repliesByPath(rootPath, {
-        limit: REPLY_PAGE_SIZE,
-        ...cursor,
-      });
-      paginatedRef.current = true;
-      // Keyset is primary; client dedupe stays belt-and-suspenders.
-      setConversation((current) => {
-        const seen = new Set(current.replies.map(postKey));
-        const fresh = page.filter((post) => {
-          const key = postKey(post);
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
+    const cursor = replyLoadMoreCursor(conversation.replies);
+    void (async () => {
+      try {
+        const client = createReadOnlyOnSocialClient();
+        const page = await client.query.threads.repliesByPath(rootPath, {
+          limit: REPLY_PAGE_SIZE,
+          ...cursor,
         });
-        return { ...current, replies: [...current.replies, ...fresh] };
-      });
-      setReplyTree((current) => {
-        const seen = new Set(current.map((node) => postKey(node.post)));
-        const fresh = page.filter((post) => {
-          const key = postKey(post);
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
+        paginatedRef.current = true;
+        // Keyset is primary; client dedupe stays belt-and-suspenders.
+        setConversation((current) => {
+          const seen = new Set(current.replies.map(postKey));
+          const fresh = page.filter((post) => {
+            const key = postKey(post);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          return { ...current, replies: [...current.replies, ...fresh] };
         });
-        return [
-          ...current,
-          ...fresh.map((post) =>
-            leafThreadNode(
-              post,
-              personalPostContentPath(post.accountId, post.postId)
-            )
-          ),
-        ];
-      });
-      setHasMoreReplies(page.length >= REPLY_PAGE_SIZE);
-    } catch {
-      setLoadMoreError('Could not load more replies.');
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [conversation.replies, loadingMore, rootPath]);
+        setReplyTree((current) => {
+          const seen = new Set(current.map((node) => postKey(node.post)));
+          const fresh = page.filter((post) => {
+            const key = postKey(post);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          return [
+            ...current,
+            ...fresh.map((post) =>
+              leafThreadNode(
+                post,
+                personalPostContentPath(post.accountId, post.postId)
+              )
+            ),
+          ];
+        });
+        setHasMoreReplies(page.length >= REPLY_PAGE_SIZE);
+      } catch {
+        setLoadMoreError('Could not load more replies.');
+      } finally {
+        loadMoreInFlightRef.current = false;
+        setLoadingMore(false);
+      }
+    })();
+  }, [conversation.replies, rootPath]);
 
   useEffect(() => {
     const host = threadHostRef.current;
@@ -868,7 +914,7 @@ export function LivePersonalPostPanel({
       !loadMoreError &&
       loadState === 'ready',
     onIntersect: () => {
-      void loadMoreReplies();
+      loadMoreReplies();
     },
     rootMargin: '1400px 0px',
   });
@@ -1077,7 +1123,14 @@ export function LivePersonalPostPanel({
     sortedReplyRows
   );
 
-  const replyListRows = sortedReplyRows.map((row, index) => {
+  const replyListRows: ReactNode[] = [];
+  for (
+    let index = replyWindowStart;
+    index < replyWindowEnd;
+    index += 1
+  ) {
+    const row = sortedReplyRows[index];
+    if (!row) continue;
     if (row.kind === 'more') {
       const foldLabel =
         resolveThreadFoldLabel(row.hidden, {
@@ -1089,14 +1142,19 @@ export function LivePersonalPostPanel({
           : `Show ${row.hiddenCount} more replies`);
       const target = row.hidden[0];
       const foldKey = threadReplyRowKey(row);
-      if (!target) return null;
-      return (
-        <div key={foldKey} ref={registerReplyRow(foldKey)}>
+      if (!target) continue;
+      replyListRows.push(
+        <div
+          key={foldKey}
+          ref={registerReplyRow(foldKey)}
+          data-thread-focus-key={foldKey}
+        >
           <ThreadFoldLink href={postThreadPath(target)} root={target}>
             {foldLabel}
           </ThreadFoldLink>
         </div>
       );
+      continue;
     }
 
     const next = sortedReplyRows[index + 1];
@@ -1121,7 +1179,7 @@ export function LivePersonalPostPanel({
       .join(' ');
 
     const rowKey = threadReplyRowKey(row);
-    return (
+    replyListRows.push(
       <div key={rowKey} ref={registerReplyRow(rowKey)}>
         {index > 0 && !row.connectedToPrevious ? (
           <Divider variant="item" className="post-row-divider" />
@@ -1168,9 +1226,10 @@ export function LivePersonalPostPanel({
         </div>
       </div>
     );
-  });
+  }
 
-  const showReplyControl = repliesResolved && replyListRows.length > 0;
+  const showReplyControl =
+    repliesResolved && sortedReplyRows.length > 0;
   const showQuoteControl = repliesResolved && Boolean(shareRow);
 
   const thread = (
@@ -1334,12 +1393,12 @@ export function LivePersonalPostPanel({
                 data-feed-window-spacer="top"
               />
             ) : null}
-            {!repliesResolved && replyListRows.length === 0 ? (
+            {!repliesResolved && sortedReplyRows.length === 0 ? (
               <div aria-busy="true">
                 <PostRowSkeleton rows={2} />
               </div>
-            ) : replyListRows.length > 0 ? (
-              replyListRows.slice(replyWindowStart, replyWindowEnd)
+            ) : sortedReplyRows.length > 0 ? (
+              replyListRows
             ) : emptyTailReady && !shareRow ? (
               <ThreadDiscoverPeek
                 author={author}

@@ -28,9 +28,10 @@ export const FEED_ANCHOR_QUERY: FeedAnchorQuery = {
 };
 
 /**
- * Thread panel rows — every ancestor and reply item carries
- * `[data-thread-focus-key]` (postKey), so the same attribute that drives
- * deep-link focus can hold the reader's place while heights settle.
+ * Thread panel rows — ancestors, reply posts, and fold coils carry
+ * `[data-thread-focus-key]` (postKey or `more-*`), so the same attribute
+ * that drives deep-link focus can hold the reader's place while heights
+ * settle.
  */
 export const THREAD_ANCHOR_QUERY: FeedAnchorQuery = {
   rowSelector: '[data-thread-focus-key]',

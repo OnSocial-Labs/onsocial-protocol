@@ -102,6 +102,7 @@ export function PostQuotesPanel({
     () => initial?.hasMoreReposters ?? false
   );
   const [loadingMore, setLoadingMore] = useState(false);
+  const loadMoreInFlightRef = useRef(false);
   /** Append failure parks the sentinel; the retry button takes over. */
   const [loadMoreError, setLoadMoreError] = useState<QuotesTab | null>(null);
   const [activeTab, setActiveTab] = useState<QuotesTab>(
@@ -259,61 +260,65 @@ export function PostQuotesPanel({
   );
 
   const loadMore = useCallback(
-    async (tab: QuotesTab) => {
-      if (loadingMore || !root) return;
+    (tab: QuotesTab) => {
+      if (loadMoreInFlightRef.current || !root) return;
+      loadMoreInFlightRef.current = true;
       setLoadingMore(true);
-      try {
-        const client = createReadOnlyOnSocialClient();
-        const path = contentPathFor(root);
-        if (tab === 'quotes') {
-          const cursor = quoteLoadMoreCursor(quotes);
-          const page = await client.query.threads.quotesByPath(path, {
-            limit: POST_QUOTES_PAGE_SIZE,
-            order: 'desc',
-            ...cursor,
-          });
-          paginatedQuotesRef.current = true;
-          setQuotes((current) => {
-            const seen = new Set(current.map(postKey));
-            const fresh = page.filter((post) => {
-              const key = postKey(post);
-              if (seen.has(key)) return false;
-              seen.add(key);
-              return true;
+      const path = contentPathFor(root);
+      const quoteCursor = quoteLoadMoreCursor(quotes);
+      const reposterCursor = reposterLoadMoreCursor(reposters);
+      void (async () => {
+        try {
+          const client = createReadOnlyOnSocialClient();
+          if (tab === 'quotes') {
+            const page = await client.query.threads.quotesByPath(path, {
+              limit: POST_QUOTES_PAGE_SIZE,
+              order: 'desc',
+              ...quoteCursor,
             });
-            return [...current, ...fresh];
-          });
-          setHasMoreQuotes(page.length >= POST_QUOTES_PAGE_SIZE);
-        } else {
-          const cursor = reposterLoadMoreCursor(reposters);
-          const page = await client.query.threads.repostersByPath(path, {
-            limit: POST_REPOSTERS_PAGE_SIZE,
-            ...cursor,
-          });
-          paginatedRepostersRef.current = true;
-          setReposters((current) => {
-            const seen = new Set(
-              current.map((row) => `${row.accountId}:${row.repostId}`)
-            );
-            const fresh = page.filter((row) => {
-              const key = `${row.accountId}:${row.repostId}`;
-              if (seen.has(key)) return false;
-              seen.add(key);
-              return true;
+            paginatedQuotesRef.current = true;
+            setQuotes((current) => {
+              const seen = new Set(current.map(postKey));
+              const fresh = page.filter((post) => {
+                const key = postKey(post);
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+              });
+              return [...current, ...fresh];
             });
-            return [...current, ...fresh];
-          });
-          setHasMoreReposters(page.length >= POST_REPOSTERS_PAGE_SIZE);
+            setHasMoreQuotes(page.length >= POST_QUOTES_PAGE_SIZE);
+          } else {
+            const page = await client.query.threads.repostersByPath(path, {
+              limit: POST_REPOSTERS_PAGE_SIZE,
+              ...reposterCursor,
+            });
+            paginatedRepostersRef.current = true;
+            setReposters((current) => {
+              const seen = new Set(
+                current.map((row) => `${row.accountId}:${row.repostId}`)
+              );
+              const fresh = page.filter((row) => {
+                const key = `${row.accountId}:${row.repostId}`;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+              });
+              return [...current, ...fresh];
+            });
+            setHasMoreReposters(page.length >= POST_REPOSTERS_PAGE_SIZE);
+          }
+          setLoadMoreError(null);
+        } catch {
+          // Keep the current list; the retry button takes over from the sentinel.
+          setLoadMoreError(tab);
+        } finally {
+          loadMoreInFlightRef.current = false;
+          setLoadingMore(false);
         }
-        setLoadMoreError(null);
-      } catch {
-        // Keep the current list; the retry button takes over from the sentinel.
-        setLoadMoreError(tab);
-      } finally {
-        setLoadingMore(false);
-      }
+      })();
     },
-    [loadingMore, root, quotes, reposters]
+    [root, quotes, reposters]
   );
 
   const quotesScrollRef = useRef<HTMLDivElement | null>(null);
@@ -321,10 +326,10 @@ export function PostQuotesPanel({
   const quotesSentinelRef = useRef<HTMLDivElement | null>(null);
   const repostersSentinelRef = useRef<HTMLDivElement | null>(null);
   const loadMoreQuotes = useCallback(() => {
-    void loadMore('quotes');
+    loadMore('quotes');
   }, [loadMore]);
   const loadMoreReposters = useCallback(() => {
-    void loadMore('reposts');
+    loadMore('reposts');
   }, [loadMore]);
   useInfiniteScrollSentinel({
     scrollRootRef: quotesScrollRef,

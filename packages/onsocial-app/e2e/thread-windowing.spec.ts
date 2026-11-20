@@ -2,10 +2,10 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 import { dismissNextDevOverlay, gotoApp } from './helpers';
 
 /**
- * Thread reply windowing — past the row threshold (30), far reply rows in
- * the thread drawer collapse into spacer divs so the DOM stays flat no
- * matter how long the thread gets. Scrolling back rematerializes them.
- * One stubbed thread with 40 flat replies is enough to cross it.
+ * Thread reply windowing — past FEED_WINDOW_MIN_COUNT (12) + cold overscan,
+ * far reply rows in the thread drawer collapse into spacer divs so the DOM
+ * stays flat no matter how long the thread gets. Scrolling back
+ * rematerializes them. One stubbed thread with 40 flat replies crosses it.
  */
 
 const ROOT_PATH = 'alice.near/post/root-post';
