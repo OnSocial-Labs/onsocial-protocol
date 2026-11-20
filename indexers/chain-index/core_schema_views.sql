@@ -1226,6 +1226,7 @@ DROP FUNCTION IF EXISTS feed_pulse(text[], integer, integer, text);
 DROP FUNCTION IF EXISTS feed_pulse(text[], integer, integer, text, bigint, bigint, text);
 DROP FUNCTION IF EXISTS feed_pulse(text[], integer, integer, text, bigint, double precision, text);
 DROP FUNCTION IF EXISTS feed_hot(integer, integer, text, text, text, text[], boolean);
+DROP FUNCTION IF EXISTS feed_hot(integer, integer, text, text, text, text[], boolean, double precision, bigint, text);
 DROP FUNCTION IF EXISTS feed_recent(integer, integer, text, text, text, text[], boolean, text, text);
 DROP FUNCTION IF EXISTS feed_recent(integer, integer, text, text, text, text[], boolean, text, text, bigint);
 
@@ -1371,6 +1372,8 @@ LEFT JOIN groups_current q2g
 -- Optional filters match the hot postsFeed where-clause:
 --   author / kind equality, section posts|replies|reposts, account list,
 --   and Circle native_only (root, or parent author in the list).
+-- Keyset: pass the previous page's last (amplify_heat, block_height, content_path).
+-- When `before_block_height` is set, `row_offset` is ignored.
 CREATE OR REPLACE FUNCTION feed_hot(
   row_limit integer,
   row_offset integer,
@@ -1378,7 +1381,10 @@ CREATE OR REPLACE FUNCTION feed_hot(
   kind text DEFAULT NULL,
   section text DEFAULT NULL,
   accounts text[] DEFAULT NULL,
-  native_only boolean DEFAULT false
+  native_only boolean DEFAULT false,
+  before_amplify_heat double precision DEFAULT NULL,
+  before_block_height bigint DEFAULT NULL,
+  before_post_key text DEFAULT NULL
 )
 RETURNS SETOF posts_feed
 LANGUAGE sql
@@ -1425,9 +1431,24 @@ AS $$
         OR p.parent_path = ''
         OR p.parent_author = ANY (COALESCE(feed_hot.accounts, ARRAY[]::text[]))
       )
-    ORDER BY p.amplify_heat DESC, p.block_height DESC
+      AND (
+        feed_hot.before_block_height IS NULL
+        OR ROW(
+          p.amplify_heat,
+          p.block_height,
+          p.content_path
+        ) < ROW(
+          COALESCE(feed_hot.before_amplify_heat, 'Infinity'::double precision),
+          feed_hot.before_block_height,
+          COALESCE(feed_hot.before_post_key, '')
+        )
+      )
+    ORDER BY p.amplify_heat DESC, p.block_height DESC, p.content_path DESC
     LIMIT GREATEST(COALESCE(feed_hot.row_limit, 0), 0)
-    OFFSET GREATEST(COALESCE(feed_hot.row_offset, 0), 0)
+    OFFSET CASE
+      WHEN feed_hot.before_block_height IS NOT NULL THEN 0
+      ELSE GREATEST(COALESCE(feed_hot.row_offset, 0), 0)
+    END
   )
   SELECT f.*
   FROM page pg
@@ -1438,7 +1459,7 @@ AS $$
       AND f.post_id = pg.post_id
     OFFSET 0
   ) f ON true
-  ORDER BY f.amplify_heat DESC, f.block_height DESC;
+  ORDER BY f.amplify_heat DESC, f.block_height DESC, f.content_path DESC;
 $$;
 
 -- Chronological page for profile, Circle, and filtered account lists.

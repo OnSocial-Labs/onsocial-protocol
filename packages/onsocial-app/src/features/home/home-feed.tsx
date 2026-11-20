@@ -1166,8 +1166,8 @@ export function HomePagePanel({
       place: placeParam,
     });
 
-    // Prefer keyset whenever the last page returned one (Recent everywhere;
-    // Pulse Hot card cursor). Offset + head-shift stays for Hot Global/Circle.
+    // Prefer keyset whenever the last page returned one (Recent, Pulse Hot
+    // card cursor, Hot Global/Circle heat keyset).
     const useKeyset = beforeHeight !== undefined;
     const pendingShift = useKeyset
       ? 0

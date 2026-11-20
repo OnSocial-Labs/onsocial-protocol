@@ -3,8 +3,25 @@ import { dismissNextDevOverlay, gotoApp } from './helpers';
 
 type GraphBody = {
   query?: string;
-  variables?: { offset?: number };
+  variables?: {
+    offset?: number;
+    before_block_height?: number;
+    beforeBlockHeight?: number;
+    before_amplify_heat?: number;
+    before_post_key?: string;
+  };
 };
+
+/** Offset page or Hot/Recent keyset walk (offset stays 0 under keyset). */
+function isFeedPageTwo(variables?: GraphBody['variables']): boolean {
+  const offset = variables?.offset ?? 0;
+  if (offset >= 24) return true;
+  if (variables?.before_block_height != null) return true;
+  if (variables?.beforeBlockHeight != null) return true;
+  if (variables?.before_amplify_heat != null) return true;
+  if (variables?.before_post_key) return true;
+  return false;
+}
 
 function feedRow(opts: {
   accountId: string;
@@ -92,25 +109,23 @@ test.describe('Home feed visible cards', () => {
         await route.continue();
         return;
       }
-      const offset = body.variables?.offset ?? 0;
-      const rows =
-        offset === 0
-          ? Array.from({ length: 24 }, (_, index) =>
-              feedRow({
-                accountId: 'alice.near',
-                postId: `reply-${index}`,
-                text: `Hidden reply ${index}`,
-                parentAuthor: 'bob.near',
-                parentPath: 'bob.near/post/root',
-              })
-            )
-          : [
-              feedRow({
-                accountId: 'cara.near',
-                postId: 'visible-root',
-                text: 'Visible root',
-              }),
-            ];
+      const rows = isFeedPageTwo(body.variables)
+        ? [
+            feedRow({
+              accountId: 'cara.near',
+              postId: 'visible-root',
+              text: 'Visible root',
+            }),
+          ]
+        : Array.from({ length: 24 }, (_, index) =>
+            feedRow({
+              accountId: 'alice.near',
+              postId: `reply-${index}`,
+              text: `Hidden reply ${index}`,
+              parentAuthor: 'bob.near',
+              parentPath: 'bob.near/post/root',
+            })
+          );
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

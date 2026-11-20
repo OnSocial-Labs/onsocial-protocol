@@ -45,6 +45,8 @@ export async function fetchCircleFeedPage(
     offset?: number;
     sort?: FeedSort;
     beforeBlockHeight?: number;
+    beforeHeat?: number;
+    beforePostKey?: string;
   } = {}
 ): Promise<Paginated<PostRow>> {
   if (sources.length === 0) return { items: [] };
@@ -55,6 +57,8 @@ export async function fetchCircleFeedPage(
     sort: opts.sort,
     nativeOnly: true,
     beforeBlockHeight: opts.beforeBlockHeight,
+    beforeHeat: opts.beforeHeat,
+    beforePostKey: opts.beforePostKey,
   });
 }
 
