@@ -41,4 +41,21 @@ describe('post thread harden contracts', () => {
     expect(focus).toContain("behavior: 'auto'");
     expect(focus).not.toContain("behavior: 'smooth'");
   });
+
+  it('captures underlay scroll with Lenis-aware top', () => {
+    const layer = readFileSync(join(here, 'post-thread-layer.tsx'), 'utf8');
+    expect(layer).toContain('readAppScrollTop');
+    expect(layer).toContain('restoreUnderlayScroll');
+  });
+
+  it('media-face thread sheet routes guild roots to LiveGuildPostPanel', () => {
+    const sheet = readFileSync(
+      join(here, 'feed-media-thread-sheet.tsx'),
+      'utf8'
+    );
+    expect(sheet).toContain('LiveGuildPostPanel');
+    expect(sheet).toContain('hideRootMedia');
+    expect(sheet).toContain('landSeat={false}');
+    expect(sheet).toContain('seedEmbeddedGuildThread');
+  });
 });

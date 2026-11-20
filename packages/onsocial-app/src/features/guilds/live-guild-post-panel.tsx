@@ -166,10 +166,17 @@ interface LiveGuildPostPanelProps {
   initial?: GuildPostPageData | null;
   /** Sheet over a feed. The sheet already supplies the Post header. */
   embedded?: boolean;
+  /**
+   * Media-face reply drawer — root media already fills the film above; keep
+   * the card chrome without a second jacket.
+   */
+  hideRootMedia?: boolean;
   /** False while the sheet is parked under a profile. */
   replyDockEnabled?: boolean;
   /** Covered trail sheet — freeze land/scroll for identity back. */
   parked?: boolean;
+  /** Pin the opened post under the header. Off for media-band embeds. */
+  landSeat?: boolean;
   /** Muted guild name above the author. Off when this guild is already the screen. */
   showGuildLine?: boolean;
   /** Room line on the opened post. Off inside one room. */
@@ -223,8 +230,10 @@ export function LiveGuildPostPanel({
   postId,
   initial = null,
   embedded = false,
+  hideRootMedia = false,
   replyDockEnabled = true,
   parked = false,
+  landSeat = true,
   showGuildLine = true,
   showChannel: showRoom = true,
   sheetContext = null,
@@ -462,6 +471,7 @@ export function LiveGuildPostPanel({
     hasRoot: Boolean(conversation.root),
     pinKey: conversation.root?.postId ?? '',
     parked,
+    landSeat,
     onThreadPainted,
   });
   const permalinkReady = threadCoverReady({
@@ -1130,7 +1140,10 @@ export function LiveGuildPostPanel({
   });
 
   const threadBody = (
-    <div ref={threadHostRef} className={GUILDS_PAGE_CLASS}>
+    <div
+      ref={threadHostRef}
+      className={hideRootMedia ? 'feed-media-thread-embed' : GUILDS_PAGE_CLASS}
+    >
       {loadState === 'missing' ? (
         <section className="guild-state-card">
           <p>We could not find this guild post in the indexed feed yet.</p>
@@ -1212,6 +1225,7 @@ export function LiveGuildPostPanel({
                 hrefForPost={hrefForPost}
                 mediaFocused
                 videoSoundControl
+                hideMedia={hideRootMedia}
                 mediaUnmuted={mediaUnmuted}
                 mediaResumeIndex={mediaResumeIndex}
                 detailLayout

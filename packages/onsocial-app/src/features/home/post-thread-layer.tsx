@@ -46,7 +46,10 @@ import {
   setMediaFacesHeld,
   setMediaFacesYielded,
 } from '@/lib/media-face-session';
-import { adoptAppLenisScroll } from '@/lib/app-lenis-registry';
+import {
+  adoptAppLenisScroll,
+  readAppScrollTop,
+} from '@/lib/app-lenis-registry';
 import { postKey } from '@/lib/post-display';
 import {
   guildThreadCardContext,
@@ -400,9 +403,19 @@ function captureUnderlayScroll(): { el: HTMLElement; top: number } | null {
     if (body.closest('.post-thread-sheet-panel, .drop-sheet-panel')) {
       continue;
     }
-    return { el: body, top: body.scrollTop };
+    return { el: body, top: readAppScrollTop(body) };
   }
   return null;
+}
+
+/** Put the underlay back where capture left it — native + Lenis together. */
+function restoreUnderlayScroll(saved: {
+  el: HTMLElement;
+  top: number;
+}): void {
+  if (!saved.el.isConnected) return;
+  saved.el.scrollTop = saved.top;
+  adoptAppLenisScroll(saved.el);
 }
 
 /** Cmd/ctrl/shift/alt or non-primary button — let the browser own the click. */
@@ -844,10 +857,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       underlayPathRef.current = null;
       setUnderlayPath(null);
       underlayScrollRef.current = null;
-      if (saved?.el.isConnected) {
-        saved.el.scrollTop = saved.top;
-        adoptAppLenisScroll(saved.el);
-      }
+      if (saved) restoreUnderlayScroll(saved);
       if (typeof window === 'undefined') return;
       getPostLayerPopGuard().depth = 0;
       if (historyHasPostLayer()) {
@@ -1344,10 +1354,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       setUnderlayPath(null);
       const saved = underlayScrollRef.current;
       underlayScrollRef.current = null;
-      if (saved?.el.isConnected) {
-        saved.el.scrollTop = saved.top;
-        adoptAppLenisScroll(saved.el);
-      }
+      if (saved) restoreUnderlayScroll(saved);
     }
     if (typeof window !== 'undefined') {
       getPostLayerPopGuard().depth = next.length > 0 ? 1 : 0;
