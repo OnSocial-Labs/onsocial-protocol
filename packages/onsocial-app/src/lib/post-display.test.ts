@@ -301,6 +301,10 @@ describe('post timestamps', () => {
     expect(postTimestampIso('1783220970000000000')).toBe(
       new Date(1_783_220_970_000).toISOString()
     );
+    // Nanosecond string past Number.MAX_SAFE_INTEGER — keep exact ms via BigInt.
+    expect(postTimestampIso('1783220970123456789')).toBe(
+      new Date(1_783_220_970_123).toISOString()
+    );
   });
 
   it('does not produce invalid ISO strings for missing timestamps', () => {

@@ -429,6 +429,9 @@ fresh"
       # Same-block siblings survive feed_recent composite keyset (height+path).
       apply_sql "$db" /work/tests/fixtures/feed_recent_composite_keyset.sql
 
+      # Incomplete Hot keysets must not coalesce missing heat to +Infinity.
+      apply_sql "$db" /work/tests/fixtures/feed_hot_incomplete_keyset.sql
+
       # Counts stay on the returned page. Aggregate loops above the page
       # size mean the laterals ran for the whole ranking set.
       hot_plan="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc \

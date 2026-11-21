@@ -1434,14 +1434,21 @@ AS $$
       )
       AND (
         feed_hot.before_block_height IS NULL
-        OR ROW(
-          p.amplify_heat,
-          p.block_height,
-          p.content_path
-        ) < ROW(
-          COALESCE(feed_hot.before_amplify_heat, 'Infinity'::double precision),
-          feed_hot.before_block_height,
-          COALESCE(feed_hot.before_post_key, '')
+        OR (
+          -- Incomplete keysets must not treat missing heat as +Infinity
+          -- (that replays page 1). Callers pass all three legs together.
+          feed_hot.before_amplify_heat IS NOT NULL
+          AND feed_hot.before_post_key IS NOT NULL
+          AND btrim(feed_hot.before_post_key) <> ''
+          AND ROW(
+            p.amplify_heat,
+            p.block_height,
+            p.content_path
+          ) < ROW(
+            feed_hot.before_amplify_heat,
+            feed_hot.before_block_height,
+            feed_hot.before_post_key
+          )
         )
       )
     ORDER BY p.amplify_heat DESC, p.block_height DESC, p.content_path DESC
@@ -1777,19 +1784,24 @@ AS $$
       OR (
         CASE
           WHEN sort = 'hot' THEN
-            ROW(
+            before_event_heat IS NOT NULL
+            AND before_event_key IS NOT NULL
+            AND btrim(before_event_key) <> ''
+            AND ROW(
               e.event_heat,
               e.event_height,
               e.event_key
             ) < ROW(
-              COALESCE(before_event_heat, 'Infinity'::double precision),
+              before_event_heat,
               before_event_height,
-              COALESCE(before_event_key, '')
+              before_event_key
             )
           ELSE
-            ROW(e.event_height, e.event_key) < ROW(
+            before_event_key IS NOT NULL
+            AND btrim(before_event_key) <> ''
+            AND ROW(e.event_height, e.event_key) < ROW(
               before_event_height,
-              COALESCE(before_event_key, '')
+              before_event_key
             )
         END
       )

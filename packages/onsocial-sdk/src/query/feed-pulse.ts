@@ -411,9 +411,7 @@ export function paginatePulseFunctionRows(input: {
 
   const accountSet = new Set(input.accounts);
   const lastCard = sliced[sliced.length - 1];
-  const cursor = lastCard
-    ? pulseCardEventCursor(lastCard, accountSet)
-    : null;
+  const cursor = lastCard ? pulseCardEventCursor(lastCard, accountSet) : null;
   const keyset = {
     ...(cursor
       ? {
