@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useRef } from 'react';
 import { PageDrawerCollectionList } from '@/components/portfolio/page-drawer-collection';
 import { PageDrawerScarcesPanel } from '@/components/portfolio/page-drawer-scarces';
 import {
@@ -42,16 +42,15 @@ export function PageDrawerRailPanels({
   holdings,
 }: PageDrawerRailPanelsProps) {
   const feedActive = isProfileFeedTab(tab);
-  const [feedVisited, setFeedVisited] = useState(feedActive);
-  const [keptFeedTab, setKeptFeedTab] = useState<ProfileFeedTab>(() =>
-    defaultFeedTab(tab)
-  );
-
-  useEffect(() => {
-    if (!isProfileFeedTab(tab)) return;
-    setFeedVisited(true);
-    setKeptFeedTab(tab);
-  }, [tab]);
+  // Keep feed mounted after first visit — refs avoid setState-in-effect.
+  const feedVisitedRef = useRef(feedActive);
+  const keptFeedTabRef = useRef<ProfileFeedTab>(defaultFeedTab(tab));
+  if (feedActive) {
+    feedVisitedRef.current = true;
+    keptFeedTabRef.current = tab;
+  }
+  const feedVisited = feedVisitedRef.current;
+  const keptFeedTab = keptFeedTabRef.current;
 
   return (
     <div className="page-drawer-sections">
