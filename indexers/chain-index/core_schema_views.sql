@@ -1273,7 +1273,6 @@ SELECT
   COALESCE(quote_rows.quote_count, 0)::bigint AS quote_count,
   COALESCE(repost_rows.repost_count, 0)::bigint AS repost_count,
   COALESCE(reactions.reaction_count, 0)::bigint AS reaction_count,
-  COALESCE(amplifies.amplify_count, 0)::bigint AS amplify_count,
   post_feed_shell(
     q.account_id, q.post_id, q.value, q.block_height, q.block_timestamp,
     q.receipt_id, q.parent_path, q.parent_author, q.parent_type,
@@ -1292,7 +1291,9 @@ SELECT
     q2.group_id, q2.is_group_content, q2.root_path, q2.root_author,
     q2ps.name, q2ps.avatar, q2g.group_name,
     NULL, NULL, NULL, NULL
-  ) AS quoted_ref_post
+  ) AS quoted_ref_post,
+  -- Append-only: CREATE OR REPLACE VIEW may add columns at the end, not mid-list.
+  COALESCE(amplifies.amplify_count, 0)::bigint AS amplify_count
 FROM posts_feed_rank src
 LEFT JOIN LATERAL (
   SELECT COUNT(*)::bigint AS reply_count
@@ -1910,9 +1911,9 @@ AS $$
     quote_count,
     repost_count,
     reaction_count,
-    amplify_count,
     quoted_post,
-    quoted_ref_post
+    quoted_ref_post,
+    amplify_count
   FROM out_rows
   ORDER BY rn, role;
 $$;

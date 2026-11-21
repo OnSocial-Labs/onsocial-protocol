@@ -43,6 +43,24 @@ describe('engagementSeedFromFeedRows', () => {
       quoteCount: 0,
       repostCount: 2,
       reactionCount: 5,
+      amplifyCountReady: false,
+      viewerFlagsReady: false,
+    });
+  });
+
+  it('marks amplify ready only when the feed column is present', () => {
+    const posts = [
+      {
+        ...post('a.near', '1'),
+        replyCount: 0,
+        reactionCount: 0,
+        amplifyCount: 4,
+      },
+    ];
+    expect(engagementSeedFromFeedRows(posts)['a.near:1']).toMatchObject({
+      amplifyCount: 4,
+      amplifyCountReady: true,
+      viewerFlagsReady: false,
     });
   });
 
@@ -139,11 +157,13 @@ describe('feed-paint-hydrate', () => {
       reactionCount: 5,
       viewerReacted: false,
       amplifyCount: 3,
+      amplifyCountReady: true,
       viewerAmplified: false,
       viewerSaved: false,
       viewerReposted: false,
       viewerRepostId: null,
       viewerRepostGroupId: null,
+      viewerFlagsReady: true,
       reactionRoll: 0,
       amplifyRoll: 0,
       replyRoll: 0,

@@ -340,6 +340,13 @@ export const PostEngagementRow = memo(function PostEngagementRow({
   const { accountId: viewerAccountId } = useAppWallet();
   const likeLabel = formatWritingLikeLabel(engagement.reactionCount);
   const canShare = Boolean(onQuote || onRepost || onUndoRepost);
+  // Signed-in: wait for viewer colour before like/save so a grey heart cannot
+  // invert an already-liked post. Signed-out still opens connect.
+  const viewerColourReady =
+    !viewerAccountId || engagement.viewerFlagsReady;
+  const reactionLocked = Boolean(reactionPending) || !viewerColourReady;
+  const saveLocked = Boolean(savePending) || !viewerColourReady;
+  const amplifyCountsReady = countsReady && engagement.amplifyCountReady;
   const closeShare = () => setShareOpen(false);
   const shareCount =
     (engagement.repostCount ?? 0) + (engagement.quoteCount ?? 0);
@@ -453,22 +460,31 @@ export const PostEngagementRow = memo(function PostEngagementRow({
             <button
               type="button"
               className={`os-confirm-icon post-card-react-heart${
-                reactionPending ? ' is-pending' : ''
+                reactionPending || !viewerColourReady ? ' is-pending' : ''
               }`}
-              disabled={reactionPending}
+              disabled={reactionLocked}
               aria-pressed={engagement.viewerReacted}
               aria-label={
-                engagement.viewerReacted
-                  ? 'Remove your reaction'
-                  : 'React to this post'
+                !viewerColourReady
+                  ? 'Loading your reaction'
+                  : engagement.viewerReacted
+                    ? 'Remove your reaction'
+                    : 'React to this post'
               }
-              title={engagement.viewerReacted ? 'Liked' : 'Like'}
+              title={
+                !viewerColourReady
+                  ? 'Loading'
+                  : engagement.viewerReacted
+                    ? 'Liked'
+                    : 'Like'
+              }
               onPointerDown={(event) => {
                 event.stopPropagation();
               }}
               onClick={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
+                if (reactionLocked) return;
                 onToggleReaction(post);
               }}
             >
@@ -510,7 +526,7 @@ export const PostEngagementRow = memo(function PostEngagementRow({
         <EngagementStat
           icon={<AmplifyIcon filled={engagement.viewerAmplified} />}
           count={engagement.amplifyCount}
-          countsReady={countsReady}
+          countsReady={amplifyCountsReady}
           rollSignal={engagement.amplifyRoll}
           label="amplifies"
           tone="amplify"
@@ -528,19 +544,30 @@ export const PostEngagementRow = memo(function PostEngagementRow({
             type="button"
             className={`os-confirm-icon post-card-stat post-card-stat-button post-card-save${
               engagement.viewerSaved ? ' is-active' : ''
-            }${savePending ? ' is-pending' : ''}`}
-            disabled={savePending}
+            }${savePending || !viewerColourReady ? ' is-pending' : ''}`}
+            disabled={saveLocked}
             aria-pressed={engagement.viewerSaved}
             aria-label={
-              engagement.viewerSaved ? 'Remove from saved' : 'Save this post'
+              !viewerColourReady
+                ? 'Loading save state'
+                : engagement.viewerSaved
+                  ? 'Remove from saved'
+                  : 'Save this post'
             }
-            title={engagement.viewerSaved ? 'Saved' : 'Save'}
+            title={
+              !viewerColourReady
+                ? 'Loading'
+                : engagement.viewerSaved
+                  ? 'Saved'
+                  : 'Save'
+            }
             onPointerDown={(event) => {
               event.stopPropagation();
             }}
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
+              if (saveLocked) return;
               onToggleSave(post);
             }}
           >

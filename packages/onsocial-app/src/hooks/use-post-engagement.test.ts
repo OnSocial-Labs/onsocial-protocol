@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyViewerOverlayEngagement,
   confirmedReactionEngagement,
   EMPTY_POST_ENGAGEMENT,
   mergeEngagementSoftUpgrade,
@@ -342,5 +343,112 @@ describe('mergeEngagementSoftUpgrade', () => {
       new Set()
     );
     expect(merged[key]).toEqual(fetched);
+  });
+
+  it('keeps known viewer colour when a public-count seed lacks flags', () => {
+    const key = 'alice.near:p1';
+    const merged = mergeEngagementSoftUpgrade(
+      {
+        [key]: row({
+          viewerReacted: true,
+          viewerSaved: true,
+          viewerFlagsReady: true,
+          reactionCount: 4,
+        }),
+      },
+      {
+        [key]: row({
+          viewerReacted: false,
+          viewerSaved: false,
+          viewerFlagsReady: false,
+          reactionCount: 4,
+          amplifyCountReady: false,
+        }),
+      },
+      new Set(),
+      new Set()
+    );
+    expect(merged[key]?.viewerReacted).toBe(true);
+    expect(merged[key]?.viewerSaved).toBe(true);
+    expect(merged[key]?.viewerFlagsReady).toBe(true);
+  });
+
+  it('keeps a known amplify total when seed omits the column', () => {
+    const key = 'alice.near:p1';
+    const merged = mergeEngagementSoftUpgrade(
+      {
+        [key]: row({
+          amplifyCount: 7,
+          amplifyCountReady: true,
+        }),
+      },
+      {
+        [key]: row({
+          amplifyCount: 0,
+          amplifyCountReady: false,
+        }),
+      },
+      new Set(),
+      new Set()
+    );
+    expect(merged[key]?.amplifyCount).toBe(7);
+    expect(merged[key]?.amplifyCountReady).toBe(true);
+  });
+});
+
+describe('applyViewerOverlayEngagement', () => {
+  it('does not undo an in-flight like when the overlay is stale', () => {
+    const next = applyViewerOverlayEngagement(
+      row({ viewerReacted: true, reactionCount: 4 }),
+      {
+        viewerReacted: false,
+        viewerSaved: false,
+        viewerAmplified: false,
+        viewerReposted: false,
+        viewerRepostId: null,
+        viewerRepostGroupId: null,
+      },
+      { pendingReaction: true, pendingSave: false, unreposted: false }
+    );
+    expect(next.viewerReacted).toBe(true);
+    expect(next.viewerFlagsReady).toBe(true);
+  });
+
+  it('holds chain-confirmed colour when overlay still lags', () => {
+    const next = applyViewerOverlayEngagement(
+      row({
+        viewerReacted: true,
+        reactionCount: 5,
+        reactionRoll: 1,
+      }),
+      {
+        viewerReacted: false,
+        viewerSaved: false,
+        viewerAmplified: false,
+        viewerReposted: false,
+        viewerRepostId: null,
+        viewerRepostGroupId: null,
+      },
+      { pendingReaction: false, pendingSave: false, unreposted: false }
+    );
+    expect(next.viewerReacted).toBe(true);
+  });
+
+  it('applies first colour when nothing is pending', () => {
+    const next = applyViewerOverlayEngagement(
+      row({ viewerReacted: false, viewerFlagsReady: false }),
+      {
+        viewerReacted: true,
+        viewerSaved: true,
+        viewerAmplified: false,
+        viewerReposted: false,
+        viewerRepostId: null,
+        viewerRepostGroupId: null,
+      },
+      { pendingReaction: false, pendingSave: false, unreposted: false }
+    );
+    expect(next.viewerReacted).toBe(true);
+    expect(next.viewerSaved).toBe(true);
+    expect(next.viewerFlagsReady).toBe(true);
   });
 });

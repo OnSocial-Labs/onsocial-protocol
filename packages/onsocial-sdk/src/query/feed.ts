@@ -1397,15 +1397,21 @@ export class FeedQuery {
       }`;
 
     const wantHeat = !this.amplifyHeatFallback.active;
+    const baseFields = wantHeat
+      ? FEED_POST_ROW_FIELDS_WITH_ROOT
+      : FEED_POST_ROW_FIELDS_NO_HEAT_WITH_ROOT;
+    const pulseFields = withAmplifyCountFallback(
+      baseFields,
+      this.amplifyCountFallback.active
+    );
     try {
       const res = await this._q.graphql<{ feedPulse?: PostRow[] }>({
-        query: query(
-          wantHeat
-            ? FEED_POST_ROW_FIELDS_WITH_ROOT
-            : FEED_POST_ROW_FIELDS_NO_HEAT_WITH_ROOT
-        ),
+        query: query(pulseFields),
         variables,
       });
+      if (pulseFields.includes('amplifyCount')) {
+        this.amplifyCountFallback.clear();
+      }
       return this.enrichFeedPosts(res.data?.feedPulse ?? []);
     } catch (err) {
       if (
@@ -1418,13 +1424,48 @@ export class FeedQuery {
         // Keyset args not tracked yet — caller falls back to offset.
         throw err;
       }
+      if (
+        pulseFields.includes('amplifyCount') &&
+        isAmplifyCountUnavailableError(err)
+      ) {
+        this.amplifyCountFallback.trip();
+        const res = await this._q.graphql<{ feedPulse?: PostRow[] }>({
+          query: query(stripFeedAmplifyCountField(baseFields)),
+          variables,
+        });
+        return this.enrichFeedPosts(res.data?.feedPulse ?? []);
+      }
       if (!wantHeat || !isAmplifyHeatUnavailableError(err)) throw err;
       this.amplifyHeatFallback.trip();
-      const res = await this._q.graphql<{ feedPulse?: PostRow[] }>({
-        query: query(FEED_POST_ROW_FIELDS_NO_HEAT_WITH_ROOT),
-        variables,
-      });
-      return this.enrichFeedPosts(res.data?.feedPulse ?? []);
+      const noHeatFields = withAmplifyCountFallback(
+        FEED_POST_ROW_FIELDS_NO_HEAT_WITH_ROOT,
+        this.amplifyCountFallback.active
+      );
+      try {
+        const res = await this._q.graphql<{ feedPulse?: PostRow[] }>({
+          query: query(noHeatFields),
+          variables,
+        });
+        if (noHeatFields.includes('amplifyCount')) {
+          this.amplifyCountFallback.clear();
+        }
+        return this.enrichFeedPosts(res.data?.feedPulse ?? []);
+      } catch (heatErr) {
+        if (
+          noHeatFields.includes('amplifyCount') &&
+          isAmplifyCountUnavailableError(heatErr)
+        ) {
+          this.amplifyCountFallback.trip();
+          const res = await this._q.graphql<{ feedPulse?: PostRow[] }>({
+            query: query(
+              stripFeedAmplifyCountField(FEED_POST_ROW_FIELDS_NO_HEAT_WITH_ROOT)
+            ),
+            variables,
+          });
+          return this.enrichFeedPosts(res.data?.feedPulse ?? []);
+        }
+        throw heatErr;
+      }
     }
   }
 

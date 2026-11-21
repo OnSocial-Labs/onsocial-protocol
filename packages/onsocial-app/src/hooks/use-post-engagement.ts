@@ -73,6 +73,8 @@ function samePostEngagement(a: PostEngagement, b: PostEngagement): boolean {
     a.viewerReposted === b.viewerReposted &&
     a.viewerRepostId === b.viewerRepostId &&
     a.viewerRepostGroupId === b.viewerRepostGroupId &&
+    a.viewerFlagsReady === b.viewerFlagsReady &&
+    a.amplifyCountReady === b.amplifyCountReady &&
     a.reactionRoll === b.reactionRoll &&
     a.amplifyRoll === b.amplifyRoll &&
     a.replyRoll === b.replyRoll &&
@@ -130,6 +132,8 @@ export function resolveBandEngagement(input: {
     const good = input.lastGood.get(key);
     const seeded = input.seed?.[key];
     if (seeded && good) {
+      const amplifyCountReady =
+        good.amplifyCountReady || seeded.amplifyCountReady;
       next[key] = {
         ...seeded,
         viewerReacted: good.viewerReacted,
@@ -138,11 +142,18 @@ export function resolveBandEngagement(input: {
         viewerReposted: good.viewerReposted,
         viewerRepostId: good.viewerRepostId,
         viewerRepostGroupId: good.viewerRepostGroupId,
+        viewerFlagsReady: good.viewerFlagsReady || seeded.viewerFlagsReady,
+        amplifyCountReady,
         replyCount: Math.max(seeded.replyCount, good.replyCount),
         quoteCount: Math.max(seeded.quoteCount, good.quoteCount),
         repostCount: Math.max(seeded.repostCount, good.repostCount),
         reactionCount: Math.max(seeded.reactionCount, good.reactionCount),
-        amplifyCount: Math.max(seeded.amplifyCount, good.amplifyCount),
+        amplifyCount: amplifyCountReady
+          ? Math.max(
+              good.amplifyCountReady ? good.amplifyCount : 0,
+              seeded.amplifyCountReady ? seeded.amplifyCount : 0
+            )
+          : Math.max(seeded.amplifyCount, good.amplifyCount),
         reactionRoll: good.reactionRoll,
         amplifyRoll: good.amplifyRoll,
         replyRoll: good.replyRoll,
@@ -164,6 +175,69 @@ export function resolveBandEngagement(input: {
   return changed ? next : input.live;
 }
 
+export type ViewerOverlayPatch = {
+  viewerReacted: boolean;
+  viewerSaved: boolean;
+  viewerAmplified: boolean;
+  viewerReposted: boolean;
+  viewerRepostId: string | null;
+  viewerRepostGroupId: string | null;
+};
+
+/**
+ * Apply a late viewer-colour read onto a live row without undoing an in-flight
+ * or chain-confirmed like/save (or a known unrepost).
+ */
+export function applyViewerOverlayEngagement(
+  previous: PostEngagement,
+  overlay: ViewerOverlayPatch,
+  opts: {
+    pendingReaction: boolean;
+    pendingSave: boolean;
+    unreposted: boolean;
+  }
+): PostEngagement {
+  let viewerReacted = overlay.viewerReacted;
+  if (opts.pendingReaction) {
+    viewerReacted = previous.viewerReacted;
+  } else if (
+    previous.reactionRoll > 0 &&
+    previous.viewerReacted !== overlay.viewerReacted
+  ) {
+    viewerReacted = previous.viewerReacted;
+  }
+
+  let viewerSaved = overlay.viewerSaved || previous.viewerSaved;
+  if (opts.pendingSave) {
+    viewerSaved = previous.viewerSaved;
+  }
+
+  let viewerReposted = overlay.viewerReposted || previous.viewerReposted;
+  let viewerRepostId = overlay.viewerRepostId ?? previous.viewerRepostId;
+  let viewerRepostGroupId =
+    overlay.viewerRepostGroupId ?? previous.viewerRepostGroupId;
+  if (opts.unreposted) {
+    viewerReposted = false;
+    viewerRepostId = null;
+    viewerRepostGroupId = null;
+  } else if (previous.viewerReposted && !overlay.viewerReposted) {
+    viewerReposted = true;
+    viewerRepostId = previous.viewerRepostId;
+    viewerRepostGroupId = previous.viewerRepostGroupId;
+  }
+
+  return {
+    ...previous,
+    viewerReacted,
+    viewerSaved,
+    viewerAmplified: overlay.viewerAmplified || previous.viewerAmplified,
+    viewerReposted,
+    viewerRepostId,
+    viewerRepostGroupId,
+    viewerFlagsReady: true,
+  };
+}
+
 /**
  * Merge indexer soft-upgrade into current engagement without clobbering
  * in-flight optimistic reaction/save toggles (or a confirmed amplify/save
@@ -180,6 +254,33 @@ export function mergeEngagementSoftUpgrade(
   for (const [key, row] of Object.entries(fetched)) {
     const previous = current[key];
     let next = row;
+    // Public-count seed must not wipe known viewer colour.
+    if (previous?.viewerFlagsReady && !next.viewerFlagsReady) {
+      next = {
+        ...next,
+        viewerReacted: previous.viewerReacted,
+        viewerSaved: previous.viewerSaved,
+        viewerAmplified: previous.viewerAmplified,
+        viewerReposted: previous.viewerReposted,
+        viewerRepostId: previous.viewerRepostId,
+        viewerRepostGroupId: previous.viewerRepostGroupId,
+        viewerFlagsReady: true,
+      };
+    } else if (previous?.viewerFlagsReady || next.viewerFlagsReady) {
+      next = { ...next, viewerFlagsReady: true };
+    }
+    if (previous?.amplifyCountReady && !next.amplifyCountReady) {
+      next = {
+        ...next,
+        amplifyCount: previous.amplifyCount,
+        amplifyCountReady: true,
+      };
+    } else if (previous?.amplifyCountReady && next.amplifyCountReady) {
+      next = {
+        ...next,
+        amplifyCount: Math.max(next.amplifyCount, previous.amplifyCount),
+      };
+    }
     if (previous && pendingReactionKeys.has(key)) {
       next = {
         ...next,
@@ -222,6 +323,7 @@ export function mergeEngagementSoftUpgrade(
         ...next,
         viewerAmplified: true,
         amplifyCount: Math.max(next.amplifyCount, previous.amplifyCount),
+        amplifyCountReady: true,
       };
     }
     if (previous && next.replyCount < previous.replyCount) {
@@ -511,32 +613,39 @@ export function usePostEngagement(
               : {};
           rememberOverlay(overlayRows);
           setEngagement((current) => {
+            let changed = false;
             const next: EngagementMap = { ...current };
+            const pendingReactions = pendingReactionKeysRef.current;
+            const pendingSaves = pendingSaveKeysRef.current;
+            const unreposted = unrepostedKeysRef.current;
             for (const target of overlayRows) {
               const previous = current[target.key];
               if (!previous) continue;
               const reactions =
                 reactionStates[`${target.owner}:${target.postId}`];
               const viewerRepost = viewerReposts.get(target.path);
-              const row: PostEngagement = {
-                ...previous,
-                viewerReacted: (reactions?.viewerReacted.length ?? 0) > 0,
-                viewerSaved:
-                  savedPaths.has(target.path) || previous.viewerSaved,
-                viewerAmplified:
-                  Boolean(viewerAmplified[target.path]) ||
-                  previous.viewerAmplified,
-                viewerReposted:
-                  Boolean(viewerRepost) || previous.viewerReposted,
-                viewerRepostId:
-                  viewerRepost?.repostId ?? previous.viewerRepostId,
-                viewerRepostGroupId:
-                  viewerRepost?.groupId ?? previous.viewerRepostGroupId,
-              };
+              const row = applyViewerOverlayEngagement(
+                previous,
+                {
+                  viewerReacted: (reactions?.viewerReacted.length ?? 0) > 0,
+                  viewerSaved: savedPaths.has(target.path),
+                  viewerAmplified: Boolean(viewerAmplified[target.path]),
+                  viewerReposted: Boolean(viewerRepost),
+                  viewerRepostId: viewerRepost?.repostId ?? null,
+                  viewerRepostGroupId: viewerRepost?.groupId ?? null,
+                },
+                {
+                  pendingReaction: pendingReactions.has(target.key),
+                  pendingSave: pendingSaves.has(target.key),
+                  unreposted: unreposted.has(target.key),
+                }
+              );
+              if (samePostEngagement(previous, row)) continue;
               next[target.key] = row;
               rememberEngagementLastGood(lastGood, target.key, row);
+              changed = true;
             }
-            return next;
+            return changed ? next : current;
           });
         }
       );
@@ -613,11 +722,13 @@ export function usePostEngagement(
             reactionCount: reactions?.counts.total ?? 0,
             viewerReacted: (reactions?.viewerReacted.length ?? 0) > 0,
             amplifyCount: amplify?.amplifyCount ?? 0,
+            amplifyCountReady: true,
             viewerAmplified: amplify?.viewerAmplified ?? false,
             viewerSaved: savedPaths.has(target.path),
             viewerReposted: Boolean(viewerRepost),
             viewerRepostId: viewerRepost?.repostId ?? null,
             viewerRepostGroupId: viewerRepost?.groupId ?? null,
+            viewerFlagsReady: true,
           };
           next[target.key] = row;
           rememberEngagementLastGood(lastGood, target.key, row);
@@ -662,6 +773,8 @@ export function usePostEngagement(
       /* Read through refs so this callback's identity survives engagement
        * updates — a like on one card must not re-render every other card. */
       const previous = engagementRef.current[key] ?? EMPTY_POST_ENGAGEMENT;
+      // Signed-in colour not painted yet — never invert a grey heart.
+      if (!previous.viewerFlagsReady) return;
       const applied = !previous.viewerReacted;
 
       setPendingReactionKeys((current) => new Set(current).add(key));
@@ -724,6 +837,7 @@ export function usePostEngagement(
       }
 
       const previous = engagementRef.current[key] ?? EMPTY_POST_ENGAGEMENT;
+      if (!previous.viewerFlagsReady) return;
       const applied = !previous.viewerSaved;
       const contentPath = postContentPath(post);
 
@@ -770,12 +884,14 @@ export function usePostEngagement(
         ? {
             ...previous,
             amplifyCount: previous.amplifyCount + 1,
+            amplifyCountReady: true,
             amplifyRoll: previous.amplifyRoll + 1,
           }
         : {
             ...previous,
             viewerAmplified: true,
             amplifyCount: previous.amplifyCount + 1,
+            amplifyCountReady: true,
             amplifyRoll: previous.amplifyRoll + 1,
           };
       rememberEngagementLastGood(lastGoodRef.current, key, row);

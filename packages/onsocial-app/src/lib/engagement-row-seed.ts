@@ -24,6 +24,9 @@ export function engagementSeedFromFeedRows(
       repostCount: counts.repostCount,
       reactionCount: counts.reactionCount,
       amplifyCount: counts.amplifyCount ?? 0,
+      amplifyCountReady: counts.amplifyCount != null,
+      // Colour comes from the signed-in overlay / soft-fill — not the row.
+      viewerFlagsReady: false,
     };
   };
   for (const post of posts) {

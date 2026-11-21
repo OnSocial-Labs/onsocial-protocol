@@ -177,6 +177,8 @@ describe('home feed session snapshot', () => {
           viewerReposted: false,
           viewerRepostId: null,
           viewerRepostGroupId: null,
+          viewerFlagsReady: true,
+          amplifyCountReady: true,
           reactionRoll: 0,
           amplifyRoll: 0,
           replyRoll: 0,
