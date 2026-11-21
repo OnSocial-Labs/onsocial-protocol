@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { createElement } from 'react';
+import { createElement, type ComponentProps } from 'react';
 import { render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -60,8 +60,8 @@ describe('OsTextFold measure scheduling', () => {
           capped: true,
           contentKey,
           onOverflow,
-          children: createElement('p', null, body),
-        }
+        } as unknown as ComponentProps<typeof OsTextFold>,
+        createElement('p', null, body)
       );
 
     const { rerender } = render(fold('same-body', 'hello world', () => {}));
