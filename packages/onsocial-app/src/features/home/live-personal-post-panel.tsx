@@ -82,10 +82,10 @@ import {
   directRepliesToTree,
   enrichPaintedReplyTree,
   graftVisibleReplies,
-  invalidateThreadOpenCaches,
   replyLoadMoreCursor,
   scheduleThreadIdle,
   shouldPaintDirectReplies,
+  invalidateThreadOpenCaches,
   startThreadFirstPage,
   visibleReplyPaths,
 } from '@/lib/thread-first-page';
@@ -135,12 +135,18 @@ import {
 } from '@/lib/thread-reply-sort';
 import {
   buildReplyRows,
-  flattenTreePosts,
   leafThreadNode,
   threadReplyRowKey,
   threadRootContinued,
   withoutIndexedPosts,
 } from '@/lib/thread-display';
+import {
+  graftConfirmedReply,
+  indexedPostsVisibleInThread,
+  paintedReplyPosts,
+  patchThreadCachesAfterConfirmedReply,
+  withConfirmedLocalReplyRows,
+} from '@/lib/thread-confirmed-reply';
 import { threadReplyRowEstimatePx } from '@/features/home/feed-block-estimate';
 import { useFeedWindow } from '@/features/home/use-feed-window';
 import { THREAD_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
@@ -356,23 +362,17 @@ export function LivePersonalPostPanel({
   /** Latest open seed. A feed row omits `directRepliesResolved`; SSR sets it. */
   const rowSeedRef = useRef(initial);
   rowSeedRef.current = initial;
-  const treePosts = useMemo(() => flattenTreePosts(replyTree), [replyTree]);
   const replyRows = useMemo(() => {
     const rows = buildReplyRows(replyTree, conversation.root?.accountId);
-    const lastPostRow = [...rows]
-      .reverse()
-      .find((row): row is Extract<(typeof rows)[number], { kind: 'post' }> => {
-        return row.kind === 'post';
-      });
-    for (const local of withoutIndexedPosts(localReplies, treePosts)) {
-      rows.push({
-        kind: 'post',
-        post: local,
-        connectedToPrevious: local.accountId === lastPostRow?.post.accountId,
-      });
-    }
-    return rows;
-  }, [replyTree, conversation.root, localReplies, treePosts]);
+    // Index against painted rows only — nested locals stay until the fold
+    // model would show them (it does not for third-party mid-thread children).
+    return withConfirmedLocalReplyRows(
+      rows,
+      localReplies,
+      paintedReplyPosts(rows),
+      rootPath
+    );
+  }, [replyTree, conversation.root, localReplies, rootPath]);
   const replyFocusKey = useMemo(
     () =>
       replyRows
@@ -790,9 +790,14 @@ export function LivePersonalPostPanel({
             .then((treeResult) => {
               if (refreshRequestIdRef.current !== requestId) return;
               const fetchedTree = treeResult.replies;
-              const fetchedTreePosts = flattenTreePosts(fetchedTree);
               setLocalReplies((current) =>
-                withoutIndexedPosts(current, fetchedTreePosts)
+                withoutIndexedPosts(
+                  current,
+                  indexedPostsVisibleInThread(
+                    fetchedTree,
+                    root?.accountId ?? conversation.root?.accountId
+                  )
+                )
               );
               if (options.background && paginatedRef.current) return;
               const keepFirstPage =
@@ -991,20 +996,35 @@ export function LivePersonalPostPanel({
 
   const canPostInThread = Boolean(isConnected && accountId);
 
+  const insertConfirmedReply = (optimisticPost: PostRow) => {
+    setLocalReplies((current) =>
+      current.some((row) => postKey(row) === postKey(optimisticPost))
+        ? current
+        : [...current, optimisticPost]
+    );
+    setReplyTree((current) =>
+      graftConfirmedReply(current, optimisticPost, rootPath)
+    );
+    threadFocus.requestFocus(optimisticPost);
+    patchThreadCachesAfterConfirmedReply({
+      rootPath,
+      reply: optimisticPost,
+      kind: 'personal',
+    });
+    scheduleReconcile();
+  };
+
   const insertConfirmedRootChild = (
     mode: ComposerMode,
     optimisticPost: PostRow
   ) => {
     if (mode === 'quote') {
       setLocalQuotes((current) => [...current, optimisticPost]);
-    } else {
-      setLocalReplies((current) => [...current, optimisticPost]);
+      invalidateThreadOpenCaches(rootPath);
+      scheduleReconcile();
+      return;
     }
-    if (mode === 'reply') {
-      threadFocus.requestFocus(optimisticPost);
-    }
-    invalidateThreadOpenCaches(rootPath);
-    scheduleReconcile();
+    insertConfirmedReply(optimisticPost);
   };
 
   const openComposerModal = (mode: ComposerMode) => (target: PostRow) => {
@@ -1037,17 +1057,11 @@ export function LivePersonalPostPanel({
         trackTransaction,
       });
       if (result.confirmed && result.optimisticPost) {
-        const targetsRoot =
-          conversation.root && postKey(target) === postKey(conversation.root);
-        if (targetsRoot) {
-          insertConfirmedRootChild(modalMode, result.optimisticPost);
-        } else {
-          scheduleReconcile();
-        }
         if (modalMode === 'quote') {
+          insertConfirmedRootChild('quote', result.optimisticPost);
           dispatchPersonalQuoteConfirmed(target);
-        }
-        if (modalMode === 'reply') {
+        } else {
+          insertConfirmedReply(result.optimisticPost);
           clearWriteDockDraft(writeDockDraftKey('post', postKey(target)));
         }
         setModalTarget(null);
@@ -1178,12 +1192,8 @@ export function LivePersonalPostPanel({
     onExpand: writeTarget
       ? (payload) => expandReply(writeTarget, payload)
       : undefined,
-    onConfirmed: (reply, target) => {
-      if (conversation.root && postKey(target) === postKey(conversation.root)) {
-        insertConfirmedRootChild('reply', reply);
-      } else {
-        scheduleReconcile();
-      }
+    onConfirmed: (reply) => {
+      insertConfirmedReply(reply);
       setDockTarget(null);
     },
   });

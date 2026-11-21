@@ -394,11 +394,12 @@ test.describe('thread reply dock', () => {
       expect(blob).not.toContain('alice.near/post/root-post');
     });
 
-    // Confirmed — chip and field reset. A nested reply waits for the indexer
-    // reconcile instead of painting optimistically.
+    // Confirmed — chip and field reset; nested reply paints under Bob.
     await expect(page.locator('.os-write-dock-reply')).toHaveCount(0);
     await expect(field).toHaveValue('');
-    await expect(drawer.getByText('Nested dock reply')).toHaveCount(0);
+    await expect(drawer.getByText('Nested dock reply')).toBeVisible({
+      timeout: 10_000,
+    });
   });
 });
 

@@ -10,7 +10,7 @@ import {
   type RefObject,
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import type { PostRow } from '@onsocial/sdk';
+import { postContentPath, type PostRow } from '@onsocial/sdk';
 import { Divider, PulsingDots } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsHeaderBack } from '@/components/app/os-header-back';
@@ -90,6 +90,12 @@ import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useThreadLandAppear } from '@/hooks/use-land-opened-post';
 import { invalidateThreadOpenCaches } from '@/lib/thread-first-page';
 import {
+  graftConfirmedReply,
+  paintedReplyPosts,
+  patchThreadCachesAfterConfirmedReply,
+  withConfirmedLocalReplyRows,
+} from '@/lib/thread-confirmed-reply';
+import {
   threadControlPresenceClass,
   threadCoverReady,
 } from '@/lib/thread-open';
@@ -116,11 +122,9 @@ import {
 } from '@/features/guilds/use-guild-thread-data';
 import {
   buildReplyRows,
-  flattenTreePosts,
   threadReplyRowKey,
   threadRootContinued,
   withoutIndexedPosts,
-  type ThreadReplyRow,
 } from '@/lib/thread-display';
 import { threadReplyRowEstimatePx } from '@/features/home/feed-block-estimate';
 import { useFeedWindow } from '@/features/home/use-feed-window';
@@ -259,6 +263,7 @@ export function LiveGuildPostPanel({
     seededEngagement,
     conversation,
     replyTree,
+    setReplyTree,
     localReplies,
     setLocalReplies,
     localQuotes,
@@ -308,25 +313,17 @@ export function LiveGuildPostPanel({
     if (!guildStructure || Object.keys(channelTitleById).length === 0) return;
     seedGuildChannelTitles(groupId, channelTitleById);
   }, [channelTitleById, groupId, guildStructure]);
-  const treePosts = useMemo(() => flattenTreePosts(replyTree), [replyTree]);
-  // Author's thread + folded branches as display rows, with chain-confirmed
-  // local replies appended until the indexer catches up.
+  // Author's thread + folded branches; chain-confirmed locals splice under
+  // their parent (nested) or append (root) until the fold model shows them.
   const replyRows = useMemo(() => {
     const rows = buildReplyRows(replyTree, conversation.root?.accountId);
-    const lastPostRow = [...rows]
-      .reverse()
-      .find((row): row is Extract<ThreadReplyRow, { kind: 'post' }> => {
-        return row.kind === 'post';
-      });
-    for (const local of withoutIndexedPosts(localReplies, treePosts)) {
-      rows.push({
-        kind: 'post',
-        post: local,
-        connectedToPrevious: local.accountId === lastPostRow?.post.accountId,
-      });
-    }
-    return rows;
-  }, [replyTree, conversation.root, localReplies, treePosts]);
+    return withConfirmedLocalReplyRows(
+      rows,
+      localReplies,
+      paintedReplyPosts(rows),
+      rootPath
+    );
+  }, [replyTree, conversation.root, localReplies, rootPath]);
   const replyFocusKey = useMemo(
     () =>
       replyRows
@@ -673,7 +670,9 @@ export function LiveGuildPostPanel({
     newPostId: string,
     files: File[] = [],
     contentLabels: PostContentLabels = {},
-    places?: string[]
+    places?: string[],
+    /** Reply parent — root or nested target. */
+    parent: PostRow | null = conversation.root
   ) => {
     if (!accountId) return;
     const feedMeta = applyMediaKindOverride(
@@ -685,6 +684,10 @@ export function LiveGuildPostPanel({
       ...placesMetaFromComposer(places),
     };
     const media = files.length ? buildOptimisticMediaEntries(files) : undefined;
+    const parentPath = parent
+      ? postContentPath(parent).trim() || rootPath
+      : rootPath;
+    const parentAuthor = parent?.accountId ?? author;
     // Chain-confirmed; show immediately while the indexer catches up.
     const confirmedRow: PostRow = {
       accountId,
@@ -703,18 +706,31 @@ export function LiveGuildPostPanel({
       ...(mode === 'quote'
         ? { refAuthor: author, refPath: rootPath, refType: 'post' }
         : {
-            parentAuthor: author,
-            parentPath: rootPath,
+            parentAuthor,
+            parentPath,
             parentType: 'post',
           }),
     };
     if (mode === 'quote') {
       setLocalQuotes((current) => [...current, confirmedRow]);
-    } else {
-      setLocalReplies((current) => [...current, confirmedRow]);
-      threadFocus.requestFocus(confirmedRow);
+      invalidateThreadOpenCaches(rootPath);
+      scheduleReconcile();
+      return;
     }
-    invalidateThreadOpenCaches(rootPath);
+    setLocalReplies((current) =>
+      current.some((row) => postKey(row) === postKey(confirmedRow))
+        ? current
+        : [...current, confirmedRow]
+    );
+    setReplyTree((current) =>
+      graftConfirmedReply(current, confirmedRow, rootPath)
+    );
+    threadFocus.requestFocus(confirmedRow);
+    patchThreadCachesAfterConfirmedReply({
+      rootPath,
+      reply: confirmedRow,
+      kind: 'guild',
+    });
     scheduleReconcile();
   };
 
@@ -754,24 +770,26 @@ export function LiveGuildPostPanel({
         payload.places
       );
       if (confirmed) {
-        const targetsRoot =
-          conversation.root && postKey(target) === postKey(conversation.root);
-        if (targetsRoot) {
+        if (modalMode === 'quote') {
           insertConfirmedRootChild(
-            modalMode,
+            'quote',
             text,
             newPostId,
             files,
             contentLabels,
             payload.places
           );
-        } else {
-          scheduleReconcile();
-        }
-        if (modalMode === 'quote') {
           dispatchPersonalQuoteConfirmed(target);
-        }
-        if (modalMode === 'reply') {
+        } else {
+          insertConfirmedRootChild(
+            'reply',
+            text,
+            newPostId,
+            files,
+            contentLabels,
+            payload.places,
+            target
+          );
           clearWriteDockDraft(writeDockDraftKey('post', postKey(target)));
         }
         setModalTarget(null);
@@ -936,11 +954,19 @@ export function LiveGuildPostPanel({
     onExpand: writeTarget
       ? (payload) => expandReply(writeTarget, payload)
       : undefined,
-    onConfirmed: (reply, target) => {
-      if (conversation.root && postKey(target) === postKey(conversation.root)) {
-        setLocalReplies((current) => [...current, reply]);
-        threadFocus.requestFocus(reply);
-      }
+    onConfirmed: (reply) => {
+      setLocalReplies((current) =>
+        current.some((row) => postKey(row) === postKey(reply))
+          ? current
+          : [...current, reply]
+      );
+      setReplyTree((current) => graftConfirmedReply(current, reply, rootPath));
+      threadFocus.requestFocus(reply);
+      patchThreadCachesAfterConfirmedReply({
+        rootPath,
+        reply,
+        kind: 'guild',
+      });
       scheduleReconcile();
       setDockTarget(null);
     },
