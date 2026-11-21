@@ -724,8 +724,8 @@ export class FeedQuery {
     const beforeHeat = hot ? hotKey?.beforeHeat : undefined;
     const beforePostKey = hot ? hotKey?.beforePostKey : chronoKey?.beforePostKey;
     const wantKeyset = before !== undefined;
-    let usedKeyset = wantKeyset;
-    let offset = usedKeyset ? 0 : (opts.offset ?? 0);
+    const usedKeyset = wantKeyset;
+    const offset = usedKeyset ? 0 : (opts.offset ?? 0);
     const orderBy = feedOrderByClause(sort);
     const hasAuthor = !!opts.author;
     const kind = opts.kind?.trim() || '';
@@ -976,8 +976,8 @@ export class FeedQuery {
     const beforeHeat = hot ? hotKey?.beforeHeat : undefined;
     const beforePostKey = hot ? hotKey?.beforePostKey : chronoKey?.beforePostKey;
     const wantKeyset = before !== undefined;
-    let usedKeyset = wantKeyset;
-    let offset = usedKeyset ? 0 : (opts.offset ?? 0);
+    const usedKeyset = wantKeyset;
+    const offset = usedKeyset ? 0 : (opts.offset ?? 0);
     const orderBy = feedOrderByClause(sort);
     const chronoOrder = feedOrderByClause('recent');
     const nativeOnly = Boolean(opts.nativeOnly);
