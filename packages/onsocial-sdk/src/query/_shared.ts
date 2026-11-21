@@ -352,13 +352,13 @@ export function requirePulseKeyset(opts: {
 
 /**
  * Descending chrono page cursor — height + content path (matches `feed_recent`
- * ROW). Full pages return the composite keyset only (no parallel `nextOffset`).
+ * ROW). Full pages return the composite keyset only. Incomplete edges end the
+ * walk — never mint soft-deprecated `nextOffset`.
  */
 export function chronoDescPage(
   items: PostRow[],
   limit: number,
   opts: {
-    offset: number;
     usedKeyset: boolean;
     /** Stub/raw count when hydrate can drop rows (topic indexes). */
     edgeCount?: number;
@@ -370,7 +370,6 @@ export function chronoDescPage(
   }
 ): {
   items: PostRow[];
-  nextOffset?: number;
   nextBeforeBlockHeight?: number;
   nextBeforeEventKey?: string;
 } {
@@ -395,6 +394,5 @@ export function chronoDescPage(
       nextBeforeEventKey: nextKey,
     };
   }
-  if (opts.usedKeyset) return { items };
-  return { items, nextOffset: opts.offset + limit };
+  return { items };
 }

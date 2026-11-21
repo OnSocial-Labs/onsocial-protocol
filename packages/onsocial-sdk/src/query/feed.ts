@@ -305,7 +305,6 @@ function topicStubPage(
   stubs: TopicStubRow[],
   limit: number,
   opts: {
-    offset: number;
     sort: FeedSort;
     usedKeyset: boolean;
   }
@@ -322,7 +321,6 @@ function topicStubPage(
     };
   }
   return chronoDescPage(items, limit, {
-    offset: opts.offset,
     usedKeyset: opts.usedKeyset,
     edgeCount: stubs.length,
     edgeHeight: edge.blockHeight,
@@ -490,7 +488,6 @@ export class FeedQuery {
 
     const items = await this.hydrateStubRows(args.hydrateName, stubs, limit);
     return topicStubPage(items, stubs, limit, {
-      offset,
       sort,
       usedKeyset,
     });
@@ -1038,7 +1035,7 @@ export class FeedQuery {
 
     return hot
       ? hotDescPage(rows, limit)
-      : chronoDescPage(rows, limit, { offset, usedKeyset });
+      : chronoDescPage(rows, limit, { usedKeyset });
   }
 
   /**
@@ -1281,7 +1278,7 @@ export class FeedQuery {
 
     return hot
       ? hotDescPage(rows, limit)
-      : chronoDescPage(rows, limit, { offset, usedKeyset });
+      : chronoDescPage(rows, limit, { usedKeyset });
   }
 
   private async queryFeedPulseRows(args: {
@@ -1427,9 +1424,20 @@ export class FeedQuery {
     if (opts.accounts.length === 0) return { items: [] };
 
     const limit = opts.limit ?? 20;
-    const offset = opts.offset ?? 0;
-    const filterExtras = `${opts.channel !== undefined ? ', $channel: String!' : ''}${opts.kind !== undefined ? ', $kind: String!' : ''}${opts.audience !== undefined ? ', $audienceLike: String!' : ''}`;
-    const whereExtras = `${opts.channel !== undefined ? ', {channel: {_eq: $channel}}' : ''}${opts.kind !== undefined ? ', {kind: {_eq: $kind}}' : ''}${opts.audience !== undefined ? ', {audiences: {_like: $audienceLike}}' : ''}`;
+    const chronoKey = requireChronoKeyset({
+      beforeBlockHeight: opts.beforeBlockHeight,
+      beforePostKey: opts.beforePostKey,
+    });
+    if (!chronoKey.ok) {
+      throw new Error(chronoKey.message);
+    }
+    const before = chronoKey.before;
+    const beforePostKey = chronoKey.beforePostKey;
+    const usedKeyset = before !== undefined;
+    const offset = usedKeyset ? 0 : (opts.offset ?? 0);
+    const chronoOrder = feedOrderByClause('recent');
+    const filterExtras = `${opts.channel !== undefined ? ', $channel: String!' : ''}${opts.kind !== undefined ? ', $kind: String!' : ''}${opts.audience !== undefined ? ', $audienceLike: String!' : ''}${usedKeyset ? ', $beforeBlockHeight: bigint!, $beforePostKey: String!' : ''}`;
+    const whereExtras = `${opts.channel !== undefined ? ', {channel: {_eq: $channel}}' : ''}${opts.kind !== undefined ? ', {kind: {_eq: $kind}}' : ''}${opts.audience !== undefined ? ', {audiences: {_like: $audienceLike}}' : ''}${usedKeyset ? `, ${chronoContentPathKeysetAnd()}` : ''}`;
     const variables = {
       accounts: opts.accounts,
       limit,
@@ -1438,6 +1446,12 @@ export class FeedQuery {
       ...(opts.kind !== undefined ? { kind: opts.kind } : {}),
       ...(opts.audience !== undefined
         ? { audienceLike: audienceLikeValue(opts.audience) }
+        : {}),
+      ...(usedKeyset && before !== undefined && beforePostKey
+        ? {
+            beforeBlockHeight: before,
+            beforePostKey,
+          }
         : {}),
     };
 
@@ -1448,6 +1462,7 @@ export class FeedQuery {
         channel: opts.channel !== undefined,
         kind: opts.kind !== undefined,
         audience: opts.audience !== undefined,
+        beforeKeyset: usedKeyset,
       }),
       feedRecentVariables: {
         accounts: pulseAccountsTextArray(opts.accounts),
@@ -1458,6 +1473,12 @@ export class FeedQuery {
         ...(opts.audience !== undefined
           ? { audience_like: audienceLikeValue(opts.audience) }
           : {}),
+        ...(usedKeyset && before !== undefined && beforePostKey
+          ? {
+              before_block_height: before,
+              before_post_key: beforePostKey,
+            }
+          : {}),
       },
       postsFeedQuery: `query FilteredFeed($accounts: [String!]!, $limit: Int!, $offset: Int!${filterExtras}) {
         postsFeed(
@@ -1466,7 +1487,7 @@ export class FeedQuery {
           ]},
           limit: $limit,
           offset: $offset,
-          orderBy: [{blockHeight: DESC}]
+          orderBy: ${chronoOrder}
         ) {
           ${FEED_POST_ROW_FIELDS}
         }
@@ -1478,29 +1499,31 @@ export class FeedQuery {
           ]},
           limit: $limit,
           offset: $offset,
-          orderBy: [{blockHeight: DESC}]
+          orderBy: ${chronoOrder}
         ) {
           ${FEED_POST_ROW_FIELDS_NO_HEAT}
         }
       }`,
-      postsCurrentQuery: `query FilteredFeed($accounts: [String!]!, $limit: Int!, $offset: Int!${filterExtras}) {
+      // postsCurrent has no contentPath — skip for composite keyset pages.
+      ...(usedKeyset
+        ? {}
+        : {
+            postsCurrentQuery: `query FilteredFeed($accounts: [String!]!, $limit: Int!, $offset: Int!${filterExtras}) {
         postsCurrent(
           where: {_and: [
             {accountId: {_in: $accounts}}${whereExtras}
           ]},
           limit: $limit,
           offset: $offset,
-          orderBy: [{blockHeight: DESC}]
+          orderBy: [{blockHeight: DESC}, {accountId: DESC}, {postId: DESC}]
         ) {
           ${POST_ROW_FIELDS}
         }
       }`,
+          }),
     });
 
-    return {
-      items: rows,
-      nextOffset: rows.length >= limit ? offset + limit : undefined,
-    };
+    return chronoDescPage(rows, limit, { usedKeyset });
   }
 
   /**
