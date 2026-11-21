@@ -315,6 +315,32 @@ CREATE INDEX IF NOT EXISTS idx_posts_current_root
   ON posts_current(root_path)
   WHERE root_path IS NOT NULL AND root_path != '';
 
+-- feed_recent / feed_hot chrono keyset (height + content_path). Live deploys
+-- rebuild these with CREATE INDEX CONCURRENTLY outside the views txn.
+CREATE INDEX IF NOT EXISTS idx_posts_current_feed_recent_keyset
+  ON posts_current (
+    block_height DESC,
+    (
+      CASE
+        WHEN group_id IS NOT NULL AND btrim(group_id) <> ''
+          THEN account_id || '/groups/' || group_id || '/content/post/' || post_id
+        ELSE account_id || '/post/' || post_id
+      END
+    ) DESC
+  );
+CREATE INDEX IF NOT EXISTS idx_posts_current_account_feed_recent_keyset
+  ON posts_current (
+    account_id,
+    block_height DESC,
+    (
+      CASE
+        WHEN group_id IS NOT NULL AND btrim(group_id) <> ''
+          THEN account_id || '/groups/' || group_id || '/content/post/' || post_id
+        ELSE account_id || '/post/' || post_id
+      END
+    ) DESC
+  );
+
 CREATE TABLE IF NOT EXISTS reactions_current (
   account_id TEXT NOT NULL,
   path TEXT NOT NULL,

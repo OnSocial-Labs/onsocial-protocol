@@ -214,7 +214,13 @@ export class ThreadsQuery {
   async replies(
     parentAuthor: string,
     postId: string,
-    opts: { limit?: number; offset?: number } = {}
+    opts: {
+      limit?: number;
+      offset?: number;
+      afterBlockHeight?: number;
+      afterAccountId?: string;
+      afterPostId?: string;
+    } = {}
   ): Promise<PostRow[]> {
     const parentPath = `${parentAuthor}/post/${postId}`;
     return (await this._repliesPageByPath(parentPath, opts)).items;
@@ -384,7 +390,11 @@ export class ThreadsQuery {
       offset?: number;
       order?: 'asc' | 'desc';
       afterBlockHeight?: number;
+      afterAccountId?: string;
+      afterPostId?: string;
       beforeBlockHeight?: number;
+      beforeAccountId?: string;
+      beforePostId?: string;
     } = {}
   ): Promise<PostRow[]> {
     const refPath = `${refAuthor}/post/${postId}`;
