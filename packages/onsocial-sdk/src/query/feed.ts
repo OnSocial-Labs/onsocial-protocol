@@ -286,24 +286,9 @@ function isTopicHeatUnavailableError(err: unknown): boolean {
   return hay.includes('heat');
 }
 
-/** Topic index `contentPath` column not tracked yet (deploy lag). */
-function isTopicContentPathUnavailableError(err: unknown): boolean {
-  if (!(err instanceof GraphQLValidationError)) return false;
-  const hay =
-    `${err.message} ${err.errors.map((e) => e.message ?? '').join(' ')}`.toLowerCase();
-  return (
-    hay.includes('contentpath') ||
-    hay.includes('content_path') ||
-    hay.includes('field "contentpath"') ||
-    hay.includes("field 'contentpath'")
-  );
-}
-
 const TOPIC_ORDER_HOT =
   '[{heat: DESC}, {blockHeight: DESC}, {contentPath: DESC}]';
 const TOPIC_ORDER_RECENT = '[{blockHeight: DESC}, {contentPath: DESC}]';
-const TOPIC_ORDER_HOT_NO_PATH = '[{heat: DESC}, {blockHeight: DESC}]';
-const TOPIC_ORDER_RECENT_NO_PATH = '[{blockHeight: DESC}]';
 
 type TopicStubRow = {
   accountId: string;
@@ -323,34 +308,26 @@ function topicStubPage(
     offset: number;
     sort: FeedSort;
     usedKeyset: boolean;
-    pathKeyset: boolean;
   }
 ): Paginated<PostRow> {
   if (stubs.length < limit) return { items };
   const edge = stubs[stubs.length - 1];
   if (!edge) return { items };
-  if (opts.pathKeyset) {
-    if (opts.sort === 'hot') {
-      return {
-        items,
-        nextBeforeBlockHeight: edge.blockHeight,
-        nextBeforeHeat: edge.heat ?? 0,
-        nextBeforeEventKey: edge.contentPath,
-      };
-    }
-    return chronoDescPage(items, limit, {
-      offset: opts.offset,
-      usedKeyset: opts.usedKeyset,
-      edgeCount: stubs.length,
-      edgeHeight: edge.blockHeight,
-      edgeKey: edge.contentPath,
-    });
+  if (opts.sort === 'hot') {
+    return {
+      items,
+      nextBeforeBlockHeight: edge.blockHeight,
+      nextBeforeHeat: edge.heat ?? 0,
+      nextBeforeEventKey: edge.contentPath,
+    };
   }
-  return {
-    items,
-    nextOffset: opts.offset + limit,
-    nextBeforeBlockHeight: edge.blockHeight,
-  };
+  return chronoDescPage(items, limit, {
+    offset: opts.offset,
+    usedKeyset: opts.usedKeyset,
+    edgeCount: stubs.length,
+    edgeHeight: edge.blockHeight,
+    edgeKey: edge.contentPath,
+  });
 }
 
 function accountsFeedWhere(nativeOnly: boolean): string {
@@ -381,8 +358,6 @@ export class FeedQuery {
 
   /** Set when topic index views reject `heat` ordering (column not tracked yet). */
   private topicHeatFallback = new SchemaFallback();
-  /** Set when topic index views reject `contentPath` (column not tracked yet). */
-  private topicContentPathFallback = new SchemaFallback();
 
   constructor(private _q: QueryModule) {}
 
@@ -391,33 +366,21 @@ export class FeedQuery {
    * chronological order while the `heat` column is not tracked yet.
    */
   private async queryTopicStubs<T>(args: {
-    buildQuery: (orderBy: string, includePath: boolean) => string;
+    buildQuery: (orderBy: string) => string;
     variables: Record<string, unknown>;
     sort: FeedSort;
     pick: (data: Record<string, unknown> | undefined) => T[] | undefined;
   }): Promise<T[]> {
-    const wantPath = !this.topicContentPathFallback.active;
     const wantHot = args.sort === 'hot' && !this.topicHeatFallback.active;
-    const orderBy = wantHot
-      ? wantPath
-        ? TOPIC_ORDER_HOT
-        : TOPIC_ORDER_HOT_NO_PATH
-      : wantPath
-        ? TOPIC_ORDER_RECENT
-        : TOPIC_ORDER_RECENT_NO_PATH;
+    const orderBy = wantHot ? TOPIC_ORDER_HOT : TOPIC_ORDER_RECENT;
     try {
       const res = await this._q.graphql<Record<string, unknown>>({
-        query: args.buildQuery(orderBy, wantPath),
+        query: args.buildQuery(orderBy),
         variables: args.variables,
       });
       if (wantHot) this.topicHeatFallback.clear();
-      if (wantPath) this.topicContentPathFallback.clear();
       return args.pick(res.data) ?? [];
     } catch (err) {
-      if (wantPath && isTopicContentPathUnavailableError(err)) {
-        this.topicContentPathFallback.trip();
-        return this.queryTopicStubs(args);
-      }
       if (!wantHot || !isTopicHeatUnavailableError(err)) throw err;
       this.topicHeatFallback.trip();
       return this.queryTopicStubs(args);
@@ -443,7 +406,6 @@ export class FeedQuery {
     const limit = args.opts.limit ?? 20;
     const sort = args.opts.sort ?? 'recent';
     const hot = sort === 'hot';
-    const pathKeyset = !this.topicContentPathFallback.active;
     const chronoKey = !hot
       ? requireChronoKeyset({
           beforeBlockHeight: args.opts.beforeBlockHeight,
@@ -473,26 +435,24 @@ export class FeedQuery {
       ? hotKey?.beforePostKey
       : chronoKey?.beforePostKey;
 
-    const keysetParams =
-      hot && usedKeyset && pathKeyset
+    const keysetParams = hot
+      ? usedKeyset
         ? ', $beforeHeat: float8!, $beforeBlockHeight: bigint!, $beforePostKey: String!'
-        : usedKeyset && pathKeyset
-          ? ', $beforeBlockHeight: bigint!, $beforePostKey: String!'
-          : usedKeyset
-            ? ', $beforeBlockHeight: bigint!'
-            : '';
-    const keysetFilter =
-      hot && usedKeyset && pathKeyset
+        : ''
+      : usedKeyset
+        ? ', $beforeBlockHeight: bigint!, $beforePostKey: String!'
+        : '';
+    const keysetFilter = hot
+      ? usedKeyset
         ? `, _and: [${hotContentPathKeysetAnd()}]`
-        : usedKeyset && pathKeyset
-          ? `, _and: [${chronoContentPathKeysetAnd()}]`
-          : usedKeyset
-            ? ', blockHeight: {_lt: $beforeBlockHeight}'
-            : '';
+        : ''
+      : usedKeyset
+        ? `, _and: [${chronoContentPathKeysetAnd()}]`
+        : '';
     const stubs = await this.queryTopicStubs<
       TopicStubRow & { hashtag?: string; ticker?: string; place?: string }
     >({
-      buildQuery: (orderBy, includePath) =>
+      buildQuery: (orderBy) =>
         `query ${args.hydrateName}Stubs($${args.queryVar}: String!, $limit: Int!, $offset: Int!${keysetParams}) {
         ${args.collection}(
           where: {${args.filterField}: {_eq: $${args.queryVar}}${keysetFilter}},
@@ -500,9 +460,9 @@ export class FeedQuery {
           limit: $limit,
           offset: $offset
         ) {
-          accountId postId ${args.tagField} blockHeight blockTimestamp groupId${
-            includePath ? ' contentPath' : ''
-          }${hot ? ' heat' : ''}
+          accountId postId ${args.tagField} blockHeight blockTimestamp groupId contentPath${
+            hot ? ' heat' : ''
+          }
         }
       }`,
       variables: {
@@ -512,7 +472,7 @@ export class FeedQuery {
         ...(usedKeyset && before !== undefined
           ? {
               beforeBlockHeight: before,
-              ...(pathKeyset && beforePostKey ? { beforePostKey } : {}),
+              ...(beforePostKey ? { beforePostKey } : {}),
               ...(hot && beforeHeat !== undefined ? { beforeHeat } : {}),
             }
           : {}),
@@ -533,7 +493,6 @@ export class FeedQuery {
       offset,
       sort,
       usedKeyset,
-      pathKeyset,
     });
   }
 

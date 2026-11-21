@@ -352,8 +352,7 @@ export function requirePulseKeyset(opts: {
 
 /**
  * Descending chrono page cursor — height + content path (matches `feed_recent`
- * ROW). When `keysetExclusive` (default), omit `nextOffset` so load-more cannot
- * silently fall back to offset under live inserts.
+ * ROW). Full pages return the composite keyset only (no parallel `nextOffset`).
  */
 export function chronoDescPage(
   items: PostRow[],
@@ -361,8 +360,6 @@ export function chronoDescPage(
   opts: {
     offset: number;
     usedKeyset: boolean;
-    /** When false, keep nextOffset alongside keyset (topic indexes). */
-    keysetExclusive?: boolean;
     /** Stub/raw count when hydrate can drop rows (topic indexes). */
     edgeCount?: number;
     edgeHeight?: number;
@@ -391,21 +388,13 @@ export function chronoDescPage(
       : undefined;
   const nextKey =
     opts.edgeKey ?? (edgeRow ? postContentPath(edgeRow) : undefined);
-  const keyset =
-    nextBefore !== undefined && nextKey
-      ? {
-          nextBeforeBlockHeight: nextBefore,
-          nextBeforeEventKey: nextKey,
-        }
-      : undefined;
-  const exclusive = opts.keysetExclusive !== false;
-  if (keyset && exclusive) return { items, ...keyset };
-  if (opts.usedKeyset) {
-    return keyset ? { items, ...keyset } : { items };
+  if (nextBefore !== undefined && nextKey) {
+    return {
+      items,
+      nextBeforeBlockHeight: nextBefore,
+      nextBeforeEventKey: nextKey,
+    };
   }
-  return {
-    items,
-    nextOffset: opts.offset + limit,
-    ...keyset,
-  };
+  if (opts.usedKeyset) return { items };
+  return { items, nextOffset: opts.offset + limit };
 }
