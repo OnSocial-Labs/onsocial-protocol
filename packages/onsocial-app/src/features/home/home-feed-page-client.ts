@@ -42,19 +42,29 @@ export const HOME_FEED_PAGE_SIZE = 24;
 
 async function fetchSavedFeedPage(
   accountId: string,
-  offset: number,
+  cursor: HomeFeedPageCursor,
   limit: number
 ): Promise<Paginated<PostRow>> {
   const client = createReadOnlyOnSocialClient();
   return collectResolvedSavePage({
-    offset,
     limit,
-    loadRefs: async (pageOffset, pageLimit) => {
+    cursor: {
+      offset: cursor.offset,
+      beforeBlockHeight: cursor.beforeBlockHeight,
+      beforeContentPath: cursor.beforeEventKey,
+    },
+    loadRefs: async (loadCursor, pageLimit) => {
       const saves = await client.query.saves.list(accountId, {
         limit: pageLimit,
-        offset: pageOffset,
+        offset: loadCursor.offset,
+        beforeBlockHeight: loadCursor.beforeBlockHeight,
+        beforeContentPath: loadCursor.beforeContentPath,
       });
-      return saves.map((row) => parseSaveContentPath(row.contentPath));
+      return saves.map((row) => ({
+        ref: parseSaveContentPath(row.contentPath),
+        blockHeight: row.blockHeight,
+        contentPath: row.contentPath,
+      }));
     },
     hydrate: (refs) => fetchIndexedPostsByRefs([...refs]),
     refKey: (ref) => indexedPostRefKey(ref.author, ref.postId),
@@ -101,7 +111,7 @@ export async function fetchHomeFeedPageClient(
   const offset = cursor.offset ?? 0;
 
   if (lens === 'saved' && accountId) {
-    const page = await fetchSavedFeedPage(accountId, offset, limit);
+    const page = await fetchSavedFeedPage(accountId, cursor, limit);
     return { page, standingSources: null };
   }
 
