@@ -25,14 +25,45 @@ export { EMPTY_POST_ENGAGEMENT } from '@/lib/post-engagement-model';
 const DEFAULT_REACTION_KIND = 'like';
 
 /**
- * Like/save confirm must not land on a different wallet after a mid-flight
- * account switch (or logout).
+ * Like/save/amplify confirm must not land on a different wallet after a
+ * mid-flight account switch (or logout).
  */
 export function shouldApplyViewerToggleConfirm(
   activeAccountId: string | null,
   viewerIdAtStart: string
 ): boolean {
   return activeAccountId === viewerIdAtStart;
+}
+
+/**
+ * Soft-fill amplify totals were requested for this account (or signed-out).
+ * Skip the `then` when the wallet changed while the query was in flight.
+ */
+export function shouldApplyAmplifyCountFill(
+  activeAccountId: string | null,
+  requestedAccountId: string | null
+): boolean {
+  return activeAccountId === requestedAccountId;
+}
+
+/** Chain-confirmed amplify — bump count and colour for the signing viewer. */
+export function confirmedAmplifyEngagement(
+  previous: PostEngagement
+): PostEngagement {
+  return previous.viewerAmplified
+    ? {
+        ...previous,
+        amplifyCount: previous.amplifyCount + 1,
+        amplifyCountReady: true,
+        amplifyRoll: previous.amplifyRoll + 1,
+      }
+    : {
+        ...previous,
+        viewerAmplified: true,
+        amplifyCount: previous.amplifyCount + 1,
+        amplifyCountReady: true,
+        amplifyRoll: previous.amplifyRoll + 1,
+      };
 }
 
 /**
@@ -691,12 +722,21 @@ export function usePostEngagement(
     if (amplifyFillFor.length > 0) {
       const fillRows = amplifyFillFor;
       const fillPaths = fillRows.map((target) => target.path);
+      const fillAccountId = accountId ?? null;
       void client.query.socialSpend
         .amplifyCountsForPostPaths(
           fillPaths,
-          accountId ? { viewer: accountId } : {}
+          fillAccountId ? { viewer: fillAccountId } : {}
         )
         .then((amplifyCounts) => {
+          if (
+            !shouldApplyAmplifyCountFill(
+              lastGoodAccountRef.current,
+              fillAccountId
+            )
+          ) {
+            return;
+          }
           setEngagement((current) => {
             let changed = false;
             const next: EngagementMap = { ...current };
@@ -1168,31 +1208,29 @@ export function usePostEngagement(
     [accountId, connect, getClient, isConnected]
   );
 
-  const confirmAmplify = useCallback((post: PostRow) => {
-    const key = postKey(post);
-    setEngagement((current) => {
-      const previous = current[key] ?? EMPTY_POST_ENGAGEMENT;
-      const row = previous.viewerAmplified
-        ? {
-            ...previous,
-            amplifyCount: previous.amplifyCount + 1,
-            amplifyCountReady: true,
-            amplifyRoll: previous.amplifyRoll + 1,
-          }
-        : {
-            ...previous,
-            viewerAmplified: true,
-            amplifyCount: previous.amplifyCount + 1,
-            amplifyCountReady: true,
-            amplifyRoll: previous.amplifyRoll + 1,
-          };
-      rememberEngagementLastGood(lastGoodRef.current, key, row);
-      return { ...current, [key]: row };
-    });
-    // Invalidate Hot session snapshots — leave/return soft-refetches rank
-    // without scrolling the reader to the boosted card.
-    recordViewerAmplifyConfirmed(post.accountId);
-  }, []);
+  const confirmAmplify = useCallback(
+    (post: PostRow, detail: { signerId: string }) => {
+      if (
+        !shouldApplyViewerToggleConfirm(
+          lastGoodAccountRef.current,
+          detail.signerId
+        )
+      ) {
+        return;
+      }
+      const key = postKey(post);
+      setEngagement((current) => {
+        const previous = current[key] ?? EMPTY_POST_ENGAGEMENT;
+        const row = confirmedAmplifyEngagement(previous);
+        rememberEngagementLastGood(lastGoodRef.current, key, row);
+        return { ...current, [key]: row };
+      });
+      // Invalidate Hot session snapshots — leave/return soft-refetches rank
+      // without scrolling the reader to the boosted card.
+      recordViewerAmplifyConfirmed(post.accountId);
+    },
+    []
+  );
 
   const confirmRepost = useCallback(
     (

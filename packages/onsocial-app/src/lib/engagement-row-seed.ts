@@ -23,8 +23,13 @@ export function engagementSeedFromFeedRows(
       quoteCount: counts.quoteCount,
       repostCount: counts.repostCount,
       reactionCount: counts.reactionCount,
-      amplifyCount: counts.amplifyCount ?? 0,
-      amplifyCountReady: counts.amplifyCount != null,
+      // Missing feed amplify stays unset (ready false) — do not invent 0.
+      ...(counts.amplifyCount != null
+        ? {
+            amplifyCount: counts.amplifyCount,
+            amplifyCountReady: true,
+          }
+        : {}),
       // Colour comes from the signed-in overlay / soft-fill — not the row.
       viewerFlagsReady: false,
     };

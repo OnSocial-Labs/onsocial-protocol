@@ -265,8 +265,11 @@ export function PersonalFeedList({
   }, [engagement]);
 
   const handleAmplifyConfirmed = useCallback(
-    (post: PostRow) => {
-      confirmAmplify(post);
+    (
+      post: PostRow,
+      detail: { signerId: string }
+    ) => {
+      confirmAmplify(post, detail);
     },
     [confirmAmplify]
   );

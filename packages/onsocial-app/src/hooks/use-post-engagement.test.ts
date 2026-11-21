@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyViewerOverlayEngagement,
+  confirmedAmplifyEngagement,
   confirmedReactionEngagement,
   EMPTY_POST_ENGAGEMENT,
   engagementForAccountChange,
@@ -10,6 +11,7 @@ import {
   reactionCountAfterToggle,
   rememberEngagementLastGood,
   resolveBandEngagement,
+  shouldApplyAmplifyCountFill,
   shouldApplyViewerToggleConfirm,
   type PostEngagement,
 } from '@/hooks/use-post-engagement';
@@ -32,6 +34,40 @@ describe('shouldApplyViewerToggleConfirm', () => {
       false
     );
     expect(shouldApplyViewerToggleConfirm(null, 'alice.near')).toBe(false);
+  });
+});
+
+describe('amplify confirm / soft-fill account guard', () => {
+  it('skips amplify confirm when the signer is no longer the active wallet', () => {
+    expect(shouldApplyViewerToggleConfirm('bob.near', 'alice.near')).toBe(
+      false
+    );
+    expect(shouldApplyViewerToggleConfirm('alice.near', 'alice.near')).toBe(
+      true
+    );
+  });
+
+  it('bumps amplify count and colour only via confirmedAmplifyEngagement', () => {
+    const first = confirmedAmplifyEngagement(
+      row({ viewerAmplified: false, amplifyCount: 2 })
+    );
+    expect(first).toMatchObject({
+      viewerAmplified: true,
+      amplifyCount: 3,
+      amplifyCountReady: true,
+      amplifyRoll: 1,
+    });
+    const again = confirmedAmplifyEngagement(first);
+    expect(again.amplifyCount).toBe(4);
+    expect(again.viewerAmplified).toBe(true);
+    expect(again.amplifyRoll).toBe(2);
+  });
+
+  it('skips soft-fill when the wallet changed while counts were loading', () => {
+    expect(shouldApplyAmplifyCountFill('bob.near', 'alice.near')).toBe(false);
+    expect(shouldApplyAmplifyCountFill(null, 'alice.near')).toBe(false);
+    expect(shouldApplyAmplifyCountFill('alice.near', 'alice.near')).toBe(true);
+    expect(shouldApplyAmplifyCountFill(null, null)).toBe(true);
   });
 });
 
