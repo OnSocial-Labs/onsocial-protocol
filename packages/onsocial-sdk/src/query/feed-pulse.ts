@@ -421,13 +421,16 @@ export function paginatePulseFunctionRows(input: {
         }
       : {}),
   };
-  if (input.usedKeyset) {
+  // Home cutover: when a card keyset is available, omit nextOffset.
+  if (cursor) {
     return { items: sliced.flat(), ...keyset };
+  }
+  if (input.usedKeyset) {
+    return { items: sliced.flat() };
   }
   return {
     items: sliced.flat(),
     nextOffset: input.offset + input.limit,
-    ...keyset,
   };
 }
 

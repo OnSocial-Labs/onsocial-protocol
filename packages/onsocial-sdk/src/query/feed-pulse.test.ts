@@ -384,7 +384,7 @@ describe('splitPulseFunctionRows', () => {
       limit: 1,
     });
     expect(page.items.map((item) => item.postId)).toEqual(['root', 'r1']);
-    expect(page.nextOffset).toBe(1);
+    expect(page.nextOffset).toBeUndefined();
     expect(page.nextBeforeBlockHeight).toBeGreaterThan(0);
     expect(page.nextBeforeEventKey).toBe('bob.near/post/root');
   });
@@ -409,7 +409,9 @@ describe('splitPulseFunctionRows', () => {
       'note',
       'x',
     ]);
-    expect(page.nextOffset).toBe(2);
+    expect(page.nextOffset).toBeUndefined();
+    expect(page.nextBeforeBlockHeight).toBeDefined();
+    expect(page.nextBeforeEventKey).toBeDefined();
   });
 
   it('prefers card keyset when usedKeyset is set', () => {

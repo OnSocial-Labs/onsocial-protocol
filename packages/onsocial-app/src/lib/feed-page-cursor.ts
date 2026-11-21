@@ -1,4 +1,7 @@
-/** Prefer keyset over offset when the page reports either cursor. */
+/**
+ * Prefer composite keyset when present. `nextOffset` is legacy for feeds that
+ * still page by offset (saved, incomplete edges).
+ */
 export function feedPageHasMore(page: {
   nextOffset?: number;
   nextBeforeBlockHeight?: number;

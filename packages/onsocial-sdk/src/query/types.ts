@@ -17,7 +17,14 @@ export interface ReactionRow {
 /** Paginated result set. */
 export interface Paginated<T> {
   items: T[];
-  /** Offset for the next page, or `undefined` if this was the last page. */
+  /**
+   * Offset for the next page, or `undefined` if this was the last page.
+   *
+   * @deprecated For `feed.recent` / `fromAccounts` / `pulse`, prefer the
+   * composite keyset (`nextBeforeBlockHeight` + `nextBeforeEventKey`, and
+   * `nextBeforeHeat` for Hot). Full pages no longer return `nextOffset` when
+   * a keyset is available — height-only / offset-only load-more is legacy.
+   */
   nextOffset?: number;
   /**
    * Keyset cursor for ascending `blockHeight` pages (`_gt` on the next fetch).
@@ -25,8 +32,8 @@ export interface Paginated<T> {
    */
   nextAfterBlockHeight?: number;
   /**
-   * Keyset cursor for descending `blockHeight` pages (`_lt` on the next fetch).
-   * Prefer this over `nextOffset` when both are present.
+   * Descending keyset height leg. Must be paired with `nextBeforeEventKey`
+   * (and `nextBeforeHeat` for Hot) — height alone is rejected by the SDK.
    */
   nextBeforeBlockHeight?: number;
   /**

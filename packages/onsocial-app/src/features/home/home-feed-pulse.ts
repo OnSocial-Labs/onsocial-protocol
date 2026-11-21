@@ -96,7 +96,10 @@ export function isHomeFeedSocialLens(
   return lens === 'pulse' || lens === 'circle';
 }
 
-/** Prefer keyset when the page returned one; else offset. */
+/**
+ * Prefer composite keyset when present (home cutover). Offset remains for
+ * feeds that never return a keyset (e.g. saved) or empty keyset edges.
+ */
 export function homeFeedHasMore(
   page: Pick<
     Paginated<unknown>,

@@ -817,7 +817,7 @@ describe('QueryModule', () => {
   });
 
   describe('getPosts()', () => {
-    it('returns paginated result with nextOffset', async () => {
+    it('returns a composite keyset (not nextOffset) on a full Recent page', async () => {
       const rows = Array.from({ length: 20 }, (_, i) => ({
         accountId: 'a.near',
         postId: `p${i}`,
@@ -829,7 +829,9 @@ describe('QueryModule', () => {
 
       const page = await os.query.feed.recent({ limit: 20 });
       expect(page.items).toHaveLength(20);
-      expect(page.nextOffset).toBe(20);
+      expect(page.nextOffset).toBeUndefined();
+      expect(page.nextBeforeBlockHeight).toBe(81);
+      expect(page.nextBeforeEventKey).toBe('a.near/post/p19');
     });
 
     it('returns undefined nextOffset on last page', async () => {
@@ -878,7 +880,7 @@ describe('QueryModule', () => {
       }));
       const { os } = makeOs({ data: { postsFeed: rows } });
       const page = await os.query.feed.recent({ limit: 24, sort: 'hot' });
-      expect(page.nextOffset).toBe(24);
+      expect(page.nextOffset).toBeUndefined();
       expect(page.nextBeforeBlockHeight).toBe(1000 - 23);
       expect(page.nextBeforeHeat).toBe(50 - 23);
       expect(page.nextBeforeEventKey).toBe('a.near/post/p23');
@@ -1152,7 +1154,7 @@ describe('QueryModule', () => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
-    it('exposes nextBeforeBlockHeight on offset Recent pages', async () => {
+    it('exposes nextBeforeBlockHeight without nextOffset on full Recent pages', async () => {
       const rows = Array.from({ length: 20 }, (_, i) => ({
         accountId: 'a.near',
         postId: `p${i}`,
@@ -1162,7 +1164,7 @@ describe('QueryModule', () => {
       }));
       const { os } = makeOs({ data: { postsFeed: rows } });
       const page = await os.query.feed.recent({ limit: 20 });
-      expect(page.nextOffset).toBe(20);
+      expect(page.nextOffset).toBeUndefined();
       expect(page.nextBeforeBlockHeight).toBe(81);
       expect(page.nextBeforeEventKey).toBe('a.near/post/p19');
     });
@@ -3999,7 +4001,9 @@ describe('QueryModule', () => {
       });
 
       const page = await os.query.feed.byHashtag('gm', { limit: 5 });
-      expect(page.nextOffset).toBe(5);
+      expect(page.nextOffset).toBeUndefined();
+      expect(page.nextBeforeBlockHeight).toBeDefined();
+      expect(page.nextBeforeEventKey).toBeDefined();
       expect(page.items).toHaveLength(5);
     });
 

@@ -374,12 +374,12 @@ export function chronoDescPage(
           nextBeforeEventKey: nextKey,
         }
       : undefined;
-  if (opts.usedKeyset) {
-    return keyset ? { items, ...keyset } : { items };
-  }
+  // Home cutover: when a composite keyset is available, do not also expose
+  // nextOffset — callers must load-more with height+path, not offset.
+  if (keyset) return { items, ...keyset };
+  if (opts.usedKeyset) return { items };
   return {
     items,
     nextOffset: opts.offset + limit,
-    ...keyset,
   };
 }

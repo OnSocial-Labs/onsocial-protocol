@@ -1113,6 +1113,20 @@ AS $$
   END
 $$;
 
+-- feed_recent / feed_hot keyset order (height+path; heat joins separately).
+CREATE INDEX IF NOT EXISTS idx_posts_current_feed_recent_keyset
+  ON posts_current (
+    block_height DESC,
+    (post_content_path(account_id, post_id, group_id)) DESC
+  );
+
+CREATE INDEX IF NOT EXISTS idx_posts_current_account_feed_recent_keyset
+  ON posts_current (
+    account_id,
+    block_height DESC,
+    (post_content_path(account_id, post_id, group_id)) DESC
+  );
+
 CREATE OR REPLACE FUNCTION post_feed_shell(
   account_id text,
   post_id text,

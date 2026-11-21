@@ -188,8 +188,8 @@ function hotDescPage(
     nextBeforeHeat: edge.amplifyHeat ?? 0,
     nextBeforeEventKey: postContentPath(edge),
   };
-  if (opts.usedKeyset) return { items, ...keyset };
-  return { items, nextOffset: opts.offset + limit, ...keyset };
+  // Home cutover: composite keyset only — no parallel nextOffset.
+  return { items, ...keyset };
 }
 
 function isFeedHotBeforeKeyUnavailableError(err: unknown): boolean {
