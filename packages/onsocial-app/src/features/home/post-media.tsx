@@ -175,9 +175,11 @@ export function feedMediaMeasuredRatioCount(): number {
 /**
  * Windowed feed lists already correct scroll via useFeedWindow anchors.
  * A second Lenis shift from a reserved seat resize double-moves the viewport.
+ * Hosts set `data-feed-window` whenever windowing is on — not only when a
+ * spacer has non-zero height (top of list / short lists have no spacers).
  */
 export function scrollerOwnsFeedWindow(scroller: ParentNode): boolean {
-  return scroller.querySelector('[data-feed-window-spacer]') != null;
+  return scroller.querySelector('[data-feed-window]') != null;
 }
 
 /**

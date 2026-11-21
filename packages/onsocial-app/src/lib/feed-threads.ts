@@ -1,4 +1,5 @@
 import { postContentPath, type PostRow } from '@onsocial/sdk';
+import { postKey } from '@/lib/post-display';
 
 function postRefKey(accountId: string, postId: string): string {
   return `${accountId}\0${postId}`;
@@ -80,6 +81,70 @@ export type CoalescedFeedBlock = {
   /** Replies skipped between `posts` and `standingPeek`. */
   standingHidden?: PostRow[];
 };
+
+/** Prior block key + member post keys — input to {@link assignStableFeedBlockKeys}. */
+export type FeedBlockKeyState = {
+  key: string;
+  members: ReadonlySet<string>;
+};
+
+/** Every post identity in a coalesced block (native chain + standing peek). */
+export function feedBlockMemberKeys(block: CoalescedFeedBlock): Set<string> {
+  const members = new Set<string>();
+  for (const post of block.posts) members.add(postKey(post));
+  if (block.standingPeek) members.add(postKey(block.standingPeek));
+  if (block.standingHidden) {
+    for (const post of block.standingHidden) members.add(postKey(post));
+  }
+  return members;
+}
+
+/**
+ * Newest native chain post — where the block sits in newest-first order.
+ * Used only for brand-new blocks; overlaps reuse the prior key.
+ */
+export function feedBlockTipKey(block: CoalescedFeedBlock): string {
+  return postKey(block.posts[block.posts.length - 1]!);
+}
+
+/**
+ * Stable React / window / size-cache keys across coalesce reshapes.
+ * Reuses the previous key when post membership overlaps so orphan→parent
+ * and parent→continuation keep the same DOM identity.
+ */
+export function assignStableFeedBlockKeys(
+  blocks: readonly CoalescedFeedBlock[],
+  previous: readonly FeedBlockKeyState[] = []
+): { keys: string[]; state: FeedBlockKeyState[] } {
+  const usedPrev = new Set<number>();
+  const keys: string[] = [];
+  const state: FeedBlockKeyState[] = [];
+
+  for (const block of blocks) {
+    const members = feedBlockMemberKeys(block);
+    let bestIndex = -1;
+    let bestOverlap = 0;
+    for (let i = 0; i < previous.length; i += 1) {
+      if (usedPrev.has(i)) continue;
+      let overlap = 0;
+      for (const member of previous[i]!.members) {
+        if (members.has(member)) overlap += 1;
+      }
+      if (overlap > bestOverlap) {
+        bestOverlap = overlap;
+        bestIndex = i;
+      }
+    }
+    const key =
+      bestIndex >= 0 && bestOverlap > 0
+        ? previous[bestIndex]!.key
+        : feedBlockTipKey(block);
+    if (bestIndex >= 0 && bestOverlap > 0) usedPrev.add(bestIndex);
+    keys.push(key);
+    state.push({ key, members });
+  }
+  return { keys, state };
+}
 
 function standingChainNewestTimestamp(chain: PostRow[]): number {
   return chain[chain.length - 1]?.blockTimestamp ?? 0;

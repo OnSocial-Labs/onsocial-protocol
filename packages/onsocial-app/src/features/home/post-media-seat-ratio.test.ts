@@ -38,7 +38,7 @@ describe('reserved open/focused/quote seat ratio', () => {
     expect(scrollerOwnsFeedWindow(empty)).toBe(false);
     const windowed = {
       querySelector: (sel: string) =>
-        sel.includes('data-feed-window-spacer') ? {} : null,
+        sel.includes('data-feed-window') ? {} : null,
     } as unknown as ParentNode;
     expect(scrollerOwnsFeedWindow(windowed)).toBe(true);
   });

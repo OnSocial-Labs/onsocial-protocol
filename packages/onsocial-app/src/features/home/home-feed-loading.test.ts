@@ -60,6 +60,23 @@ describe('home feed loading contract', () => {
     expect(windowSrc).toContain('pendingMeasureAnchorRef');
     expect(windowSrc).toContain('Do not also Lenis-shift here');
     expect(windowSrc).not.toContain('shiftAppLenisScroll');
+
+    const listSrc = readFileSync(join(homeSrc, 'personal-feed-list.tsx'), 'utf8');
+    expect(listSrc).toContain('useStableFeedBlockKeys');
+    expect(listSrc).toContain("'data-feed-window'");
+    const mediaSrc = readFileSync(join(homeSrc, 'post-media.tsx'), 'utf8');
+    expect(mediaSrc).toContain("querySelector('[data-feed-window]')");
+    expect(mediaSrc).not.toContain(
+      "querySelector('[data-feed-window-spacer]')"
+    );
+  });
+
+  it('holds scroll when standing peeks arrive and on every coalesce-capable append', () => {
+    const source = readFileSync(join(homeSrc, 'home-feed.tsx'), 'utf8');
+    expect(source).toContain('standingArriving');
+    expect(source).toContain('assignStableFeedBlockKeys');
+    expect(source).toContain('onBlockKeyState');
+    expect(source).toContain('reRankAnchorMissRef');
   });
 
   it('soft-refresh and appear panels share the 280ms ease-out token', () => {
