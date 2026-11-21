@@ -5,47 +5,227 @@ import { postContentPath, type PostRow } from '@onsocial/sdk';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { pollIndexConfirm } from '@/lib/index-confirm-poll';
 import {
   subscribePersonalQuoteConfirmed,
   subscribePersonalReplyConfirmed,
 } from '@/features/scarces/drop-compose-host';
 import { recordViewerAmplifyConfirmed } from '@/lib/home-feed-amplify-epoch';
+import { fillEngagementSeedFromFeedRows } from '@/lib/engagement-row-seed';
+import {
+  EMPTY_POST_ENGAGEMENT,
+  type EngagementMap,
+  type PostEngagement,
+} from '@/lib/post-engagement-model';
 import { postKey } from '@/lib/post-display';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
+export type { EngagementMap, PostEngagement } from '@/lib/post-engagement-model';
+export { EMPTY_POST_ENGAGEMENT } from '@/lib/post-engagement-model';
+
 const DEFAULT_REACTION_KIND = 'like';
 
-export interface PostEngagement {
-  replyCount: number;
-  quoteCount: number;
-  repostCount: number;
-  reactionCount: number;
-  viewerReacted: boolean;
-  amplifyCount: number;
-  viewerAmplified: boolean;
-  /** Private bookmark — never a public count. */
-  viewerSaved: boolean;
-  viewerReposted: boolean;
-  viewerRepostId: string | null;
-  viewerRepostGroupId: string | null;
-  /** Bumps only when the viewer's own like confirms, so other cards stay still. */
-  reactionRoll: number;
-  /** Bumps only when the viewer's own amplify confirms. */
-  amplifyRoll: number;
-  /** Bumps only when the viewer's own reply confirms. */
-  replyRoll: number;
-  /** Bumps when the viewer's repost, undo, or quote confirms. */
-  shareRoll: number;
-}
-
-export interface EngagementMap {
-  [key: string]: PostEngagement;
+/**
+ * Like/save/amplify confirm must not land on a different wallet after a
+ * mid-flight account switch (or logout).
+ */
+export function shouldApplyViewerToggleConfirm(
+  activeAccountId: string | null,
+  viewerIdAtStart: string
+): boolean {
+  return activeAccountId === viewerIdAtStart;
 }
 
 /**
- * Heart moves immediately. The count stays until the like is final and the
- * indexer agrees, or that short wait ends, so a cancel never flashes a number.
+ * Soft-fill amplify totals were requested for this account (or signed-out).
+ * Skip the `then` when the wallet changed while the query was in flight.
+ */
+export function shouldApplyAmplifyCountFill(
+  activeAccountId: string | null,
+  requestedAccountId: string | null
+): boolean {
+  return activeAccountId === requestedAccountId;
+}
+
+/**
+ * Overlay amplify: count query only for rows still missing a total; colour
+ * query for the rest. Avoids re-fetching totals for the whole band.
+ */
+export function partitionOverlayAmplifyPaths(
+  rows: readonly { key: string; path: string }[],
+  engagement: EngagementMap
+): { countPaths: string[]; colourPaths: string[] } {
+  const countPaths: string[] = [];
+  const colourPaths: string[] = [];
+  for (const row of rows) {
+    if (engagement[row.key]?.amplifyCountReady) {
+      colourPaths.push(row.path);
+    } else {
+      countPaths.push(row.path);
+    }
+  }
+  return { countPaths, colourPaths };
+}
+
+/** Chain-confirmed amplify — bump count and colour for the signing viewer. */
+export function confirmedAmplifyEngagement(
+  previous: PostEngagement
+): PostEngagement {
+  return previous.viewerAmplified
+    ? {
+        ...previous,
+        amplifyCount: previous.amplifyCount + 1,
+        amplifyCountReady: true,
+        amplifyRoll: previous.amplifyRoll + 1,
+      }
+    : {
+        ...previous,
+        viewerAmplified: true,
+        amplifyCount: previous.amplifyCount + 1,
+        amplifyCountReady: true,
+        amplifyRoll: previous.amplifyRoll + 1,
+      };
+}
+
+/**
+ * Soft-fill still owes a recount until each public-count lane has loaded.
+ * Used by the missing filter so a failed likes (or threads) read cannot
+ * lock a false 0 and drop the row from retry.
+ */
+export function engagementNeedsCountSoftFill(
+  row: PostEngagement | null | undefined
+): boolean {
+  if (!row) return true;
+  return !row.threadCountsReady || !row.reactionCountReady;
+}
+
+/** Digit seat: pending while the lane is unpaid; idle only for a settled 0. */
+export function engagementCountSeatClass(
+  count: number,
+  laneReady: boolean
+): string {
+  if (!laneReady) return ' is-pending';
+  if (count > 0) return '';
+  return ' is-idle';
+}
+
+/**
+ * Soft-fill row from settled query parts. Keep counts that loaded; mark each
+ * lane ready only when that query succeeded (or was already ready).
+ */
+export function engagementFromPartialFetch(input: {
+  previous: PostEngagement | null | undefined;
+  threadsOk: boolean;
+  reactionsOk: boolean;
+  amplifyOk: boolean;
+  viewerReady: boolean;
+  repostsOk: boolean;
+  counts?: {
+    replyCount: number;
+    quoteCount: number;
+    repostCount: number;
+  } | null;
+  reactionTotal?: number;
+  viewerReacted?: boolean;
+  amplifyCount?: number;
+  viewerAmplified?: boolean;
+  viewerSaved?: boolean;
+  viewerReposted?: boolean;
+  viewerRepostId?: string | null;
+  viewerRepostGroupId?: string | null;
+}): PostEngagement {
+  const previous = input.previous;
+  const threadCountsReady =
+    input.threadsOk || Boolean(previous?.threadCountsReady);
+  const reactionCountReady =
+    input.reactionsOk || Boolean(previous?.reactionCountReady);
+  const row: PostEngagement = {
+    ...EMPTY_POST_ENGAGEMENT,
+    replyCount: input.threadsOk
+      ? (input.counts?.replyCount ?? 0)
+      : (previous?.replyCount ?? 0),
+    quoteCount: input.threadsOk
+      ? (input.counts?.quoteCount ?? 0)
+      : (previous?.quoteCount ?? 0),
+    repostCount: input.threadsOk
+      ? (input.counts?.repostCount ?? 0)
+      : (previous?.repostCount ?? 0),
+    reactionCount: input.reactionsOk
+      ? (input.reactionTotal ?? 0)
+      : (previous?.reactionCount ?? 0),
+    threadCountsReady,
+    reactionCountReady,
+    viewerReacted: input.viewerReady
+      ? Boolean(input.viewerReacted)
+      : (previous?.viewerReacted ?? false),
+    amplifyCount: input.amplifyOk
+      ? (input.amplifyCount ?? 0)
+      : (previous?.amplifyCount ?? 0),
+    amplifyCountReady: input.amplifyOk || Boolean(previous?.amplifyCountReady),
+    viewerAmplified: input.amplifyOk
+      ? Boolean(input.viewerAmplified)
+      : (previous?.viewerAmplified ?? false),
+    viewerSaved: input.viewerReady
+      ? Boolean(input.viewerSaved)
+      : (previous?.viewerSaved ?? false),
+    viewerReposted:
+      input.viewerReady && input.repostsOk
+        ? Boolean(input.viewerReposted)
+        : (previous?.viewerReposted ?? false),
+    viewerRepostId:
+      input.viewerReady && input.repostsOk
+        ? (input.viewerRepostId ?? null)
+        : (previous?.viewerRepostId ?? null),
+    viewerRepostGroupId:
+      input.viewerReady && input.repostsOk
+        ? (input.viewerRepostGroupId ?? null)
+        : (previous?.viewerRepostGroupId ?? null),
+    viewerFlagsReady:
+      input.viewerReady && input.repostsOk && input.amplifyOk,
+    reactionRoll: previous?.reactionRoll ?? 0,
+    saveRoll: previous?.saveRoll ?? 0,
+    amplifyRoll: previous?.amplifyRoll ?? 0,
+    replyRoll: previous?.replyRoll ?? 0,
+    shareRoll: previous?.shareRoll ?? 0,
+  };
+  if (row.viewerAmplified && row.amplifyCountReady) {
+    row.amplifyCount = Math.max(row.amplifyCount, 1);
+  }
+  return row;
+}
+
+/**
+ * Drop viewer colour / rolls when the wallet changes (including logout).
+ * Public counts stay so the row does not flash empty.
+ */
+export function engagementForAccountChange(
+  current: EngagementMap,
+  nextAccountId: string | null
+): EngagementMap {
+  const next: EngagementMap = {};
+  const signedOut = nextAccountId == null;
+  for (const [key, row] of Object.entries(current)) {
+    next[key] = {
+      ...row,
+      viewerReacted: false,
+      viewerAmplified: false,
+      viewerSaved: false,
+      viewerReposted: false,
+      viewerRepostId: null,
+      viewerRepostGroupId: null,
+      viewerFlagsReady: signedOut,
+      reactionRoll: 0,
+      saveRoll: 0,
+      amplifyRoll: 0,
+      replyRoll: 0,
+      shareRoll: 0,
+    };
+  }
+  return next;
+}
+
+/**
+ * Heart moves immediately. The count stays until chain finality (`wait: true`)
+ * so a wallet cancel never flashes a number.
  */
 export function pendingReactionEngagement(
   previous: PostEngagement,
@@ -57,7 +237,7 @@ export function pendingReactionEngagement(
   };
 }
 
-/** Local like total. The indexer match and the timeout fallback both use this. */
+/** Local like total once the chain confirms the toggle. */
 export function reactionCountAfterToggle(
   count: number,
   applied: boolean
@@ -65,7 +245,7 @@ export function reactionCountAfterToggle(
   return Math.max(0, count + (applied ? 1 : -1));
 }
 
-/** Count moves once the like is settled and the heart can stop pulsing. */
+/** Count rolls when the like lands on chain — indexer soft-fills elsewhere. */
 export function confirmedReactionEngagement(
   previous: PostEngagement,
   applied: boolean
@@ -74,6 +254,7 @@ export function confirmedReactionEngagement(
     ...previous,
     viewerReacted: applied,
     reactionCount: reactionCountAfterToggle(previous.reactionCount, applied),
+    reactionCountReady: true,
     reactionRoll: previous.reactionRoll + 1,
   };
 }
@@ -92,59 +273,132 @@ function samePostEngagement(a: PostEngagement, b: PostEngagement): boolean {
     a.viewerReposted === b.viewerReposted &&
     a.viewerRepostId === b.viewerRepostId &&
     a.viewerRepostGroupId === b.viewerRepostGroupId &&
+    a.viewerFlagsReady === b.viewerFlagsReady &&
+    a.amplifyCountReady === b.amplifyCountReady &&
+    a.threadCountsReady === b.threadCountsReady &&
+    a.reactionCountReady === b.reactionCountReady &&
     a.reactionRoll === b.reactionRoll &&
+    a.saveRoll === b.saveRoll &&
     a.amplifyRoll === b.amplifyRoll &&
     a.replyRoll === b.replyRoll &&
     a.shareRoll === b.shareRoll
   );
 }
 
-export const EMPTY_POST_ENGAGEMENT: PostEngagement = {
-  replyCount: 0,
-  quoteCount: 0,
-  repostCount: 0,
-  reactionCount: 0,
-  viewerReacted: false,
-  amplifyCount: 0,
-  viewerAmplified: false,
-  viewerSaved: false,
-  viewerReposted: false,
-  viewerRepostId: null,
-  viewerRepostGroupId: null,
-  reactionRoll: 0,
-  amplifyRoll: 0,
-  replyRoll: 0,
-  shareRoll: 0,
-};
-
 /**
- * Drop rows that left the live post list. Feed windowing only fetches the
- * near band — without this prune the map grows for every row ever painted.
+ * Drop keys that left the retain set (in-memory feed list). Fetch still
+ * targets the near band — retain stays wider so seed counts are not pruned
+ * before scroll-back remounts them.
  */
 export function pruneEngagementMap(
   current: EngagementMap,
-  liveKeys: ReadonlySet<string>
+  retainKeys: ReadonlySet<string>
 ): EngagementMap {
   let changed = false;
   const next: EngagementMap = {};
   for (const [key, row] of Object.entries(current)) {
-    if (liveKeys.has(key)) next[key] = row;
+    if (retainKeys.has(key)) next[key] = row;
     else changed = true;
   }
   return changed ? next : current;
 }
 
 /**
+ * Viewer colour or a confirmed local roll — worth parking even when a public
+ * count lane is still down (like while likes are failing, then scroll away).
+ */
+export function engagementHasViewerColour(row: PostEngagement): boolean {
+  return (
+    row.viewerFlagsReady ||
+    row.viewerReacted ||
+    row.viewerSaved ||
+    row.viewerAmplified ||
+    row.viewerReposted ||
+    row.reactionRoll > 0 ||
+    row.saveRoll > 0 ||
+    row.amplifyRoll > 0
+  );
+}
+
+/**
  * Last-good engagement that survives feed window prune. Seed + this map paint
  * counts and viewer colour on scroll-back in the same frame — never wait for
  * scroll settle or a network round-trip for a row we already knew.
+ * Skip unfinished public counts with no viewer colour — a failed likes read
+ * must not park a false 0. A like (or save) during that outage still parks.
  */
 export function rememberEngagementLastGood(
   store: Map<string, PostEngagement>,
   key: string,
   row: PostEngagement
 ): void {
+  if (
+    engagementNeedsCountSoftFill(row) &&
+    !engagementHasViewerColour(row)
+  ) {
+    return;
+  }
   store.set(key, row);
+}
+
+/**
+ * Soft-fill retry budget resets only when every owed count lane succeeded
+ * (and the viewer lane when signed in). A partial success that still owes
+ * threads, likes, or amplify must not clear the counter — otherwise clients
+ * hammer a down indexer every ~1.2s forever.
+ */
+export function shouldResetEngagementFetchRetry(input: {
+  threadsOk: boolean;
+  reactionsOk: boolean;
+  amplifyOk: boolean;
+  viewerReady: boolean;
+}): boolean {
+  return (
+    input.threadsOk &&
+    input.reactionsOk &&
+    input.amplifyOk &&
+    input.viewerReady
+  );
+}
+
+const ENGAGEMENT_FETCH_RETRY_STEP_MS = 1_200;
+const ENGAGEMENT_FETCH_RETRY_COOLDOWN_MS = 15_000;
+const ENGAGEMENT_FETCH_RETRY_CAP = 3;
+
+/**
+ * Next soft-fill retry delay. After the cap, enter the 15s cooldown instead
+ * of resetting the counter on every partial success.
+ */
+export function nextEngagementFetchRetry(count: number): {
+  nextCount: number;
+  delayMs: number;
+  cooldown: boolean;
+} {
+  if (count >= ENGAGEMENT_FETCH_RETRY_CAP) {
+    return {
+      nextCount: count,
+      delayMs: ENGAGEMENT_FETCH_RETRY_COOLDOWN_MS,
+      cooldown: true,
+    };
+  }
+  const nextCount = count + 1;
+  return {
+    nextCount,
+    delayMs: ENGAGEMENT_FETCH_RETRY_STEP_MS * nextCount,
+    cooldown: false,
+  };
+}
+
+/**
+ * Account switch bumps loadId so a late soft-fill then() for the previous
+ * wallet is ignored.
+ */
+export function engagementLoadIdAfterAccountSwitch(
+  previousAccount: string | null,
+  nextAccount: string | null,
+  loadId: number
+): number {
+  return previousAccount === nextAccount ? loadId : loadId + 1;
 }
 
 /**
@@ -166,6 +420,12 @@ export function resolveBandEngagement(input: {
     const good = input.lastGood.get(key);
     const seeded = input.seed?.[key];
     if (seeded && good) {
+      const amplifyCountReady =
+        good.amplifyCountReady || seeded.amplifyCountReady;
+      const threadCountsReady =
+        good.threadCountsReady || seeded.threadCountsReady;
+      const reactionCountReady =
+        good.reactionCountReady || seeded.reactionCountReady;
       next[key] = {
         ...seeded,
         viewerReacted: good.viewerReacted,
@@ -174,12 +434,22 @@ export function resolveBandEngagement(input: {
         viewerReposted: good.viewerReposted,
         viewerRepostId: good.viewerRepostId,
         viewerRepostGroupId: good.viewerRepostGroupId,
+        viewerFlagsReady: good.viewerFlagsReady || seeded.viewerFlagsReady,
+        amplifyCountReady,
+        threadCountsReady,
+        reactionCountReady,
         replyCount: Math.max(seeded.replyCount, good.replyCount),
         quoteCount: Math.max(seeded.quoteCount, good.quoteCount),
         repostCount: Math.max(seeded.repostCount, good.repostCount),
         reactionCount: Math.max(seeded.reactionCount, good.reactionCount),
-        amplifyCount: Math.max(seeded.amplifyCount, good.amplifyCount),
+        amplifyCount: amplifyCountReady
+          ? Math.max(
+              good.amplifyCountReady ? good.amplifyCount : 0,
+              seeded.amplifyCountReady ? seeded.amplifyCount : 0
+            )
+          : Math.max(seeded.amplifyCount, good.amplifyCount),
         reactionRoll: good.reactionRoll,
+        saveRoll: good.saveRoll,
         amplifyRoll: good.amplifyRoll,
         replyRoll: good.replyRoll,
         shareRoll: good.shareRoll,
@@ -200,6 +470,104 @@ export function resolveBandEngagement(input: {
   return changed ? next : input.live;
 }
 
+export type ViewerOverlayPatch = {
+  viewerReacted: boolean;
+  viewerSaved: boolean;
+  viewerAmplified: boolean;
+  viewerReposted: boolean;
+  viewerRepostId: string | null;
+  viewerRepostGroupId: string | null;
+  /** Public amplify total from the same pass as viewer amplify colour. */
+  amplifyCount?: number;
+  /** Like total when the soft-fill lane had never succeeded. */
+  reactionCount?: number;
+};
+
+/**
+ * Apply a late viewer-colour read onto a live row without undoing an in-flight
+ * or chain-confirmed like/save (or a known unrepost). Amplify colour and total
+ * land together when `amplifyCount` is present — never lit fire with no digit.
+ */
+export function applyViewerOverlayEngagement(
+  previous: PostEngagement,
+  overlay: ViewerOverlayPatch,
+  opts: {
+    pendingReaction: boolean;
+    pendingSave: boolean;
+    unreposted: boolean;
+  }
+): PostEngagement {
+  let viewerReacted = overlay.viewerReacted;
+  if (opts.pendingReaction) {
+    viewerReacted = previous.viewerReacted;
+  } else if (
+    previous.reactionRoll > 0 &&
+    previous.viewerReacted !== overlay.viewerReacted
+  ) {
+    viewerReacted = previous.viewerReacted;
+  }
+
+  let viewerSaved = overlay.viewerSaved;
+  if (opts.pendingSave) {
+    viewerSaved = previous.viewerSaved;
+  } else if (
+    previous.saveRoll > 0 &&
+    previous.viewerSaved !== overlay.viewerSaved
+  ) {
+    viewerSaved = previous.viewerSaved;
+  }
+
+  let viewerReposted = overlay.viewerReposted || previous.viewerReposted;
+  let viewerRepostId = overlay.viewerRepostId ?? previous.viewerRepostId;
+  let viewerRepostGroupId =
+    overlay.viewerRepostGroupId ?? previous.viewerRepostGroupId;
+  if (opts.unreposted) {
+    viewerReposted = false;
+    viewerRepostId = null;
+    viewerRepostGroupId = null;
+  } else if (previous.viewerReposted && !overlay.viewerReposted) {
+    viewerReposted = true;
+    viewerRepostId = previous.viewerRepostId;
+    viewerRepostGroupId = previous.viewerRepostGroupId;
+  }
+
+  const viewerAmplified =
+    overlay.viewerAmplified || previous.viewerAmplified;
+  let amplifyCount = previous.amplifyCount;
+  let amplifyCountReady = previous.amplifyCountReady;
+  if (overlay.amplifyCount != null) {
+    amplifyCount = Math.max(previous.amplifyCount, overlay.amplifyCount);
+    amplifyCountReady = true;
+  }
+  // Colour implies at least one amplify — never settle 0 + active fire.
+  if (viewerAmplified && amplifyCountReady) {
+    amplifyCount = Math.max(amplifyCount, 1);
+  }
+
+  let reactionCount = previous.reactionCount;
+  let reactionCountReady = previous.reactionCountReady;
+  if (overlay.reactionCount != null) {
+    reactionCount = Math.max(previous.reactionCount, overlay.reactionCount);
+    reactionCountReady = true;
+  }
+
+  return {
+    ...previous,
+    viewerReacted,
+    viewerSaved,
+    viewerAmplified,
+    amplifyCount,
+    amplifyCountReady,
+    reactionCount,
+    reactionCountReady,
+    viewerReposted,
+    viewerRepostId,
+    viewerRepostGroupId,
+    // Ready only when this pass had a real viewer read — callers gate that.
+    viewerFlagsReady: true,
+  };
+}
+
 /**
  * Merge indexer soft-upgrade into current engagement without clobbering
  * in-flight optimistic reaction/save toggles (or a confirmed amplify/save
@@ -216,11 +584,84 @@ export function mergeEngagementSoftUpgrade(
   for (const [key, row] of Object.entries(fetched)) {
     const previous = current[key];
     let next = row;
+    // Public-count seed must not wipe known viewer colour.
+    if (previous?.viewerFlagsReady && !next.viewerFlagsReady) {
+      next = {
+        ...next,
+        viewerReacted: previous.viewerReacted,
+        viewerSaved: previous.viewerSaved,
+        viewerAmplified: previous.viewerAmplified,
+        viewerReposted: previous.viewerReposted,
+        viewerRepostId: previous.viewerRepostId,
+        viewerRepostGroupId: previous.viewerRepostGroupId,
+        viewerFlagsReady: true,
+      };
+    } else if (previous?.viewerFlagsReady || next.viewerFlagsReady) {
+      next = { ...next, viewerFlagsReady: true };
+    }
+    if (previous?.amplifyCountReady && !next.amplifyCountReady) {
+      next = {
+        ...next,
+        amplifyCount: previous.amplifyCount,
+        amplifyCountReady: true,
+      };
+    } else if (previous?.amplifyCountReady && next.amplifyCountReady) {
+      next = {
+        ...next,
+        amplifyCount: Math.max(next.amplifyCount, previous.amplifyCount),
+      };
+    }
+    if (previous?.threadCountsReady && !next.threadCountsReady) {
+      next = {
+        ...next,
+        replyCount: previous.replyCount,
+        quoteCount: previous.quoteCount,
+        repostCount: previous.repostCount,
+        threadCountsReady: true,
+      };
+    } else if (previous?.threadCountsReady && next.threadCountsReady) {
+      next = {
+        ...next,
+        replyCount: Math.max(next.replyCount, previous.replyCount),
+        quoteCount: Math.max(next.quoteCount, previous.quoteCount),
+        repostCount: Math.max(next.repostCount, previous.repostCount),
+      };
+    }
+    if (previous?.reactionCountReady && !next.reactionCountReady) {
+      next = {
+        ...next,
+        reactionCount: previous.reactionCount,
+        reactionCountReady: true,
+      };
+    } else if (previous?.reactionCountReady && next.reactionCountReady) {
+      next = {
+        ...next,
+        reactionCount: Math.max(next.reactionCount, previous.reactionCount),
+      };
+    }
     if (previous && pendingReactionKeys.has(key)) {
       next = {
         ...next,
         viewerReacted: previous.viewerReacted,
         reactionCount: previous.reactionCount,
+      };
+    } else if (
+      previous &&
+      previous.reactionRoll > 0 &&
+      previous.viewerReacted !== next.viewerReacted
+    ) {
+      // After a chain confirm, keep live until the indexer agrees — first
+      // colour soft-fill (reactionRoll 0) still applies viewer flags.
+      next = {
+        ...next,
+        viewerReacted: previous.viewerReacted,
+        reactionCount: previous.reactionCount,
+      };
+    } else if (previous?.viewerReacted && next.viewerReacted) {
+      // Same liked state: never dip below the confirmed local total.
+      next = {
+        ...next,
+        reactionCount: Math.max(next.reactionCount, previous.reactionCount),
       };
     }
     if (previous && pendingSaveKeys.has(key)) {
@@ -228,11 +669,15 @@ export function mergeEngagementSoftUpgrade(
         ...next,
         viewerSaved: previous.viewerSaved,
       };
-    }
-    if (previous?.viewerSaved && !next.viewerSaved) {
+    } else if (
+      previous &&
+      previous.saveRoll > 0 &&
+      previous.viewerSaved !== next.viewerSaved
+    ) {
+      // Confirmed save/unsave holds until the indexer agrees.
       next = {
         ...next,
-        viewerSaved: true,
+        viewerSaved: previous.viewerSaved,
       };
     }
     if (previous?.viewerAmplified && !next.viewerAmplified) {
@@ -240,6 +685,7 @@ export function mergeEngagementSoftUpgrade(
         ...next,
         viewerAmplified: true,
         amplifyCount: Math.max(next.amplifyCount, previous.amplifyCount),
+        amplifyCountReady: true,
       };
     }
     if (previous && next.replyCount < previous.replyCount) {
@@ -278,6 +724,7 @@ export function mergeEngagementSoftUpgrade(
     const candidate: PostEngagement = {
       ...next,
       reactionRoll: previous.reactionRoll,
+      saveRoll: previous.saveRoll,
       amplifyRoll: previous.amplifyRoll,
       replyRoll: previous.replyRoll,
       shareRoll: previous.shareRoll,
@@ -299,21 +746,30 @@ export function mergeEngagementSoftUpgrade(
  * for a list of visible posts, plus optimistic reaction / save toggles.
  * Reaction and save writes use `wait: true` so the faded pending state lasts
  * until chain confirmation (icons still flip immediately — not pulsing dots).
- * Pass `initial` from the page paint so counts are final. A signed-in
- * viewer then overlays like, save, and repost flags without recounting —
- * and last-good memory keeps those flags across window prune.
+ * `initial` + public fields on `retainPosts`/`posts` seed counts on first
+ * paint (every caller — home, discover, portfolio). Overlay loads viewer
+ * colour without scroll-cancel; last-good keeps both across prune.
+ * `posts` = near fetch band; `retainPosts` = full list so prune follows trim.
  */
 export function usePostEngagement(
   posts: PostRow[],
   opts: {
     initial?: EngagementMap | null;
+    /** Keys that must stay in the live map — usually the full feed list. */
+    retainPosts?: readonly PostRow[];
     onError?: (message: string) => void;
   } = {}
 ) {
   const { accountId, isConnected, connect } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
+  const retainPosts = opts.retainPosts;
+  const seedPosts = retainPosts ?? posts;
+  const seededInitial = useMemo(
+    () => fillEngagementSeedFromFeedRows(opts.initial ?? null, seedPosts),
+    [opts.initial, seedPosts]
+  );
   const [engagement, setEngagement] = useState<EngagementMap>(
-    () => opts.initial ?? {}
+    () => seededInitial
   );
   const [pendingReactionKeys, setPendingReactionKeys] = useState<Set<string>>(
     () => new Set()
@@ -338,7 +794,7 @@ export function usePostEngagement(
   pendingShareKeysRef.current = pendingShareKeys;
   engagementRef.current = engagement;
   const loadIdRef = useRef(0);
-  const initialRef = useRef<EngagementMap | null>(opts.initial ?? null);
+  const initialRef = useRef<EngagementMap | null>(seededInitial);
   const viewerOverlayRef = useRef<{
     accountId: string;
     keys: Set<string>;
@@ -346,29 +802,79 @@ export function usePostEngagement(
   /** Survives prune — scroll-back paints counts + colour without waiting. */
   const lastGoodRef = useRef<Map<string, PostEngagement>>(new Map());
   const lastGoodAccountRef = useRef<string | null>(accountId ?? null);
+  const [fetchRetryEpoch, setFetchRetryEpoch] = useState(0);
+  const fetchRetryCountRef = useRef(0);
+  const fetchRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleFetchRetry = () => {
+    if (fetchRetryTimerRef.current) return;
+    const step = nextEngagementFetchRetry(fetchRetryCountRef.current);
+    fetchRetryCountRef.current = step.nextCount;
+    fetchRetryTimerRef.current = setTimeout(() => {
+      fetchRetryTimerRef.current = null;
+      if (step.cooldown) {
+        fetchRetryCountRef.current = 0;
+      }
+      setFetchRetryEpoch((epoch) => epoch + 1);
+    }, step.delayMs);
+  };
   if (lastGoodAccountRef.current !== (accountId ?? null)) {
-    lastGoodAccountRef.current = accountId ?? null;
+    const nextAccount = accountId ?? null;
+    // Invalidate in-flight soft-fills so a late then() cannot paint the
+    // previous wallet's likes onto this account.
+    loadIdRef.current = engagementLoadIdAfterAccountSwitch(
+      lastGoodAccountRef.current,
+      nextAccount,
+      loadIdRef.current
+    );
+    lastGoodAccountRef.current = nextAccount;
     lastGoodRef.current.clear();
     viewerOverlayRef.current = null;
+    fetchRetryCountRef.current = 0;
+    if (fetchRetryTimerRef.current) {
+      clearTimeout(fetchRetryTimerRef.current);
+      fetchRetryTimerRef.current = null;
+    }
+    pendingReactionKeysRef.current = new Set();
+    pendingSaveKeysRef.current = new Set();
+    unrepostedKeysRef.current = new Set();
+    pendingShareKeysRef.current = new Set();
+    setPendingReactionKeys(new Set());
+    setPendingSaveKeys(new Set());
+    setUnrepostedKeys(new Set());
+    setPendingShareKeys(new Set());
+    setEngagement((prev) => engagementForAccountChange(prev, nextAccount));
   }
-  const incomingInitial = opts.initial ?? null;
+  const incomingInitial = seededInitial;
   if (incomingInitial !== initialRef.current) {
     initialRef.current = incomingInitial;
-    if (
-      incomingInitial &&
-      Object.keys(incomingInitial).some(
-        (key) => !(key in engagementRef.current)
-      )
-    ) {
+    if (Object.keys(incomingInitial).length > 0) {
       const lastGood = lastGoodRef.current;
-      setEngagement((prev) =>
-        resolveBandEngagement({
+      const seedKeys = Object.keys(incomingInitial);
+      setEngagement((prev) => {
+        const filled = resolveBandEngagement({
           live: prev,
           seed: incomingInitial,
           lastGood,
-          keys: Object.keys(incomingInitial),
-        })
-      );
+          keys: seedKeys,
+        });
+        const upgraded = mergeEngagementSoftUpgrade(
+          filled,
+          incomingInitial,
+          pendingReactionKeysRef.current,
+          pendingSaveKeysRef.current,
+          unrepostedKeysRef.current
+        );
+        let changed = filled !== prev;
+        const next: EngagementMap = { ...filled };
+        for (const [key, row] of Object.entries(upgraded)) {
+          if (next[key] !== row) {
+            next[key] = row;
+            changed = true;
+          }
+          rememberEngagementLastGood(lastGood, key, next[key]!);
+        }
+        return changed ? next : prev;
+      });
     }
   }
   const onErrorRef = useRef(opts.onError);
@@ -384,36 +890,54 @@ export function usePostEngagement(
       })),
     [posts]
   );
+  const targetsRef = useRef(targets);
+  targetsRef.current = targets;
   const targetsSignature = useMemo(
     () => targets.map((t) => t.path).join('\n') + `\n@${accountId ?? ''}`,
     [targets, accountId]
   );
+  const retainKeys = useMemo(() => {
+    const rows = retainPosts ?? posts;
+    return new Set(rows.map((post) => postKey(post)));
+  }, [retainPosts, posts]);
+  const retainSignature = useMemo(
+    () => [...retainKeys].join('\n'),
+    [retainKeys]
+  );
 
-  // Bound the map to the live band — remember last-good before prune.
+  // Bound the map to the feed list (retain), not only the near fetch band.
   useEffect(() => {
-    const live = new Set(targets.map((target) => target.key));
     const lastGood = lastGoodRef.current;
     setEngagement((current) => {
       for (const [key, row] of Object.entries(current)) {
-        if (!live.has(key)) rememberEngagementLastGood(lastGood, key, row);
+        if (!retainKeys.has(key)) {
+          rememberEngagementLastGood(lastGood, key, row);
+        }
       }
-      return pruneEngagementMap(current, live);
+      return pruneEngagementMap(current, retainKeys);
     });
     const overlay = viewerOverlayRef.current;
     if (!overlay) return;
     for (const key of [...overlay.keys]) {
-      if (!live.has(key)) overlay.keys.delete(key);
+      if (!retainKeys.has(key)) overlay.keys.delete(key);
     }
-  }, [targetsSignature, targets]);
+  }, [retainSignature, retainKeys]);
 
   useEffect(() => {
     if (targets.length === 0) {
       return;
     }
 
-    const known = engagementRef.current;
-    const missing = targets.filter((target) => !(target.key in known));
     const lastGood = lastGoodRef.current;
+    const seed = initialRef.current;
+    const known = engagementRef.current;
+    // Soft-fill until each public-count lane is ready — a failed likes
+    // (or threads) read must not lock a false 0 and leave the filter.
+    const missing = targets.filter((target) => {
+      const row =
+        known[target.key] ?? seed?.[target.key] ?? lastGood.get(target.key);
+      return engagementNeedsCountSoftFill(row);
+    });
     const overlayFor =
       accountId == null
         ? []
@@ -432,15 +956,96 @@ export function usePostEngagement(
       viewerOverlayRef.current = { accountId, keys };
     };
 
+    // Warm live map from seed + last-good before any network (scroll-back).
+    if (seed || lastGood.size > 0) {
+      setEngagement((current) =>
+        resolveBandEngagement({
+          live: current,
+          seed,
+          lastGood,
+          keys: targets.map((target) => target.key),
+        })
+      );
+    }
+
+    const client = createReadOnlyOnSocialClient();
+
+    // Public amplify totals when the feed row omitted them (signed-out too).
+    // Signed-in overlay keys fetch counts in that batch — skip a double read.
+    const overlayKeySet = new Set(overlayFor.map((target) => target.key));
+    const amplifyFillFor = targets.filter((target) => {
+      const row =
+        known[target.key] ?? seed?.[target.key] ?? lastGood.get(target.key);
+      if (row == null || row.amplifyCountReady) return false;
+      if (accountId && overlayKeySet.has(target.key)) return false;
+      return true;
+    });
+    if (amplifyFillFor.length > 0) {
+      const fillRows = amplifyFillFor;
+      const fillPaths = fillRows.map((target) => target.path);
+      const fillAccountId = accountId ?? null;
+      void client.query.socialSpend
+        .amplifyCountsForPostPaths(
+          fillPaths,
+          fillAccountId ? { viewer: fillAccountId } : {}
+        )
+        .then((amplifyCounts) => {
+          if (
+            !shouldApplyAmplifyCountFill(
+              lastGoodAccountRef.current,
+              fillAccountId
+            )
+          ) {
+            return;
+          }
+          setEngagement((current) => {
+            let changed = false;
+            const next: EngagementMap = { ...current };
+            for (const target of fillRows) {
+              if (!targetsRef.current.some((row) => row.key === target.key)) {
+                continue;
+              }
+              const previous = current[target.key];
+              if (!previous || previous.amplifyCountReady) continue;
+              const amplify = amplifyCounts[target.path];
+              const amplifyCount = Math.max(
+                amplify?.amplifyCount ?? 0,
+                previous.viewerAmplified || amplify?.viewerAmplified ? 1 : 0
+              );
+              const row: PostEngagement = {
+                ...previous,
+                amplifyCount,
+                amplifyCountReady: true,
+                viewerAmplified:
+                  previous.viewerAmplified ||
+                  Boolean(amplify?.viewerAmplified),
+              };
+              if (samePostEngagement(previous, row)) continue;
+              next[target.key] = row;
+              rememberEngagementLastGood(lastGood, target.key, row);
+              changed = true;
+            }
+            return changed ? next : current;
+          });
+        })
+        .catch(() => {
+          scheduleFetchRetry();
+        });
+    }
+
     // Counts already on the row stay. A signed-in viewer only picks up
     // their own like, save, and repost — a recount would roll the numbers.
+    // Overlay must not use loadId cancel: scroll thrash was dropping colour.
     if (missing.length === 0) {
       if (overlayFor.length === 0 || !accountId) return;
       const viewerId = accountId;
-      const loadId = ++loadIdRef.current;
-      const client = createReadOnlyOnSocialClient();
       const paths = overlayFor.map((target) => target.path);
       const overlayRows = overlayFor;
+      const { countPaths, colourPaths } = partitionOverlayAmplifyPaths(
+        overlayRows,
+        engagementRef.current
+      );
+      const countPathSet = new Set(countPaths);
       void Promise.allSettled([
         client.query.reactions.statesForPosts(
           overlayRows.map((target) => ({
@@ -451,79 +1056,113 @@ export function usePostEngagement(
         ),
         client.query.saves.forPaths(viewerId, paths),
         client.query.threads.viewerReposts(viewerId, paths),
-        client.query.socialSpend.amplifyCountsForPostPaths(paths, {
-          viewer: viewerId,
-        }),
+        countPaths.length > 0
+          ? client.query.socialSpend.amplifyCountsForPostPaths(countPaths, {
+              viewer: viewerId,
+            })
+          : Promise.resolve(
+              {} as Record<
+                string,
+                { amplifyCount: number; viewerAmplified: boolean }
+              >
+            ),
+        colourPaths.length > 0
+          ? client.query.socialSpend.viewerAmplifiedForPostPaths(
+              viewerId,
+              colourPaths
+            )
+          : Promise.resolve({} as Record<string, boolean>),
       ]).then(
-        ([reactionResult, savesResult, viewerRepostResult, amplifyResult]) => {
-          if (loadIdRef.current !== loadId) return;
-          const reactionStates =
-            reactionResult.status === 'fulfilled' ? reactionResult.value : {};
+        ([
+          reactionResult,
+          savesResult,
+          viewerRepostResult,
+          amplifyCountsResult,
+          amplifyColourResult,
+        ]) => {
+          if (lastGoodAccountRef.current !== viewerId) return;
+          if (
+            reactionResult.status !== 'fulfilled' ||
+            savesResult.status !== 'fulfilled' ||
+            viewerRepostResult.status !== 'fulfilled' ||
+            amplifyCountsResult.status !== 'fulfilled' ||
+            amplifyColourResult.status !== 'fulfilled'
+          ) {
+            // Do not mark overlay done — failed amplify/repost must retry.
+            scheduleFetchRetry();
+            return;
+          }
+          fetchRetryCountRef.current = 0;
+          const reactionStates = reactionResult.value;
           const savedPaths = new Set(
-            savesResult.status === 'fulfilled'
-              ? savesResult.value.map((row) => row.contentPath)
-              : []
+            savesResult.value.map((row) => row.contentPath)
           );
           const viewerReposts = new Map(
-            (viewerRepostResult.status === 'fulfilled'
-              ? viewerRepostResult.value
-              : []
-            ).map((row) => [row.refPath, row])
+            viewerRepostResult.value.map((row) => [row.refPath, row])
           );
-          const amplifyCounts =
-            amplifyResult.status === 'fulfilled' ? amplifyResult.value : {};
-          rememberOverlay(overlayRows);
+          const amplifyCounts = amplifyCountsResult.value;
+          const amplifyColour = amplifyColourResult.value;
+          const liveKeys = new Set(targetsRef.current.map((row) => row.key));
+          const painted: typeof overlayRows = [];
           setEngagement((current) => {
+            let changed = false;
             const next: EngagementMap = { ...current };
+            const pendingReactions = pendingReactionKeysRef.current;
+            const pendingSaves = pendingSaveKeysRef.current;
+            const unreposted = unrepostedKeysRef.current;
             for (const target of overlayRows) {
+              if (!liveKeys.has(target.key)) continue;
               const previous = current[target.key];
               if (!previous) continue;
               const reactions =
                 reactionStates[`${target.owner}:${target.postId}`];
               const viewerRepost = viewerReposts.get(target.path);
-              const amplify = amplifyCounts[target.path];
-              const row: PostEngagement = {
-                ...previous,
-                viewerReacted: (reactions?.viewerReacted.length ?? 0) > 0,
-                viewerSaved:
-                  savedPaths.has(target.path) || previous.viewerSaved,
-                viewerAmplified:
-                  amplify?.viewerAmplified || previous.viewerAmplified,
-                viewerReposted:
-                  Boolean(viewerRepost) || previous.viewerReposted,
-                viewerRepostId:
-                  viewerRepost?.repostId ?? previous.viewerRepostId,
-                viewerRepostGroupId:
-                  viewerRepost?.groupId ?? previous.viewerRepostGroupId,
-              };
+              let viewerAmplified = previous.viewerAmplified;
+              let amplifyCount: number | undefined;
+              if (countPathSet.has(target.path)) {
+                const amplify = amplifyCounts[target.path];
+                viewerAmplified = Boolean(amplify?.viewerAmplified);
+                amplifyCount = amplify?.amplifyCount;
+              } else {
+                viewerAmplified = Boolean(amplifyColour[target.path]);
+              }
+              const row = applyViewerOverlayEngagement(
+                previous,
+                {
+                  viewerReacted: (reactions?.viewerReacted.length ?? 0) > 0,
+                  viewerSaved: savedPaths.has(target.path),
+                  viewerAmplified,
+                  viewerReposted: Boolean(viewerRepost),
+                  viewerRepostId: viewerRepost?.repostId ?? null,
+                  viewerRepostGroupId: viewerRepost?.groupId ?? null,
+                  amplifyCount,
+                  ...(previous.reactionCountReady
+                    ? {}
+                    : {
+                        reactionCount: reactions?.counts.total ?? 0,
+                      }),
+                },
+                {
+                  pendingReaction: pendingReactions.has(target.key),
+                  pendingSave: pendingSaves.has(target.key),
+                  unreposted: unreposted.has(target.key),
+                }
+              );
+              painted.push(target);
+              if (samePostEngagement(previous, row)) continue;
               next[target.key] = row;
               rememberEngagementLastGood(lastGood, target.key, row);
+              changed = true;
             }
-            return next;
+            return changed ? next : current;
           });
+          rememberOverlay(painted);
         }
       );
       return;
     }
 
-    /*
-     * Write-through for scroll-back — render already paints from seed +
-     * last-good; keep the live map warm so the next prune remembers it.
-     */
-    const seed = initialRef.current;
-    if (seed || lastGood.size > 0) {
-      setEngagement((current) =>
-        resolveBandEngagement({
-          live: current,
-          seed,
-          lastGood,
-          keys: missing.map((target) => target.key),
-        })
-      );
-    }
-
     const loadId = ++loadIdRef.current;
-    const client = createReadOnlyOnSocialClient();
     const pending = missing;
     const paths = pending.map((target) => target.path);
 
@@ -557,15 +1196,28 @@ export function usePostEngagement(
           reactionResult.status === 'rejected' &&
           amplifyResult.status === 'rejected'
         ) {
+          scheduleFetchRetry();
           return;
         }
 
-        const threadCounts =
-          threadResult.status === 'fulfilled' ? threadResult.value : {};
-        const reactionStates =
-          reactionResult.status === 'fulfilled' ? reactionResult.value : {};
-        const amplifyCounts =
-          amplifyResult.status === 'fulfilled' ? amplifyResult.value : {};
+        const threadsOk = threadResult.status === 'fulfilled';
+        const reactionsOk = reactionResult.status === 'fulfilled';
+        const amplifyOk = amplifyResult.status === 'fulfilled';
+        const savesOk =
+          !accountId || savesResult.status === 'fulfilled';
+        const viewerReady = accountId ? reactionsOk && savesOk : true;
+        // Reset and schedule are mutually exclusive in this then() — never
+        // clear the budget on the same pass that queues another attempt.
+        let needsRetry = !shouldResetEngagementFetchRetry({
+          threadsOk,
+          reactionsOk,
+          amplifyOk,
+          viewerReady,
+        });
+
+        const threadCounts = threadsOk ? threadResult.value : {};
+        const reactionStates = reactionsOk ? reactionResult.value : {};
+        const amplifyCounts = amplifyOk ? amplifyResult.value : {};
         const savedPaths = new Set(
           savesResult.status === 'fulfilled'
             ? savesResult.value.map((row) => row.contentPath)
@@ -578,30 +1230,57 @@ export function usePostEngagement(
           ).map((row) => [row.refPath, row])
         );
 
+        const liveKeys = new Set(targetsRef.current.map((row) => row.key));
         const next: EngagementMap = {};
+        const overlayPainted: typeof pending = [];
+        const repostsOk =
+          !accountId || viewerRepostResult.status === 'fulfilled';
         for (const target of pending) {
+          if (!liveKeys.has(target.key)) continue;
           const counts = threadCounts[target.path];
           const reactions = reactionStates[`${target.owner}:${target.postId}`];
           const amplify = amplifyCounts[target.path];
           const viewerRepost = viewerReposts.get(target.path);
-          const row: PostEngagement = {
-            ...EMPTY_POST_ENGAGEMENT,
-            replyCount: counts?.replyCount ?? 0,
-            quoteCount: counts?.quoteCount ?? 0,
-            repostCount: counts?.repostCount ?? 0,
-            reactionCount: reactions?.counts.total ?? 0,
+          const previous = engagementRef.current[target.key];
+          const row = engagementFromPartialFetch({
+            previous,
+            threadsOk,
+            reactionsOk,
+            amplifyOk,
+            viewerReady,
+            repostsOk,
+            counts: counts
+              ? {
+                  replyCount: counts.replyCount,
+                  quoteCount: counts.quoteCount,
+                  repostCount: counts.repostCount,
+                }
+              : null,
+            reactionTotal: reactions?.counts.total,
             viewerReacted: (reactions?.viewerReacted.length ?? 0) > 0,
-            amplifyCount: amplify?.amplifyCount ?? 0,
-            viewerAmplified: amplify?.viewerAmplified ?? false,
+            amplifyCount: amplify?.amplifyCount,
+            viewerAmplified: amplify?.viewerAmplified,
             viewerSaved: savedPaths.has(target.path),
             viewerReposted: Boolean(viewerRepost),
             viewerRepostId: viewerRepost?.repostId ?? null,
             viewerRepostGroupId: viewerRepost?.groupId ?? null,
-          };
+          });
           next[target.key] = row;
           rememberEngagementLastGood(lastGood, target.key, row);
+          if (engagementNeedsCountSoftFill(row)) {
+            needsRetry = true;
+          }
+          if (row.viewerFlagsReady) overlayPainted.push(target);
+          else if (accountId) needsRetry = true;
         }
-        if (accountId) rememberOverlay(pending);
+        if (needsRetry) {
+          scheduleFetchRetry();
+        } else {
+          fetchRetryCountRef.current = 0;
+        }
+        if (accountId && overlayPainted.length > 0) {
+          rememberOverlay(overlayPainted);
+        }
         setEngagement((current) => ({
           ...current,
           ...mergeEngagementSoftUpgrade(
@@ -625,8 +1304,14 @@ export function usePostEngagement(
         });
       }
     );
+    return () => {
+      if (fetchRetryTimerRef.current) {
+        clearTimeout(fetchRetryTimerRef.current);
+        fetchRetryTimerRef.current = null;
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetsSignature]);
+  }, [targetsSignature, fetchRetryEpoch]);
 
   const toggleReaction = useCallback(
     async (post: PostRow) => {
@@ -638,9 +1323,12 @@ export function usePostEngagement(
         return;
       }
 
+      const viewerId = accountId;
       /* Read through refs so this callback's identity survives engagement
        * updates — a like on one card must not re-render every other card. */
       const previous = engagementRef.current[key] ?? EMPTY_POST_ENGAGEMENT;
+      // Signed-in colour not painted yet — never invert a grey heart.
+      if (!previous.viewerFlagsReady) return;
       const applied = !previous.viewerReacted;
 
       setPendingReactionKeys((current) => new Set(current).add(key));
@@ -656,33 +1344,19 @@ export function usePostEngagement(
         await client.reactions.toggle(
           { author: post.accountId, postId: post.postId },
           DEFAULT_REACTION_KIND,
-          { viewer: accountId, wait: true }
+          { viewer: viewerId, wait: true }
         );
-        const expected = reactionCountAfterToggle(
-          previous.reactionCount,
-          applied
-        );
-        const reader = createReadOnlyOnSocialClient();
-        const indexed = await pollIndexConfirm(
-          async () => {
-            const counts = await reader.query.reactions.counts(
-              post.accountId,
-              `post/${post.postId}`
-            );
-            return counts.total ?? 0;
-          },
-          (count) => count === expected
-        );
+        // Account switched mid-flight — do not confirm onto the new viewer.
+        if (!shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)) {
+          return;
+        }
+        // Chain finality is confirm — roll the count; indexer soft-fills later.
         setEngagement((current) => {
           const live = current[key] ?? previous;
-          const confirmed = confirmedReactionEngagement(
+          const row = confirmedReactionEngagement(
             { ...live, reactionCount: previous.reactionCount },
             applied
           );
-          const row =
-            indexed === expected
-              ? { ...confirmed, reactionCount: indexed }
-              : confirmed;
           rememberEngagementLastGood(lastGoodRef.current, key, row);
           return {
             ...current,
@@ -690,6 +1364,9 @@ export function usePostEngagement(
           };
         });
       } catch (cause) {
+        if (!shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)) {
+          return;
+        }
         rememberEngagementLastGood(lastGoodRef.current, key, previous);
         setEngagement((current) => ({ ...current, [key]: previous }));
         if (!isWalletUserCancellation(cause)) {
@@ -700,11 +1377,13 @@ export function usePostEngagement(
           );
         }
       } finally {
-        setPendingReactionKeys((current) => {
-          const next = new Set(current);
-          next.delete(key);
-          return next;
-        });
+        if (shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)) {
+          setPendingReactionKeys((current) => {
+            const next = new Set(current);
+            next.delete(key);
+            return next;
+          });
+        }
       }
     },
     [accountId, connect, getClient, isConnected]
@@ -720,7 +1399,9 @@ export function usePostEngagement(
         return;
       }
 
+      const viewerId = accountId;
       const previous = engagementRef.current[key] ?? EMPTY_POST_ENGAGEMENT;
+      if (!previous.viewerFlagsReady) return;
       const applied = !previous.viewerSaved;
       const contentPath = postContentPath(post);
 
@@ -737,10 +1418,26 @@ export function usePostEngagement(
         // Use content path string so guild posts save under the same key
         // engagement membership checks against.
         await client.saves.toggle(contentPath, {
-          viewer: accountId,
+          viewer: viewerId,
           wait: true,
         });
+        if (!shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)) {
+          return;
+        }
+        setEngagement((current) => {
+          const live = current[key] ?? previous;
+          const row = {
+            ...live,
+            viewerSaved: applied,
+            saveRoll: live.saveRoll + 1,
+          };
+          rememberEngagementLastGood(lastGoodRef.current, key, row);
+          return { ...current, [key]: row };
+        });
       } catch (cause) {
+        if (!shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)) {
+          return;
+        }
         rememberEngagementLastGood(lastGoodRef.current, key, previous);
         setEngagement((current) => ({ ...current, [key]: previous }));
         if (!isWalletUserCancellation(cause)) {
@@ -749,39 +1446,41 @@ export function usePostEngagement(
           );
         }
       } finally {
-        setPendingSaveKeys((current) => {
-          const next = new Set(current);
-          next.delete(key);
-          return next;
-        });
+        if (shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)) {
+          setPendingSaveKeys((current) => {
+            const next = new Set(current);
+            next.delete(key);
+            return next;
+          });
+        }
       }
     },
     [accountId, connect, getClient, isConnected]
   );
 
-  const confirmAmplify = useCallback((post: PostRow) => {
-    const key = postKey(post);
-    setEngagement((current) => {
-      const previous = current[key] ?? EMPTY_POST_ENGAGEMENT;
-      const row = previous.viewerAmplified
-        ? {
-            ...previous,
-            amplifyCount: previous.amplifyCount + 1,
-            amplifyRoll: previous.amplifyRoll + 1,
-          }
-        : {
-            ...previous,
-            viewerAmplified: true,
-            amplifyCount: previous.amplifyCount + 1,
-            amplifyRoll: previous.amplifyRoll + 1,
-          };
-      rememberEngagementLastGood(lastGoodRef.current, key, row);
-      return { ...current, [key]: row };
-    });
-    // Invalidate Hot session snapshots — leave/return soft-refetches rank
-    // without scrolling the reader to the boosted card.
-    recordViewerAmplifyConfirmed(post.accountId);
-  }, []);
+  const confirmAmplify = useCallback(
+    (post: PostRow, detail: { signerId: string }) => {
+      if (
+        !shouldApplyViewerToggleConfirm(
+          lastGoodAccountRef.current,
+          detail.signerId
+        )
+      ) {
+        return;
+      }
+      const key = postKey(post);
+      setEngagement((current) => {
+        const previous = current[key] ?? EMPTY_POST_ENGAGEMENT;
+        const row = confirmedAmplifyEngagement(previous);
+        rememberEngagementLastGood(lastGoodRef.current, key, row);
+        return { ...current, [key]: row };
+      });
+      // Invalidate Hot session snapshots — leave/return soft-refetches rank
+      // without scrolling the reader to the boosted card.
+      recordViewerAmplifyConfirmed(post.accountId);
+    },
+    []
+  );
 
   const confirmRepost = useCallback(
     (

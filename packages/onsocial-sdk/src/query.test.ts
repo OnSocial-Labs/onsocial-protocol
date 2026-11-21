@@ -1269,6 +1269,27 @@ describe('QueryModule', () => {
       expect(retry.query).toContain('authorName');
     });
 
+    it('retries without amplifyCount while keeping paint columns', async () => {
+      const amplifyError = {
+        errors: [
+          { message: "field 'amplifyCount' not found in type: 'postsFeed'" },
+        ],
+        data: null,
+      };
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('amplifyCount')) return amplifyError;
+        return { data: { postsFeed: [feedRow] } };
+      });
+
+      const page = await os.query.feed.recent({ limit: 5 });
+      expect(page.items).toHaveLength(1);
+      expect(fetch).toHaveBeenCalledTimes(2);
+      const retry = JSON.parse(String(fetch.mock.calls[1][1].body));
+      expect(retry.query).not.toContain('amplifyCount');
+      expect(retry.query).toContain('replyCount');
+    });
+
     it('retries without heat and reuses the fallback on later calls', async () => {
       const { os, fetch } = heatRejectingGraph();
 
@@ -6285,6 +6306,37 @@ describe('QueryModule', () => {
       expect(body.query).toContain('_lt: $beforeBlockHeight');
       expect(body.query).not.toContain('$beforeId');
       expect(body.variables.beforeId).toBeUndefined();
+    });
+  });
+
+  describe('socialSpend.viewerAmplifiedForPostPaths()', () => {
+    it('filters boost_post events by spender and target paths', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          socialSpendEvents: [
+            { targetId: 'alice.near/post/1', spenderId: 'carol.near' },
+          ],
+        },
+      });
+      const map = await os.query.socialSpend.viewerAmplifiedForPostPaths(
+        'carol.near',
+        ['alice.near/post/1', 'bob.near/post/2']
+      );
+      expect(map).toEqual({
+        'alice.near/post/1': true,
+        'bob.near/post/2': false,
+      });
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({
+        spenderId: 'carol.near',
+        action: 'boost_post',
+        targetType: 'post',
+        targetIds: ['alice.near/post/1', 'bob.near/post/2'],
+      });
+      // Headroom for repeat amplifies so every path can appear once.
+      expect(body.variables.limit).toBeGreaterThanOrEqual(200);
     });
   });
 });

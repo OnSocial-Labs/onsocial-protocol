@@ -398,7 +398,8 @@ AS $$
     repost_count,
     reaction_count,
     quoted_post,
-    quoted_ref_post
+    quoted_ref_post,
+    amplify_count
   FROM out_rows
   ORDER BY rn, role;
 $$;

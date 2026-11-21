@@ -41,6 +41,7 @@ fn AS (
         f.quote_count::text,
         f.repost_count::text,
         f.reaction_count::text,
+        f.amplify_count::text,
         COALESCE(f.quoted_post->>'postId', ''),
         COALESCE(f.quoted_ref_post->>'postId', ''),
         COALESCE(f.quoted_post->>'replyCount', '')
@@ -73,6 +74,7 @@ old AS (
         f.quote_count::text,
         f.repost_count::text,
         f.reaction_count::text,
+        f.amplify_count::text,
         COALESCE(f.quoted_post->>'postId', ''),
         COALESCE(f.quoted_ref_post->>'postId', ''),
         COALESCE(f.quoted_post->>'replyCount', '')
@@ -93,6 +95,7 @@ spotlight AS (
     quote_count::text,
     repost_count::text,
     reaction_count::text,
+    amplify_count::text,
     quoted_post->>'postId',
     quoted_ref_post->>'postId',
     quoted_post->>'replyCount'
@@ -136,7 +139,7 @@ SELECT CASE
          IS NOT DISTINCT FROM (SELECT hot4 FROM expected)
      )
    )
-   AND (SELECT body FROM spotlight) = '2|1|1|3|quoted|origin|1'
+   AND (SELECT body FROM spotlight) = '2|1|1|3|0|quoted|origin|1'
   THEN 'ok'
   ELSE concat(
     'spotlight=', COALESCE((SELECT body FROM spotlight), 'missing'),

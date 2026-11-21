@@ -1,7 +1,22 @@
 -- Social Spend SQL views (applied after social_spend_schema.sql + core views).
 -- Replaces the stub `post_amplify_heat` from core_schema_views.sql.
+-- Replaces the stub `post_amplify_counts` from core_schema_views.sql.
 -- Replaces the stub `paid_support_inbound_events` from leaderboard_schema_views.sql
 -- so reputation Social can include paid inbound profile/endorsement spends.
+
+-- Lifetime amplify totals for feed paint (not decaying heat).
+CREATE OR REPLACE VIEW post_amplify_counts AS
+SELECT
+  e.target_id AS post_path,
+  COUNT(*)::bigint AS amplify_count
+FROM social_spend_events e
+WHERE e.success = true
+  AND e.event_type = 'SOCIAL_SPENT'
+  AND e.action = 'boost_post'
+  AND e.target_type = 'post'
+  AND e.target_id IS NOT NULL
+  AND e.target_id <> ''
+GROUP BY e.target_id;
 
 -- Soft amplify ranking heat (off-chain product score; spends stay on-chain forever).
 --

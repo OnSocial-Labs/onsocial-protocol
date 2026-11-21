@@ -36,7 +36,10 @@ import {
   isWalletUserCancellation,
 } from '@/lib/wallet-errors';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
-import type { PostEngagement } from '@/hooks/use-post-engagement';
+import {
+  engagementCountSeatClass,
+  type PostEngagement,
+} from '@/hooks/use-post-engagement';
 import { useSheetMounted } from '@/hooks/use-sheet-mounted';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
@@ -208,9 +211,7 @@ function engagementStatClassName(
 }
 
 function countSlotClass(count: number, countsReady: boolean): string {
-  if (!countsReady) return ' is-pending';
-  if (count > 0) return '';
-  return ' is-idle';
+  return engagementCountSeatClass(count, countsReady);
 }
 
 function EngagementStat({
@@ -340,6 +341,18 @@ export const PostEngagementRow = memo(function PostEngagementRow({
   const { accountId: viewerAccountId } = useAppWallet();
   const likeLabel = formatWritingLikeLabel(engagement.reactionCount);
   const canShare = Boolean(onQuote || onRepost || onUndoRepost);
+  // Signed-in: wait for viewer colour before like/save so a grey heart cannot
+  // invert an already-liked post. Signed-out still opens connect.
+  const viewerColourReady =
+    !viewerAccountId || engagement.viewerFlagsReady;
+  const reactionLocked = Boolean(reactionPending) || !viewerColourReady;
+  const saveLocked = Boolean(savePending) || !viewerColourReady;
+  const threadCountsReady = countsReady && engagement.threadCountsReady;
+  const reactionCountsReady = countsReady && engagement.reactionCountReady;
+  const amplifyCountsReady = countsReady && engagement.amplifyCountReady;
+  // Fire colour only with a known total — pending digit seat alone looks broken.
+  const amplifyActive =
+    amplifyCountsReady && engagement.viewerAmplified;
   const closeShare = () => setShareOpen(false);
   const shareCount =
     (engagement.repostCount ?? 0) + (engagement.quoteCount ?? 0);
@@ -407,7 +420,7 @@ export const PostEngagementRow = memo(function PostEngagementRow({
         <EngagementStat
           icon={<MessageRoundIcon aria-hidden />}
           count={engagement.replyCount}
-          countsReady={countsReady}
+          countsReady={threadCountsReady}
           rollSignal={engagement.replyRoll}
           label="replies"
           tone="reply"
@@ -417,7 +430,7 @@ export const PostEngagementRow = memo(function PostEngagementRow({
         <EngagementStat
           icon={<RepeatIcon aria-hidden />}
           count={shareCount}
-          countsReady={countsReady}
+          countsReady={threadCountsReady}
           rollSignal={engagement.shareRoll}
           label="shares"
           tone="quote"
@@ -453,22 +466,35 @@ export const PostEngagementRow = memo(function PostEngagementRow({
             <button
               type="button"
               className={`os-confirm-icon post-card-react-heart${
-                reactionPending ? ' is-pending' : ''
+                reactionPending
+                  ? ' is-pending'
+                  : !viewerColourReady
+                    ? ' is-viewer-loading'
+                    : ''
               }`}
-              disabled={reactionPending}
+              disabled={reactionLocked}
               aria-pressed={engagement.viewerReacted}
               aria-label={
-                engagement.viewerReacted
-                  ? 'Remove your reaction'
-                  : 'React to this post'
+                !viewerColourReady
+                  ? 'Loading your reaction'
+                  : engagement.viewerReacted
+                    ? 'Remove your reaction'
+                    : 'React to this post'
               }
-              title={engagement.viewerReacted ? 'Liked' : 'Like'}
+              title={
+                !viewerColourReady
+                  ? 'Loading'
+                  : engagement.viewerReacted
+                    ? 'Liked'
+                    : 'Like'
+              }
               onPointerDown={(event) => {
                 event.stopPropagation();
               }}
               onClick={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
+                if (reactionLocked) return;
                 onToggleReaction(post);
               }}
             >
@@ -481,7 +507,7 @@ export const PostEngagementRow = memo(function PostEngagementRow({
           )}
           <button
             type="button"
-            className={`post-card-like-count${countSlotClass(engagement.reactionCount, countsReady)}`}
+            className={`post-card-like-count${countSlotClass(engagement.reactionCount, reactionCountsReady)}`}
             aria-label={likeLabel ? `View who liked — ${likeLabel}` : undefined}
             aria-hidden={likeLabel ? undefined : true}
             tabIndex={likeLabel ? undefined : -1}
@@ -508,16 +534,16 @@ export const PostEngagementRow = memo(function PostEngagementRow({
           </button>
         </span>
         <EngagementStat
-          icon={<AmplifyIcon filled={engagement.viewerAmplified} />}
+          icon={<AmplifyIcon filled={amplifyActive} />}
           count={engagement.amplifyCount}
-          countsReady={countsReady}
+          countsReady={amplifyCountsReady}
           rollSignal={engagement.amplifyRoll}
           label="amplifies"
           tone="amplify"
-          className={`post-card-amplify${engagement.viewerAmplified ? ' is-active' : ''}`}
-          ariaPressed={engagement.viewerAmplified}
+          className={`post-card-amplify${amplifyActive ? ' is-active' : ''}`}
+          ariaPressed={amplifyActive}
           actionLabel={
-            engagement.viewerAmplified ? 'Amplify again' : 'Amplify this post'
+            amplifyActive ? 'Amplify again' : 'Amplify this post'
           }
           onActivate={onAmplify}
         />
@@ -528,19 +554,36 @@ export const PostEngagementRow = memo(function PostEngagementRow({
             type="button"
             className={`os-confirm-icon post-card-stat post-card-stat-button post-card-save${
               engagement.viewerSaved ? ' is-active' : ''
-            }${savePending ? ' is-pending' : ''}`}
-            disabled={savePending}
+            }${
+              savePending
+                ? ' is-pending'
+                : !viewerColourReady
+                  ? ' is-viewer-loading'
+                  : ''
+            }`}
+            disabled={saveLocked}
             aria-pressed={engagement.viewerSaved}
             aria-label={
-              engagement.viewerSaved ? 'Remove from saved' : 'Save this post'
+              !viewerColourReady
+                ? 'Loading save state'
+                : engagement.viewerSaved
+                  ? 'Remove from saved'
+                  : 'Save this post'
             }
-            title={engagement.viewerSaved ? 'Saved' : 'Save'}
+            title={
+              !viewerColourReady
+                ? 'Loading'
+                : engagement.viewerSaved
+                  ? 'Saved'
+                  : 'Save'
+            }
             onPointerDown={(event) => {
               event.stopPropagation();
             }}
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
+              if (saveLocked) return;
               onToggleSave(post);
             }}
           >

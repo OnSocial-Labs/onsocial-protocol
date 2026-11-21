@@ -453,6 +453,14 @@ export function LivePersonalPostPanel({
     return Array.from(ids);
   }, [threadPosts, quotedPosts, ancestorChain]);
   const postAuthorProfiles = usePostAuthorProfiles(postAuthorIds);
+  const retainEngagementPosts = useMemo(
+    () => [
+      ...ancestorChain,
+      ...(conversation.root ? [conversation.root] : []),
+      ...replyPosts,
+    ],
+    [ancestorChain, conversation.root, replyPosts]
+  );
   const {
     engagement,
     toggleReaction,
@@ -466,6 +474,7 @@ export function LivePersonalPostPanel({
     confirmUnrepost,
   } = usePostEngagement(engagementPosts, {
     initial: seeded?.engagement ?? null,
+    retainPosts: retainEngagementPosts,
     onError: (message) => setTxResult({ type: 'error', msg: message }),
   });
   const engagementLatestRef = useRef(engagement);

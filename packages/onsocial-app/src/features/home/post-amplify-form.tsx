@@ -80,6 +80,8 @@ async function fetchWalletBalanceYocto(accountId: string): Promise<bigint> {
 export interface PostAmplifySuccessDetail {
   amountYocto: bigint;
   isSelf: boolean;
+  /** Wallet that signed — engagement confirm must match the active account. */
+  signerId: string;
 }
 
 interface PostAmplifyFormProps {
@@ -287,6 +289,7 @@ export function PostAmplifyForm({
         onSuccess?.({
           amountYocto,
           isSelf: Boolean(accountIdsEqual(signingAccountId, post.accountId)),
+          signerId: signingAccountId,
         });
       }
     } catch (cause) {

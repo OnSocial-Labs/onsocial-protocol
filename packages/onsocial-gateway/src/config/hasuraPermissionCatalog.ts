@@ -406,6 +406,8 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
       'reaction_count',
       'quoted_post',
       'quoted_ref_post',
+      // Append-only on posts_feed — must be granted or GraphQL omits amplifyCount.
+      'amplify_count',
     ],
   },
   {

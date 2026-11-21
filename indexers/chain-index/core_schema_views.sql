@@ -1092,6 +1092,13 @@ SELECT
   0::double precision AS heat
 WHERE false;
 
+-- Lifetime amplify (`boost_post`) totals. Stub until social_spend views load.
+CREATE OR REPLACE VIEW post_amplify_counts AS
+SELECT
+  NULL::text AS post_path,
+  0::bigint AS amplify_count
+WHERE false;
+
 -- ────────────────────────────────────────────────────────────────────────────
 -- 6d. posts_feed — posts + author shell + guild name + heat + public counts
 -- and the quoted post (plus that post's own quote, for a repost of a quote).
@@ -1118,6 +1125,10 @@ $$;
 -- Do not create them here: views deploy uses --single-transaction, and
 -- CONCURRENTLY cannot run inside a transaction.
 
+-- New overload first (amplify_count). Live DBs still have the old 26-arg
+-- shell in use by posts_feed — dropping it first rolls the whole views
+-- update back. Create here, retarget posts_feed below, then drop the old
+-- signature after that view replaces.
 CREATE OR REPLACE FUNCTION post_feed_shell(
   account_id text,
   post_id text,
@@ -1144,7 +1155,8 @@ CREATE OR REPLACE FUNCTION post_feed_shell(
   reply_count bigint,
   quote_count bigint,
   repost_count bigint,
-  reaction_count bigint
+  reaction_count bigint,
+  amplify_count bigint DEFAULT NULL
 ) RETURNS jsonb
 LANGUAGE sql
 IMMUTABLE
@@ -1177,7 +1189,8 @@ AS $$
       'replyCount', reply_count,
       'quoteCount', quote_count,
       'repostCount', repost_count,
-      'reactionCount', reaction_count
+      'reactionCount', reaction_count,
+      'amplifyCount', amplify_count
     )
   END
 $$;
@@ -1275,7 +1288,8 @@ SELECT
     COALESCE(q_replies.reply_count, 0),
     COALESCE(q_quotes.quote_count, 0),
     COALESCE(q_reposts.repost_count, 0),
-    COALESCE(q_reactions.reaction_count, 0)
+    COALESCE(q_reactions.reaction_count, 0),
+    COALESCE(q_amplifies.amplify_count, 0)
   ) AS quoted_post,
   post_feed_shell(
     q2.account_id, q2.post_id, q2.value, q2.block_height, q2.block_timestamp,
@@ -1283,8 +1297,11 @@ SELECT
     q2.ref_path, q2.ref_author, q2.ref_type, q2.channel, q2.kind, q2.audiences,
     q2.group_id, q2.is_group_content, q2.root_path, q2.root_author,
     q2ps.name, q2ps.avatar, q2g.group_name,
-    NULL, NULL, NULL, NULL
-  ) AS quoted_ref_post
+    NULL, NULL, NULL, NULL,
+    COALESCE(q2_amplifies.amplify_count, 0)
+  ) AS quoted_ref_post,
+  -- Append-only: CREATE OR REPLACE VIEW may add columns at the end, not mid-list.
+  COALESCE(amplifies.amplify_count, 0)::bigint AS amplify_count
 FROM posts_feed_rank src
 LEFT JOIN LATERAL (
   SELECT COUNT(*)::bigint AS reply_count
@@ -1315,6 +1332,8 @@ LEFT JOIN LATERAL (
   WHERE rc.post_owner = src.account_id
     AND rc.post_path = 'post/' || src.post_id
 ) reactions ON true
+LEFT JOIN post_amplify_counts amplifies
+  ON amplifies.post_path = src.content_path
 LEFT JOIN posts_current q
   ON src.ref_path IS NOT NULL
  AND btrim(src.ref_path) <> ''
@@ -1359,6 +1378,9 @@ LEFT JOIN LATERAL (
     AND rc.post_owner = q.account_id
     AND rc.post_path = 'post/' || q.post_id
 ) q_reactions ON true
+LEFT JOIN post_amplify_counts q_amplifies
+  ON q.account_id IS NOT NULL
+ AND q_amplifies.post_path = post_content_path(q.account_id, q.post_id, q.group_id)
 LEFT JOIN posts_current q2
   ON q.ref_path IS NOT NULL
  AND btrim(q.ref_path) <> ''
@@ -1369,7 +1391,17 @@ LEFT JOIN profile_search q2ps
 LEFT JOIN groups_current q2g
   ON q2g.group_id = q2.group_id
  AND q2.group_id IS NOT NULL
- AND q2.group_id <> '';
+ AND q2.group_id <> ''
+LEFT JOIN post_amplify_counts q2_amplifies
+  ON q2.account_id IS NOT NULL
+ AND q2_amplifies.post_path = post_content_path(q2.account_id, q2.post_id, q2.group_id);
+
+-- posts_feed now calls the amplify overload; drop the pre-amplify signature.
+DROP FUNCTION IF EXISTS post_feed_shell(
+  text, text, text, bigint, bigint, text, text, text, text, text, text, text,
+  text, text, text, text, boolean, text, text, text, text, text, bigint,
+  bigint, bigint, bigint
+);
 
 -- Hot home feed. Rank on the light row (same amplify_heat and block_height
 -- as posts_feed, same rows, no count or quote work), cut the page, then
@@ -1901,7 +1933,8 @@ AS $$
     repost_count,
     reaction_count,
     quoted_post,
-    quoted_ref_post
+    quoted_ref_post,
+    amplify_count
   FROM out_rows
   ORDER BY rn, role;
 $$;

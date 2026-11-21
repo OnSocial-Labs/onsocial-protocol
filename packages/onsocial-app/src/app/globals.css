@@ -12130,8 +12130,14 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.92);
   }
 
-  .portfolio-writing-article-action:disabled:not(.is-pending) {
+  .portfolio-writing-article-action:disabled:not(.is-pending):not(
+      .is-viewer-loading
+    ) {
     opacity: 0.55;
+    cursor: default;
+  }
+
+  .portfolio-writing-article-action.is-viewer-loading {
     cursor: default;
   }
 
@@ -12157,6 +12163,14 @@ a.os-surface-row,
     font-variant-numeric: normal;
     line-height: 1;
     cursor: pointer;
+    transition: opacity var(--os-motion-appear, 280ms)
+      var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .portfolio-writing-article-like-count {
+      transition: none;
+    }
   }
 
   .portfolio-writing-article-like .portfolio-writing-article-action {
@@ -12192,6 +12206,13 @@ a.os-surface-row,
     margin: 0;
     padding: 0;
     overflow: hidden;
+    pointer-events: none;
+  }
+
+  /* Unknown like total keeps a digit seat so the heart does not nudge in. */
+  .portfolio-writing-article-like-count.is-pending {
+    min-width: 2ch;
+    opacity: 0;
     pointer-events: none;
   }
 
@@ -25307,9 +25328,15 @@ a.os-surface-row,
     color: var(--protocol-green);
   }
 
-  .post-card-save:disabled:not(.is-pending) {
+  .post-card-save:disabled:not(.is-pending):not(.is-viewer-loading) {
     opacity: 1;
     color: rgb(var(--fg-rgb) / 0.26);
+    cursor: default;
+  }
+
+  /* Colour still loading — quiet seat, no confirm pulse. */
+  .post-card-react-heart.is-viewer-loading,
+  .post-card-save.is-viewer-loading {
     cursor: default;
   }
 

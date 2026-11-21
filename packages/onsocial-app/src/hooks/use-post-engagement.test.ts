@@ -1,22 +1,397 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyViewerOverlayEngagement,
+  confirmedAmplifyEngagement,
   confirmedReactionEngagement,
   EMPTY_POST_ENGAGEMENT,
+  engagementForAccountChange,
+  engagementFromPartialFetch,
+  engagementNeedsCountSoftFill,
   mergeEngagementSoftUpgrade,
   pendingReactionEngagement,
   pruneEngagementMap,
   reactionCountAfterToggle,
   rememberEngagementLastGood,
   resolveBandEngagement,
+  partitionOverlayAmplifyPaths,
+  shouldApplyAmplifyCountFill,
+  shouldApplyViewerToggleConfirm,
+  shouldResetEngagementFetchRetry,
+  nextEngagementFetchRetry,
+  engagementLoadIdAfterAccountSwitch,
+  engagementCountSeatClass,
   type PostEngagement,
 } from '@/hooks/use-post-engagement';
 
 function row(over: Partial<PostEngagement> = {}): PostEngagement {
-  return { ...EMPTY_POST_ENGAGEMENT, ...over };
+  return {
+    ...EMPTY_POST_ENGAGEMENT,
+    viewerFlagsReady: true,
+    amplifyCountReady: true,
+    threadCountsReady: true,
+    reactionCountReady: true,
+    ...over,
+  };
 }
 
+describe('shouldApplyViewerToggleConfirm', () => {
+  it('applies confirm only while the same wallet is still active', () => {
+    expect(shouldApplyViewerToggleConfirm('alice.near', 'alice.near')).toBe(
+      true
+    );
+    expect(shouldApplyViewerToggleConfirm('bob.near', 'alice.near')).toBe(
+      false
+    );
+    expect(shouldApplyViewerToggleConfirm(null, 'alice.near')).toBe(false);
+  });
+});
+
+describe('amplify confirm / soft-fill account guard', () => {
+  it('skips amplify confirm when the signer is no longer the active wallet', () => {
+    expect(shouldApplyViewerToggleConfirm('bob.near', 'alice.near')).toBe(
+      false
+    );
+    expect(shouldApplyViewerToggleConfirm('alice.near', 'alice.near')).toBe(
+      true
+    );
+  });
+
+  it('bumps amplify count and colour only via confirmedAmplifyEngagement', () => {
+    const first = confirmedAmplifyEngagement(
+      row({ viewerAmplified: false, amplifyCount: 2 })
+    );
+    expect(first).toMatchObject({
+      viewerAmplified: true,
+      amplifyCount: 3,
+      amplifyCountReady: true,
+      amplifyRoll: 1,
+    });
+    const again = confirmedAmplifyEngagement(first);
+    expect(again.amplifyCount).toBe(4);
+    expect(again.viewerAmplified).toBe(true);
+    expect(again.amplifyRoll).toBe(2);
+  });
+
+  it('skips soft-fill when the wallet changed while counts were loading', () => {
+    expect(shouldApplyAmplifyCountFill('bob.near', 'alice.near')).toBe(false);
+    expect(shouldApplyAmplifyCountFill(null, 'alice.near')).toBe(false);
+    expect(shouldApplyAmplifyCountFill('alice.near', 'alice.near')).toBe(true);
+    expect(shouldApplyAmplifyCountFill(null, null)).toBe(true);
+  });
+
+  it('partitions overlay amplify into count paths vs colour-only paths', () => {
+    const split = partitionOverlayAmplifyPaths(
+      [
+        { key: 'a:1', path: 'a.near/post/1' },
+        { key: 'b:2', path: 'b.near/post/2' },
+        { key: 'c:3', path: 'c.near/post/3' },
+      ],
+      {
+        'a:1': row({ amplifyCountReady: true }),
+        'b:2': row({ amplifyCountReady: false }),
+        // c missing — needs counts
+      }
+    );
+    expect(split.countPaths).toEqual(['b.near/post/2', 'c.near/post/3']);
+    expect(split.colourPaths).toEqual(['a.near/post/1']);
+  });
+});
+
+describe('engagementFromPartialFetch', () => {
+  it('keeps loaded reply counts when likes fail and leaves colour loading', () => {
+    const painted = engagementFromPartialFetch({
+      previous: null,
+      threadsOk: true,
+      reactionsOk: false,
+      amplifyOk: true,
+      viewerReady: false,
+      repostsOk: true,
+      counts: { replyCount: 3, quoteCount: 1, repostCount: 2 },
+      amplifyCount: 4,
+      viewerAmplified: false,
+    });
+    expect(painted.replyCount).toBe(3);
+    expect(painted.quoteCount).toBe(1);
+    expect(painted.repostCount).toBe(2);
+    expect(painted.amplifyCount).toBe(4);
+    expect(painted.amplifyCountReady).toBe(true);
+    expect(painted.threadCountsReady).toBe(true);
+    expect(painted.reactionCountReady).toBe(false);
+    expect(painted.reactionCount).toBe(0);
+    expect(painted.viewerFlagsReady).toBe(false);
+    expect(painted.viewerReacted).toBe(false);
+    expect(engagementNeedsCountSoftFill(painted)).toBe(true);
+  });
+
+  it('stays on the recount path until likes load, then clears the soft-fill debt', () => {
+    const afterThreadsOnly = engagementFromPartialFetch({
+      previous: null,
+      threadsOk: true,
+      reactionsOk: false,
+      amplifyOk: false,
+      viewerReady: false,
+      repostsOk: false,
+      counts: { replyCount: 5, quoteCount: 0, repostCount: 0 },
+    });
+    expect(afterThreadsOnly.replyCount).toBe(5);
+    expect(afterThreadsOnly.reactionCountReady).toBe(false);
+    expect(engagementNeedsCountSoftFill(afterThreadsOnly)).toBe(true);
+
+    const afterLikesRetry = engagementFromPartialFetch({
+      previous: afterThreadsOnly,
+      threadsOk: false,
+      reactionsOk: true,
+      amplifyOk: false,
+      viewerReady: false,
+      repostsOk: false,
+      reactionTotal: 12,
+      viewerReacted: true,
+    });
+    expect(afterLikesRetry.replyCount).toBe(5);
+    expect(afterLikesRetry.threadCountsReady).toBe(true);
+    expect(afterLikesRetry.reactionCount).toBe(12);
+    expect(afterLikesRetry.reactionCountReady).toBe(true);
+    expect(engagementNeedsCountSoftFill(afterLikesRetry)).toBe(false);
+  });
+
+  it('keeps likes that loaded when threads fail and still needs a threads retry', () => {
+    const painted = engagementFromPartialFetch({
+      previous: null,
+      threadsOk: false,
+      reactionsOk: true,
+      amplifyOk: false,
+      viewerReady: false,
+      repostsOk: false,
+      reactionTotal: 7,
+    });
+    expect(painted.reactionCount).toBe(7);
+    expect(painted.reactionCountReady).toBe(true);
+    expect(painted.threadCountsReady).toBe(false);
+    expect(engagementNeedsCountSoftFill(painted)).toBe(true);
+  });
+
+  it('does not lastGood a missing row whose likes read failed', () => {
+    const painted = engagementFromPartialFetch({
+      previous: null,
+      threadsOk: true,
+      reactionsOk: false,
+      amplifyOk: false,
+      viewerReady: false,
+      repostsOk: false,
+      counts: { replyCount: 4, quoteCount: 0, repostCount: 0 },
+    });
+    expect(painted.threadCountsReady).toBe(true);
+    expect(painted.reactionCountReady).toBe(false);
+    expect(painted.reactionCount).toBe(0);
+    expect(engagementNeedsCountSoftFill(painted)).toBe(true);
+
+    const lastGood = new Map<string, PostEngagement>();
+    rememberEngagementLastGood(lastGood, 'a:1', painted);
+    expect(lastGood.has('a:1')).toBe(false);
+
+    const afterLikes = engagementFromPartialFetch({
+      previous: painted,
+      threadsOk: false,
+      reactionsOk: true,
+      amplifyOk: false,
+      viewerReady: false,
+      repostsOk: false,
+      reactionTotal: 9,
+    });
+    rememberEngagementLastGood(lastGood, 'a:1', afterLikes);
+    expect(lastGood.get('a:1')?.reactionCount).toBe(9);
+    expect(lastGood.get('a:1')?.replyCount).toBe(4);
+  });
+
+  it('lastGoods a like made while another count lane is still down', () => {
+    const painted = engagementFromPartialFetch({
+      previous: null,
+      threadsOk: false,
+      reactionsOk: true,
+      amplifyOk: true,
+      viewerReady: true,
+      repostsOk: true,
+      reactionTotal: 3,
+      viewerReacted: false,
+    });
+    const liked = confirmedReactionEngagement(painted, true);
+    expect(liked.viewerReacted).toBe(true);
+    expect(liked.threadCountsReady).toBe(false);
+    expect(engagementNeedsCountSoftFill(liked)).toBe(true);
+
+    const lastGood = new Map<string, PostEngagement>();
+    rememberEngagementLastGood(lastGood, 'a:1', liked);
+    expect(lastGood.get('a:1')?.viewerReacted).toBe(true);
+    expect(lastGood.get('a:1')?.reactionCount).toBe(4);
+  });
+});
+
+describe('shouldResetEngagementFetchRetry', () => {
+  it('resets only when every owed count lane succeeded', () => {
+    expect(
+      shouldResetEngagementFetchRetry({
+        threadsOk: true,
+        reactionsOk: true,
+        amplifyOk: true,
+        viewerReady: true,
+      })
+    ).toBe(true);
+    // Signed-out: likes ok, threads down — must not clear the budget.
+    expect(
+      shouldResetEngagementFetchRetry({
+        threadsOk: false,
+        reactionsOk: true,
+        amplifyOk: true,
+        viewerReady: true,
+      })
+    ).toBe(false);
+    expect(
+      shouldResetEngagementFetchRetry({
+        threadsOk: true,
+        reactionsOk: false,
+        amplifyOk: true,
+        viewerReady: true,
+      })
+    ).toBe(false);
+    // Amplify down with likes + replies ok — must not clear the budget.
+    expect(
+      shouldResetEngagementFetchRetry({
+        threadsOk: true,
+        reactionsOk: true,
+        amplifyOk: false,
+        viewerReady: true,
+      })
+    ).toBe(false);
+    // Signed-in viewer lane still owed.
+    expect(
+      shouldResetEngagementFetchRetry({
+        threadsOk: true,
+        reactionsOk: true,
+        amplifyOk: true,
+        viewerReady: false,
+      })
+    ).toBe(false);
+  });
+
+  it('amplify down reaches the cooldown without resetting the counter', () => {
+    const amplifyDown = {
+      threadsOk: true,
+      reactionsOk: true,
+      amplifyOk: false,
+      viewerReady: true,
+    };
+    let count = 0;
+    const delays: number[] = [];
+    let hitCooldown = false;
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      // Same then() rule: never reset when this pass still needs a retry.
+      if (shouldResetEngagementFetchRetry(amplifyDown)) {
+        count = 0;
+      } else {
+        const step = nextEngagementFetchRetry(count);
+        count = step.nextCount;
+        delays.push(step.delayMs);
+        if (step.cooldown) {
+          hitCooldown = true;
+          break;
+        }
+      }
+    }
+    expect(hitCooldown).toBe(true);
+    expect(delays.slice(0, 3)).toEqual([1_200, 2_400, 3_600]);
+    expect(delays[3]).toBe(15_000);
+    expect(count).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('engagementLoadIdAfterAccountSwitch', () => {
+  it('bumps loadId on switch so a late then is cancelled', () => {
+    const loadId = 4;
+    const after = engagementLoadIdAfterAccountSwitch(
+      'alice.near',
+      'bob.near',
+      loadId
+    );
+    expect(after).toBe(5);
+    expect(after === loadId).toBe(false);
+    expect(
+      engagementLoadIdAfterAccountSwitch('alice.near', 'alice.near', loadId)
+    ).toBe(loadId);
+  });
+});
+
+describe('engagementCountSeatClass', () => {
+  it('keeps a failed likes lane pending instead of a settled 0', () => {
+    expect(engagementCountSeatClass(0, false)).toBe(' is-pending');
+    expect(engagementCountSeatClass(0, true)).toBe(' is-idle');
+    expect(engagementCountSeatClass(3, true)).toBe('');
+  });
+});
+
+describe('like confirm / rollback', () => {
+  it('holds the count on pending and rolls only on confirm', () => {
+    const previous = row({ viewerReacted: false, reactionCount: 3 });
+    const pending = pendingReactionEngagement(previous, true);
+    expect(pending.viewerReacted).toBe(true);
+    expect(pending.reactionCount).toBe(3);
+    const confirmed = confirmedReactionEngagement(previous, true);
+    expect(confirmed.reactionCount).toBe(4);
+    expect(confirmed.reactionRoll).toBe(1);
+  });
+
+  it('rolls back to the pre-toggle row on reject (same shape as catch)', () => {
+    const previous = row({ viewerReacted: false, reactionCount: 3 });
+    const pending = pendingReactionEngagement(previous, true);
+    const rolledBack = previous;
+    expect(pending.viewerReacted).toBe(true);
+    expect(rolledBack).toEqual(previous);
+    expect(rolledBack.reactionCount).toBe(3);
+  });
+});
+
+describe('engagementForAccountChange', () => {
+  it('clears the previous viewer colour and rolls on switch', () => {
+    const stripped = engagementForAccountChange(
+      {
+        'a:1': row({
+          viewerReacted: true,
+          viewerSaved: true,
+          viewerAmplified: true,
+          viewerReposted: true,
+          viewerRepostId: 'r1',
+          reactionCount: 4,
+          reactionRoll: 2,
+          saveRoll: 1,
+          viewerFlagsReady: true,
+        }),
+      },
+      'bob.near'
+    );
+    expect(stripped['a:1']).toMatchObject({
+      viewerReacted: false,
+      viewerSaved: false,
+      viewerAmplified: false,
+      viewerReposted: false,
+      viewerRepostId: null,
+      reactionCount: 4,
+      reactionRoll: 0,
+      saveRoll: 0,
+      viewerFlagsReady: false,
+    });
+  });
+
+  it('marks colour ready when signed out so hearts stay tappable', () => {
+    const stripped = engagementForAccountChange(
+      { 'a:1': row({ viewerReacted: true, viewerFlagsReady: true }) },
+      null
+    );
+    expect(stripped['a:1']?.viewerReacted).toBe(false);
+    expect(stripped['a:1']?.viewerFlagsReady).toBe(true);
+  });
+});
+
 describe('pruneEngagementMap', () => {
-  it('drops keys that left the live band and keeps identity when unchanged', () => {
+  it('drops keys that left the retain set and keeps identity when unchanged', () => {
     const current = {
       'a:1': row({ reactionCount: 1 }),
       'b:2': row({ reactionCount: 2 }),
@@ -24,6 +399,19 @@ describe('pruneEngagementMap', () => {
     const pruned = pruneEngagementMap(current, new Set(['a:1']));
     expect(Object.keys(pruned)).toEqual(['a:1']);
     expect(pruneEngagementMap(pruned, new Set(['a:1']))).toBe(pruned);
+  });
+
+  it('keeps off-band keys when retain is the full feed list', () => {
+    const current = {
+      'a:1': row({ reactionCount: 1 }),
+      'b:2': row({ reactionCount: 2 }),
+      'c:3': row({ reactionCount: 3 }),
+    };
+    expect(
+      Object.keys(
+        pruneEngagementMap(current, new Set(['a:1', 'b:2', 'c:3']))
+      ).sort()
+    ).toEqual(['a:1', 'b:2', 'c:3']);
   });
 });
 
@@ -102,7 +490,7 @@ describe('reaction confirmation', () => {
     );
   });
 
-  it('rolls the same total the indexer is asked to match', () => {
+  it('rolls the local total once the chain confirms', () => {
     expect(reactionCountAfterToggle(3, true)).toBe(4);
     expect(reactionCountAfterToggle(4, false)).toBe(3);
     expect(reactionCountAfterToggle(0, false)).toBe(0);
@@ -163,6 +551,70 @@ describe('mergeEngagementSoftUpgrade', () => {
     expect(merged[key]?.amplifyCount).toBe(5);
   });
 
+  it('keeps chain-confirmed like when soft-fill lags on viewer flag', () => {
+    const key = 'alice.near:p1';
+    const merged = mergeEngagementSoftUpgrade(
+      {
+        [key]: row({
+          viewerReacted: true,
+          reactionCount: 5,
+          reactionRoll: 1,
+        }),
+      },
+      { [key]: row({ viewerReacted: false, reactionCount: 4 }) },
+      new Set(),
+      new Set()
+    );
+    expect(merged[key]?.viewerReacted).toBe(true);
+    expect(merged[key]?.reactionCount).toBe(5);
+  });
+
+  it('keeps chain-confirmed unlike when soft-fill still shows liked', () => {
+    const key = 'alice.near:p1';
+    const merged = mergeEngagementSoftUpgrade(
+      {
+        [key]: row({
+          viewerReacted: false,
+          reactionCount: 4,
+          reactionRoll: 1,
+        }),
+      },
+      { [key]: row({ viewerReacted: true, reactionCount: 5 }) },
+      new Set(),
+      new Set()
+    );
+    expect(merged[key]?.viewerReacted).toBe(false);
+    expect(merged[key]?.reactionCount).toBe(4);
+  });
+
+  it('does not dip a confirmed like total when soft-fill returns a lower count', () => {
+    const key = 'alice.near:p1';
+    const merged = mergeEngagementSoftUpgrade(
+      {
+        [key]: row({
+          viewerReacted: true,
+          reactionCount: 5,
+          reactionRoll: 1,
+        }),
+      },
+      { [key]: row({ viewerReacted: true, reactionCount: 4 }) },
+      new Set(),
+      new Set()
+    );
+    expect(merged[key]?.reactionCount).toBe(5);
+  });
+
+  it('still applies first viewer colour when reactionRoll is zero', () => {
+    const key = 'alice.near:p1';
+    const merged = mergeEngagementSoftUpgrade(
+      { [key]: row({ viewerReacted: false, reactionCount: 4 }) },
+      { [key]: row({ viewerReacted: true, reactionCount: 4 }) },
+      new Set(),
+      new Set()
+    );
+    expect(merged[key]?.viewerReacted).toBe(true);
+  });
+
   it('keeps a confirm roll when a later read changes the count', () => {
     const key = 'alice.near:p1';
     const merged = mergeEngagementSoftUpgrade(
@@ -191,12 +643,24 @@ describe('mergeEngagementSoftUpgrade', () => {
   it('preserves confirmed save until indexer catches up', () => {
     const key = 'alice.near:p1';
     const merged = mergeEngagementSoftUpgrade(
-      { [key]: row({ viewerSaved: true, replyCount: 1 }) },
+      { [key]: row({ viewerSaved: true, saveRoll: 1, replyCount: 1 }) },
       { [key]: row({ viewerSaved: false, replyCount: 2 }) },
       new Set(),
       new Set()
     );
     expect(merged[key]?.viewerSaved).toBe(true);
+    expect(merged[key]?.replyCount).toBe(2);
+  });
+
+  it('preserves confirmed unsave when soft-fill still shows saved', () => {
+    const key = 'alice.near:p1';
+    const merged = mergeEngagementSoftUpgrade(
+      { [key]: row({ viewerSaved: false, saveRoll: 1, replyCount: 1 }) },
+      { [key]: row({ viewerSaved: true, replyCount: 2 }) },
+      new Set(),
+      new Set()
+    );
+    expect(merged[key]?.viewerSaved).toBe(false);
     expect(merged[key]?.replyCount).toBe(2);
   });
 
@@ -265,5 +729,165 @@ describe('mergeEngagementSoftUpgrade', () => {
       new Set()
     );
     expect(merged[key]).toEqual(fetched);
+  });
+
+  it('keeps known viewer colour when a public-count seed lacks flags', () => {
+    const key = 'alice.near:p1';
+    const merged = mergeEngagementSoftUpgrade(
+      {
+        [key]: row({
+          viewerReacted: true,
+          viewerSaved: true,
+          viewerFlagsReady: true,
+          reactionCount: 4,
+        }),
+      },
+      {
+        [key]: row({
+          viewerReacted: false,
+          viewerSaved: false,
+          viewerFlagsReady: false,
+          reactionCount: 4,
+          amplifyCountReady: false,
+        }),
+      },
+      new Set(),
+      new Set()
+    );
+    expect(merged[key]?.viewerReacted).toBe(true);
+    expect(merged[key]?.viewerSaved).toBe(true);
+    expect(merged[key]?.viewerFlagsReady).toBe(true);
+  });
+
+  it('keeps a known amplify total when seed omits the column', () => {
+    const key = 'alice.near:p1';
+    const merged = mergeEngagementSoftUpgrade(
+      {
+        [key]: row({
+          amplifyCount: 7,
+          amplifyCountReady: true,
+        }),
+      },
+      {
+        [key]: row({
+          amplifyCount: 0,
+          amplifyCountReady: false,
+        }),
+      },
+      new Set(),
+      new Set()
+    );
+    expect(merged[key]?.amplifyCount).toBe(7);
+    expect(merged[key]?.amplifyCountReady).toBe(true);
+  });
+});
+
+describe('applyViewerOverlayEngagement', () => {
+  it('does not undo an in-flight like when the overlay is stale', () => {
+    const next = applyViewerOverlayEngagement(
+      row({ viewerReacted: true, reactionCount: 4 }),
+      {
+        viewerReacted: false,
+        viewerSaved: false,
+        viewerAmplified: false,
+        viewerReposted: false,
+        viewerRepostId: null,
+        viewerRepostGroupId: null,
+      },
+      { pendingReaction: true, pendingSave: false, unreposted: false }
+    );
+    expect(next.viewerReacted).toBe(true);
+    expect(next.viewerFlagsReady).toBe(true);
+  });
+
+  it('holds chain-confirmed colour when overlay still lags', () => {
+    const next = applyViewerOverlayEngagement(
+      row({
+        viewerReacted: true,
+        reactionCount: 5,
+        reactionRoll: 1,
+      }),
+      {
+        viewerReacted: false,
+        viewerSaved: false,
+        viewerAmplified: false,
+        viewerReposted: false,
+        viewerRepostId: null,
+        viewerRepostGroupId: null,
+      },
+      { pendingReaction: false, pendingSave: false, unreposted: false }
+    );
+    expect(next.viewerReacted).toBe(true);
+  });
+
+  it('applies first colour when nothing is pending', () => {
+    const next = applyViewerOverlayEngagement(
+      row({ viewerReacted: false, viewerFlagsReady: false }),
+      {
+        viewerReacted: true,
+        viewerSaved: true,
+        viewerAmplified: false,
+        viewerReposted: false,
+        viewerRepostId: null,
+        viewerRepostGroupId: null,
+      },
+      { pendingReaction: false, pendingSave: false, unreposted: false }
+    );
+    expect(next.viewerReacted).toBe(true);
+    expect(next.viewerSaved).toBe(true);
+    expect(next.viewerFlagsReady).toBe(true);
+  });
+
+  it('lands amplify colour with the public total in the same apply', () => {
+    const next = applyViewerOverlayEngagement(
+      row({ amplifyCountReady: false, amplifyCount: 0 }),
+      {
+        viewerReacted: false,
+        viewerSaved: false,
+        viewerAmplified: true,
+        viewerReposted: false,
+        viewerRepostId: null,
+        viewerRepostGroupId: null,
+        amplifyCount: 3,
+      },
+      { pendingReaction: false, pendingSave: false, unreposted: false }
+    );
+    expect(next.viewerAmplified).toBe(true);
+    expect(next.amplifyCount).toBe(3);
+    expect(next.amplifyCountReady).toBe(true);
+  });
+
+  it('never settles an active amplify on a zero total', () => {
+    const next = applyViewerOverlayEngagement(
+      row({ amplifyCountReady: true, amplifyCount: 0 }),
+      {
+        viewerReacted: false,
+        viewerSaved: false,
+        viewerAmplified: true,
+        viewerReposted: false,
+        viewerRepostId: null,
+        viewerRepostGroupId: null,
+        amplifyCount: 0,
+      },
+      { pendingReaction: false, pendingSave: false, unreposted: false }
+    );
+    expect(next.amplifyCount).toBe(1);
+    expect(next.amplifyCountReady).toBe(true);
+  });
+
+  it('holds confirmed unsave when overlay still lists the bookmark', () => {
+    const next = applyViewerOverlayEngagement(
+      row({ viewerSaved: false, saveRoll: 1 }),
+      {
+        viewerReacted: false,
+        viewerSaved: true,
+        viewerAmplified: false,
+        viewerReposted: false,
+        viewerRepostId: null,
+        viewerRepostGroupId: null,
+      },
+      { pendingReaction: false, pendingSave: false, unreposted: false }
+    );
+    expect(next.viewerSaved).toBe(false);
   });
 });
