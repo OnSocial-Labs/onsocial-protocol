@@ -143,9 +143,21 @@ describe('fillVisibleFeedPage', () => {
 
 describe('collectResolvedSavePage', () => {
   it('skips missing bookmarks and fills the page from later saves', async () => {
-    const loadRefs = vi.fn(async (offset: number, limit: number) => {
-      if (offset === 0) return Array.from({ length: limit }, () => null);
-      return [{ author: 'alice.near', postId: 'kept' }];
+    const loadRefs = vi.fn(async (cursor, limit) => {
+      if (cursor.offset === 0 && !cursor.beforeBlockHeight) {
+        return Array.from({ length: limit }, (_, i) => ({
+          ref: null,
+          blockHeight: 100 - i,
+          contentPath: `skip-${i}`,
+        }));
+      }
+      return [
+        {
+          ref: { author: 'alice.near', postId: 'kept' },
+          blockHeight: 50,
+          contentPath: 'alice.near/post/kept',
+        },
+      ];
     });
     const hydrate = vi.fn(async () => {
       const map = new Map<string, PostRow>();
@@ -162,12 +174,20 @@ describe('collectResolvedSavePage', () => {
     });
 
     expect(loadRefs).toHaveBeenCalledTimes(2);
+    expect(loadRefs.mock.calls[1]?.[0]).toEqual({
+      beforeBlockHeight: 99,
+      beforeContentPath: 'skip-1',
+    });
     expect(page.items.map((row) => row.postId)).toEqual(['kept']);
-    expect(page.nextOffset).toBeUndefined();
+    expect(page.nextBeforeBlockHeight).toBe(50);
+    expect(page.nextBeforeEventKey).toBe('alice.near/post/kept');
   });
 
-  it('keeps a cursor when a full save page does not resolve', async () => {
-    const loadRefs = vi.fn(async () => [null, null]);
+  it('keeps a keyset when a full save page does not resolve', async () => {
+    const loadRefs = vi.fn(async () => [
+      { ref: null, blockHeight: 2, contentPath: 'b.near/post/x' },
+      { ref: null, blockHeight: 1, contentPath: 'a.near/post/y' },
+    ]);
 
     const page = await collectResolvedSavePage({
       offset: 0,
@@ -179,6 +199,7 @@ describe('collectResolvedSavePage', () => {
     });
 
     expect(page.items).toEqual([]);
-    expect(page.nextOffset).toBe(2);
+    expect(page.nextBeforeBlockHeight).toBe(1);
+    expect(page.nextBeforeEventKey).toBe('a.near/post/y');
   });
 });

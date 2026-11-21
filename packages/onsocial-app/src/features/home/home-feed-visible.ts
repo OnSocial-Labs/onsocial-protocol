@@ -133,18 +133,33 @@ export async function fillVisibleFeedPage(opts: {
 
 export type SaveFeedRef = { author: string; postId: string };
 
+export type SaveListCursor = {
+  offset?: number;
+  beforeBlockHeight?: number;
+  beforeContentPath?: string;
+};
+
+export type SaveListRow = {
+  ref: SaveFeedRef | null;
+  blockHeight: number;
+  contentPath: string;
+};
+
 /**
  * Turn a save list into a page of posts. Unresolved bookmarks are skipped
- * and the next saves fill the page. `nextOffset` is the save-list cursor.
+ * and the next saves fill the page. Load-more uses the last consumed save's
+ * (blockHeight, contentPath) keyset when available.
  */
 export async function collectResolvedSavePage(opts: {
-  offset: number;
   limit: number;
   maxPages?: number;
+  cursor?: SaveListCursor;
+  /** @deprecated Prefer `cursor.offset`. */
+  offset?: number;
   loadRefs: (
-    offset: number,
+    cursor: SaveListCursor,
     limit: number
-  ) => Promise<ReadonlyArray<SaveFeedRef | null>>;
+  ) => Promise<ReadonlyArray<SaveListRow>>;
   hydrate: (
     refs: readonly SaveFeedRef[]
   ) => Promise<ReadonlyMap<string, PostRow>>;
@@ -153,40 +168,67 @@ export async function collectResolvedSavePage(opts: {
   const maxPages = opts.maxPages ?? HOME_FEED_VISIBLE_PAGE_WALK;
   const items: PostRow[] = [];
   const seen = new Set<string>();
-  let cursor = opts.offset;
+  let cursor: SaveListCursor = opts.cursor ?? {
+    offset: opts.offset ?? 0,
+  };
+  let lastConsumed: SaveListRow | undefined;
 
   for (let page = 0; page < maxPages && items.length < opts.limit; page++) {
     const refs = await opts.loadRefs(cursor, opts.limit);
     if (refs.length === 0) return { items };
 
-    const present = refs.filter((ref): ref is SaveFeedRef => ref != null);
+    const present = refs
+      .map((row) => row.ref)
+      .filter((ref): ref is SaveFeedRef => ref != null);
     const hydrated =
       present.length > 0
         ? await opts.hydrate(present)
         : new Map<string, PostRow>();
 
     for (let index = 0; index < refs.length; index++) {
-      cursor += 1;
-      const ref = refs[index];
+      const row = refs[index]!;
+      lastConsumed = row;
+      const ref = row.ref;
       if (ref == null) continue;
-      const row = hydrated.get(opts.refKey(ref));
-      if (!row) continue;
-      const key = postKey(row);
+      const hydratedRow = hydrated.get(opts.refKey(ref));
+      if (!hydratedRow) continue;
+      const key = postKey(hydratedRow);
       if (seen.has(key)) continue;
       seen.add(key);
-      items.push(row);
+      items.push(hydratedRow);
       if (items.length >= opts.limit) {
         const moreInPage = index + 1 < refs.length;
         const pageFull = refs.length >= opts.limit;
+        if (!moreInPage && !pageFull) return { items };
         return {
           items,
-          nextOffset: moreInPage || pageFull ? cursor : undefined,
+          nextBeforeBlockHeight: row.blockHeight,
+          nextBeforeEventKey: row.contentPath,
         };
       }
     }
 
-    if (refs.length < opts.limit) return { items };
+    if (refs.length < opts.limit) {
+      return lastConsumed
+        ? {
+            items,
+            nextBeforeBlockHeight: lastConsumed.blockHeight,
+            nextBeforeEventKey: lastConsumed.contentPath,
+          }
+        : { items };
+    }
+
+    cursor = {
+      beforeBlockHeight: lastConsumed?.blockHeight,
+      beforeContentPath: lastConsumed?.contentPath,
+    };
   }
 
-  return { items, nextOffset: cursor };
+  return lastConsumed
+    ? {
+        items,
+        nextBeforeBlockHeight: lastConsumed.blockHeight,
+        nextBeforeEventKey: lastConsumed.contentPath,
+      }
+    : { items };
 }

@@ -117,6 +117,25 @@ export function chronoContentPathKeysetAnd(): string {
 }
 
 /**
+ * GraphQL `_and` fragment for descending (heat, height, contentPath) keyset.
+ * Callers declare `$beforeHeat` / `$beforeBlockHeight` / `$beforePostKey`.
+ */
+export function hotContentPathKeysetAnd(): string {
+  return `{_or: [
+    {heat: {_lt: $beforeHeat}},
+    {_and: [
+      {heat: {_eq: $beforeHeat}},
+      {blockHeight: {_lt: $beforeBlockHeight}}
+    ]},
+    {_and: [
+      {heat: {_eq: $beforeHeat}},
+      {blockHeight: {_eq: $beforeBlockHeight}},
+      {contentPath: {_lt: $beforePostKey}}
+    ]}
+  ]}`;
+}
+
+/**
  * GraphQL `_and` fragment for guild `postsCurrent` (no contentPath column) —
  * (height, accountId, groupId, postId) matches group content-path order.
  */
@@ -335,9 +354,6 @@ export function requirePulseKeyset(opts: {
  * Descending chrono page cursor — height + content path (matches `feed_recent`
  * ROW). When `keysetExclusive` (default), omit `nextOffset` so load-more cannot
  * silently fall back to offset under live inserts.
- *
- * Topic stub indexes (`postHashtags` etc.) still page by height/offset only —
- * pass `keysetExclusive: false` until those tables grow a path leg.
  */
 export function chronoDescPage(
   items: PostRow[],
@@ -352,6 +368,8 @@ export function chronoDescPage(
     edgeHeight?: number;
     /** Override tip row when edgeHeight is supplied without the row. */
     edgeRow?: PostRow;
+    /** Prefer over `postContentPath(edgeRow)` when the stub already has path. */
+    edgeKey?: string;
   }
 ): {
   items: PostRow[];
@@ -371,7 +389,8 @@ export function chronoDescPage(
     typeof edgeHeight === 'number' && Number.isFinite(edgeHeight)
       ? edgeHeight
       : undefined;
-  const nextKey = edgeRow ? postContentPath(edgeRow) : undefined;
+  const nextKey =
+    opts.edgeKey ?? (edgeRow ? postContentPath(edgeRow) : undefined);
   const keyset =
     nextBefore !== undefined && nextKey
       ? {

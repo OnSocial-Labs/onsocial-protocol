@@ -1325,6 +1325,7 @@ describe('QueryModule', () => {
       blockHeight: 1,
       blockTimestamp: 0,
       groupId: null,
+      contentPath: 'a.near/post/p1',
     };
     const feedRow = {
       accountId: 'a.near',
@@ -1352,6 +1353,7 @@ describe('QueryModule', () => {
       expect(page.items).toHaveLength(1);
       const stubQuery = queries.find((q) => q.includes('postHashtags'));
       expect(stubQuery).toContain('heat: DESC');
+      expect(stubQuery).toContain('contentPath: DESC');
     });
 
     it('keeps chrono order by default', async () => {
@@ -1369,6 +1371,7 @@ describe('QueryModule', () => {
       const stubQuery = queries.find((q) => q.includes('postHashtags'));
       expect(stubQuery).not.toContain('heat: DESC');
       expect(stubQuery).toContain('blockHeight: DESC');
+      expect(stubQuery).toContain('contentPath: DESC');
     });
 
     it('falls back to chrono while the heat column is not tracked', async () => {
@@ -3961,7 +3964,7 @@ describe('QueryModule', () => {
       expect(hydrateBody.query).toContain('postsFeed');
     });
 
-    it('returns nextOffset when page is full', async () => {
+    it('returns composite keyset when page is full', async () => {
       const rows = Array.from({ length: 5 }, (_, i) => ({
         accountId: 'a.near',
         postId: `p${i}`,
@@ -3969,6 +3972,7 @@ describe('QueryModule', () => {
         blockHeight: 100 - i,
         blockTimestamp: 0,
         groupId: null,
+        contentPath: `a.near/post/p${i}`,
       }));
       const { os } = makeOsWithGraph((body) => {
         const query = String(body.query ?? '');
@@ -3986,9 +3990,9 @@ describe('QueryModule', () => {
       });
 
       const page = await os.query.feed.byHashtag('gm', { limit: 5 });
-      // Topic indexes still expose nextOffset (height/offset paging).
-      expect(page.nextOffset).toBe(5);
-      expect(page.nextBeforeBlockHeight).toBeDefined();
+      expect(page.nextOffset).toBeUndefined();
+      expect(page.nextBeforeBlockHeight).toBe(96);
+      expect(page.nextBeforeEventKey).toBe('a.near/post/p4');
       expect(page.items).toHaveLength(5);
     });
 
@@ -4029,6 +4033,38 @@ describe('QueryModule', () => {
       const page = await os.query.feed.byHashtag('gm', { limit: 20 });
       expect(page.nextOffset).toBeUndefined();
       expect(page.items[0]?.value).toContain('gm');
+    });
+  });
+
+  describe('saves.list keyset', () => {
+    it('orders by height+path and passes composite keyset variables', async () => {
+      const { os, fetch } = makeOsWithGraph(() => ({
+        data: {
+          savesCurrent: [
+            {
+              accountId: 'alice.near',
+              contentPath: 'bob.near/post/1',
+              value: '',
+              blockHeight: 10,
+              blockTimestamp: 0,
+              operation: 'set',
+            },
+          ],
+        },
+      }));
+
+      await os.query.saves.list('alice.near', {
+        limit: 5,
+        beforeBlockHeight: 20,
+        beforeContentPath: 'carol.near/post/2',
+      });
+
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('contentPath: DESC');
+      expect(body.query).toContain('$beforePostKey');
+      expect(body.variables.beforeBlockHeight).toBe(20);
+      expect(body.variables.beforePostKey).toBe('carol.near/post/2');
+      expect(body.variables.offset).toBe(0);
     });
   });
 

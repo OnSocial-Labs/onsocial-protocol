@@ -1489,8 +1489,8 @@ $$;
 -- filter on the posts_feed view itself sorts after the count laterals.
 -- Keyset: previous page's last (block_height, content_path). When
 -- `before_block_height` is set, `row_offset` is ignored so live inserts do
--- not skip rows. Pass `before_post_key` with the height — height-only skips
--- same-block siblings.
+-- not skip rows. Incomplete keysets (height without a trimmed path) do not
+-- match — same guard as feed_hot.
 CREATE OR REPLACE FUNCTION feed_recent(
   row_limit integer,
   row_offset integer,
@@ -1561,12 +1561,16 @@ AS $$
       )
       AND (
         feed_recent.before_block_height IS NULL
-        OR ROW(
-          p.block_height,
-          p.content_path
-        ) < ROW(
-          feed_recent.before_block_height,
-          COALESCE(feed_recent.before_post_key, '')
+        OR (
+          feed_recent.before_post_key IS NOT NULL
+          AND btrim(feed_recent.before_post_key) <> ''
+          AND ROW(
+            p.block_height,
+            p.content_path
+          ) < ROW(
+            feed_recent.before_block_height,
+            feed_recent.before_post_key
+          )
         )
       )
     ORDER BY p.block_height DESC, p.content_path DESC
@@ -2191,6 +2195,7 @@ SELECT
   p.block_height,
   p.block_timestamp,
   p.group_id,
+  post_content_path(p.account_id, p.post_id, p.group_id) AS content_path,
   COALESCE(h.heat, 0)::double precision AS heat
 FROM posts_current p
 CROSS JOIN LATERAL jsonb_array_elements_text(
@@ -2202,11 +2207,7 @@ CROSS JOIN LATERAL jsonb_array_elements_text(
   ) -> 'hashtags'
 ) AS ht(tag)
 LEFT JOIN post_amplify_heat h
-  ON h.post_path = CASE
-    WHEN p.group_id IS NOT NULL AND p.group_id <> ''
-      THEN p.account_id || '/groups/' || p.group_id || '/content/post/' || p.post_id
-    ELSE p.account_id || '/post/' || p.post_id
-  END
+  ON h.post_path = post_content_path(p.account_id, p.post_id, p.group_id)
 WHERE p.value IS NOT NULL
   AND p.value != ''
   AND p.value ~ '^[\[\{]'
@@ -2244,6 +2245,7 @@ SELECT
   p.block_height,
   p.block_timestamp,
   p.group_id,
+  post_content_path(p.account_id, p.post_id, p.group_id) AS content_path,
   COALESCE(h.heat, 0)::double precision AS heat
 FROM posts_current p
 CROSS JOIN LATERAL jsonb_array_elements_text(
@@ -2255,11 +2257,7 @@ CROSS JOIN LATERAL jsonb_array_elements_text(
   ) -> 'tickers'
 ) AS tk(sym)
 LEFT JOIN post_amplify_heat h
-  ON h.post_path = CASE
-    WHEN p.group_id IS NOT NULL AND p.group_id <> ''
-      THEN p.account_id || '/groups/' || p.group_id || '/content/post/' || p.post_id
-    ELSE p.account_id || '/post/' || p.post_id
-  END
+  ON h.post_path = post_content_path(p.account_id, p.post_id, p.group_id)
 WHERE p.value IS NOT NULL
   AND p.value != ''
   AND p.value ~ '^[\[\{]'
@@ -2297,6 +2295,7 @@ SELECT
   p.block_height,
   p.block_timestamp,
   p.group_id,
+  post_content_path(p.account_id, p.post_id, p.group_id) AS content_path,
   COALESCE(h.heat, 0)::double precision AS heat
 FROM posts_current p
 CROSS JOIN LATERAL jsonb_array_elements_text(
@@ -2308,11 +2307,7 @@ CROSS JOIN LATERAL jsonb_array_elements_text(
   ) -> 'places'
 ) AS pl(place)
 LEFT JOIN post_amplify_heat h
-  ON h.post_path = CASE
-    WHEN p.group_id IS NOT NULL AND p.group_id <> ''
-      THEN p.account_id || '/groups/' || p.group_id || '/content/post/' || p.post_id
-    ELSE p.account_id || '/post/' || p.post_id
-  END
+  ON h.post_path = post_content_path(p.account_id, p.post_id, p.group_id)
 WHERE p.value IS NOT NULL
   AND p.value != ''
   AND p.value ~ '^[\[\{]'

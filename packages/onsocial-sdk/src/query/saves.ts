@@ -4,6 +4,10 @@
 // ---------------------------------------------------------------------------
 
 import type { QueryModule } from './index.js';
+import {
+  chronoContentPathKeysetAnd,
+  requireChronoKeyset,
+} from './_shared.js';
 
 export interface SaveRow {
   accountId: string;
@@ -33,6 +37,10 @@ export class SavesQuery {
     opts: {
       limit?: number;
       offset?: number;
+      /** Chrono keyset height leg — requires `beforeContentPath` together. */
+      beforeBlockHeight?: number;
+      /** Chrono keyset path leg — requires `beforeBlockHeight` together. */
+      beforeContentPath?: string;
       /**
        * Server-side substring filter on `contentPath` (`_like: %needle%`).
        * Prefer this over paging the full save list when the caller only
@@ -42,17 +50,52 @@ export class SavesQuery {
     } = {}
   ): Promise<SaveRow[]> {
     const limit = opts.limit ?? 50;
-    const offset = opts.offset ?? 0;
     const needle = opts.contentPathContains?.trim();
-    const where = needle
-      ? `where: {accountId: {_eq: $id}, operation: {_eq: "set"}, contentPath: {_like: $pathLike}},`
+    const key = requireChronoKeyset({
+      beforeBlockHeight: opts.beforeBlockHeight,
+      beforePostKey: opts.beforeContentPath,
+    });
+    if (!key.ok) {
+      throw new Error(key.message);
+    }
+    const usedKeyset = key.before !== undefined;
+    const offset = usedKeyset ? 0 : (opts.offset ?? 0);
+    const baseWhere = needle
+      ? `where: {_and: [
+            {accountId: {_eq: $id}},
+            {operation: {_eq: "set"}},
+            {contentPath: {_like: $pathLike}}
+          ]},`
       : `where: {accountId: {_eq: $id}, operation: {_eq: "set"}},`;
+    const keysetWhere =
+      usedKeyset && key.beforePostKey
+        ? needle
+          ? `where: {_and: [
+            {accountId: {_eq: $id}},
+            {operation: {_eq: "set"}},
+            {contentPath: {_like: $pathLike}},
+            ${chronoContentPathKeysetAnd()}
+          ]},`
+          : `where: {_and: [
+            {accountId: {_eq: $id}},
+            {operation: {_eq: "set"}},
+            ${chronoContentPathKeysetAnd()}
+          ]},`
+        : baseWhere;
+    const where = usedKeyset ? keysetWhere : baseWhere;
+    const orderBy = '[{blockHeight: DESC}, {contentPath: DESC}]';
     const res = await this._q.graphql<{ savesCurrent: SaveRow[] }>({
-      query: `query Saves($id: String!, $limit: Int!, $offset: Int!${needle ? ', $pathLike: String!' : ''}) {
+      query: `query Saves(
+        $id: String!,
+        $limit: Int!,
+        $offset: Int!${needle ? ', $pathLike: String!' : ''}${
+          usedKeyset ? ', $beforeBlockHeight: bigint!, $beforePostKey: String!' : ''
+        }
+      ) {
         savesCurrent(
           ${where}
           limit: $limit, offset: $offset,
-          orderBy: [{blockHeight: DESC}]
+          orderBy: ${orderBy}
         ) {
           ${SAVE_ROW_SELECTION}
         }
@@ -62,6 +105,12 @@ export class SavesQuery {
         limit,
         offset,
         ...(needle ? { pathLike: `%${needle}%` } : {}),
+        ...(usedKeyset && key.before !== undefined && key.beforePostKey
+          ? {
+              beforeBlockHeight: key.before,
+              beforePostKey: key.beforePostKey,
+            }
+          : {}),
       },
     });
     return res.data?.savesCurrent ?? [];

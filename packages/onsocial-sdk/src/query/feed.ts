@@ -14,6 +14,7 @@ import {
   chronoContentPathKeysetAnd,
   chronoDescPage,
   feedOrderByClause,
+  hotContentPathKeysetAnd,
   normalizeBeforeBlockHeight,
   postContentPath,
   requireChronoKeyset,
@@ -285,8 +286,72 @@ function isTopicHeatUnavailableError(err: unknown): boolean {
   return hay.includes('heat');
 }
 
-const TOPIC_ORDER_HOT = '[{heat: DESC}, {blockHeight: DESC}]';
-const TOPIC_ORDER_RECENT = '[{blockHeight: DESC}]';
+/** Topic index `contentPath` column not tracked yet (deploy lag). */
+function isTopicContentPathUnavailableError(err: unknown): boolean {
+  if (!(err instanceof GraphQLValidationError)) return false;
+  const hay =
+    `${err.message} ${err.errors.map((e) => e.message ?? '').join(' ')}`.toLowerCase();
+  return (
+    hay.includes('contentpath') ||
+    hay.includes('content_path') ||
+    hay.includes('field "contentpath"') ||
+    hay.includes("field 'contentpath'")
+  );
+}
+
+const TOPIC_ORDER_HOT =
+  '[{heat: DESC}, {blockHeight: DESC}, {contentPath: DESC}]';
+const TOPIC_ORDER_RECENT = '[{blockHeight: DESC}, {contentPath: DESC}]';
+const TOPIC_ORDER_HOT_NO_PATH = '[{heat: DESC}, {blockHeight: DESC}]';
+const TOPIC_ORDER_RECENT_NO_PATH = '[{blockHeight: DESC}]';
+
+type TopicStubRow = {
+  accountId: string;
+  postId: string;
+  blockHeight: number;
+  blockTimestamp: number;
+  groupId: string | null;
+  contentPath?: string;
+  heat?: number;
+};
+
+function topicStubPage(
+  items: PostRow[],
+  stubs: TopicStubRow[],
+  limit: number,
+  opts: {
+    offset: number;
+    sort: FeedSort;
+    usedKeyset: boolean;
+    pathKeyset: boolean;
+  }
+): Paginated<PostRow> {
+  if (stubs.length < limit) return { items };
+  const edge = stubs[stubs.length - 1];
+  if (!edge) return { items };
+  if (opts.pathKeyset) {
+    if (opts.sort === 'hot') {
+      return {
+        items,
+        nextBeforeBlockHeight: edge.blockHeight,
+        nextBeforeHeat: edge.heat ?? 0,
+        nextBeforeEventKey: edge.contentPath,
+      };
+    }
+    return chronoDescPage(items, limit, {
+      offset: opts.offset,
+      usedKeyset: opts.usedKeyset,
+      edgeCount: stubs.length,
+      edgeHeight: edge.blockHeight,
+      edgeKey: edge.contentPath,
+    });
+  }
+  return {
+    items,
+    nextOffset: opts.offset + limit,
+    nextBeforeBlockHeight: edge.blockHeight,
+  };
+}
 
 function accountsFeedWhere(nativeOnly: boolean): string {
   if (!nativeOnly) return 'where: {accountId: {_in: $accounts}}';
@@ -316,6 +381,8 @@ export class FeedQuery {
 
   /** Set when topic index views reject `heat` ordering (column not tracked yet). */
   private topicHeatFallback = new SchemaFallback();
+  /** Set when topic index views reject `contentPath` (column not tracked yet). */
+  private topicContentPathFallback = new SchemaFallback();
 
   constructor(private _q: QueryModule) {}
 
@@ -324,29 +391,153 @@ export class FeedQuery {
    * chronological order while the `heat` column is not tracked yet.
    */
   private async queryTopicStubs<T>(args: {
-    buildQuery: (orderBy: string) => string;
+    buildQuery: (orderBy: string, includePath: boolean) => string;
     variables: Record<string, unknown>;
     sort: FeedSort;
     pick: (data: Record<string, unknown> | undefined) => T[] | undefined;
   }): Promise<T[]> {
+    const wantPath = !this.topicContentPathFallback.active;
     const wantHot = args.sort === 'hot' && !this.topicHeatFallback.active;
-    const orderBy = wantHot ? TOPIC_ORDER_HOT : TOPIC_ORDER_RECENT;
+    const orderBy = wantHot
+      ? wantPath
+        ? TOPIC_ORDER_HOT
+        : TOPIC_ORDER_HOT_NO_PATH
+      : wantPath
+        ? TOPIC_ORDER_RECENT
+        : TOPIC_ORDER_RECENT_NO_PATH;
     try {
       const res = await this._q.graphql<Record<string, unknown>>({
-        query: args.buildQuery(orderBy),
+        query: args.buildQuery(orderBy, wantPath),
         variables: args.variables,
       });
       if (wantHot) this.topicHeatFallback.clear();
+      if (wantPath) this.topicContentPathFallback.clear();
       return args.pick(res.data) ?? [];
     } catch (err) {
+      if (
+        wantPath &&
+        isTopicContentPathUnavailableError(err)
+      ) {
+        this.topicContentPathFallback.trip();
+        return this.queryTopicStubs(args);
+      }
       if (!wantHot || !isTopicHeatUnavailableError(err)) throw err;
       this.topicHeatFallback.trip();
-      const res = await this._q.graphql<Record<string, unknown>>({
-        query: args.buildQuery(TOPIC_ORDER_RECENT),
-        variables: args.variables,
-      });
-      return args.pick(res.data) ?? [];
+      return this.queryTopicStubs(args);
     }
+  }
+
+  private async fetchTopicPage(args: {
+    collection: 'postHashtags' | 'postTickers' | 'postPlaces';
+    filterField: 'hashtag' | 'ticker' | 'place';
+    queryVar: string;
+    filterValue: string;
+    tagField: string;
+    hydrateName: string;
+    opts: {
+      limit?: number;
+      offset?: number;
+      sort?: FeedSort;
+      beforeBlockHeight?: number;
+      beforePostKey?: string;
+      beforeHeat?: number;
+    };
+  }): Promise<Paginated<PostRow>> {
+    const limit = args.opts.limit ?? 20;
+    const sort = args.opts.sort ?? 'recent';
+    const hot = sort === 'hot';
+    const pathKeyset = !this.topicContentPathFallback.active;
+    const chronoKey = !hot
+      ? requireChronoKeyset({
+          beforeBlockHeight: args.opts.beforeBlockHeight,
+          beforePostKey: args.opts.beforePostKey,
+        })
+      : null;
+    if (chronoKey && !chronoKey.ok) {
+      throw new Error(chronoKey.message);
+    }
+    const hotKey = hot
+      ? requireHotKeyset({
+          beforeBlockHeight: args.opts.beforeBlockHeight,
+          beforeHeat: args.opts.beforeHeat,
+          beforePostKey: args.opts.beforePostKey,
+        })
+      : null;
+    if (hotKey && !hotKey.ok) {
+      throw new Error(hotKey.message);
+    }
+    const usedKeyset = hot
+      ? hotKey?.before !== undefined
+      : chronoKey?.before !== undefined;
+    const offset = usedKeyset ? 0 : (args.opts.offset ?? 0);
+    const before = hot ? hotKey?.before : chronoKey?.before;
+    const beforeHeat = hot ? hotKey?.beforeHeat : undefined;
+    const beforePostKey = hot ? hotKey?.beforePostKey : chronoKey?.beforePostKey;
+
+    const keysetParams =
+      hot && usedKeyset && pathKeyset
+        ? ', $beforeHeat: float8!, $beforeBlockHeight: bigint!, $beforePostKey: String!'
+        : usedKeyset && pathKeyset
+          ? ', $beforeBlockHeight: bigint!, $beforePostKey: String!'
+          : usedKeyset
+            ? ', $beforeBlockHeight: bigint!'
+            : '';
+    const keysetFilter =
+      hot && usedKeyset && pathKeyset
+        ? `, _and: [${hotContentPathKeysetAnd()}]`
+        : usedKeyset && pathKeyset
+          ? `, _and: [${chronoContentPathKeysetAnd()}]`
+          : usedKeyset
+            ? ', blockHeight: {_lt: $beforeBlockHeight}'
+            : '';
+    const stubs = await this.queryTopicStubs<TopicStubRow & { hashtag?: string; ticker?: string; place?: string }>({
+      buildQuery: (orderBy, includePath) =>
+        `query ${args.hydrateName}Stubs($${args.queryVar}: String!, $limit: Int!, $offset: Int!${keysetParams}) {
+        ${args.collection}(
+          where: {${args.filterField}: {_eq: $${args.queryVar}}${keysetFilter}},
+          orderBy: ${orderBy},
+          limit: $limit,
+          offset: $offset
+        ) {
+          accountId postId ${args.tagField} blockHeight blockTimestamp groupId${
+            includePath ? ' contentPath' : ''
+          }${hot ? ' heat' : ''}
+        }
+      }`,
+      variables: {
+        [args.queryVar]: args.filterValue,
+        limit,
+        offset,
+        ...(usedKeyset && before !== undefined
+          ? {
+              beforeBlockHeight: before,
+              ...(pathKeyset && beforePostKey
+                ? { beforePostKey }
+                : {}),
+              ...(hot && beforeHeat !== undefined
+                ? { beforeHeat }
+                : {}),
+            }
+          : {}),
+      },
+      sort,
+      pick: (data) =>
+        (data as Record<string, TopicStubRow[] | undefined> | undefined)?.[
+          args.collection
+        ],
+    });
+
+    if (stubs.length === 0) {
+      return { items: [] };
+    }
+
+    const items = await this.hydrateStubRows(args.hydrateName, stubs, limit);
+    return topicStubPage(items, stubs, limit, {
+      offset,
+      sort,
+      usedKeyset,
+      pathKeyset,
+    });
   }
 
   private async enrichFeedPosts(rows: PostRow[]): Promise<PostRow[]> {
@@ -666,7 +857,7 @@ export class FeedQuery {
    * (`'longform'` for titled articles, `'poll'`, media kinds, …).
    *
    * ```ts
-   * const { items, nextOffset } = await os.query.feed.recent({ limit: 20, sort: 'hot' });
+   * const page = await os.query.feed.recent({ limit: 20, sort: 'hot' });
    * const replies = await os.query.feed.recent({ author: 'alice.near', section: 'replies' });
    * const articles = await os.query.feed.recent({ author: 'alice.near', kind: 'longform' });
    * ```
@@ -1371,74 +1562,19 @@ export class FeedQuery {
       offset?: number;
       sort?: FeedSort;
       beforeBlockHeight?: number;
+      beforePostKey?: string;
+      beforeHeat?: number;
     } = {}
   ): Promise<Paginated<PostRow>> {
-    const limit = opts.limit ?? 20;
-    const sort = opts.sort ?? 'recent';
-    const hot = sort === 'hot';
-    const before = hot
-      ? undefined
-      : normalizeBeforeBlockHeight(opts.beforeBlockHeight);
-    const usedKeyset = before !== undefined;
-    const offset = usedKeyset ? 0 : (opts.offset ?? 0);
-    type HashtagStub = {
-      accountId: string;
-      postId: string;
-      hashtag: string;
-      blockHeight: number;
-      blockTimestamp: number;
-      groupId: string | null;
-    };
-    const beforeParam =
-      before !== undefined ? ', $beforeBlockHeight: bigint!' : '';
-    const heightFilter =
-      before !== undefined ? ', blockHeight: {_lt: $beforeBlockHeight}' : '';
-    const stubs = await this.queryTopicStubs<HashtagStub>({
-      buildQuery: (
-        orderBy
-      ) => `query PostsByHashtag($tag: String!, $limit: Int!, $offset: Int!${beforeParam}) {
-        postHashtags(
-          where: {hashtag: {_eq: $tag}${heightFilter}},
-          orderBy: ${orderBy},
-          limit: $limit,
-          offset: $offset
-        ) {
-          accountId postId hashtag blockHeight blockTimestamp groupId
-        }
-      }`,
-      variables: {
-        tag: hashtag.toLowerCase().replace(/^#/, ''),
-        limit,
-        offset,
-        ...(before !== undefined ? { beforeBlockHeight: before } : {}),
-      },
-      sort,
-      pick: (data) =>
-        (data as { postHashtags?: HashtagStub[] } | undefined)?.postHashtags,
+    return this.fetchTopicPage({
+      collection: 'postHashtags',
+      filterField: 'hashtag',
+      queryVar: 'tag',
+      filterValue: hashtag.toLowerCase().replace(/^#/, ''),
+      tagField: 'hashtag',
+      hydrateName: 'PostsByHashtag',
+      opts,
     });
-
-    if (stubs.length === 0) {
-      return { items: [] };
-    }
-
-    const items = await this.hydrateStubRows(
-      'PostsByHashtagHydrate',
-      stubs,
-      limit
-    );
-    return hot
-      ? {
-          items,
-          nextOffset: stubs.length >= limit ? offset + limit : undefined,
-        }
-      : chronoDescPage(items, limit, {
-          offset,
-          usedKeyset,
-          // Topic index is height/offset only until a path leg exists.
-          keysetExclusive: false,
-          edgeCount: stubs.length,
-          edgeHeight: stubs[stubs.length - 1]?.blockHeight,
-        });
   }
 
   /**
@@ -1457,73 +1593,19 @@ export class FeedQuery {
       offset?: number;
       sort?: FeedSort;
       beforeBlockHeight?: number;
+      beforePostKey?: string;
+      beforeHeat?: number;
     } = {}
   ): Promise<Paginated<PostRow>> {
-    const limit = opts.limit ?? 20;
-    const sort = opts.sort ?? 'recent';
-    const hot = sort === 'hot';
-    const before = hot
-      ? undefined
-      : normalizeBeforeBlockHeight(opts.beforeBlockHeight);
-    const usedKeyset = before !== undefined;
-    const offset = usedKeyset ? 0 : (opts.offset ?? 0);
-    type TickerStub = {
-      accountId: string;
-      postId: string;
-      ticker: string;
-      blockHeight: number;
-      blockTimestamp: number;
-      groupId: string | null;
-    };
-    const beforeParam =
-      before !== undefined ? ', $beforeBlockHeight: bigint!' : '';
-    const heightFilter =
-      before !== undefined ? ', blockHeight: {_lt: $beforeBlockHeight}' : '';
-    const stubs = await this.queryTopicStubs<TickerStub>({
-      buildQuery: (
-        orderBy
-      ) => `query PostsByTicker($ticker: String!, $limit: Int!, $offset: Int!${beforeParam}) {
-        postTickers(
-          where: {ticker: {_eq: $ticker}${heightFilter}},
-          orderBy: ${orderBy},
-          limit: $limit,
-          offset: $offset
-        ) {
-          accountId postId ticker blockHeight blockTimestamp groupId
-        }
-      }`,
-      variables: {
-        ticker: ticker.toLowerCase().replace(/^\$/, ''),
-        limit,
-        offset,
-        ...(before !== undefined ? { beforeBlockHeight: before } : {}),
-      },
-      sort,
-      pick: (data) =>
-        (data as { postTickers?: TickerStub[] } | undefined)?.postTickers,
+    return this.fetchTopicPage({
+      collection: 'postTickers',
+      filterField: 'ticker',
+      queryVar: 'ticker',
+      filterValue: ticker.toLowerCase().replace(/^\$/, ''),
+      tagField: 'ticker',
+      hydrateName: 'PostsByTicker',
+      opts,
     });
-
-    if (stubs.length === 0) {
-      return { items: [] };
-    }
-
-    const items = await this.hydrateStubRows(
-      'PostsByTickerHydrate',
-      stubs,
-      limit
-    );
-    return hot
-      ? {
-          items,
-          nextOffset: stubs.length >= limit ? offset + limit : undefined,
-        }
-      : chronoDescPage(items, limit, {
-          offset,
-          usedKeyset,
-          keysetExclusive: false,
-          edgeCount: stubs.length,
-          edgeHeight: stubs[stubs.length - 1]?.blockHeight,
-        });
   }
 
   /**
@@ -1542,72 +1624,18 @@ export class FeedQuery {
       offset?: number;
       sort?: FeedSort;
       beforeBlockHeight?: number;
+      beforePostKey?: string;
+      beforeHeat?: number;
     } = {}
   ): Promise<Paginated<PostRow>> {
-    const limit = opts.limit ?? 20;
-    const sort = opts.sort ?? 'recent';
-    const hot = sort === 'hot';
-    const before = hot
-      ? undefined
-      : normalizeBeforeBlockHeight(opts.beforeBlockHeight);
-    const usedKeyset = before !== undefined;
-    const offset = usedKeyset ? 0 : (opts.offset ?? 0);
-    type PlaceStub = {
-      accountId: string;
-      postId: string;
-      place: string;
-      blockHeight: number;
-      blockTimestamp: number;
-      groupId: string | null;
-    };
-    const beforeParam =
-      before !== undefined ? ', $beforeBlockHeight: bigint!' : '';
-    const heightFilter =
-      before !== undefined ? ', blockHeight: {_lt: $beforeBlockHeight}' : '';
-    const stubs = await this.queryTopicStubs<PlaceStub>({
-      buildQuery: (
-        orderBy
-      ) => `query PostsByPlace($place: String!, $limit: Int!, $offset: Int!${beforeParam}) {
-        postPlaces(
-          where: {place: {_eq: $place}${heightFilter}},
-          orderBy: ${orderBy},
-          limit: $limit,
-          offset: $offset
-        ) {
-          accountId postId place blockHeight blockTimestamp groupId
-        }
-      }`,
-      variables: {
-        place: place.toLowerCase().replace(/^#+/, ''),
-        limit,
-        offset,
-        ...(before !== undefined ? { beforeBlockHeight: before } : {}),
-      },
-      sort,
-      pick: (data) =>
-        (data as { postPlaces?: PlaceStub[] } | undefined)?.postPlaces,
+    return this.fetchTopicPage({
+      collection: 'postPlaces',
+      filterField: 'place',
+      queryVar: 'place',
+      filterValue: place.toLowerCase().replace(/^#+/, ''),
+      tagField: 'place',
+      hydrateName: 'PostsByPlace',
+      opts,
     });
-
-    if (stubs.length === 0) {
-      return { items: [] };
-    }
-
-    const items = await this.hydrateStubRows(
-      'PostsByPlaceHydrate',
-      stubs,
-      limit
-    );
-    return hot
-      ? {
-          items,
-          nextOffset: stubs.length >= limit ? offset + limit : undefined,
-        }
-      : chronoDescPage(items, limit, {
-          offset,
-          usedKeyset,
-          keysetExclusive: false,
-          edgeCount: stubs.length,
-          edgeHeight: stubs[stubs.length - 1]?.blockHeight,
-        });
   }
 }

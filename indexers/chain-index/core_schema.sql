@@ -340,3 +340,5 @@ CREATE TABLE IF NOT EXISTS saves_current (
 );
 CREATE INDEX IF NOT EXISTS idx_saves_current_block ON saves_current(block_height DESC);
 CREATE INDEX IF NOT EXISTS idx_saves_current_path ON saves_current(content_path);
+CREATE INDEX IF NOT EXISTS idx_saves_current_account_feed_keyset
+  ON saves_current (account_id, block_height DESC, content_path DESC);
