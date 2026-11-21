@@ -67,6 +67,7 @@ type ProfileTextTab = Exclude<ProfileFeedTab, 'media'>;
 type SectionPager = {
   nextOffset: number;
   nextBeforeBlockHeight?: number;
+  nextBeforeEventKey?: string;
   hasMore: boolean;
   started: boolean;
 };
@@ -74,6 +75,7 @@ type SectionPager = {
 type FeedPageCursor = {
   offset?: number;
   beforeBlockHeight?: number;
+  beforePostKey?: string;
 };
 
 export type ProfileSectionInFlight = Record<ProfileTextTab, boolean>;
@@ -173,6 +175,7 @@ export function ProfileFeedClient({
   const [mediaPage, setMediaPage] = useState({
     nextOffset: 0,
     nextBeforeBlockHeight: undefined as number | undefined,
+    nextBeforeEventKey: undefined as string | undefined,
     hasMore: false,
     started: false,
   });
@@ -259,6 +262,7 @@ export function ProfileFeedClient({
             return {
               nextOffset: page.nextOffset ?? advance.offset,
               nextBeforeBlockHeight: page.nextBeforeBlockHeight,
+              nextBeforeEventKey: page.nextBeforeEventKey,
               hasMore: feedPageHasMore(page) || advance.hasMore,
               started: true,
             };
@@ -311,6 +315,7 @@ export function ProfileFeedClient({
             [section]: {
               nextOffset: page.nextOffset ?? cursor.offset ?? 0,
               nextBeforeBlockHeight: page.nextBeforeBlockHeight,
+              nextBeforeEventKey: page.nextBeforeEventKey,
               hasMore: feedPageHasMore(page),
               started: true,
             },
@@ -355,6 +360,7 @@ export function ProfileFeedClient({
       setMediaPage({
         nextOffset: 0,
         nextBeforeBlockHeight: undefined,
+        nextBeforeEventKey: undefined,
         hasMore: false,
         started: false,
       });
@@ -480,14 +486,19 @@ export function ProfileFeedClient({
     if (tab !== 'media' || !mediaPage.hasMore || mediaPagingRef.current) return;
     setMediaFailed(false);
     fetchMediaPage(
-      mediaPage.nextBeforeBlockHeight !== undefined
-        ? { beforeBlockHeight: mediaPage.nextBeforeBlockHeight }
+      mediaPage.nextBeforeBlockHeight !== undefined &&
+        mediaPage.nextBeforeEventKey
+        ? {
+            beforeBlockHeight: mediaPage.nextBeforeBlockHeight,
+            beforePostKey: mediaPage.nextBeforeEventKey,
+          }
         : { offset: mediaPage.nextOffset }
     );
   }, [
     tab,
     mediaPage.hasMore,
     mediaPage.nextBeforeBlockHeight,
+    mediaPage.nextBeforeEventKey,
     mediaPage.nextOffset,
     fetchMediaPage,
   ]);
@@ -513,8 +524,12 @@ export function ProfileFeedClient({
     }));
     fetchSectionPage(
       activeSection,
-      activeSectionPage.nextBeforeBlockHeight !== undefined
-        ? { beforeBlockHeight: activeSectionPage.nextBeforeBlockHeight }
+      activeSectionPage.nextBeforeBlockHeight !== undefined &&
+        activeSectionPage.nextBeforeEventKey
+        ? {
+            beforeBlockHeight: activeSectionPage.nextBeforeBlockHeight,
+            beforePostKey: activeSectionPage.nextBeforeEventKey,
+          }
         : { offset: activeSectionPage.nextOffset }
     );
   }, [activeSection, activeSectionPage, fetchSectionPage]);
@@ -523,14 +538,19 @@ export function ProfileFeedClient({
   useEffect(() => {
     if (!mediaLooking || mediaPaging) return;
     fetchMediaPage(
-      mediaPage.nextBeforeBlockHeight !== undefined
-        ? { beforeBlockHeight: mediaPage.nextBeforeBlockHeight }
+      mediaPage.nextBeforeBlockHeight !== undefined &&
+        mediaPage.nextBeforeEventKey
+        ? {
+            beforeBlockHeight: mediaPage.nextBeforeBlockHeight,
+            beforePostKey: mediaPage.nextBeforeEventKey,
+          }
         : { offset: mediaPage.nextOffset }
     );
   }, [
     mediaLooking,
     mediaPaging,
     mediaPage.nextBeforeBlockHeight,
+    mediaPage.nextBeforeEventKey,
     mediaPage.nextOffset,
     fetchMediaPage,
   ]);
@@ -570,6 +590,7 @@ export function ProfileFeedClient({
         nextOffset: sectionPages[activeSection].nextOffset,
         nextBeforeBlockHeight:
           sectionPages[activeSection].nextBeforeBlockHeight,
+        nextBeforeEventKey: sectionPages[activeSection].nextBeforeEventKey,
         offsetShiftApplied: 0,
       });
       setSectionPages((current) => ({
@@ -578,6 +599,7 @@ export function ProfileFeedClient({
           ...current[activeSection],
           nextOffset: clamped.nextOffset ?? current[activeSection].nextOffset,
           nextBeforeBlockHeight: clamped.nextBeforeBlockHeight,
+          nextBeforeEventKey: clamped.nextBeforeEventKey,
           hasMore: feedPageHasMore(clamped),
         },
       }));

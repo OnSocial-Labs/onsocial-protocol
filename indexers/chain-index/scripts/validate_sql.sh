@@ -426,6 +426,9 @@ fresh"
         exit 1
       fi
 
+      # Same-block siblings survive feed_recent composite keyset (height+path).
+      apply_sql "$db" /work/tests/fixtures/feed_recent_composite_keyset.sql
+
       # Counts stay on the returned page. Aggregate loops above the page
       # size mean the laterals ran for the whole ranking set.
       hot_plan="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc \
@@ -628,6 +631,7 @@ DROP FUNCTION IF EXISTS feed_hot(integer, integer, text, text, text, text[], boo
 DROP FUNCTION IF EXISTS feed_hot(integer, integer, text, text, text, text[], boolean, double precision, bigint, text);
 DROP FUNCTION IF EXISTS feed_recent(integer, integer, text, text, text, text[], boolean, text, text);
 DROP FUNCTION IF EXISTS feed_recent(integer, integer, text, text, text, text[], boolean, text, text, bigint);
+DROP FUNCTION IF EXISTS feed_recent(integer, integer, text, text, text, text[], boolean, text, text, bigint, text);
 DROP VIEW IF EXISTS posts_feed;
 DROP VIEW IF EXISTS posts_feed_rank;
 DROP VIEW IF EXISTS groups_by_member_count;

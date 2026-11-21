@@ -84,7 +84,10 @@ test.describe('Home loading contract', () => {
         return;
       }
 
-      const isRecent = query.includes('orderBy: [{blockHeight: DESC}]');
+      // Chrono order is height then contentPath; Hot still carries amplifyHeat.
+      const isRecent =
+        query.includes('blockHeight: DESC') &&
+        !query.includes('amplifyHeat: DESC');
       if (!isRecent) {
         await hotBlocked;
       }

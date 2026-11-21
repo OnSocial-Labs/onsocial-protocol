@@ -1070,7 +1070,7 @@ describe('QueryModule', () => {
       expect(body.query).toContain('blockHeight: DESC');
     });
 
-    it('pages descending Recent by beforeBlockHeight keyset', async () => {
+    it('pages descending Recent by composite chrono keyset', async () => {
       const rows = Array.from({ length: 5 }, (_, i) => ({
         accountId: 'a.near',
         postId: `p${i}`,
@@ -1082,13 +1082,23 @@ describe('QueryModule', () => {
       const page = await os.query.feed.recent({
         limit: 5,
         beforeBlockHeight: 101,
+        beforePostKey: 'a.near/post/edge',
       });
       const body = JSON.parse(String(fetch.mock.calls[0][1].body));
-      expect(body.query).toContain('blockHeight: {_lt: $beforeBlockHeight}');
+      expect(body.query).toContain('contentPath: {_lt: $beforePostKey}');
       expect(body.variables.beforeBlockHeight).toBe(101);
+      expect(body.variables.beforePostKey).toBe('a.near/post/edge');
       expect(body.variables.offset).toBe(0);
       expect(page.nextBeforeBlockHeight).toBe(96);
+      expect(page.nextBeforeEventKey).toBe('a.near/post/p4');
       expect(page.nextOffset).toBeUndefined();
+    });
+
+    it('rejects incomplete chrono keysets', async () => {
+      const { os } = makeOs({ data: { postsFeed: [] } });
+      await expect(
+        os.query.feed.recent({ limit: 5, beforeBlockHeight: 101 })
+      ).rejects.toThrow(/beforeBlockHeight and beforePostKey/);
     });
 
     it('exposes nextBeforeBlockHeight on offset Recent pages', async () => {
@@ -1103,6 +1113,7 @@ describe('QueryModule', () => {
       const page = await os.query.feed.recent({ limit: 20 });
       expect(page.nextOffset).toBe(20);
       expect(page.nextBeforeBlockHeight).toBe(81);
+      expect(page.nextBeforeEventKey).toBe('a.near/post/p19');
     });
 
     it('filters by kind server-side when set', async () => {
@@ -1966,7 +1977,7 @@ describe('QueryModule', () => {
       expect(body.variables.groupId).toBe('dao');
     });
 
-    it('feed prefers beforeBlockHeight keyset over offset', async () => {
+    it('feed prefers composite chrono keyset over offset', async () => {
       const { os, fetch } = makeOs({
         data: {
           postsCurrent: Array.from({ length: 5 }, (_, i) => ({
@@ -1985,14 +1996,21 @@ describe('QueryModule', () => {
         groupId: 'dao',
         limit: 5,
         beforeBlockHeight: 200,
+        beforePostKey: 'bob.near/groups/dao/content/post/edge',
         offset: 40,
       });
       expect(page.nextBeforeBlockHeight).toBe(96);
+      expect(page.nextBeforeEventKey).toBe(
+        'alice.near/groups/dao/content/post/4'
+      );
       expect(page.nextOffset).toBeUndefined();
 
       const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.query).toContain('blockHeight: {_lt: $beforeBlockHeight}');
+      expect(body.query).toContain('accountId: {_lt: $beforeAccountId}');
       expect(body.variables.beforeBlockHeight).toBe(200);
+      expect(body.variables.beforeAccountId).toBe('bob.near');
+      expect(body.variables.beforeGroupId).toBe('dao');
+      expect(body.variables.beforePostId).toBe('edge');
       expect(body.variables.offset).toBe(0);
     });
 

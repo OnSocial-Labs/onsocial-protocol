@@ -11,9 +11,13 @@ import {
   GraphQLValidationError,
   POST_ROW_FIELDS,
   audienceLikeValue,
+  chronoContentPathKeysetAnd,
   chronoDescPage,
   feedOrderByClause,
   normalizeBeforeBlockHeight,
+  normalizeBeforeHeat,
+  postContentPath,
+  requireChronoKeyset,
   stripFeedPaintFields,
   type FeedSection,
   type FeedSort,
@@ -22,7 +26,6 @@ import {
   paginatePulseFunctionRows,
   pulseAccountsTextArray,
 } from './feed-pulse.js';
-import { postContentPath } from './threads.js';
 
 export type { FeedSection, FeedSort };
 
@@ -161,11 +164,6 @@ function feedHotQuery(
       }`;
 }
 
-function normalizeBeforeHeat(value: number | undefined): number | undefined {
-  if (value == null || !Number.isFinite(value)) return undefined;
-  return value;
-}
-
 /**
  * Hot page cursor — heat + height + content path (matches `feed_hot` ROW).
  * Reuses Paginated heat/key fields shared with Pulse card cursors.
@@ -216,7 +214,8 @@ function feedRecentQuery(
     nativeOnly?: boolean;
     channel?: boolean;
     audience?: boolean;
-    beforeBlockHeight?: boolean;
+    /** Chrono keyset — height + content path (`feed_recent`). */
+    beforeKeyset?: boolean;
   }
 ): string {
   const params = ['$limit: Int!', '$offset: Int!'];
@@ -249,9 +248,12 @@ function feedRecentQuery(
     params.push('$audience_like: String');
     args.push('audience_like: $audience_like');
   }
-  if (opts.beforeBlockHeight) {
-    params.push('$before_block_height: bigint');
-    args.push('before_block_height: $before_block_height');
+  if (opts.beforeKeyset) {
+    params.push('$before_block_height: bigint', '$before_post_key: String');
+    args.push(
+      'before_block_height: $before_block_height',
+      'before_post_key: $before_post_key'
+    );
   }
   // Operation name stays `Posts`. Thread discover-peek stubs match `query Posts(`.
   return `query Posts(${params.join(', ')}) {
@@ -261,12 +263,15 @@ function feedRecentQuery(
       }`;
 }
 
-function isFeedRecentBeforeHeightUnavailableError(err: unknown): boolean {
+function isFeedRecentBeforeKeyUnavailableError(err: unknown): boolean {
   if (!(err instanceof GraphQLValidationError)) return false;
   const hay =
     `${err.message} ${err.errors.map((e) => e.message ?? '').join(' ')}`.toLowerCase();
   return (
-    hay.includes('before_block_height') || hay.includes('beforeblockheight')
+    hay.includes('before_block_height') ||
+    hay.includes('beforeblockheight') ||
+    hay.includes('before_post_key') ||
+    hay.includes('beforepostkey')
   );
 }
 
@@ -488,8 +493,8 @@ export class FeedQuery {
         }
         if (isAmplifyHeatUnavailableError(err)) {
           this.amplifyHeatFallback.trip();
-        } else if (isFeedRecentBeforeHeightUnavailableError(err)) {
-          // Keyset arg not tracked yet — fall through to postsFeed with _lt.
+        } else if (isFeedRecentBeforeKeyUnavailableError(err)) {
+          // Composite keyset args not tracked yet — fall through to postsFeed.
         } else if (!isFeedRecentUnavailableError(err)) {
           throw err;
         } else {
@@ -666,35 +671,57 @@ export class FeedQuery {
       kind?: string;
       /**
        * Exclusive upper bound for descending Recent pages, or the height
-       * leg of a Hot keyset (with `beforeHeat` / `beforePostKey`). Prefer
-       * over `offset` under live inserts.
+       * leg of a Hot/chrono keyset (with `beforePostKey`). Prefer over
+       * `offset` under live inserts.
        */
       beforeBlockHeight?: number;
       /** Hot keyset heat leg (`feed_hot.before_amplify_heat`). */
       beforeHeat?: number;
-      /** Hot keyset tie-break (`feed_hot.before_post_key` / content path). */
+      /**
+       * Content-path tie-break — Hot (`feed_hot`) and chrono (`feed_recent`).
+       * Chrono keysets require this with `beforeBlockHeight`.
+       */
       beforePostKey?: string;
     } = {}
   ): Promise<Paginated<PostRow>> {
     const limit = opts.limit ?? 20;
     const sort = opts.sort ?? 'recent';
     const hot = sort === 'hot';
-    const before = normalizeBeforeBlockHeight(opts.beforeBlockHeight);
+    const chronoKey = !hot
+      ? requireChronoKeyset({
+          beforeBlockHeight: opts.beforeBlockHeight,
+          beforePostKey: opts.beforePostKey,
+        })
+      : null;
+    if (chronoKey && !chronoKey.ok) {
+      throw new Error(chronoKey.message);
+    }
+    const before = hot
+      ? normalizeBeforeBlockHeight(opts.beforeBlockHeight)
+      : chronoKey?.before;
     const beforeHeat = hot ? normalizeBeforeHeat(opts.beforeHeat) : undefined;
-    const beforePostKey =
-      hot && opts.beforePostKey?.trim() ? opts.beforePostKey.trim() : undefined;
+    const beforePostKey = hot
+      ? opts.beforePostKey?.trim() || undefined
+      : chronoKey?.beforePostKey;
     const wantKeyset = before !== undefined;
     let usedKeyset = wantKeyset;
     let offset = usedKeyset ? 0 : (opts.offset ?? 0);
     const orderBy = feedOrderByClause(sort);
     const hasAuthor = !!opts.author;
     const kind = opts.kind?.trim() || '';
+    const chronoKeysetVars =
+      !hot && before !== undefined && beforePostKey
+        ? {
+            beforeBlockHeight: before,
+            beforePostKey,
+          }
+        : {};
     const variables = {
       ...(hasAuthor ? { author: opts.author } : {}),
       ...(kind ? { kind } : {}),
       limit,
       offset,
-      ...(before !== undefined && !hot ? { beforeBlockHeight: before } : {}),
+      ...chronoKeysetVars,
     };
 
     const conditions: string[] = [];
@@ -707,15 +734,17 @@ export class FeedQuery {
     } else if (opts.section === 'reposts') {
       conditions.push('refType: {_eq: "repost"}');
     }
-    if (before !== undefined && !hot) {
-      conditions.push('blockHeight: {_lt: $beforeBlockHeight}');
+    if (before !== undefined && beforePostKey && !hot) {
+      conditions.push(chronoContentPathKeysetAnd());
     }
     const whereClause =
       conditions.length > 0 ? `where: {${conditions.join(', ')}}, ` : '';
     const params = [
       ...(hasAuthor ? ['$author: String!'] : []),
       ...(kind ? ['$kind: String!'] : []),
-      ...(before !== undefined && !hot ? ['$beforeBlockHeight: bigint!'] : []),
+      ...(before !== undefined && beforePostKey && !hot
+        ? ['$beforeBlockHeight: bigint!', '$beforePostKey: String!']
+        : []),
       '$limit: Int!',
       '$offset: Int!',
     ].join(', ');
@@ -783,7 +812,7 @@ export class FeedQuery {
                 author: hasAuthor,
                 kind: Boolean(kind),
                 section: Boolean(opts.section),
-                beforeBlockHeight: usedKeyset,
+                beforeKeyset: usedKeyset,
               }),
               feedRecentVariables: {
                 limit,
@@ -791,8 +820,11 @@ export class FeedQuery {
                 ...(hasAuthor ? { author: opts.author } : {}),
                 ...(kind ? { kind } : {}),
                 ...(opts.section ? { section: opts.section } : {}),
-                ...(before !== undefined
-                  ? { before_block_height: before }
+                ...(before !== undefined && beforePostKey
+                  ? {
+                      before_block_height: before,
+                      before_post_key: beforePostKey,
+                    }
                   : {}),
               },
             }
@@ -807,8 +839,34 @@ export class FeedQuery {
           ${FEED_POST_ROW_FIELDS_NO_HEAT}
         }
       }`,
-        postsCurrentQuery: `query Posts(${params}) {
-        postsCurrent(${whereClause}limit: $limit, offset: $offset, orderBy: [{blockHeight: DESC}]) {
+        // postsCurrent has no contentPath — height-only last-resort fallback.
+        postsCurrentQuery: `query Posts(${[
+          ...(hasAuthor ? ['$author: String!'] : []),
+          ...(kind ? ['$kind: String!'] : []),
+          ...(before !== undefined && !hot
+            ? ['$beforeBlockHeight: bigint!']
+            : []),
+          '$limit: Int!',
+          '$offset: Int!',
+        ].join(', ')}) {
+        postsCurrent(${(() => {
+          const base: string[] = [];
+          if (hasAuthor) base.push('accountId: {_eq: $author}');
+          if (kind) base.push('kind: {_eq: $kind}');
+          if (opts.section === 'posts') {
+            base.push('parentPath: {_eq: ""}', 'refType: {_neq: "repost"}');
+          } else if (opts.section === 'replies') {
+            base.push('parentPath: {_neq: ""}');
+          } else if (opts.section === 'reposts') {
+            base.push('refType: {_eq: "repost"}');
+          }
+          if (before !== undefined && !hot) {
+            base.push('blockHeight: {_lt: $beforeBlockHeight}');
+          }
+          return base.length > 0
+            ? `where: {${base.join(', ')}}, `
+            : '';
+        })()}limit: $limit, offset: $offset, orderBy: [{blockHeight: DESC}]) {
           ${POST_ROW_FIELDS}
         }
       }`,
@@ -862,30 +920,48 @@ export class FeedQuery {
     nativeOnly?: boolean;
     /**
      * Exclusive upper bound for descending Recent pages, or the height
-     * leg of a Hot keyset (with `beforeHeat` / `beforePostKey`). Prefer
-     * over `offset` under live inserts.
+     * leg of a Hot/chrono keyset (with `beforePostKey`). Prefer over
+     * `offset` under live inserts.
      */
     beforeBlockHeight?: number;
     /** Hot keyset heat leg (`feed_hot.before_amplify_heat`). */
     beforeHeat?: number;
-    /** Hot keyset tie-break (`feed_hot.before_post_key` / content path). */
+    /**
+     * Content-path tie-break — Hot and chrono. Chrono keysets require this
+     * with `beforeBlockHeight`.
+     */
     beforePostKey?: string;
   }): Promise<Paginated<PostRow>> {
     if (opts.accounts.length === 0) return { items: [] };
     const limit = opts.limit ?? 20;
     const sort = opts.sort ?? 'recent';
     const hot = sort === 'hot';
-    const before = normalizeBeforeBlockHeight(opts.beforeBlockHeight);
+    const chronoKey = !hot
+      ? requireChronoKeyset({
+          beforeBlockHeight: opts.beforeBlockHeight,
+          beforePostKey: opts.beforePostKey,
+        })
+      : null;
+    if (chronoKey && !chronoKey.ok) {
+      throw new Error(chronoKey.message);
+    }
+    const before = hot
+      ? normalizeBeforeBlockHeight(opts.beforeBlockHeight)
+      : chronoKey?.before;
     const beforeHeat = hot ? normalizeBeforeHeat(opts.beforeHeat) : undefined;
-    const beforePostKey =
-      hot && opts.beforePostKey?.trim() ? opts.beforePostKey.trim() : undefined;
+    const beforePostKey = hot
+      ? opts.beforePostKey?.trim() || undefined
+      : chronoKey?.beforePostKey;
     const wantKeyset = before !== undefined;
     let usedKeyset = wantKeyset;
     let offset = usedKeyset ? 0 : (opts.offset ?? 0);
     const orderBy = feedOrderByClause(sort);
     const chronoOrder = feedOrderByClause('recent');
     const nativeOnly = Boolean(opts.nativeOnly);
-    const chronoBefore = !hot && before !== undefined ? before : undefined;
+    const chronoBefore =
+      !hot && before !== undefined && beforePostKey ? before : undefined;
+    const chronoKeyFragment =
+      chronoBefore !== undefined ? `, ${chronoContentPathKeysetAnd()}` : '';
     const where = nativeOnly
       ? `where: {_and: [
             {accountId: {_in: $accounts}},
@@ -893,26 +969,27 @@ export class FeedQuery {
               {parentPath: {_eq: ""}},
               {parentAuthor: {_in: $accounts}}
             ]}
-            ${
-              chronoBefore !== undefined
-                ? ', {blockHeight: {_lt: $beforeBlockHeight}}'
-                : ''
-            }
+            ${chronoKeyFragment}
           ]}`
       : chronoBefore !== undefined
         ? `where: {_and: [
             {accountId: {_in: $accounts}},
-            {blockHeight: {_lt: $beforeBlockHeight}}
+            ${chronoContentPathKeysetAnd()}
           ]}`
         : accountsFeedWhere(false);
     const beforeParam =
-      chronoBefore !== undefined ? ', $beforeBlockHeight: bigint!' : '';
+      chronoBefore !== undefined
+        ? ', $beforeBlockHeight: bigint!, $beforePostKey: String!'
+        : '';
     const variables = {
       accounts: opts.accounts,
       limit,
       offset,
-      ...(chronoBefore !== undefined
-        ? { beforeBlockHeight: chronoBefore }
+      ...(chronoBefore !== undefined && beforePostKey
+        ? {
+            beforeBlockHeight: chronoBefore,
+            beforePostKey,
+          }
         : {}),
     };
 
@@ -986,14 +1063,19 @@ export class FeedQuery {
         feedRecentQuery: feedRecentQuery(FEED_POST_ROW_FIELDS, {
           accounts: true,
           nativeOnly,
-          beforeBlockHeight: usedKeyset,
+          beforeKeyset: usedKeyset,
         }),
         feedRecentVariables: {
           accounts: pulseAccountsTextArray(opts.accounts),
           limit,
           offset,
           ...(nativeOnly ? { native_only: true } : {}),
-          ...(before !== undefined ? { before_block_height: before } : {}),
+          ...(before !== undefined && beforePostKey
+            ? {
+                before_block_height: before,
+                before_post_key: beforePostKey,
+              }
+            : {}),
         },
         postsFeedQuery: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!${beforeParam}) {
         postsFeed(

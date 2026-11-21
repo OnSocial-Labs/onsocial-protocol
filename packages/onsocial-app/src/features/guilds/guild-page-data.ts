@@ -63,6 +63,7 @@ export function persistGuildPageCache(
     posts: PostRow[];
     hasMore: boolean;
     nextBeforeBlockHeight?: number;
+    nextBeforeEventKey?: string;
   }
 ) {
   writeGuildShellCache(groupId, entry.shell);
@@ -72,6 +73,7 @@ export function persistGuildPageCache(
       posts: feed.posts,
       hasMore: feed.hasMore,
       nextBeforeBlockHeight: feed.nextBeforeBlockHeight,
+      nextBeforeEventKey: feed.nextBeforeEventKey,
     });
   }
 }

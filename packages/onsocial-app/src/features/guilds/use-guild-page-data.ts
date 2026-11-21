@@ -161,6 +161,9 @@ export function useGuildPageData({
   const nextBeforeBlockHeightRef = useRef<number | undefined>(
     readGuildFeedCache(groupId, 'all')?.nextBeforeBlockHeight
   );
+  const nextBeforeEventKeyRef = useRef<string | undefined>(
+    readGuildFeedCache(groupId, 'all')?.nextBeforeEventKey
+  );
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [isFeedRefreshing, setIsFeedRefreshing] = useState(false);
@@ -249,10 +252,12 @@ export function useGuildPageData({
         const fetchedPosts = feedResult.items ?? [];
         const hasMore = guildFeedPageHasMore(feedResult);
         nextBeforeBlockHeightRef.current = feedResult.nextBeforeBlockHeight;
+        nextBeforeEventKeyRef.current = feedResult.nextBeforeEventKey;
         writeGuildFeedCache(groupId, filterId, {
           posts: fetchedPosts,
           hasMore,
           nextBeforeBlockHeight: feedResult.nextBeforeBlockHeight,
+          nextBeforeEventKey: feedResult.nextBeforeEventKey,
         });
         const indexedKeys = new Set(fetchedPosts.map(postKey));
         setLocalPosts((current) => {
@@ -511,6 +516,7 @@ export function useGuildPageData({
       const posts = feedResult.items ?? [];
       const hasMore = guildFeedPageHasMore(feedResult);
       nextBeforeBlockHeightRef.current = feedResult.nextBeforeBlockHeight;
+      nextBeforeEventKeyRef.current = feedResult.nextBeforeEventKey;
       persistGuildPageCache(
         groupId,
         {
@@ -527,6 +533,7 @@ export function useGuildPageData({
           posts,
           hasMore,
           nextBeforeBlockHeight: feedResult.nextBeforeBlockHeight,
+          nextBeforeEventKey: feedResult.nextBeforeEventKey,
         }
       );
       const applyDefaultFeed = selectedFeedFilterIdRef.current === 'all';
@@ -701,6 +708,7 @@ export function useGuildPageData({
       seededGroupIdRef.current = groupId;
       // Cursor lands with the first keyed page — don't invent one from SSR.
       nextBeforeBlockHeightRef.current = undefined;
+      nextBeforeEventKeyRef.current = undefined;
       persistGuildPageCache(groupId, pageCacheFromInitial(initial), {
         filterId: 'all',
         posts: initial.posts,
@@ -745,6 +753,7 @@ export function useGuildPageData({
       setFeedPending(false);
       setHasMorePosts(cachedFeed.hasMore);
       nextBeforeBlockHeightRef.current = cachedFeed.nextBeforeBlockHeight;
+      nextBeforeEventKeyRef.current = cachedFeed.nextBeforeEventKey;
       setLoadState('ready');
       setState(
         liveGuildStateFromSeed({
@@ -779,8 +788,10 @@ export function useGuildPageData({
     if (cachedFeed) {
       setHasMorePosts(cachedFeed.hasMore);
       nextBeforeBlockHeightRef.current = cachedFeed.nextBeforeBlockHeight;
+      nextBeforeEventKeyRef.current = cachedFeed.nextBeforeEventKey;
     } else {
       nextBeforeBlockHeightRef.current = undefined;
+      nextBeforeEventKeyRef.current = undefined;
     }
     hasLoadedRef.current = Boolean(cachedPage || cachedFeed);
   }, [clearStructureRetryTimers, groupId, initial]);
@@ -852,6 +863,7 @@ export function useGuildPageData({
       }));
       setHasMorePosts(cached.hasMore);
       nextBeforeBlockHeightRef.current = cached.nextBeforeBlockHeight;
+      nextBeforeEventKeyRef.current = cached.nextBeforeEventKey;
       void refreshFeed({ silent: true });
       return;
     }
@@ -871,6 +883,7 @@ export function useGuildPageData({
         setHasMorePosts(Boolean(allFeed?.hasMore));
         // Room filter of "all" is not a keyset page — clear until refresh lands.
         nextBeforeBlockHeightRef.current = undefined;
+        nextBeforeEventKeyRef.current = undefined;
         void refreshFeed({ silent: true });
         return;
       }
@@ -917,9 +930,10 @@ export function useGuildPageData({
       try {
         const client = createReadOnlyOnSocialClient();
         const before = nextBeforeBlockHeightRef.current;
+        const beforeKey = nextBeforeEventKeyRef.current;
         const cursor =
-          before !== undefined
-            ? { beforeBlockHeight: before }
+          before !== undefined && beforeKey
+            ? { beforeBlockHeight: before, beforePostKey: beforeKey }
             : { offset: state.posts.length };
         const page = selectedFeedSpace
           ? await client.query.groups.feedFiltered({
@@ -936,10 +950,12 @@ export function useGuildPageData({
         const nextPosts = [...state.posts, ...(page.items ?? [])];
         const hasMore = guildFeedPageHasMore(page);
         nextBeforeBlockHeightRef.current = page.nextBeforeBlockHeight;
+        nextBeforeEventKeyRef.current = page.nextBeforeEventKey;
         writeGuildFeedCache(groupId, selectedFeedSpace?.id ?? 'all', {
           posts: nextPosts,
           hasMore,
           nextBeforeBlockHeight: page.nextBeforeBlockHeight,
+          nextBeforeEventKey: page.nextBeforeEventKey,
         });
         setState((current) => ({
           ...current,
@@ -968,9 +984,11 @@ export function useGuildPageData({
           posts: kept,
           nextOffset: undefined,
           nextBeforeBlockHeight: nextBeforeBlockHeightRef.current,
+          nextBeforeEventKey: nextBeforeEventKeyRef.current,
           offsetShiftApplied: 0,
         });
         nextBeforeBlockHeightRef.current = clamped.nextBeforeBlockHeight;
+        nextBeforeEventKeyRef.current = clamped.nextBeforeEventKey;
         const hasMore =
           clamped.nextBeforeBlockHeight !== undefined ||
           (hasMorePosts && kept.length > 0);
@@ -978,6 +996,7 @@ export function useGuildPageData({
           posts: kept,
           hasMore,
           nextBeforeBlockHeight: clamped.nextBeforeBlockHeight,
+          nextBeforeEventKey: clamped.nextBeforeEventKey,
         });
         setHasMorePosts(hasMore);
         return { ...current, posts: kept };

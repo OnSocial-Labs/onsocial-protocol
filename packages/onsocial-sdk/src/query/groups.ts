@@ -17,9 +17,53 @@ import {
   POST_ROW_FIELDS,
   audienceLikeValue,
   chronoDescPage,
+  chronoGroupRowKeysetAnd,
   groupPostPathValue,
-  normalizeBeforeBlockHeight,
+  parseGroupPostContentPath,
+  requireChronoKeyset,
 } from './_shared.js';
+
+const GROUP_FEED_ORDER =
+  '[{blockHeight: DESC}, {accountId: DESC}, {groupId: DESC}, {postId: DESC}]';
+
+function groupChronoKeyset(opts: {
+  beforeBlockHeight?: number;
+  beforePostKey?: string;
+}): {
+  usedKeyset: boolean;
+  beforeParam: string;
+  beforeWhere: string;
+  variables: Record<string, string | number>;
+} {
+  const key = requireChronoKeyset(opts);
+  if (!key.ok) throw new Error(key.message);
+  if (key.before === undefined || !key.beforePostKey) {
+    return {
+      usedKeyset: false,
+      beforeParam: '',
+      beforeWhere: '',
+      variables: {},
+    };
+  }
+  const edge = parseGroupPostContentPath(key.beforePostKey);
+  if (!edge) {
+    throw new Error(
+      'guild chrono keyset beforePostKey must be a group content path'
+    );
+  }
+  return {
+    usedKeyset: true,
+    beforeParam:
+      ', $beforeBlockHeight: bigint!, $beforeAccountId: String!, $beforeGroupId: String!, $beforePostId: String!',
+    beforeWhere: `, ${chronoGroupRowKeysetAnd()}`,
+    variables: {
+      beforeBlockHeight: key.before,
+      beforeAccountId: edge.accountId,
+      beforeGroupId: edge.groupId,
+      beforePostId: edge.postId,
+    },
+  };
+}
 
 const GROUP_CURRENT_SHELL_FIELDS = `
   groupId
@@ -603,28 +647,27 @@ export class GroupsQuery {
     groupId: string;
     limit?: number;
     offset?: number;
-    /** Exclusive upper bound — prefer over `offset` under live inserts. */
+    /**
+     * Chrono keyset height — require `beforePostKey` (group content path).
+     * Prefer over `offset` under live inserts.
+     */
     beforeBlockHeight?: number;
+    /** Group content-path tie-break (`account/groups/id/content/post/id`). */
+    beforePostKey?: string;
   }): Promise<Paginated<PostRow>> {
     const limit = opts.limit ?? 20;
-    const before = normalizeBeforeBlockHeight(opts.beforeBlockHeight);
-    const usedKeyset = before !== undefined;
-    const offset = usedKeyset ? 0 : (opts.offset ?? 0);
-    const beforeParam = before !== undefined ? ', $beforeBlockHeight: bigint!' : '';
-    const beforeWhere =
-      before !== undefined
-        ? ', {blockHeight: {_lt: $beforeBlockHeight}}'
-        : '';
+    const keyset = groupChronoKeyset(opts);
+    const offset = keyset.usedKeyset ? 0 : (opts.offset ?? 0);
     const res = await this._q.graphql<{ postsCurrent: PostRow[] }>({
-      query: `query GroupFeed($groupId: String!, $limit: Int!, $offset: Int!${beforeParam}) {
+      query: `query GroupFeed($groupId: String!, $limit: Int!, $offset: Int!${keyset.beforeParam}) {
         postsCurrent(
           where: {_and: [
             {groupId: {_eq: $groupId}},
-            {isGroupContent: {_eq: true}}${beforeWhere}
+            {isGroupContent: {_eq: true}}${keyset.beforeWhere}
           ]},
           limit: $limit,
           offset: $offset,
-          orderBy: [{blockHeight: DESC}]
+          orderBy: ${GROUP_FEED_ORDER}
         ) {
           ${POST_ROW_FIELDS}
         }
@@ -633,12 +676,12 @@ export class GroupsQuery {
         groupId: opts.groupId,
         limit,
         offset,
-        ...(before !== undefined ? { beforeBlockHeight: before } : {}),
+        ...keyset.variables,
       },
     });
     return chronoDescPage(res.data?.postsCurrent ?? [], limit, {
       offset,
-      usedKeyset,
+      usedKeyset: keyset.usedKeyset,
     });
   }
 
@@ -658,32 +701,27 @@ export class GroupsQuery {
     limit?: number;
     offset?: number;
     beforeBlockHeight?: number;
+    beforePostKey?: string;
   }): Promise<Paginated<PostRow>> {
     const groupIds = [
       ...new Set(opts.groupIds.map((id) => id.trim()).filter(Boolean)),
     ];
     const limit = opts.limit ?? 20;
-    const before = normalizeBeforeBlockHeight(opts.beforeBlockHeight);
-    const usedKeyset = before !== undefined;
-    const offset = usedKeyset ? 0 : (opts.offset ?? 0);
+    const keyset = groupChronoKeyset(opts);
+    const offset = keyset.usedKeyset ? 0 : (opts.offset ?? 0);
     if (groupIds.length === 0) {
       return { items: [], nextOffset: undefined };
     }
-    const beforeParam = before !== undefined ? ', $beforeBlockHeight: bigint!' : '';
-    const beforeWhere =
-      before !== undefined
-        ? ', {blockHeight: {_lt: $beforeBlockHeight}}'
-        : '';
     const res = await this._q.graphql<{ postsCurrent: PostRow[] }>({
-      query: `query GroupsFeed($groupIds: [String!]!, $limit: Int!, $offset: Int!${beforeParam}) {
+      query: `query GroupsFeed($groupIds: [String!]!, $limit: Int!, $offset: Int!${keyset.beforeParam}) {
         postsCurrent(
           where: {_and: [
             {groupId: {_in: $groupIds}},
-            {isGroupContent: {_eq: true}}${beforeWhere}
+            {isGroupContent: {_eq: true}}${keyset.beforeWhere}
           ]},
           limit: $limit,
           offset: $offset,
-          orderBy: [{blockHeight: DESC}]
+          orderBy: ${GROUP_FEED_ORDER}
         ) {
           ${POST_ROW_FIELDS}
         }
@@ -692,12 +730,12 @@ export class GroupsQuery {
         groupIds,
         limit,
         offset,
-        ...(before !== undefined ? { beforeBlockHeight: before } : {}),
+        ...keyset.variables,
       },
     });
     return chronoDescPage(res.data?.postsCurrent ?? [], limit, {
       offset,
-      usedKeyset,
+      usedKeyset: keyset.usedKeyset,
     });
   }
 
@@ -714,25 +752,19 @@ export class GroupsQuery {
    */
   async feedFiltered(opts: GroupFeedFilter): Promise<Paginated<PostRow>> {
     const limit = opts.limit ?? 20;
-    const before = normalizeBeforeBlockHeight(opts.beforeBlockHeight);
-    const usedKeyset = before !== undefined;
-    const offset = usedKeyset ? 0 : (opts.offset ?? 0);
-    const beforeParam = before !== undefined ? ', $beforeBlockHeight: bigint!' : '';
-    const beforeWhere =
-      before !== undefined
-        ? ', {blockHeight: {_lt: $beforeBlockHeight}}'
-        : '';
+    const keyset = groupChronoKeyset(opts);
+    const offset = keyset.usedKeyset ? 0 : (opts.offset ?? 0);
 
     const res = await this._q.graphql<{ postsCurrent: PostRow[] }>({
-      query: `query FilteredGroupFeed($groupId: String!, $limit: Int!, $offset: Int!${beforeParam}${opts.channel !== undefined ? ', $channel: String!' : ''}${opts.kind !== undefined ? ', $kind: String!' : ''}${opts.audience !== undefined ? ', $audienceLike: String!' : ''}) {
+      query: `query FilteredGroupFeed($groupId: String!, $limit: Int!, $offset: Int!${keyset.beforeParam}${opts.channel !== undefined ? ', $channel: String!' : ''}${opts.kind !== undefined ? ', $kind: String!' : ''}${opts.audience !== undefined ? ', $audienceLike: String!' : ''}) {
         postsCurrent(
           where: {_and: [
             {groupId: {_eq: $groupId}},
-            {isGroupContent: {_eq: true}}${opts.channel !== undefined ? ', {channel: {_eq: $channel}}' : ''}${opts.kind !== undefined ? ', {kind: {_eq: $kind}}' : ''}${opts.audience !== undefined ? ', {audiences: {_like: $audienceLike}}' : ''}${beforeWhere}
+            {isGroupContent: {_eq: true}}${opts.channel !== undefined ? ', {channel: {_eq: $channel}}' : ''}${opts.kind !== undefined ? ', {kind: {_eq: $kind}}' : ''}${opts.audience !== undefined ? ', {audiences: {_like: $audienceLike}}' : ''}${keyset.beforeWhere}
           ]},
           limit: $limit,
           offset: $offset,
-          orderBy: [{blockHeight: DESC}]
+          orderBy: ${GROUP_FEED_ORDER}
         ) {
           ${POST_ROW_FIELDS}
         }
@@ -741,7 +773,7 @@ export class GroupsQuery {
         groupId: opts.groupId,
         limit,
         offset,
-        ...(before !== undefined ? { beforeBlockHeight: before } : {}),
+        ...keyset.variables,
         ...(opts.channel !== undefined ? { channel: opts.channel } : {}),
         ...(opts.kind !== undefined ? { kind: opts.kind } : {}),
         ...(opts.audience !== undefined
@@ -752,7 +784,7 @@ export class GroupsQuery {
 
     return chronoDescPage(res.data?.postsCurrent ?? [], limit, {
       offset,
-      usedKeyset,
+      usedKeyset: keyset.usedKeyset,
     });
   }
 
