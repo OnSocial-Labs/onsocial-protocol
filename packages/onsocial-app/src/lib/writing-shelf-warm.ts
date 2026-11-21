@@ -50,7 +50,7 @@ export function startWritingShelfWarm(accountId: string) {
       const page = await fetchAuthorArticleWindow(
         os,
         author,
-        0,
+        {},
         WRITING_SHELF_WARM_LIMIT
       );
       if (inflightAccountId !== author) return;

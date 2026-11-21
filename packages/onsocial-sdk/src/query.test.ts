@@ -2609,7 +2609,7 @@ describe('QueryModule', () => {
       );
     });
 
-    it('pages replies by afterBlockHeight keyset', async () => {
+    it('pages replies by composite after keyset', async () => {
       const { os, fetch } = makeOs({
         data: {
           threadReplies: [
@@ -2629,7 +2629,12 @@ describe('QueryModule', () => {
 
       const replies = await os.query.threads.repliesByPath(
         'alice.near/post/root',
-        { limit: 12, afterBlockHeight: 20 }
+        {
+          limit: 12,
+          afterBlockHeight: 20,
+          afterAccountId: 'ann.near',
+          afterPostId: 'r1',
+        }
       );
       expect(replies).toHaveLength(1);
       const body = JSON.parse(fetch.mock.calls[0][1].body) as {
@@ -2637,9 +2642,25 @@ describe('QueryModule', () => {
         variables: Record<string, unknown>;
       };
       expect(body.query).toContain('blockHeight: {_gt: $afterBlockHeight}');
+      expect(body.query).toContain('replyAuthor: {_gt: $afterAccountId}');
+      expect(body.query).toContain('replyId: {_gt: $afterPostId}');
+      expect(body.query).toContain(
+        'orderBy: [{blockHeight: ASC}, {replyAuthor: ASC}, {replyId: ASC}]'
+      );
       expect(body.query).not.toContain('$offset');
       expect(body.variables.afterBlockHeight).toBe(20);
+      expect(body.variables.afterAccountId).toBe('ann.near');
+      expect(body.variables.afterPostId).toBe('r1');
       expect(body.variables.offset).toBeUndefined();
+    });
+
+    it('rejects incomplete reply keysets', async () => {
+      const { os } = makeOs({ data: { threadReplies: [] } });
+      await expect(
+        os.query.threads.repliesByPath('alice.near/post/root', {
+          afterBlockHeight: 20,
+        })
+      ).rejects.toThrow(/afterBlockHeight, afterAccountId, and afterPostId/);
     });
 
     it('loads the visible reply line in one call', async () => {
@@ -2763,7 +2784,7 @@ describe('QueryModule', () => {
       );
     });
 
-    it('pages descending quotes by beforeBlockHeight keyset', async () => {
+    it('pages descending quotes by composite before keyset', async () => {
       const { os, fetch } = makeOs({
         data: {
           quotes: [
@@ -2785,14 +2806,23 @@ describe('QueryModule', () => {
         limit: 12,
         order: 'desc',
         beforeBlockHeight: 10,
+        beforeAccountId: 'dan.near',
+        beforePostId: 'q1',
       });
       const body = JSON.parse(fetch.mock.calls[0][1].body) as {
         query: string;
         variables: Record<string, unknown>;
       };
       expect(body.query).toContain('blockHeight: {_lt: $beforeBlockHeight}');
+      expect(body.query).toContain('quoteAuthor: {_lt: $beforeAccountId}');
+      expect(body.query).toContain('quoteId: {_lt: $beforePostId}');
+      expect(body.query).toContain(
+        'orderBy: [{blockHeight: DESC}, {quoteAuthor: DESC}, {quoteId: DESC}]'
+      );
       expect(body.query).not.toContain('$offset');
       expect(body.variables.beforeBlockHeight).toBe(10);
+      expect(body.variables.beforeAccountId).toBe('dan.near');
+      expect(body.variables.beforePostId).toBe('q1');
     });
   });
 

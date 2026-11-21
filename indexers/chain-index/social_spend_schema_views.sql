@@ -103,8 +103,8 @@ CREATE TABLE IF NOT EXISTS post_amplify_heat_state (
 CREATE INDEX IF NOT EXISTS idx_post_amplify_heat_state_heat
   ON post_amplify_heat_state (heat DESC);
 
-CREATE INDEX IF NOT EXISTS idx_post_amplify_heat_state_heat_path
-  ON post_amplify_heat_state (heat DESC, post_path DESC);
+-- heat+path keyset index: migrations/20261124_feed_keyset_indexes.sql
+-- (CREATE INDEX CONCURRENTLY — not inside the views txn).
 
 -- Repeat lookup for the trigger (first amplify in the 14d window vs later).
 CREATE INDEX IF NOT EXISTS idx_social_spend_events_boost_post

@@ -1005,8 +1005,9 @@ export class FeedQuery {
           ${FEED_POST_ROW_FIELDS_NO_HEAT}
         }
       }`,
-        // postsCurrent has no contentPath — never use it for composite keyset.
-        ...(usedKeyset
+        // postsCurrent has no contentPath — skip for author/section chrono
+        // (feed_recent) and for any composite keyset page.
+        ...(usedKeyset || chronoNarrow
           ? {}
           : {
               postsCurrentQuery: `query Posts(${[
@@ -1027,7 +1028,7 @@ export class FeedQuery {
             base.push('refType: {_eq: "repost"}');
           }
           return base.length > 0 ? `where: {${base.join(', ')}}, ` : '';
-        })()}limit: $limit, offset: $offset, orderBy: [{blockHeight: DESC}]) {
+        })()}limit: $limit, offset: $offset, orderBy: [{blockHeight: DESC}, {accountId: DESC}, {postId: DESC}]) {
           ${POST_ROW_FIELDS}
         }
       }`,

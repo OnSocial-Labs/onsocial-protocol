@@ -225,8 +225,10 @@ export class ThreadsQuery {
     opts: {
       limit?: number;
       offset?: number;
-      /** Exclusive lower bound — prefer over offset under live inserts. */
+      /** Exclusive lower bound — require account + post for same-height siblings. */
       afterBlockHeight?: number;
+      afterAccountId?: string;
+      afterPostId?: string;
     } = {}
   ): Promise<Paginated<PostRow>> {
     const limit = positiveInt(opts.limit, DEFAULT_THREAD_LIMIT);
@@ -236,13 +238,31 @@ export class ThreadsQuery {
       opts.afterBlockHeight >= 0
         ? opts.afterBlockHeight
         : undefined;
-    const useKeyset = after !== undefined;
+    const afterAccount = opts.afterAccountId?.trim() || undefined;
+    const afterPost = opts.afterPostId?.trim() || undefined;
+    if (after !== undefined && (!afterAccount || !afterPost)) {
+      throw new Error(
+        'reply keyset requires afterBlockHeight, afterAccountId, and afterPostId'
+      );
+    }
+    const useKeyset = after !== undefined && Boolean(afterAccount && afterPost);
     const offset = useKeyset ? 0 : nonNegativeInt(opts.offset, 0);
     const where = useKeyset
-      ? `{parentAuthor: {_eq: $parentAuthor}, parentPath: {_eq: $parentPath}, blockHeight: {_gt: $afterBlockHeight}}`
+      ? `{parentAuthor: {_eq: $parentAuthor}, parentPath: {_eq: $parentPath}, _or: [
+          {blockHeight: {_gt: $afterBlockHeight}},
+          {_and: [
+            {blockHeight: {_eq: $afterBlockHeight}},
+            {replyAuthor: {_gt: $afterAccountId}}
+          ]},
+          {_and: [
+            {blockHeight: {_eq: $afterBlockHeight}},
+            {replyAuthor: {_eq: $afterAccountId}},
+            {replyId: {_gt: $afterPostId}}
+          ]}
+        ]}`
       : `{parentAuthor: {_eq: $parentAuthor}, parentPath: {_eq: $parentPath}}`;
     const params = useKeyset
-      ? `$parentAuthor: String!, $parentPath: String!, $limit: Int!, $afterBlockHeight: bigint!`
+      ? `$parentAuthor: String!, $parentPath: String!, $limit: Int!, $afterBlockHeight: bigint!, $afterAccountId: String!, $afterPostId: String!`
       : `$parentAuthor: String!, $parentPath: String!, $limit: Int!, $offset: Int!`;
     const paging = useKeyset ? '' : 'offset: $offset,';
     const variables: Record<string, unknown> = {
@@ -250,8 +270,11 @@ export class ThreadsQuery {
       parentPath,
       limit,
     };
-    if (useKeyset) variables.afterBlockHeight = after;
-    else variables.offset = offset;
+    if (useKeyset) {
+      variables.afterBlockHeight = after;
+      variables.afterAccountId = afterAccount;
+      variables.afterPostId = afterPost;
+    } else variables.offset = offset;
 
     const res = await this._q.graphql<{ threadReplies: ReplyRow[] }>({
       query: `query RepliesByPath(${params}) {
@@ -259,7 +282,7 @@ export class ThreadsQuery {
           where: ${where},
           limit: $limit,
           ${paging}
-          orderBy: [{blockHeight: ASC}]
+          orderBy: [{blockHeight: ASC}, {replyAuthor: ASC}, {replyId: ASC}]
         ) {
           replyAuthor replyId value blockHeight blockTimestamp groupId
           parentAuthor parentPath parentType
@@ -271,7 +294,8 @@ export class ThreadsQuery {
     if (items.length < limit) {
       return { items };
     }
-    const lastHeight = items[items.length - 1]?.blockHeight;
+    const edge = items[items.length - 1];
+    const lastHeight = edge?.blockHeight;
     if (useKeyset) {
       return {
         items,
@@ -305,6 +329,8 @@ export class ThreadsQuery {
       limit?: number;
       offset?: number;
       afterBlockHeight?: number;
+      afterAccountId?: string;
+      afterPostId?: string;
     } = {}
   ): Promise<PostRow[]> {
     return (await this._repliesPageByPath(parentPath, opts)).items;
@@ -373,12 +399,17 @@ export class ThreadsQuery {
       order?: 'asc' | 'desc';
       /** Exclusive lower bound for ascending pages. */
       afterBlockHeight?: number;
+      afterAccountId?: string;
+      afterPostId?: string;
       /** Exclusive upper bound for descending pages. */
       beforeBlockHeight?: number;
+      beforeAccountId?: string;
+      beforePostId?: string;
     } = {}
   ): Promise<Paginated<PostRow>> {
     const desc = opts.order === 'desc';
-    const orderBy = desc ? 'DESC' : 'ASC';
+    const orderDir = desc ? 'DESC' : 'ASC';
+    const orderBy = `[{blockHeight: ${orderDir}}, {quoteAuthor: ${orderDir}}, {quoteId: ${orderDir}}]`;
     const limit = positiveInt(opts.limit, DEFAULT_THREAD_LIMIT);
     const after =
       !desc &&
@@ -394,20 +425,70 @@ export class ThreadsQuery {
       opts.beforeBlockHeight > 0
         ? opts.beforeBlockHeight
         : undefined;
-    const useKeyset = after !== undefined || before !== undefined;
+    const afterAccount = opts.afterAccountId?.trim() || undefined;
+    const afterPost = opts.afterPostId?.trim() || undefined;
+    const beforeAccount = opts.beforeAccountId?.trim() || undefined;
+    const beforePost = opts.beforePostId?.trim() || undefined;
+    if (after !== undefined && (!afterAccount || !afterPost)) {
+      throw new Error(
+        'quote keyset requires afterBlockHeight, afterAccountId, and afterPostId'
+      );
+    }
+    if (before !== undefined && (!beforeAccount || !beforePost)) {
+      throw new Error(
+        'quote keyset requires beforeBlockHeight, beforeAccountId, and beforePostId'
+      );
+    }
+    const useKeyset =
+      (after !== undefined && Boolean(afterAccount && afterPost)) ||
+      (before !== undefined && Boolean(beforeAccount && beforePost));
     const offset = useKeyset ? 0 : nonNegativeInt(opts.offset, 0);
     const heightFilter =
       after !== undefined
-        ? ', blockHeight: {_gt: $afterBlockHeight}'
+        ? `, _or: [
+          {blockHeight: {_gt: $afterBlockHeight}},
+          {_and: [
+            {blockHeight: {_eq: $afterBlockHeight}},
+            {quoteAuthor: {_gt: $afterAccountId}}
+          ]},
+          {_and: [
+            {blockHeight: {_eq: $afterBlockHeight}},
+            {quoteAuthor: {_eq: $afterAccountId}},
+            {quoteId: {_gt: $afterPostId}}
+          ]}
+        ]`
         : before !== undefined
-          ? ', blockHeight: {_lt: $beforeBlockHeight}'
+          ? `, _or: [
+          {blockHeight: {_lt: $beforeBlockHeight}},
+          {_and: [
+            {blockHeight: {_eq: $beforeBlockHeight}},
+            {quoteAuthor: {_lt: $beforeAccountId}}
+          ]},
+          {_and: [
+            {blockHeight: {_eq: $beforeBlockHeight}},
+            {quoteAuthor: {_eq: $beforeAccountId}},
+            {quoteId: {_lt: $beforePostId}}
+          ]}
+        ]`
           : '';
     const params = [
       '$refAuthor: String!',
       '$refPath: String!',
       '$limit: Int!',
-      ...(after !== undefined ? ['$afterBlockHeight: bigint!'] : []),
-      ...(before !== undefined ? ['$beforeBlockHeight: bigint!'] : []),
+      ...(after !== undefined
+        ? [
+            '$afterBlockHeight: bigint!',
+            '$afterAccountId: String!',
+            '$afterPostId: String!',
+          ]
+        : []),
+      ...(before !== undefined
+        ? [
+            '$beforeBlockHeight: bigint!',
+            '$beforeAccountId: String!',
+            '$beforePostId: String!',
+          ]
+        : []),
       ...(useKeyset ? [] : ['$offset: Int!']),
     ].join(', ');
     const paging = useKeyset ? '' : 'offset: $offset,';
@@ -416,9 +497,15 @@ export class ThreadsQuery {
       refPath,
       limit,
     };
-    if (after !== undefined) variables.afterBlockHeight = after;
-    else if (before !== undefined) variables.beforeBlockHeight = before;
-    else variables.offset = offset;
+    if (after !== undefined) {
+      variables.afterBlockHeight = after;
+      variables.afterAccountId = afterAccount;
+      variables.afterPostId = afterPost;
+    } else if (before !== undefined) {
+      variables.beforeBlockHeight = before;
+      variables.beforeAccountId = beforeAccount;
+      variables.beforePostId = beforePost;
+    } else variables.offset = offset;
 
     const res = await this._q.graphql<{ quotes: QuoteRow[] }>({
       query: `query QuotesByPath(${params}) {
@@ -426,7 +513,7 @@ export class ThreadsQuery {
           where: {refAuthor: {_eq: $refAuthor}, refPath: {_eq: $refPath}${heightFilter}},
           limit: $limit,
           ${paging}
-          orderBy: [{blockHeight: ${orderBy}}]
+          orderBy: ${orderBy}
         ) {
           quoteAuthor quoteId value blockHeight blockTimestamp groupId
           refAuthor refPath refType
@@ -438,7 +525,7 @@ export class ThreadsQuery {
     if (items.length < limit) return { items };
     const edgeHeight = items[items.length - 1]?.blockHeight;
     if (useKeyset) {
-      // Desc pages key off `beforeBlockHeight` from the last item at the app.
+      // Desc pages key off the composite cursor from the last item at the app.
       if (desc || typeof edgeHeight !== 'number') return { items };
       return { items, nextAfterBlockHeight: edgeHeight };
     }
@@ -468,7 +555,11 @@ export class ThreadsQuery {
       offset?: number;
       order?: 'asc' | 'desc';
       afterBlockHeight?: number;
+      afterAccountId?: string;
+      afterPostId?: string;
       beforeBlockHeight?: number;
+      beforeAccountId?: string;
+      beforePostId?: string;
     } = {}
   ): Promise<PostRow[]> {
     return (await this._quotesPageByPath(refPath, opts)).items;

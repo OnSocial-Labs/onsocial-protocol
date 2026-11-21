@@ -327,14 +327,26 @@ export class SocialSpendQuery {
       success?: boolean;
       /** Inclusive lower bound on `blockHeight`. */
       minBlockHeight?: number;
-      /** Exclusive upper bound on `blockHeight` (strictly older than). */
+      /**
+       * Exclusive upper bound on `blockHeight`. Alone this is a range cut
+       * (e.g. collect windows). Pair with `beforeId` for composite paging.
+       */
       beforeBlockHeight?: number;
+      /** Event-id tie-break — pair with `beforeBlockHeight` for same-height pages. */
+      beforeId?: string;
       limit?: number;
       offset?: number;
     } = {}
   ): Promise<SocialSpendEventRow[]> {
     const limit = opts.limit ?? 50;
-    const offset = opts.offset ?? 0;
+    const beforeId = opts.beforeId?.trim() || undefined;
+    if (beforeId && opts.beforeBlockHeight == null) {
+      throw new Error(
+        'social spend keyset requires beforeBlockHeight with beforeId'
+      );
+    }
+    const useKeyset = opts.beforeBlockHeight != null && Boolean(beforeId);
+    const offset = useKeyset ? 0 : (opts.offset ?? 0);
     const variables: Record<string, unknown> = { limit, offset };
     const wheres: string[] = [];
     const params: string[] = ['$limit: Int!', '$offset: Int!'];
@@ -388,18 +400,41 @@ export class SocialSpendQuery {
     if (opts.success !== undefined)
       addEq('success', 'success', opts.success, 'Boolean!');
     if (opts.minBlockHeight != null || opts.beforeBlockHeight != null) {
-      const heightParts: string[] = [];
-      if (opts.minBlockHeight != null) {
-        heightParts.push('_gte: $minBlockHeight');
-        params.push('$minBlockHeight: bigint!');
-        variables.minBlockHeight = opts.minBlockHeight;
-      }
-      if (opts.beforeBlockHeight != null) {
-        heightParts.push('_lt: $beforeBlockHeight');
-        params.push('$beforeBlockHeight: bigint!');
+      if (useKeyset) {
+        const heightParts: string[] = [];
+        if (opts.minBlockHeight != null) {
+          heightParts.push('_gte: $minBlockHeight');
+          params.push('$minBlockHeight: bigint!');
+          variables.minBlockHeight = opts.minBlockHeight;
+        }
+        if (heightParts.length > 0) {
+          wheres.push(`blockHeight: { ${heightParts.join(', ')} }`);
+        }
+        wheres.push(`_or: [
+          {blockHeight: {_lt: $beforeBlockHeight}},
+          {_and: [
+            {blockHeight: {_eq: $beforeBlockHeight}},
+            {id: {_lt: $beforeId}}
+          ]}
+        ]`);
+        params.push('$beforeBlockHeight: bigint!', '$beforeId: String!');
         variables.beforeBlockHeight = opts.beforeBlockHeight;
+        variables.beforeId = beforeId;
+        variables.offset = 0;
+      } else {
+        const heightParts: string[] = [];
+        if (opts.minBlockHeight != null) {
+          heightParts.push('_gte: $minBlockHeight');
+          params.push('$minBlockHeight: bigint!');
+          variables.minBlockHeight = opts.minBlockHeight;
+        }
+        if (opts.beforeBlockHeight != null) {
+          heightParts.push('_lt: $beforeBlockHeight');
+          params.push('$beforeBlockHeight: bigint!');
+          variables.beforeBlockHeight = opts.beforeBlockHeight;
+        }
+        wheres.push(`blockHeight: { ${heightParts.join(', ')} }`);
       }
-      wheres.push(`blockHeight: { ${heightParts.join(', ')} }`);
     }
 
     const whereClause = wheres.length ? `where: { ${wheres.join(', ')} },` : '';
@@ -411,7 +446,7 @@ export class SocialSpendQuery {
           ${whereClause}
           limit: $limit,
           offset: $offset,
-          orderBy: [{blockHeight: DESC}]
+          orderBy: [{blockHeight: DESC}, {id: DESC}]
         ) { ${SOCIAL_SPEND_EVENT_FIELDS} }
       }`,
       variables,

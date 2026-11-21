@@ -85,8 +85,12 @@ function PortfolioWritingShelf({
   const [liveHints, setLiveHints] = useState<
     Record<string, WritingArticleCoverHint>
   >({});
-  const [nextOffset, setNextOffset] = useState<number | null>(
-    panel.articleNextOffset ?? null
+  const [hasMore, setHasMore] = useState(Boolean(panel.articleHasMore));
+  const nextBeforeBlockHeightRef = useRef<number | undefined>(
+    panel.articleNextBeforeBlockHeight
+  );
+  const nextBeforeEventKeyRef = useRef<string | undefined>(
+    panel.articleNextBeforeEventKey
   );
   const [loadingMore, setLoadingMore] = useState(false);
   const [moreFailed, setMoreFailed] = useState(false);
@@ -118,9 +122,16 @@ function PortfolioWritingShelf({
     setMoreArticles([]);
     setMoreHints({});
     setLiveHints({});
-    setNextOffset(panel.articleNextOffset ?? null);
+    setHasMore(Boolean(panel.articleHasMore));
+    nextBeforeBlockHeightRef.current = panel.articleNextBeforeBlockHeight;
+    nextBeforeEventKeyRef.current = panel.articleNextBeforeEventKey;
     setMoreFailed(false);
-  }, [panel.accountId, panel.articleNextOffset]);
+  }, [
+    panel.accountId,
+    panel.articleHasMore,
+    panel.articleNextBeforeBlockHeight,
+    panel.articleNextBeforeEventKey,
+  ]);
 
   useEffect(() => {
     if (panel.articles.length === 0) return;
@@ -170,8 +181,10 @@ function PortfolioWritingShelf({
   );
 
   const loadMoreArticles = useCallback(() => {
-    if (nextOffset == null || loadingMore) return;
-    const offset = nextOffset;
+    if (!hasMore || loadingMore) return;
+    const before = nextBeforeBlockHeightRef.current;
+    const beforeKey = nextBeforeEventKeyRef.current;
+    if (before == null || !beforeKey) return;
     setLoadingMore(true);
     setMoreFailed(false);
     void (async () => {
@@ -180,7 +193,7 @@ function PortfolioWritingShelf({
         const page = await fetchAuthorArticleWindow(
           os,
           panel.accountId,
-          offset,
+          { beforeBlockHeight: before, beforePostKey: beforeKey },
           WRITING_SHELF_FETCH_LIMIT
         );
         const hints =
@@ -189,19 +202,21 @@ function PortfolioWritingShelf({
             : {};
         setMoreArticles((current) => [...current, ...page.articles]);
         setMoreHints((current) => ({ ...current, ...hints }));
-        setNextOffset(page.nextOffset);
+        setHasMore(page.hasMore);
+        nextBeforeBlockHeightRef.current = page.nextBeforeBlockHeight;
+        nextBeforeEventKeyRef.current = page.nextBeforeEventKey;
       } catch {
         setMoreFailed(true);
       } finally {
         setLoadingMore(false);
       }
     })();
-  }, [loadingMore, nextOffset, panel.accountId]);
+  }, [hasMore, loadingMore, panel.accountId]);
 
   useInfiniteScrollSentinel({
     scrollRootRef,
     sentinelRef: loadMoreRef,
-    enabled: nextOffset != null && !loadingMore && !moreFailed,
+    enabled: hasMore && !loadingMore && !moreFailed,
     onIntersect: loadMoreArticles,
   });
 
@@ -263,7 +278,7 @@ function PortfolioWritingShelf({
             onRetry={loadMoreArticles}
           />
         ) : null}
-        {nextOffset != null ? (
+        {hasMore ? (
           <div
             ref={loadMoreRef}
             className="standing-panel-sentinel"

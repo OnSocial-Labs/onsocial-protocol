@@ -9,6 +9,7 @@ import {
   type PostEngagementMap,
   type PostScarceEmbedMap,
 } from '@/lib/feed-paint-hydrate';
+import { feedPageHasMore } from '@/lib/feed-page-cursor';
 import type { GuildShellCacheEntry } from '@/lib/guild-shell-cache';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 
@@ -18,6 +19,10 @@ export type GuildPageData = {
   shell: GuildShellCacheEntry;
   posts: PostRow[];
   hasMorePosts: boolean;
+  /** Descending keyset edge — pair with `nextBeforeEventKey`. */
+  nextBeforeBlockHeight?: number;
+  /** Content-path tie-break — pair with `nextBeforeBlockHeight`. */
+  nextBeforeEventKey?: string;
   stats: GroupStats | null;
   /** Indexer member aggregate — preferred for first paint over RPC stats. */
   indexedMemberCount: number | null;
@@ -59,7 +64,9 @@ export const loadGuildPageData = cache(
         ]);
 
       const feed =
-        feedResult.status === 'fulfilled' ? feedResult.value : { items: [] };
+        feedResult.status === 'fulfilled'
+          ? feedResult.value
+          : { items: [] as PostRow[] };
       const members =
         membersResult.status === 'fulfilled'
           ? reconcileGuildMemberRoster(
@@ -82,7 +89,9 @@ export const loadGuildPageData = cache(
         config,
         shell,
         posts,
-        hasMorePosts: feed.nextOffset !== undefined,
+        hasMorePosts: feedPageHasMore(feed),
+        nextBeforeBlockHeight: feed.nextBeforeBlockHeight,
+        nextBeforeEventKey: feed.nextBeforeEventKey,
         stats: null,
         indexedMemberCount,
         members,
