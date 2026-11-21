@@ -169,6 +169,8 @@ export async function loadFocusedFeedPage(
     limit,
     offset: cursor.offset,
     beforeBlockHeight: cursor.beforeBlockHeight,
+    beforePostKey: cursor.beforeEventKey,
+    beforeHeat: cursor.beforeEventHeat,
     sort,
   };
   const page =

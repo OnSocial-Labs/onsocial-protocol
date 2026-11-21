@@ -318,6 +318,8 @@ export function clampHomeFeedSessionPagination(input: {
   edgeBlockHeight?: number;
   /** Content-path tie-break for the retained edge. */
   edgeEventKey?: string;
+  /** Retained edge heat — Hot keyset must keep heat through trim. */
+  edgeHeat?: number;
   offsetShiftApplied: number;
   /** Live list was longer than `postCount` (write path). */
   truncated?: boolean;
@@ -365,12 +367,20 @@ export function clampHomeFeedSessionPagination(input: {
         ? input.edgeBlockHeight
         : undefined;
     nextBeforeBlockHeight = edge;
-    nextBeforeHeat = undefined;
     nextBeforeEventKey = edge !== undefined ? input.edgeEventKey : undefined;
-    if (nextOffset === undefined && edge !== undefined) {
-      nextOffset = input.postCount;
+    nextBeforeHeat =
+      edge !== undefined &&
+      typeof input.edgeHeat === 'number' &&
+      Number.isFinite(input.edgeHeat)
+        ? input.edgeHeat
+        : undefined;
+    // Exclusive composite keyset — do not mint nextOffset beside it.
+    if (nextBeforeBlockHeight !== undefined && nextBeforeEventKey) {
+      nextOffset = undefined;
     } else if (nextOffset !== undefined) {
       nextOffset = Math.min(nextOffset, input.postCount);
+    } else if (edge !== undefined) {
+      nextOffset = input.postCount;
     }
     offsetShiftApplied = 0;
   }
@@ -395,6 +405,7 @@ export function clampHomeFeedCursorAfterTrim(input: {
 }): HomeFeedPaginationCursor {
   const edgeRow = input.posts[input.posts.length - 1];
   const edge = edgeRow?.blockHeight;
+  const edgeHeat = edgeRow?.amplifyHeat;
   return clampHomeFeedSessionPagination({
     postCount: input.posts.length,
     nextOffset: input.nextOffset,
@@ -403,6 +414,10 @@ export function clampHomeFeedCursorAfterTrim(input: {
     nextBeforeEventKey: input.nextBeforeEventKey,
     edgeBlockHeight: typeof edge === 'number' ? edge : undefined,
     edgeEventKey: edgeRow ? postContentPath(edgeRow) : undefined,
+    edgeHeat:
+      typeof edgeHeat === 'number' && Number.isFinite(edgeHeat)
+        ? edgeHeat
+        : undefined,
     offsetShiftApplied: input.offsetShiftApplied,
     truncated: true,
   });
@@ -441,7 +456,9 @@ export function writeHomeFeedSession(input: {
   const sessionKey = input.sessionKey?.trim();
   if (!sessionKey || input.posts.length === 0) return;
   const posts = input.posts.slice(0, HOME_FEED_SESSION_PERSISTED_POSTS);
-  const edge = posts[posts.length - 1]?.blockHeight;
+  const edgeRow = posts[posts.length - 1];
+  const edge = edgeRow?.blockHeight;
+  const edgeHeat = edgeRow?.amplifyHeat;
   const pagination = clampHomeFeedSessionPagination({
     postCount: posts.length,
     nextOffset: input.nextOffset,
@@ -449,6 +466,11 @@ export function writeHomeFeedSession(input: {
     nextBeforeHeat: input.nextBeforeHeat,
     nextBeforeEventKey: input.nextBeforeEventKey,
     edgeBlockHeight: typeof edge === 'number' ? edge : undefined,
+    edgeEventKey: edgeRow ? postContentPath(edgeRow) : undefined,
+    edgeHeat:
+      typeof edgeHeat === 'number' && Number.isFinite(edgeHeat)
+        ? edgeHeat
+        : undefined,
     offsetShiftApplied: input.offsetShiftApplied,
     truncated: input.posts.length > posts.length,
   });

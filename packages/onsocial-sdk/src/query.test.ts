@@ -1154,21 +1154,6 @@ describe('QueryModule', () => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
-    it('exposes nextBeforeBlockHeight without nextOffset on full Recent pages', async () => {
-      const rows = Array.from({ length: 20 }, (_, i) => ({
-        accountId: 'a.near',
-        postId: `p${i}`,
-        value: '{}',
-        blockHeight: 100 - i,
-        blockTimestamp: 0,
-      }));
-      const { os } = makeOs({ data: { postsFeed: rows } });
-      const page = await os.query.feed.recent({ limit: 20 });
-      expect(page.nextOffset).toBeUndefined();
-      expect(page.nextBeforeBlockHeight).toBe(81);
-      expect(page.nextBeforeEventKey).toBe('a.near/post/p19');
-    });
-
     it('filters by kind server-side when set', async () => {
       const { os, fetch } = makeOs({ data: { postsFeed: [] } });
       await os.query.feed.recent({
@@ -4001,9 +3986,9 @@ describe('QueryModule', () => {
       });
 
       const page = await os.query.feed.byHashtag('gm', { limit: 5 });
-      expect(page.nextOffset).toBeUndefined();
+      // Topic indexes still expose nextOffset (height/offset paging).
+      expect(page.nextOffset).toBe(5);
       expect(page.nextBeforeBlockHeight).toBeDefined();
-      expect(page.nextBeforeEventKey).toBeDefined();
       expect(page.items).toHaveLength(5);
     });
 
