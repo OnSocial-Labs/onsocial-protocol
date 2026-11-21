@@ -25,6 +25,17 @@ export { EMPTY_POST_ENGAGEMENT } from '@/lib/post-engagement-model';
 const DEFAULT_REACTION_KIND = 'like';
 
 /**
+ * Like/save confirm must not land on a different wallet after a mid-flight
+ * account switch (or logout).
+ */
+export function shouldApplyViewerToggleConfirm(
+  activeAccountId: string | null,
+  viewerIdAtStart: string
+): boolean {
+  return activeAccountId === viewerIdAtStart;
+}
+
+/**
  * Drop viewer colour / rolls when the wallet changes (including logout).
  * Public counts stay so the row does not flash empty.
  */
@@ -1046,7 +1057,9 @@ export function usePostEngagement(
           { viewer: viewerId, wait: true }
         );
         // Account switched mid-flight — do not confirm onto the new viewer.
-        if (lastGoodAccountRef.current !== viewerId) return;
+        if (!shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)) {
+          return;
+        }
         // Chain finality is confirm — roll the count; indexer soft-fills later.
         setEngagement((current) => {
           const live = current[key] ?? previous;
@@ -1061,7 +1074,9 @@ export function usePostEngagement(
           };
         });
       } catch (cause) {
-        if (lastGoodAccountRef.current !== viewerId) return;
+        if (!shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)) {
+          return;
+        }
         rememberEngagementLastGood(lastGoodRef.current, key, previous);
         setEngagement((current) => ({ ...current, [key]: previous }));
         if (!isWalletUserCancellation(cause)) {
@@ -1072,7 +1087,7 @@ export function usePostEngagement(
           );
         }
       } finally {
-        if (lastGoodAccountRef.current === viewerId) {
+        if (shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)) {
           setPendingReactionKeys((current) => {
             const next = new Set(current);
             next.delete(key);
@@ -1116,7 +1131,9 @@ export function usePostEngagement(
           viewer: viewerId,
           wait: true,
         });
-        if (lastGoodAccountRef.current !== viewerId) return;
+        if (!shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)) {
+          return;
+        }
         setEngagement((current) => {
           const live = current[key] ?? previous;
           const row = {
@@ -1128,7 +1145,9 @@ export function usePostEngagement(
           return { ...current, [key]: row };
         });
       } catch (cause) {
-        if (lastGoodAccountRef.current !== viewerId) return;
+        if (!shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)) {
+          return;
+        }
         rememberEngagementLastGood(lastGoodRef.current, key, previous);
         setEngagement((current) => ({ ...current, [key]: previous }));
         if (!isWalletUserCancellation(cause)) {
@@ -1137,7 +1156,7 @@ export function usePostEngagement(
           );
         }
       } finally {
-        if (lastGoodAccountRef.current === viewerId) {
+        if (shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)) {
           setPendingSaveKeys((current) => {
             const next = new Set(current);
             next.delete(key);

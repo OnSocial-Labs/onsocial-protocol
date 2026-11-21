@@ -1269,6 +1269,27 @@ describe('QueryModule', () => {
       expect(retry.query).toContain('authorName');
     });
 
+    it('retries without amplifyCount while keeping paint columns', async () => {
+      const amplifyError = {
+        errors: [
+          { message: "field 'amplifyCount' not found in type: 'postsFeed'" },
+        ],
+        data: null,
+      };
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('amplifyCount')) return amplifyError;
+        return { data: { postsFeed: [feedRow] } };
+      });
+
+      const page = await os.query.feed.recent({ limit: 5 });
+      expect(page.items).toHaveLength(1);
+      expect(fetch).toHaveBeenCalledTimes(2);
+      const retry = JSON.parse(String(fetch.mock.calls[1][1].body));
+      expect(retry.query).not.toContain('amplifyCount');
+      expect(retry.query).toContain('replyCount');
+    });
+
     it('retries without heat and reuses the fallback on later calls', async () => {
       const { os, fetch } = heatRejectingGraph();
 

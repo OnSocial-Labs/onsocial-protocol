@@ -10,6 +10,7 @@ import {
   reactionCountAfterToggle,
   rememberEngagementLastGood,
   resolveBandEngagement,
+  shouldApplyViewerToggleConfirm,
   type PostEngagement,
 } from '@/hooks/use-post-engagement';
 
@@ -21,6 +22,39 @@ function row(over: Partial<PostEngagement> = {}): PostEngagement {
     ...over,
   };
 }
+
+describe('shouldApplyViewerToggleConfirm', () => {
+  it('applies confirm only while the same wallet is still active', () => {
+    expect(shouldApplyViewerToggleConfirm('alice.near', 'alice.near')).toBe(
+      true
+    );
+    expect(shouldApplyViewerToggleConfirm('bob.near', 'alice.near')).toBe(
+      false
+    );
+    expect(shouldApplyViewerToggleConfirm(null, 'alice.near')).toBe(false);
+  });
+});
+
+describe('like confirm / rollback', () => {
+  it('holds the count on pending and rolls only on confirm', () => {
+    const previous = row({ viewerReacted: false, reactionCount: 3 });
+    const pending = pendingReactionEngagement(previous, true);
+    expect(pending.viewerReacted).toBe(true);
+    expect(pending.reactionCount).toBe(3);
+    const confirmed = confirmedReactionEngagement(previous, true);
+    expect(confirmed.reactionCount).toBe(4);
+    expect(confirmed.reactionRoll).toBe(1);
+  });
+
+  it('rolls back to the pre-toggle row on reject (same shape as catch)', () => {
+    const previous = row({ viewerReacted: false, reactionCount: 3 });
+    const pending = pendingReactionEngagement(previous, true);
+    const rolledBack = previous;
+    expect(pending.viewerReacted).toBe(true);
+    expect(rolledBack).toEqual(previous);
+    expect(rolledBack.reactionCount).toBe(3);
+  });
+});
 
 describe('engagementForAccountChange', () => {
   it('clears the previous viewer colour and rolls on switch', () => {

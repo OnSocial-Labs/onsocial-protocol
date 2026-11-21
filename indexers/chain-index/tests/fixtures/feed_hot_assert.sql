@@ -143,7 +143,30 @@ SELECT CASE
        IS NOT DISTINCT FROM (SELECT body FROM vw WHERE off = 0)
    AND (SELECT body FROM fn WHERE off = 24)
        IS NOT DISTINCT FROM (SELECT body FROM vw WHERE off = 24)
-   AND (SELECT body FROM spotlight) = '2|1|1|3|3|quoted|origin|1'
+   AND (
+     -- Real social-spend post_amplify_counts: fixture seeds three boosts on p00.
+     (
+       EXISTS (
+         SELECT 1
+         FROM pg_views
+         WHERE schemaname = 'public'
+           AND viewname = 'post_amplify_counts'
+           AND definition ILIKE '%social_spend_events%'
+       )
+       AND (SELECT body FROM spotlight) = '2|1|1|3|3|quoted|origin|1'
+     )
+     -- Core stub paints 0 for every row.
+     OR (
+       NOT EXISTS (
+         SELECT 1
+         FROM pg_views
+         WHERE schemaname = 'public'
+           AND viewname = 'post_amplify_counts'
+           AND definition ILIKE '%social_spend_events%'
+       )
+       AND (SELECT body FROM spotlight) = '2|1|1|3|0|quoted|origin|1'
+     )
+   )
    AND (SELECT posts_hit FROM filters) = 1
    AND (SELECT section_leak FROM filters) = 0
    AND (SELECT native_leak FROM filters) = 0
