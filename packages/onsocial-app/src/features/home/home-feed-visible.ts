@@ -208,15 +208,8 @@ export async function collectResolvedSavePage(opts: {
       }
     }
 
-    if (refs.length < opts.limit) {
-      return lastConsumed
-        ? {
-            items,
-            nextBeforeBlockHeight: lastConsumed.blockHeight,
-            nextBeforeEventKey: lastConsumed.contentPath,
-          }
-        : { items };
-    }
+    // Short save page = end of the bookmark list.
+    if (refs.length < opts.limit) return { items };
 
     cursor = {
       beforeBlockHeight: lastConsumed?.blockHeight,
@@ -224,6 +217,8 @@ export async function collectResolvedSavePage(opts: {
     };
   }
 
+  // Walk budget exhausted on full unresolved pages — keep keyset so load-more
+  // can continue past the gap.
   return lastConsumed
     ? {
         items,

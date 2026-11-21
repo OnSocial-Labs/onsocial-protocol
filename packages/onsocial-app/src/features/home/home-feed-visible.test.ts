@@ -179,8 +179,9 @@ describe('collectResolvedSavePage', () => {
       beforeContentPath: 'skip-1',
     });
     expect(page.items.map((row) => row.postId)).toEqual(['kept']);
-    expect(page.nextBeforeBlockHeight).toBe(50);
-    expect(page.nextBeforeEventKey).toBe('alice.near/post/kept');
+    // Second save page was short — end of list, no next cursor.
+    expect(page.nextBeforeBlockHeight).toBeUndefined();
+    expect(page.nextBeforeEventKey).toBeUndefined();
   });
 
   it('keeps a keyset when a full save page does not resolve', async () => {
