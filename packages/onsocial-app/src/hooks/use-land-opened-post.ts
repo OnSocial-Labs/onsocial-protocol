@@ -171,8 +171,10 @@ function useLandOpenedPost(
   onSettled?: () => void,
   pinKey = '',
   armed = true,
-  parked = false
-) {
+  parked = false,
+  /** Soft-fill re-pin window. Off for deep-link focus so scroll is not undone. */
+  seatGuard = true
+): { releaseSeatGuard: () => void } {
   const onSettledRef = useRef(onSettled);
   useEffect(() => {
     onSettledRef.current = onSettled;
@@ -180,6 +182,12 @@ function useLandOpenedPost(
   const settledOnceRef = useRef(false);
   const scrollerRef = useRef<HTMLElement | null>(null);
   const releaseHoldRef = useRef<(() => void) | null>(null);
+  const seatGuardRef = useRef(seatGuard);
+  seatGuardRef.current = seatGuard;
+  const releaseSeatGuard = () => {
+    releaseHoldRef.current?.();
+    releaseHoldRef.current = null;
+  };
 
   useLayoutEffect(() => {
     settledOnceRef.current = false;
@@ -231,7 +239,9 @@ function useLandOpenedPost(
         if (cancelled || settledOnceRef.current) return;
         alignOpenedPost(node, root);
         releaseHoldRef.current?.();
-        releaseHoldRef.current = holdAgainstAboveResize(node, root);
+        if (seatGuardRef.current) {
+          releaseHoldRef.current = holdAgainstAboveResize(node, root);
+        }
         settledOnceRef.current = true;
         onSettledRef.current?.();
       });
@@ -254,6 +264,8 @@ function useLandOpenedPost(
       clearLandSpacer(scrollerRef.current);
     };
   }, []);
+
+  return { releaseSeatGuard };
 }
 
 /**
@@ -274,6 +286,7 @@ export function useThreadLandAppear({
   pinKey = '',
   parked = false,
   landSeat = true,
+  seatGuard = true,
   onThreadPainted,
 }: {
   openedPostRef: RefObject<HTMLElement | null>;
@@ -287,8 +300,13 @@ export function useThreadLandAppear({
   pinKey?: string;
   parked?: boolean;
   landSeat?: boolean;
+  /**
+   * Soft-fill re-pin after land. Deep-link focus releases this before
+   * scroll so the OP pin does not undo `scrollIntoView`.
+   */
+  seatGuard?: boolean;
   onThreadPainted?: () => void;
-}): { landSettled: boolean } {
+}): { landSettled: boolean; releaseSeatGuard: () => void } {
   // Pin as soon as the seat exists. Ancestor soft-fill grows above and is
   // absorbed by holdAgainstAboveResize — waiting on the full chain delayed
   // reply-permalink land for every sequential parent hop.
@@ -300,13 +318,14 @@ export function useThreadLandAppear({
     setLandSettled(!landSeat);
   }, [landSeat, postId]);
 
-  useLandOpenedPost(
+  const { releaseSeatGuard } = useLandOpenedPost(
     openedPostRef,
     postId,
     () => setLandSettled(true),
     pinKey,
     armed,
-    parked
+    parked,
+    seatGuard
   );
 
   useLayoutEffect(() => {
@@ -314,5 +333,5 @@ export function useThreadLandAppear({
     onThreadPainted?.();
   }, [hasRoot, loadReady, onThreadPainted, parked, tailReady]);
 
-  return { landSettled };
+  return { landSettled, releaseSeatGuard };
 }

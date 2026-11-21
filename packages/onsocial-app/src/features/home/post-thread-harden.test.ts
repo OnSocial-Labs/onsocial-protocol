@@ -61,14 +61,21 @@ describe('post thread harden contracts', () => {
     expect(focus).not.toContain("behavior: 'smooth'");
   });
 
-  it('deep-link focus waits for under-header land to settle', () => {
+  it('deep-link focus waits for land then releases the seat guard before scroll', () => {
+    const focus = readFileSync(
+      join(here, '../../hooks/use-thread-focus-reply.ts'),
+      'utf8'
+    );
+    expect(focus).toContain('releaseLandSeatGuard');
+    expect(focus).toContain('releaseLandSeatGuardRef.current?.()');
     for (const file of [
       'live-personal-post-panel.tsx',
       '../guilds/live-guild-post-panel.tsx',
     ]) {
       const source = readFileSync(join(here, file), 'utf8');
       expect(source).toContain('landSettled');
-      expect(source).toContain('loadState === \'ready\' && landSettled');
+      expect(source).toContain("loadState === 'ready' && landSettled");
+      expect(source).toContain('releaseLandSeatGuard: releaseSeatGuard');
       // First reply page already fetched — paint/land with it, not before.
       expect(source).toContain('tailReady: repliesResolved');
     }

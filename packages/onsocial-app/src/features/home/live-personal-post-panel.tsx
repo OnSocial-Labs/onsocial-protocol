@@ -494,7 +494,7 @@ export function LivePersonalPostPanel({
       Boolean(
         seeded?.engagement?.[rootEngagementKey] || engagement[rootEngagementKey]
       ));
-  const { landSettled } = useThreadLandAppear({
+  const { landSettled, releaseSeatGuard } = useThreadLandAppear({
     openedPostRef,
     postId: conversation.root?.postId,
     hasParent,
@@ -509,13 +509,14 @@ export function LivePersonalPostPanel({
     tailReady: repliesResolved,
     onThreadPainted,
   });
-  // After under-header land — a concurrent scrollIntoView loses to the re-pin.
+  // After under-header land — release seat guard before focus scroll.
   const threadFocus = useThreadFocusReply(
     loadState === 'ready' && landSettled,
     replyFocusKey,
     {
       resolveFocusRowKey: (postId) => resolveFocusRowKeyRef.current(postId),
       revealRow: (key) => revealReplyRowRef.current(key),
+      releaseLandSeatGuard: releaseSeatGuard,
     }
   );
   const permalinkReady = threadCoverReady({
