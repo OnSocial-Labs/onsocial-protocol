@@ -17,6 +17,9 @@ import {
   shouldApplyAmplifyCountFill,
   shouldApplyViewerToggleConfirm,
   shouldResetEngagementFetchRetry,
+  nextEngagementFetchRetry,
+  engagementLoadIdAfterAccountSwitch,
+  engagementCountSeatClass,
   type PostEngagement,
 } from '@/hooks/use-post-engagement';
 
@@ -207,6 +210,7 @@ describe('shouldResetEngagementFetchRetry', () => {
       shouldResetEngagementFetchRetry({
         threadsOk: true,
         reactionsOk: true,
+        amplifyOk: true,
         viewerReady: true,
       })
     ).toBe(true);
@@ -215,6 +219,7 @@ describe('shouldResetEngagementFetchRetry', () => {
       shouldResetEngagementFetchRetry({
         threadsOk: false,
         reactionsOk: true,
+        amplifyOk: true,
         viewerReady: true,
       })
     ).toBe(false);
@@ -222,6 +227,16 @@ describe('shouldResetEngagementFetchRetry', () => {
       shouldResetEngagementFetchRetry({
         threadsOk: true,
         reactionsOk: false,
+        amplifyOk: true,
+        viewerReady: true,
+      })
+    ).toBe(false);
+    // Amplify down with likes + replies ok — must not clear the budget.
+    expect(
+      shouldResetEngagementFetchRetry({
+        threadsOk: true,
+        reactionsOk: true,
+        amplifyOk: false,
         viewerReady: true,
       })
     ).toBe(false);
@@ -230,9 +245,64 @@ describe('shouldResetEngagementFetchRetry', () => {
       shouldResetEngagementFetchRetry({
         threadsOk: true,
         reactionsOk: true,
+        amplifyOk: true,
         viewerReady: false,
       })
     ).toBe(false);
+  });
+
+  it('amplify down reaches the cooldown without resetting the counter', () => {
+    const amplifyDown = {
+      threadsOk: true,
+      reactionsOk: true,
+      amplifyOk: false,
+      viewerReady: true,
+    };
+    let count = 0;
+    const delays: number[] = [];
+    let hitCooldown = false;
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      // Same then() rule: never reset when this pass still needs a retry.
+      if (shouldResetEngagementFetchRetry(amplifyDown)) {
+        count = 0;
+      } else {
+        const step = nextEngagementFetchRetry(count);
+        count = step.nextCount;
+        delays.push(step.delayMs);
+        if (step.cooldown) {
+          hitCooldown = true;
+          break;
+        }
+      }
+    }
+    expect(hitCooldown).toBe(true);
+    expect(delays.slice(0, 3)).toEqual([1_200, 2_400, 3_600]);
+    expect(delays[3]).toBe(15_000);
+    expect(count).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('engagementLoadIdAfterAccountSwitch', () => {
+  it('bumps loadId on switch so a late then is cancelled', () => {
+    const loadId = 4;
+    const after = engagementLoadIdAfterAccountSwitch(
+      'alice.near',
+      'bob.near',
+      loadId
+    );
+    expect(after).toBe(5);
+    expect(after === loadId).toBe(false);
+    expect(
+      engagementLoadIdAfterAccountSwitch('alice.near', 'alice.near', loadId)
+    ).toBe(loadId);
+  });
+});
+
+describe('engagementCountSeatClass', () => {
+  it('keeps a failed likes lane pending instead of a settled 0', () => {
+    expect(engagementCountSeatClass(0, false)).toBe(' is-pending');
+    expect(engagementCountSeatClass(0, true)).toBe(' is-idle');
+    expect(engagementCountSeatClass(3, true)).toBe('');
   });
 });
 

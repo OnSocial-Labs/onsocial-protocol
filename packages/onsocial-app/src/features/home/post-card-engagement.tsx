@@ -36,7 +36,10 @@ import {
   isWalletUserCancellation,
 } from '@/lib/wallet-errors';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
-import type { PostEngagement } from '@/hooks/use-post-engagement';
+import {
+  engagementCountSeatClass,
+  type PostEngagement,
+} from '@/hooks/use-post-engagement';
 import { useSheetMounted } from '@/hooks/use-sheet-mounted';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
@@ -208,9 +211,7 @@ function engagementStatClassName(
 }
 
 function countSlotClass(count: number, countsReady: boolean): string {
-  if (!countsReady) return ' is-pending';
-  if (count > 0) return '';
-  return ' is-idle';
+  return engagementCountSeatClass(count, countsReady);
 }
 
 function EngagementStat({

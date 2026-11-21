@@ -98,6 +98,16 @@ export function engagementNeedsCountSoftFill(
   return !row.threadCountsReady || !row.reactionCountReady;
 }
 
+/** Digit seat: pending while the lane is unpaid; idle only for a settled 0. */
+export function engagementCountSeatClass(
+  count: number,
+  laneReady: boolean
+): string {
+  if (!laneReady) return ' is-pending';
+  if (count > 0) return '';
+  return ' is-idle';
+}
+
 /**
  * Soft-fill row from settled query parts. Keep counts that loaded; mark each
  * lane ready only when that query succeeded (or was already ready).
@@ -312,15 +322,61 @@ export function rememberEngagementLastGood(
 /**
  * Soft-fill retry budget resets only when every owed count lane succeeded
  * (and the viewer lane when signed in). A partial success that still owes
- * threads or likes must not clear the counter — otherwise signed-out clients
+ * threads, likes, or amplify must not clear the counter — otherwise clients
  * hammer a down indexer every ~1.2s forever.
  */
 export function shouldResetEngagementFetchRetry(input: {
   threadsOk: boolean;
   reactionsOk: boolean;
+  amplifyOk: boolean;
   viewerReady: boolean;
 }): boolean {
-  return input.threadsOk && input.reactionsOk && input.viewerReady;
+  return (
+    input.threadsOk &&
+    input.reactionsOk &&
+    input.amplifyOk &&
+    input.viewerReady
+  );
+}
+
+const ENGAGEMENT_FETCH_RETRY_STEP_MS = 1_200;
+const ENGAGEMENT_FETCH_RETRY_COOLDOWN_MS = 15_000;
+const ENGAGEMENT_FETCH_RETRY_CAP = 3;
+
+/**
+ * Next soft-fill retry delay. After the cap, enter the 15s cooldown instead
+ * of resetting the counter on every partial success.
+ */
+export function nextEngagementFetchRetry(count: number): {
+  nextCount: number;
+  delayMs: number;
+  cooldown: boolean;
+} {
+  if (count >= ENGAGEMENT_FETCH_RETRY_CAP) {
+    return {
+      nextCount: count,
+      delayMs: ENGAGEMENT_FETCH_RETRY_COOLDOWN_MS,
+      cooldown: true,
+    };
+  }
+  const nextCount = count + 1;
+  return {
+    nextCount,
+    delayMs: ENGAGEMENT_FETCH_RETRY_STEP_MS * nextCount,
+    cooldown: false,
+  };
+}
+
+/**
+ * Account switch bumps loadId so a late soft-fill then() for the previous
+ * wallet is ignored.
+ */
+export function engagementLoadIdAfterAccountSwitch(
+  previousAccount: string | null,
+  nextAccount: string | null,
+  loadId: number
+): number {
+  return previousAccount === nextAccount ? loadId : loadId + 1;
 }
 
 /**
@@ -729,28 +785,26 @@ export function usePostEngagement(
   const fetchRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scheduleFetchRetry = () => {
     if (fetchRetryTimerRef.current) return;
-    if (fetchRetryCountRef.current >= 3) {
-      // Cool down, then allow another wave — never lock likes for the session.
-      fetchRetryTimerRef.current = setTimeout(() => {
-        fetchRetryTimerRef.current = null;
-        fetchRetryCountRef.current = 0;
-        setFetchRetryEpoch((epoch) => epoch + 1);
-      }, 15_000);
-      return;
-    }
-    fetchRetryCountRef.current += 1;
-    const delayMs = 1_200 * fetchRetryCountRef.current;
+    const step = nextEngagementFetchRetry(fetchRetryCountRef.current);
+    fetchRetryCountRef.current = step.nextCount;
     fetchRetryTimerRef.current = setTimeout(() => {
       fetchRetryTimerRef.current = null;
+      if (step.cooldown) {
+        fetchRetryCountRef.current = 0;
+      }
       setFetchRetryEpoch((epoch) => epoch + 1);
-    }, delayMs);
+    }, step.delayMs);
   };
   if (lastGoodAccountRef.current !== (accountId ?? null)) {
     const nextAccount = accountId ?? null;
-    lastGoodAccountRef.current = nextAccount;
     // Invalidate in-flight soft-fills so a late then() cannot paint the
     // previous wallet's likes onto this account.
-    loadIdRef.current += 1;
+    loadIdRef.current = engagementLoadIdAfterAccountSwitch(
+      lastGoodAccountRef.current,
+      nextAccount,
+      loadIdRef.current
+    );
+    lastGoodAccountRef.current = nextAccount;
     lastGoodRef.current.clear();
     viewerOverlayRef.current = null;
     fetchRetryCountRef.current = 0;
@@ -1130,17 +1184,14 @@ export function usePostEngagement(
         const savesOk =
           !accountId || savesResult.status === 'fulfilled';
         const viewerReady = accountId ? reactionsOk && savesOk : true;
-        if (
-          shouldResetEngagementFetchRetry({
-            threadsOk,
-            reactionsOk,
-            viewerReady,
-          })
-        ) {
-          fetchRetryCountRef.current = 0;
-        } else {
-          scheduleFetchRetry();
-        }
+        // Reset and schedule are mutually exclusive in this then() — never
+        // clear the budget on the same pass that queues another attempt.
+        let needsRetry = !shouldResetEngagementFetchRetry({
+          threadsOk,
+          reactionsOk,
+          amplifyOk,
+          viewerReady,
+        });
 
         const threadCounts = threadsOk ? threadResult.value : {};
         const reactionStates = reactionsOk ? reactionResult.value : {};
@@ -1195,10 +1246,15 @@ export function usePostEngagement(
           next[target.key] = row;
           rememberEngagementLastGood(lastGood, target.key, row);
           if (engagementNeedsCountSoftFill(row)) {
-            scheduleFetchRetry();
+            needsRetry = true;
           }
           if (row.viewerFlagsReady) overlayPainted.push(target);
-          else if (accountId) scheduleFetchRetry();
+          else if (accountId) needsRetry = true;
+        }
+        if (needsRetry) {
+          scheduleFetchRetry();
+        } else {
+          fetchRetryCountRef.current = 0;
         }
         if (accountId && overlayPainted.length > 0) {
           rememberOverlay(overlayPainted);
