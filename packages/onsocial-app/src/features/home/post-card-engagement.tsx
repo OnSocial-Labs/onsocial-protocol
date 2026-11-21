@@ -347,6 +347,9 @@ export const PostEngagementRow = memo(function PostEngagementRow({
   const reactionLocked = Boolean(reactionPending) || !viewerColourReady;
   const saveLocked = Boolean(savePending) || !viewerColourReady;
   const amplifyCountsReady = countsReady && engagement.amplifyCountReady;
+  // Fire colour only with a known total — pending digit seat alone looks broken.
+  const amplifyActive =
+    amplifyCountsReady && engagement.viewerAmplified;
   const closeShare = () => setShareOpen(false);
   const shareCount =
     (engagement.repostCount ?? 0) + (engagement.quoteCount ?? 0);
@@ -524,14 +527,14 @@ export const PostEngagementRow = memo(function PostEngagementRow({
           </button>
         </span>
         <EngagementStat
-          icon={<AmplifyIcon filled={engagement.viewerAmplified} />}
+          icon={<AmplifyIcon filled={amplifyActive} />}
           count={engagement.amplifyCount}
           countsReady={amplifyCountsReady}
           rollSignal={engagement.amplifyRoll}
           label="amplifies"
           tone="amplify"
-          className={`post-card-amplify${engagement.viewerAmplified ? ' is-active' : ''}`}
-          ariaPressed={engagement.viewerAmplified}
+          className={`post-card-amplify${amplifyActive ? ' is-active' : ''}`}
+          ariaPressed={amplifyActive}
           actionLabel={
             engagement.viewerAmplified ? 'Amplify again' : 'Amplify this post'
           }

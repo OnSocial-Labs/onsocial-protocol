@@ -182,11 +182,14 @@ export type ViewerOverlayPatch = {
   viewerReposted: boolean;
   viewerRepostId: string | null;
   viewerRepostGroupId: string | null;
+  /** Public amplify total from the same pass as viewer amplify colour. */
+  amplifyCount?: number;
 };
 
 /**
  * Apply a late viewer-colour read onto a live row without undoing an in-flight
- * or chain-confirmed like/save (or a known unrepost).
+ * or chain-confirmed like/save (or a known unrepost). Amplify colour and total
+ * land together when `amplifyCount` is present — never lit fire with no digit.
  */
 export function applyViewerOverlayEngagement(
   previous: PostEngagement,
@@ -226,11 +229,26 @@ export function applyViewerOverlayEngagement(
     viewerRepostGroupId = previous.viewerRepostGroupId;
   }
 
+  const viewerAmplified =
+    overlay.viewerAmplified || previous.viewerAmplified;
+  let amplifyCount = previous.amplifyCount;
+  let amplifyCountReady = previous.amplifyCountReady;
+  if (overlay.amplifyCount != null) {
+    amplifyCount = Math.max(previous.amplifyCount, overlay.amplifyCount);
+    amplifyCountReady = true;
+  }
+  // Colour implies at least one amplify — never settle 0 + active fire.
+  if (viewerAmplified && amplifyCountReady) {
+    amplifyCount = Math.max(amplifyCount, 1);
+  }
+
   return {
     ...previous,
     viewerReacted,
     viewerSaved,
-    viewerAmplified: overlay.viewerAmplified || previous.viewerAmplified,
+    viewerAmplified,
+    amplifyCount,
+    amplifyCountReady,
     viewerReposted,
     viewerRepostId,
     viewerRepostGroupId,
@@ -575,6 +593,7 @@ export function usePostEngagement(
       const client = createReadOnlyOnSocialClient();
       const paths = overlayFor.map((target) => target.path);
       const overlayRows = overlayFor;
+      // Counts + viewer amplify in one pass so fire colour never paints alone.
       void Promise.allSettled([
         client.query.reactions.statesForPosts(
           overlayRows.map((target) => ({
@@ -585,13 +604,15 @@ export function usePostEngagement(
         ),
         client.query.saves.forPaths(viewerId, paths),
         client.query.threads.viewerReposts(viewerId, paths),
-        client.query.socialSpend.viewerAmplifiedForPostPaths(viewerId, paths),
+        client.query.socialSpend.amplifyCountsForPostPaths(paths, {
+          viewer: viewerId,
+        }),
       ]).then(
         ([
           reactionResult,
           savesResult,
           viewerRepostResult,
-          viewerAmplifyResult,
+          amplifyResult,
         ]) => {
           if (lastGoodAccountRef.current !== viewerId) return;
           const reactionStates =
@@ -607,10 +628,8 @@ export function usePostEngagement(
               : []
             ).map((row) => [row.refPath, row])
           );
-          const viewerAmplified =
-            viewerAmplifyResult.status === 'fulfilled'
-              ? viewerAmplifyResult.value
-              : {};
+          const amplifyCounts =
+            amplifyResult.status === 'fulfilled' ? amplifyResult.value : {};
           rememberOverlay(overlayRows);
           setEngagement((current) => {
             let changed = false;
@@ -624,15 +643,17 @@ export function usePostEngagement(
               const reactions =
                 reactionStates[`${target.owner}:${target.postId}`];
               const viewerRepost = viewerReposts.get(target.path);
+              const amplify = amplifyCounts[target.path];
               const row = applyViewerOverlayEngagement(
                 previous,
                 {
                   viewerReacted: (reactions?.viewerReacted.length ?? 0) > 0,
                   viewerSaved: savedPaths.has(target.path),
-                  viewerAmplified: Boolean(viewerAmplified[target.path]),
+                  viewerAmplified: Boolean(amplify?.viewerAmplified),
                   viewerReposted: Boolean(viewerRepost),
                   viewerRepostId: viewerRepost?.repostId ?? null,
                   viewerRepostGroupId: viewerRepost?.groupId ?? null,
+                  amplifyCount: amplify?.amplifyCount,
                 },
                 {
                   pendingReaction: pendingReactions.has(target.key),

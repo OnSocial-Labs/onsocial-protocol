@@ -451,4 +451,41 @@ describe('applyViewerOverlayEngagement', () => {
     expect(next.viewerSaved).toBe(true);
     expect(next.viewerFlagsReady).toBe(true);
   });
+
+  it('lands amplify colour with the public total in the same apply', () => {
+    const next = applyViewerOverlayEngagement(
+      row({ amplifyCountReady: false, amplifyCount: 0 }),
+      {
+        viewerReacted: false,
+        viewerSaved: false,
+        viewerAmplified: true,
+        viewerReposted: false,
+        viewerRepostId: null,
+        viewerRepostGroupId: null,
+        amplifyCount: 3,
+      },
+      { pendingReaction: false, pendingSave: false, unreposted: false }
+    );
+    expect(next.viewerAmplified).toBe(true);
+    expect(next.amplifyCount).toBe(3);
+    expect(next.amplifyCountReady).toBe(true);
+  });
+
+  it('never settles an active amplify on a zero total', () => {
+    const next = applyViewerOverlayEngagement(
+      row({ amplifyCountReady: true, amplifyCount: 0 }),
+      {
+        viewerReacted: false,
+        viewerSaved: false,
+        viewerAmplified: true,
+        viewerReposted: false,
+        viewerRepostId: null,
+        viewerRepostGroupId: null,
+        amplifyCount: 0,
+      },
+      { pendingReaction: false, pendingSave: false, unreposted: false }
+    );
+    expect(next.amplifyCount).toBe(1);
+    expect(next.amplifyCountReady).toBe(true);
+  });
 });

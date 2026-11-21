@@ -504,20 +504,28 @@ export async function loadPostEngagementMap(
     const amplify = amplifyCounts[target.path];
     const onRow = painted.get(target.key);
     const viewerRepost = viewerReposts.get(target.path);
-    const amplifyCount =
+    const amplifyCountRaw =
       onRow?.amplifyCount ?? amplify?.amplifyCount ?? null;
+    const viewerAmplified =
+      Boolean(amplify?.viewerAmplified) ||
+      Boolean(viewerAmplifiedMap[target.path]);
+    const amplifyCountReady = amplifyCountRaw != null;
+    const amplifyCount =
+      amplifyCountRaw == null
+        ? 0
+        : viewerAmplified
+          ? Math.max(amplifyCountRaw, 1)
+          : amplifyCountRaw;
     next[target.key] = {
       ...EMPTY_POST_ENGAGEMENT,
       replyCount: onRow?.replyCount ?? counts?.replyCount ?? 0,
       quoteCount: onRow?.quoteCount ?? counts?.quoteCount ?? 0,
       repostCount: onRow?.repostCount ?? counts?.repostCount ?? 0,
       reactionCount: onRow?.reactionCount ?? reactions?.counts.total ?? 0,
-      amplifyCount: amplifyCount ?? 0,
-      amplifyCountReady: amplifyCount != null,
+      amplifyCount,
+      amplifyCountReady,
       viewerReacted: (reactions?.viewerReacted.length ?? 0) > 0,
-      viewerAmplified:
-        Boolean(amplify?.viewerAmplified) ||
-        Boolean(viewerAmplifiedMap[target.path]),
+      viewerAmplified,
       viewerSaved: savedPaths.has(target.path),
       viewerReposted: Boolean(viewerRepost),
       viewerRepostId: viewerRepost?.repostId ?? null,
