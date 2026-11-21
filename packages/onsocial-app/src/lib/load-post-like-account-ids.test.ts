@@ -1,9 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
+  clearPostLikeAccountIdsCache,
   dedupeLikeAccountIds,
   mergeViewerIntoLikeAccountIds,
+  peekPostLikeAccountIds,
+  postLikeAccountIdsCacheKey,
   postLikeReactionPathSuffix,
 } from '@/lib/load-post-like-account-ids';
+
+afterEach(() => {
+  clearPostLikeAccountIdsCache();
+});
 
 describe('postLikeReactionPathSuffix', () => {
   it('builds a personal post suffix', () => {
@@ -46,5 +53,17 @@ describe('mergeViewerIntoLikeAccountIds', () => {
     expect(
       mergeViewerIntoLikeAccountIds(['a.near'], 'me.near', false)
     ).toEqual(['a.near']);
+  });
+});
+
+describe('postLikeAccountIdsCacheKey', () => {
+  it('changes when the like count changes', () => {
+    expect(
+      postLikeAccountIdsCacheKey('a.near', 'p1', { likeCount: 2 })
+    ).not.toBe(postLikeAccountIdsCacheKey('a.near', 'p1', { likeCount: 3 }));
+  });
+
+  it('starts with an empty peek before any warm load', () => {
+    expect(peekPostLikeAccountIds('a.near', 'p1', { likeCount: 1 })).toBeNull();
   });
 });

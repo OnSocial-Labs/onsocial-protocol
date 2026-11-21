@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ScarceFansSheet } from '@/features/scarces/scarce-fans-sheet';
 import {
   loadPostLikeAccountIds,
   mergeViewerIntoLikeAccountIds,
+  peekPostLikeAccountIds,
 } from '@/lib/load-post-like-account-ids';
 import { SHEET_Z } from '@/lib/sheet-z';
 
@@ -23,8 +24,30 @@ export type PostLikesSheetProps = {
   zIndex?: number;
 };
 
+function seedLikerIds(input: {
+  postOwner: string;
+  postId: string;
+  groupId?: string | null;
+  likeCount: number;
+  viewerAccountId?: string | null;
+  viewerLiked?: boolean;
+}): string[] {
+  const peeked = peekPostLikeAccountIds(input.postOwner, input.postId, {
+    groupId: input.groupId,
+    likeCount: input.likeCount,
+  });
+  if (!peeked) return [];
+  return mergeViewerIntoLikeAccountIds(
+    peeked,
+    input.viewerAccountId,
+    Boolean(input.viewerLiked)
+  );
+}
+
 /**
  * Who liked a post — the same person row as album fans.
+ * Keeps the last good list across closes (boost-style) and paints warm
+ * pointerdown reads immediately on open.
  */
 export function PostLikesSheet({
   open,
@@ -38,19 +61,42 @@ export function PostLikesSheet({
   viewerLiked = false,
   zIndex = SHEET_Z.overShell,
 }: PostLikesSheetProps) {
-  const [likerIds, setLikerIds] = useState<string[]>([]);
+  const [likerIds, setLikerIds] = useState(() =>
+    seedLikerIds({
+      postOwner,
+      postId,
+      groupId,
+      likeCount,
+      viewerAccountId,
+      viewerLiked,
+    })
+  );
   const [idsLoading, setIdsLoading] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
+  const likerIdsRef = useRef(likerIds);
+
+  useEffect(() => {
+    likerIdsRef.current = likerIds;
+  }, [likerIds]);
 
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (!open) {
-      setLikerIds([]);
-      setIdsLoading(false);
-      setLoadFailed(false);
-    } else {
-      setIdsLoading(true);
+    if (open) {
+      const seeded = seedLikerIds({
+        postOwner,
+        postId,
+        groupId,
+        likeCount,
+        viewerAccountId,
+        viewerLiked,
+      });
+      if (seeded.length > 0) {
+        setLikerIds(seeded);
+        setIdsLoading(false);
+      } else if (likerIds.length === 0) {
+        setIdsLoading(true);
+      }
       setLoadFailed(false);
     }
   }
@@ -59,13 +105,11 @@ export function PostLikesSheet({
     if (!open) return;
 
     let cancelled = false;
-    queueMicrotask(() => {
-      if (cancelled) return;
-      setIdsLoading(true);
-      setLoadFailed(false);
-    });
 
-    void loadPostLikeAccountIds(postOwner, postId, { groupId })
+    void loadPostLikeAccountIds(postOwner, postId, {
+      groupId,
+      likeCount,
+    })
       .then((ids) => {
         if (cancelled) return;
         setLikerIds(
@@ -75,6 +119,8 @@ export function PostLikesSheet({
       })
       .catch(() => {
         if (cancelled) return;
+        // Keep last-good paint on soft failure (boost position style).
+        if (likerIdsRef.current.length > 0) return;
         setLikerIds(
           mergeViewerIntoLikeAccountIds([], viewerAccountId, viewerLiked)
         );
@@ -92,6 +138,7 @@ export function PostLikesSheet({
     postOwner,
     postId,
     groupId,
+    likeCount,
     viewerAccountId,
     viewerLiked,
   ]);
