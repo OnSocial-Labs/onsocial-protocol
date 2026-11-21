@@ -34,22 +34,14 @@ export function rollingGlyphs(value: number, grouped: boolean): RollingGlyph[] {
  * Drop supply omits the signal and rolls on every value change.
  * A confirm signal rolls only when that signal changes, so a later
  * refetch of the same card snaps instead of turning.
- * Zero crossings snap — rolling through a parked `0` flashes under the
- * new count on first like / last unlike.
+ * Zero crossings roll too — the digit window mask fades the outgoing
+ * face so a parked `0` never sits under the new count.
  */
 export function rollingMotion(
   rollSignal: number | undefined,
   previousSignal: number | undefined,
-  options?: { fromValue?: number; toValue?: number }
+  _options?: { fromValue?: number; toValue?: number }
 ): 'roll' | 'snap' {
-  const from = options?.fromValue;
-  const to = options?.toValue;
-  if (
-    (typeof from === 'number' && from <= 0) ||
-    (typeof to === 'number' && to <= 0)
-  ) {
-    return 'snap';
-  }
   if (rollSignal === undefined) return 'roll';
   return rollSignal === previousSignal ? 'snap' : 'roll';
 }
@@ -64,7 +56,8 @@ export function mod10(n: number): number {
  */
 export const ROLLING_DIGIT_PARK = 10;
 
-export const ROLLING_DIGIT_MS = 320;
+/** Match the shared 280ms appear — previous face fades as the wheel turns. */
+export const ROLLING_DIGIT_MS = 280;
 
 export function parkedDigitPosition(digit: number): number {
   return ROLLING_DIGIT_PARK + mod10(digit);

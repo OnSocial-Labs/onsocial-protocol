@@ -25554,8 +25554,22 @@ a.os-surface-row,
     height: 1em;
     overflow: hidden;
     line-height: 1;
-    /* Wheel cells must not bleed the previous / zero face under the count. */
+    /* Soft edges fade the outgoing face — never a sharp previous under the new. */
     contain: paint;
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0%,
+      #000 18%,
+      #000 82%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0%,
+      #000 18%,
+      #000 82%,
+      transparent 100%
+    );
   }
 
   .os-rolling-digit-strip {
@@ -25565,7 +25579,8 @@ a.os-surface-row,
   }
 
   .os-rolling-digit-strip.is-rolling {
-    transition: transform 320ms ease;
+    transition: transform var(--os-motion-appear, 280ms)
+      var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1));
   }
 
   /* Digits sit high in the em square. Padding drops the ink into the

@@ -52,18 +52,6 @@ describe('first-like zero crossing paint (render)', () => {
     for (const [, cb] of batch) cb(0);
   }
 
-  function parkedDigits(root: ReturnType<typeof create>): number[] {
-    return root.root
-      .findAll(
-        (node) =>
-          node.props?.className === 'os-rolling-digit-cell' &&
-          !String(node.parent?.props?.className ?? '').includes(
-            'os-rolling-digit-strip'
-          )
-      )
-      .map((node) => Number(node.children[0]));
-  }
-
   function stripCount(root: ReturnType<typeof create>): number {
     return root.root.findAll(
       (node) =>
@@ -72,29 +60,31 @@ describe('first-like zero crossing paint (render)', () => {
     ).length;
   }
 
-  it('renders 0→1 without a 0 digit frame or roll strip', () => {
+  it('rolls 0→1 through the digit strip (mask fades the outgoing 0)', () => {
     let root!: ReturnType<typeof create>;
     act(() => {
       root = create(createElement(RollingNumber, { value: 0, rollSignal: 0 }));
     });
-    expect(parkedDigits(root)).toEqual([0]);
 
     act(() => {
       root.update(createElement(RollingNumber, { value: 1, rollSignal: 1 }));
     });
-    // First rAF should snap to 1. A second sync fromValue render used to
-    // cancel that frame and let a surviving effect roll through a parked 0.
     act(() => {
       flushRaf();
     });
-    expect(stripCount(root)).toBe(0);
-    expect(parkedDigits(root)).toEqual([1]);
+    // First rAF parks the strip on the outgoing face.
+    expect(stripCount(root)).toBe(1);
 
     act(() => {
       flushRaf();
     });
-    // Still parked — never mounted the roll strip that flashes 0 under 1.
-    expect(stripCount(root)).toBe(0);
-    expect(parkedDigits(root)).toEqual([1]);
+    // Second rAF starts the roll toward 1.
+    expect(stripCount(root)).toBe(1);
+    const strip = root.root.find(
+      (node) =>
+        typeof node.props?.className === 'string' &&
+        node.props.className.includes('os-rolling-digit-strip')
+    );
+    expect(String(strip.props.className)).toContain('is-rolling');
   });
 });
