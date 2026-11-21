@@ -26,6 +26,17 @@ describe('threadCoverReady', () => {
     ).toBe(true);
   });
 
+  it('lifts immediately for a feed-row seed while directs are still in flight', () => {
+    expect(
+      threadCoverReady({
+        loadState: 'ready',
+        hasRoot: true,
+        repliesResolved: false,
+        rootFromFeed: true,
+      })
+    ).toBe(true);
+  });
+
   it('keeps the cover when a cold load has no root', () => {
     expect(
       threadCoverReady({

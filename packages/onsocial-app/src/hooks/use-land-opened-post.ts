@@ -274,8 +274,9 @@ function useLandOpenedPost(
  * Same seat for roots and replies on the Post page / trail.
  * `landSeat: false` for media-band / hug embeds (no under-header pin).
  * The pin runs on its own. It does not hold the cover.
- * `tailReady` holds paint until the first reply page is ready so OP + directs
- * land in one frame (rail never joins after appear).
+ * `tailReady` holds paint until the first reply page is ready so permalink
+ * OP + directs land in one frame. Feed-row opens pass `true` with the seed
+ * so the already-visible OP paints; directs soft-fill.
  */
 export function useThreadLandAppear({
   openedPostRef,

@@ -152,7 +152,7 @@ import { postLayerOverlayZ } from '@/lib/sheet-z';
 import type { ThreadSheetContext } from '@/lib/guild-thread-card-context';
 import type { PostEngagementMap } from '@/lib/feed-paint-hydrate';
 import type { GuildPostPageData } from '@/lib/load-guild-post-page';
-import { threadRootRevisionLabel } from '@/lib/row-seed-root';
+import { isFeedRowSeed, threadRootRevisionLabel } from '@/lib/row-seed-root';
 
 interface LiveGuildPostPanelProps {
   groupId: string;
@@ -452,6 +452,11 @@ export function LiveGuildPostPanel({
       Boolean(
         seededEngagement?.[rootEngagementKey] || engagement[rootEngagementKey]
       ));
+  /*
+   * Feed-row open already showed the OP — land and lift the cover with that
+   * seed. Permalink / SSR still wait for the first reply page.
+   */
+  const rootFromFeed = isFeedRowSeed(initial);
   const { landSettled, releaseSeatGuard } = useThreadLandAppear({
     openedPostRef,
     postId: conversation.root?.postId,
@@ -462,8 +467,7 @@ export function LiveGuildPostPanel({
     pinKey: conversation.root?.postId ?? '',
     parked,
     landSeat,
-    // First reply page is already in flight — land with it, not before.
-    tailReady: repliesResolved,
+    tailReady: rootFromFeed || repliesResolved,
     onThreadPainted,
   });
   // After under-header land — release seat guard before focus scroll.
@@ -480,6 +484,7 @@ export function LiveGuildPostPanel({
     loadState,
     hasRoot: Boolean(conversation.root),
     repliesResolved,
+    rootFromFeed,
   });
   const sortedReplyRows = useMemo(
     () => sortThreadReplyRows(replyRows, replySort, engagement),

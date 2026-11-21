@@ -7,19 +7,23 @@ import {
 export type ThreadLoadState = 'loading' | 'ready' | 'missing' | 'error';
 
 /**
- * Cover lifts when the root and the first reply page are both ready (or the
- * load ended without a root). The first page is already fetched in parallel
- * (`startThreadFirstPage`) — holding until it resolves paints OP + directs
- * in one frame so the reply rail never joins after appear.
+ * Cover lifts when the root is ready (or the load ended without a root).
+ *
+ * Permalink / SSR opens still wait for the first reply page so OP + directs
+ * paint together. A feed-row open already showed the OP on the list — lift
+ * with that seed and let directs soft-fill (same as nested graft after paint).
  */
 export function threadCoverReady(input: {
   loadState: ThreadLoadState;
   hasRoot: boolean;
   /** False while the first reply page is still in flight. */
   repliesResolved?: boolean;
+  /** Feed-row seed — OP is already on screen. */
+  rootFromFeed?: boolean;
 }): boolean {
   if (input.loadState === 'missing' || input.loadState === 'error') return true;
   if (!(input.loadState === 'ready' && input.hasRoot)) return false;
+  if (input.rootFromFeed) return true;
   return input.repliesResolved !== false;
 }
 
