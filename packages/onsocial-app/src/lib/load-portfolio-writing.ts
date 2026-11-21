@@ -12,6 +12,7 @@ import {
   hydrateWritingArticleCovers,
   type WritingArticleCoverHint,
 } from '@/lib/hydrate-writing-article-covers';
+import { feedPageHasMore } from '@/lib/feed-page-cursor';
 import { resolvePortfolioMood } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
 import type { PublicPageConfig } from '@/lib/page-data';
@@ -22,6 +23,19 @@ import { resolveAccountId } from '@/lib/resolve-account';
 
 export const WRITING_SHELF_FETCH_LIMIT = 48;
 
+export type WritingShelfPageCursor = {
+  offset?: number;
+  beforeBlockHeight?: number;
+  beforePostKey?: string;
+};
+
+export type WritingShelfWindow = {
+  articles: PostRow[];
+  hasMore: boolean;
+  nextBeforeBlockHeight?: number;
+  nextBeforeEventKey?: string;
+};
+
 export type PortfolioWritingPageData = {
   accountId: string;
   titleLabel: string;
@@ -31,8 +45,12 @@ export type PortfolioWritingPageData = {
   /** False when the article read failed. Do not treat that as zero articles. */
   articlesKnown: boolean;
   coverHints: Record<string, WritingArticleCoverHint>;
-  /** Next `feed.recent` offset. Null when this page was the last. */
-  articleNextOffset: number | null;
+  /** True when another shelf window may exist after this one. */
+  articleHasMore: boolean;
+  /** Chrono keyset height — pair with `articleNextBeforeEventKey`. */
+  articleNextBeforeBlockHeight?: number;
+  /** Content-path tie-break — pair with `articleNextBeforeBlockHeight`. */
+  articleNextBeforeEventKey?: string;
 };
 
 /**
@@ -44,19 +62,30 @@ export type PortfolioWritingPageData = {
 export async function fetchAuthorArticleWindow(
   os: OnSocial,
   accountId: string,
-  offset: number,
+  cursor: WritingShelfPageCursor = {},
   limit = WRITING_SHELF_FETCH_LIMIT
-): Promise<{ articles: PostRow[]; nextOffset: number | null }> {
+): Promise<WritingShelfWindow> {
+  const before =
+    cursor.beforeBlockHeight != null && cursor.beforePostKey
+      ? {
+          beforeBlockHeight: cursor.beforeBlockHeight,
+          beforePostKey: cursor.beforePostKey,
+        }
+      : {};
   const page = await os.query.feed.recent({
     author: accountId,
     limit,
-    offset,
+    ...(before.beforeBlockHeight != null
+      ? before
+      : { offset: cursor.offset ?? 0 }),
     section: 'posts',
     kind: 'longform',
   });
   return {
     articles: page.items.filter(isArticlePost),
-    nextOffset: page.nextOffset ?? null,
+    hasMore: feedPageHasMore(page),
+    nextBeforeBlockHeight: page.nextBeforeBlockHeight,
+    nextBeforeEventKey: page.nextBeforeEventKey,
   };
 }
 
@@ -68,18 +97,17 @@ export const fetchAccountArticles = cache(
   async (
     accountId: string,
     limit = WRITING_SHELF_FETCH_LIMIT
-  ): Promise<{
-    articles: PostRow[];
-    nextOffset: number | null;
-    /** False when the read failed. Empty is a real zero only when this is true. */
-    known: boolean;
-  }> => {
+  ): Promise<WritingShelfWindow & { known: boolean }> => {
     try {
       const os = createServerOnSocialClient();
-      const page = await fetchAuthorArticleWindow(os, accountId, 0, limit);
+      const page = await fetchAuthorArticleWindow(os, accountId, {}, limit);
       return { ...page, known: true };
     } catch {
-      return { articles: [], nextOffset: null, known: false };
+      return {
+        articles: [],
+        hasMore: false,
+        known: false,
+      };
     }
   }
 );
@@ -94,7 +122,7 @@ export const fetchAuthorArticlePresence = cache(
     const page = await fetchAccountArticles(accountId);
     if (!page.known) return null;
     if (page.articles.length > 0) return true;
-    if (page.nextOffset != null) return null;
+    if (page.hasMore) return null;
     return false;
   }
 );
@@ -118,7 +146,7 @@ async function e2eWritingShelfChrome(
     articles: [],
     articlesKnown: true,
     coverHints: {},
-    articleNextOffset: null,
+    articleHasMore: false,
   };
 }
 
@@ -132,6 +160,19 @@ async function loadWritingPageConfig(
   } catch {
     return {};
   }
+}
+
+function writingShelfCursors(feed: WritingShelfWindow): Pick<
+  PortfolioWritingPageData,
+  | 'articleHasMore'
+  | 'articleNextBeforeBlockHeight'
+  | 'articleNextBeforeEventKey'
+> {
+  return {
+    articleHasMore: feed.hasMore,
+    articleNextBeforeBlockHeight: feed.nextBeforeBlockHeight,
+    articleNextBeforeEventKey: feed.nextBeforeEventKey,
+  };
 }
 
 const loadPortfolioWritingChrome = cache(
@@ -151,7 +192,7 @@ const loadPortfolioWritingChrome = cache(
       articles: [],
       articlesKnown: false,
       coverHints: {},
-      articleNextOffset: null,
+      articleHasMore: false,
     };
   }
 );
@@ -169,7 +210,7 @@ export const loadPortfolioWritingForAccount = cache(
       articles: feed.articles,
       articlesKnown: feed.known,
       coverHints: {},
-      articleNextOffset: feed.nextOffset,
+      ...writingShelfCursors(feed),
     };
   }
 );
@@ -229,7 +270,7 @@ export async function loadPortfolioWritingArticlePage(
       articles,
       articlesKnown: feed.known,
       coverHints,
-      articleNextOffset: feed.nextOffset,
+      ...writingShelfCursors(feed),
       post: null,
     };
   }
@@ -239,7 +280,7 @@ export async function loadPortfolioWritingArticlePage(
     articles,
     articlesKnown: feed.known,
     coverHints,
-    articleNextOffset: feed.nextOffset,
+    ...writingShelfCursors(feed),
     post: article,
   };
 }

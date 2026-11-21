@@ -451,6 +451,8 @@ jobs:
             indexers/chain-index/leaderboard_rank_store.sql \
             indexers/chain-index/scarces_schema_views.sql \
             indexers/chain-index/social_spend_schema_views.sql \
+            indexers/chain-index/migrations/20261124_feed_keyset_indexes.sql \
+            indexers/chain-index/migrations/20261125_saves_feed_keyset_index.sql \
             "root@${{ env.DEPLOY_HOST }}:/opt/onsocial/indexer-views/"
           scp -i ~/.ssh/deploy_key /tmp/deploy_gsm.env \
             "root@${{ env.DEPLOY_HOST }}:/opt/onsocial/deploy_gsm.env"
@@ -572,6 +574,24 @@ jobs:
               exit 1
             fi
 
+            # Keyset indexes first, outside a transaction (CREATE INDEX
+            # CONCURRENTLY cannot run inside the views --single-transaction).
+            echo "Applying feed keyset indexes (CONCURRENTLY)..."
+            VIEW_DIR=/opt/onsocial/indexer-views
+            chmod 644 "$VIEW_DIR"/*.sql
+            dc exec -T postgres mkdir -p /tmp/indexer-views </dev/null
+            for index_sql in \
+              20261124_feed_keyset_indexes.sql \
+              20261125_saves_feed_keyset_index.sql
+            do
+              echo "  $index_sql"
+              dc cp "$VIEW_DIR/$index_sql" "postgres:/tmp/indexer-views/$index_sql" </dev/null
+              dc exec -T postgres \
+                psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 \
+                -f "/tmp/indexer-views/$index_sql" </dev/null
+            done
+            echo "✅ feed keyset indexes ready"
+
             # One transaction. Core views publish an empty heat stub, and
             # leaderboard_schema_views.sql drops profile_discover before its
             # \ir recreates the rank store. Stdin cannot see that \ir. The
@@ -579,9 +599,6 @@ jobs:
             # commits unless Pulse ranks by heat and the heat view reads the
             # state table. Hasura retrack is next.
             echo "Applying indexer views..."
-            VIEW_DIR=/opt/onsocial/indexer-views
-            chmod 644 "$VIEW_DIR"/*.sql
-            dc exec -T postgres mkdir -p /tmp/indexer-views </dev/null
             for view in \
               core_schema_views.sql \
               leaderboard_schema_views.sql \

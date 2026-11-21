@@ -50,13 +50,20 @@ function post(postId: string, article: boolean): PostRow {
 }
 
 function client(
-  pages: Array<{ items: PostRow[]; nextOffset?: number }>
+  pages: Array<{
+    items: PostRow[];
+    nextOffset?: number;
+    nextBeforeBlockHeight?: number;
+    nextBeforeEventKey?: string;
+  }>
 ): OnSocial {
   const recent = vi.fn();
   for (const page of pages) {
     recent.mockResolvedValueOnce({
       items: page.items,
       nextOffset: page.nextOffset,
+      nextBeforeBlockHeight: page.nextBeforeBlockHeight,
+      nextBeforeEventKey: page.nextBeforeEventKey,
     });
   }
   return { query: { feed: { recent } } } as unknown as OnSocial;
@@ -64,8 +71,14 @@ function client(
 
 describe('fetchAuthorArticleWindow', () => {
   it('asks the server for longform roots in one query', async () => {
-    const os = client([{ items: [], nextOffset: 48 }]);
-    await fetchAuthorArticleWindow(os, 'alice.testnet', 0, 48);
+    const os = client([
+      {
+        items: [],
+        nextBeforeBlockHeight: 10,
+        nextBeforeEventKey: 'alice.testnet/post/edge',
+      },
+    ]);
+    await fetchAuthorArticleWindow(os, 'alice.testnet', {}, 48);
     expect(os.query.feed.recent).toHaveBeenCalledTimes(1);
     expect(os.query.feed.recent).toHaveBeenCalledWith({
       author: 'alice.testnet',
@@ -76,19 +89,54 @@ describe('fetchAuthorArticleWindow', () => {
     });
   });
 
-  it('returns articles from the page, keeping the payload gate', async () => {
+  it('returns articles from the page and carries the composite keyset', async () => {
     const os = client([
-      { items: [post('1', true), post('2', false)], nextOffset: 48 },
+      {
+        items: [post('1', true), post('2', false)],
+        nextBeforeBlockHeight: 40,
+        nextBeforeEventKey: 'alice.testnet/post/1',
+      },
     ]);
-    const page = await fetchAuthorArticleWindow(os, 'alice.testnet', 0, 48);
+    const page = await fetchAuthorArticleWindow(os, 'alice.testnet', {}, 48);
     expect(page.articles.map((row) => row.postId)).toEqual(['1']);
-    expect(page.nextOffset).toBe(48);
+    expect(page.hasMore).toBe(true);
+    expect(page.nextBeforeBlockHeight).toBe(40);
+    expect(page.nextBeforeEventKey).toBe('alice.testnet/post/1');
+  });
+
+  it('pages with the composite keyset, not offset', async () => {
+    const os = client([{ items: [] }]);
+    await fetchAuthorArticleWindow(
+      os,
+      'alice.testnet',
+      {
+        beforeBlockHeight: 40,
+        beforePostKey: 'alice.testnet/post/1',
+      },
+      48
+    );
+    expect(os.query.feed.recent).toHaveBeenCalledWith({
+      author: 'alice.testnet',
+      limit: 48,
+      beforeBlockHeight: 40,
+      beforePostKey: 'alice.testnet/post/1',
+      section: 'posts',
+      kind: 'longform',
+    });
   });
 
   it('stops when the feed ends', async () => {
     const os = client([{ items: [] }]);
-    const page = await fetchAuthorArticleWindow(os, 'alice.testnet', 48, 48);
+    const page = await fetchAuthorArticleWindow(
+      os,
+      'alice.testnet',
+      {
+        beforeBlockHeight: 10,
+        beforePostKey: 'alice.testnet/post/edge',
+      },
+      48
+    );
     expect(page.articles).toEqual([]);
-    expect(page.nextOffset).toBeNull();
+    expect(page.hasMore).toBe(false);
   });
 });

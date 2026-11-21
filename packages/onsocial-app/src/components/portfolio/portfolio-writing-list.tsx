@@ -42,8 +42,12 @@ export type PortfolioWritingPanelProps = {
   avatarUrl?: string | null;
   articles: PostRow[];
   coverHints?: Record<string, WritingArticleCoverHint>;
-  /** Next post offset. Null when the shelf has the last page. */
-  articleNextOffset?: number | null;
+  /** True when another shelf window may exist after this one. */
+  articleHasMore?: boolean;
+  /** Chrono keyset height — pair with `articleNextBeforeEventKey`. */
+  articleNextBeforeBlockHeight?: number;
+  /** Content-path tie-break — pair with `articleNextBeforeBlockHeight`. */
+  articleNextBeforeEventKey?: string;
 };
 
 /** The shelf inset. Cards pull 0.45rem toward this edge for the hover wash. */

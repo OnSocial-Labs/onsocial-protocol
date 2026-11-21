@@ -123,33 +123,57 @@ export function threadContentPath(input: {
 
 /**
  * Load-more cursor for ascending reply pages. Prefer the last confirmed
- * `blockHeight` (keyset); fall back to offset when only optimistic rows
- * (`blockHeight: 0`) sit at the tail.
+ * composite keyset (height + account + post); fall back to offset when only
+ * optimistic rows (`blockHeight: 0`) sit at the tail.
  */
 export function replyLoadMoreCursor(replies: readonly PostRow[]): {
   afterBlockHeight?: number;
+  afterAccountId?: string;
+  afterPostId?: string;
   offset?: number;
 } {
   for (let index = replies.length - 1; index >= 0; index -= 1) {
-    const height = replies[index]?.blockHeight;
-    if (typeof height === 'number' && height > 0) {
-      return { afterBlockHeight: height };
+    const row = replies[index];
+    const height = row?.blockHeight;
+    if (
+      typeof height === 'number' &&
+      height > 0 &&
+      row.accountId &&
+      row.postId
+    ) {
+      return {
+        afterBlockHeight: height,
+        afterAccountId: row.accountId,
+        afterPostId: row.postId,
+      };
     }
   }
   return { offset: replies.length };
 }
 
 /**
- * Descending quotes load-more — older than the last painted row's height.
+ * Descending quotes load-more — older than the last painted composite tip.
  */
 export function quoteLoadMoreCursor(quotes: readonly PostRow[]): {
   beforeBlockHeight?: number;
+  beforeAccountId?: string;
+  beforePostId?: string;
   offset?: number;
 } {
   for (let index = quotes.length - 1; index >= 0; index -= 1) {
-    const height = quotes[index]?.blockHeight;
-    if (typeof height === 'number' && height > 0) {
-      return { beforeBlockHeight: height };
+    const row = quotes[index];
+    const height = row?.blockHeight;
+    if (
+      typeof height === 'number' &&
+      height > 0 &&
+      row.accountId &&
+      row.postId
+    ) {
+      return {
+        beforeBlockHeight: height,
+        beforeAccountId: row.accountId,
+        beforePostId: row.postId,
+      };
     }
   }
   return { offset: quotes.length };

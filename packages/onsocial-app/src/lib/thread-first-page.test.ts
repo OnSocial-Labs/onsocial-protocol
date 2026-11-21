@@ -177,14 +177,18 @@ describe('thread first page', () => {
 });
 
 describe('replyLoadMoreCursor', () => {
-  it('prefers the last confirmed block height', () => {
+  it('prefers the last confirmed composite keyset', () => {
     expect(
       replyLoadMoreCursor([
         { ...reply('a'), blockHeight: 10 },
         { ...reply('b'), blockHeight: 20 },
         { ...reply('c'), blockHeight: 0 },
       ])
-    ).toEqual({ afterBlockHeight: 20 });
+    ).toEqual({
+      afterBlockHeight: 20,
+      afterAccountId: 'bob.near',
+      afterPostId: 'b',
+    });
   });
 
   it('falls back to offset when only optimistic rows exist', () => {
@@ -199,13 +203,17 @@ describe('replyLoadMoreCursor', () => {
 });
 
 describe('quoteLoadMoreCursor / reposterLoadMoreCursor', () => {
-  it('pages descending quotes older than the last painted height', () => {
+  it('pages descending quotes older than the last painted composite tip', () => {
     expect(
       quoteLoadMoreCursor([
         { ...reply('q1'), blockHeight: 50 },
         { ...reply('q2'), blockHeight: 40 },
       ])
-    ).toEqual({ beforeBlockHeight: 40 });
+    ).toEqual({
+      beforeBlockHeight: 40,
+      beforeAccountId: 'bob.near',
+      beforePostId: 'q2',
+    });
   });
 
   it('pages descending reposters older than the last timestamp', () => {

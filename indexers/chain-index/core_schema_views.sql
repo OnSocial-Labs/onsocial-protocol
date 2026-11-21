@@ -1113,19 +1113,10 @@ AS $$
   END
 $$;
 
--- feed_recent / feed_hot keyset order (height+path; heat joins separately).
-CREATE INDEX IF NOT EXISTS idx_posts_current_feed_recent_keyset
-  ON posts_current (
-    block_height DESC,
-    (post_content_path(account_id, post_id, group_id)) DESC
-  );
-
-CREATE INDEX IF NOT EXISTS idx_posts_current_account_feed_recent_keyset
-  ON posts_current (
-    account_id,
-    block_height DESC,
-    (post_content_path(account_id, post_id, group_id)) DESC
-  );
+-- feed_recent / feed_hot keyset indexes live in
+-- migrations/20261124_feed_keyset_indexes.sql (CREATE INDEX CONCURRENTLY).
+-- Do not create them here: views deploy uses --single-transaction, and
+-- CONCURRENTLY cannot run inside a transaction.
 
 CREATE OR REPLACE FUNCTION post_feed_shell(
   account_id text,

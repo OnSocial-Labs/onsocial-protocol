@@ -250,6 +250,55 @@ async function trackFunctions(): Promise<void> {
   console.log(`   ✓ Tracked ${trackedNow} new function(s)\n`);
 }
 
+/**
+ * Untrack + retrack catalog functions so Hasura picks up CREATE OR REPLACE
+ * signature changes (new args). trackFunctions alone skips already-tracked names.
+ */
+async function refreshTrackedFunctions(): Promise<number> {
+  console.log(
+    '🔄 Refreshing tracked SQL functions (CREATE OR REPLACE signature drift)...'
+  );
+
+  const [live, tracked] = await Promise.all([
+    fetchLiveFunctions().catch(() => new Set<string>()),
+    fetchTrackedFunctions().catch(() => new Set<string>()),
+  ]);
+  const toRefresh = PUBLIC_FUNCTIONS.filter(
+    (name) => live.has(name) && tracked.has(name)
+  );
+  if (toRefresh.length === 0) {
+    console.log('   ✓ No tracked SQL functions to refresh\n');
+    return 0;
+  }
+
+  console.log(`   ↻ Retracking ${toRefresh.length} function(s)...`);
+  const ops: BulkOp[] = [];
+  for (const name of toRefresh) {
+    ops.push({
+      type: 'pg_untrack_function',
+      args: {
+        source: 'default',
+        function: { schema: 'public', name },
+      },
+    });
+    ops.push({
+      type: 'pg_track_function',
+      args: {
+        source: 'default',
+        function: { schema: 'public', name },
+        configuration: { exposed_as: 'query' },
+      },
+    });
+  }
+
+  for (const batch of chunk(ops, BULK_CHUNK_SIZE)) {
+    await hasuraBulk(batch);
+  }
+
+  console.log(`   ✓ Refreshed ${toRefresh.length} SQL function(s)\n`);
+  return toRefresh.length;
+}
+
 async function createFunctionPermissions(): Promise<void> {
   console.log('🔧 Creating function permissions...');
 
@@ -1049,6 +1098,7 @@ async function main(): Promise<void> {
         await ensureCatalogProfileRelationships();
         await trackFunctions();
         await refreshTrackedSqlViews();
+        await refreshTrackedFunctions();
         await reloadHasuraSources();
         await trackFunctions();
         await dropPermissions();
@@ -1069,6 +1119,7 @@ async function main(): Promise<void> {
         } else {
           await refreshTrackedSqlViews();
         }
+        await refreshTrackedFunctions();
         await reloadHasuraSources();
         await trackFunctions();
         await syncPermissions();

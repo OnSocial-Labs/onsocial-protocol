@@ -706,13 +706,14 @@ export function useGuildPageData({
     // stale seed cannot paint the wrong guild.
     if (initial && initial.groupId === groupId) {
       seededGroupIdRef.current = groupId;
-      // Cursor lands with the first keyed page — don't invent one from SSR.
-      nextBeforeBlockHeightRef.current = undefined;
-      nextBeforeEventKeyRef.current = undefined;
+      nextBeforeBlockHeightRef.current = initial.nextBeforeBlockHeight;
+      nextBeforeEventKeyRef.current = initial.nextBeforeEventKey;
       persistGuildPageCache(groupId, pageCacheFromInitial(initial), {
         filterId: 'all',
         posts: initial.posts,
         hasMore: initial.hasMorePosts,
+        nextBeforeBlockHeight: initial.nextBeforeBlockHeight,
+        nextBeforeEventKey: initial.nextBeforeEventKey,
       });
       setShellPreview(initial.shell);
       setShellExtrasResolved(true);
