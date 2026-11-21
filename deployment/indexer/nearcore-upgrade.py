@@ -240,6 +240,7 @@ def _latest_release() -> dict | None:
         headers={
             "accept": "application/vnd.github+json",
             "user-agent": "onsocial-nearcore-upgrade",
+            "x-github-api-version": "2026-03-10",
         },
     )
     with urllib.request.urlopen(req, timeout=20) as resp:
