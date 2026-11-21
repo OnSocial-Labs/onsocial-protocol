@@ -631,6 +631,7 @@ DROP FUNCTION IF EXISTS feed_hot(integer, integer, text, text, text, text[], boo
 DROP FUNCTION IF EXISTS feed_hot(integer, integer, text, text, text, text[], boolean, double precision, bigint, text);
 DROP FUNCTION IF EXISTS feed_recent(integer, integer, text, text, text, text[], boolean, text, text);
 DROP FUNCTION IF EXISTS feed_recent(integer, integer, text, text, text, text[], boolean, text, text, bigint);
+DROP FUNCTION IF EXISTS feed_recent(integer, integer, text, text, text, text[], boolean, text, text, bigint, text);
 DROP VIEW IF EXISTS posts_feed;
 DROP VIEW IF EXISTS posts_feed_rank;
 DROP VIEW IF EXISTS groups_by_member_count;
