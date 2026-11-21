@@ -183,7 +183,9 @@ function useLandOpenedPost(
   const scrollerRef = useRef<HTMLElement | null>(null);
   const releaseHoldRef = useRef<(() => void) | null>(null);
   const seatGuardRef = useRef(seatGuard);
-  seatGuardRef.current = seatGuard;
+  useEffect(() => {
+    seatGuardRef.current = seatGuard;
+  });
   const releaseSeatGuard = () => {
     releaseHoldRef.current?.();
     releaseHoldRef.current = null;
