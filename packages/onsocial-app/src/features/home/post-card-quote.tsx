@@ -129,8 +129,8 @@ export function QuotedPostInset({
     useState<FeedPhotoZoomOrigin | null>(null);
   const [quoteThreadOpen, setQuoteThreadOpen] = useState(false);
   const [quoteAudioOpen, setQuoteAudioOpen] = useState(false);
-  const quoteAudioMounted = useSheetMounted(quoteAudioOpen);
-  const quotePhotoMounted = useSheetMounted(quotePhotoOpen);
+  const quoteAudioSheet = useSheetMounted(quoteAudioOpen);
+  const quotePhotoSheet = useSheetMounted(quotePhotoOpen);
   const quoteAudio = postScarceAudio(post);
   const quotePlayables: ScarcePlayableMedia[] = quoteAudio?.url
     ? [
@@ -238,12 +238,15 @@ export function QuotedPostInset({
           </PostSensitiveGate>
         </div>
       </div>
-      {expanded && mediaItems.length > 0 && quotePhotoMounted ? (
+      {expanded && mediaItems.length > 0 && quotePhotoSheet.mounted ? (
         <FeedPhotoEnlargeScreen
           open={quotePhotoOpen}
           onOpenChange={(open) => {
             setQuotePhotoOpen(open);
-            if (!open) setQuoteThreadOpen(false);
+            if (!open) {
+              setQuoteThreadOpen(false);
+              quotePhotoSheet.onClosed();
+            }
           }}
           title={
             mediaItems.some((item) => isRenderablePostVideoMime(item.mime))
@@ -312,10 +315,13 @@ export function QuotedPostInset({
           }
         />
       ) : null}
-      {expanded && quoteAudioMounted ? (
+      {expanded && quoteAudioSheet.mounted ? (
         <ScarceFeedMediumSheet
           open={quoteAudioOpen}
-          onOpenChange={setQuoteAudioOpen}
+          onOpenChange={(next) => {
+            setQuoteAudioOpen(next);
+            if (!next) quoteAudioSheet.onClosed();
+          }}
           mode="audio"
           title={quoteListenTitle}
           creatorId={post.accountId}

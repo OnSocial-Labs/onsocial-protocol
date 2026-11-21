@@ -910,11 +910,13 @@ export function usePrefersReducedTransparency(): boolean {
 }
 
 /**
- * Portal resolution is only needed while the sheet is open or finishing its
- * close animation. Idle closed sheets skip host probes entirely.
+ * Portal resolution is only needed while the sheet is on-screen: open, or
+ * presence still finishing leave. Parents must unmount after `onClosed` so
+ * idle rows never keep a closed sheet in the tree.
  */
 export function glassSheetNeedsPortalTarget(input: {
   open: boolean;
+  /** Presence still owns the portal (open or exit animation). */
   mounted: boolean;
 }): boolean {
   return input.open || input.mounted;
@@ -979,11 +981,8 @@ function useGlassSheetPortalTarget(
 export function portalHostShouldYield(node: HTMLElement): boolean {
   if (node.closest('[data-feed-session="covered"]')) return true;
   if (!node.closest('[data-feed-session]')) return false;
-  return Boolean(
-    document.querySelector(
-      '.feed-session-front .os-app-screen, .feed-session-front .portfolio-frame'
-    )
-  );
+  // Class presence is enough — avoid a deep querySelector on every redraw.
+  return document.getElementsByClassName('feed-session-front').length > 0;
 }
 
 export function resolveGlassPortalNode(input: {

@@ -349,8 +349,7 @@ export function ScarceClipPlayer({
   const [duration, setDuration] = useState(0);
   const [scrubbing, setScrubbing] = useState(false);
   const [fansOpen, setFansOpen] = useState(false);
-  const [fansWarm, setFansWarm] = useState(false);
-  const fansMounted = useSheetMounted(fansOpen || fansWarm);
+  const fansSheet = useSheetMounted(fansOpen);
   const { accountId: viewerAccountId } = useAppWallet();
   const tracksOnly = layout === 'tracks' && isAudio;
   const coverChrome = isAudio && !tracksOnly;
@@ -594,7 +593,6 @@ export function ScarceClipPlayer({
       loading={loves.fansLoading && facepileIds.length === 0}
       className="scarce-clip-fans-facepile"
       onPointerDown={() => {
-        setFansWarm(true);
         if (loves.fanIds.length > 0) {
           warmProfileListAccounts(loves.fanIds, viewerAccountId ?? null);
         }
@@ -2182,10 +2180,11 @@ export function ScarceClipPlayer({
             threadRoot={threadRoot}
           />
         ) : null}
-        {fansMounted ? (
+        {fansSheet.mounted ? (
           <ScarceFansSheet
             open={fansOpen}
             onClose={() => setFansOpen(false)}
+            onClosed={fansSheet.onClosed}
             fanIds={loves.fanIds}
             fanCount={loves.fanCount}
             dropTitle={persist?.title}

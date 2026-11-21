@@ -67,8 +67,7 @@ export function DropFansButton({
   const { accountId: viewerAccountId } = useAppWallet();
   const requestRef = useRef(0);
   const [open, setOpen] = useState(false);
-  const [warm, setWarm] = useState(false);
-  const sheetMounted = useSheetMounted(open || warm);
+  const fansSheet = useSheetMounted(open);
   const peeked = peekDropFanIds(creatorId, collectionId);
   const [roster, setRoster] = useState<string[]>(
     () => peeked ?? fanIds ?? []
@@ -78,7 +77,6 @@ export function DropFansButton({
   const label = fanCount === 1 ? '1 fan' : `${fanCount} fans`;
 
   const warmFans = () => {
-    setWarm(true);
     warmDropFanIds(creatorId, collectionId);
     const seed = peekDropFanIds(creatorId, collectionId) ?? fanIds ?? [];
     if (seed.length > 0) {
@@ -92,7 +90,6 @@ export function DropFansButton({
     requestRef.current = request;
     const cached =
       peekDropFanIds(creatorId, collectionId) ?? fanIds ?? [];
-    setWarm(true);
     setOpen(true);
     setRoster(cached);
     setError(false);
@@ -133,10 +130,11 @@ export function DropFansButton({
       >
         <DropRowFans fanIds={fanIds} fanCount={fanCount} />
       </button>
-      {sheetMounted ? (
+      {fansSheet.mounted ? (
         <ScarceFansSheet
           open={open}
           onClose={() => setOpen(false)}
+          onClosed={fansSheet.onClosed}
           fanIds={roster}
           fanCount={loading ? fanCount : roster.length}
           dropTitle={title}

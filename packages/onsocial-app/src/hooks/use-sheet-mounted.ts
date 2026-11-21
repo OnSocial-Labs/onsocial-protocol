@@ -1,15 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 /**
- * Mount overlay chrome on first intent/open and keep it mounted afterwards.
- * Pass `open || warm` so pointerdown can seat the sheet before click, while
- * idle cards stay out of the tree. Close animations and internal state
- * survive later closes once mounted.
+ * Mount overlay chrome while `open` and through the leave animation.
+ * Pass the returned `onClosed` to the sheet so idle rows drop the tree.
+ * Prefetch on pointerdown; do not keep warm mounts parked on the card.
  */
-export function useSheetMounted(open: boolean): boolean {
-  const [mounted, setMounted] = useState(open);
-  if (open && !mounted) setMounted(true);
-  return mounted || open;
+export function useSheetMounted(open: boolean): {
+  mounted: boolean;
+  onClosed: () => void;
+} {
+  const [held, setHeld] = useState(false);
+  if (open && !held) {
+    setHeld(true);
+  }
+  const onClosed = useCallback(() => {
+    setHeld(false);
+  }, []);
+  return { mounted: open || held, onClosed };
 }

@@ -1,3 +1,4 @@
+/** @vitest-environment jsdom */
 import { describe, expect, it } from 'vitest';
 import {
   GLASS_SHEET_PEEK_RATIO,
@@ -12,6 +13,7 @@ import {
   resolveGlassPortalNode,
   glassSheetNeedsPortalTarget,
   glassSheetShouldProbeHost,
+  portalHostShouldYield,
   GLASS_SHEET_MEDIA_FACE_LIFT,
   resolveBackdropEnterStyle,
   resolveBackdropPresentation,
@@ -425,6 +427,26 @@ describe('glass sheet portal probe gating', () => {
     expect(glassSheetNeedsPortalTarget({ open: false, mounted: false })).toBe(
       false
     );
+  });
+
+  it('yields a covered feed host without a deep document query', () => {
+    const covered = document.createElement('div');
+    covered.setAttribute('data-feed-session', 'covered');
+    const host = document.createElement('div');
+    covered.appendChild(host);
+    expect(portalHostShouldYield(host)).toBe(true);
+
+    const live = document.createElement('div');
+    live.setAttribute('data-feed-session', 'live');
+    const liveHost = document.createElement('div');
+    live.appendChild(liveHost);
+    expect(portalHostShouldYield(liveHost)).toBe(false);
+
+    const front = document.createElement('div');
+    front.className = 'feed-session-front';
+    document.body.appendChild(front);
+    expect(portalHostShouldYield(liveHost)).toBe(true);
+    front.remove();
   });
 
   it('does not probe idle closed sheets or explicit portals', () => {

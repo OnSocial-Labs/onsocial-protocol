@@ -110,22 +110,25 @@ export const PostCardMenu = memo(function PostCardMenu({
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  // Pointerdown seats the ⋮ drawer so click opens without a cold mount.
-  const [menuWarm, setMenuWarm] = useState(false);
-  const menuDrawerMounted = useSheetMounted(open || menuWarm);
-  // Nested confirms / compose sheets — mount on first open only.
-  const blockDrawerMounted = useSheetMounted(confirmBlock);
-  const muteDrawerMounted = useSheetMounted(confirmMute);
-  const endorseSheetMounted = useSheetMounted(endorseOpen);
-  const supportSheetMounted = useSheetMounted(supportOpen);
   const isOpen = open && !closing;
+  const menuDrawer = useSheetMounted(isOpen);
+  const blockDrawer = useSheetMounted(confirmBlock);
+  const muteDrawer = useSheetMounted(confirmMute);
+  const endorseSheet = useSheetMounted(endorseOpen);
+  const supportSheet = useSheetMounted(supportOpen);
+  const releaseMenu = menuDrawer.onClosed;
+  const releaseBlock = blockDrawer.onClosed;
+  const releaseMute = muteDrawer.onClosed;
+  const releaseEndorse = endorseSheet.onClosed;
+  const releaseSupport = supportSheet.onClosed;
   const requestClose = useCallback(() => {
     setClosing(true);
   }, []);
   const handleClosed = useCallback(() => {
     setClosing(false);
     setOpen(false);
-  }, []);
+    releaseMenu();
+  }, [releaseMenu]);
   const close = requestClose;
   const authorLabel = displayName(accountId, authorProfile?.displayName);
 
@@ -469,7 +472,6 @@ export const PostCardMenu = memo(function PostCardMenu({
           className={`post-card-menu-trigger${isOpen ? ' is-open' : ''}`}
           onPointerDown={(event) => {
             event.stopPropagation();
-            setMenuWarm(true);
             if (showGestures) setGesturesArmed(true);
           }}
           onClick={(event) => {
@@ -488,7 +490,7 @@ export const PostCardMenu = memo(function PostCardMenu({
           <DotsVerticalIcon className="post-card-menu-icon" aria-hidden />
         </button>
 
-        {menuDrawerMounted ? (
+        {menuDrawer.mounted ? (
           <ActionDrawer
             open={isOpen}
             onClose={requestClose}
@@ -500,13 +502,14 @@ export const PostCardMenu = memo(function PostCardMenu({
             {...(zIndex != null ? { zIndex } : {})}
           />
         ) : null}
-        {blockDrawerMounted ? (
+        {blockDrawer.mounted ? (
           <ActionDrawer
             open={confirmBlock}
             stack="auto"
             onClose={() => {
               if (!blockPending) setConfirmBlock(false);
             }}
+            onClosed={releaseBlock}
             label={
               blockConfirmCopy({
                 accountId,
@@ -526,13 +529,14 @@ export const PostCardMenu = memo(function PostCardMenu({
             />
           </ActionDrawer>
         ) : null}
-        {muteDrawerMounted ? (
+        {muteDrawer.mounted ? (
           <ActionDrawer
             open={confirmMute}
             stack="auto"
             onClose={() => {
               if (!mutePending) setConfirmMute(false);
             }}
+            onClosed={releaseMute}
             label={
               muteConfirmCopy({
                 accountId,
@@ -553,24 +557,30 @@ export const PostCardMenu = memo(function PostCardMenu({
           </ActionDrawer>
         ) : null}
       </div>
-      {endorseSheetMounted ? (
+      {endorseSheet.mounted ? (
         <EndorseComposeSheet
           open={endorseOpen}
           pageAccountId={accountId}
           profileName={authorProfile?.displayName}
           avatarUrl={authorProfile?.avatarUrl}
           intent={viewerEndorsed ? 'auto' : 'create'}
-          onOpenChange={setEndorseOpen}
+          onOpenChange={(next) => {
+            setEndorseOpen(next);
+            if (!next) releaseEndorse();
+          }}
           {...(zIndex != null ? { zIndex } : {})}
         />
       ) : null}
-      {supportSheetMounted ? (
+      {supportSheet.mounted ? (
         <ProfileSupportSheet
           open={supportOpen}
           pageAccountId={accountId}
           profileName={authorProfile?.displayName}
           avatarUrl={authorProfile?.avatarUrl}
-          onOpenChange={setSupportOpen}
+          onOpenChange={(next) => {
+            setSupportOpen(next);
+            if (!next) releaseSupport();
+          }}
           {...(zIndex != null ? { zIndex } : {})}
         />
       ) : null}

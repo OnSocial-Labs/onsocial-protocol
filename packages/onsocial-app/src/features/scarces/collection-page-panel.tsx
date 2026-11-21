@@ -342,8 +342,7 @@ export function CollectionPagePanel({
   const dropFanIds = dropLoves.fanIds.slice(0, 5);
   const dropFanProfiles = usePostAuthorProfiles(showDropLove ? dropFanIds : []);
   const [dropFansOpen, setDropFansOpen] = useState(false);
-  const [dropFansWarm, setDropFansWarm] = useState(false);
-  const dropFansMounted = useSheetMounted(dropFansOpen || dropFansWarm);
+  const dropFansSheet = useSheetMounted(dropFansOpen);
   const [clientSettled, setClientSettled] = useState(
     initial != null || (isNowPlayingThisDrop && Boolean(nowPlaying?.session))
   );
@@ -1326,7 +1325,6 @@ export function CollectionPagePanel({
                     loading={dropLoves.fansLoading && dropFanIds.length === 0}
                     className="collection-drop-fans-facepile"
                     onPointerDown={() => {
-                      setDropFansWarm(true);
                       if (dropLoves.fanIds.length > 0) {
                         warmProfileListAccounts(
                           dropLoves.fanIds,
@@ -1973,10 +1971,11 @@ export function CollectionPagePanel({
         }
       />
 
-      {showDropLove && dropFansMounted ? (
+      {showDropLove && dropFansSheet.mounted ? (
         <ScarceFansSheet
           open={dropFansOpen}
           onClose={() => setDropFansOpen(false)}
+          onClosed={dropFansSheet.onClosed}
           fanIds={dropLoves.fanIds}
           fanCount={dropLoves.fanCount}
           idsLoading={dropLoves.fansLoading && dropLoves.fanIds.length === 0}

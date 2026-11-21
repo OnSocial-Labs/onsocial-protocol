@@ -331,12 +331,9 @@ export const PostEngagementRow = memo(function PostEngagementRow({
 }) {
   const [shareOpen, setShareOpen] = useState(false);
   const [likesOpen, setLikesOpen] = useState(false);
-  // Pointerdown warms chrome + likes read so click opens with people ready
-  // (boost-style instant info; sheet stays out of the tree until intent).
-  const [likesWarm, setLikesWarm] = useState(false);
-  const [shareWarm, setShareWarm] = useState(false);
-  const likesSheetMounted = useSheetMounted(likesOpen || likesWarm);
-  const shareDrawerMounted = useSheetMounted(shareOpen || shareWarm);
+  // Pointerdown prefetches likers; sheet mounts only when open.
+  const likesSheet = useSheetMounted(likesOpen);
+  const shareDrawer = useSheetMounted(shareOpen);
   const { accountId: viewerAccountId } = useAppWallet();
   const likeLabel = formatWritingLikeLabel(engagement.reactionCount);
   const canShare = Boolean(onQuote || onRepost || onUndoRepost);
@@ -440,9 +437,6 @@ export const PostEngagementRow = memo(function PostEngagementRow({
           onActivate={
             canShare && !sharePending ? () => setShareOpen(true) : undefined
           }
-          onPointerIntent={
-            canShare && !sharePending ? () => setShareWarm(true) : undefined
-          }
         />
         <span
           className={`post-card-react-cluster post-card-react${
@@ -488,7 +482,6 @@ export const PostEngagementRow = memo(function PostEngagementRow({
             onPointerDown={(event) => {
               event.stopPropagation();
               if (!likeLabel) return;
-              setLikesWarm(true);
               warmPostLikeAccountIds(post.accountId, post.postId, {
                 groupId: post.groupId,
                 likeCount: engagement.reactionCount,
@@ -549,10 +542,11 @@ export const PostEngagementRow = memo(function PostEngagementRow({
         ) : null}
         <PostShareControl href={shareHref} title={shareTitle} />
       </div>
-      {likesSheetMounted ? (
+      {likesSheet.mounted ? (
         <PostLikesSheet
           open={likesOpen}
           onClose={() => setLikesOpen(false)}
+          onClosed={likesSheet.onClosed}
           postOwner={post.accountId}
           postId={post.postId}
           groupId={post.groupId}
@@ -562,10 +556,11 @@ export const PostEngagementRow = memo(function PostEngagementRow({
           {...(shareDrawerZIndex != null ? { zIndex: shareDrawerZIndex } : {})}
         />
       ) : null}
-      {canShare && shareDrawerMounted ? (
+      {canShare && shareDrawer.mounted ? (
         <ActionDrawer
           open={shareOpen}
           onClose={() => setShareOpen(false)}
+          onClosed={shareDrawer.onClosed}
           label="Quote or repost"
           items={shareItems}
           {...(shareDrawerZIndex != null ? { zIndex: shareDrawerZIndex } : {})}
