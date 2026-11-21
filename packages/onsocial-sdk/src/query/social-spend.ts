@@ -515,6 +515,8 @@ export class SocialSpendQuery {
     for (const path of paths) out[path] = false;
     if (!spender || paths.length === 0) return out;
 
+    // Headroom for repeat amplifies on the same path — a tight cap can
+    // exhaust the page before every target appears once.
     const rows = await this.events({
       action: 'boost_post',
       targetType: 'post',
@@ -522,11 +524,15 @@ export class SocialSpendQuery {
       spenderId: spender,
       eventType: SOCIAL_SPEND_EVENT_TYPES.SOCIAL_SPENT,
       success: true,
-      limit: Math.min(2_000, Math.max(paths.length, 50)),
+      limit: Math.min(10_000, Math.max(paths.length * 100, 100)),
     });
+    let remaining = paths.length;
     for (const row of rows) {
       const path = row.targetId?.trim();
-      if (path && path in out) out[path] = true;
+      if (!path || !(path in out) || out[path]) continue;
+      out[path] = true;
+      remaining -= 1;
+      if (remaining === 0) break;
     }
     return out;
   }

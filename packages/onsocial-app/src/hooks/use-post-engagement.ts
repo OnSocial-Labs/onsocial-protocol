@@ -470,6 +470,18 @@ export function usePostEngagement(
   /** Survives prune — scroll-back paints counts + colour without waiting. */
   const lastGoodRef = useRef<Map<string, PostEngagement>>(new Map());
   const lastGoodAccountRef = useRef<string | null>(accountId ?? null);
+  const [fetchRetryEpoch, setFetchRetryEpoch] = useState(0);
+  const fetchRetryCountRef = useRef(0);
+  const fetchRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleFetchRetry = () => {
+    if (fetchRetryCountRef.current >= 3 || fetchRetryTimerRef.current) return;
+    fetchRetryCountRef.current += 1;
+    const delayMs = 1_200 * fetchRetryCountRef.current;
+    fetchRetryTimerRef.current = setTimeout(() => {
+      fetchRetryTimerRef.current = null;
+      setFetchRetryEpoch((epoch) => epoch + 1);
+    }, delayMs);
+  };
   if (lastGoodAccountRef.current !== (accountId ?? null)) {
     lastGoodAccountRef.current = accountId ?? null;
     lastGoodRef.current.clear();
@@ -521,6 +533,8 @@ export function usePostEngagement(
       })),
     [posts]
   );
+  const targetsRef = useRef(targets);
+  targetsRef.current = targets;
   const targetsSignature = useMemo(
     () => targets.map((t) => t.path).join('\n') + `\n@${accountId ?? ''}`,
     [targets, accountId]
@@ -597,15 +611,71 @@ export function usePostEngagement(
       );
     }
 
+    const client = createReadOnlyOnSocialClient();
+
+    // Public amplify totals when the feed row omitted them (signed-out too).
+    // Signed-in overlay keys fetch counts in that batch — skip a double read.
+    const overlayKeySet = new Set(overlayFor.map((target) => target.key));
+    const amplifyFillFor = targets.filter((target) => {
+      const row =
+        known[target.key] ?? seed?.[target.key] ?? lastGood.get(target.key);
+      if (row == null || row.amplifyCountReady) return false;
+      if (accountId && overlayKeySet.has(target.key)) return false;
+      return true;
+    });
+    if (amplifyFillFor.length > 0) {
+      const fillRows = amplifyFillFor;
+      const fillPaths = fillRows.map((target) => target.path);
+      void client.query.socialSpend
+        .amplifyCountsForPostPaths(
+          fillPaths,
+          accountId ? { viewer: accountId } : {}
+        )
+        .then((amplifyCounts) => {
+          setEngagement((current) => {
+            let changed = false;
+            const next: EngagementMap = { ...current };
+            for (const target of fillRows) {
+              if (!targetsRef.current.some((row) => row.key === target.key)) {
+                continue;
+              }
+              const previous = current[target.key];
+              if (!previous || previous.amplifyCountReady) continue;
+              const amplify = amplifyCounts[target.path];
+              const amplifyCount = Math.max(
+                amplify?.amplifyCount ?? 0,
+                previous.viewerAmplified || amplify?.viewerAmplified ? 1 : 0
+              );
+              const row: PostEngagement = {
+                ...previous,
+                amplifyCount,
+                amplifyCountReady: true,
+                viewerAmplified:
+                  previous.viewerAmplified ||
+                  Boolean(amplify?.viewerAmplified),
+              };
+              if (samePostEngagement(previous, row)) continue;
+              next[target.key] = row;
+              rememberEngagementLastGood(lastGood, target.key, row);
+              changed = true;
+            }
+            return changed ? next : current;
+          });
+        })
+        .catch(() => {
+          scheduleFetchRetry();
+        });
+    }
+
     // Counts already on the row stay. A signed-in viewer only picks up
     // their own like, save, and repost — a recount would roll the numbers.
     // Overlay must not use loadId cancel: scroll thrash was dropping colour.
     if (missing.length === 0) {
       if (overlayFor.length === 0 || !accountId) return;
       const viewerId = accountId;
-      const client = createReadOnlyOnSocialClient();
       const paths = overlayFor.map((target) => target.path);
       const overlayRows = overlayFor;
+      // Counts soft-fill above owns totals — colour-only here when ready.
       const needAmplifyCounts = overlayRows.some(
         (target) => !engagementRef.current[target.key]?.amplifyCountReady
       );
@@ -635,13 +705,14 @@ export function usePostEngagement(
           amplifyResult,
         ]) => {
           if (lastGoodAccountRef.current !== viewerId) return;
-          // Failed viewer colour read — do not mark loaded; retry next pass.
           if (
             reactionResult.status !== 'fulfilled' ||
             savesResult.status !== 'fulfilled'
           ) {
+            scheduleFetchRetry();
             return;
           }
+          fetchRetryCountRef.current = 0;
           const reactionStates = reactionResult.value;
           const savedPaths = new Set(
             savesResult.value.map((row) => row.contentPath)
@@ -654,6 +725,7 @@ export function usePostEngagement(
           );
           const amplifyPayload =
             amplifyResult.status === 'fulfilled' ? amplifyResult.value : null;
+          const liveKeys = new Set(targetsRef.current.map((row) => row.key));
           const painted: typeof overlayRows = [];
           setEngagement((current) => {
             let changed = false;
@@ -662,6 +734,7 @@ export function usePostEngagement(
             const pendingSaves = pendingSaveKeysRef.current;
             const unreposted = unrepostedKeysRef.current;
             for (const target of overlayRows) {
+              if (!liveKeys.has(target.key)) continue;
               const previous = current[target.key];
               if (!previous) continue;
               const reactions =
@@ -719,7 +792,6 @@ export function usePostEngagement(
     }
 
     const loadId = ++loadIdRef.current;
-    const client = createReadOnlyOnSocialClient();
     const pending = missing;
     const paths = pending.map((target) => target.path);
 
@@ -753,15 +825,25 @@ export function usePostEngagement(
           reactionResult.status === 'rejected' &&
           amplifyResult.status === 'rejected'
         ) {
+          scheduleFetchRetry();
           return;
         }
 
-        const threadCounts =
-          threadResult.status === 'fulfilled' ? threadResult.value : {};
-        const reactionStates =
-          reactionResult.status === 'fulfilled' ? reactionResult.value : {};
-        const amplifyCounts =
-          amplifyResult.status === 'fulfilled' ? amplifyResult.value : {};
+        const threadsOk = threadResult.status === 'fulfilled';
+        const reactionsOk = reactionResult.status === 'fulfilled';
+        const amplifyOk = amplifyResult.status === 'fulfilled';
+        const savesOk =
+          !accountId || savesResult.status === 'fulfilled';
+        const viewerReady = accountId ? reactionsOk && savesOk : true;
+        if (accountId && !viewerReady) {
+          scheduleFetchRetry();
+        } else {
+          fetchRetryCountRef.current = 0;
+        }
+
+        const threadCounts = threadsOk ? threadResult.value : {};
+        const reactionStates = reactionsOk ? reactionResult.value : {};
+        const amplifyCounts = amplifyOk ? amplifyResult.value : {};
         const savedPaths = new Set(
           savesResult.status === 'fulfilled'
             ? savesResult.value.map((row) => row.contentPath)
@@ -774,32 +856,69 @@ export function usePostEngagement(
           ).map((row) => [row.refPath, row])
         );
 
+        const liveKeys = new Set(targetsRef.current.map((row) => row.key));
         const next: EngagementMap = {};
+        const overlayPainted: typeof pending = [];
         for (const target of pending) {
+          if (!liveKeys.has(target.key)) continue;
           const counts = threadCounts[target.path];
           const reactions = reactionStates[`${target.owner}:${target.postId}`];
           const amplify = amplifyCounts[target.path];
           const viewerRepost = viewerReposts.get(target.path);
+          const previous = engagementRef.current[target.key];
           const row: PostEngagement = {
             ...EMPTY_POST_ENGAGEMENT,
-            replyCount: counts?.replyCount ?? 0,
-            quoteCount: counts?.quoteCount ?? 0,
-            repostCount: counts?.repostCount ?? 0,
-            reactionCount: reactions?.counts.total ?? 0,
-            viewerReacted: (reactions?.viewerReacted.length ?? 0) > 0,
-            amplifyCount: amplify?.amplifyCount ?? 0,
-            amplifyCountReady: true,
-            viewerAmplified: amplify?.viewerAmplified ?? false,
-            viewerSaved: savedPaths.has(target.path),
-            viewerReposted: Boolean(viewerRepost),
-            viewerRepostId: viewerRepost?.repostId ?? null,
-            viewerRepostGroupId: viewerRepost?.groupId ?? null,
-            viewerFlagsReady: true,
+            replyCount: threadsOk
+              ? (counts?.replyCount ?? 0)
+              : (previous?.replyCount ?? 0),
+            quoteCount: threadsOk
+              ? (counts?.quoteCount ?? 0)
+              : (previous?.quoteCount ?? 0),
+            repostCount: threadsOk
+              ? (counts?.repostCount ?? 0)
+              : (previous?.repostCount ?? 0),
+            reactionCount: reactionsOk
+              ? (reactions?.counts.total ?? 0)
+              : (previous?.reactionCount ?? 0),
+            viewerReacted: viewerReady
+              ? (reactions?.viewerReacted.length ?? 0) > 0
+              : (previous?.viewerReacted ?? false),
+            amplifyCount: amplifyOk
+              ? (amplify?.amplifyCount ?? 0)
+              : (previous?.amplifyCount ?? 0),
+            amplifyCountReady: amplifyOk || Boolean(previous?.amplifyCountReady),
+            viewerAmplified: amplifyOk
+              ? (amplify?.viewerAmplified ?? false)
+              : (previous?.viewerAmplified ?? false),
+            viewerSaved: viewerReady
+              ? savedPaths.has(target.path)
+              : (previous?.viewerSaved ?? false),
+            viewerReposted: viewerReady
+              ? Boolean(viewerRepost)
+              : (previous?.viewerReposted ?? false),
+            viewerRepostId: viewerReady
+              ? (viewerRepost?.repostId ?? null)
+              : (previous?.viewerRepostId ?? null),
+            viewerRepostGroupId: viewerReady
+              ? (viewerRepost?.groupId ?? null)
+              : (previous?.viewerRepostGroupId ?? null),
+            viewerFlagsReady: viewerReady,
+            reactionRoll: previous?.reactionRoll ?? 0,
+            saveRoll: previous?.saveRoll ?? 0,
+            amplifyRoll: previous?.amplifyRoll ?? 0,
+            replyRoll: previous?.replyRoll ?? 0,
+            shareRoll: previous?.shareRoll ?? 0,
           };
+          if (row.viewerAmplified && row.amplifyCountReady) {
+            row.amplifyCount = Math.max(row.amplifyCount, 1);
+          }
           next[target.key] = row;
           rememberEngagementLastGood(lastGood, target.key, row);
+          if (viewerReady) overlayPainted.push(target);
         }
-        if (accountId) rememberOverlay(pending);
+        if (accountId && overlayPainted.length > 0) {
+          rememberOverlay(overlayPainted);
+        }
         setEngagement((current) => ({
           ...current,
           ...mergeEngagementSoftUpgrade(
@@ -823,8 +942,14 @@ export function usePostEngagement(
         });
       }
     );
+    return () => {
+      if (fetchRetryTimerRef.current) {
+        clearTimeout(fetchRetryTimerRef.current);
+        fetchRetryTimerRef.current = null;
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetsSignature]);
+  }, [targetsSignature, fetchRetryEpoch]);
 
   const toggleReaction = useCallback(
     async (post: PostRow) => {

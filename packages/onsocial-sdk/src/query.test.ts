@@ -6314,6 +6314,8 @@ describe('QueryModule', () => {
         targetType: 'post',
         targetIds: ['alice.near/post/1', 'bob.near/post/2'],
       });
+      // Headroom for repeat amplifies so every path can appear once.
+      expect(body.variables.limit).toBeGreaterThanOrEqual(200);
     });
   });
 });

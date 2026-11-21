@@ -540,7 +540,7 @@ export const PostEngagementRow = memo(function PostEngagementRow({
           className={`post-card-amplify${amplifyActive ? ' is-active' : ''}`}
           ariaPressed={amplifyActive}
           actionLabel={
-            engagement.viewerAmplified ? 'Amplify again' : 'Amplify this post'
+            amplifyActive ? 'Amplify again' : 'Amplify this post'
           }
           onActivate={onAmplify}
         />

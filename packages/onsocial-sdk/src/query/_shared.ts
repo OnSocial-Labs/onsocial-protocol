@@ -97,7 +97,7 @@ export function stripFeedPaintFields(query: string): string {
 
 /** Amplify count column — own soft-fallback so paint counts stay when only this lags. */
 export function stripFeedAmplifyCountField(query: string): string {
-  return query.replace(/\s*amplifyCount\s*/, ' ');
+  return query.replace(/\s*amplifyCount\s*/g, ' ');
 }
 
 /** Home / list feed ranking. `hot` needs `posts_feed.amplify_heat`. */
