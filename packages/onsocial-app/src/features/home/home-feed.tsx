@@ -143,7 +143,6 @@ import {
   hotFeedRisingAuthorIds,
   mergeHomeFeedHead,
   mergeHotFeedHead,
-  pendingFeedOffsetShift,
   summarizeUnseenFeedPosts,
   unseenFeedSummariesEqual,
   type UnseenFeedSummary,
@@ -348,9 +347,7 @@ export function HomePagePanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [posts, muteBlockSyncVersion]
   );
-  const [nextOffset, setNextOffset] = useState<number | undefined>(
-    () => restoredSession?.nextOffset ?? initialPage?.nextOffset
-  );
+  const [nextOffset, setNextOffset] = useState<number | undefined>(undefined);
   const [nextBeforeBlockHeight, setNextBeforeBlockHeight] = useState<
     number | undefined
   >(
@@ -445,9 +442,7 @@ export function HomePagePanel({
       ? [...restoredSession.standingNetworkIds]
       : null
   );
-  const nextOffsetRef = useRef<number | undefined>(
-    restoredSession?.nextOffset ?? initialPage?.nextOffset
-  );
+  const nextOffsetRef = useRef<number | undefined>(undefined);
   const nextBeforeBlockHeightRef = useRef<number | undefined>(
     restoredSession?.nextBeforeBlockHeight ??
       initialPage?.nextBeforeBlockHeight
@@ -460,8 +455,9 @@ export function HomePagePanel({
   );
 
   const applyFeedPageCursor = useCallback((page: Paginated<PostRow>) => {
-    setNextOffset(page.nextOffset);
-    nextOffsetRef.current = page.nextOffset;
+    // Feed pages never mint nextOffset — clear any restored legacy value.
+    setNextOffset(undefined);
+    nextOffsetRef.current = undefined;
     setNextBeforeBlockHeight(page.nextBeforeBlockHeight);
     nextBeforeBlockHeightRef.current = page.nextBeforeBlockHeight;
     setNextBeforeHeat(page.nextBeforeHeat);
@@ -491,10 +487,8 @@ export function HomePagePanel({
   );
   const newPostsProbeInFlightRef = useRef(false);
   const unseenPostsRef = useRef<UnseenFeedSummary>(EMPTY_UNSEEN_FEED_SUMMARY);
-  /** Head growth already folded into `nextOffset` by load-more compensation. */
-  const offsetShiftAppliedRef = useRef(
-    restoredSession?.offsetShiftApplied ?? 0
-  );
+  /** Legacy session field — always 0 after keyset-only cutover. */
+  const offsetShiftAppliedRef = useRef(0);
   const isRefreshingRef = useRef(false);
   const isLoadingRef = useRef(restoredSession == null && initialPage == null);
   const ssrBootstrapDoneRef = useRef(
@@ -792,17 +786,8 @@ export function HomePagePanel({
     return Math.max(root.scrollTop, lenisTop);
   }, []);
 
-  const growFeedWindow = useCallback((insertedCount: number) => {
-    if (insertedCount <= 0) return;
-    // Keyset pages do not shift under head inserts.
-    if (nextBeforeBlockHeightRef.current !== undefined) return;
-    const current = nextOffsetRef.current;
-    if (current === undefined) return;
-    const next = current + insertedCount;
-    nextOffsetRef.current = next;
-    setNextOffset(next);
-    offsetShiftAppliedRef.current += insertedCount;
-  }, []);
+  /** Head inserts do not move a keyset edge — no offset compensation. */
+  const growFeedWindow = useCallback((_insertedCount: number) => {}, []);
 
   useEffect(() => {
     isLoadingRef.current = isLoading;
@@ -1242,9 +1227,15 @@ export function HomePagePanel({
     }
     const beforeHeight = nextBeforeBlockHeightRef.current;
     const beforeHeat = nextBeforeHeatRef.current;
-    const beforeKey = nextBeforeEventKeyRef.current;
-    const baseOffset = nextOffsetRef.current;
-    if (beforeHeight === undefined && baseOffset === undefined) return;
+    const beforeKey = nextBeforeEventKeyRef.current?.trim();
+    // Keyset-complete only — never offset load-more (page-1 replay risk).
+    if (
+      beforeHeight === undefined ||
+      !beforeKey ||
+      (sort === 'hot' && beforeHeat === undefined)
+    ) {
+      return;
+    }
 
     const focus = parseHomeFeedFocus({
       tag: tagParam,
@@ -1252,27 +1243,12 @@ export function HomePagePanel({
       place: placeParam,
     });
 
-    // Prefer a complete keyset (Recent: height+key; Hot: heat+height+key).
-    // Incomplete triples used to hit SQL Infinity / page-1 replay.
-    const useKeyset =
-      beforeHeight !== undefined &&
-      Boolean(beforeKey) &&
-      (sort !== 'hot' || beforeHeat !== undefined);
-    const pendingShift = useKeyset
-      ? 0
-      : pendingFeedOffsetShift({
-          newPostCount: unseenPostsRef.current.count,
-          appliedShift: offsetShiftAppliedRef.current,
-          chronoPaged: sort !== 'hot' && !isHomeFeedSocialLens(activeLens),
-        });
-    const cursor: HomeFeedPageCursor = useKeyset
-      ? {
-          beforeBlockHeight: beforeHeight,
-          beforeEventHeight: beforeHeight,
-          beforeEventHeat: beforeHeat,
-          beforeEventKey: beforeKey,
-        }
-      : { offset: (baseOffset ?? 0) + pendingShift };
+    const cursor: HomeFeedPageCursor = {
+      beforeBlockHeight: beforeHeight,
+      beforeEventHeight: beforeHeight,
+      beforeEventHeat: beforeHeat,
+      beforeEventKey: beforeKey,
+    };
 
     const loadId = ++loadIdRef.current;
     appendInFlightRef.current = true;
@@ -1307,9 +1283,6 @@ export function HomePagePanel({
           setStandingNetworkIds(result.standingSources);
         }
 
-        if (pendingShift > 0) {
-          offsetShiftAppliedRef.current += pendingShift;
-        }
         if (postsLengthRef.current > 0) {
           // Append can join an orphan into its parent (or Focus Hot re-rank).
           // Hold so coalesce height growth does not move the reader.
@@ -1356,20 +1329,14 @@ export function HomePagePanel({
           }
         );
       } catch (cause) {
-        // Keep the current list; surface append lag so the reader can retry
-        // instead of silently replaying page 1.
+        // Keep the current list; restore the keyset so Retry can append again.
         if (isCurrentLoadingRequest(loadIdRef.current, loadId)) {
-          if (useKeyset) {
-            nextBeforeBlockHeightRef.current = beforeHeight;
-            setNextBeforeBlockHeight(beforeHeight);
-            nextBeforeHeatRef.current = beforeHeat;
-            setNextBeforeHeat(beforeHeat);
-            nextBeforeEventKeyRef.current = beforeKey;
-            setNextBeforeEventKey(beforeKey);
-          } else if (baseOffset !== undefined) {
-            nextOffsetRef.current = baseOffset;
-            setNextOffset(baseOffset);
-          }
+          nextBeforeBlockHeightRef.current = beforeHeight;
+          setNextBeforeBlockHeight(beforeHeight);
+          nextBeforeHeatRef.current = beforeHeat;
+          setNextBeforeHeat(beforeHeat);
+          nextBeforeEventKeyRef.current = beforeKey;
+          setNextBeforeEventKey(beforeKey);
           const painted = countVisibleHomeFeedCards(
             filterHiddenAuthors(postsRef.current),
             {
@@ -1381,7 +1348,7 @@ export function HomePagePanel({
           );
           if (painted === 0) {
             setLoadError('Could not load feed.');
-          } else if (useKeyset) {
+          } else {
             setLoadError(
               cause instanceof Error
                 ? cause.message
@@ -1410,8 +1377,9 @@ export function HomePagePanel({
   ]);
 
   const hasMore = homeFeedHasMore({
-    nextOffset,
     nextBeforeBlockHeight,
+    nextBeforeEventKey,
+    nextBeforeHeat,
   });
   const showLoadMoreSentinel = hasMore && visibleCardCount > 0;
   const walkingHiddenPage =

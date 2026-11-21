@@ -881,10 +881,11 @@ export function useGuildPageData({
           posts: optimistic,
           feedError: null,
         }));
-        setHasMorePosts(Boolean(allFeed?.hasMore));
-        // Room filter of "all" is not a keyset page — clear until refresh lands.
+        // Optimistic room paint is not a keyed page — disable load-more
+        // until refresh lands a composite cursor (never invent offset).
         nextBeforeBlockHeightRef.current = undefined;
         nextBeforeEventKeyRef.current = undefined;
+        setHasMorePosts(false);
         void refreshFeed({ silent: true });
         return;
       }
@@ -924,18 +925,23 @@ export function useGuildPageData({
 
   const loadMoreFeed = useCallback(() => {
     if (loadMoreInFlightRef.current || !hasMorePosts) return;
+    const before = nextBeforeBlockHeightRef.current;
+    const beforeKey = nextBeforeEventKeyRef.current?.trim();
+    // Keyset-complete only — never invent offset from list length.
+    if (before === undefined || !beforeKey) {
+      setHasMorePosts(false);
+      return;
+    }
     loadMoreInFlightRef.current = true;
     setLoadingMore(true);
     setLoadMoreError(null);
     void (async () => {
       try {
         const client = createReadOnlyOnSocialClient();
-        const before = nextBeforeBlockHeightRef.current;
-        const beforeKey = nextBeforeEventKeyRef.current;
-        const cursor =
-          before !== undefined && beforeKey
-            ? { beforeBlockHeight: before, beforePostKey: beforeKey }
-            : { offset: state.posts.length };
+        const cursor = {
+          beforeBlockHeight: before,
+          beforePostKey: beforeKey,
+        };
         const page = selectedFeedSpace
           ? await client.query.groups.feedFiltered({
               groupId,
@@ -948,20 +954,19 @@ export function useGuildPageData({
               limit: 20,
               ...cursor,
             });
-        const nextPosts = [...state.posts, ...(page.items ?? [])];
         const hasMore = guildFeedPageHasMore(page);
         nextBeforeBlockHeightRef.current = page.nextBeforeBlockHeight;
         nextBeforeEventKeyRef.current = page.nextBeforeEventKey;
-        writeGuildFeedCache(groupId, selectedFeedSpace?.id ?? 'all', {
-          posts: nextPosts,
-          hasMore,
-          nextBeforeBlockHeight: page.nextBeforeBlockHeight,
-          nextBeforeEventKey: page.nextBeforeEventKey,
+        setState((current) => {
+          const nextPosts = [...current.posts, ...(page.items ?? [])];
+          writeGuildFeedCache(groupId, selectedFeedSpace?.id ?? 'all', {
+            posts: nextPosts,
+            hasMore,
+            nextBeforeBlockHeight: page.nextBeforeBlockHeight,
+            nextBeforeEventKey: page.nextBeforeEventKey,
+          });
+          return { ...current, posts: nextPosts };
         });
-        setState((current) => ({
-          ...current,
-          posts: [...current.posts, ...(page.items ?? [])],
-        }));
         setHasMorePosts(hasMore);
       } catch (cause) {
         // Keep the current list; Retry replaces the sentinel so it does not loop.
@@ -971,7 +976,7 @@ export function useGuildPageData({
         setLoadingMore(false);
       }
     })();
-  }, [groupId, hasMorePosts, selectedFeedSpace, state.posts]);
+  }, [groupId, hasMorePosts, selectedFeedSpace]);
 
   /**
    * Idle memory trim — keyset lets the panel drop head and/or tail; snap the
@@ -990,9 +995,10 @@ export function useGuildPageData({
         });
         nextBeforeBlockHeightRef.current = clamped.nextBeforeBlockHeight;
         nextBeforeEventKeyRef.current = clamped.nextBeforeEventKey;
-        const hasMore =
-          clamped.nextBeforeBlockHeight !== undefined ||
-          (hasMorePosts && kept.length > 0);
+        const hasMore = guildFeedPageHasMore({
+          nextBeforeBlockHeight: clamped.nextBeforeBlockHeight,
+          nextBeforeEventKey: clamped.nextBeforeEventKey,
+        });
         writeGuildFeedCache(groupId, selectedFeedSpace?.id ?? 'all', {
           posts: kept,
           hasMore,

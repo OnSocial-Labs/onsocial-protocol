@@ -58,7 +58,8 @@ describe('profile feed empty state contract', () => {
 
     expect(source).toContain('FeedWindowSizeCache');
     expect(source).toContain('windowSizeCache={windowSizeCache}');
-    expect(source).toContain('[accountId, tab]');
+    expect(source).toContain('[accountId]');
+    expect(source).not.toContain('[accountId, tab]');
   });
 
   it('pages posts/replies/reposts with silent append dots', () => {
@@ -72,6 +73,6 @@ describe('profile feed empty state contract', () => {
     expect(source).toContain('sectionSentinelRef');
     expect(source).toContain('list-append-pending');
     expect(source).toContain("section,");
-    expect(source).toContain('page.nextOffset');
+    expect(source).toContain('feedPageHasMore(page)');
   });
 });

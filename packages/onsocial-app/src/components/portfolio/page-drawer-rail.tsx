@@ -1,12 +1,16 @@
 'use client';
 
+import { useState } from 'react';
 import { PageDrawerCollectionList } from '@/components/portfolio/page-drawer-collection';
 import { PageDrawerScarcesPanel } from '@/components/portfolio/page-drawer-scarces';
 import {
   isProfileFeedTab,
   type PortfolioRailTab,
 } from '@/components/portfolio/profile-feed-tabs';
-import { ProfileFeedClient } from '@/features/home/profile-feed-client';
+import {
+  ProfileFeedClient,
+  type ProfileFeedTab,
+} from '@/features/home/profile-feed-client';
 import type { ProfileCreatedPeek } from '@/lib/fetch-profile-peeks';
 import type { PortfolioHoldingPeek } from '@/lib/portfolio-holdings';
 import type { ProfileStoreShelf as ProfileStoreShelfData } from '@/lib/profile-store-types';
@@ -22,6 +26,10 @@ export interface PageDrawerRailPanelsProps {
   holdings: PortfolioHoldingPeek[];
 }
 
+function defaultFeedTab(tab: PortfolioRailTab): ProfileFeedTab {
+  return isProfileFeedTab(tab) ? tab : 'posts';
+}
+
 /** Active rail tab content inside the page drawer. */
 export function PageDrawerRailPanels({
   pageAccountId,
@@ -33,15 +41,29 @@ export function PageDrawerRailPanels({
   createdPeeks,
   holdings,
 }: PageDrawerRailPanelsProps) {
+  const feedActive = isProfileFeedTab(tab);
+  const [feedVisited, setFeedVisited] = useState(feedActive);
+  const [keptFeedTab, setKeptFeedTab] = useState<ProfileFeedTab>(() =>
+    defaultFeedTab(tab)
+  );
+  // Adjust during render when the rail returns to a feed tab (React docs).
+  if (feedActive) {
+    if (!feedVisited) setFeedVisited(true);
+    if (tab !== keptFeedTab) setKeptFeedTab(tab);
+  }
+
   return (
     <div className="page-drawer-sections">
-      {isProfileFeedTab(tab) ? (
-        <ProfileFeedClient
-          accountId={pageAccountId}
-          postCount={postCount}
-          tab={tab}
-        />
-      ) : tab === 'scarces' ? (
+      {feedVisited ? (
+        <div hidden={!feedActive}>
+          <ProfileFeedClient
+            accountId={pageAccountId}
+            postCount={postCount}
+            tab={feedActive ? tab : keptFeedTab}
+          />
+        </div>
+      ) : null}
+      {tab === 'scarces' ? (
         <PageDrawerScarcesPanel
           pageAccountId={pageAccountId}
           profileName={profileName}
@@ -49,12 +71,13 @@ export function PageDrawerRailPanels({
           storeShelf={storeShelf}
           createdPeeks={createdPeeks}
         />
-      ) : (
+      ) : null}
+      {tab === 'collection' ? (
         <PageDrawerCollectionList
           pageAccountId={pageAccountId}
           initialHoldings={holdings}
         />
-      )}
+      ) : null}
 
       <div className="page-drawer-scroll-end" aria-hidden />
     </div>

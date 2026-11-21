@@ -1,4 +1,5 @@
 import type { FeedSort, OnSocial, Paginated, PostRow } from '@onsocial/sdk';
+import { feedPageHasMore } from '@/lib/feed-page-cursor';
 
 /** Hasura standing page — keep fetching until a short page. */
 export const STANDING_SOURCE_PAGE = 100;
@@ -96,7 +97,7 @@ export function isHomeFeedSocialLens(
   return lens === 'pulse' || lens === 'circle';
 }
 
-/** Prefer keyset when the page returned one; else offset. */
+/** @see feedPageHasMore — complete composite keyset only. */
 export function homeFeedHasMore(
   page: Pick<
     Paginated<unknown>,
@@ -106,7 +107,5 @@ export function homeFeedHasMore(
     | 'nextBeforeEventKey'
   >
 ): boolean {
-  return (
-    page.nextBeforeBlockHeight !== undefined || page.nextOffset !== undefined
-  );
+  return feedPageHasMore(page);
 }

@@ -11719,16 +11719,42 @@ a.os-surface-row,
     list-style: none;
   }
 
-  .portfolio-writing-pending {
+  /* Same grid + cover seat as `.portfolio-writing-card` — no CLS on open. */
+  .portfolio-writing-pending-card {
     display: grid;
-    gap: 0.85rem;
-    margin-top: 0.85rem;
+    grid-template-columns: 7.2rem minmax(0, 1fr);
+    gap: var(--os-media-copy-gap, 0.55rem);
+    align-items: start;
+    margin: 0 -0.25rem;
+    padding: 0.45rem 0.25rem;
   }
 
-  .portfolio-writing-pending-row {
+  .portfolio-writing-pending-cover {
     display: block;
-    height: 4.6rem;
-    border-radius: 0.85rem;
+    aspect-ratio: 1 / 1;
+    border-radius: 0.7rem;
+  }
+
+  .portfolio-writing-pending-copy {
+    display: grid;
+    gap: 0.45rem;
+    padding-top: 0.15rem;
+  }
+
+  .portfolio-writing-pending-line {
+    display: block;
+    height: 0.85rem;
+    border-radius: 0.35rem;
+  }
+
+  .portfolio-writing-pending-line--title {
+    width: 72%;
+    height: 1.1rem;
+  }
+
+  .portfolio-writing-pending-line--meta {
+    width: 40%;
+    height: 0.7rem;
   }
 
   .portfolio-writing-card {
