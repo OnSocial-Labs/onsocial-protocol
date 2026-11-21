@@ -28,6 +28,7 @@ import {
   isDaoStandingTarget,
   rememberDaoStandingTarget,
 } from '@/lib/dao-standing-account';
+import { warmPostLikeAccountIds } from '@/lib/load-post-like-account-ids';
 import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { shareUrl } from '@/lib/share-url';
 import {
@@ -219,6 +220,7 @@ function EngagementStat({
   label,
   actionLabel,
   onActivate,
+  onPointerIntent,
   className,
   disabled,
   ariaPressed,
@@ -231,6 +233,8 @@ function EngagementStat({
   label: string;
   actionLabel?: string;
   onActivate?: () => void;
+  /** pointerdown warm — seat chrome / prefetch before click. */
+  onPointerIntent?: () => void;
   className?: string;
   disabled?: boolean;
   ariaPressed?: boolean;
@@ -255,6 +259,7 @@ function EngagementStat({
         title={actionLabel ?? label}
         onPointerDown={(event) => {
           event.stopPropagation();
+          onPointerIntent?.();
         }}
         onClick={(event) => {
           event.preventDefault();
@@ -326,10 +331,12 @@ export const PostEngagementRow = memo(function PostEngagementRow({
 }) {
   const [shareOpen, setShareOpen] = useState(false);
   const [likesOpen, setLikesOpen] = useState(false);
-  // Closed GlassSheets probe the page host every card redraw — mount on
-  // first open only (same helper as post-card overlays).
-  const likesSheetMounted = useSheetMounted(likesOpen);
-  const shareDrawerMounted = useSheetMounted(shareOpen);
+  // Pointerdown warms chrome + likes read so click opens with people ready
+  // (boost-style instant info; sheet stays out of the tree until intent).
+  const [likesWarm, setLikesWarm] = useState(false);
+  const [shareWarm, setShareWarm] = useState(false);
+  const likesSheetMounted = useSheetMounted(likesOpen || likesWarm);
+  const shareDrawerMounted = useSheetMounted(shareOpen || shareWarm);
   const { accountId: viewerAccountId } = useAppWallet();
   const likeLabel = formatWritingLikeLabel(engagement.reactionCount);
   const canShare = Boolean(onQuote || onRepost || onUndoRepost);
@@ -433,6 +440,9 @@ export const PostEngagementRow = memo(function PostEngagementRow({
           onActivate={
             canShare && !sharePending ? () => setShareOpen(true) : undefined
           }
+          onPointerIntent={
+            canShare && !sharePending ? () => setShareWarm(true) : undefined
+          }
         />
         <span
           className={`post-card-react-cluster post-card-react${
@@ -477,6 +487,12 @@ export const PostEngagementRow = memo(function PostEngagementRow({
             tabIndex={likeLabel ? undefined : -1}
             onPointerDown={(event) => {
               event.stopPropagation();
+              if (!likeLabel) return;
+              setLikesWarm(true);
+              warmPostLikeAccountIds(post.accountId, post.postId, {
+                groupId: post.groupId,
+                likeCount: engagement.reactionCount,
+              });
             }}
             onClick={(event) => {
               if (!likeLabel) return;

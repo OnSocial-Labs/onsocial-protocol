@@ -110,8 +110,10 @@ export const PostCardMenu = memo(function PostCardMenu({
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  // Closed GlassSheets probe the page host every card redraw — mount on
-  // first open only (same helper as the scarce/media overlays).
+  // Pointerdown seats the ⋮ drawer so click opens without a cold mount.
+  const [menuWarm, setMenuWarm] = useState(false);
+  const menuDrawerMounted = useSheetMounted(open || menuWarm);
+  // Nested confirms / compose sheets — mount on first open only.
   const blockDrawerMounted = useSheetMounted(confirmBlock);
   const muteDrawerMounted = useSheetMounted(confirmMute);
   const endorseSheetMounted = useSheetMounted(endorseOpen);
@@ -465,6 +467,11 @@ export const PostCardMenu = memo(function PostCardMenu({
         <button
           type="button"
           className={`post-card-menu-trigger${isOpen ? ' is-open' : ''}`}
+          onPointerDown={(event) => {
+            event.stopPropagation();
+            setMenuWarm(true);
+            if (showGestures) setGesturesArmed(true);
+          }}
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -481,7 +488,7 @@ export const PostCardMenu = memo(function PostCardMenu({
           <DotsVerticalIcon className="post-card-menu-icon" aria-hidden />
         </button>
 
-        {open ? (
+        {menuDrawerMounted ? (
           <ActionDrawer
             open={isOpen}
             onClose={requestClose}
