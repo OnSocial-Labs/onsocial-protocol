@@ -11,6 +11,7 @@ import {
   reactionCountAfterToggle,
   rememberEngagementLastGood,
   resolveBandEngagement,
+  partitionOverlayAmplifyPaths,
   shouldApplyAmplifyCountFill,
   shouldApplyViewerToggleConfirm,
   type PostEngagement,
@@ -68,6 +69,23 @@ describe('amplify confirm / soft-fill account guard', () => {
     expect(shouldApplyAmplifyCountFill(null, 'alice.near')).toBe(false);
     expect(shouldApplyAmplifyCountFill('alice.near', 'alice.near')).toBe(true);
     expect(shouldApplyAmplifyCountFill(null, null)).toBe(true);
+  });
+
+  it('partitions overlay amplify into count paths vs colour-only paths', () => {
+    const split = partitionOverlayAmplifyPaths(
+      [
+        { key: 'a:1', path: 'a.near/post/1' },
+        { key: 'b:2', path: 'b.near/post/2' },
+        { key: 'c:3', path: 'c.near/post/3' },
+      ],
+      {
+        'a:1': row({ amplifyCountReady: true }),
+        'b:2': row({ amplifyCountReady: false }),
+        // c missing — needs counts
+      }
+    );
+    expect(split.countPaths).toEqual(['b.near/post/2', 'c.near/post/3']);
+    expect(split.colourPaths).toEqual(['a.near/post/1']);
   });
 });
 

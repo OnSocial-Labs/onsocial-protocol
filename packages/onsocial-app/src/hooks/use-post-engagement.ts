@@ -46,6 +46,26 @@ export function shouldApplyAmplifyCountFill(
   return activeAccountId === requestedAccountId;
 }
 
+/**
+ * Overlay amplify: count query only for rows still missing a total; colour
+ * query for the rest. Avoids re-fetching totals for the whole band.
+ */
+export function partitionOverlayAmplifyPaths(
+  rows: readonly { key: string; path: string }[],
+  engagement: EngagementMap
+): { countPaths: string[]; colourPaths: string[] } {
+  const countPaths: string[] = [];
+  const colourPaths: string[] = [];
+  for (const row of rows) {
+    if (engagement[row.key]?.amplifyCountReady) {
+      colourPaths.push(row.path);
+    } else {
+      countPaths.push(row.path);
+    }
+  }
+  return { countPaths, colourPaths };
+}
+
 /** Chain-confirmed amplify — bump count and colour for the signing viewer. */
 export function confirmedAmplifyEngagement(
   previous: PostEngagement
@@ -780,10 +800,11 @@ export function usePostEngagement(
       const viewerId = accountId;
       const paths = overlayFor.map((target) => target.path);
       const overlayRows = overlayFor;
-      // Counts soft-fill above owns totals — colour-only here when ready.
-      const needAmplifyCounts = overlayRows.some(
-        (target) => !engagementRef.current[target.key]?.amplifyCountReady
+      const { countPaths, colourPaths } = partitionOverlayAmplifyPaths(
+        overlayRows,
+        engagementRef.current
       );
+      const countPathSet = new Set(countPaths);
       void Promise.allSettled([
         client.query.reactions.statesForPosts(
           overlayRows.map((target) => ({
@@ -794,27 +815,37 @@ export function usePostEngagement(
         ),
         client.query.saves.forPaths(viewerId, paths),
         client.query.threads.viewerReposts(viewerId, paths),
-        needAmplifyCounts
-          ? client.query.socialSpend.amplifyCountsForPostPaths(paths, {
+        countPaths.length > 0
+          ? client.query.socialSpend.amplifyCountsForPostPaths(countPaths, {
               viewer: viewerId,
             })
-          : client.query.socialSpend.viewerAmplifiedForPostPaths(
-              viewerId,
-              paths
+          : Promise.resolve(
+              {} as Record<
+                string,
+                { amplifyCount: number; viewerAmplified: boolean }
+              >
             ),
+        colourPaths.length > 0
+          ? client.query.socialSpend.viewerAmplifiedForPostPaths(
+              viewerId,
+              colourPaths
+            )
+          : Promise.resolve({} as Record<string, boolean>),
       ]).then(
         ([
           reactionResult,
           savesResult,
           viewerRepostResult,
-          amplifyResult,
+          amplifyCountsResult,
+          amplifyColourResult,
         ]) => {
           if (lastGoodAccountRef.current !== viewerId) return;
           if (
             reactionResult.status !== 'fulfilled' ||
             savesResult.status !== 'fulfilled' ||
             viewerRepostResult.status !== 'fulfilled' ||
-            amplifyResult.status !== 'fulfilled'
+            amplifyCountsResult.status !== 'fulfilled' ||
+            amplifyColourResult.status !== 'fulfilled'
           ) {
             // Do not mark overlay done — failed amplify/repost must retry.
             scheduleFetchRetry();
@@ -828,7 +859,8 @@ export function usePostEngagement(
           const viewerReposts = new Map(
             viewerRepostResult.value.map((row) => [row.refPath, row])
           );
-          const amplifyPayload = amplifyResult.value;
+          const amplifyCounts = amplifyCountsResult.value;
+          const amplifyColour = amplifyColourResult.value;
           const liveKeys = new Set(targetsRef.current.map((row) => row.key));
           const painted: typeof overlayRows = [];
           setEngagement((current) => {
@@ -846,19 +878,12 @@ export function usePostEngagement(
               const viewerRepost = viewerReposts.get(target.path);
               let viewerAmplified = previous.viewerAmplified;
               let amplifyCount: number | undefined;
-              if (needAmplifyCounts) {
-                const amplify = (
-                  amplifyPayload as Record<
-                    string,
-                    { amplifyCount: number; viewerAmplified: boolean }
-                  >
-                )[target.path];
+              if (countPathSet.has(target.path)) {
+                const amplify = amplifyCounts[target.path];
                 viewerAmplified = Boolean(amplify?.viewerAmplified);
                 amplifyCount = amplify?.amplifyCount;
               } else {
-                viewerAmplified = Boolean(
-                  (amplifyPayload as Record<string, boolean>)[target.path]
-                );
+                viewerAmplified = Boolean(amplifyColour[target.path]);
               }
               const row = applyViewerOverlayEngagement(
                 previous,
