@@ -1092,6 +1092,13 @@ SELECT
   0::double precision AS heat
 WHERE false;
 
+-- Lifetime amplify (`boost_post`) totals. Stub until social_spend views load.
+CREATE OR REPLACE VIEW post_amplify_counts AS
+SELECT
+  NULL::text AS post_path,
+  0::bigint AS amplify_count
+WHERE false;
+
 -- ────────────────────────────────────────────────────────────────────────────
 -- 6d. posts_feed — posts + author shell + guild name + heat + public counts
 -- and the quoted post (plus that post's own quote, for a repost of a quote).
@@ -1266,6 +1273,7 @@ SELECT
   COALESCE(quote_rows.quote_count, 0)::bigint AS quote_count,
   COALESCE(repost_rows.repost_count, 0)::bigint AS repost_count,
   COALESCE(reactions.reaction_count, 0)::bigint AS reaction_count,
+  COALESCE(amplifies.amplify_count, 0)::bigint AS amplify_count,
   post_feed_shell(
     q.account_id, q.post_id, q.value, q.block_height, q.block_timestamp,
     q.receipt_id, q.parent_path, q.parent_author, q.parent_type,
@@ -1315,6 +1323,8 @@ LEFT JOIN LATERAL (
   WHERE rc.post_owner = src.account_id
     AND rc.post_path = 'post/' || src.post_id
 ) reactions ON true
+LEFT JOIN post_amplify_counts amplifies
+  ON amplifies.post_path = src.content_path
 LEFT JOIN posts_current q
   ON src.ref_path IS NOT NULL
  AND btrim(src.ref_path) <> ''
