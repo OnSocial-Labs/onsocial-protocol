@@ -397,6 +397,7 @@ AS $$
     quote_count,
     repost_count,
     reaction_count,
+    amplify_count,
     quoted_post,
     quoted_ref_post
   FROM out_rows
