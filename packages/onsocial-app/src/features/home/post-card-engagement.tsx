@@ -36,6 +36,7 @@ import {
 } from '@/lib/wallet-errors';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
+import { useSheetMounted } from '@/hooks/use-sheet-mounted';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
 
@@ -325,6 +326,10 @@ export const PostEngagementRow = memo(function PostEngagementRow({
 }) {
   const [shareOpen, setShareOpen] = useState(false);
   const [likesOpen, setLikesOpen] = useState(false);
+  // Closed GlassSheets probe the page host every card redraw — mount on
+  // first open only (same helper as post-card overlays).
+  const likesSheetMounted = useSheetMounted(likesOpen);
+  const shareDrawerMounted = useSheetMounted(shareOpen);
   const { accountId: viewerAccountId } = useAppWallet();
   const likeLabel = formatWritingLikeLabel(engagement.reactionCount);
   const canShare = Boolean(onQuote || onRepost || onUndoRepost);
@@ -528,18 +533,20 @@ export const PostEngagementRow = memo(function PostEngagementRow({
         ) : null}
         <PostShareControl href={shareHref} title={shareTitle} />
       </div>
-      <PostLikesSheet
-        open={likesOpen}
-        onClose={() => setLikesOpen(false)}
-        postOwner={post.accountId}
-        postId={post.postId}
-        groupId={post.groupId}
-        likeCount={engagement.reactionCount}
-        viewerAccountId={viewerAccountId}
-        viewerLiked={!reactionPending && engagement.viewerReacted}
-        {...(shareDrawerZIndex != null ? { zIndex: shareDrawerZIndex } : {})}
-      />
-      {canShare ? (
+      {likesSheetMounted ? (
+        <PostLikesSheet
+          open={likesOpen}
+          onClose={() => setLikesOpen(false)}
+          postOwner={post.accountId}
+          postId={post.postId}
+          groupId={post.groupId}
+          likeCount={engagement.reactionCount}
+          viewerAccountId={viewerAccountId}
+          viewerLiked={!reactionPending && engagement.viewerReacted}
+          {...(shareDrawerZIndex != null ? { zIndex: shareDrawerZIndex } : {})}
+        />
+      ) : null}
+      {canShare && shareDrawerMounted ? (
         <ActionDrawer
           open={shareOpen}
           onClose={() => setShareOpen(false)}

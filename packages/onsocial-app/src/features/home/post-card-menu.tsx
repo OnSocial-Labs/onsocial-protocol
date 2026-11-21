@@ -42,6 +42,7 @@ import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
+import { useSheetMounted } from '@/hooks/use-sheet-mounted';
 import { useViewerBlock } from '@/hooks/use-viewer-block';
 import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
 import { useViewerMute } from '@/hooks/use-viewer-mute';
@@ -109,6 +110,12 @@ export const PostCardMenu = memo(function PostCardMenu({
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  // Closed GlassSheets probe the page host every card redraw — mount on
+  // first open only (same helper as the scarce/media overlays).
+  const blockDrawerMounted = useSheetMounted(confirmBlock);
+  const muteDrawerMounted = useSheetMounted(confirmMute);
+  const endorseSheetMounted = useSheetMounted(endorseOpen);
+  const supportSheetMounted = useSheetMounted(supportOpen);
   const isOpen = open && !closing;
   const requestClose = useCallback(() => {
     setClosing(true);
@@ -486,23 +493,23 @@ export const PostCardMenu = memo(function PostCardMenu({
             {...(zIndex != null ? { zIndex } : {})}
           />
         ) : null}
-        <ActionDrawer
-          open={confirmBlock}
-          stack="auto"
-          onClose={() => {
-            if (!blockPending) setConfirmBlock(false);
-          }}
-          label={
-            blockConfirmCopy({
-              accountId,
-              profileName: authorProfile?.displayName,
-            }).title
-          }
-          copy={authorLabel}
-          closeAriaLabel="Close"
-          {...(zIndex != null ? { zIndex } : {})}
-        >
-          {confirmBlock ? (
+        {blockDrawerMounted ? (
+          <ActionDrawer
+            open={confirmBlock}
+            stack="auto"
+            onClose={() => {
+              if (!blockPending) setConfirmBlock(false);
+            }}
+            label={
+              blockConfirmCopy({
+                accountId,
+                profileName: authorProfile?.displayName,
+              }).title
+            }
+            copy={authorLabel}
+            closeAriaLabel="Close"
+            {...(zIndex != null ? { zIndex } : {})}
+          >
             <BlockConfirmPanel
               accountId={accountId}
               profileName={authorProfile?.displayName}
@@ -510,25 +517,25 @@ export const PostCardMenu = memo(function PostCardMenu({
               onConfirm={() => void handleBlockToggle(true)}
               onCancel={() => setConfirmBlock(false)}
             />
-          ) : null}
-        </ActionDrawer>
-        <ActionDrawer
-          open={confirmMute}
-          stack="auto"
-          onClose={() => {
-            if (!mutePending) setConfirmMute(false);
-          }}
-          label={
-            muteConfirmCopy({
-              accountId,
-              profileName: authorProfile?.displayName,
-            }).title
-          }
-          copy={authorLabel}
-          closeAriaLabel="Close"
-          {...(zIndex != null ? { zIndex } : {})}
-        >
-          {confirmMute ? (
+          </ActionDrawer>
+        ) : null}
+        {muteDrawerMounted ? (
+          <ActionDrawer
+            open={confirmMute}
+            stack="auto"
+            onClose={() => {
+              if (!mutePending) setConfirmMute(false);
+            }}
+            label={
+              muteConfirmCopy({
+                accountId,
+                profileName: authorProfile?.displayName,
+              }).title
+            }
+            copy={authorLabel}
+            closeAriaLabel="Close"
+            {...(zIndex != null ? { zIndex } : {})}
+          >
             <MuteConfirmPanel
               accountId={accountId}
               profileName={authorProfile?.displayName}
@@ -536,26 +543,30 @@ export const PostCardMenu = memo(function PostCardMenu({
               onConfirm={() => void handleMute(true)}
               onCancel={() => setConfirmMute(false)}
             />
-          ) : null}
-        </ActionDrawer>
+          </ActionDrawer>
+        ) : null}
       </div>
-      <EndorseComposeSheet
-        open={endorseOpen}
-        pageAccountId={accountId}
-        profileName={authorProfile?.displayName}
-        avatarUrl={authorProfile?.avatarUrl}
-        intent={viewerEndorsed ? 'auto' : 'create'}
-        onOpenChange={setEndorseOpen}
-        {...(zIndex != null ? { zIndex } : {})}
-      />
-      <ProfileSupportSheet
-        open={supportOpen}
-        pageAccountId={accountId}
-        profileName={authorProfile?.displayName}
-        avatarUrl={authorProfile?.avatarUrl}
-        onOpenChange={setSupportOpen}
-        {...(zIndex != null ? { zIndex } : {})}
-      />
+      {endorseSheetMounted ? (
+        <EndorseComposeSheet
+          open={endorseOpen}
+          pageAccountId={accountId}
+          profileName={authorProfile?.displayName}
+          avatarUrl={authorProfile?.avatarUrl}
+          intent={viewerEndorsed ? 'auto' : 'create'}
+          onOpenChange={setEndorseOpen}
+          {...(zIndex != null ? { zIndex } : {})}
+        />
+      ) : null}
+      {supportSheetMounted ? (
+        <ProfileSupportSheet
+          open={supportOpen}
+          pageAccountId={accountId}
+          profileName={authorProfile?.displayName}
+          avatarUrl={authorProfile?.avatarUrl}
+          onOpenChange={setSupportOpen}
+          {...(zIndex != null ? { zIndex } : {})}
+        />
+      ) : null}
     </>
   );
 });

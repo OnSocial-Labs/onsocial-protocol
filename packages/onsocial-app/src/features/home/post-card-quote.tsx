@@ -130,6 +130,7 @@ export function QuotedPostInset({
   const [quoteThreadOpen, setQuoteThreadOpen] = useState(false);
   const [quoteAudioOpen, setQuoteAudioOpen] = useState(false);
   const quoteAudioMounted = useSheetMounted(quoteAudioOpen);
+  const quotePhotoMounted = useSheetMounted(quotePhotoOpen);
   const quoteAudio = postScarceAudio(post);
   const quotePlayables: ScarcePlayableMedia[] = quoteAudio?.url
     ? [
@@ -237,7 +238,7 @@ export function QuotedPostInset({
           </PostSensitiveGate>
         </div>
       </div>
-      {expanded && mediaItems.length > 0 ? (
+      {expanded && mediaItems.length > 0 && quotePhotoMounted ? (
         <FeedPhotoEnlargeScreen
           open={quotePhotoOpen}
           onOpenChange={(open) => {
