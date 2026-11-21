@@ -10,6 +10,8 @@ import {
   hugEnterShouldArm,
   nextHugEnterStableSample,
   resolveGlassPortalNode,
+  glassSheetNeedsPortalTarget,
+  glassSheetShouldProbeHost,
   GLASS_SHEET_MEDIA_FACE_LIFT,
   resolveBackdropEnterStyle,
   resolveBackdropPresentation,
@@ -407,6 +409,64 @@ describe('resolveGlassPortalNode', () => {
         yieldRegistered: false,
       })
     ).toBe(body);
+  });
+});
+
+describe('glass sheet portal probe gating', () => {
+  const registered = {} as HTMLElement;
+
+  it('needs a portal while open or finishing close', () => {
+    expect(glassSheetNeedsPortalTarget({ open: true, mounted: false })).toBe(
+      true
+    );
+    expect(glassSheetNeedsPortalTarget({ open: false, mounted: true })).toBe(
+      true
+    );
+    expect(glassSheetNeedsPortalTarget({ open: false, mounted: false })).toBe(
+      false
+    );
+  });
+
+  it('does not probe idle closed sheets or explicit portals', () => {
+    expect(
+      glassSheetShouldProbeHost({
+        active: false,
+        registered: null,
+        yieldRegistered: false,
+      })
+    ).toBe(false);
+    expect(
+      glassSheetShouldProbeHost({
+        active: true,
+        explicit: null,
+        registered: null,
+        yieldRegistered: false,
+      })
+    ).toBe(false);
+    expect(
+      glassSheetShouldProbeHost({
+        active: true,
+        registered,
+        yieldRegistered: false,
+      })
+    ).toBe(false);
+  });
+
+  it('probes only when the registered host is missing or must yield', () => {
+    expect(
+      glassSheetShouldProbeHost({
+        active: true,
+        registered: null,
+        yieldRegistered: false,
+      })
+    ).toBe(true);
+    expect(
+      glassSheetShouldProbeHost({
+        active: true,
+        registered,
+        yieldRegistered: true,
+      })
+    ).toBe(true);
   });
 });
 

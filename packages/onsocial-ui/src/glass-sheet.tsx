@@ -63,8 +63,8 @@ import { OsStableScrollHost } from './os-stable-scroll-host.js';
  * portal into that node instead of `document.body` so backdrop-filter blur
  * cannot paint past the desktop column edges.
  *
- * `resolveHost` runs only while `container` is empty, so a card already in
- * the DOM wins over the window during the commit before the host registers.
+ * `resolveHost` runs only for an active sheet while `container` is empty or
+ * must yield — closed sheets must not walk the document on every parent redraw.
  */
 type GlassSheetPortalContextValue = {
   container: HTMLElement | null;
@@ -909,8 +909,37 @@ export function usePrefersReducedTransparency(): boolean {
   return prefersReduced;
 }
 
+/**
+ * Portal resolution is only needed while the sheet is open or finishing its
+ * close animation. Idle closed sheets skip host probes entirely.
+ */
+export function glassSheetNeedsPortalTarget(input: {
+  open: boolean;
+  mounted: boolean;
+}): boolean {
+  return input.open || input.mounted;
+}
+
+/**
+ * Match the provider contract: probe the live card only when the registered
+ * host is missing or must yield. Explicit portals never probe.
+ */
+export function glassSheetShouldProbeHost(input: {
+  active: boolean;
+  /** `undefined` means use context; `null` means document body. */
+  explicit?: HTMLElement | null;
+  registered: HTMLElement | null;
+  yieldRegistered: boolean;
+}): boolean {
+  if (!input.active) return false;
+  if (input.explicit !== undefined) return false;
+  if (input.registered && !input.yieldRegistered) return false;
+  return true;
+}
+
 function useGlassSheetPortalTarget(
-  portalContainer?: HTMLElement | null
+  portalContainer: HTMLElement | null | undefined,
+  active: boolean
 ): HTMLElement | null {
   const portal = useContext(GlassSheetPortalContext);
   const [body, setBody] = useState<HTMLElement | null>(null);
@@ -919,15 +948,26 @@ function useGlassSheetPortalTarget(
     setBody(document.body);
   }, []);
 
-  const probed = portal.resolveHost?.() ?? null;
+  if (!active) return null;
+
+  const yieldRegistered = portal.container
+    ? portalHostShouldYield(portal.container)
+    : false;
+  const probed = glassSheetShouldProbeHost({
+    active: true,
+    explicit: portalContainer,
+    registered: portal.container,
+    yieldRegistered,
+  })
+    ? (portal.resolveHost?.() ?? null)
+    : null;
+
   return resolveGlassPortalNode({
     explicit: portalContainer,
     registered: portal.container,
     probed,
     body,
-    yieldRegistered: portal.container
-      ? portalHostShouldYield(portal.container)
-      : false,
+    yieldRegistered,
   });
 }
 
@@ -1339,11 +1379,6 @@ export function GlassSheet({
     scrollBody: sheetBodyNode,
     apiRef: bodyPullApi,
   });
-  const portalTarget = useGlassSheetPortalTarget(portalContainer);
-  const hostedInClipHost =
-    portalTarget != null &&
-    typeof document !== 'undefined' &&
-    portalTarget !== document.body;
   const reduceTransparency = usePrefersReducedTransparency();
   const [openedAboveMediaFace, setOpenedAboveMediaFace] = useState(false);
   const [enterAnimationDone, setEnterAnimationDone] = useState(false);
@@ -1355,6 +1390,16 @@ export function GlassSheet({
   // choice menu stays shut after the option unmounts.
   const { mounted, visible, holdingExit, holdExit, handlePanelTransitionEnd } =
     useSheetPresence(open, onClosed, effectivePresentation);
+  // Resolve the portal only while open or exiting — closed idle sheets must
+  // not probe the page host on every parent redraw.
+  const portalTarget = useGlassSheetPortalTarget(
+    portalContainer,
+    glassSheetNeedsPortalTarget({ open, mounted })
+  );
+  const hostedInClipHost =
+    portalTarget != null &&
+    typeof document !== 'undefined' &&
+    portalTarget !== document.body;
 
   const wasSheetOpenRef = useRef(open);
   useLayoutEffect(() => {
