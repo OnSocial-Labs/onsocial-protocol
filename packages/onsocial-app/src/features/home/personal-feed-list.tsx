@@ -202,8 +202,8 @@ export function PersonalFeedList({
   });
   const { windowed, start, end, topSpacer, bottomSpacer, registerRow } =
     feedWindow;
-  // Engagement / poll only for the mounted band (+1 block pad). The hook
-  // prunes to that band so scroll depth does not grow the map forever.
+  // Fetch the mounted band (+1 pad). Retain the full list so seed counts stay
+  // painted when the window moves — prune follows feed trim, not the viewport.
   const nearPosts = useMemo(() => {
     const from = Math.max(0, start - 1);
     const to = Math.min(feedBlocks.length, end + 1);
@@ -212,6 +212,10 @@ export function PersonalFeedList({
   const engagementPosts = useMemo(
     () => withRepostOriginals(nearPosts, quotedPosts),
     [nearPosts, quotedPosts]
+  );
+  const retainEngagementPosts = useMemo(
+    () => withRepostOriginals(posts, quotedPosts),
+    [posts, quotedPosts]
   );
   const {
     engagement,
@@ -226,6 +230,7 @@ export function PersonalFeedList({
     confirmUnrepost,
   } = usePostEngagement(engagementPosts, {
     initial: initialEngagement,
+    retainPosts: retainEngagementPosts,
     onError: onEngagementError,
   });
   const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(

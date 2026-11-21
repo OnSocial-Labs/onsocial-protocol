@@ -16,7 +16,7 @@ function row(over: Partial<PostEngagement> = {}): PostEngagement {
 }
 
 describe('pruneEngagementMap', () => {
-  it('drops keys that left the live band and keeps identity when unchanged', () => {
+  it('drops keys that left the retain set and keeps identity when unchanged', () => {
     const current = {
       'a:1': row({ reactionCount: 1 }),
       'b:2': row({ reactionCount: 2 }),
@@ -24,6 +24,19 @@ describe('pruneEngagementMap', () => {
     const pruned = pruneEngagementMap(current, new Set(['a:1']));
     expect(Object.keys(pruned)).toEqual(['a:1']);
     expect(pruneEngagementMap(pruned, new Set(['a:1']))).toBe(pruned);
+  });
+
+  it('keeps off-band keys when retain is the full feed list', () => {
+    const current = {
+      'a:1': row({ reactionCount: 1 }),
+      'b:2': row({ reactionCount: 2 }),
+      'c:3': row({ reactionCount: 3 }),
+    };
+    expect(
+      Object.keys(
+        pruneEngagementMap(current, new Set(['a:1', 'b:2', 'c:3']))
+      ).sort()
+    ).toEqual(['a:1', 'b:2', 'c:3']);
   });
 });
 

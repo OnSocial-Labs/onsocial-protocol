@@ -639,6 +639,10 @@ export function LiveGuildPanel({
     () => withRepostOriginals(nearFeedPosts, quotedPosts),
     [nearFeedPosts, quotedPosts]
   );
+  const retainEngagementPosts = useMemo(
+    () => withRepostOriginals(feedPosts, quotedPosts),
+    [feedPosts, quotedPosts]
+  );
   const {
     engagement,
     toggleReaction,
@@ -652,6 +656,7 @@ export function LiveGuildPanel({
     confirmUnrepost,
   } = usePostEngagement(engagementPosts, {
     initial: initial?.engagement ?? null,
+    retainPosts: retainEngagementPosts,
     onError: (message) => setTxResult({ type: 'error', msg: message }),
   });
   const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(

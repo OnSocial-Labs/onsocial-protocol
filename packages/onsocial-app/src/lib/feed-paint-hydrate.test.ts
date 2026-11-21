@@ -5,11 +5,14 @@ import type {
   ScarcesCollectionCurrentRow,
 } from '@onsocial/sdk';
 import {
+  engagementSeedFromFeedRows,
+  fillEngagementSeedFromFeedRows,
   hydrateCollectionEmbedsForPosts,
   hydrateLazyScarceEmbedsForPosts,
   hydrateTokenEmbedsForPosts,
   loadPostEngagementMap,
 } from '@/lib/feed-paint-hydrate';
+import { EMPTY_POST_ENGAGEMENT } from '@/hooks/use-post-engagement';
 
 const ONE_NEAR = '1000000000000000000000000';
 
@@ -22,6 +25,53 @@ function post(accountId: string, postId: string): PostRow {
     blockTimestamp: 1,
   };
 }
+
+describe('engagementSeedFromFeedRows', () => {
+  it('paints counts from row public fields without a network round-trip', () => {
+    const posts = [
+      {
+        ...post('a.near', '1'),
+        replyCount: 1,
+        quoteCount: 0,
+        repostCount: 2,
+        reactionCount: 5,
+      },
+    ];
+    expect(engagementSeedFromFeedRows(posts)['a.near:1']).toEqual({
+      ...EMPTY_POST_ENGAGEMENT,
+      replyCount: 1,
+      quoteCount: 0,
+      repostCount: 2,
+      reactionCount: 5,
+    });
+  });
+
+  it('fills only gaps so confirmed seed wins over row defaults', () => {
+    const posts = [
+      {
+        ...post('a.near', '1'),
+        replyCount: 0,
+        reactionCount: 1,
+      },
+      {
+        ...post('b.near', '2'),
+        replyCount: 0,
+        reactionCount: 3,
+      },
+    ];
+    const current = {
+      'a.near:1': {
+        ...EMPTY_POST_ENGAGEMENT,
+        reactionCount: 9,
+        reactionRoll: 1,
+      },
+    };
+    const next = fillEngagementSeedFromFeedRows(current, posts);
+    expect(next['a.near:1'].reactionCount).toBe(9);
+    expect(next['a.near:1'].reactionRoll).toBe(1);
+    expect(next['b.near:2'].reactionCount).toBe(3);
+  });
+});
 
 describe('feed-paint-hydrate', () => {
   const activeListings = vi.fn();

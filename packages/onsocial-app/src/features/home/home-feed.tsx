@@ -126,7 +126,10 @@ import {
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { useListScrollRestore } from '@/hooks/use-list-scroll-restore';
 import { sortPostsByHot } from '@/lib/amplify-heat';
-import { loadPostEngagementMap } from '@/lib/feed-paint-hydrate';
+import {
+  fillEngagementSeedFromFeedRows,
+  loadPostEngagementMap,
+} from '@/lib/feed-paint-hydrate';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import type { FeedQuoteSeed } from '@/lib/prepare-feed-paint';
 import type { PollTally } from '@/lib/poll-votes';
@@ -644,6 +647,8 @@ export function HomePagePanel({
 
   // Drop quote/poll/dao/engagement keys for rows no longer in the model
   // (refresh replace, jump-to-newest tail trim). Load-more only adds keys.
+  // Fill engagement gaps from row public counts so speculative / SSR rows
+  // never sit in `countsReady=false` while a later batch lands.
   useEffect(() => {
     setQuotedSeed((current) => quotedForPosts(posts, current));
     setPollSeed((current) => recordForPosts(posts, current, postKey) ?? {});
@@ -654,8 +659,10 @@ export function HomePagePanel({
         ) ?? {}
     );
     setEngagementSeed((current) => {
-      if (!current) return current;
-      return recordForPosts(posts, current, postKey) ?? {};
+      const trimmed = current
+        ? (recordForPosts(posts, current, postKey) ?? {})
+        : {};
+      return fillEngagementSeedFromFeedRows(trimmed, posts);
     });
   }, [posts]);
 
@@ -951,6 +958,9 @@ export function HomePagePanel({
       setPosts(speculativePage.items);
       postsRef.current = speculativePage.items;
       postsLengthRef.current = speculativePage.items.length;
+      setEngagementSeed((current) =>
+        fillEngagementSeedFromFeedRows(current, speculativePage.items)
+      );
       applyFeedPageCursor(speculativePage);
       feedSessionKeyRef.current = HOME_FEED_SSR_SESSION_KEY;
       if (speculativeFeedKeepsPaint(activeLens, sort)) {
@@ -1097,9 +1107,8 @@ export function HomePagePanel({
           holdFeedScrollAnchor();
         }
         let risingAuthors: string[] = [];
-        // Rows first — quotes/tallies/engagement soft-fill into reserved seats
-        // (same contract as SSR). Blocking setPosts on side paint left the
-        // footer stuck, then dumped a page of estimate→measure corrections.
+        // Rows + public count seed first. Quotes/tallies/DAO and the full
+        // engagement map (amplify gaps) soft-fill — never block setPosts.
         setPosts((current) => {
           if (mergeHead && current.length > 0) {
             const merged =
@@ -1119,6 +1128,9 @@ export function HomePagePanel({
           revokeDroppedOptimisticMedia(current, items);
           return items;
         });
+        setEngagementSeed((current) =>
+          fillEngagementSeedFromFeedRows(current, items)
+        );
         feedSessionKeyRef.current = sessionKey;
         if (mergeHead) {
           growFeedWindow(insertedCount);
@@ -1142,10 +1154,13 @@ export function HomePagePanel({
           ).then(
             (engagement) => {
               if (!isCurrentLoadingRequest(loadIdRef.current, loadId)) return;
-              setEngagementSeed(engagement);
+              setEngagementSeed((current) => ({
+                ...(current ?? {}),
+                ...engagement,
+              }));
             },
             () => {
-              // Counts soft-fill; EMPTY_POST_ENGAGEMENT holds the row seat.
+              // Row seed already holds public counts.
             }
           );
         }
@@ -1292,8 +1307,11 @@ export function HomePagePanel({
             ? sortPostsByHot(merged)
             : merged;
         });
+        setEngagementSeed((current) =>
+          fillEngagementSeedFromFeedRows(current, appended)
+        );
         applyFeedPageCursor(result.page);
-        // Soft-fill after rows mount — quote/engagement seats already hold.
+        // Soft-fill after rows mount — quote seats + amplify/gap engagement.
         void Promise.all([
           loadFeedPaint(appended),
           loadPostEngagementMap(createReadOnlyOnSocialClient(), appended),
@@ -1319,7 +1337,7 @@ export function HomePagePanel({
             }));
           },
           () => {
-            // Rows stay; seats fill on the next successful paint.
+            // Rows stay; row seed already holds public counts.
           }
         );
       } catch (cause) {

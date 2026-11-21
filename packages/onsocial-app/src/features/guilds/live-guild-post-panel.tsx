@@ -413,6 +413,14 @@ export function LiveGuildPostPanel({
     return Array.from(ids);
   }, [threadPosts, quotedPosts, ancestorChain]);
   const postAuthorProfiles = usePostAuthorProfiles(postAuthorIds);
+  const retainEngagementPosts = useMemo(
+    () => [
+      ...ancestorChain,
+      ...(conversation.root ? [conversation.root] : []),
+      ...replyPosts,
+    ],
+    [ancestorChain, conversation.root, replyPosts]
+  );
   const {
     engagement,
     toggleReaction,
@@ -426,6 +434,7 @@ export function LiveGuildPostPanel({
     confirmUnrepost,
   } = usePostEngagement(engagementPosts, {
     initial: seededEngagement,
+    retainPosts: retainEngagementPosts,
     onError: (message) => setTxResult({ type: 'error', msg: message }),
   });
   engagementLatestRef.current = engagement;

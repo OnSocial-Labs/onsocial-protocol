@@ -34,22 +34,13 @@ export function rollingGlyphs(value: number, grouped: boolean): RollingGlyph[] {
  * Drop supply omits the signal and rolls on every value change.
  * A confirm signal rolls only when that signal changes, so a later
  * refetch of the same card snaps instead of turning.
- * Zero crossings snap — rolling through a parked `0` flashes under the
- * new count on first like / last unlike.
+ * Zero crossings roll too — the digit window clips neighbors so the
+ * previous face only passes through as motion.
  */
 export function rollingMotion(
   rollSignal: number | undefined,
-  previousSignal: number | undefined,
-  options?: { fromValue?: number; toValue?: number }
+  previousSignal: number | undefined
 ): 'roll' | 'snap' {
-  const from = options?.fromValue;
-  const to = options?.toValue;
-  if (
-    (typeof from === 'number' && from <= 0) ||
-    (typeof to === 'number' && to <= 0)
-  ) {
-    return 'snap';
-  }
   if (rollSignal === undefined) return 'roll';
   return rollSignal === previousSignal ? 'snap' : 'roll';
 }

@@ -117,17 +117,18 @@ export const EMPTY_POST_ENGAGEMENT: PostEngagement = {
 };
 
 /**
- * Drop rows that left the live post list. Feed windowing only fetches the
- * near band — without this prune the map grows for every row ever painted.
+ * Drop keys that left the retain set (in-memory feed list). Fetch still
+ * targets the near band — retain stays wider so seed counts are not pruned
+ * before scroll-back remounts them.
  */
 export function pruneEngagementMap(
   current: EngagementMap,
-  liveKeys: ReadonlySet<string>
+  retainKeys: ReadonlySet<string>
 ): EngagementMap {
   let changed = false;
   const next: EngagementMap = {};
   for (const [key, row] of Object.entries(current)) {
-    if (liveKeys.has(key)) next[key] = row;
+    if (retainKeys.has(key)) next[key] = row;
     else changed = true;
   }
   return changed ? next : current;
@@ -301,11 +302,16 @@ export function mergeEngagementSoftUpgrade(
  * Pass `initial` from the page paint so counts are final. A signed-in
  * viewer then overlays like, save, and repost flags without recounting —
  * and last-good memory keeps those flags across window prune.
+ *
+ * `posts` is the fetch band (near window + pad). Pass `retainPosts` as the
+ * full in-memory feed list so prune does not drop counts the seed already has.
  */
 export function usePostEngagement(
   posts: PostRow[],
   opts: {
     initial?: EngagementMap | null;
+    /** Keys that must stay in the live map — usually the full feed list. */
+    retainPosts?: readonly PostRow[];
     onError?: (message: string) => void;
   } = {}
 ) {
@@ -387,23 +393,33 @@ export function usePostEngagement(
     () => targets.map((t) => t.path).join('\n') + `\n@${accountId ?? ''}`,
     [targets, accountId]
   );
+  const retainPosts = opts.retainPosts;
+  const retainKeys = useMemo(() => {
+    const rows = retainPosts ?? posts;
+    return new Set(rows.map((post) => postKey(post)));
+  }, [retainPosts, posts]);
+  const retainSignature = useMemo(
+    () => [...retainKeys].join('\n'),
+    [retainKeys]
+  );
 
-  // Bound the map to the live band — remember last-good before prune.
+  // Bound the map to the feed list (retain), not only the near fetch band.
   useEffect(() => {
-    const live = new Set(targets.map((target) => target.key));
     const lastGood = lastGoodRef.current;
     setEngagement((current) => {
       for (const [key, row] of Object.entries(current)) {
-        if (!live.has(key)) rememberEngagementLastGood(lastGood, key, row);
+        if (!retainKeys.has(key)) {
+          rememberEngagementLastGood(lastGood, key, row);
+        }
       }
-      return pruneEngagementMap(current, live);
+      return pruneEngagementMap(current, retainKeys);
     });
     const overlay = viewerOverlayRef.current;
     if (!overlay) return;
     for (const key of [...overlay.keys]) {
-      if (!live.has(key)) overlay.keys.delete(key);
+      if (!retainKeys.has(key)) overlay.keys.delete(key);
     }
-  }, [targetsSignature, targets]);
+  }, [retainSignature, retainKeys]);
 
   useEffect(() => {
     if (targets.length === 0) {

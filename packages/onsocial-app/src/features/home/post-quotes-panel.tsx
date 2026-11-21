@@ -371,12 +371,16 @@ export function PostQuotesPanel({
     anchorQuery: SECONDARY_ANCHOR_QUERY,
     estimate: 76,
   });
-  // Engagement / poll for the mounted quote band (+1 row pad) plus root.
+  // Fetch mounted quote band (+1 pad) plus root; retain all quotes for paint.
   const engagementPosts = useMemo(() => {
     const from = Math.max(0, quotesWindow.start - 1);
     const to = Math.min(quotes.length, quotesWindow.end + 1);
     return [...(root ? [root] : []), ...quotes.slice(from, to)];
   }, [root, quotes, quotesWindow.start, quotesWindow.end]);
+  const retainEngagementPosts = useMemo(
+    () => [...(root ? [root] : []), ...quotes],
+    [root, quotes]
+  );
   const {
     engagement,
     toggleReaction,
@@ -385,6 +389,7 @@ export function PostQuotesPanel({
     isSavePending,
   } = usePostEngagement(engagementPosts, {
     initial: initial?.engagement ?? null,
+    retainPosts: retainEngagementPosts,
     onError: (message) => setTxResult({ type: 'error', msg: message }),
   });
   const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(
