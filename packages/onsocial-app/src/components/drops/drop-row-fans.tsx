@@ -3,11 +3,18 @@
 import { useRef, useState } from 'react';
 import { GuildFacepile } from '@/features/guilds/guild-facepile';
 import { ScarceFansSheet } from '@/features/scarces/scarce-fans-sheet';
+import { useSheetMounted } from '@/hooks/use-sheet-mounted';
+import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   arePostAuthorProfilesResolved,
   usePostAuthorProfiles,
 } from '@/hooks/use-post-author-profiles';
-import { loadDropFanIds } from '@/lib/scarce-drop-fans';
+import { warmProfileListAccounts } from '@/lib/load-profile-list-accounts';
+import {
+  loadDropFanIds,
+  peekDropFanIds,
+  warmDropFanIds,
+} from '@/lib/scarce-drop-fans';
 
 /** Loved fans on a drop row — facepile or count-only fallback. */
 export function DropRowFans({
@@ -57,29 +64,49 @@ export function DropFansButton({
   fanIds?: string[];
   fanCount: number;
 }) {
+  const { accountId: viewerAccountId } = useAppWallet();
   const requestRef = useRef(0);
-  const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
-  const [roster, setRoster] = useState<string[]>([]);
+  const [warm, setWarm] = useState(false);
+  const sheetMounted = useSheetMounted(open || warm);
+  const peeked = peekDropFanIds(creatorId, collectionId);
+  const [roster, setRoster] = useState<string[]>(
+    () => peeked ?? fanIds ?? []
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const label = fanCount === 1 ? '1 fan' : `${fanCount} fans`;
 
+  const warmFans = () => {
+    setWarm(true);
+    warmDropFanIds(creatorId, collectionId);
+    const seed = peekDropFanIds(creatorId, collectionId) ?? fanIds ?? [];
+    if (seed.length > 0) {
+      setRoster(seed);
+      warmProfileListAccounts(seed, viewerAccountId ?? null);
+    }
+  };
+
   const openFans = () => {
     const request = requestRef.current + 1;
     requestRef.current = request;
-    const cached = fanIds ?? [];
-    setMounted(true);
+    const cached =
+      peekDropFanIds(creatorId, collectionId) ?? fanIds ?? [];
+    setWarm(true);
     setOpen(true);
     setRoster(cached);
     setError(false);
     setLoading(cached.length < fanCount);
+    if (cached.length > 0) {
+      warmProfileListAccounts(cached, viewerAccountId ?? null);
+    }
     void loadDropFanIds(creatorId, collectionId)
       .then((ids) => {
         if (requestRef.current !== request) return;
         setRoster(ids);
         setLoading(false);
         setError(false);
+        warmProfileListAccounts(ids, viewerAccountId ?? null);
       })
       .catch(() => {
         if (requestRef.current !== request) return;
@@ -94,15 +121,22 @@ export function DropFansButton({
         type="button"
         className="drops-discovery-fans-button"
         aria-label={`See fans, ${label}`}
-        onClick={openFans}
+        onPointerDown={(event) => {
+          event.stopPropagation();
+          warmFans();
+        }}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          openFans();
+        }}
       >
         <DropRowFans fanIds={fanIds} fanCount={fanCount} />
       </button>
-      {mounted ? (
+      {sheetMounted ? (
         <ScarceFansSheet
           open={open}
           onClose={() => setOpen(false)}
-          onClosed={() => setMounted(false)}
           fanIds={roster}
           fanCount={loading ? fanCount : roster.length}
           dropTitle={title}

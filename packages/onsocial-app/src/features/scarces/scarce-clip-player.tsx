@@ -62,6 +62,9 @@ import { ScarceClipListenSheet } from '@/features/scarces/scarce-clip-listen-she
 import { ScarceClipShareButton } from '@/features/scarces/scarce-clip-share-button';
 import { ScarceFansSheet } from '@/features/scarces/scarce-fans-sheet';
 import { ScarceTrackOptionsMenu } from '@/features/scarces/scarce-track-options-menu';
+import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useSheetMounted } from '@/hooks/use-sheet-mounted';
+import { warmProfileListAccounts } from '@/lib/load-profile-list-accounts';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { useScarceTrackLoves } from '@/hooks/use-scarce-track-loves';
 import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
@@ -346,6 +349,9 @@ export function ScarceClipPlayer({
   const [duration, setDuration] = useState(0);
   const [scrubbing, setScrubbing] = useState(false);
   const [fansOpen, setFansOpen] = useState(false);
+  const [fansWarm, setFansWarm] = useState(false);
+  const fansMounted = useSheetMounted(fansOpen || fansWarm);
+  const { accountId: viewerAccountId } = useAppWallet();
   const tracksOnly = layout === 'tracks' && isAudio;
   const coverChrome = isAudio && !tracksOnly;
   const activeLyrics = active.lyrics?.trim() || '';
@@ -587,6 +593,12 @@ export function ScarceClipPlayer({
       slots={Math.min(5, Math.max(1, loves.fanCount))}
       loading={loves.fansLoading && facepileIds.length === 0}
       className="scarce-clip-fans-facepile"
+      onPointerDown={() => {
+        setFansWarm(true);
+        if (loves.fanIds.length > 0) {
+          warmProfileListAccounts(loves.fanIds, viewerAccountId ?? null);
+        }
+      }}
       onClick={() => setFansOpen(true)}
     />
   ) : null;
@@ -2170,13 +2182,15 @@ export function ScarceClipPlayer({
             threadRoot={threadRoot}
           />
         ) : null}
-        <ScarceFansSheet
-          open={fansOpen}
-          onClose={() => setFansOpen(false)}
-          fanIds={loves.fanIds}
-          fanCount={loves.fanCount}
-          dropTitle={persist?.title}
-        />
+        {fansMounted ? (
+          <ScarceFansSheet
+            open={fansOpen}
+            onClose={() => setFansOpen(false)}
+            fanIds={loves.fanIds}
+            fanCount={loves.fanCount}
+            dropTitle={persist?.title}
+          />
+        ) : null}
       </div>
     </>
   );

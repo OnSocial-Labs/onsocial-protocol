@@ -27,6 +27,7 @@ export function GuildFacepile({
   slots = GUILD_FACEPILE_SLOTS,
   showCount = true,
   onClick,
+  onPointerDown,
   disabled = false,
   className,
   'aria-label': ariaLabel,
@@ -40,6 +41,8 @@ export function GuildFacepile({
   slots?: number;
   showCount?: boolean;
   onClick?: () => void;
+  /** Intent warm before click (fans roster prefetch). */
+  onPointerDown?: () => void;
   disabled?: boolean;
   className?: string;
   'aria-label'?: string;
@@ -137,6 +140,14 @@ export function GuildFacepile({
         disabled={disabled || loading}
         aria-busy={loading}
         aria-label={resolvedAria}
+        onPointerDown={
+          onPointerDown
+            ? (event) => {
+                event.stopPropagation();
+                onPointerDown();
+              }
+            : undefined
+        }
         onClick={onClick}
       >
         {body}

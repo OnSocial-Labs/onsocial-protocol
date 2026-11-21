@@ -4,11 +4,34 @@ import { resolveProfileMediaUrl } from '@/lib/profile-display';
 import type { ProfileListAccount } from '@/lib/profile-list-account';
 import { seedPostAuthorProfile } from '@/hooks/use-post-author-profiles';
 
-/**
- * Hydrate standing-style list rows for known account ids (one stats batch +
- * optional viewer graph batch). Same shape as Discover / standings lists.
- */
-export async function loadProfileListAccounts(
+/** Cap settled warm roster reads so fans sheets do not retain every open forever. */
+const SETTLED_MAX = 32;
+
+const inflight = new Map<string, Promise<ProfileListAccount[]>>();
+const settled = new Map<string, ProfileListAccount[]>();
+
+export function profileListAccountsCacheKey(
+  accountIds: readonly string[],
+  viewerAccountId: string | null
+): string {
+  const ids = [
+    ...new Set(accountIds.map((id) => id.trim()).filter(Boolean)),
+  ].sort((a, b) => a.localeCompare(b));
+  const viewer = viewerAccountId?.trim() || '';
+  return `${viewer}\0${ids.join('\n')}`;
+}
+
+function rememberSettled(key: string, accounts: ProfileListAccount[]): void {
+  settled.delete(key);
+  settled.set(key, accounts);
+  while (settled.size > SETTLED_MAX) {
+    const oldest = settled.keys().next().value;
+    if (oldest == null) break;
+    settled.delete(oldest);
+  }
+}
+
+async function fetchProfileListAccounts(
   accountIds: readonly string[],
   viewerAccountId: string | null
 ): Promise<ProfileListAccount[]> {
@@ -115,4 +138,55 @@ export async function loadProfileListAccounts(
           : undefined,
     } satisfies ProfileListAccount;
   });
+}
+
+/** Sync hit from a prior warm / open — null when nothing settled yet. */
+export function peekProfileListAccounts(
+  accountIds: readonly string[],
+  viewerAccountId: string | null
+): ProfileListAccount[] | null {
+  const key = profileListAccountsCacheKey(accountIds, viewerAccountId);
+  const hit = settled.get(key);
+  return hit ? hit.map((row) => ({ ...row })) : null;
+}
+
+/** pointerdown warm — fans / stands open with people already hydrated. */
+export function warmProfileListAccounts(
+  accountIds: readonly string[],
+  viewerAccountId: string | null
+): void {
+  void loadProfileListAccounts(accountIds, viewerAccountId);
+}
+
+/**
+ * Hydrate standing-style list rows for known account ids (one stats batch +
+ * optional viewer graph batch). Same shape as Discover / standings lists.
+ * Shares in-flight work and keeps a short settled warm cache.
+ */
+export async function loadProfileListAccounts(
+  accountIds: readonly string[],
+  viewerAccountId: string | null
+): Promise<ProfileListAccount[]> {
+  const key = profileListAccountsCacheKey(accountIds, viewerAccountId);
+  const cached = settled.get(key);
+  if (cached) return cached.map((row) => ({ ...row }));
+  const existing = inflight.get(key);
+  if (existing) return existing.then((rows) => rows.map((row) => ({ ...row })));
+
+  const promise = fetchProfileListAccounts(accountIds, viewerAccountId)
+    .then((accounts) => {
+      rememberSettled(key, accounts);
+      return accounts;
+    })
+    .finally(() => {
+      if (inflight.get(key) === promise) inflight.delete(key);
+    });
+  inflight.set(key, promise);
+  return promise.then((rows) => rows.map((row) => ({ ...row })));
+}
+
+/** Test helper — drop warm + in-flight profile roster reads. */
+export function clearProfileListAccountsCache(): void {
+  inflight.clear();
+  settled.clear();
 }

@@ -17,7 +17,11 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
 import { accountIdsEqual } from '@/lib/account-match';
 import { emptyCopy as emptyCopyVoice } from '@/lib/empty-copy';
-import { loadProfileListAccounts } from '@/lib/load-profile-list-accounts';
+import {
+  loadProfileListAccounts,
+  peekProfileListAccounts,
+  profileListAccountsCacheKey,
+} from '@/lib/load-profile-list-accounts';
 import {
   filterGuestRoster,
   guestRosterMatchLine,
@@ -89,13 +93,36 @@ export function ScarceFansSheet({
     useViewerStanding('scarce-fans');
   const [query, setQuery] = useState('');
 
-  const fanIdsKey = fanIds.join('\n');
-  const requestKey = open ? `${fanIdsKey}\0${viewerAccountId ?? ''}` : '';
+  const requestKey = open
+    ? profileListAccountsCacheKey(fanIds, viewerAccountId ?? null)
+    : '';
   const [fetched, setFetched] = useState<{
     key: string;
     accounts: ProfileListAccount[];
     error: boolean;
-  } | null>(null);
+  } | null>(() => {
+    if (!open || fanIds.length === 0) return null;
+    const key = profileListAccountsCacheKey(fanIds, viewerAccountId ?? null);
+    const peeked = peekProfileListAccounts(fanIds, viewerAccountId ?? null);
+    return peeked ? { key, accounts: peeked, error: false } : null;
+  });
+  const [wasOpen, setWasOpen] = useState(open);
+  const fetchedRef = useRef(fetched);
+
+  useEffect(() => {
+    fetchedRef.current = fetched;
+  }, [fetched]);
+
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open && fanIds.length > 0) {
+      const key = profileListAccountsCacheKey(fanIds, viewerAccountId ?? null);
+      const peeked = peekProfileListAccounts(fanIds, viewerAccountId ?? null);
+      if (peeked) {
+        setFetched({ key, accounts: peeked, error: false });
+      }
+    }
+  }
 
   useEffect(() => {
     if (!open || idsLoading || fanIds.length === 0) return;
@@ -109,6 +136,13 @@ export function ScarceFansSheet({
       })
       .catch(() => {
         if (cancelled) return;
+        // Keep last-good roster on soft failure (boost / likes style).
+        if (
+          fetchedRef.current?.key === key &&
+          fetchedRef.current.accounts.length > 0
+        ) {
+          return;
+        }
         setFetched({ key, accounts: [], error: true });
       });
 
@@ -118,7 +152,7 @@ export function ScarceFansSheet({
   }, [open, requestKey, fanIds, viewerAccountId, idsLoading]);
 
   const handleClose = useCallback(() => {
-    setFetched(null);
+    // Keep last-good profile rows — reopen paints instantly.
     setQuery('');
     onClose();
   }, [onClose]);
