@@ -12130,8 +12130,14 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.92);
   }
 
-  .portfolio-writing-article-action:disabled:not(.is-pending) {
+  .portfolio-writing-article-action:disabled:not(.is-pending):not(
+      .is-viewer-loading
+    ) {
     opacity: 0.55;
+    cursor: default;
+  }
+
+  .portfolio-writing-article-action.is-viewer-loading {
     cursor: default;
   }
 
@@ -25307,9 +25313,15 @@ a.os-surface-row,
     color: var(--protocol-green);
   }
 
-  .post-card-save:disabled:not(.is-pending) {
+  .post-card-save:disabled:not(.is-pending):not(.is-viewer-loading) {
     opacity: 1;
     color: rgb(var(--fg-rgb) / 0.26);
+    cursor: default;
+  }
+
+  /* Colour still loading — quiet seat, no confirm pulse. */
+  .post-card-react-heart.is-viewer-loading,
+  .post-card-save.is-viewer-loading {
     cursor: default;
   }
 

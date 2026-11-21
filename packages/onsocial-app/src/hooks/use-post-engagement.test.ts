@@ -13,7 +13,12 @@ import {
 } from '@/hooks/use-post-engagement';
 
 function row(over: Partial<PostEngagement> = {}): PostEngagement {
-  return { ...EMPTY_POST_ENGAGEMENT, ...over };
+  return {
+    ...EMPTY_POST_ENGAGEMENT,
+    viewerFlagsReady: true,
+    amplifyCountReady: true,
+    ...over,
+  };
 }
 
 describe('pruneEngagementMap', () => {
@@ -269,12 +274,24 @@ describe('mergeEngagementSoftUpgrade', () => {
   it('preserves confirmed save until indexer catches up', () => {
     const key = 'alice.near:p1';
     const merged = mergeEngagementSoftUpgrade(
-      { [key]: row({ viewerSaved: true, replyCount: 1 }) },
+      { [key]: row({ viewerSaved: true, saveRoll: 1, replyCount: 1 }) },
       { [key]: row({ viewerSaved: false, replyCount: 2 }) },
       new Set(),
       new Set()
     );
     expect(merged[key]?.viewerSaved).toBe(true);
+    expect(merged[key]?.replyCount).toBe(2);
+  });
+
+  it('preserves confirmed unsave when soft-fill still shows saved', () => {
+    const key = 'alice.near:p1';
+    const merged = mergeEngagementSoftUpgrade(
+      { [key]: row({ viewerSaved: false, saveRoll: 1, replyCount: 1 }) },
+      { [key]: row({ viewerSaved: true, replyCount: 2 }) },
+      new Set(),
+      new Set()
+    );
+    expect(merged[key]?.viewerSaved).toBe(false);
     expect(merged[key]?.replyCount).toBe(2);
   });
 
@@ -487,5 +504,21 @@ describe('applyViewerOverlayEngagement', () => {
     );
     expect(next.amplifyCount).toBe(1);
     expect(next.amplifyCountReady).toBe(true);
+  });
+
+  it('holds confirmed unsave when overlay still lists the bookmark', () => {
+    const next = applyViewerOverlayEngagement(
+      row({ viewerSaved: false, saveRoll: 1 }),
+      {
+        viewerReacted: false,
+        viewerSaved: true,
+        viewerAmplified: false,
+        viewerReposted: false,
+        viewerRepostId: null,
+        viewerRepostGroupId: null,
+      },
+      { pendingReaction: false, pendingSave: false, unreposted: false }
+    );
+    expect(next.viewerSaved).toBe(false);
   });
 });

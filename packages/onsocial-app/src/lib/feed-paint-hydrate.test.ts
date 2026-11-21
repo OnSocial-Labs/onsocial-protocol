@@ -43,8 +43,6 @@ describe('engagementSeedFromFeedRows', () => {
       quoteCount: 0,
       repostCount: 2,
       reactionCount: 5,
-      amplifyCountReady: false,
-      viewerFlagsReady: false,
     });
   });
 
@@ -151,23 +149,14 @@ describe('feed-paint-hydrate', () => {
     ]);
 
     expect(map['alice.near:p1']).toEqual({
+      ...EMPTY_POST_ENGAGEMENT,
       replyCount: 2,
       quoteCount: 1,
       repostCount: 0,
       reactionCount: 5,
-      viewerReacted: false,
       amplifyCount: 3,
       amplifyCountReady: true,
-      viewerAmplified: false,
-      viewerSaved: false,
-      viewerReposted: false,
-      viewerRepostId: null,
-      viewerRepostGroupId: null,
       viewerFlagsReady: true,
-      reactionRoll: 0,
-      amplifyRoll: 0,
-      replyRoll: 0,
-      shareRoll: 0,
     });
     expect(countsByPaths).toHaveBeenCalledTimes(1);
     expect(statesForPosts).toHaveBeenCalledTimes(1);

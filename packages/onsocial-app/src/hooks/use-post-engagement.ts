@@ -76,6 +76,7 @@ function samePostEngagement(a: PostEngagement, b: PostEngagement): boolean {
     a.viewerFlagsReady === b.viewerFlagsReady &&
     a.amplifyCountReady === b.amplifyCountReady &&
     a.reactionRoll === b.reactionRoll &&
+    a.saveRoll === b.saveRoll &&
     a.amplifyRoll === b.amplifyRoll &&
     a.replyRoll === b.replyRoll &&
     a.shareRoll === b.shareRoll
@@ -155,6 +156,7 @@ export function resolveBandEngagement(input: {
             )
           : Math.max(seeded.amplifyCount, good.amplifyCount),
         reactionRoll: good.reactionRoll,
+        saveRoll: good.saveRoll,
         amplifyRoll: good.amplifyRoll,
         replyRoll: good.replyRoll,
         shareRoll: good.shareRoll,
@@ -210,8 +212,13 @@ export function applyViewerOverlayEngagement(
     viewerReacted = previous.viewerReacted;
   }
 
-  let viewerSaved = overlay.viewerSaved || previous.viewerSaved;
+  let viewerSaved = overlay.viewerSaved;
   if (opts.pendingSave) {
+    viewerSaved = previous.viewerSaved;
+  } else if (
+    previous.saveRoll > 0 &&
+    previous.viewerSaved !== overlay.viewerSaved
+  ) {
     viewerSaved = previous.viewerSaved;
   }
 
@@ -252,6 +259,7 @@ export function applyViewerOverlayEngagement(
     viewerReposted,
     viewerRepostId,
     viewerRepostGroupId,
+    // Ready only when this pass had a real viewer read — callers gate that.
     viewerFlagsReady: true,
   };
 }
@@ -329,11 +337,15 @@ export function mergeEngagementSoftUpgrade(
         ...next,
         viewerSaved: previous.viewerSaved,
       };
-    }
-    if (previous?.viewerSaved && !next.viewerSaved) {
+    } else if (
+      previous &&
+      previous.saveRoll > 0 &&
+      previous.viewerSaved !== next.viewerSaved
+    ) {
+      // Confirmed save/unsave holds until the indexer agrees.
       next = {
         ...next,
-        viewerSaved: true,
+        viewerSaved: previous.viewerSaved,
       };
     }
     if (previous?.viewerAmplified && !next.viewerAmplified) {
@@ -380,6 +392,7 @@ export function mergeEngagementSoftUpgrade(
     const candidate: PostEngagement = {
       ...next,
       reactionRoll: previous.reactionRoll,
+      saveRoll: previous.saveRoll,
       amplifyRoll: previous.amplifyRoll,
       replyRoll: previous.replyRoll,
       shareRoll: previous.shareRoll,
@@ -593,7 +606,9 @@ export function usePostEngagement(
       const client = createReadOnlyOnSocialClient();
       const paths = overlayFor.map((target) => target.path);
       const overlayRows = overlayFor;
-      // Counts + viewer amplify in one pass so fire colour never paints alone.
+      const needAmplifyCounts = overlayRows.some(
+        (target) => !engagementRef.current[target.key]?.amplifyCountReady
+      );
       void Promise.allSettled([
         client.query.reactions.statesForPosts(
           overlayRows.map((target) => ({
@@ -604,9 +619,14 @@ export function usePostEngagement(
         ),
         client.query.saves.forPaths(viewerId, paths),
         client.query.threads.viewerReposts(viewerId, paths),
-        client.query.socialSpend.amplifyCountsForPostPaths(paths, {
-          viewer: viewerId,
-        }),
+        needAmplifyCounts
+          ? client.query.socialSpend.amplifyCountsForPostPaths(paths, {
+              viewer: viewerId,
+            })
+          : client.query.socialSpend.viewerAmplifiedForPostPaths(
+              viewerId,
+              paths
+            ),
       ]).then(
         ([
           reactionResult,
@@ -615,12 +635,16 @@ export function usePostEngagement(
           amplifyResult,
         ]) => {
           if (lastGoodAccountRef.current !== viewerId) return;
-          const reactionStates =
-            reactionResult.status === 'fulfilled' ? reactionResult.value : {};
+          // Failed viewer colour read — do not mark loaded; retry next pass.
+          if (
+            reactionResult.status !== 'fulfilled' ||
+            savesResult.status !== 'fulfilled'
+          ) {
+            return;
+          }
+          const reactionStates = reactionResult.value;
           const savedPaths = new Set(
-            savesResult.status === 'fulfilled'
-              ? savesResult.value.map((row) => row.contentPath)
-              : []
+            savesResult.value.map((row) => row.contentPath)
           );
           const viewerReposts = new Map(
             (viewerRepostResult.status === 'fulfilled'
@@ -628,9 +652,9 @@ export function usePostEngagement(
               : []
             ).map((row) => [row.refPath, row])
           );
-          const amplifyCounts =
-            amplifyResult.status === 'fulfilled' ? amplifyResult.value : {};
-          rememberOverlay(overlayRows);
+          const amplifyPayload =
+            amplifyResult.status === 'fulfilled' ? amplifyResult.value : null;
+          const painted: typeof overlayRows = [];
           setEngagement((current) => {
             let changed = false;
             const next: EngagementMap = { ...current };
@@ -643,17 +667,36 @@ export function usePostEngagement(
               const reactions =
                 reactionStates[`${target.owner}:${target.postId}`];
               const viewerRepost = viewerReposts.get(target.path);
-              const amplify = amplifyCounts[target.path];
+              let viewerAmplified = previous.viewerAmplified;
+              let amplifyCount: number | undefined;
+              if (needAmplifyCounts) {
+                const amplify = (
+                  amplifyPayload as
+                    | Record<
+                        string,
+                        { amplifyCount: number; viewerAmplified: boolean }
+                      >
+                    | null
+                )?.[target.path];
+                viewerAmplified = Boolean(amplify?.viewerAmplified);
+                amplifyCount = amplify?.amplifyCount;
+              } else {
+                viewerAmplified = Boolean(
+                  (
+                    amplifyPayload as Record<string, boolean> | null
+                  )?.[target.path]
+                );
+              }
               const row = applyViewerOverlayEngagement(
                 previous,
                 {
                   viewerReacted: (reactions?.viewerReacted.length ?? 0) > 0,
                   viewerSaved: savedPaths.has(target.path),
-                  viewerAmplified: Boolean(amplify?.viewerAmplified),
+                  viewerAmplified,
                   viewerReposted: Boolean(viewerRepost),
                   viewerRepostId: viewerRepost?.repostId ?? null,
                   viewerRepostGroupId: viewerRepost?.groupId ?? null,
-                  amplifyCount: amplify?.amplifyCount,
+                  amplifyCount,
                 },
                 {
                   pendingReaction: pendingReactions.has(target.key),
@@ -661,6 +704,7 @@ export function usePostEngagement(
                   unreposted: unreposted.has(target.key),
                 }
               );
+              painted.push(target);
               if (samePostEngagement(previous, row)) continue;
               next[target.key] = row;
               rememberEngagementLastGood(lastGood, target.key, row);
@@ -668,6 +712,7 @@ export function usePostEngagement(
             }
             return changed ? next : current;
           });
+          rememberOverlay(painted);
         }
       );
       return;
@@ -877,6 +922,16 @@ export function usePostEngagement(
         await client.saves.toggle(contentPath, {
           viewer: accountId,
           wait: true,
+        });
+        setEngagement((current) => {
+          const live = current[key] ?? previous;
+          const row = {
+            ...live,
+            viewerSaved: applied,
+            saveRoll: live.saveRoll + 1,
+          };
+          rememberEngagementLastGood(lastGoodRef.current, key, row);
+          return { ...current, [key]: row };
         });
       } catch (cause) {
         rememberEngagementLastGood(lastGoodRef.current, key, previous);

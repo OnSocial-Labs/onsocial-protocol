@@ -463,7 +463,11 @@ export const PostEngagementRow = memo(function PostEngagementRow({
             <button
               type="button"
               className={`os-confirm-icon post-card-react-heart${
-                reactionPending || !viewerColourReady ? ' is-pending' : ''
+                reactionPending
+                  ? ' is-pending'
+                  : !viewerColourReady
+                    ? ' is-viewer-loading'
+                    : ''
               }`}
               disabled={reactionLocked}
               aria-pressed={engagement.viewerReacted}
@@ -547,7 +551,13 @@ export const PostEngagementRow = memo(function PostEngagementRow({
             type="button"
             className={`os-confirm-icon post-card-stat post-card-stat-button post-card-save${
               engagement.viewerSaved ? ' is-active' : ''
-            }${savePending || !viewerColourReady ? ' is-pending' : ''}`}
+            }${
+              savePending
+                ? ' is-pending'
+                : !viewerColourReady
+                  ? ' is-viewer-loading'
+                  : ''
+            }`}
             disabled={saveLocked}
             aria-pressed={engagement.viewerSaved}
             aria-label={

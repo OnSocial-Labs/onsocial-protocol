@@ -61,6 +61,7 @@ describe('sortThreadReplyRows', () => {
         viewerFlagsReady: true,
         amplifyCountReady: true,
         reactionRoll: 0,
+        saveRoll: 0,
         amplifyRoll: 0,
         replyRoll: 0,
         shareRoll: 0,

@@ -15,8 +15,8 @@ export interface PostEngagement {
   viewerRepostGroupId: string | null;
   /**
    * True once viewer like/save/amplify/repost colour is known (overlay or
-   * soft-fill). Row seed starts false so a signed-in tap cannot invert a
-   * grey heart that has not painted yet.
+   * soft-fill). Row seed and empty card fallback start false so a signed-in
+   * tap cannot invert a grey heart that has not painted yet.
    */
   viewerFlagsReady: boolean;
   /**
@@ -26,6 +26,8 @@ export interface PostEngagement {
   amplifyCountReady: boolean;
   /** Bumps only when the viewer's own like confirms, so other cards stay still. */
   reactionRoll: number;
+  /** Bumps when the viewer's save or unsave confirms on chain. */
+  saveRoll: number;
   /** Bumps only when the viewer's own amplify confirms. */
   amplifyRoll: number;
   /** Bumps only when the viewer's own reply confirms. */
@@ -36,6 +38,7 @@ export interface PostEngagement {
 
 export type EngagementMap = Record<string, PostEngagement>;
 
+/** Card / map miss — not viewer-ready until overlay or soft-fill paints. */
 export const EMPTY_POST_ENGAGEMENT: PostEngagement = {
   replyCount: 0,
   quoteCount: 0,
@@ -48,9 +51,10 @@ export const EMPTY_POST_ENGAGEMENT: PostEngagement = {
   viewerReposted: false,
   viewerRepostId: null,
   viewerRepostGroupId: null,
-  viewerFlagsReady: true,
-  amplifyCountReady: true,
+  viewerFlagsReady: false,
+  amplifyCountReady: false,
   reactionRoll: 0,
+  saveRoll: 0,
   amplifyRoll: 0,
   replyRoll: 0,
   shareRoll: 0,

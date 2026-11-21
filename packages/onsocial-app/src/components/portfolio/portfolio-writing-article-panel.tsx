@@ -125,6 +125,10 @@ export function PortfolioWritingArticleActions({
   const [shareOpen, setShareOpen] = useState(false);
   const [likesOpen, setLikesOpen] = useState(false);
   const { accountId: viewerAccountId } = useAppWallet();
+  const viewerColourReady =
+    !viewerAccountId || row.viewerFlagsReady;
+  const likeLocked = likePending || !viewerColourReady;
+  const saveLocked = savePending || !viewerColourReady;
   const extras = shareExtras ?? [];
 
   const shareArticle = () => {
@@ -161,12 +165,27 @@ export function PortfolioWritingArticleActions({
           type="button"
           className={`portfolio-writing-article-action os-confirm-icon${
             liked ? ' is-active' : ''
-          }${likePending ? ' is-pending' : ''}`}
-          disabled={likePending}
+          }${
+            likePending
+              ? ' is-pending'
+              : !viewerColourReady
+                ? ' is-viewer-loading'
+                : ''
+          }`}
+          disabled={likeLocked}
           aria-pressed={liked}
-          aria-label={liked ? 'Remove your like' : 'Like this article'}
-          title={liked ? 'Liked' : 'Like'}
+          aria-label={
+            !viewerColourReady
+              ? 'Loading your reaction'
+              : liked
+                ? 'Remove your like'
+                : 'Like this article'
+          }
+          title={
+            !viewerColourReady ? 'Loading' : liked ? 'Liked' : 'Like'
+          }
           onClick={() => {
+            if (likeLocked) return;
             void toggleReaction(post);
           }}
         >
@@ -196,12 +215,25 @@ export function PortfolioWritingArticleActions({
         type="button"
         className={`portfolio-writing-article-action os-confirm-icon${
           saved ? ' is-active' : ''
-        }${savePending ? ' is-pending' : ''}`}
-        disabled={savePending}
+        }${
+          savePending
+            ? ' is-pending'
+            : !viewerColourReady
+              ? ' is-viewer-loading'
+              : ''
+        }`}
+        disabled={saveLocked}
         aria-pressed={saved}
-        aria-label={saved ? 'Remove from saved' : 'Save this article'}
-        title={saved ? 'Saved' : 'Save'}
+        aria-label={
+          !viewerColourReady
+            ? 'Loading save state'
+            : saved
+              ? 'Remove from saved'
+              : 'Save this article'
+        }
+        title={!viewerColourReady ? 'Loading' : saved ? 'Saved' : 'Save'}
         onClick={() => {
+          if (saveLocked) return;
           void toggleSave(post);
         }}
       >
