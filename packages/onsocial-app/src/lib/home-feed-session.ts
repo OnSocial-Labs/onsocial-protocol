@@ -18,7 +18,7 @@ const HOME_FEED_SESSION_STORAGE_KEY = 'onsocial.home-feed-session';
 export const HOME_FEED_SESSION_HINT_COOKIE = 'os-home-feed';
 const HOME_FEED_SESSION_HINT_REFRESH_MS = 30_000;
 /** Bump when the snapshot shape changes — old copies are ignored. */
-const HOME_FEED_SESSION_STORAGE_VERSION = 1;
+const HOME_FEED_SESSION_STORAGE_VERSION = 2;
 /**
  * Session restore only — hard refresh paints this many posts. Live load-more
  * keeps the full accumulated list (DOM windowing owns render). Jump-to-newest
@@ -51,12 +51,14 @@ export const HOME_FEED_COLD_PROBE_DELAY_MS = 12_000;
 export type HomeFeedSessionSnapshot = {
   sessionKey: string;
   posts: PostRow[];
+  /** @deprecated Always undefined — feed load-more is keyset-only. */
   nextOffset: number | undefined;
-  /** Descending Recent / Pulse card keyset — prefer over `nextOffset`. */
+  /** Descending Recent / Pulse / Hot composite keyset. */
   nextBeforeBlockHeight?: number;
   nextBeforeHeat?: number;
   nextBeforeEventKey?: string;
   standingNetworkIds: readonly string[] | null;
+  /** @deprecated Unused — keyset edges do not shift under head inserts. */
   offsetShiftApplied: number;
   scrollTop: number;
   /**
@@ -302,11 +304,8 @@ export type HomeFeedPaginationCursor = {
 };
 
 /**
- * After a deep-scroll truncate, a stored cursor past the restored head would
- * skip the middle on load-more. Prefer a duplicate page (client dedupes) over
- * a gap. Do **not** clamp ordinary fill-walk offset cursors where
- * `nextOffset > postCount` with a short list — that is valid pagination.
- * Keyset cursors always snap to the retained edge height when truncated.
+ * After a deep-scroll truncate, snap the keyset to the retained edge so
+ * load-more does not skip the middle. Never mint soft-deprecated `nextOffset`.
  */
 export function clampHomeFeedSessionPagination(input: {
   postCount: number;
@@ -324,12 +323,9 @@ export function clampHomeFeedSessionPagination(input: {
   /** Live list was longer than `postCount` (write path). */
   truncated?: boolean;
 }): HomeFeedPaginationCursor {
-  const truncatedSnapshot =
-    input.truncated === true ||
-    input.postCount >= HOME_FEED_SESSION_PERSISTED_POSTS;
+  const key = input.nextBeforeEventKey?.trim();
   const hadMore =
-    input.nextOffset !== undefined ||
-    input.nextBeforeBlockHeight !== undefined;
+    input.nextBeforeBlockHeight !== undefined && Boolean(key);
 
   if (!hadMore) {
     return {
@@ -337,60 +333,47 @@ export function clampHomeFeedSessionPagination(input: {
       nextBeforeBlockHeight: undefined,
       nextBeforeHeat: undefined,
       nextBeforeEventKey: undefined,
-      offsetShiftApplied: input.offsetShiftApplied,
+      offsetShiftApplied: 0,
     };
   }
 
-  let nextOffset = input.nextOffset;
-  let offsetShiftApplied = input.offsetShiftApplied;
   let nextBeforeBlockHeight = input.nextBeforeBlockHeight;
   let nextBeforeHeat = input.nextBeforeHeat;
-  let nextBeforeEventKey = input.nextBeforeEventKey;
+  let nextBeforeEventKey = key;
 
-  // Offset: only clamp when the cursor points past the restored head.
-  if (
-    truncatedSnapshot &&
-    nextOffset !== undefined &&
-    nextOffset > input.postCount
-  ) {
-    nextOffset = input.postCount;
-    offsetShiftApplied = 0;
-  }
-
-  // Keyset: on an explicit trim/persist of a longer list, snap to the
-  // retained edge so load-more does not skip the dropped middle.
-  if (input.truncated === true && nextBeforeBlockHeight !== undefined) {
+  // On an explicit trim/persist of a longer list, snap to the retained edge.
+  if (input.truncated === true) {
     const edge =
       typeof input.edgeBlockHeight === 'number' &&
       Number.isFinite(input.edgeBlockHeight) &&
       input.edgeBlockHeight > 0
         ? input.edgeBlockHeight
         : undefined;
-    nextBeforeBlockHeight = edge;
-    nextBeforeEventKey = edge !== undefined ? input.edgeEventKey : undefined;
-    nextBeforeHeat =
-      edge !== undefined &&
-      typeof input.edgeHeat === 'number' &&
-      Number.isFinite(input.edgeHeat)
-        ? input.edgeHeat
-        : undefined;
-    // Exclusive composite keyset — do not mint nextOffset beside it.
-    if (nextBeforeBlockHeight !== undefined && nextBeforeEventKey) {
-      nextOffset = undefined;
-    } else if (nextOffset !== undefined) {
-      nextOffset = Math.min(nextOffset, input.postCount);
-    } else if (edge !== undefined) {
-      nextOffset = input.postCount;
+    const edgeKey = input.edgeEventKey?.trim();
+    if (edge !== undefined && edgeKey) {
+      nextBeforeBlockHeight = edge;
+      nextBeforeEventKey = edgeKey;
+      nextBeforeHeat =
+        typeof input.edgeHeat === 'number' && Number.isFinite(input.edgeHeat)
+          ? input.edgeHeat
+          : undefined;
+    } else {
+      return {
+        nextOffset: undefined,
+        nextBeforeBlockHeight: undefined,
+        nextBeforeHeat: undefined,
+        nextBeforeEventKey: undefined,
+        offsetShiftApplied: 0,
+      };
     }
-    offsetShiftApplied = 0;
   }
 
   return {
-    nextOffset,
+    nextOffset: undefined,
     nextBeforeBlockHeight,
     nextBeforeHeat,
     nextBeforeEventKey,
-    offsetShiftApplied,
+    offsetShiftApplied: 0,
   };
 }
 

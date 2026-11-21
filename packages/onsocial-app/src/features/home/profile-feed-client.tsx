@@ -260,10 +260,10 @@ export function ProfileFeedClient({
               return current;
             }
             return {
-              nextOffset: page.nextOffset ?? advance.offset,
+              nextOffset: advance.offset,
               nextBeforeBlockHeight: page.nextBeforeBlockHeight,
               nextBeforeEventKey: page.nextBeforeEventKey,
-              hasMore: feedPageHasMore(page) || advance.hasMore,
+              hasMore: feedPageHasMore(page),
               started: true,
             };
           });
@@ -313,7 +313,7 @@ export function ProfileFeedClient({
           setSectionPages((current) => ({
             ...current,
             [section]: {
-              nextOffset: page.nextOffset ?? cursor.offset ?? 0,
+              nextOffset: cursor.offset ?? 0,
               nextBeforeBlockHeight: page.nextBeforeBlockHeight,
               nextBeforeEventKey: page.nextBeforeEventKey,
               hasMore: feedPageHasMore(page),
@@ -484,22 +484,19 @@ export function ProfileFeedClient({
 
   const loadOlderMedia = useCallback(() => {
     if (tab !== 'media' || !mediaPage.hasMore || mediaPagingRef.current) return;
+    const before = mediaPage.nextBeforeBlockHeight;
+    const beforeKey = mediaPage.nextBeforeEventKey?.trim();
+    if (before === undefined || !beforeKey) return;
     setMediaFailed(false);
-    fetchMediaPage(
-      mediaPage.nextBeforeBlockHeight !== undefined &&
-        mediaPage.nextBeforeEventKey
-        ? {
-            beforeBlockHeight: mediaPage.nextBeforeBlockHeight,
-            beforePostKey: mediaPage.nextBeforeEventKey,
-          }
-        : { offset: mediaPage.nextOffset }
-    );
+    fetchMediaPage({
+      beforeBlockHeight: before,
+      beforePostKey: beforeKey,
+    });
   }, [
     tab,
     mediaPage.hasMore,
     mediaPage.nextBeforeBlockHeight,
     mediaPage.nextBeforeEventKey,
-    mediaPage.nextOffset,
     fetchMediaPage,
   ]);
 
@@ -522,36 +519,30 @@ export function ProfileFeedClient({
       ...current,
       [activeSection]: false,
     }));
-    fetchSectionPage(
-      activeSection,
-      activeSectionPage.nextBeforeBlockHeight !== undefined &&
-        activeSectionPage.nextBeforeEventKey
-        ? {
-            beforeBlockHeight: activeSectionPage.nextBeforeBlockHeight,
-            beforePostKey: activeSectionPage.nextBeforeEventKey,
-          }
-        : { offset: activeSectionPage.nextOffset }
-    );
+    const before = activeSectionPage.nextBeforeBlockHeight;
+    const beforeKey = activeSectionPage.nextBeforeEventKey?.trim();
+    if (before === undefined || !beforeKey) return;
+    fetchSectionPage(activeSection, {
+      beforeBlockHeight: before,
+      beforePostKey: beforeKey,
+    });
   }, [activeSection, activeSectionPage, fetchSectionPage]);
 
   // No covers yet — keep walking so an older photo is not reported missing.
   useEffect(() => {
     if (!mediaLooking || mediaPaging) return;
+    const before = mediaPage.nextBeforeBlockHeight;
+    const beforeKey = mediaPage.nextBeforeEventKey?.trim();
     fetchMediaPage(
-      mediaPage.nextBeforeBlockHeight !== undefined &&
-        mediaPage.nextBeforeEventKey
-        ? {
-            beforeBlockHeight: mediaPage.nextBeforeBlockHeight,
-            beforePostKey: mediaPage.nextBeforeEventKey,
-          }
-        : { offset: mediaPage.nextOffset }
+      before !== undefined && beforeKey
+        ? { beforeBlockHeight: before, beforePostKey: beforeKey }
+        : { offset: 0 }
     );
   }, [
     mediaLooking,
     mediaPaging,
     mediaPage.nextBeforeBlockHeight,
     mediaPage.nextBeforeEventKey,
-    mediaPage.nextOffset,
     fetchMediaPage,
   ]);
 

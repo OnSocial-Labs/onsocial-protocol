@@ -53,7 +53,7 @@ Owned by `app-loading-contract.mdc` (+ `app-loading-contract.ts`, `app-loading-m
 ## Lists and data
 
 - Lists that can exceed 12 rows use `useFeedWindow` (`FEED_WINDOW_MIN_COUNT = 12`). Stable id keys (`[data-feed-key]`); index keys only for static placeholders.
-- Pagination: prefer the keyset the last page returned (`HomeFeedPageCursor.beforeBlockHeight` / `beforeEventHeat` / `beforeEventKey` — Recent, Pulse, and Hot Global/Circle heat). Fall back to `nextOffset` with head-insert compensation (`home-feed-new-posts.ts`) only when no keyset is present; never page a keyset feed by offset.
+- Pagination: keyset only for feed lists (`HomeFeedPageCursor.beforeBlockHeight` / `beforeEventHeat` / `beforeEventKey` — Recent, Pulse, and Hot Global/Circle heat). Incomplete edges end the walk — never page a keyset feed by `nextOffset` / list length.
 - Async load, refresh, and append results commit only if `isCurrentLoadingRequest(loadId)`. Realtime subscribe handlers patch or reload directly without that gate.
 - Lists a user can leave and return to use `useListScrollRestore`. Don't set `history.scrollRestoration`.
 

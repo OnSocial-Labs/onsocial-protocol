@@ -1,9 +1,14 @@
-/** Prefer keyset over offset when the page reports either cursor. */
+/**
+ * Chrono / Pulse / Hot feed pages: more to load only when the composite
+ * keyset is complete. Bare height or soft-deprecated `nextOffset` is not
+ * enough — incomplete edges end the walk (match SDK).
+ */
 export function feedPageHasMore(page: {
-  nextOffset?: number;
   nextBeforeBlockHeight?: number;
+  nextBeforeEventKey?: string;
+  /** Ignored — feed pages no longer mint offset cursors. */
+  nextOffset?: number;
 }): boolean {
-  return (
-    page.nextBeforeBlockHeight !== undefined || page.nextOffset !== undefined
-  );
+  const key = page.nextBeforeEventKey?.trim();
+  return page.nextBeforeBlockHeight !== undefined && Boolean(key);
 }

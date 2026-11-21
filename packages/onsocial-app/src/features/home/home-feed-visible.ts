@@ -60,18 +60,14 @@ function mergeUniquePosts(
 function nextWalkCursor(
   result: Paginated<PostRow>
 ): HomeFeedPageCursor | undefined {
-  if (result.nextBeforeBlockHeight !== undefined) {
-    return {
-      beforeBlockHeight: result.nextBeforeBlockHeight,
-      beforeEventHeight: result.nextBeforeBlockHeight,
-      beforeEventHeat: result.nextBeforeHeat,
-      beforeEventKey: result.nextBeforeEventKey,
-    };
-  }
-  if (result.nextOffset !== undefined) {
-    return { offset: result.nextOffset };
-  }
-  return undefined;
+  const key = result.nextBeforeEventKey?.trim();
+  if (result.nextBeforeBlockHeight === undefined || !key) return undefined;
+  return {
+    beforeBlockHeight: result.nextBeforeBlockHeight,
+    beforeEventHeight: result.nextBeforeBlockHeight,
+    beforeEventHeat: result.nextBeforeHeat,
+    beforeEventKey: key,
+  };
 }
 
 /**
@@ -113,7 +109,6 @@ export async function fillVisibleFeedPage(opts: {
       }
       return {
         items,
-        nextOffset: result.nextOffset,
         nextBeforeBlockHeight: result.nextBeforeBlockHeight,
         nextBeforeHeat: result.nextBeforeHeat,
         nextBeforeEventKey: result.nextBeforeEventKey,
@@ -124,7 +119,6 @@ export async function fillVisibleFeedPage(opts: {
 
   return {
     items,
-    nextOffset: last?.nextOffset,
     nextBeforeBlockHeight: last?.nextBeforeBlockHeight,
     nextBeforeHeat: last?.nextBeforeHeat,
     nextBeforeEventKey: last?.nextBeforeEventKey,

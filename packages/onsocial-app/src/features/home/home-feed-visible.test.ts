@@ -66,16 +66,16 @@ describe('countVisibleHomeFeedCards', () => {
 
 describe('fillVisibleFeedPage', () => {
   it('walks a reply-only window and returns the next roots', async () => {
-    const fetchPage = vi.fn(async (cursor: { offset?: number }) => {
-      if ((cursor.offset ?? 0) === 0) {
+    const fetchPage = vi.fn(async (cursor: { beforeBlockHeight?: number }) => {
+      if (cursor.beforeBlockHeight == null) {
         return {
           items: [foreignReply('r1'), foreignReply('r2')],
-          nextOffset: 2,
+          nextBeforeBlockHeight: 50,
+          nextBeforeEventKey: 'x.near/post/r2',
         };
       }
       return {
         items: [post('cara.near', 'root')],
-        nextOffset: undefined,
       };
     });
 
@@ -88,14 +88,15 @@ describe('fillVisibleFeedPage', () => {
 
     expect(fetchPage).toHaveBeenCalledTimes(2);
     expect(page.items.map((row) => row.postId)).toEqual(['r1', 'r2', 'root']);
-    expect(page.nextOffset).toBeUndefined();
+    expect(page.nextBeforeBlockHeight).toBeUndefined();
     expect(countVisibleHomeFeedCards(page.items)).toBe(1);
   });
 
   it('stops when the visible page is full', async () => {
     const fetchPage = vi.fn(async () => ({
       items: [post('a.near', '1'), post('b.near', '2')],
-      nextOffset: 2,
+      nextBeforeBlockHeight: 10,
+      nextBeforeEventKey: 'b.near/post/2',
     }));
 
     const page = await fillVisibleFeedPage({
@@ -106,7 +107,8 @@ describe('fillVisibleFeedPage', () => {
     });
 
     expect(fetchPage).toHaveBeenCalledTimes(1);
-    expect(page.nextOffset).toBe(2);
+    expect(page.nextBeforeBlockHeight).toBe(10);
+    expect(page.nextBeforeEventKey).toBe('b.near/post/2');
   });
 
   it('walks by beforeBlockHeight when the page returns a keyset', async () => {
@@ -115,6 +117,7 @@ describe('fillVisibleFeedPage', () => {
         return {
           items: [foreignReply('r1'), foreignReply('r2')],
           nextBeforeBlockHeight: 40,
+          nextBeforeEventKey: 'x.near/post/r2',
         };
       }
       return {
@@ -135,7 +138,7 @@ describe('fillVisibleFeedPage', () => {
       beforeBlockHeight: 40,
       beforeEventHeight: 40,
       beforeEventHeat: undefined,
-      beforeEventKey: undefined,
+      beforeEventKey: 'x.near/post/r2',
     });
     expect(page.nextBeforeBlockHeight).toBeUndefined();
   });

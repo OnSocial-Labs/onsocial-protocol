@@ -114,12 +114,14 @@ describe('home feed session snapshot', () => {
     expect(snap?.scrollAnchorTop).toBe(-40);
   });
 
-  it('round-trips posts, offset, and scroll in memory', () => {
+  it('round-trips posts, keyset, and scroll in memory', () => {
     const posts = [row('a.near', '1'), row('b.near', '2')];
     writeHomeFeedSession({
       sessionKey: HOME_FEED_SSR_SESSION_KEY,
       posts,
-      nextOffset: 48,
+      nextOffset: undefined,
+      nextBeforeBlockHeight: 48,
+      nextBeforeEventKey: 'b.near/post/2',
       standingNetworkIds: ['alice.near'],
       offsetShiftApplied: 2,
       scrollTop: 640,
@@ -128,9 +130,11 @@ describe('home feed session snapshot', () => {
     const snapped = peekHomeFeedSession();
     expect(snapped?.posts).toEqual(posts);
     expect(snapped?.posts).not.toBe(posts);
-    expect(snapped?.nextOffset).toBe(48);
+    expect(snapped?.nextOffset).toBeUndefined();
+    expect(snapped?.nextBeforeBlockHeight).toBe(48);
+    expect(snapped?.nextBeforeEventKey).toBe('b.near/post/2');
     expect(snapped?.standingNetworkIds).toEqual(['alice.near']);
-    expect(snapped?.offsetShiftApplied).toBe(2);
+    expect(snapped?.offsetShiftApplied).toBe(0);
     expect(snapped?.scrollTop).toBe(640);
 
     expect(readHomeFeedSession(HOME_FEED_SSR_SESSION_KEY)?.scrollTop).toBe(640);
@@ -391,7 +395,9 @@ describe('home feed session storage mirror', () => {
     writeHomeFeedSession({
       sessionKey: HOME_FEED_SSR_SESSION_KEY,
       posts: [row('a.near', '1'), row('b.near', '2')],
-      nextOffset: 48,
+      nextOffset: undefined,
+      nextBeforeBlockHeight: 48,
+      nextBeforeEventKey: 'b.near/post/2',
       standingNetworkIds: ['alice.near'],
       offsetShiftApplied: 2,
       scrollTop: 640,
@@ -403,9 +409,11 @@ describe('home feed session storage mirror', () => {
     const fresh = await import('./home-feed-session');
     const restored = fresh.peekHomeFeedSession(2_000);
     expect(restored?.posts.map((post) => post.postId)).toEqual(['1', '2']);
-    expect(restored?.nextOffset).toBe(48);
+    expect(restored?.nextOffset).toBeUndefined();
+    expect(restored?.nextBeforeBlockHeight).toBe(48);
+    expect(restored?.nextBeforeEventKey).toBe('b.near/post/2');
     expect(restored?.standingNetworkIds).toEqual(['alice.near']);
-    expect(restored?.offsetShiftApplied).toBe(2);
+    expect(restored?.offsetShiftApplied).toBe(0);
     expect(restored?.scrollTop).toBe(640);
   });
 
@@ -489,13 +497,17 @@ describe('home feed session storage mirror', () => {
 
   it('caps the session restore snapshot, not live scroll growth', () => {
     const map = stubSessionStorage();
-    const posts = Array.from({ length: 80 }, (_, index) =>
-      row('a.near', String(index))
-    );
+    const posts = Array.from({ length: 80 }, (_, index) => ({
+      ...row('a.near', String(index)),
+      blockHeight: 1000 - index,
+      groupId: '',
+    }));
     writeHomeFeedSession({
       sessionKey: HOME_FEED_SSR_SESSION_KEY,
       posts,
-      nextOffset: 160,
+      nextOffset: undefined,
+      nextBeforeBlockHeight: 100,
+      nextBeforeEventKey: 'deep/post/x',
       standingNetworkIds: null,
       offsetShiftApplied: 0,
       scrollTop: 0,
@@ -504,24 +516,32 @@ describe('home feed session storage mirror', () => {
     expect(peekHomeFeedSession()?.posts).toHaveLength(
       HOME_FEED_SESSION_PERSISTED_POSTS
     );
-    // Cursor must continue from the restored head — not the deep-scroll offset.
-    expect(peekHomeFeedSession()?.nextOffset).toBe(
-      HOME_FEED_SESSION_PERSISTED_POSTS
-    );
+    // Truncated persist snaps keyset to the retained edge — never nextOffset.
+    const snapped = peekHomeFeedSession();
+    expect(snapped?.nextOffset).toBeUndefined();
+    expect(snapped?.nextBeforeBlockHeight).toBe(1000 - 59);
+    expect(snapped?.nextBeforeEventKey).toBe('a.near/post/59');
     const raw = map.get('onsocial.home-feed-session');
     const parsed = JSON.parse(raw ?? '{}') as {
-      snapshot: { posts: PostRow[]; nextOffset?: number };
+      snapshot: {
+        posts: PostRow[];
+        nextOffset?: number;
+        nextBeforeBlockHeight?: number;
+        nextBeforeEventKey?: string;
+      };
     };
     expect(parsed.snapshot.posts).toHaveLength(
       HOME_FEED_SESSION_PERSISTED_POSTS
     );
     expect(parsed.snapshot.posts.at(-1)?.postId).toBe('59');
-    expect(parsed.snapshot.nextOffset).toBe(HOME_FEED_SESSION_PERSISTED_POSTS);
+    expect(parsed.snapshot.nextOffset).toBeUndefined();
+    expect(parsed.snapshot.nextBeforeBlockHeight).toBe(1000 - 59);
+    expect(parsed.snapshot.nextBeforeEventKey).toBe('a.near/post/59');
   });
 });
 
 describe('clampHomeFeedSessionPagination', () => {
-  it('clamps a truncated deep-scroll cursor and clears applied shift', () => {
+  it('drops bare nextOffset — feed load-more is keyset-only', () => {
     expect(
       clampHomeFeedSessionPagination({
         postCount: 60,
@@ -530,7 +550,7 @@ describe('clampHomeFeedSessionPagination', () => {
         truncated: true,
       })
     ).toEqual({
-      nextOffset: 60,
+      nextOffset: undefined,
       nextBeforeBlockHeight: undefined,
       nextBeforeHeat: undefined,
       nextBeforeEventKey: undefined,
@@ -561,35 +581,40 @@ describe('clampHomeFeedSessionPagination', () => {
     });
   });
 
-  it('keeps a fill-walk cursor on a short unrestored list', () => {
+  it('clears incomplete keyset (height without path)', () => {
     expect(
       clampHomeFeedSessionPagination({
         postCount: 2,
         nextOffset: 48,
+        nextBeforeBlockHeight: 10,
         offsetShiftApplied: 2,
       })
     ).toEqual({
-      nextOffset: 48,
+      nextOffset: undefined,
       nextBeforeBlockHeight: undefined,
       nextBeforeHeat: undefined,
       nextBeforeEventKey: undefined,
-      offsetShiftApplied: 2,
+      offsetShiftApplied: 0,
     });
   });
 
-  it('keeps a cursor that still lands inside the restored head', () => {
+  it('keeps a complete keyset on an unrestored peek', () => {
     expect(
       clampHomeFeedSessionPagination({
         postCount: 60,
-        nextOffset: 48,
-        offsetShiftApplied: 2,
+        nextOffset: undefined,
+        nextBeforeBlockHeight: 400,
+        nextBeforeHeat: 3,
+        nextBeforeEventKey: 'a/post/1',
+        edgeBlockHeight: 900,
+        offsetShiftApplied: 0,
       })
     ).toEqual({
-      nextOffset: 48,
-      nextBeforeBlockHeight: undefined,
-      nextBeforeHeat: undefined,
-      nextBeforeEventKey: undefined,
-      offsetShiftApplied: 2,
+      nextOffset: undefined,
+      nextBeforeBlockHeight: 400,
+      nextBeforeHeat: 3,
+      nextBeforeEventKey: 'a/post/1',
+      offsetShiftApplied: 0,
     });
   });
 
