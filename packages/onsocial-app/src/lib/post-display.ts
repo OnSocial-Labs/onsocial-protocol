@@ -287,23 +287,40 @@ export function formatPostTimestamp(blockTimestamp: number | string): string {
 }
 
 export function resolvePostDate(blockTimestamp: number | string): Date | null {
-  const timestamp =
-    typeof blockTimestamp === 'string'
-      ? Number(blockTimestamp)
-      : blockTimestamp;
-
-  if (!Number.isFinite(timestamp) || timestamp <= 0) {
-    return null;
+  // GraphQL bigint timestamps can exceed Number.MAX_SAFE_INTEGER (ns). Parse
+  // via BigInt so nanosecond strings do not round before the unit scale.
+  let ms: number;
+  if (typeof blockTimestamp === 'string') {
+    const trimmed = blockTimestamp.trim();
+    if (!/^\d+$/.test(trimmed)) return null;
+    try {
+      const value = BigInt(trimmed);
+      if (value <= 0n) return null;
+      const asMs =
+        value > 100_000_000_000_000_000n
+          ? value / 1_000_000n
+          : value > 100_000_000_000_000n
+            ? value / 1_000n
+            : value > 100_000_000_000n
+              ? value
+              : value * 1000n;
+      ms = Number(asMs);
+    } catch {
+      return null;
+    }
+  } else {
+    if (!Number.isFinite(blockTimestamp) || blockTimestamp <= 0) {
+      return null;
+    }
+    ms =
+      blockTimestamp > 100_000_000_000_000_000
+        ? blockTimestamp / 1_000_000
+        : blockTimestamp > 100_000_000_000_000
+          ? blockTimestamp / 1_000
+          : blockTimestamp > 100_000_000_000
+            ? blockTimestamp
+            : blockTimestamp * 1000;
   }
-
-  const ms =
-    timestamp > 100_000_000_000_000_000
-      ? timestamp / 1_000_000
-      : timestamp > 100_000_000_000_000
-        ? timestamp / 1_000
-        : timestamp > 100_000_000_000
-          ? timestamp
-          : timestamp * 1000;
   const date = new Date(ms);
   return Number.isFinite(date.getTime()) ? date : null;
 }

@@ -1241,6 +1241,8 @@ export function HomePagePanel({
       return;
     }
     const beforeHeight = nextBeforeBlockHeightRef.current;
+    const beforeHeat = nextBeforeHeatRef.current;
+    const beforeKey = nextBeforeEventKeyRef.current;
     const baseOffset = nextOffsetRef.current;
     if (beforeHeight === undefined && baseOffset === undefined) return;
 
@@ -1250,9 +1252,12 @@ export function HomePagePanel({
       place: placeParam,
     });
 
-    // Prefer keyset whenever the last page returned one (Recent, Pulse Hot
-    // card cursor, Hot Global/Circle heat keyset).
-    const useKeyset = beforeHeight !== undefined;
+    // Prefer a complete keyset (Recent: height+key; Hot: heat+height+key).
+    // Incomplete triples used to hit SQL Infinity / page-1 replay.
+    const useKeyset =
+      beforeHeight !== undefined &&
+      Boolean(beforeKey) &&
+      (sort !== 'hot' || beforeHeat !== undefined);
     const pendingShift = useKeyset
       ? 0
       : pendingFeedOffsetShift({
@@ -1264,14 +1269,15 @@ export function HomePagePanel({
       ? {
           beforeBlockHeight: beforeHeight,
           beforeEventHeight: beforeHeight,
-          beforeEventHeat: nextBeforeHeatRef.current,
-          beforeEventKey: nextBeforeEventKeyRef.current,
+          beforeEventHeat: beforeHeat,
+          beforeEventKey: beforeKey,
         }
       : { offset: (baseOffset ?? 0) + pendingShift };
 
     const loadId = ++loadIdRef.current;
     appendInFlightRef.current = true;
     setIsLoadingMore(true);
+    setLoadError(null);
 
     void (async () => {
       try {
@@ -1349,13 +1355,17 @@ export function HomePagePanel({
             // Rows stay; seats fill on the next successful paint.
           }
         );
-      } catch {
-        // Keep the current list; the sentinel stays available to retry.
+      } catch (cause) {
+        // Keep the current list; surface append lag so the reader can retry
+        // instead of silently replaying page 1.
         if (isCurrentLoadingRequest(loadIdRef.current, loadId)) {
-          // Restore cursor so the next intersect can retry this page.
           if (useKeyset) {
             nextBeforeBlockHeightRef.current = beforeHeight;
             setNextBeforeBlockHeight(beforeHeight);
+            nextBeforeHeatRef.current = beforeHeat;
+            setNextBeforeHeat(beforeHeat);
+            nextBeforeEventKeyRef.current = beforeKey;
+            setNextBeforeEventKey(beforeKey);
           } else if (baseOffset !== undefined) {
             nextOffsetRef.current = baseOffset;
             setNextOffset(baseOffset);
@@ -1369,7 +1379,15 @@ export function HomePagePanel({
               ),
             }
           );
-          if (painted === 0) setLoadError('Could not load feed.');
+          if (painted === 0) {
+            setLoadError('Could not load feed.');
+          } else if (useKeyset) {
+            setLoadError(
+              cause instanceof Error
+                ? cause.message
+                : 'Could not load more posts.'
+            );
+          }
         }
       } finally {
         if (isCurrentLoadingRequest(loadIdRef.current, loadId)) {

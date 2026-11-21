@@ -965,12 +965,14 @@ describe('QueryModule', () => {
       expect(queries[1]).toContain('postsFeed(');
       expect(queries[1]).toContain('amplifyHeat: DESC');
       expect(queries[1]).toContain('blockHeight: DESC');
+      expect(queries[1]).toContain('contentPath: DESC');
 
       await os.query.feed.recent({ limit: 24, sort: 'hot' });
       expect(fetch).toHaveBeenCalledTimes(3);
       const latched = JSON.parse(String(fetch.mock.calls[2][1].body));
       expect(latched.query).not.toContain('feedHot');
       expect(latched.query).toContain('amplifyHeat: DESC');
+      expect(latched.query).toContain('contentPath: DESC');
     });
 
     it('falls back to postsFeed when feedRecent is not deployed', async () => {
@@ -1099,6 +1101,55 @@ describe('QueryModule', () => {
       await expect(
         os.query.feed.recent({ limit: 5, beforeBlockHeight: 101 })
       ).rejects.toThrow(/beforeBlockHeight and beforePostKey/);
+    });
+
+    it('rejects incomplete hot keysets', async () => {
+      const { os } = makeOs({ data: { postsFeed: [] } });
+      await expect(
+        os.query.feed.recent({
+          limit: 5,
+          sort: 'hot',
+          beforeBlockHeight: 101,
+          beforeHeat: 3,
+        })
+      ).rejects.toThrow(/beforeBlockHeight, beforeHeat, and beforePostKey/);
+      await expect(
+        os.query.feed.recent({
+          limit: 5,
+          sort: 'hot',
+          beforeBlockHeight: 101,
+          beforePostKey: 'a.near/post/x',
+        })
+      ).rejects.toThrow(/beforeBlockHeight, beforeHeat, and beforePostKey/);
+    });
+
+    it('does not offset-0 replay when hot keyset args are untracked', async () => {
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('before_amplify_heat')) {
+          return {
+            errors: [
+              {
+                message:
+                  "field 'before_amplify_heat' not found in type: 'feed_hot_args'",
+              },
+            ],
+            data: null,
+          };
+        }
+        return { data: { postsFeed: [] } };
+      });
+      await expect(
+        os.query.feed.recent({
+          limit: 5,
+          sort: 'hot',
+          beforeBlockHeight: 900,
+          beforeHeat: 12.5,
+          beforePostKey: 'a.near/post/p9',
+        })
+      ).rejects.toThrow(/before_amplify_heat/);
+      // Only the keyset feedHot attempt — no silent postsFeed/offset retry.
+      expect(fetch).toHaveBeenCalledTimes(1);
     });
 
     it('exposes nextBeforeBlockHeight on offset Recent pages', async () => {
@@ -1465,6 +1516,53 @@ describe('QueryModule', () => {
       const page = await os.query.feed.pulse({ accounts: [] });
       expect(page.items).toEqual([]);
       expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it('rejects incomplete pulse keysets', async () => {
+      const { os } = makeOs({ data: { postsFeed: [] } });
+      await expect(
+        os.query.feed.pulse({
+          accounts: ['alice.near'],
+          beforeEventHeight: 10,
+        })
+      ).rejects.toThrow(/beforeEventHeight and beforeEventKey/);
+      await expect(
+        os.query.feed.pulse({
+          accounts: ['alice.near'],
+          sort: 'hot',
+          beforeEventHeight: 10,
+          beforeEventKey: 'alice.near/post/x',
+        })
+      ).rejects.toThrow(/beforeEventHeat/);
+    });
+
+    it('does not offset-0 replay when pulse keyset args are untracked', async () => {
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('before_event_height')) {
+          return {
+            errors: [
+              {
+                message:
+                  "field 'before_event_height' not found in type: 'feed_pulse_args'",
+              },
+            ],
+            data: null,
+          };
+        }
+        return { data: { feedPulse: [] } };
+      });
+      await expect(
+        os.query.feed.pulse({
+          accounts: ['alice.near'],
+          limit: 10,
+          sort: 'hot',
+          beforeEventHeight: 10,
+          beforeEventHeat: 2,
+          beforeEventKey: 'alice.near/post/x',
+        })
+      ).rejects.toThrow(/before_event/);
+      expect(fetch).toHaveBeenCalledTimes(1);
     });
 
     it('throws when Hasura has not tracked feedPulse', async () => {

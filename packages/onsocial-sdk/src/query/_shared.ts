@@ -98,7 +98,7 @@ export type FeedSection = 'posts' | 'replies' | 'reposts';
 
 export function feedOrderByClause(sort: FeedSort = 'recent'): string {
   return sort === 'hot'
-    ? '[{amplifyHeat: DESC}, {blockHeight: DESC}]'
+    ? '[{amplifyHeat: DESC}, {blockHeight: DESC}, {contentPath: DESC}]'
     : '[{blockHeight: DESC}, {contentPath: DESC}]';
 }
 
@@ -233,6 +233,102 @@ export function requireChronoKeyset(opts: {
     };
   }
   return { ok: true, before, beforePostKey };
+}
+
+/**
+ * Hot keyset needs heat + height + content path. Missing heat used to coalesce
+ * to +Infinity in SQL and replay page 1 — reject incomplete triples here.
+ */
+export function requireHotKeyset(opts: {
+  beforeBlockHeight?: number;
+  beforeHeat?: number;
+  beforePostKey?: string;
+}):
+  | {
+      ok: true;
+      before: number;
+      beforeHeat: number;
+      beforePostKey: string;
+    }
+  | {
+      ok: true;
+      before?: undefined;
+      beforeHeat?: undefined;
+      beforePostKey?: undefined;
+    }
+  | { ok: false; message: string } {
+  const before = normalizeBeforeBlockHeight(opts.beforeBlockHeight);
+  const beforeHeat = normalizeBeforeHeat(opts.beforeHeat);
+  const beforePostKey = normalizeBeforePostKey(opts.beforePostKey);
+  const any =
+    before !== undefined ||
+    beforeHeat !== undefined ||
+    beforePostKey !== undefined;
+  if (!any) return { ok: true };
+  if (
+    before === undefined ||
+    beforeHeat === undefined ||
+    beforePostKey === undefined
+  ) {
+    return {
+      ok: false,
+      message:
+        'hot keyset requires beforeBlockHeight, beforeHeat, and beforePostKey together',
+    };
+  }
+  return { ok: true, before, beforeHeat, beforePostKey };
+}
+
+/**
+ * Pulse card keyset — hot: heat+height+key; recent: height+key.
+ */
+export function requirePulseKeyset(opts: {
+  sort?: FeedSort;
+  beforeEventHeight?: number;
+  beforeEventHeat?: number;
+  beforeEventKey?: string;
+}):
+  | {
+      ok: true;
+      beforeEventHeight: number;
+      beforeEventHeat?: number;
+      beforeEventKey: string;
+    }
+  | {
+      ok: true;
+      beforeEventHeight?: undefined;
+      beforeEventHeat?: undefined;
+      beforeEventKey?: undefined;
+    }
+  | { ok: false; message: string } {
+  const beforeEventHeight = normalizeBeforeBlockHeight(opts.beforeEventHeight);
+  const beforeEventHeat = normalizeBeforeHeat(opts.beforeEventHeat);
+  const beforeEventKey = normalizeBeforePostKey(opts.beforeEventKey);
+  const hot = (opts.sort ?? 'recent') === 'hot';
+  const any =
+    beforeEventHeight !== undefined ||
+    beforeEventHeat !== undefined ||
+    beforeEventKey !== undefined;
+  if (!any) return { ok: true };
+  if (beforeEventHeight === undefined || beforeEventKey === undefined) {
+    return {
+      ok: false,
+      message:
+        'pulse keyset requires beforeEventHeight and beforeEventKey together',
+    };
+  }
+  if (hot && beforeEventHeat === undefined) {
+    return {
+      ok: false,
+      message: 'pulse hot keyset also requires beforeEventHeat',
+    };
+  }
+  return {
+    ok: true,
+    beforeEventHeight,
+    ...(hot ? { beforeEventHeat } : {}),
+    beforeEventKey,
+  };
 }
 
 /**

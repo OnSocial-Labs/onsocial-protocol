@@ -15,9 +15,10 @@ import {
   chronoDescPage,
   feedOrderByClause,
   normalizeBeforeBlockHeight,
-  normalizeBeforeHeat,
   postContentPath,
   requireChronoKeyset,
+  requireHotKeyset,
+  requirePulseKeyset,
   stripFeedPaintFields,
   type FeedSection,
   type FeedSort,
@@ -452,6 +453,19 @@ export class FeedQuery {
             feedHotQuery: stripFeedPaintFields(args.feedHotQuery),
           });
         }
+        // Keyset pages only work on feed_hot. Falling through to postsFeed
+        // with offset 0 would replay page 1 under deploy lag.
+        const keysetRequired =
+          args.feedHotVariables != null &&
+          args.feedHotVariables.before_block_height != null;
+        if (
+          keysetRequired &&
+          (isAmplifyHeatUnavailableError(err) ||
+            isFeedHotUnavailableError(err) ||
+            isFeedHotBeforeKeyUnavailableError(err))
+        ) {
+          throw err;
+        }
         if (isAmplifyHeatUnavailableError(err)) {
           this.amplifyHeatFallback.trip();
         } else if (isFeedHotUnavailableError(err)) {
@@ -696,13 +710,19 @@ export class FeedQuery {
     if (chronoKey && !chronoKey.ok) {
       throw new Error(chronoKey.message);
     }
-    const before = hot
-      ? normalizeBeforeBlockHeight(opts.beforeBlockHeight)
-      : chronoKey?.before;
-    const beforeHeat = hot ? normalizeBeforeHeat(opts.beforeHeat) : undefined;
-    const beforePostKey = hot
-      ? opts.beforePostKey?.trim() || undefined
-      : chronoKey?.beforePostKey;
+    const hotKey = hot
+      ? requireHotKeyset({
+          beforeBlockHeight: opts.beforeBlockHeight,
+          beforeHeat: opts.beforeHeat,
+          beforePostKey: opts.beforePostKey,
+        })
+      : null;
+    if (hotKey && !hotKey.ok) {
+      throw new Error(hotKey.message);
+    }
+    const before = hot ? hotKey?.before : chronoKey?.before;
+    const beforeHeat = hot ? hotKey?.beforeHeat : undefined;
+    const beforePostKey = hot ? hotKey?.beforePostKey : chronoKey?.beforePostKey;
     const wantKeyset = before !== undefined;
     let usedKeyset = wantKeyset;
     let offset = usedKeyset ? 0 : (opts.offset ?? 0);
@@ -768,11 +788,14 @@ export class FeedQuery {
           ...(hasAuthor ? { author: opts.author } : {}),
           ...(kind ? { kind } : {}),
           ...(opts.section ? { section: opts.section } : {}),
-          ...(keyset && before !== undefined
+          ...(keyset &&
+          before !== undefined &&
+          beforeHeat !== undefined &&
+          beforePostKey
             ? {
-                before_amplify_heat: beforeHeat ?? null,
+                before_amplify_heat: beforeHeat,
                 before_block_height: before,
-                before_post_key: beforePostKey ?? null,
+                before_post_key: beforePostKey,
               }
             : {}),
         },
@@ -795,14 +818,8 @@ export class FeedQuery {
 
     let rows: PostRow[];
     if (hot) {
-      try {
-        rows = await loadHotRows(wantKeyset);
-      } catch (err) {
-        if (!wantKeyset || !isFeedHotBeforeKeyUnavailableError(err)) throw err;
-        usedKeyset = false;
-        offset = opts.offset ?? 0;
-        rows = await loadHotRows(false);
-      }
+      // Keyset load-more must not fall back to offset 0 (page-1 replay).
+      rows = await loadHotRows(wantKeyset);
     } else {
       rows = await this.queryFeedRows({
         variables,
@@ -945,13 +962,19 @@ export class FeedQuery {
     if (chronoKey && !chronoKey.ok) {
       throw new Error(chronoKey.message);
     }
-    const before = hot
-      ? normalizeBeforeBlockHeight(opts.beforeBlockHeight)
-      : chronoKey?.before;
-    const beforeHeat = hot ? normalizeBeforeHeat(opts.beforeHeat) : undefined;
-    const beforePostKey = hot
-      ? opts.beforePostKey?.trim() || undefined
-      : chronoKey?.beforePostKey;
+    const hotKey = hot
+      ? requireHotKeyset({
+          beforeBlockHeight: opts.beforeBlockHeight,
+          beforeHeat: opts.beforeHeat,
+          beforePostKey: opts.beforePostKey,
+        })
+      : null;
+    if (hotKey && !hotKey.ok) {
+      throw new Error(hotKey.message);
+    }
+    const before = hot ? hotKey?.before : chronoKey?.before;
+    const beforeHeat = hot ? hotKey?.beforeHeat : undefined;
+    const beforePostKey = hot ? hotKey?.beforePostKey : chronoKey?.beforePostKey;
     const wantKeyset = before !== undefined;
     let usedKeyset = wantKeyset;
     let offset = usedKeyset ? 0 : (opts.offset ?? 0);
@@ -1010,11 +1033,14 @@ export class FeedQuery {
           limit,
           offset: keyset ? 0 : (opts.offset ?? 0),
           ...(nativeOnly ? { native_only: true } : {}),
-          ...(keyset && before !== undefined
+          ...(keyset &&
+          before !== undefined &&
+          beforeHeat !== undefined &&
+          beforePostKey
             ? {
-                before_amplify_heat: beforeHeat ?? null,
+                before_amplify_heat: beforeHeat,
                 before_block_height: before,
-                before_post_key: beforePostKey ?? null,
+                before_post_key: beforePostKey,
               }
             : {}),
         },
@@ -1049,14 +1075,8 @@ export class FeedQuery {
 
     let rows: PostRow[];
     if (hot) {
-      try {
-        rows = await loadHotRows(wantKeyset);
-      } catch (err) {
-        if (!wantKeyset || !isFeedHotBeforeKeyUnavailableError(err)) throw err;
-        usedKeyset = false;
-        offset = opts.offset ?? 0;
-        rows = await loadHotRows(false);
-      }
+      // Keyset load-more must not fall back to offset 0 (page-1 replay).
+      rows = await loadHotRows(wantKeyset);
     } else {
       rows = await this.queryFeedRows({
         variables,
@@ -1212,62 +1232,41 @@ export class FeedQuery {
     if (opts.accounts.length === 0) return { items: [] };
     const limit = opts.limit ?? 20;
     const sort = opts.sort ?? 'recent';
-    const beforeHeight = normalizeBeforeBlockHeight(opts.beforeEventHeight);
+    const pulseKey = requirePulseKeyset({
+      sort,
+      beforeEventHeight: opts.beforeEventHeight,
+      beforeEventHeat: opts.beforeEventHeat,
+      beforeEventKey: opts.beforeEventKey,
+    });
+    if (!pulseKey.ok) {
+      throw new Error(pulseKey.message);
+    }
+    const beforeHeight = pulseKey.beforeEventHeight;
     const usedKeyset = beforeHeight !== undefined;
     const offset = usedKeyset ? 0 : (opts.offset ?? 0);
-    const beforeHeat =
-      usedKeyset &&
-      sort === 'hot' &&
-      opts.beforeEventHeat != null &&
-      Number.isFinite(opts.beforeEventHeat)
-        ? opts.beforeEventHeat
-        : undefined;
-    const beforeKey =
-      usedKeyset && opts.beforeEventKey?.trim()
-        ? opts.beforeEventKey.trim()
-        : undefined;
+    const beforeHeat = pulseKey.beforeEventHeat;
+    const beforeKey = pulseKey.beforeEventKey;
 
-    let rows: PostRow[];
-    let keysetApplied = usedKeyset;
-    try {
-      rows = await this.queryFeedPulseRows({
-        accounts: opts.accounts,
-        cardLimit: limit + 1,
-        cardOffset: offset,
-        sort,
-        ...(usedKeyset
-          ? {
-              beforeEventHeight: beforeHeight,
-              beforeEventHeat: beforeHeat,
-              beforeEventKey: beforeKey,
-            }
-          : {}),
-      });
-    } catch (err) {
-      if (
-        !usedKeyset ||
-        !(err instanceof GraphQLValidationError) ||
-        !`${err.message} ${err.errors.map((e) => e.message ?? '').join(' ')}`
-          .toLowerCase()
-          .includes('before_event')
-      ) {
-        throw err;
-      }
-      // Deploy lag — offset page until keyset args are tracked.
-      keysetApplied = false;
-      rows = await this.queryFeedPulseRows({
-        accounts: opts.accounts,
-        cardLimit: limit + 1,
-        cardOffset: opts.offset ?? 0,
-        sort,
-      });
-    }
+    // Keyset load-more must not fall back to offset 0 (page-1 replay).
+    const rows = await this.queryFeedPulseRows({
+      accounts: opts.accounts,
+      cardLimit: limit + 1,
+      cardOffset: offset,
+      sort,
+      ...(usedKeyset
+        ? {
+            beforeEventHeight: beforeHeight,
+            beforeEventHeat: beforeHeat,
+            beforeEventKey: beforeKey,
+          }
+        : {}),
+    });
     return paginatePulseFunctionRows({
       rows,
       accounts: opts.accounts,
-      offset: keysetApplied ? 0 : (opts.offset ?? 0),
+      offset: usedKeyset ? 0 : (opts.offset ?? 0),
       limit,
-      usedKeyset: keysetApplied,
+      usedKeyset,
       sort,
     });
   }
