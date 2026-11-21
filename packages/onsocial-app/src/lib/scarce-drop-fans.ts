@@ -4,6 +4,24 @@ import { dedupeDropFanIds } from '@/lib/scarce-drop-love';
 const PAGE_SIZE = 80;
 const MAX_PAGES = 5;
 const LOVE_KIND = 'love';
+const SETTLED_MAX = 48;
+
+const inflight = new Map<string, Promise<string[]>>();
+const settled = new Map<string, string[]>();
+
+function dropFanIdsCacheKey(creatorId: string, collectionId: string): string {
+  return `${creatorId.trim()}\0${collectionId.trim()}`;
+}
+
+function rememberSettled(key: string, ids: string[]): void {
+  settled.delete(key);
+  settled.set(key, ids);
+  while (settled.size > SETTLED_MAX) {
+    const oldest = settled.keys().next().value;
+    if (oldest == null) break;
+    settled.delete(oldest);
+  }
+}
 
 /** Track love or a love on the drop itself. The creator is not a fan. */
 export function isDropListFanPath(collectionId: string, path: string): boolean {
@@ -37,8 +55,24 @@ export function dropFanIdsFromReactions(
   );
 }
 
-/** People who loved this drop or one of its tracks. */
-export async function loadDropFanIds(
+/** Sync hit from a prior warm / open — null when nothing settled yet. */
+export function peekDropFanIds(
+  creatorId: string,
+  collectionId: string
+): string[] | null {
+  const hit = settled.get(dropFanIdsCacheKey(creatorId, collectionId));
+  return hit ? [...hit] : null;
+}
+
+/** pointerdown warm — drop fans sheet opens with ids already in flight. */
+export function warmDropFanIds(
+  creatorId: string,
+  collectionId: string
+): void {
+  void loadDropFanIds(creatorId, collectionId);
+}
+
+async function fetchDropFanIds(
   creatorId: string,
   collectionId: string
 ): Promise<string[]> {
@@ -85,4 +119,34 @@ export async function loadDropFanIds(
     if (pageRows.length < PAGE_SIZE) break;
   }
   return dropFanIdsFromReactions(rows, id, owner);
+}
+
+/** People who loved this drop or one of its tracks. */
+export async function loadDropFanIds(
+  creatorId: string,
+  collectionId: string
+): Promise<string[]> {
+  const key = dropFanIdsCacheKey(creatorId, collectionId);
+  if (!creatorId.trim() || !collectionId.trim()) return [];
+  const cached = settled.get(key);
+  if (cached) return [...cached];
+  const existing = inflight.get(key);
+  if (existing) return existing.then((ids) => [...ids]);
+
+  const promise = fetchDropFanIds(creatorId, collectionId)
+    .then((ids) => {
+      rememberSettled(key, ids);
+      return ids;
+    })
+    .finally(() => {
+      if (inflight.get(key) === promise) inflight.delete(key);
+    });
+  inflight.set(key, promise);
+  return promise.then((ids) => [...ids]);
+}
+
+/** Test helper — drop warm + in-flight drop-fan id reads. */
+export function clearDropFanIdsCache(): void {
+  inflight.clear();
+  settled.clear();
 }

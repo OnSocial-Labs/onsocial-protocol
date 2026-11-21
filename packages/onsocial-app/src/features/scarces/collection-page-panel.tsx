@@ -46,6 +46,8 @@ import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { useCollectiblesNowPlayingOptional } from '@/contexts/collectibles-now-playing-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useSheetMounted } from '@/hooks/use-sheet-mounted';
+import { warmProfileListAccounts } from '@/lib/load-profile-list-accounts';
 import { CollectionAllowlistManager } from '@/features/scarces/collection-allowlist-manager';
 import {
   CollectionAboutSheet,
@@ -340,6 +342,8 @@ export function CollectionPagePanel({
   const dropFanIds = dropLoves.fanIds.slice(0, 5);
   const dropFanProfiles = usePostAuthorProfiles(showDropLove ? dropFanIds : []);
   const [dropFansOpen, setDropFansOpen] = useState(false);
+  const [dropFansWarm, setDropFansWarm] = useState(false);
+  const dropFansMounted = useSheetMounted(dropFansOpen || dropFansWarm);
   const [clientSettled, setClientSettled] = useState(
     initial != null || (isNowPlayingThisDrop && Boolean(nowPlaying?.session))
   );
@@ -1321,6 +1325,15 @@ export function CollectionPagePanel({
                     slots={Math.min(5, Math.max(1, dropLoves.fanCount))}
                     loading={dropLoves.fansLoading && dropFanIds.length === 0}
                     className="collection-drop-fans-facepile"
+                    onPointerDown={() => {
+                      setDropFansWarm(true);
+                      if (dropLoves.fanIds.length > 0) {
+                        warmProfileListAccounts(
+                          dropLoves.fanIds,
+                          viewerAccountId ?? null
+                        );
+                      }
+                    }}
                     onClick={() => setDropFansOpen(true)}
                   />
                 </div>
@@ -1960,7 +1973,7 @@ export function CollectionPagePanel({
         }
       />
 
-      {showDropLove ? (
+      {showDropLove && dropFansMounted ? (
         <ScarceFansSheet
           open={dropFansOpen}
           onClose={() => setDropFansOpen(false)}

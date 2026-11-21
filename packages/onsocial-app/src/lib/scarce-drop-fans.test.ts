@@ -1,8 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
+  clearDropFanIdsCache,
   dropFanIdsFromReactions,
   isDropListFanPath,
+  peekDropFanIds,
 } from '@/lib/scarce-drop-fans';
+
+afterEach(() => {
+  clearDropFanIdsCache();
+});
 
 describe('drop list fans', () => {
   it('keeps loves on this drop and its tracks', () => {
@@ -36,5 +42,9 @@ describe('drop list fans', () => {
         'bob.near'
       )
     ).toEqual(['ada.near', 'bo.near']);
+  });
+
+  it('starts with an empty peek before any warm load', () => {
+    expect(peekDropFanIds('bob.near', 'night')).toBeNull();
   });
 });
