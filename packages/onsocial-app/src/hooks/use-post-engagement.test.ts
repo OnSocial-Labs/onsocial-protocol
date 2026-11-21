@@ -202,6 +202,28 @@ describe('engagementFromPartialFetch', () => {
     expect(lastGood.get('a:1')?.reactionCount).toBe(9);
     expect(lastGood.get('a:1')?.replyCount).toBe(4);
   });
+
+  it('lastGoods a like made while another count lane is still down', () => {
+    const painted = engagementFromPartialFetch({
+      previous: null,
+      threadsOk: false,
+      reactionsOk: true,
+      amplifyOk: true,
+      viewerReady: true,
+      repostsOk: true,
+      reactionTotal: 3,
+      viewerReacted: false,
+    });
+    const liked = confirmedReactionEngagement(painted, true);
+    expect(liked.viewerReacted).toBe(true);
+    expect(liked.threadCountsReady).toBe(false);
+    expect(engagementNeedsCountSoftFill(liked)).toBe(true);
+
+    const lastGood = new Map<string, PostEngagement>();
+    rememberEngagementLastGood(lastGood, 'a:1', liked);
+    expect(lastGood.get('a:1')?.viewerReacted).toBe(true);
+    expect(lastGood.get('a:1')?.reactionCount).toBe(4);
+  });
 });
 
 describe('shouldResetEngagementFetchRetry', () => {

@@ -58,6 +58,7 @@ import { personalPostPath } from '@/lib/post-routes';
 import { shareUrl } from '@/lib/share-url';
 import {
   EMPTY_POST_ENGAGEMENT,
+  engagementCountSeatClass,
   usePostEngagement,
 } from '@/hooks/use-post-engagement';
 import { WritingMoreByAuthor } from '@/components/portfolio/writing-more-by-author';
@@ -118,7 +119,10 @@ export function PortfolioWritingArticleActions({
   const saved = row.viewerSaved;
   const liked = row.viewerReacted;
   const likeCount = row.reactionCount;
-  const likeLabel = formatWritingLikeLabel(likeCount);
+  const reactionCountsReady = row.reactionCountReady;
+  const likeLabel = reactionCountsReady
+    ? formatWritingLikeLabel(likeCount)
+    : null;
   const savePending = isSavePending(post);
   const likePending = isReactionPending(post);
   const [shareCopied, setShareCopied] = useState(false);
@@ -197,9 +201,10 @@ export function PortfolioWritingArticleActions({
         </button>
         <button
           type="button"
-          className={`portfolio-writing-article-like-count${
-            likeLabel ? '' : ' is-idle'
-          }`}
+          className={`portfolio-writing-article-like-count${engagementCountSeatClass(
+            likeCount,
+            reactionCountsReady
+          )}`}
           aria-label={likeLabel ? `View who liked — ${likeLabel}` : undefined}
           aria-hidden={likeLabel ? undefined : true}
           tabIndex={likeLabel ? undefined : -1}

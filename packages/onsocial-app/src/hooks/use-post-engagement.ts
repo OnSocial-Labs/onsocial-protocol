@@ -304,18 +304,40 @@ export function pruneEngagementMap(
 }
 
 /**
+ * Viewer colour or a confirmed local roll — worth parking even when a public
+ * count lane is still down (like while likes are failing, then scroll away).
+ */
+export function engagementHasViewerColour(row: PostEngagement): boolean {
+  return (
+    row.viewerFlagsReady ||
+    row.viewerReacted ||
+    row.viewerSaved ||
+    row.viewerAmplified ||
+    row.viewerReposted ||
+    row.reactionRoll > 0 ||
+    row.saveRoll > 0 ||
+    row.amplifyRoll > 0
+  );
+}
+
+/**
  * Last-good engagement that survives feed window prune. Seed + this map paint
  * counts and viewer colour on scroll-back in the same frame — never wait for
  * scroll settle or a network round-trip for a row we already knew.
- * Skip rows that still owe a count soft-fill — a failed likes read must not
- * park a false 0 that comes back on scroll-up.
+ * Skip unfinished public counts with no viewer colour — a failed likes read
+ * must not park a false 0. A like (or save) during that outage still parks.
  */
 export function rememberEngagementLastGood(
   store: Map<string, PostEngagement>,
   key: string,
   row: PostEngagement
 ): void {
-  if (engagementNeedsCountSoftFill(row)) return;
+  if (
+    engagementNeedsCountSoftFill(row) &&
+    !engagementHasViewerColour(row)
+  ) {
+    return;
+  }
   store.set(key, row);
 }
 

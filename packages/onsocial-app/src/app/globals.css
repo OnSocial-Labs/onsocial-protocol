@@ -12163,6 +12163,14 @@ a.os-surface-row,
     font-variant-numeric: normal;
     line-height: 1;
     cursor: pointer;
+    transition: opacity var(--os-motion-appear, 280ms)
+      var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .portfolio-writing-article-like-count {
+      transition: none;
+    }
   }
 
   .portfolio-writing-article-like .portfolio-writing-article-action {
@@ -12198,6 +12206,13 @@ a.os-surface-row,
     margin: 0;
     padding: 0;
     overflow: hidden;
+    pointer-events: none;
+  }
+
+  /* Unknown like total keeps a digit seat so the heart does not nudge in. */
+  .portfolio-writing-article-like-count.is-pending {
+    min-width: 2ch;
+    opacity: 0;
     pointer-events: none;
   }
 
