@@ -20,7 +20,9 @@ describe('refreshTrackedFunctions', () => {
     const body = src.slice(start, end);
     expect(body).toContain('unexpectedErrors++');
     expect(body).toContain("op.type === 'pg_track_function'");
-    expect(body).toContain('await createFunctionPermissions()');
+    expect(body).toContain(
+      'await createFunctionPermissions({ allowMissingTableSelect: true })'
+    );
   });
 
   it('sync retracks functions before the long table permission sync', () => {

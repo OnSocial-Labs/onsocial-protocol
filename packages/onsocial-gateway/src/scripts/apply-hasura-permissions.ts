@@ -326,12 +326,17 @@ async function refreshTrackedFunctions(): Promise<number> {
   }
 
   console.log(`   ✓ Retracked ${refreshed} SQL function(s)\n`);
-  // Permissions were dropped with untrack — put them back before table sync.
-  await createFunctionPermissions();
+  // Permissions were dropped with untrack — restore now when return-table
+  // select already exists (live redeploy). Fresh sync restores after
+  // syncPermissions creates those table selects.
+  await createFunctionPermissions({ allowMissingTableSelect: true });
   return toRefresh.length;
 }
 
-async function createFunctionPermissions(): Promise<void> {
+async function createFunctionPermissions(opts?: {
+  /** Fresh sync: return-table select may not exist until syncPermissions. */
+  allowMissingTableSelect?: boolean;
+}): Promise<void> {
   console.log('🔧 Creating function permissions...');
 
   const live = await fetchLiveFunctions().catch(() => new Set<string>());
@@ -356,6 +361,7 @@ async function createFunctionPermissions(): Promise<void> {
   }
 
   let created = 0;
+  let deferredForTableSelect = 0;
   const results = await hasuraBulk(ops);
   for (let i = 0; i < ops.length; i++) {
     const r = results[i] as { error?: string } | undefined;
@@ -367,6 +373,11 @@ async function createFunctionPermissions(): Promise<void> {
         msg.includes('already exists')
       ) {
         // expected on re-run
+      } else if (
+        opts?.allowMissingTableSelect &&
+        /has select permission configured/i.test(msg)
+      ) {
+        deferredForTableSelect++;
       } else {
         unexpectedErrors++;
         console.warn(
@@ -378,6 +389,11 @@ async function createFunctionPermissions(): Promise<void> {
     }
   }
 
+  if (deferredForTableSelect > 0) {
+    console.log(
+      `   ⏭ ${deferredForTableSelect} function permission(s) wait for return-table select\n`
+    );
+  }
   console.log(`   ✓ Function permissions created: ${created}\n`);
 }
 
