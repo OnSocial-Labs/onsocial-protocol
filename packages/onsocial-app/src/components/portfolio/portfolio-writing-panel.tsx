@@ -85,7 +85,13 @@ function PortfolioWritingShelf({
   const [liveHints, setLiveHints] = useState<
     Record<string, WritingArticleCoverHint>
   >({});
-  const [hasMore, setHasMore] = useState(Boolean(panel.articleHasMore));
+  const [hasMore, setHasMore] = useState(
+    Boolean(
+      panel.articleHasMore &&
+        panel.articleNextBeforeBlockHeight != null &&
+        panel.articleNextBeforeEventKey
+    )
+  );
   const nextBeforeBlockHeightRef = useRef<number | undefined>(
     panel.articleNextBeforeBlockHeight
   );
@@ -122,9 +128,15 @@ function PortfolioWritingShelf({
     setMoreArticles([]);
     setMoreHints({});
     setLiveHints({});
-    setHasMore(Boolean(panel.articleHasMore));
     nextBeforeBlockHeightRef.current = panel.articleNextBeforeBlockHeight;
     nextBeforeEventKeyRef.current = panel.articleNextBeforeEventKey;
+    setHasMore(
+      Boolean(
+        panel.articleHasMore &&
+          panel.articleNextBeforeBlockHeight != null &&
+          panel.articleNextBeforeEventKey
+      )
+    );
     setMoreFailed(false);
   }, [
     panel.accountId,

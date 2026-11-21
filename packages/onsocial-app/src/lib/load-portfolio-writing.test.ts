@@ -104,6 +104,19 @@ describe('fetchAuthorArticleWindow', () => {
     expect(page.nextBeforeEventKey).toBe('alice.testnet/post/1');
   });
 
+  it('does not treat bare nextOffset as has-more', async () => {
+    const os = client([
+      {
+        items: [post('1', true)],
+        nextOffset: 48,
+      },
+    ]);
+    const page = await fetchAuthorArticleWindow(os, 'alice.testnet', {}, 48);
+    expect(page.hasMore).toBe(false);
+    expect(page.nextBeforeBlockHeight).toBeUndefined();
+    expect(page.nextBeforeEventKey).toBeUndefined();
+  });
+
   it('pages with the composite keyset, not offset', async () => {
     const os = client([{ items: [] }]);
     await fetchAuthorArticleWindow(

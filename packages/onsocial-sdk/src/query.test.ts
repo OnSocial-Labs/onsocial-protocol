@@ -1035,6 +1035,51 @@ describe('QueryModule', () => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
+    it('author chrono never falls through to postsCurrent', async () => {
+      const queries: string[] = [];
+      const { os } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        queries.push(query);
+        if (query.includes('feedRecent')) {
+          return {
+            errors: [
+              {
+                message: 'field "feedRecent" not found in type: \'query_root\'',
+                extensions: {
+                  path: '$.selectionSet.feedRecent',
+                  code: 'validation-failed',
+                },
+              },
+            ],
+            data: null,
+          };
+        }
+        return {
+          data: {
+            postsFeed: [
+              {
+                accountId: 'a.near',
+                postId: 'p1',
+                value: '{}',
+                blockHeight: 10,
+                blockTimestamp: 0,
+              },
+            ],
+          },
+        };
+      });
+
+      const page = await os.query.feed.recent({
+        author: 'a.near',
+        limit: 5,
+        section: 'posts',
+      });
+      expect(page.items).toHaveLength(1);
+      expect(queries.some((q) => q.includes('feedRecent'))).toBe(true);
+      expect(queries.some((q) => q.includes('postsFeed('))).toBe(true);
+      expect(queries.some((q) => q.includes('postsCurrent'))).toBe(false);
+    });
+
     // Indexer stores empty strings (not NULLs) for parentPath / refType —
     // section filters must use equality, never _isNull.
     it('filters roots without repost shells for section posts', async () => {
@@ -6145,6 +6190,47 @@ describe('QueryModule', () => {
       expect(escapeLike('a\\b%c_d')).toBe('a\\\\b\\%c\\_d');
       expect(normalizeAppPrefix(' /lot/foo/ ')).toBe('lot/foo');
       expect(normalizeAppPrefix('/')).toBe('');
+    });
+  });
+
+  describe('socialSpend.events()', () => {
+    it('orders by height then id and pages with a composite before keyset', async () => {
+      const { os, fetch } = makeOs({ data: { socialSpendEvents: [] } });
+      await os.query.socialSpend.events({
+        limit: 10,
+        beforeBlockHeight: 100,
+        beforeId: 'evt-9',
+      });
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toMatch(
+        /orderBy: \[\{blockHeight: DESC\}, \{id: DESC\}\]/
+      );
+      expect(body.query).toContain('blockHeight: {_lt: $beforeBlockHeight}');
+      expect(body.query).toContain('id: {_lt: $beforeId}');
+      expect(body.variables).toMatchObject({
+        limit: 10,
+        beforeBlockHeight: 100,
+        beforeId: 'evt-9',
+        offset: 0,
+      });
+    });
+
+    it('keeps height-only beforeBlockHeight as a range cut', async () => {
+      const { os, fetch } = makeOs({ data: { socialSpendEvents: [] } });
+      await os.query.socialSpend.events({
+        minBlockHeight: 10,
+        beforeBlockHeight: 100,
+        limit: 5,
+      });
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toContain('blockHeight: { _gte: $minBlockHeight');
+      expect(body.query).toContain('_lt: $beforeBlockHeight');
+      expect(body.query).not.toContain('$beforeId');
+      expect(body.variables.beforeId).toBeUndefined();
     });
   });
 });
