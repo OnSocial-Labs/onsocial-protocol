@@ -4,10 +4,7 @@
 // ---------------------------------------------------------------------------
 
 import type { QueryModule } from './index.js';
-import {
-  chronoContentPathKeysetAnd,
-  requireChronoKeyset,
-} from './_shared.js';
+import { chronoContentPathKeysetAnd, requireChronoKeyset } from './_shared.js';
 
 export interface SaveRow {
   accountId: string;
@@ -89,7 +86,9 @@ export class SavesQuery {
         $id: String!,
         $limit: Int!,
         $offset: Int!${needle ? ', $pathLike: String!' : ''}${
-          usedKeyset ? ', $beforeBlockHeight: bigint!, $beforePostKey: String!' : ''
+          usedKeyset
+            ? ', $beforeBlockHeight: bigint!, $beforePostKey: String!'
+            : ''
         }
       ) {
         savesCurrent(

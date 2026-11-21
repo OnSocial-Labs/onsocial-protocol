@@ -414,10 +414,7 @@ export class FeedQuery {
       if (wantPath) this.topicContentPathFallback.clear();
       return args.pick(res.data) ?? [];
     } catch (err) {
-      if (
-        wantPath &&
-        isTopicContentPathUnavailableError(err)
-      ) {
+      if (wantPath && isTopicContentPathUnavailableError(err)) {
         this.topicContentPathFallback.trip();
         return this.queryTopicStubs(args);
       }
@@ -472,7 +469,9 @@ export class FeedQuery {
     const offset = usedKeyset ? 0 : (args.opts.offset ?? 0);
     const before = hot ? hotKey?.before : chronoKey?.before;
     const beforeHeat = hot ? hotKey?.beforeHeat : undefined;
-    const beforePostKey = hot ? hotKey?.beforePostKey : chronoKey?.beforePostKey;
+    const beforePostKey = hot
+      ? hotKey?.beforePostKey
+      : chronoKey?.beforePostKey;
 
     const keysetParams =
       hot && usedKeyset && pathKeyset
@@ -490,7 +489,9 @@ export class FeedQuery {
           : usedKeyset
             ? ', blockHeight: {_lt: $beforeBlockHeight}'
             : '';
-    const stubs = await this.queryTopicStubs<TopicStubRow & { hashtag?: string; ticker?: string; place?: string }>({
+    const stubs = await this.queryTopicStubs<
+      TopicStubRow & { hashtag?: string; ticker?: string; place?: string }
+    >({
       buildQuery: (orderBy, includePath) =>
         `query ${args.hydrateName}Stubs($${args.queryVar}: String!, $limit: Int!, $offset: Int!${keysetParams}) {
         ${args.collection}(
@@ -511,12 +512,8 @@ export class FeedQuery {
         ...(usedKeyset && before !== undefined
           ? {
               beforeBlockHeight: before,
-              ...(pathKeyset && beforePostKey
-                ? { beforePostKey }
-                : {}),
-              ...(hot && beforeHeat !== undefined
-                ? { beforeHeat }
-                : {}),
+              ...(pathKeyset && beforePostKey ? { beforePostKey } : {}),
+              ...(hot && beforeHeat !== undefined ? { beforeHeat } : {}),
             }
           : {}),
       },
