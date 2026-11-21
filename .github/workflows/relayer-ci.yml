@@ -10,6 +10,7 @@ on:
       - 'crates/**'
       - '.github/workflows/relayer-ci.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - 'Cargo.toml'
@@ -24,6 +25,7 @@ env:
 
 jobs:
   ci:
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     name: Clippy, Format & Test
     runs-on: ubuntu-26.04
     timeout-minutes: 20

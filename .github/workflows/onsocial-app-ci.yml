@@ -12,6 +12,7 @@ on:
       - 'pnpm-lock.yaml'
       - '.github/workflows/onsocial-app-ci.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'packages/onsocial-app/**'
       - 'packages/onsocial-ui/**'
@@ -37,6 +38,7 @@ env:
 
 jobs:
   check:
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     name: Build & Check
     runs-on: ubuntu-26.04
     timeout-minutes: 15

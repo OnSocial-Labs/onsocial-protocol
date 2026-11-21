@@ -9,6 +9,7 @@ on:
       - 'Cargo.lock'
       - '.github/workflows/scarces-onsocial-ci.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - 'contracts/scarces-onsocial/**'
@@ -19,6 +20,7 @@ on:
 
 jobs:
   ci:
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     name: Check, Build & Test
     runs-on: ubuntu-26.04
     steps:
