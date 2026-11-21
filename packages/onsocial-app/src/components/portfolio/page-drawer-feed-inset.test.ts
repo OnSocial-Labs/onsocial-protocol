@@ -200,9 +200,9 @@ describe('page drawer feed inset', () => {
 
   it('gives feed tabs the same dock scroll-end as scarces', () => {
     expect(rail).toContain('page-drawer-scroll-end');
-    expect(rail).toMatch(
-      /isProfileFeedTab\(tab\) \?[\s\S]*?page-drawer-scroll-end/
-    );
+    // Keep feed mounted across Scarces/Collectibles so return is instant.
+    expect(rail).toContain('feedVisited');
+    expect(rail).toContain('hidden={!feedActive}');
     expect(globalsCss).toMatch(
       /\.page-drawer-scroll-end \{[\s\S]*?height: var\(--portfolio-dock-clearance, 5\.25rem\);/
     );

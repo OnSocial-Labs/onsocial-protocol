@@ -85,6 +85,13 @@ export function emptyProfileSectionInFlight(): ProfileSectionInFlight {
 }
 
 /** Per-section lock — a mid-load tab switch can start the new section. */
+/** Text-tab bucket for a row — posts / replies / reposts are disjoint. */
+export function profilePostTextSection(post: PostRow): ProfileTextTab {
+  if (post.parentPath) return 'replies';
+  if (isRepostRefType(post.refType)) return 'reposts';
+  return 'posts';
+}
+
 export function beginProfileSectionFetch(
   inFlight: ProfileSectionInFlight,
   section: ProfileTextTab
@@ -206,10 +213,10 @@ export function ProfileFeedClient({
     postsRef.current = posts;
   }, [posts]);
 
-  /** Durable for the drawer lifetime — survives tab remounts within a visit. */
+  /** Durable for the drawer lifetime — survives tab switches within a visit. */
   const windowSizeCache = useMemo(
     () => new FeedWindowSizeCache(),
-    [accountId, tab]
+    [accountId]
   );
 
   const [pendingTab, setPendingTab] = useState<ProfileFeedTab | null>(() =>
@@ -570,10 +577,25 @@ export function ProfileFeedClient({
     }
     const keptKeys = new Set(trimmed.posts.map(postKey));
     const visibleKeys = new Set(visiblePosts.map(postKey));
+    // Cap inactive text sections to one page (newest-first) so tab hops
+    // do not grow the shared list without bound.
+    const inactiveKept = {
+      posts: 0,
+      replies: 0,
+      reposts: 0,
+    } satisfies Record<ProfileTextTab, number>;
     setPosts((current) =>
-      current.filter(
-        (row) => !visibleKeys.has(postKey(row)) || keptKeys.has(postKey(row))
-      )
+      current.filter((row) => {
+        const key = postKey(row);
+        if (visibleKeys.has(key)) return keptKeys.has(key);
+        const section = profilePostTextSection(row);
+        if (activeSection != null && section === activeSection) {
+          return true;
+        }
+        if (inactiveKept[section] >= PROFILE_FEED_PAGE_SIZE) return false;
+        inactiveKept[section] += 1;
+        return true;
+      })
     );
     if (activeSection) {
       const clamped = clampHomeFeedCursorAfterTrim({

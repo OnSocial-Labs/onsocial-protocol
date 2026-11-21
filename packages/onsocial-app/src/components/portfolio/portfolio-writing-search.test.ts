@@ -54,4 +54,11 @@ describe('Writing shelf search', () => {
     expect(list).toContain('WritingShelfFrame');
     expect(list).toContain('portfolio-writing portfolio-writing--list');
   });
+
+  it('windows the shelf list and matches pending to card geometry', () => {
+    expect(list).toContain('useFeedWindow');
+    expect(list).toContain('portfolio-writing-pending-card');
+    expect(list).toContain('portfolio-writing-pending-cover');
+    expect(list).not.toContain('portfolio-writing-pending-row');
+  });
 });

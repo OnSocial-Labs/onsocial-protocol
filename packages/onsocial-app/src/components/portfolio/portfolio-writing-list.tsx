@@ -1,10 +1,18 @@
 'use client';
 
-import { memo, useMemo, type MouseEvent, type ReactNode } from 'react';
+import {
+  memo,
+  useMemo,
+  useRef,
+  type MouseEvent,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import Link from 'next/link';
 import type { PostRow } from '@onsocial/sdk';
 import { PortfolioWritingCover } from '@/components/portfolio/portfolio-writing-cover';
 import { PostRichText } from '@/features/home/post-rich-text';
+import { useFeedWindow } from '@/features/home/use-feed-window';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useWritingComposeOpen } from '@/contexts/writing-compose-context';
 import { useEssayReturnSearch } from '@/hooks/use-essay-return-search';
@@ -68,21 +76,31 @@ export function WritingShelfFrame({
   );
 }
 
-/** Cold Writing list — same inset and row height as settled cards. */
+/**
+ * Cold Writing list — same inset, cover seat, and copy stack as settled
+ * cards so open never jumps (`implement-clean` / loading contract).
+ */
 export function PortfolioWritingPending({ rowCount = 2 }: { rowCount?: number }) {
   return (
     <WritingShelfFrame>
-      <div className="portfolio-writing-pending" aria-hidden>
+      <ul className="portfolio-writing-list" aria-hidden>
         {Array.from({ length: rowCount }, (_, index) => (
-          <span
-            key={index}
-            className="standing-row-shimmer portfolio-writing-pending-row"
-          />
+          <li key={index} className="portfolio-writing-pending-card">
+            <span className="standing-row-shimmer portfolio-writing-pending-cover" />
+            <span className="portfolio-writing-pending-copy">
+              <span className="standing-row-shimmer portfolio-writing-pending-line portfolio-writing-pending-line--title" />
+              <span className="standing-row-shimmer portfolio-writing-pending-line" />
+              <span className="standing-row-shimmer portfolio-writing-pending-line portfolio-writing-pending-line--meta" />
+            </span>
+          </li>
         ))}
-      </div>
+      </ul>
     </WritingShelfFrame>
   );
 }
+
+/** Cover (7.2rem) + card pad — window estimate before first measure. */
+const WRITING_SHELF_ROW_ESTIMATE_PX = 148;
 
 /**
  * Shelf meta likes — RollingNumber for the digit, main's
@@ -138,11 +156,23 @@ export const PortfolioWritingList = memo(function PortfolioWritingList({
 
   const rows = useMemo(
     () =>
-      articles.filter((post) =>
-        showSearch ? articleMatchesQuery(post, query) : true
-      ),
+      articles.filter((post) => {
+        if (!parseArticleSnapshot(post.value)) return false;
+        return showSearch ? articleMatchesQuery(post, query) : true;
+      }),
     [articles, query, showSearch]
   );
+  const rowKeys = useMemo(
+    () => rows.map((post) => `${post.accountId}:${post.postId}`),
+    [rows]
+  );
+  const listRef = useRef<HTMLUListElement | null>(null);
+  const { windowed, start, end, topSpacer, bottomSpacer, registerRow } =
+    useFeedWindow({
+      keys: rowKeys,
+      hostRef: listRef as RefObject<HTMLElement | null>,
+      estimate: WRITING_SHELF_ROW_ESTIMATE_PX,
+    });
   const emptyState = resolveWritingEmptyState({
     isOwner,
     articleCount: articles.length,
@@ -168,8 +198,20 @@ export const PortfolioWritingList = memo(function PortfolioWritingList({
           ) : null}
         </div>
       ) : (
-        <ul className="portfolio-writing-list">
-          {rows.map((post) => {
+        <ul
+          ref={listRef}
+          className="portfolio-writing-list"
+          {...(windowed ? { 'data-feed-window': '' } : {})}
+        >
+          {windowed && topSpacer > 0 ? (
+            <li
+              style={{ height: topSpacer, listStyle: 'none' }}
+              aria-hidden="true"
+              data-feed-window-spacer="top"
+            />
+          ) : null}
+          {rows.slice(start, end).map((post) => {
+            const key = `${post.accountId}:${post.postId}`;
             const article = parseArticleSnapshot(post.value);
             if (!article) return null;
             const hint = coverHints?.[postKey(post)];
@@ -207,7 +249,7 @@ export const PortfolioWritingList = memo(function PortfolioWritingList({
               onOpenArticle(post);
             };
             return (
-              <li key={`${post.accountId}:${post.postId}`}>
+              <li key={key} ref={registerRow(key)} data-feed-key={key}>
                 <Link
                   href={articleHref}
                   className="portfolio-writing-card"
@@ -261,6 +303,13 @@ export const PortfolioWritingList = memo(function PortfolioWritingList({
               </li>
             );
           })}
+          {windowed && bottomSpacer > 0 ? (
+            <li
+              style={{ height: bottomSpacer, listStyle: 'none' }}
+              aria-hidden="true"
+              data-feed-window-spacer="bottom"
+            />
+          ) : null}
         </ul>
       )}
     </WritingShelfFrame>
