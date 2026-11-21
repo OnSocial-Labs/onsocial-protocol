@@ -1147,20 +1147,19 @@ export function HomePagePanel({
         setSsrBootstrapDone(true);
         ssrBootstrapDoneRef.current = true;
         fillSidePaint(items);
-        if (!mergeHead) {
+        {
+          const sessionAtSoftFill = feedSessionKeyRef.current;
           void loadPostEngagementMap(createReadOnlyOnSocialClient(), items, {
             viewer: accountId,
           }).then(
             (engagement) => {
-              if (!isCurrentLoadingRequest(loadIdRef.current, loadId)) return;
+              if (feedSessionKeyRef.current !== sessionAtSoftFill) return;
               setEngagementSeed((current) => ({
                 ...(current ?? {}),
                 ...engagement,
               }));
             },
-            () => {
-              // Row seed already holds public counts.
-            }
+            () => {}
           );
         }
       } catch (cause) {
@@ -1310,7 +1309,7 @@ export function HomePagePanel({
           fillEngagementSeedFromFeedRows(current, appended)
         );
         applyFeedPageCursor(result.page);
-        // Soft-fill after rows mount — quotes + counts/colour in one map.
+        const sessionAtSoftFill = feedSessionKeyRef.current;
         void Promise.all([
           loadFeedPaint(appended),
           loadPostEngagementMap(createReadOnlyOnSocialClient(), appended, {
@@ -1318,7 +1317,7 @@ export function HomePagePanel({
           }),
         ]).then(
           ([appendedPaint, appendedEngagement]) => {
-            if (!isCurrentLoadingRequest(loadIdRef.current, loadId)) return;
+            if (feedSessionKeyRef.current !== sessionAtSoftFill) return;
             sidePaintSavedRef.current = true;
             setQuotedSeed((current) => ({
               ...current,
@@ -1337,9 +1336,7 @@ export function HomePagePanel({
               ...appendedEngagement,
             }));
           },
-          () => {
-            // Rows stay; row seed already holds public counts.
-          }
+          () => {}
         );
       } catch (cause) {
         // Keep the current list; restore the keyset so Retry can append again.

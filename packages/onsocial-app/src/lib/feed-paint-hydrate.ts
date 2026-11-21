@@ -10,9 +10,12 @@ import {
 } from '@onsocial/sdk';
 import { resolveScarceMediaUrl } from '@/features/market/market-listings';
 import { postScarceKey } from '@/features/scarces/scarce-embed-ledger';
-import type { PostEngagement } from '@/hooks/use-post-engagement';
-import { EMPTY_POST_ENGAGEMENT } from '@/hooks/use-post-engagement';
 import { yoctoToNear } from '@/lib/app-near-rpc';
+import type { PostEngagementMap } from '@/lib/engagement-row-seed';
+import {
+  EMPTY_POST_ENGAGEMENT,
+  type PostEngagement,
+} from '@/lib/post-engagement-model';
 import {
   parseDropPaintSnapshot,
   parsePostCollectionEmbed,
@@ -22,7 +25,11 @@ import {
 import { isRepostRefType } from '@/lib/post-relation';
 import { publicCountsOnFeedRow } from '@/lib/prepare-feed-paint';
 
-export type PostEngagementMap = Record<string, PostEngagement>;
+export type { PostEngagementMap } from '@/lib/engagement-row-seed';
+export {
+  engagementSeedFromFeedRows,
+  fillEngagementSeedFromFeedRows,
+} from '@/lib/engagement-row-seed';
 export type PostScarceEmbedMap = Record<string, PostScarceEmbed>;
 
 function priceNearFromYocto(
@@ -348,61 +355,7 @@ export async function hydrateScarceEmbedsForPosts(
   return { ...fromPost, ...collectionRefs, ...tokenRefs };
 }
 
-/**
- * Sync counts from feed row public fields — same frame as `setPosts`.
- * Use when rows already carry reply/quote/repost/reaction so the card never
- * waits on `loadPostEngagementMap` to leave `countsReady=false`.
- */
-export function engagementSeedFromFeedRows(
-  posts: readonly PostRow[]
-): PostEngagementMap {
-  const next: PostEngagementMap = {};
-  const put = (row: PostRow | null | undefined) => {
-    if (!row) return;
-    const counts = publicCountsOnFeedRow(row);
-    if (!counts) return;
-    next[postKey(row)] = {
-      ...EMPTY_POST_ENGAGEMENT,
-      replyCount: counts.replyCount,
-      quoteCount: counts.quoteCount,
-      repostCount: counts.repostCount,
-      reactionCount: counts.reactionCount,
-      amplifyCount: counts.amplifyCount ?? 0,
-    };
-  };
-  for (const post of posts) {
-    put(post);
-    const quoted =
-      post.quotedPost && typeof post.quotedPost === 'object'
-        ? (post.quotedPost as PostRow)
-        : null;
-    put(quoted);
-  }
-  return next;
-}
-
-/** Prefer live/seed rows; fill only keys still missing from public feed fields. */
-export function fillEngagementSeedFromFeedRows(
-  current: PostEngagementMap | null | undefined,
-  posts: readonly PostRow[]
-): PostEngagementMap {
-  const fromRows = engagementSeedFromFeedRows(posts);
-  if (!current || Object.keys(current).length === 0) return fromRows;
-  const next = { ...current };
-  let changed = false;
-  for (const [key, row] of Object.entries(fromRows)) {
-    if (key in next) continue;
-    next[key] = row;
-    changed = true;
-  }
-  return changed ? next : current;
-}
-
-/**
- * Batched reply/quote/reaction/amplify for feed first paint.
- * Pass `viewer` so like/amplify/save/repost colour lands in the same map as
- * counts — no second overlay flash when the card enters the window.
- */
+/** Batched counts (+ optional viewer flags). Prefer row seed for publics first. */
 export async function loadPostEngagementMap(
   os: OnSocial,
   posts: readonly PostRow[],

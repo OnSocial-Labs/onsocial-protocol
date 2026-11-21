@@ -10,37 +10,19 @@ import {
   subscribePersonalReplyConfirmed,
 } from '@/features/scarces/drop-compose-host';
 import { recordViewerAmplifyConfirmed } from '@/lib/home-feed-amplify-epoch';
+import { fillEngagementSeedFromFeedRows } from '@/lib/engagement-row-seed';
+import {
+  EMPTY_POST_ENGAGEMENT,
+  type EngagementMap,
+  type PostEngagement,
+} from '@/lib/post-engagement-model';
 import { postKey } from '@/lib/post-display';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
+export type { EngagementMap, PostEngagement } from '@/lib/post-engagement-model';
+export { EMPTY_POST_ENGAGEMENT } from '@/lib/post-engagement-model';
+
 const DEFAULT_REACTION_KIND = 'like';
-
-export interface PostEngagement {
-  replyCount: number;
-  quoteCount: number;
-  repostCount: number;
-  reactionCount: number;
-  viewerReacted: boolean;
-  amplifyCount: number;
-  viewerAmplified: boolean;
-  /** Private bookmark — never a public count. */
-  viewerSaved: boolean;
-  viewerReposted: boolean;
-  viewerRepostId: string | null;
-  viewerRepostGroupId: string | null;
-  /** Bumps only when the viewer's own like confirms, so other cards stay still. */
-  reactionRoll: number;
-  /** Bumps only when the viewer's own amplify confirms. */
-  amplifyRoll: number;
-  /** Bumps only when the viewer's own reply confirms. */
-  replyRoll: number;
-  /** Bumps when the viewer's repost, undo, or quote confirms. */
-  shareRoll: number;
-}
-
-export interface EngagementMap {
-  [key: string]: PostEngagement;
-}
 
 /**
  * Heart moves immediately. The count stays until chain finality (`wait: true`)
@@ -97,24 +79,6 @@ function samePostEngagement(a: PostEngagement, b: PostEngagement): boolean {
     a.shareRoll === b.shareRoll
   );
 }
-
-export const EMPTY_POST_ENGAGEMENT: PostEngagement = {
-  replyCount: 0,
-  quoteCount: 0,
-  repostCount: 0,
-  reactionCount: 0,
-  viewerReacted: false,
-  amplifyCount: 0,
-  viewerAmplified: false,
-  viewerSaved: false,
-  viewerReposted: false,
-  viewerRepostId: null,
-  viewerRepostGroupId: null,
-  reactionRoll: 0,
-  amplifyRoll: 0,
-  replyRoll: 0,
-  shareRoll: 0,
-};
 
 /**
  * Drop keys that left the retain set (in-memory feed list). Fetch still
@@ -299,14 +263,10 @@ export function mergeEngagementSoftUpgrade(
  * for a list of visible posts, plus optimistic reaction / save toggles.
  * Reaction and save writes use `wait: true` so the faded pending state lasts
  * until chain confirmation (icons still flip immediately — not pulsing dots).
- * Pass `initial` from the page paint so counts are final. A signed-in
- * viewer then overlays like, save, and repost flags without recounting —
- * and last-good memory keeps those flags across window prune. Viewer
- * overlay fetches are not cancelled by scroll (only wallet switch drops
- * them); page soft-fill with `viewer` paints colour once per append.
- *
- * `posts` is the fetch band (near window + pad). Pass `retainPosts` as the
- * full in-memory feed list so prune does not drop counts the seed already has.
+ * `initial` + public fields on `retainPosts`/`posts` seed counts on first
+ * paint (every caller — home, discover, portfolio). Overlay loads viewer
+ * colour without scroll-cancel; last-good keeps both across prune.
+ * `posts` = near fetch band; `retainPosts` = full list so prune follows trim.
  */
 export function usePostEngagement(
   posts: PostRow[],
@@ -319,8 +279,14 @@ export function usePostEngagement(
 ) {
   const { accountId, isConnected, connect } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
+  const retainPosts = opts.retainPosts;
+  const seedPosts = retainPosts ?? posts;
+  const seededInitial = useMemo(
+    () => fillEngagementSeedFromFeedRows(opts.initial ?? null, seedPosts),
+    [opts.initial, seedPosts]
+  );
   const [engagement, setEngagement] = useState<EngagementMap>(
-    () => opts.initial ?? {}
+    () => seededInitial
   );
   const [pendingReactionKeys, setPendingReactionKeys] = useState<Set<string>>(
     () => new Set()
@@ -345,7 +311,7 @@ export function usePostEngagement(
   pendingShareKeysRef.current = pendingShareKeys;
   engagementRef.current = engagement;
   const loadIdRef = useRef(0);
-  const initialRef = useRef<EngagementMap | null>(opts.initial ?? null);
+  const initialRef = useRef<EngagementMap | null>(seededInitial);
   const viewerOverlayRef = useRef<{
     accountId: string;
     keys: Set<string>;
@@ -358,29 +324,12 @@ export function usePostEngagement(
     lastGoodRef.current.clear();
     viewerOverlayRef.current = null;
   }
-  const incomingInitial = opts.initial ?? null;
+  const incomingInitial = seededInitial;
   if (incomingInitial !== initialRef.current) {
     initialRef.current = incomingInitial;
-    if (incomingInitial && Object.keys(incomingInitial).length > 0) {
+    if (Object.keys(incomingInitial).length > 0) {
       const lastGood = lastGoodRef.current;
       const seedKeys = Object.keys(incomingInitial);
-      // Soft-fill onto an existing row seed already carried viewer colour —
-      // skip the scroll-band overlay re-fetch for those keys.
-      const softFilledViewer =
-        Boolean(accountId) &&
-        seedKeys.some((key) => key in engagementRef.current);
-      if (softFilledViewer && accountId) {
-        const done = viewerOverlayRef.current;
-        const keys =
-          done && done.accountId === accountId
-            ? done.keys
-            : new Set<string>();
-        for (const key of seedKeys) keys.add(key);
-        viewerOverlayRef.current = { accountId, keys };
-      }
-      // Soft-fill may add viewer colour onto keys the row seed already
-      // planted — merge both missing keys and flag upgrades so counts and
-      // colour commit in the same paint as the soft-fill map.
       setEngagement((prev) => {
         const filled = resolveBandEngagement({
           live: prev,
@@ -425,7 +374,6 @@ export function usePostEngagement(
     () => targets.map((t) => t.path).join('\n') + `\n@${accountId ?? ''}`,
     [targets, accountId]
   );
-  const retainPosts = opts.retainPosts;
   const retainKeys = useMemo(() => {
     const rows = retainPosts ?? posts;
     return new Set(rows.map((post) => postKey(post)));
