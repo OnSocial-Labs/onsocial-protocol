@@ -6,7 +6,8 @@ import {
   pendingReactionEngagement,
   pruneEngagementMap,
   reactionCountAfterToggle,
-  seededEngagementCoversTargets,
+  rememberEngagementLastGood,
+  resolveBandEngagement,
   type PostEngagement,
 } from '@/hooks/use-post-engagement';
 
@@ -23,6 +24,60 @@ describe('pruneEngagementMap', () => {
     const pruned = pruneEngagementMap(current, new Set(['a:1']));
     expect(Object.keys(pruned)).toEqual(['a:1']);
     expect(pruneEngagementMap(pruned, new Set(['a:1']))).toBe(pruned);
+  });
+});
+
+describe('resolveBandEngagement', () => {
+  it('fills pruned keys from seed + last-good in one resolve', () => {
+    const lastGood = new Map<string, PostEngagement>();
+    rememberEngagementLastGood(
+      lastGood,
+      'a:1',
+      row({
+        viewerReacted: true,
+        viewerAmplified: true,
+        reactionCount: 5,
+        replyCount: 2,
+      })
+    );
+    const painted = resolveBandEngagement({
+      live: {},
+      seed: { 'a:1': row({ reactionCount: 4, replyCount: 2 }) },
+      lastGood,
+      keys: ['a:1'],
+    });
+    expect(painted['a:1']?.viewerReacted).toBe(true);
+    expect(painted['a:1']?.viewerAmplified).toBe(true);
+    expect(painted['a:1']?.reactionCount).toBe(5);
+    expect(painted['a:1']?.replyCount).toBe(2);
+  });
+
+  it('keeps live identity when last-good adds nothing', () => {
+    const live = { 'a:1': row({ reactionCount: 3, viewerReacted: true }) };
+    const painted = resolveBandEngagement({
+      live,
+      seed: null,
+      lastGood: new Map(),
+      keys: ['a:1'],
+    });
+    expect(painted).toBe(live);
+  });
+
+  it('uses last-good alone when the seed was trimmed', () => {
+    const lastGood = new Map<string, PostEngagement>();
+    rememberEngagementLastGood(
+      lastGood,
+      'a:1',
+      row({ viewerReacted: true, reactionCount: 9 })
+    );
+    const painted = resolveBandEngagement({
+      live: {},
+      seed: null,
+      lastGood,
+      keys: ['a:1'],
+    });
+    expect(painted['a:1']?.viewerReacted).toBe(true);
+    expect(painted['a:1']?.reactionCount).toBe(9);
   });
 });
 
@@ -51,28 +106,6 @@ describe('reaction confirmation', () => {
     expect(reactionCountAfterToggle(3, true)).toBe(4);
     expect(reactionCountAfterToggle(4, false)).toBe(3);
     expect(reactionCountAfterToggle(0, false)).toBe(0);
-  });
-});
-
-describe('seededEngagementCoversTargets', () => {
-  it('covers when every visible row came from the SSR seed', () => {
-    const seed = { 'alice.near:p1': row(), 'bob.near:p2': row() };
-    expect(
-      seededEngagementCoversTargets(seed, ['alice.near:p1', 'bob.near:p2'])
-    ).toBe(true);
-  });
-
-  it('does not cover restored rows the SSR seed never saw', () => {
-    const seed = { 'alice.near:p1': row() };
-    expect(
-      seededEngagementCoversTargets(seed, ['alice.near:p1', 'carol.near:p3'])
-    ).toBe(false);
-    expect(seededEngagementCoversTargets(seed, ['carol.near:p3'])).toBe(false);
-  });
-
-  it('does not cover an empty or missing seed', () => {
-    expect(seededEngagementCoversTargets(null, ['alice.near:p1'])).toBe(false);
-    expect(seededEngagementCoversTargets({}, ['alice.near:p1'])).toBe(false);
   });
 });
 
