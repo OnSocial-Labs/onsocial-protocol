@@ -120,6 +120,7 @@ import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { useUserStorageBalance } from '@/hooks/use-user-storage-balance';
 import { coalesceFeedThreads } from '@/lib/feed-threads';
+import { useStableFeedBlockKeys } from '@/features/home/use-stable-feed-block-keys';
 import {
   HOME_FEED_MEMORY_TRIM_IDLE_MS,
   HOME_FEED_WORKING_SET_POSTS,
@@ -544,10 +545,7 @@ export function LiveGuildPanel({
     setComposerSpaceId(space.id);
   }, [selectedFeedFilterId, config, postableSpaces]);
   const feedBlocks = useMemo(() => coalesceFeedThreads(feedPosts), [feedPosts]);
-  const feedBlockKeys = useMemo(
-    () => feedBlocks.map((block) => postKey(block.posts[0]!)),
-    [feedBlocks]
-  );
+  const feedBlockKeys = useStableFeedBlockKeys(feedBlocks);
   const quotedPosts = useQuotedPosts(feedPosts);
   const feedRowEstimates = useMemo(
     () =>
@@ -1451,6 +1449,7 @@ export function LiveGuildPanel({
                   className={`home-feed-list${
                     showFeedRefreshing ? ' is-refreshing' : ''
                   }`}
+                  {...(feedWindowed ? { 'data-feed-window': '' } : {})}
                 >
                   {state.feedError ? (
                     <OsChromeListAlert

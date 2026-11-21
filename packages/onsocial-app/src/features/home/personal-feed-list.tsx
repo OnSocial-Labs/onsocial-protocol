@@ -1,6 +1,12 @@
 'use client';
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Divider } from '@onsocial/ui';
 import {
   postContentPath,
@@ -29,7 +35,10 @@ import { FeedDaoMembershipsProvider } from '@/hooks/use-protocol-dao-memberships
 import type { ProtocolDaoMemberships } from '@/lib/protocol-dao-memberships';
 import type { PollTally } from '@/lib/poll-votes';
 import { useQuotedPosts } from '@/hooks/use-quoted-posts';
-import { coalesceFeedThreads } from '@/lib/feed-threads';
+import {
+  coalesceFeedThreads,
+  type FeedBlockKeyState,
+} from '@/lib/feed-threads';
 import {
   withRepostOriginals,
   collectRelationTargetAccountIds,
@@ -41,6 +50,7 @@ import {
 } from '@/features/home/use-feed-window';
 import { feedBlockEstimatePx } from '@/features/home/feed-block-estimate';
 import type { FeedWindowSizeCache } from '@/features/home/feed-window';
+import { useStableFeedBlockKeys } from '@/features/home/use-stable-feed-block-keys';
 
 export {
   feedBlockEstimateKind,
@@ -82,6 +92,11 @@ interface PersonalFeedListProps {
   pinnedFeedKey?: string | null;
   /** Mounted block range, for the home feed memory trim. */
   onWindowRangeChange?: (range: FeedWindowRangeChange) => void;
+  /**
+   * Stable-key membership mirror so home can retain size-cache entries
+   * under the same identities the list mounts.
+   */
+  onBlockKeyState?: (state: FeedBlockKeyState[]) => void;
 }
 
 /** Shared home/profile feed rendering — thread blocks + quote insets + polls. */
@@ -105,6 +120,7 @@ export function PersonalFeedList({
   windowSizeCache,
   pinnedFeedKey = null,
   onWindowRangeChange,
+  onBlockKeyState,
 }: PersonalFeedListProps) {
   const feedBlocks = useMemo(
     () =>
@@ -170,10 +186,7 @@ export function PersonalFeedList({
 
   const postAuthorProfiles = usePostAuthorProfiles(authorIds);
   const guildNameById = useGuildDisplayNames(guildIds);
-  const blockKeys = useMemo(
-    () => feedBlocks.map((block) => postKey(block.posts[0]!)),
-    [feedBlocks]
-  );
+  const blockKeys = useStableFeedBlockKeys(feedBlocks, onBlockKeyState);
   const rowEstimates = useMemo(
     () => feedBlocks.map((block) => feedBlockEstimatePx(block, quotedPosts)),
     [feedBlocks, quotedPosts]
@@ -299,7 +312,11 @@ export function PersonalFeedList({
 
   return (
     <FeedDaoMembershipsProvider memberships={daoMemberships}>
-      <div ref={hostRef} className={className ?? 'home-feed-list'}>
+      <div
+        ref={hostRef}
+        className={className ?? 'home-feed-list'}
+        {...(windowed ? { 'data-feed-window': '' } : {})}
+      >
         {windowed && topSpacer > 0 ? (
           <div
             style={{ height: topSpacer }}

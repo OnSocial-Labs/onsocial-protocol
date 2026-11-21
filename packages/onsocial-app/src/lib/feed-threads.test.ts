@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { PostRow } from '@onsocial/sdk';
-import { coalesceFeedThreads } from './feed-threads';
+import { postKey } from '@/lib/post-display';
+import {
+  assignStableFeedBlockKeys,
+  coalesceFeedThreads,
+  feedBlockTipKey,
+} from './feed-threads';
 
 function post(overrides: Partial<PostRow> & Pick<PostRow, 'postId'>): PostRow {
   return {
@@ -317,5 +322,62 @@ describe('coalesceFeedThreads', () => {
     expect(coalesceFeedThreads([parent, older, newer])).toEqual([
       { posts: [parent, newer] },
     ]);
+  });
+});
+
+describe('assignStableFeedBlockKeys', () => {
+  it('keeps the orphan tip key when the parent joins the chain', () => {
+    const parent = post({ postId: 'root', blockTimestamp: 1 });
+    const reply = post({
+      postId: 'r1',
+      blockTimestamp: 2,
+      parentPath: parentPathFor('alice.near', 'root'),
+      parentAuthor: 'alice.near',
+    });
+
+    const orphan = coalesceFeedThreads([reply]);
+    const first = assignStableFeedBlockKeys(orphan);
+    expect(first.keys).toEqual([postKey(reply)]);
+
+    const joined = coalesceFeedThreads([reply, parent]);
+    const second = assignStableFeedBlockKeys(joined, first.state);
+    expect(second.keys).toEqual([postKey(reply)]);
+    expect(feedBlockTipKey(joined[0]!)).toBe(postKey(reply));
+  });
+
+  it('keeps the parent key when a continuation attaches', () => {
+    const parent = post({ postId: 'root', blockTimestamp: 1 });
+    const reply = post({
+      postId: 'r1',
+      blockTimestamp: 2,
+      parentPath: parentPathFor('alice.near', 'root'),
+      parentAuthor: 'alice.near',
+    });
+
+    const alone = coalesceFeedThreads([parent]);
+    const first = assignStableFeedBlockKeys(alone);
+    expect(first.keys).toEqual([postKey(parent)]);
+
+    const grown = coalesceFeedThreads([parent, reply]);
+    const second = assignStableFeedBlockKeys(grown, first.state);
+    expect(second.keys).toEqual([postKey(parent)]);
+  });
+
+  it('keeps the block key when a standing peek attaches', () => {
+    const parent = post({ postId: 'root', accountId: 'bob.near' });
+    const reply = post({
+      postId: 'r1',
+      accountId: 'alice.near',
+      parentPath: parentPathFor('bob.near', 'root'),
+      parentAuthor: 'bob.near',
+    });
+
+    const alone = coalesceFeedThreads([parent]);
+    const first = assignStableFeedBlockKeys(alone);
+    const withPeek = coalesceFeedThreads([reply, parent], {
+      stoodWithAccountIds: new Set(['alice.near']),
+    });
+    const second = assignStableFeedBlockKeys(withPeek, first.state);
+    expect(second.keys).toEqual([postKey(parent)]);
   });
 });

@@ -165,7 +165,11 @@ import {
   recordForPosts,
   writeHomeFeedSession,
 } from '@/lib/home-feed-session';
-import { coalesceFeedThreads } from '@/lib/feed-threads';
+import {
+  assignStableFeedBlockKeys,
+  coalesceFeedThreads,
+  type FeedBlockKeyState,
+} from '@/lib/feed-threads';
 import {
   FEED_CATCH_UP_SCROLLING_CLASS,
   scrollFeedToNewest,
@@ -272,6 +276,8 @@ export function HomePagePanel({
     cache.prime(restoredSession?.blockHeights);
     feedWindowCacheRef.current = cache;
   }
+  /** Mirrored from PersonalFeedList — size-cache retain uses the same keys. */
+  const feedBlockKeyStateRef = useRef<FeedBlockKeyState[]>([]);
   /** Mounted block band from the feed window — drives idle memory trim. */
   const feedWindowRangeRef = useRef<FeedWindowRangeChange>({
     start: 0,
@@ -282,6 +288,7 @@ export function HomePagePanel({
   const scheduleMemoryTrimRef = useRef<() => void>(() => {});
   const isLoadingMoreRef = useRef(false);
   const reRankAnchorRef = useRef<FeedScrollAnchor | null>(null);
+  const reRankAnchorMissRef = useRef(0);
   const includeForeignRepliesRef = useRef(false);
   const stoodWithAccountIdsRef = useRef<Set<string> | undefined>(undefined);
   const serverPainted = initialPage != null;
@@ -615,10 +622,24 @@ export function HomePagePanel({
 
   // Append re-rank captured an anchor just before setPosts; put the row
   // back at its viewport offset before paint so the merge is invisible.
-  // Pin may land one frame late — keep the anchor until the row mounts.
+  // Keep for a few frames if the pin has not mounted yet; clear when the
+  // key left the working set so idle trim is not stuck forever.
   useLayoutEffect(() => {
-    if (!reRankAnchor) return;
+    if (!reRankAnchor) {
+      reRankAnchorMissRef.current = 0;
+      return;
+    }
     if (restoreFeedAnchor(scrollRootRef.current, reRankAnchor)) {
+      reRankAnchorMissRef.current = 0;
+      setReRankAnchor(null);
+      return;
+    }
+    const keyStillPresent = feedBlockKeyStateRef.current.some(
+      (entry) => entry.key === reRankAnchor.key
+    );
+    reRankAnchorMissRef.current += 1;
+    if (!keyStillPresent || reRankAnchorMissRef.current > 3) {
+      reRankAnchorMissRef.current = 0;
       setReRankAnchor(null);
     }
   }, [posts, reRankAnchor]);
@@ -1080,6 +1101,13 @@ export function HomePagePanel({
 
         if (!isCurrentLoadingRequest(loadIdRef.current, loadId)) return;
 
+        const standingArriving =
+          Boolean(result.standingSources?.length) &&
+          !standingSourcesRef.current?.length;
+        if (standingArriving && postsLengthRef.current > 0) {
+          // Standing peeks attach under painted blocks — hold before paint.
+          holdFeedScrollAnchor();
+        }
         standingSourcesRef.current = result.standingSources;
         setStandingNetworkIds(result.standingSources);
         const items = result.page.items;
@@ -1263,6 +1291,12 @@ export function HomePagePanel({
         if (!isCurrentLoadingRequest(loadIdRef.current, loadId)) return;
 
         if (result.standingSources) {
+          const standingArriving =
+            Boolean(result.standingSources.length) &&
+            !standingSourcesRef.current?.length;
+          if (standingArriving && postsLengthRef.current > 0) {
+            holdFeedScrollAnchor();
+          }
           standingSourcesRef.current = result.standingSources;
           setStandingNetworkIds(result.standingSources);
         }
@@ -1270,11 +1304,9 @@ export function HomePagePanel({
         if (pendingShift > 0) {
           offsetShiftAppliedRef.current += pendingShift;
         }
-        if (focus != null && sort === 'hot') {
-          // Focus Hot re-ranks the whole accumulated list on append, so a
-          // hot post from a later page can outrank painted rows. Hold the
-          // first visible row at its offset — the merge must not shift
-          // content under the reader. The layout effect below applies it.
+        if (postsLengthRef.current > 0) {
+          // Append can join an orphan into its parent (or Focus Hot re-rank).
+          // Hold so coalesce height growth does not move the reader.
           holdFeedScrollAnchor();
         }
         const appended = result.page.items;
@@ -1463,9 +1495,12 @@ export function HomePagePanel({
       includeForeignReplies: includeForeignRepliesRef.current,
       stoodWithAccountIds: stoodWithAccountIdsRef.current,
     });
-    feedWindowCacheRef.current?.retain(
-      blocks.map((block) => postKey(block.posts[0]!))
+    const assigned = assignStableFeedBlockKeys(
+      blocks,
+      feedBlockKeyStateRef.current
     );
+    feedBlockKeyStateRef.current = assigned.state;
+    feedWindowCacheRef.current?.retain(assigned.keys);
   }, []);
 
   /** Clamp cursors, revoke media, retain heights after any working-set cut. */
@@ -1558,6 +1593,10 @@ export function HomePagePanel({
 
   const onWindowRangeChange = useCallback((range: FeedWindowRangeChange) => {
     feedWindowRangeRef.current = range;
+  }, []);
+
+  const onBlockKeyState = useCallback((state: FeedBlockKeyState[]) => {
+    feedBlockKeyStateRef.current = state;
   }, []);
 
   useEffect(() => {
@@ -1955,6 +1994,7 @@ export function HomePagePanel({
                   windowSizeCache={feedWindowCacheRef.current}
                   pinnedFeedKey={reRankAnchor?.key ?? null}
                   onWindowRangeChange={onWindowRangeChange}
+                  onBlockKeyState={onBlockKeyState}
                   onReply={replyHandler}
                   onExpandReply={openFullReply}
                   onQuote={quoteHandler}
