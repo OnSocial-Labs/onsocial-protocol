@@ -12,7 +12,6 @@ import {
   hydrateWritingArticleCovers,
   type WritingArticleCoverHint,
 } from '@/lib/hydrate-writing-article-covers';
-import { feedPageHasMore } from '@/lib/feed-page-cursor';
 import { resolvePortfolioMood } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
 import type { PublicPageConfig } from '@/lib/page-data';
@@ -81,11 +80,16 @@ export async function fetchAuthorArticleWindow(
     section: 'posts',
     kind: 'longform',
   });
+  const nextBeforeBlockHeight = page.nextBeforeBlockHeight;
+  const nextBeforeEventKey = page.nextBeforeEventKey?.trim() || undefined;
+  // Shelf load-more is keyset-only — do not treat bare nextOffset as has-more.
+  const hasMore =
+    nextBeforeBlockHeight !== undefined && Boolean(nextBeforeEventKey);
   return {
     articles: page.items.filter(isArticlePost),
-    hasMore: feedPageHasMore(page),
-    nextBeforeBlockHeight: page.nextBeforeBlockHeight,
-    nextBeforeEventKey: page.nextBeforeEventKey,
+    hasMore,
+    nextBeforeBlockHeight,
+    nextBeforeEventKey,
   };
 }
 

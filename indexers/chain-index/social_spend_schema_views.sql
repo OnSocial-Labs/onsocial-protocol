@@ -103,8 +103,11 @@ CREATE TABLE IF NOT EXISTS post_amplify_heat_state (
 CREATE INDEX IF NOT EXISTS idx_post_amplify_heat_state_heat
   ON post_amplify_heat_state (heat DESC);
 
--- heat+path keyset index: migrations/20261124_feed_keyset_indexes.sql
--- (CREATE INDEX CONCURRENTLY — not inside the views txn).
+-- Hot keyset path leg. Live deploys prefer CONCURRENTLY
+-- (migrations/20261124_feed_keyset_indexes.sql) before the views txn; this
+-- keeps fresh schema applies complete when migrations are not re-run.
+CREATE INDEX IF NOT EXISTS idx_post_amplify_heat_state_heat_path
+  ON post_amplify_heat_state (heat DESC, post_path DESC);
 
 -- Repeat lookup for the trigger (first amplify in the 14d window vs later).
 CREATE INDEX IF NOT EXISTS idx_social_spend_events_boost_post

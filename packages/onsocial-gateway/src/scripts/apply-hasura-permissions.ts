@@ -253,6 +253,8 @@ async function trackFunctions(): Promise<void> {
 /**
  * Untrack + retrack catalog functions so Hasura picks up CREATE OR REPLACE
  * signature changes (new args). trackFunctions alone skips already-tracked names.
+ * Untrack drops function permissions — restore them immediately after retrack
+ * so feed_* stays callable during the long table permission sync.
  */
 async function refreshTrackedFunctions(): Promise<number> {
   console.log(
@@ -291,15 +293,50 @@ async function refreshTrackedFunctions(): Promise<number> {
     });
   }
 
+  let refreshed = 0;
   for (const batch of chunk(ops, BULK_CHUNK_SIZE)) {
-    await hasuraBulk(batch);
+    const results = await hasuraBulk(batch);
+    for (let i = 0; i < batch.length; i++) {
+      const op = batch[i]!;
+      const r = results[i] as { error?: string } | undefined;
+      if (r && typeof r === 'object' && 'error' in r && r.error) {
+        const msg = String(r.error);
+        const name =
+          typeof op.args?.function === 'object' && op.args.function
+            ? String((op.args.function as { name?: string }).name ?? '?')
+            : '?';
+        if (
+          op.type === 'pg_untrack_function' &&
+          (msg.includes('not tracked') || msg.includes('not-tracked'))
+        ) {
+          // already gone
+        } else if (
+          op.type === 'pg_track_function' &&
+          (msg.includes('already tracked') || msg.includes('already-tracked'))
+        ) {
+          refreshed++;
+        } else {
+          unexpectedErrors++;
+          console.warn(`   ✗ ${op.type} ${name}: ${msg}`);
+        }
+      } else if (op.type === 'pg_track_function') {
+        refreshed++;
+      }
+    }
   }
 
-  console.log(`   ✓ Refreshed ${toRefresh.length} SQL function(s)\n`);
+  console.log(`   ✓ Retracked ${refreshed} SQL function(s)\n`);
+  // Permissions were dropped with untrack — restore now when return-table
+  // select already exists (live redeploy). Fresh sync restores after
+  // syncPermissions creates those table selects.
+  await createFunctionPermissions({ allowMissingTableSelect: true });
   return toRefresh.length;
 }
 
-async function createFunctionPermissions(): Promise<void> {
+async function createFunctionPermissions(opts?: {
+  /** Fresh sync: return-table select may not exist until syncPermissions. */
+  allowMissingTableSelect?: boolean;
+}): Promise<void> {
   console.log('🔧 Creating function permissions...');
 
   const live = await fetchLiveFunctions().catch(() => new Set<string>());
@@ -324,6 +361,7 @@ async function createFunctionPermissions(): Promise<void> {
   }
 
   let created = 0;
+  let deferredForTableSelect = 0;
   const results = await hasuraBulk(ops);
   for (let i = 0; i < ops.length; i++) {
     const r = results[i] as { error?: string } | undefined;
@@ -335,6 +373,11 @@ async function createFunctionPermissions(): Promise<void> {
         msg.includes('already exists')
       ) {
         // expected on re-run
+      } else if (
+        opts?.allowMissingTableSelect &&
+        /has select permission configured/i.test(msg)
+      ) {
+        deferredForTableSelect++;
       } else {
         unexpectedErrors++;
         console.warn(
@@ -346,6 +389,11 @@ async function createFunctionPermissions(): Promise<void> {
     }
   }
 
+  if (deferredForTableSelect > 0) {
+    console.log(
+      `   ⏭ ${deferredForTableSelect} function permission(s) wait for return-table select\n`
+    );
+  }
   console.log(`   ✓ Function permissions created: ${created}\n`);
 }
 

@@ -576,21 +576,26 @@ jobs:
 
             # Keyset indexes first, outside a transaction (CREATE INDEX
             # CONCURRENTLY cannot run inside the views --single-transaction).
+            # Migrations drop INVALID leftovers from interrupted builds before
+            # CREATE — IF NOT EXISTS alone would skip a broken index forever.
             echo "Applying feed keyset indexes (CONCURRENTLY)..."
             VIEW_DIR=/opt/onsocial/indexer-views
             chmod 644 "$VIEW_DIR"/*.sql
             dc exec -T postgres mkdir -p /tmp/indexer-views </dev/null
-            for index_sql in \
-              20261124_feed_keyset_indexes.sql \
-              20261125_saves_feed_keyset_index.sql
-            do
-              echo "  $index_sql"
-              dc cp "$VIEW_DIR/$index_sql" "postgres:/tmp/indexer-views/$index_sql" </dev/null
-              dc exec -T postgres \
-                psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 \
-                -f "/tmp/indexer-views/$index_sql" </dev/null
-            done
-            echo "✅ feed keyset indexes ready"
+            apply_keyset_indexes() {
+              for index_sql in \
+                20261124_feed_keyset_indexes.sql \
+                20261125_saves_feed_keyset_index.sql
+              do
+                echo "  $index_sql"
+                dc cp "$VIEW_DIR/$index_sql" "postgres:/tmp/indexer-views/$index_sql" </dev/null
+                dc exec -T postgres \
+                  psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 \
+                  -f "/tmp/indexer-views/$index_sql" </dev/null
+              done
+            }
+            apply_keyset_indexes
+            echo "✅ feed keyset indexes ready (pre-views)"
 
             # One transaction. Core views publish an empty heat stub, and
             # leaderboard_schema_views.sql drops profile_discover before its
@@ -701,6 +706,12 @@ jobs:
               --single-transaction \
               -f /tmp/indexer-views/apply_indexer_views.sql </dev/null
             echo "✅ indexer views applied"
+
+            # Heat table may not exist on a brand-new bootstrap until views apply.
+            # Re-run CONCURRENTLY indexes so heat_path is created once the table is live.
+            echo "Re-applying feed keyset indexes after views..."
+            apply_keyset_indexes
+            echo "✅ feed keyset indexes ready (post-views)"
 
             echo "Syncing Hasura permissions..."
             mkdir -p /opt/onsocial/backups
