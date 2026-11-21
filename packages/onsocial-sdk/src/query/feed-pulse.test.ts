@@ -154,7 +154,6 @@ describe('splitPulseFunctionRows', () => {
     expect(page.nextBeforeBlockHeight).toBeDefined();
     expect(page.nextBeforeEventKey).toBeDefined();
   });
-
 });
 
 describe('attachPulseSelfReplyRoots', () => {

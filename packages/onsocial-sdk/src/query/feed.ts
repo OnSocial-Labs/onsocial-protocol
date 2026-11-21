@@ -879,9 +879,7 @@ export class FeedQuery {
           } else if (opts.section === 'reposts') {
             base.push('refType: {_eq: "repost"}');
           }
-          return base.length > 0
-            ? `where: {${base.join(', ')}}, `
-            : '';
+          return base.length > 0 ? `where: {${base.join(', ')}}, ` : '';
         })()}limit: $limit, offset: $offset, orderBy: [{blockHeight: DESC}]) {
           ${POST_ROW_FIELDS}
         }

@@ -68,17 +68,6 @@ function rankHeat(row: PostRow): number {
   return row.amplifyHeat ?? 0;
 }
 
-/** Hottest amplify on the card, then the newest row. A cold reply must not hide a boost on the root. */
-function rankOf(rows: readonly PostRow[]): { heat: number; height: number } {
-  let heat = 0;
-  let height = 0;
-  for (const row of rows) {
-    heat = Math.max(heat, rankHeat(row));
-    height = Math.max(height, rankHeight(row));
-  }
-  return { heat, height };
-}
-
 function rankHeight(row: PostRow): number {
   return row.blockHeight ?? 0;
 }
@@ -110,21 +99,6 @@ export function pulseCardEventCursor(
     key: postContentPath(first),
   };
 }
-
-function comparePulseRank(
-  a: { heat: number; height: number },
-  b: { heat: number; height: number },
-  sort: FeedSort
-): number {
-  if (sort === 'hot' && a.heat !== b.heat) return b.heat - a.heat;
-  return b.height - a.height;
-}
-
-type PulseEvent = {
-  heat: number;
-  height: number;
-  rows: PostRow[];
-};
 
 /** Native Circle row that `feed_pulse` emits as a card root. */
 export function isPulseNativeCardRow(
