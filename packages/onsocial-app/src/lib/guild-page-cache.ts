@@ -24,6 +24,8 @@ export interface GuildFeedCacheEntry {
   hasMore: boolean;
   /** Descending keyset edge — prefer over offset for load-more. */
   nextBeforeBlockHeight?: number;
+  /** Content-path tie-break — pair with `nextBeforeBlockHeight`. */
+  nextBeforeEventKey?: string;
 }
 
 /** Soft cap so a long guild-hopping session stays small. */

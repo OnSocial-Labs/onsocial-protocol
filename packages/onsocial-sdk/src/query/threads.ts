@@ -5,7 +5,13 @@
 
 import type { QueryModule } from './index.js';
 import type { Paginated, PostRow } from './types.js';
-import { accountFromContentPath, GraphQLValidationError } from './_shared.js';
+import {
+  accountFromContentPath,
+  GraphQLValidationError,
+  postContentPath,
+} from './_shared.js';
+
+export { postContentPath } from './_shared.js';
 
 const DEFAULT_THREAD_LIMIT = 100;
 const DEFAULT_THREAD_TREE_DEPTH = 4;
@@ -173,14 +179,6 @@ function resolveTreeOptions(
     maxNodes: positiveInt(opts.maxNodes, DEFAULT_THREAD_TREE_MAX_NODES),
     includeQuotes: opts.includeQuotes ?? true,
   };
-}
-
-/** Full indexed content path for a post row (group-aware). */
-export function postContentPath(row: PostRow): string {
-  if (row.groupId) {
-    return `${row.accountId}/groups/${row.groupId}/content/post/${row.postId}`;
-  }
-  return `${row.accountId}/post/${row.postId}`;
 }
 
 export interface ThreadCounts {

@@ -1229,6 +1229,7 @@ DROP FUNCTION IF EXISTS feed_hot(integer, integer, text, text, text, text[], boo
 DROP FUNCTION IF EXISTS feed_hot(integer, integer, text, text, text, text[], boolean, double precision, bigint, text);
 DROP FUNCTION IF EXISTS feed_recent(integer, integer, text, text, text, text[], boolean, text, text);
 DROP FUNCTION IF EXISTS feed_recent(integer, integer, text, text, text, text[], boolean, text, text, bigint);
+DROP FUNCTION IF EXISTS feed_recent(integer, integer, text, text, text, text[], boolean, text, text, bigint, text);
 
 CREATE OR REPLACE VIEW posts_feed AS
 SELECT
@@ -1463,10 +1464,12 @@ AS $$
 $$;
 
 -- Chronological page for profile, Circle, and filtered account lists.
--- Same cut as feed_hot, ordered by block_height. An author filter on the
--- posts_feed view itself sorts after the count laterals.
--- `before_block_height` is an exclusive keyset upper bound (DESC pages).
--- When set, `row_offset` is ignored so live inserts do not skip rows.
+-- Same cut as feed_hot, ordered by block_height then content_path. An author
+-- filter on the posts_feed view itself sorts after the count laterals.
+-- Keyset: previous page's last (block_height, content_path). When
+-- `before_block_height` is set, `row_offset` is ignored so live inserts do
+-- not skip rows. Pass `before_post_key` with the height — height-only skips
+-- same-block siblings.
 CREATE OR REPLACE FUNCTION feed_recent(
   row_limit integer,
   row_offset integer,
@@ -1477,7 +1480,8 @@ CREATE OR REPLACE FUNCTION feed_recent(
   native_only boolean DEFAULT false,
   channel text DEFAULT NULL,
   audience_like text DEFAULT NULL,
-  before_block_height bigint DEFAULT NULL
+  before_block_height bigint DEFAULT NULL,
+  before_post_key text DEFAULT NULL
 )
 RETURNS SETOF posts_feed
 LANGUAGE sql
@@ -1536,9 +1540,15 @@ AS $$
       )
       AND (
         feed_recent.before_block_height IS NULL
-        OR p.block_height < feed_recent.before_block_height
+        OR ROW(
+          p.block_height,
+          p.content_path
+        ) < ROW(
+          feed_recent.before_block_height,
+          COALESCE(feed_recent.before_post_key, '')
+        )
       )
-    ORDER BY p.block_height DESC
+    ORDER BY p.block_height DESC, p.content_path DESC
     LIMIT GREATEST(COALESCE(feed_recent.row_limit, 0), 0)
     OFFSET CASE
       WHEN feed_recent.before_block_height IS NOT NULL THEN 0
@@ -1554,7 +1564,7 @@ AS $$
       AND f.post_id = pg.post_id
     OFFSET 0
   ) f ON true
-  ORDER BY f.block_height DESC;
+  ORDER BY f.block_height DESC, f.content_path DESC;
 $$;
 
 -- Pulse — one page of Home cards: Circle roots (plus newest self-reply)

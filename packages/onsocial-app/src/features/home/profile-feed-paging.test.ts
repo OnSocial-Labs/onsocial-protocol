@@ -29,9 +29,11 @@ describe('profile feed section paging', () => {
     );
   });
 
-  it('pages text sections with keyset when the edge is known', () => {
+  it('pages text sections with composite keyset when the edge is known', () => {
     const source = readFileSync(join(homeSrc, 'profile-feed-client.tsx'), 'utf8');
     expect(source).toContain('beforeBlockHeight');
+    expect(source).toContain('beforePostKey');
+    expect(source).toContain('nextBeforeEventKey');
     expect(source).toContain('nextBeforeBlockHeight');
     expect(source).toContain('planHomeFeedMemoryTrim');
     expect(source).toContain('feedPageHasMore');

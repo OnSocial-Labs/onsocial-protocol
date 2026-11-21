@@ -1,4 +1,4 @@
-import type { PostRow } from '@onsocial/sdk';
+import { postContentPath, type PostRow } from '@onsocial/sdk';
 import type { HomeFeedLens } from '@/features/home/home-feed-lens';
 import type { HomeFeedSort } from '@/features/home/home-feed-sort';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
@@ -316,6 +316,8 @@ export function clampHomeFeedSessionPagination(input: {
   nextBeforeEventKey?: string;
   /** Oldest retained row — keyset edge after a head-keeping trim. */
   edgeBlockHeight?: number;
+  /** Content-path tie-break for the retained edge. */
+  edgeEventKey?: string;
   offsetShiftApplied: number;
   /** Live list was longer than `postCount` (write path). */
   truncated?: boolean;
@@ -364,7 +366,7 @@ export function clampHomeFeedSessionPagination(input: {
         : undefined;
     nextBeforeBlockHeight = edge;
     nextBeforeHeat = undefined;
-    nextBeforeEventKey = undefined;
+    nextBeforeEventKey = edge !== undefined ? input.edgeEventKey : undefined;
     if (nextOffset === undefined && edge !== undefined) {
       nextOffset = input.postCount;
     } else if (nextOffset !== undefined) {
@@ -391,7 +393,8 @@ export function clampHomeFeedCursorAfterTrim(input: {
   nextBeforeEventKey?: string;
   offsetShiftApplied: number;
 }): HomeFeedPaginationCursor {
-  const edge = input.posts[input.posts.length - 1]?.blockHeight;
+  const edgeRow = input.posts[input.posts.length - 1];
+  const edge = edgeRow?.blockHeight;
   return clampHomeFeedSessionPagination({
     postCount: input.posts.length,
     nextOffset: input.nextOffset,
@@ -399,6 +402,7 @@ export function clampHomeFeedCursorAfterTrim(input: {
     nextBeforeHeat: input.nextBeforeHeat,
     nextBeforeEventKey: input.nextBeforeEventKey,
     edgeBlockHeight: typeof edge === 'number' ? edge : undefined,
+    edgeEventKey: edgeRow ? postContentPath(edgeRow) : undefined,
     offsetShiftApplied: input.offsetShiftApplied,
     truncated: true,
   });

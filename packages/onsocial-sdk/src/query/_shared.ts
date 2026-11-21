@@ -99,7 +99,63 @@ export type FeedSection = 'posts' | 'replies' | 'reposts';
 export function feedOrderByClause(sort: FeedSort = 'recent'): string {
   return sort === 'hot'
     ? '[{amplifyHeat: DESC}, {blockHeight: DESC}]'
-    : '[{blockHeight: DESC}]';
+    : '[{blockHeight: DESC}, {contentPath: DESC}]';
+}
+
+/**
+ * GraphQL `_and` fragment for a descending (height, contentPath) keyset.
+ * Callers still declare `$beforeBlockHeight` / `$beforePostKey`.
+ */
+export function chronoContentPathKeysetAnd(): string {
+  return `{_or: [
+    {blockHeight: {_lt: $beforeBlockHeight}},
+    {_and: [
+      {blockHeight: {_eq: $beforeBlockHeight}},
+      {contentPath: {_lt: $beforePostKey}}
+    ]}
+  ]}`;
+}
+
+/**
+ * GraphQL `_and` fragment for guild `postsCurrent` (no contentPath column) —
+ * (height, accountId, groupId, postId) matches group content-path order.
+ */
+export function chronoGroupRowKeysetAnd(): string {
+  return `{_or: [
+    {blockHeight: {_lt: $beforeBlockHeight}},
+    {_and: [
+      {blockHeight: {_eq: $beforeBlockHeight}},
+      {accountId: {_lt: $beforeAccountId}}
+    ]},
+    {_and: [
+      {blockHeight: {_eq: $beforeBlockHeight}},
+      {accountId: {_eq: $beforeAccountId}},
+      {groupId: {_lt: $beforeGroupId}}
+    ]},
+    {_and: [
+      {blockHeight: {_eq: $beforeBlockHeight}},
+      {accountId: {_eq: $beforeAccountId}},
+      {groupId: {_eq: $beforeGroupId}},
+      {postId: {_lt: $beforePostId}}
+    ]}
+  ]}`;
+}
+
+/** Parse `{account}/groups/{group}/content/post/{postId}` for guild keysets. */
+export function parseGroupPostContentPath(path: string): {
+  accountId: string;
+  groupId: string;
+  postId: string;
+} | null {
+  const match = path
+    .trim()
+    .match(/^([^/]+)\/groups\/([^/]+)\/content\/post\/([^/]+)$/);
+  if (!match) return null;
+  return {
+    accountId: match[1]!,
+    groupId: match[2]!,
+    postId: match[3]!,
+  };
 }
 
 export function accountFromContentPath(path: string): string {
@@ -129,9 +185,60 @@ export function normalizeBeforeBlockHeight(
   return value;
 }
 
+/** Chrono / Hot tie-break — group-aware content path (matches SQL `content_path`). */
+export function postContentPath(row: PostRow): string {
+  if (row.groupId) {
+    return `${row.accountId}/groups/${row.groupId}/content/post/${row.postId}`;
+  }
+  return `${row.accountId}/post/${row.postId}`;
+}
+
+/** Trimmed content-path cursor leg — empty / whitespace → undefined. */
+export function normalizeBeforePostKey(
+  value: string | undefined
+): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+/** Hot keyset heat leg — drop non-finite. */
+export function normalizeBeforeHeat(
+  value: number | undefined
+): number | undefined {
+  if (value == null || !Number.isFinite(value)) return undefined;
+  return value;
+}
+
 /**
- * Descending chrono page cursor. Prefer `nextBeforeBlockHeight` over offset
- * when both are present (live inserts / working-set trim).
+ * Chrono keyset needs height + content path together. Incomplete pairs are
+ * rejected so callers cannot silently fall back to height-only skip.
+ */
+export function requireChronoKeyset(opts: {
+  beforeBlockHeight?: number;
+  beforePostKey?: string;
+}):
+  | { ok: true; before: number; beforePostKey: string }
+  | { ok: true; before?: undefined; beforePostKey?: undefined }
+  | { ok: false; message: string } {
+  const before = normalizeBeforeBlockHeight(opts.beforeBlockHeight);
+  const beforePostKey = normalizeBeforePostKey(opts.beforePostKey);
+  if (before === undefined && beforePostKey === undefined) {
+    return { ok: true };
+  }
+  if (before === undefined || beforePostKey === undefined) {
+    return {
+      ok: false,
+      message:
+        'chrono keyset requires beforeBlockHeight and beforePostKey together',
+    };
+  }
+  return { ok: true, before, beforePostKey };
+}
+
+/**
+ * Descending chrono page cursor — height + content path (matches `feed_recent`
+ * ROW). Prefer keyset over offset when both are present (live inserts /
+ * working-set trim).
  */
 export function chronoDescPage(
   items: PostRow[],
@@ -142,27 +249,39 @@ export function chronoDescPage(
     /** Stub/raw count when hydrate can drop rows (topic indexes). */
     edgeCount?: number;
     edgeHeight?: number;
+    /** Override tip row when edgeHeight is supplied without the row. */
+    edgeRow?: PostRow;
   }
 ): {
   items: PostRow[];
   nextOffset?: number;
   nextBeforeBlockHeight?: number;
+  nextBeforeEventKey?: string;
 } {
   const edgeCount = opts.edgeCount ?? items.length;
   if (edgeCount < limit) return { items };
-  const edge = opts.edgeHeight ?? items[items.length - 1]?.blockHeight;
+  const edgeRow = opts.edgeRow ?? items[items.length - 1];
+  const edgeHeight =
+    opts.edgeHeight ??
+    (typeof edgeRow?.blockHeight === 'number' ? edgeRow.blockHeight : undefined);
   const nextBefore =
-    typeof edge === 'number' && Number.isFinite(edge) ? edge : undefined;
+    typeof edgeHeight === 'number' && Number.isFinite(edgeHeight)
+      ? edgeHeight
+      : undefined;
+  const nextKey = edgeRow ? postContentPath(edgeRow) : undefined;
+  const keyset =
+    nextBefore !== undefined && nextKey
+      ? {
+          nextBeforeBlockHeight: nextBefore,
+          nextBeforeEventKey: nextKey,
+        }
+      : undefined;
   if (opts.usedKeyset) {
-    return nextBefore !== undefined
-      ? { items, nextBeforeBlockHeight: nextBefore }
-      : { items };
+    return keyset ? { items, ...keyset } : { items };
   }
   return {
     items,
     nextOffset: opts.offset + limit,
-    ...(nextBefore !== undefined
-      ? { nextBeforeBlockHeight: nextBefore }
-      : {}),
+    ...keyset,
   };
 }

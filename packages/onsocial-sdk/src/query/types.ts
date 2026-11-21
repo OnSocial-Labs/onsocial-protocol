@@ -35,8 +35,8 @@ export interface Paginated<T> {
    */
   nextBeforeHeat?: number;
   /**
-   * Hot keyset tie-break — Pulse `event_key` or Global/Circle content path
-   * (`feed_hot.before_post_key`).
+   * Keyset tie-break — Pulse `event_key`, Hot/`feed_recent` content path
+   * (`before_post_key`), or guild group content path.
    */
   nextBeforeEventKey?: string;
 }
@@ -80,10 +80,12 @@ export interface GroupFeedFilter {
   limit?: number;
   offset?: number;
   /**
-   * Exclusive upper bound for descending pages (`blockHeight < before`).
+   * Chrono keyset height — require `beforePostKey` (group content path).
    * Prefer over `offset` under live inserts / working-set trim.
    */
   beforeBlockHeight?: number;
+  /** Group content-path tie-break for chrono keyset. */
+  beforePostKey?: string;
 }
 
 export interface FeedFilter {
