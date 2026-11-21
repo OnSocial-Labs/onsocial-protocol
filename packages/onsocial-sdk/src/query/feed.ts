@@ -722,7 +722,9 @@ export class FeedQuery {
     }
     const before = hot ? hotKey?.before : chronoKey?.before;
     const beforeHeat = hot ? hotKey?.beforeHeat : undefined;
-    const beforePostKey = hot ? hotKey?.beforePostKey : chronoKey?.beforePostKey;
+    const beforePostKey = hot
+      ? hotKey?.beforePostKey
+      : chronoKey?.beforePostKey;
     const wantKeyset = before !== undefined;
     const usedKeyset = wantKeyset;
     const offset = usedKeyset ? 0 : (opts.offset ?? 0);
@@ -880,9 +882,7 @@ export class FeedQuery {
           if (before !== undefined && !hot) {
             base.push('blockHeight: {_lt: $beforeBlockHeight}');
           }
-          return base.length > 0
-            ? `where: {${base.join(', ')}}, `
-            : '';
+          return base.length > 0 ? `where: {${base.join(', ')}}, ` : '';
         })()}limit: $limit, offset: $offset, orderBy: [{blockHeight: DESC}]) {
           ${POST_ROW_FIELDS}
         }
@@ -974,7 +974,9 @@ export class FeedQuery {
     }
     const before = hot ? hotKey?.before : chronoKey?.before;
     const beforeHeat = hot ? hotKey?.beforeHeat : undefined;
-    const beforePostKey = hot ? hotKey?.beforePostKey : chronoKey?.beforePostKey;
+    const beforePostKey = hot
+      ? hotKey?.beforePostKey
+      : chronoKey?.beforePostKey;
     const wantKeyset = before !== undefined;
     const usedKeyset = wantKeyset;
     const offset = usedKeyset ? 0 : (opts.offset ?? 0);

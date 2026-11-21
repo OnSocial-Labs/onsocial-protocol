@@ -359,7 +359,9 @@ export function chronoDescPage(
   const edgeRow = opts.edgeRow ?? items[items.length - 1];
   const edgeHeight =
     opts.edgeHeight ??
-    (typeof edgeRow?.blockHeight === 'number' ? edgeRow.blockHeight : undefined);
+    (typeof edgeRow?.blockHeight === 'number'
+      ? edgeRow.blockHeight
+      : undefined);
   const nextBefore =
     typeof edgeHeight === 'number' && Number.isFinite(edgeHeight)
       ? edgeHeight
