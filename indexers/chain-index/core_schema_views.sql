@@ -2195,8 +2195,9 @@ SELECT
   p.block_height,
   p.block_timestamp,
   p.group_id,
-  post_content_path(p.account_id, p.post_id, p.group_id) AS content_path,
-  COALESCE(h.heat, 0)::double precision AS heat
+  COALESCE(h.heat, 0)::double precision AS heat,
+  -- Append-only: CREATE OR REPLACE cannot rename/reorder existing view columns.
+  post_content_path(p.account_id, p.post_id, p.group_id) AS content_path
 FROM posts_current p
 CROSS JOIN LATERAL jsonb_array_elements_text(
   (
@@ -2245,8 +2246,9 @@ SELECT
   p.block_height,
   p.block_timestamp,
   p.group_id,
-  post_content_path(p.account_id, p.post_id, p.group_id) AS content_path,
-  COALESCE(h.heat, 0)::double precision AS heat
+  COALESCE(h.heat, 0)::double precision AS heat,
+  -- Append-only: CREATE OR REPLACE cannot rename/reorder existing view columns.
+  post_content_path(p.account_id, p.post_id, p.group_id) AS content_path
 FROM posts_current p
 CROSS JOIN LATERAL jsonb_array_elements_text(
   (
@@ -2295,8 +2297,9 @@ SELECT
   p.block_height,
   p.block_timestamp,
   p.group_id,
-  post_content_path(p.account_id, p.post_id, p.group_id) AS content_path,
-  COALESCE(h.heat, 0)::double precision AS heat
+  COALESCE(h.heat, 0)::double precision AS heat,
+  -- Append-only: CREATE OR REPLACE cannot rename/reorder existing view columns.
+  post_content_path(p.account_id, p.post_id, p.group_id) AS content_path
 FROM posts_current p
 CROSS JOIN LATERAL jsonb_array_elements_text(
   (
