@@ -826,14 +826,9 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   const mediaFaceCovered =
     stack.some((entry) => entry.id !== closingId) && isOsMediaFaceOpen();
 
+  // Prefetch thread chunks on mount so a cold first open is not download-bound.
   useEffect(() => {
-    const warm = () => warmPostPanels();
-    if (typeof window.requestIdleCallback === 'function') {
-      const id = window.requestIdleCallback(warm, { timeout: 1200 });
-      return () => window.cancelIdleCallback(id);
-    }
-    const id = window.setTimeout(warm, 400);
-    return () => window.clearTimeout(id);
+    warmPostPanels();
   }, []);
 
   useLayoutEffect(() => {

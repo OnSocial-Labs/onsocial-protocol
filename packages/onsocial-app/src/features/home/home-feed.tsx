@@ -699,20 +699,14 @@ export function HomePagePanel({
   }, []);
 
   /**
-   * Warm personal + guild + quotes chunks once the feed has rows so a
-   * seeded open paints the row already in hand (not a full-page skeleton).
+   * Warm personal + guild + quotes chunks as soon as the feed has rows so a
+   * cold first tap paints the seeded OP instead of waiting on the download.
    */
   const threadWarmRef = useRef(false);
   useEffect(() => {
     if (threadWarmRef.current || posts.length === 0) return;
     threadWarmRef.current = true;
-    const warm = () => warmPostPanels();
-    if (typeof window.requestIdleCallback === 'function') {
-      const idleId = window.requestIdleCallback(warm, { timeout: 1200 });
-      return () => window.cancelIdleCallback(idleId);
-    }
-    const timerId = window.setTimeout(warm, 400);
-    return () => window.clearTimeout(timerId);
+    warmPostPanels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [posts.length > 0]);
 

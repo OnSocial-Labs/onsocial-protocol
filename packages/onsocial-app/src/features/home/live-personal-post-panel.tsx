@@ -96,6 +96,7 @@ import {
 } from '@/lib/thread-open';
 import {
   feedRowSeedMatches,
+  isFeedRowSeed,
   paintedRootQueryKind,
   rowSeedRevision,
   threadRootRevisionLabel,
@@ -494,6 +495,11 @@ export function LivePersonalPostPanel({
       Boolean(
         seeded?.engagement?.[rootEngagementKey] || engagement[rootEngagementKey]
       ));
+  /*
+   * Feed-row open already showed the OP — land and lift the cover with that
+   * seed. Permalink / SSR still wait for the first reply page.
+   */
+  const rootFromFeed = isFeedRowSeed(initial);
   const { landSettled, releaseSeatGuard } = useThreadLandAppear({
     openedPostRef,
     postId: conversation.root?.postId,
@@ -505,8 +511,7 @@ export function LivePersonalPostPanel({
     pinKey: conversation.root?.postId ?? '',
     parked,
     landSeat,
-    // First reply page is already in flight — land with it, not before.
-    tailReady: repliesResolved,
+    tailReady: rootFromFeed || repliesResolved,
     onThreadPainted,
   });
   // After under-header land — release seat guard before focus scroll.
@@ -523,6 +528,7 @@ export function LivePersonalPostPanel({
     loadState,
     hasRoot: Boolean(conversation.root),
     repliesResolved,
+    rootFromFeed,
   });
   const sortedReplyRows = useMemo(
     () => sortThreadReplyRows(replyRows, replySort, engagement),

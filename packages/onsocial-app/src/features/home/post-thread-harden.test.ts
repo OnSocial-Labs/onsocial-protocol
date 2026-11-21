@@ -76,8 +76,10 @@ describe('post thread harden contracts', () => {
       expect(source).toContain('landSettled');
       expect(source).toContain("loadState === 'ready' && landSettled");
       expect(source).toContain('releaseLandSeatGuard: releaseSeatGuard');
-      // First reply page already fetched — paint/land with it, not before.
-      expect(source).toContain('tailReady: repliesResolved');
+      // Permalink waits on the first reply page; feed-row seeds land with OP.
+      expect(source).toContain('tailReady: rootFromFeed || repliesResolved');
+      expect(source).toContain('isFeedRowSeed(initial)');
+      expect(source).toContain('rootFromFeed,');
     }
   });
 
