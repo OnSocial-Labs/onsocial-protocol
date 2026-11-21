@@ -1813,9 +1813,9 @@ function PostCardImpl({
             if (!open) {
               setEnlargeOverride(null);
               setPhotoThreadOpen(false);
-              photoScreen.onClosed();
             }
           }}
+          onClosed={photoScreen.onClosed}
           title={enlargeTitle}
           onActiveIndexChange={handleFacePhotoIndex}
           peekIdentity={mediaPeekIdentity}

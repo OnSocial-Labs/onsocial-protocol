@@ -245,9 +245,9 @@ export function QuotedPostInset({
             setQuotePhotoOpen(open);
             if (!open) {
               setQuoteThreadOpen(false);
-              quotePhotoSheet.onClosed();
             }
           }}
+          onClosed={quotePhotoSheet.onClosed}
           title={
             mediaItems.some((item) => isRenderablePostVideoMime(item.mime))
               ? 'Media'
