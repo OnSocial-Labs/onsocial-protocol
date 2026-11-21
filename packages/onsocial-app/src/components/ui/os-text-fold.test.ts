@@ -47,51 +47,32 @@ describe('OsTextFold measure scheduling', () => {
       .spyOn(window, 'getComputedStyle')
       .mockImplementation(() => style);
 
-    const { rerender } = render(
+    const fold = (
+      contentKey: string,
+      body: string,
+      onOverflow: () => void
+    ) =>
       createElement(
         OsTextFold,
         {
           open: false,
           closedLines: 4,
           capped: true,
-          contentKey: 'same-body',
-          onOverflow: () => {},
-        },
-        createElement('p', null, 'hello world')
-      )
-    );
+          contentKey,
+          onOverflow,
+          children: createElement('p', null, body),
+        }
+      );
+
+    const { rerender } = render(fold('same-body', 'hello world', () => {}));
     const afterMount = spy.mock.calls.length;
     expect(afterMount).toBeGreaterThan(0);
 
-    rerender(
-      createElement(
-        OsTextFold,
-        {
-          open: false,
-          closedLines: 4,
-          capped: true,
-          contentKey: 'same-body',
-          // New callback identity — must not force layout.
-          onOverflow: () => {},
-        },
-        createElement('p', null, 'hello world')
-      )
-    );
+    // New callback identity — must not force layout.
+    rerender(fold('same-body', 'hello world', () => {}));
     expect(spy.mock.calls.length).toBe(afterMount);
 
-    rerender(
-      createElement(
-        OsTextFold,
-        {
-          open: false,
-          closedLines: 4,
-          capped: true,
-          contentKey: 'new-body',
-          onOverflow: () => {},
-        },
-        createElement('p', null, 'changed copy')
-      )
-    );
+    rerender(fold('new-body', 'changed copy', () => {}));
     expect(spy.mock.calls.length).toBeGreaterThan(afterMount);
   });
 });
