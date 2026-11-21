@@ -297,13 +297,30 @@ export function pruneEngagementMap(
  * Last-good engagement that survives feed window prune. Seed + this map paint
  * counts and viewer colour on scroll-back in the same frame — never wait for
  * scroll settle or a network round-trip for a row we already knew.
+ * Skip rows that still owe a count soft-fill — a failed likes read must not
+ * park a false 0 that comes back on scroll-up.
  */
 export function rememberEngagementLastGood(
   store: Map<string, PostEngagement>,
   key: string,
   row: PostEngagement
 ): void {
+  if (engagementNeedsCountSoftFill(row)) return;
   store.set(key, row);
+}
+
+/**
+ * Soft-fill retry budget resets only when every owed count lane succeeded
+ * (and the viewer lane when signed in). A partial success that still owes
+ * threads or likes must not clear the counter — otherwise signed-out clients
+ * hammer a down indexer every ~1.2s forever.
+ */
+export function shouldResetEngagementFetchRetry(input: {
+  threadsOk: boolean;
+  reactionsOk: boolean;
+  viewerReady: boolean;
+}): boolean {
+  return input.threadsOk && input.reactionsOk && input.viewerReady;
 }
 
 /**
@@ -1113,10 +1130,16 @@ export function usePostEngagement(
         const savesOk =
           !accountId || savesResult.status === 'fulfilled';
         const viewerReady = accountId ? reactionsOk && savesOk : true;
-        if (accountId && !viewerReady) {
-          scheduleFetchRetry();
-        } else {
+        if (
+          shouldResetEngagementFetchRetry({
+            threadsOk,
+            reactionsOk,
+            viewerReady,
+          })
+        ) {
           fetchRetryCountRef.current = 0;
+        } else {
+          scheduleFetchRetry();
         }
 
         const threadCounts = threadsOk ? threadResult.value : {};
@@ -1139,10 +1162,6 @@ export function usePostEngagement(
         const overlayPainted: typeof pending = [];
         const repostsOk =
           !accountId || viewerRepostResult.status === 'fulfilled';
-        // Partial success still retries until every count lane is ready.
-        if (!reactionsOk || !threadsOk) {
-          scheduleFetchRetry();
-        }
         for (const target of pending) {
           if (!liveKeys.has(target.key)) continue;
           const counts = threadCounts[target.path];

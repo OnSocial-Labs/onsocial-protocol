@@ -16,6 +16,7 @@ import {
   partitionOverlayAmplifyPaths,
   shouldApplyAmplifyCountFill,
   shouldApplyViewerToggleConfirm,
+  shouldResetEngagementFetchRetry,
   type PostEngagement,
 } from '@/hooks/use-post-engagement';
 
@@ -164,6 +165,74 @@ describe('engagementFromPartialFetch', () => {
     expect(painted.reactionCountReady).toBe(true);
     expect(painted.threadCountsReady).toBe(false);
     expect(engagementNeedsCountSoftFill(painted)).toBe(true);
+  });
+
+  it('does not lastGood a missing row whose likes read failed', () => {
+    const painted = engagementFromPartialFetch({
+      previous: null,
+      threadsOk: true,
+      reactionsOk: false,
+      amplifyOk: false,
+      viewerReady: false,
+      repostsOk: false,
+      counts: { replyCount: 4, quoteCount: 0, repostCount: 0 },
+    });
+    expect(painted.threadCountsReady).toBe(true);
+    expect(painted.reactionCountReady).toBe(false);
+    expect(painted.reactionCount).toBe(0);
+    expect(engagementNeedsCountSoftFill(painted)).toBe(true);
+
+    const lastGood = new Map<string, PostEngagement>();
+    rememberEngagementLastGood(lastGood, 'a:1', painted);
+    expect(lastGood.has('a:1')).toBe(false);
+
+    const afterLikes = engagementFromPartialFetch({
+      previous: painted,
+      threadsOk: false,
+      reactionsOk: true,
+      amplifyOk: false,
+      viewerReady: false,
+      repostsOk: false,
+      reactionTotal: 9,
+    });
+    rememberEngagementLastGood(lastGood, 'a:1', afterLikes);
+    expect(lastGood.get('a:1')?.reactionCount).toBe(9);
+    expect(lastGood.get('a:1')?.replyCount).toBe(4);
+  });
+});
+
+describe('shouldResetEngagementFetchRetry', () => {
+  it('resets only when every owed count lane succeeded', () => {
+    expect(
+      shouldResetEngagementFetchRetry({
+        threadsOk: true,
+        reactionsOk: true,
+        viewerReady: true,
+      })
+    ).toBe(true);
+    // Signed-out: likes ok, threads down — must not clear the budget.
+    expect(
+      shouldResetEngagementFetchRetry({
+        threadsOk: false,
+        reactionsOk: true,
+        viewerReady: true,
+      })
+    ).toBe(false);
+    expect(
+      shouldResetEngagementFetchRetry({
+        threadsOk: true,
+        reactionsOk: false,
+        viewerReady: true,
+      })
+    ).toBe(false);
+    // Signed-in viewer lane still owed.
+    expect(
+      shouldResetEngagementFetchRetry({
+        threadsOk: true,
+        reactionsOk: true,
+        viewerReady: false,
+      })
+    ).toBe(false);
   });
 });
 

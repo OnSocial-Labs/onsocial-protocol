@@ -346,6 +346,8 @@ export const PostEngagementRow = memo(function PostEngagementRow({
     !viewerAccountId || engagement.viewerFlagsReady;
   const reactionLocked = Boolean(reactionPending) || !viewerColourReady;
   const saveLocked = Boolean(savePending) || !viewerColourReady;
+  const threadCountsReady = countsReady && engagement.threadCountsReady;
+  const reactionCountsReady = countsReady && engagement.reactionCountReady;
   const amplifyCountsReady = countsReady && engagement.amplifyCountReady;
   // Fire colour only with a known total — pending digit seat alone looks broken.
   const amplifyActive =
@@ -417,7 +419,7 @@ export const PostEngagementRow = memo(function PostEngagementRow({
         <EngagementStat
           icon={<MessageRoundIcon aria-hidden />}
           count={engagement.replyCount}
-          countsReady={countsReady}
+          countsReady={threadCountsReady}
           rollSignal={engagement.replyRoll}
           label="replies"
           tone="reply"
@@ -427,7 +429,7 @@ export const PostEngagementRow = memo(function PostEngagementRow({
         <EngagementStat
           icon={<RepeatIcon aria-hidden />}
           count={shareCount}
-          countsReady={countsReady}
+          countsReady={threadCountsReady}
           rollSignal={engagement.shareRoll}
           label="shares"
           tone="quote"
@@ -504,7 +506,7 @@ export const PostEngagementRow = memo(function PostEngagementRow({
           )}
           <button
             type="button"
-            className={`post-card-like-count${countSlotClass(engagement.reactionCount, countsReady)}`}
+            className={`post-card-like-count${countSlotClass(engagement.reactionCount, reactionCountsReady)}`}
             aria-label={likeLabel ? `View who liked — ${likeLabel}` : undefined}
             aria-hidden={likeLabel ? undefined : true}
             tabIndex={likeLabel ? undefined : -1}
