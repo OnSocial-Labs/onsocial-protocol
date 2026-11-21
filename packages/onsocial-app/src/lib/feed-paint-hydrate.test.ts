@@ -43,6 +43,8 @@ describe('engagementSeedFromFeedRows', () => {
       quoteCount: 0,
       repostCount: 2,
       reactionCount: 5,
+      threadCountsReady: true,
+      reactionCountReady: true,
     });
   });
 
@@ -154,6 +156,8 @@ describe('feed-paint-hydrate', () => {
       quoteCount: 1,
       repostCount: 0,
       reactionCount: 5,
+      threadCountsReady: true,
+      reactionCountReady: true,
       amplifyCount: 3,
       amplifyCountReady: true,
       viewerFlagsReady: true,

@@ -87,8 +87,20 @@ export function confirmedAmplifyEngagement(
 }
 
 /**
- * Soft-fill row from settled query parts. Keep counts that loaded; never
- * invent a settled 0 for a failed likes read (leave colour loading instead).
+ * Soft-fill still owes a recount until each public-count lane has loaded.
+ * Used by the missing filter so a failed likes (or threads) read cannot
+ * lock a false 0 and drop the row from retry.
+ */
+export function engagementNeedsCountSoftFill(
+  row: PostEngagement | null | undefined
+): boolean {
+  if (!row) return true;
+  return !row.threadCountsReady || !row.reactionCountReady;
+}
+
+/**
+ * Soft-fill row from settled query parts. Keep counts that loaded; mark each
+ * lane ready only when that query succeeded (or was already ready).
  */
 export function engagementFromPartialFetch(input: {
   previous: PostEngagement | null | undefined;
@@ -112,6 +124,10 @@ export function engagementFromPartialFetch(input: {
   viewerRepostGroupId?: string | null;
 }): PostEngagement {
   const previous = input.previous;
+  const threadCountsReady =
+    input.threadsOk || Boolean(previous?.threadCountsReady);
+  const reactionCountReady =
+    input.reactionsOk || Boolean(previous?.reactionCountReady);
   const row: PostEngagement = {
     ...EMPTY_POST_ENGAGEMENT,
     replyCount: input.threadsOk
@@ -126,6 +142,8 @@ export function engagementFromPartialFetch(input: {
     reactionCount: input.reactionsOk
       ? (input.reactionTotal ?? 0)
       : (previous?.reactionCount ?? 0),
+    threadCountsReady,
+    reactionCountReady,
     viewerReacted: input.viewerReady
       ? Boolean(input.viewerReacted)
       : (previous?.viewerReacted ?? false),
@@ -226,6 +244,7 @@ export function confirmedReactionEngagement(
     ...previous,
     viewerReacted: applied,
     reactionCount: reactionCountAfterToggle(previous.reactionCount, applied),
+    reactionCountReady: true,
     reactionRoll: previous.reactionRoll + 1,
   };
 }
@@ -246,6 +265,8 @@ function samePostEngagement(a: PostEngagement, b: PostEngagement): boolean {
     a.viewerRepostGroupId === b.viewerRepostGroupId &&
     a.viewerFlagsReady === b.viewerFlagsReady &&
     a.amplifyCountReady === b.amplifyCountReady &&
+    a.threadCountsReady === b.threadCountsReady &&
+    a.reactionCountReady === b.reactionCountReady &&
     a.reactionRoll === b.reactionRoll &&
     a.saveRoll === b.saveRoll &&
     a.amplifyRoll === b.amplifyRoll &&
@@ -306,6 +327,10 @@ export function resolveBandEngagement(input: {
     if (seeded && good) {
       const amplifyCountReady =
         good.amplifyCountReady || seeded.amplifyCountReady;
+      const threadCountsReady =
+        good.threadCountsReady || seeded.threadCountsReady;
+      const reactionCountReady =
+        good.reactionCountReady || seeded.reactionCountReady;
       next[key] = {
         ...seeded,
         viewerReacted: good.viewerReacted,
@@ -316,6 +341,8 @@ export function resolveBandEngagement(input: {
         viewerRepostGroupId: good.viewerRepostGroupId,
         viewerFlagsReady: good.viewerFlagsReady || seeded.viewerFlagsReady,
         amplifyCountReady,
+        threadCountsReady,
+        reactionCountReady,
         replyCount: Math.max(seeded.replyCount, good.replyCount),
         quoteCount: Math.max(seeded.quoteCount, good.quoteCount),
         repostCount: Math.max(seeded.repostCount, good.repostCount),
@@ -357,6 +384,8 @@ export type ViewerOverlayPatch = {
   viewerRepostGroupId: string | null;
   /** Public amplify total from the same pass as viewer amplify colour. */
   amplifyCount?: number;
+  /** Like total when the soft-fill lane had never succeeded. */
+  reactionCount?: number;
 };
 
 /**
@@ -420,6 +449,13 @@ export function applyViewerOverlayEngagement(
     amplifyCount = Math.max(amplifyCount, 1);
   }
 
+  let reactionCount = previous.reactionCount;
+  let reactionCountReady = previous.reactionCountReady;
+  if (overlay.reactionCount != null) {
+    reactionCount = Math.max(previous.reactionCount, overlay.reactionCount);
+    reactionCountReady = true;
+  }
+
   return {
     ...previous,
     viewerReacted,
@@ -427,6 +463,8 @@ export function applyViewerOverlayEngagement(
     viewerAmplified,
     amplifyCount,
     amplifyCountReady,
+    reactionCount,
+    reactionCountReady,
     viewerReposted,
     viewerRepostId,
     viewerRepostGroupId,
@@ -476,6 +514,34 @@ export function mergeEngagementSoftUpgrade(
       next = {
         ...next,
         amplifyCount: Math.max(next.amplifyCount, previous.amplifyCount),
+      };
+    }
+    if (previous?.threadCountsReady && !next.threadCountsReady) {
+      next = {
+        ...next,
+        replyCount: previous.replyCount,
+        quoteCount: previous.quoteCount,
+        repostCount: previous.repostCount,
+        threadCountsReady: true,
+      };
+    } else if (previous?.threadCountsReady && next.threadCountsReady) {
+      next = {
+        ...next,
+        replyCount: Math.max(next.replyCount, previous.replyCount),
+        quoteCount: Math.max(next.quoteCount, previous.quoteCount),
+        repostCount: Math.max(next.repostCount, previous.repostCount),
+      };
+    }
+    if (previous?.reactionCountReady && !next.reactionCountReady) {
+      next = {
+        ...next,
+        reactionCount: previous.reactionCount,
+        reactionCountReady: true,
+      };
+    } else if (previous?.reactionCountReady && next.reactionCountReady) {
+      next = {
+        ...next,
+        reactionCount: Math.max(next.reactionCount, previous.reactionCount),
       };
     }
     if (previous && pendingReactionKeys.has(key)) {
@@ -772,12 +838,12 @@ export function usePostEngagement(
     const lastGood = lastGoodRef.current;
     const seed = initialRef.current;
     const known = engagementRef.current;
-    // Row seed / last-good already own public counts — do not recount those.
+    // Soft-fill until each public-count lane is ready — a failed likes
+    // (or threads) read must not lock a false 0 and leave the filter.
     const missing = targets.filter((target) => {
-      if (target.key in known) return false;
-      if (seed?.[target.key]) return false;
-      if (lastGood.has(target.key)) return false;
-      return true;
+      const row =
+        known[target.key] ?? seed?.[target.key] ?? lastGood.get(target.key);
+      return engagementNeedsCountSoftFill(row);
     });
     const overlayFor =
       accountId == null
@@ -977,6 +1043,11 @@ export function usePostEngagement(
                   viewerRepostId: viewerRepost?.repostId ?? null,
                   viewerRepostGroupId: viewerRepost?.groupId ?? null,
                   amplifyCount,
+                  ...(previous.reactionCountReady
+                    ? {}
+                    : {
+                        reactionCount: reactions?.counts.total ?? 0,
+                      }),
                 },
                 {
                   pendingReaction: pendingReactions.has(target.key),
@@ -1068,9 +1139,8 @@ export function usePostEngagement(
         const overlayPainted: typeof pending = [];
         const repostsOk =
           !accountId || viewerRepostResult.status === 'fulfilled';
-        // Keep reply/quote/repost that loaded even when likes fail — colour
-        // stays loading (viewerFlagsReady false), not a settled fake 0.
-        if (!reactionsOk) {
+        // Partial success still retries until every count lane is ready.
+        if (!reactionsOk || !threadsOk) {
           scheduleFetchRetry();
         }
         for (const target of pending) {
@@ -1105,6 +1175,9 @@ export function usePostEngagement(
           });
           next[target.key] = row;
           rememberEngagementLastGood(lastGood, target.key, row);
+          if (engagementNeedsCountSoftFill(row)) {
+            scheduleFetchRetry();
+          }
           if (row.viewerFlagsReady) overlayPainted.push(target);
           else if (accountId) scheduleFetchRetry();
         }

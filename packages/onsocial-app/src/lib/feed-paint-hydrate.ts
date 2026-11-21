@@ -497,6 +497,8 @@ export async function loadPostEngagementMap(
     )
   );
 
+  const threadsOk = threadResult.status === 'fulfilled';
+  const reactionsOk = reactionResult.status === 'fulfilled';
   const next: PostEngagementMap = {};
   for (const target of targets) {
     const counts = threadCounts[target.path];
@@ -516,12 +518,17 @@ export async function loadPostEngagementMap(
         : viewerAmplified
           ? Math.max(amplifyCountRaw, 1)
           : amplifyCountRaw;
+    // Feed-row publics or a successful lane read — else soft-fill retries.
+    const threadCountsReady = Boolean(onRow) || threadsOk;
+    const reactionCountReady = Boolean(onRow) || reactionsOk;
     next[target.key] = {
       ...EMPTY_POST_ENGAGEMENT,
       replyCount: onRow?.replyCount ?? counts?.replyCount ?? 0,
       quoteCount: onRow?.quoteCount ?? counts?.quoteCount ?? 0,
       repostCount: onRow?.repostCount ?? counts?.repostCount ?? 0,
       reactionCount: onRow?.reactionCount ?? reactions?.counts.total ?? 0,
+      threadCountsReady,
+      reactionCountReady,
       amplifyCount,
       amplifyCountReady,
       viewerReacted: (reactions?.viewerReacted.length ?? 0) > 0,

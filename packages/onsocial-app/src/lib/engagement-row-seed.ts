@@ -23,6 +23,8 @@ export function engagementSeedFromFeedRows(
       quoteCount: counts.quoteCount,
       repostCount: counts.repostCount,
       reactionCount: counts.reactionCount,
+      threadCountsReady: true,
+      reactionCountReady: true,
       // Missing feed amplify stays unset (ready false) — do not invent 0.
       ...(counts.amplifyCount != null
         ? {

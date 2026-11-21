@@ -6,6 +6,7 @@ import {
   EMPTY_POST_ENGAGEMENT,
   engagementForAccountChange,
   engagementFromPartialFetch,
+  engagementNeedsCountSoftFill,
   mergeEngagementSoftUpgrade,
   pendingReactionEngagement,
   pruneEngagementMap,
@@ -23,6 +24,8 @@ function row(over: Partial<PostEngagement> = {}): PostEngagement {
     ...EMPTY_POST_ENGAGEMENT,
     viewerFlagsReady: true,
     amplifyCountReady: true,
+    threadCountsReady: true,
+    reactionCountReady: true,
     ...over,
   };
 }
@@ -108,13 +111,16 @@ describe('engagementFromPartialFetch', () => {
     expect(painted.repostCount).toBe(2);
     expect(painted.amplifyCount).toBe(4);
     expect(painted.amplifyCountReady).toBe(true);
+    expect(painted.threadCountsReady).toBe(true);
+    expect(painted.reactionCountReady).toBe(false);
     expect(painted.reactionCount).toBe(0);
     expect(painted.viewerFlagsReady).toBe(false);
     expect(painted.viewerReacted).toBe(false);
+    expect(engagementNeedsCountSoftFill(painted)).toBe(true);
   });
 
-  it('does not invent settled likes when reactions fail with no prior row', () => {
-    const painted = engagementFromPartialFetch({
+  it('stays on the recount path until likes load, then clears the soft-fill debt', () => {
+    const afterThreadsOnly = engagementFromPartialFetch({
       previous: null,
       threadsOk: true,
       reactionsOk: false,
@@ -123,9 +129,41 @@ describe('engagementFromPartialFetch', () => {
       repostsOk: false,
       counts: { replyCount: 5, quoteCount: 0, repostCount: 0 },
     });
-    expect(painted.replyCount).toBe(5);
-    expect(painted.viewerFlagsReady).toBe(false);
-    expect(painted.amplifyCountReady).toBe(false);
+    expect(afterThreadsOnly.replyCount).toBe(5);
+    expect(afterThreadsOnly.reactionCountReady).toBe(false);
+    expect(engagementNeedsCountSoftFill(afterThreadsOnly)).toBe(true);
+
+    const afterLikesRetry = engagementFromPartialFetch({
+      previous: afterThreadsOnly,
+      threadsOk: false,
+      reactionsOk: true,
+      amplifyOk: false,
+      viewerReady: false,
+      repostsOk: false,
+      reactionTotal: 12,
+      viewerReacted: true,
+    });
+    expect(afterLikesRetry.replyCount).toBe(5);
+    expect(afterLikesRetry.threadCountsReady).toBe(true);
+    expect(afterLikesRetry.reactionCount).toBe(12);
+    expect(afterLikesRetry.reactionCountReady).toBe(true);
+    expect(engagementNeedsCountSoftFill(afterLikesRetry)).toBe(false);
+  });
+
+  it('keeps likes that loaded when threads fail and still needs a threads retry', () => {
+    const painted = engagementFromPartialFetch({
+      previous: null,
+      threadsOk: false,
+      reactionsOk: true,
+      amplifyOk: false,
+      viewerReady: false,
+      repostsOk: false,
+      reactionTotal: 7,
+    });
+    expect(painted.reactionCount).toBe(7);
+    expect(painted.reactionCountReady).toBe(true);
+    expect(painted.threadCountsReady).toBe(false);
+    expect(engagementNeedsCountSoftFill(painted)).toBe(true);
   });
 });
 

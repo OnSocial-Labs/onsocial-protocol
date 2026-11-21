@@ -24,6 +24,16 @@ export interface PostEngagement {
    * Missing column must not paint as a settled zero.
    */
   amplifyCountReady: boolean;
+  /**
+   * True once reply/quote/repost totals loaded (feed row or threads soft-fill).
+   * A failed threads read must not lock a settled 0 and skip recount.
+   */
+  threadCountsReady: boolean;
+  /**
+   * True once like totals loaded (feed row or reactions soft-fill).
+   * A failed likes read must not lock a settled 0 and skip recount.
+   */
+  reactionCountReady: boolean;
   /** Bumps only when the viewer's own like confirms, so other cards stay still. */
   reactionRoll: number;
   /** Bumps when the viewer's save or unsave confirms on chain. */
@@ -53,6 +63,8 @@ export const EMPTY_POST_ENGAGEMENT: PostEngagement = {
   viewerRepostGroupId: null,
   viewerFlagsReady: false,
   amplifyCountReady: false,
+  threadCountsReady: false,
+  reactionCountReady: false,
   reactionRoll: 0,
   saveRoll: 0,
   amplifyRoll: 0,
