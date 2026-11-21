@@ -16,6 +16,7 @@ on:
 
 jobs:
   cache:
+    # Draft PRs skip this job. ready_for_review runs it once the PR is no longer a draft.
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     name: CDN disk cache
     runs-on: ubuntu-26.04
