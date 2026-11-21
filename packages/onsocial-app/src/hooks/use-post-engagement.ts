@@ -135,6 +135,59 @@ export function pruneEngagementMap(
 }
 
 /**
+ * Viewer-owned flags that must survive feed window prune. Public counts stay
+ * on the seed; these paint active icon colour on scroll-back without waiting
+ * for the async overlay.
+ */
+export type ViewerEngagementMemory = {
+  viewerReacted: boolean;
+  viewerAmplified: boolean;
+  viewerSaved: boolean;
+  viewerReposted: boolean;
+  viewerRepostId: string | null;
+  viewerRepostGroupId: string | null;
+};
+
+export function viewerEngagementMemoryFrom(
+  row: PostEngagement
+): ViewerEngagementMemory {
+  return {
+    viewerReacted: row.viewerReacted,
+    viewerAmplified: row.viewerAmplified,
+    viewerSaved: row.viewerSaved,
+    viewerReposted: row.viewerReposted,
+    viewerRepostId: row.viewerRepostId,
+    viewerRepostGroupId: row.viewerRepostGroupId,
+  };
+}
+
+export function rememberViewerEngagement(
+  store: Map<string, ViewerEngagementMemory>,
+  key: string,
+  row: PostEngagement
+): void {
+  store.set(key, viewerEngagementMemoryFrom(row));
+}
+
+/** Merge last-good viewer flags onto a count-only seed row. */
+export function withViewerEngagementMemory(
+  row: PostEngagement,
+  memory: ViewerEngagementMemory | undefined
+): PostEngagement {
+  if (!memory) return row;
+  const next: PostEngagement = {
+    ...row,
+    viewerReacted: memory.viewerReacted,
+    viewerAmplified: memory.viewerAmplified,
+    viewerSaved: memory.viewerSaved,
+    viewerReposted: memory.viewerReposted,
+    viewerRepostId: memory.viewerRepostId,
+    viewerRepostGroupId: memory.viewerRepostGroupId,
+  };
+  return samePostEngagement(next, row) ? row : next;
+}
+
+/**
  * Merge indexer soft-upgrade into current engagement without clobbering
  * in-flight optimistic reaction/save toggles (or a confirmed amplify/save
  * that the indexer has not caught yet).
@@ -229,25 +282,13 @@ export function mergeEngagementSoftUpgrade(
 }
 
 /**
- * The SSR seed covers a feed only when every visible row came from that seed.
- * A restored session snapshot can swap in rows the seed never rendered — those
- * must fetch, or they paint zeros until the list changes.
- */
-export function seededEngagementCoversTargets(
-  initial: EngagementMap | null,
-  targetKeys: readonly string[]
-): boolean {
-  if (!initial) return false;
-  return targetKeys.every((key) => key in initial);
-}
-
-/**
  * Batched engagement state (reply/quote/reaction/amplify/save + viewer flags)
  * for a list of visible posts, plus optimistic reaction / save toggles.
  * Reaction and save writes use `wait: true` so the faded pending state lasts
  * until chain confirmation (icons still flip immediately — not pulsing dots).
  * Pass `initial` from the page paint so counts are final. A signed-in
- * viewer then overlays like, save, and repost flags without recounting.
+ * viewer then overlays like, save, and repost flags without recounting —
+ * and last-good memory keeps those flags across window prune.
  */
 export function usePostEngagement(
   posts: PostRow[],
@@ -289,6 +330,16 @@ export function usePostEngagement(
     accountId: string;
     keys: Set<string>;
   } | null>(null);
+  /** Survives prune so scroll-back paints active colour with the seed counts. */
+  const viewerMemoryRef = useRef<Map<string, ViewerEngagementMemory>>(
+    new Map()
+  );
+  const viewerMemoryAccountRef = useRef<string | null>(accountId ?? null);
+  if (viewerMemoryAccountRef.current !== (accountId ?? null)) {
+    viewerMemoryAccountRef.current = accountId ?? null;
+    viewerMemoryRef.current.clear();
+    viewerOverlayRef.current = null;
+  }
   const incomingInitial = opts.initial ?? null;
   if (incomingInitial !== initialRef.current) {
     initialRef.current = incomingInitial;
@@ -298,12 +349,13 @@ export function usePostEngagement(
         (key) => !(key in engagementRef.current)
       )
     ) {
+      const memory = viewerMemoryRef.current;
       setEngagement((prev) => {
         let changed = false;
         const next = { ...prev };
         for (const [key, row] of Object.entries(incomingInitial)) {
           if (key in next) continue;
-          next[key] = row;
+          next[key] = withViewerEngagementMemory(row, memory.get(key));
           changed = true;
         }
         return changed ? next : prev;
@@ -328,10 +380,16 @@ export function usePostEngagement(
     [targets, accountId]
   );
 
-  // Bound the map to the live band — scroll-back re-fetches a few keys.
+  // Bound the map to the live band — remember viewer flags before prune.
   useEffect(() => {
     const live = new Set(targets.map((target) => target.key));
-    setEngagement((current) => pruneEngagementMap(current, live));
+    const memory = viewerMemoryRef.current;
+    setEngagement((current) => {
+      for (const [key, row] of Object.entries(current)) {
+        if (!live.has(key)) rememberViewerEngagement(memory, key, row);
+      }
+      return pruneEngagementMap(current, live);
+    });
     const overlay = viewerOverlayRef.current;
     if (!overlay) return;
     for (const key of [...overlay.keys]) {
@@ -346,6 +404,7 @@ export function usePostEngagement(
 
     const known = engagementRef.current;
     const missing = targets.filter((target) => !(target.key in known));
+    const memory = viewerMemoryRef.current;
     const overlayFor =
       accountId == null
         ? []
@@ -414,7 +473,7 @@ export function usePostEngagement(
                 reactionStates[`${target.owner}:${target.postId}`];
               const viewerRepost = viewerReposts.get(target.path);
               const amplify = amplifyCounts[target.path];
-              next[target.key] = {
+              const row: PostEngagement = {
                 ...previous,
                 viewerReacted: (reactions?.viewerReacted.length ?? 0) > 0,
                 viewerSaved:
@@ -428,12 +487,38 @@ export function usePostEngagement(
                 viewerRepostGroupId:
                   viewerRepost?.groupId ?? previous.viewerRepostGroupId,
               };
+              next[target.key] = row;
+              rememberViewerEngagement(memory, target.key, row);
             }
             return next;
           });
         }
       );
       return;
+    }
+
+    /*
+     * Scroll-back: paint seed counts + last-good viewer flags in this frame
+     * so active colour is not waiting on the network.
+     */
+    const seed = initialRef.current;
+    if (seed || memory.size > 0) {
+      setEngagement((current) => {
+        let changed = false;
+        const next = { ...current };
+        for (const target of missing) {
+          if (target.key in next) continue;
+          const base = seed?.[target.key];
+          const remembered = memory.get(target.key);
+          if (!base && !remembered) continue;
+          next[target.key] = withViewerEngagementMemory(
+            base ?? EMPTY_POST_ENGAGEMENT,
+            remembered
+          );
+          changed = true;
+        }
+        return changed ? next : current;
+      });
     }
 
     const loadId = ++loadIdRef.current;
@@ -498,7 +583,7 @@ export function usePostEngagement(
           const reactions = reactionStates[`${target.owner}:${target.postId}`];
           const amplify = amplifyCounts[target.path];
           const viewerRepost = viewerReposts.get(target.path);
-          next[target.key] = {
+          const row: PostEngagement = {
             ...EMPTY_POST_ENGAGEMENT,
             replyCount: counts?.replyCount ?? 0,
             quoteCount: counts?.quoteCount ?? 0,
@@ -512,6 +597,8 @@ export function usePostEngagement(
             viewerRepostId: viewerRepost?.repostId ?? null,
             viewerRepostGroupId: viewerRepost?.groupId ?? null,
           };
+          next[target.key] = row;
+          rememberViewerEngagement(memory, target.key, row);
         }
         if (accountId) rememberOverlay(pending);
         setEngagement((current) => ({
@@ -556,9 +643,11 @@ export function usePostEngagement(
       const applied = !previous.viewerReacted;
 
       setPendingReactionKeys((current) => new Set(current).add(key));
+      const pending = pendingReactionEngagement(previous, applied);
+      rememberViewerEngagement(viewerMemoryRef.current, key, pending);
       setEngagement((current) => ({
         ...current,
-        [key]: pendingReactionEngagement(previous, applied),
+        [key]: pending,
       }));
 
       try {
@@ -589,15 +678,18 @@ export function usePostEngagement(
             { ...live, reactionCount: previous.reactionCount },
             applied
           );
+          const row =
+            indexed === expected
+              ? { ...confirmed, reactionCount: indexed }
+              : confirmed;
+          rememberViewerEngagement(viewerMemoryRef.current, key, row);
           return {
             ...current,
-            [key]:
-              indexed === expected
-                ? { ...confirmed, reactionCount: indexed }
-                : confirmed,
+            [key]: row,
           };
         });
       } catch (cause) {
+        rememberViewerEngagement(viewerMemoryRef.current, key, previous);
         setEngagement((current) => ({ ...current, [key]: previous }));
         if (!isWalletUserCancellation(cause)) {
           onErrorRef.current?.(
@@ -632,12 +724,11 @@ export function usePostEngagement(
       const contentPath = postContentPath(post);
 
       setPendingSaveKeys((current) => new Set(current).add(key));
+      const pending = { ...previous, viewerSaved: applied };
+      rememberViewerEngagement(viewerMemoryRef.current, key, pending);
       setEngagement((current) => ({
         ...current,
-        [key]: {
-          ...previous,
-          viewerSaved: applied,
-        },
+        [key]: pending,
       }));
 
       try {
@@ -649,6 +740,7 @@ export function usePostEngagement(
           wait: true,
         });
       } catch (cause) {
+        rememberViewerEngagement(viewerMemoryRef.current, key, previous);
         setEngagement((current) => ({ ...current, [key]: previous }));
         if (!isWalletUserCancellation(cause)) {
           onErrorRef.current?.(
@@ -670,25 +762,20 @@ export function usePostEngagement(
     const key = postKey(post);
     setEngagement((current) => {
       const previous = current[key] ?? EMPTY_POST_ENGAGEMENT;
-      if (previous.viewerAmplified) {
-        return {
-          ...current,
-          [key]: {
+      const row = previous.viewerAmplified
+        ? {
             ...previous,
             amplifyCount: previous.amplifyCount + 1,
             amplifyRoll: previous.amplifyRoll + 1,
-          },
-        };
-      }
-      return {
-        ...current,
-        [key]: {
-          ...previous,
-          viewerAmplified: true,
-          amplifyCount: previous.amplifyCount + 1,
-          amplifyRoll: previous.amplifyRoll + 1,
-        },
-      };
+          }
+        : {
+            ...previous,
+            viewerAmplified: true,
+            amplifyCount: previous.amplifyCount + 1,
+            amplifyRoll: previous.amplifyRoll + 1,
+          };
+      rememberViewerEngagement(viewerMemoryRef.current, key, row);
+      return { ...current, [key]: row };
     });
     // Invalidate Hot session snapshots — leave/return soft-refetches rank
     // without scrolling the reader to the boosted card.
@@ -709,27 +796,22 @@ export function usePostEngagement(
       });
       setEngagement((current) => {
         const previous = current[key] ?? EMPTY_POST_ENGAGEMENT;
-        if (previous.viewerReposted) {
-          return {
-            ...current,
-            [key]: {
+        const row = previous.viewerReposted
+          ? {
               ...previous,
               viewerRepostId: viewerRepost.postId,
               viewerRepostGroupId: viewerRepost.groupId ?? null,
-            },
-          };
-        }
-        return {
-          ...current,
-          [key]: {
-            ...previous,
-            viewerReposted: true,
-            viewerRepostId: viewerRepost.postId,
-            viewerRepostGroupId: viewerRepost.groupId ?? null,
-            repostCount: previous.repostCount + 1,
-            shareRoll: previous.shareRoll + 1,
-          },
-        };
+            }
+          : {
+              ...previous,
+              viewerReposted: true,
+              viewerRepostId: viewerRepost.postId,
+              viewerRepostGroupId: viewerRepost.groupId ?? null,
+              repostCount: previous.repostCount + 1,
+              shareRoll: previous.shareRoll + 1,
+            };
+        rememberViewerEngagement(viewerMemoryRef.current, key, row);
+        return { ...current, [key]: row };
       });
     },
     []
@@ -741,17 +823,16 @@ export function usePostEngagement(
     setEngagement((current) => {
       const previous = current[key] ?? EMPTY_POST_ENGAGEMENT;
       if (!previous.viewerReposted) return current;
-      return {
-        ...current,
-        [key]: {
-          ...previous,
-          viewerReposted: false,
-          viewerRepostId: null,
-          viewerRepostGroupId: null,
-          repostCount: Math.max(0, previous.repostCount - 1),
-          shareRoll: previous.shareRoll + 1,
-        },
+      const row: PostEngagement = {
+        ...previous,
+        viewerReposted: false,
+        viewerRepostId: null,
+        viewerRepostGroupId: null,
+        repostCount: Math.max(0, previous.repostCount - 1),
+        shareRoll: previous.shareRoll + 1,
       };
+      rememberViewerEngagement(viewerMemoryRef.current, key, row);
+      return { ...current, [key]: row };
     });
   }, []);
 

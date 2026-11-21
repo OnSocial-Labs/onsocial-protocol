@@ -6,7 +6,8 @@ import {
   pendingReactionEngagement,
   pruneEngagementMap,
   reactionCountAfterToggle,
-  seededEngagementCoversTargets,
+  rememberViewerEngagement,
+  withViewerEngagementMemory,
   type PostEngagement,
 } from '@/hooks/use-post-engagement';
 
@@ -23,6 +24,45 @@ describe('pruneEngagementMap', () => {
     const pruned = pruneEngagementMap(current, new Set(['a:1']));
     expect(Object.keys(pruned)).toEqual(['a:1']);
     expect(pruneEngagementMap(pruned, new Set(['a:1']))).toBe(pruned);
+  });
+});
+
+describe('viewer engagement memory', () => {
+  it('restores active flags onto a count-only seed after prune', () => {
+    const store = new Map();
+    rememberViewerEngagement(
+      store,
+      'a:1',
+      row({
+        viewerReacted: true,
+        viewerAmplified: true,
+        viewerSaved: true,
+        reactionCount: 4,
+      })
+    );
+    const painted = withViewerEngagementMemory(
+      row({ reactionCount: 4, replyCount: 2 }),
+      store.get('a:1')
+    );
+    expect(painted.viewerReacted).toBe(true);
+    expect(painted.viewerAmplified).toBe(true);
+    expect(painted.viewerSaved).toBe(true);
+    expect(painted.reactionCount).toBe(4);
+    expect(painted.replyCount).toBe(2);
+  });
+
+  it('keeps identity when memory matches the row', () => {
+    const painted = row({ viewerReacted: true, reactionCount: 3 });
+    expect(
+      withViewerEngagementMemory(painted, {
+        viewerReacted: true,
+        viewerAmplified: false,
+        viewerSaved: false,
+        viewerReposted: false,
+        viewerRepostId: null,
+        viewerRepostGroupId: null,
+      })
+    ).toBe(painted);
   });
 });
 
@@ -51,28 +91,6 @@ describe('reaction confirmation', () => {
     expect(reactionCountAfterToggle(3, true)).toBe(4);
     expect(reactionCountAfterToggle(4, false)).toBe(3);
     expect(reactionCountAfterToggle(0, false)).toBe(0);
-  });
-});
-
-describe('seededEngagementCoversTargets', () => {
-  it('covers when every visible row came from the SSR seed', () => {
-    const seed = { 'alice.near:p1': row(), 'bob.near:p2': row() };
-    expect(
-      seededEngagementCoversTargets(seed, ['alice.near:p1', 'bob.near:p2'])
-    ).toBe(true);
-  });
-
-  it('does not cover restored rows the SSR seed never saw', () => {
-    const seed = { 'alice.near:p1': row() };
-    expect(
-      seededEngagementCoversTargets(seed, ['alice.near:p1', 'carol.near:p3'])
-    ).toBe(false);
-    expect(seededEngagementCoversTargets(seed, ['carol.near:p3'])).toBe(false);
-  });
-
-  it('does not cover an empty or missing seed', () => {
-    expect(seededEngagementCoversTargets(null, ['alice.near:p1'])).toBe(false);
-    expect(seededEngagementCoversTargets({}, ['alice.near:p1'])).toBe(false);
   });
 });
 
