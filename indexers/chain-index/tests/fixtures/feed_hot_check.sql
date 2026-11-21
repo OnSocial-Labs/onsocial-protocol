@@ -97,4 +97,31 @@ BEGIN
       CASE WHEN i = 47 THEN 1 ELSE 5000 - i END
     FROM generate_series(0, 47) AS i;
   END IF;
+
+  -- Spotlight p00 must paint amplify_count > 0 when social spend is loaded.
+  IF to_regclass('public.social_spend_events') IS NOT NULL THEN
+    DELETE FROM social_spend_events
+    WHERE target_id = 'hotfeed.near/post/p00'
+      AND action = 'boost_post';
+    INSERT INTO social_spend_events (
+      id, block_height, block_timestamp, receipt_id, account_id,
+      event_type, success, spender_id, amount, action, target_type,
+      target_id, recipient_id
+    )
+    SELECT
+      'hotfeed-amp-' || i::text,
+      40 + i,
+      40 + i,
+      'hotfeed-amp-r' || i::text,
+      'hotfan' || i::text || '.near',
+      'SOCIAL_SPENT',
+      true,
+      'hotfan' || i::text || '.near',
+      '1000000000000000000',
+      'boost_post',
+      'post',
+      'hotfeed.near/post/p00',
+      'hotfeed.near'
+    FROM generate_series(1, 3) AS i;
+  END IF;
 END $$;

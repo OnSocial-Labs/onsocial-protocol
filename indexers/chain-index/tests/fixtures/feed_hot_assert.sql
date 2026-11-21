@@ -143,7 +143,7 @@ SELECT CASE
        IS NOT DISTINCT FROM (SELECT body FROM vw WHERE off = 0)
    AND (SELECT body FROM fn WHERE off = 24)
        IS NOT DISTINCT FROM (SELECT body FROM vw WHERE off = 24)
-   AND (SELECT body FROM spotlight) = '2|1|1|3|0|quoted|origin|1'
+   AND (SELECT body FROM spotlight) = '2|1|1|3|3|quoted|origin|1'
    AND (SELECT posts_hit FROM filters) = 1
    AND (SELECT section_leak FROM filters) = 0
    AND (SELECT native_leak FROM filters) = 0

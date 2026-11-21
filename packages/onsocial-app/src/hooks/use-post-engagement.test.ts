@@ -3,6 +3,7 @@ import {
   applyViewerOverlayEngagement,
   confirmedReactionEngagement,
   EMPTY_POST_ENGAGEMENT,
+  engagementForAccountChange,
   mergeEngagementSoftUpgrade,
   pendingReactionEngagement,
   pruneEngagementMap,
@@ -20,6 +21,47 @@ function row(over: Partial<PostEngagement> = {}): PostEngagement {
     ...over,
   };
 }
+
+describe('engagementForAccountChange', () => {
+  it('clears the previous viewer colour and rolls on switch', () => {
+    const stripped = engagementForAccountChange(
+      {
+        'a:1': row({
+          viewerReacted: true,
+          viewerSaved: true,
+          viewerAmplified: true,
+          viewerReposted: true,
+          viewerRepostId: 'r1',
+          reactionCount: 4,
+          reactionRoll: 2,
+          saveRoll: 1,
+          viewerFlagsReady: true,
+        }),
+      },
+      'bob.near'
+    );
+    expect(stripped['a:1']).toMatchObject({
+      viewerReacted: false,
+      viewerSaved: false,
+      viewerAmplified: false,
+      viewerReposted: false,
+      viewerRepostId: null,
+      reactionCount: 4,
+      reactionRoll: 0,
+      saveRoll: 0,
+      viewerFlagsReady: false,
+    });
+  });
+
+  it('marks colour ready when signed out so hearts stay tappable', () => {
+    const stripped = engagementForAccountChange(
+      { 'a:1': row({ viewerReacted: true, viewerFlagsReady: true }) },
+      null
+    );
+    expect(stripped['a:1']?.viewerReacted).toBe(false);
+    expect(stripped['a:1']?.viewerFlagsReady).toBe(true);
+  });
+});
 
 describe('pruneEngagementMap', () => {
   it('drops keys that left the retain set and keeps identity when unchanged', () => {

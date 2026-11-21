@@ -25,6 +25,36 @@ export { EMPTY_POST_ENGAGEMENT } from '@/lib/post-engagement-model';
 const DEFAULT_REACTION_KIND = 'like';
 
 /**
+ * Drop viewer colour / rolls when the wallet changes (including logout).
+ * Public counts stay so the row does not flash empty.
+ */
+export function engagementForAccountChange(
+  current: EngagementMap,
+  nextAccountId: string | null
+): EngagementMap {
+  const next: EngagementMap = {};
+  const signedOut = nextAccountId == null;
+  for (const [key, row] of Object.entries(current)) {
+    next[key] = {
+      ...row,
+      viewerReacted: false,
+      viewerAmplified: false,
+      viewerSaved: false,
+      viewerReposted: false,
+      viewerRepostId: null,
+      viewerRepostGroupId: null,
+      viewerFlagsReady: signedOut,
+      reactionRoll: 0,
+      saveRoll: 0,
+      amplifyRoll: 0,
+      replyRoll: 0,
+      shareRoll: 0,
+    };
+  }
+  return next;
+}
+
+/**
  * Heart moves immediately. The count stays until chain finality (`wait: true`)
  * so a wallet cancel never flashes a number.
  */
@@ -474,7 +504,16 @@ export function usePostEngagement(
   const fetchRetryCountRef = useRef(0);
   const fetchRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scheduleFetchRetry = () => {
-    if (fetchRetryCountRef.current >= 3 || fetchRetryTimerRef.current) return;
+    if (fetchRetryTimerRef.current) return;
+    if (fetchRetryCountRef.current >= 3) {
+      // Cool down, then allow another wave — never lock likes for the session.
+      fetchRetryTimerRef.current = setTimeout(() => {
+        fetchRetryTimerRef.current = null;
+        fetchRetryCountRef.current = 0;
+        setFetchRetryEpoch((epoch) => epoch + 1);
+      }, 15_000);
+      return;
+    }
     fetchRetryCountRef.current += 1;
     const delayMs = 1_200 * fetchRetryCountRef.current;
     fetchRetryTimerRef.current = setTimeout(() => {
@@ -483,9 +522,24 @@ export function usePostEngagement(
     }, delayMs);
   };
   if (lastGoodAccountRef.current !== (accountId ?? null)) {
-    lastGoodAccountRef.current = accountId ?? null;
+    const nextAccount = accountId ?? null;
+    lastGoodAccountRef.current = nextAccount;
     lastGoodRef.current.clear();
     viewerOverlayRef.current = null;
+    fetchRetryCountRef.current = 0;
+    if (fetchRetryTimerRef.current) {
+      clearTimeout(fetchRetryTimerRef.current);
+      fetchRetryTimerRef.current = null;
+    }
+    pendingReactionKeysRef.current = new Set();
+    pendingSaveKeysRef.current = new Set();
+    unrepostedKeysRef.current = new Set();
+    pendingShareKeysRef.current = new Set();
+    setPendingReactionKeys(new Set());
+    setPendingSaveKeys(new Set());
+    setUnrepostedKeys(new Set());
+    setPendingShareKeys(new Set());
+    setEngagement((prev) => engagementForAccountChange(prev, nextAccount));
   }
   const incomingInitial = seededInitial;
   if (incomingInitial !== initialRef.current) {
@@ -707,8 +761,11 @@ export function usePostEngagement(
           if (lastGoodAccountRef.current !== viewerId) return;
           if (
             reactionResult.status !== 'fulfilled' ||
-            savesResult.status !== 'fulfilled'
+            savesResult.status !== 'fulfilled' ||
+            viewerRepostResult.status !== 'fulfilled' ||
+            amplifyResult.status !== 'fulfilled'
           ) {
+            // Do not mark overlay done — failed amplify/repost must retry.
             scheduleFetchRetry();
             return;
           }
@@ -718,13 +775,9 @@ export function usePostEngagement(
             savesResult.value.map((row) => row.contentPath)
           );
           const viewerReposts = new Map(
-            (viewerRepostResult.status === 'fulfilled'
-              ? viewerRepostResult.value
-              : []
-            ).map((row) => [row.refPath, row])
+            viewerRepostResult.value.map((row) => [row.refPath, row])
           );
-          const amplifyPayload =
-            amplifyResult.status === 'fulfilled' ? amplifyResult.value : null;
+          const amplifyPayload = amplifyResult.value;
           const liveKeys = new Set(targetsRef.current.map((row) => row.key));
           const painted: typeof overlayRows = [];
           setEngagement((current) => {
@@ -744,20 +797,16 @@ export function usePostEngagement(
               let amplifyCount: number | undefined;
               if (needAmplifyCounts) {
                 const amplify = (
-                  amplifyPayload as
-                    | Record<
-                        string,
-                        { amplifyCount: number; viewerAmplified: boolean }
-                      >
-                    | null
-                )?.[target.path];
+                  amplifyPayload as Record<
+                    string,
+                    { amplifyCount: number; viewerAmplified: boolean }
+                  >
+                )[target.path];
                 viewerAmplified = Boolean(amplify?.viewerAmplified);
                 amplifyCount = amplify?.amplifyCount;
               } else {
                 viewerAmplified = Boolean(
-                  (
-                    amplifyPayload as Record<string, boolean> | null
-                  )?.[target.path]
+                  (amplifyPayload as Record<string, boolean>)[target.path]
                 );
               }
               const row = applyViewerOverlayEngagement(
@@ -859,6 +908,8 @@ export function usePostEngagement(
         const liveKeys = new Set(targetsRef.current.map((row) => row.key));
         const next: EngagementMap = {};
         const overlayPainted: typeof pending = [];
+        const repostsOk =
+          !accountId || viewerRepostResult.status === 'fulfilled';
         for (const target of pending) {
           if (!liveKeys.has(target.key)) continue;
           const counts = threadCounts[target.path];
@@ -866,6 +917,11 @@ export function usePostEngagement(
           const amplify = amplifyCounts[target.path];
           const viewerRepost = viewerReposts.get(target.path);
           const previous = engagementRef.current[target.key];
+          // Reactions failed with no prior row — do not cache a fake like 0.
+          if (!reactionsOk && previous == null) {
+            scheduleFetchRetry();
+            continue;
+          }
           const row: PostEngagement = {
             ...EMPTY_POST_ENGAGEMENT,
             replyCount: threadsOk
@@ -886,23 +942,27 @@ export function usePostEngagement(
             amplifyCount: amplifyOk
               ? (amplify?.amplifyCount ?? 0)
               : (previous?.amplifyCount ?? 0),
-            amplifyCountReady: amplifyOk || Boolean(previous?.amplifyCountReady),
+            amplifyCountReady:
+              amplifyOk || Boolean(previous?.amplifyCountReady),
             viewerAmplified: amplifyOk
               ? (amplify?.viewerAmplified ?? false)
               : (previous?.viewerAmplified ?? false),
             viewerSaved: viewerReady
               ? savedPaths.has(target.path)
               : (previous?.viewerSaved ?? false),
-            viewerReposted: viewerReady
-              ? Boolean(viewerRepost)
-              : (previous?.viewerReposted ?? false),
-            viewerRepostId: viewerReady
-              ? (viewerRepost?.repostId ?? null)
-              : (previous?.viewerRepostId ?? null),
-            viewerRepostGroupId: viewerReady
-              ? (viewerRepost?.groupId ?? null)
-              : (previous?.viewerRepostGroupId ?? null),
-            viewerFlagsReady: viewerReady,
+            viewerReposted:
+              viewerReady && repostsOk
+                ? Boolean(viewerRepost)
+                : (previous?.viewerReposted ?? false),
+            viewerRepostId:
+              viewerReady && repostsOk
+                ? (viewerRepost?.repostId ?? null)
+                : (previous?.viewerRepostId ?? null),
+            viewerRepostGroupId:
+              viewerReady && repostsOk
+                ? (viewerRepost?.groupId ?? null)
+                : (previous?.viewerRepostGroupId ?? null),
+            viewerFlagsReady: viewerReady && repostsOk && amplifyOk,
             reactionRoll: previous?.reactionRoll ?? 0,
             saveRoll: previous?.saveRoll ?? 0,
             amplifyRoll: previous?.amplifyRoll ?? 0,
@@ -914,7 +974,8 @@ export function usePostEngagement(
           }
           next[target.key] = row;
           rememberEngagementLastGood(lastGood, target.key, row);
-          if (viewerReady) overlayPainted.push(target);
+          if (row.viewerFlagsReady) overlayPainted.push(target);
+          else if (accountId) scheduleFetchRetry();
         }
         if (accountId && overlayPainted.length > 0) {
           rememberOverlay(overlayPainted);
@@ -961,6 +1022,7 @@ export function usePostEngagement(
         return;
       }
 
+      const viewerId = accountId;
       /* Read through refs so this callback's identity survives engagement
        * updates — a like on one card must not re-render every other card. */
       const previous = engagementRef.current[key] ?? EMPTY_POST_ENGAGEMENT;
@@ -981,8 +1043,10 @@ export function usePostEngagement(
         await client.reactions.toggle(
           { author: post.accountId, postId: post.postId },
           DEFAULT_REACTION_KIND,
-          { viewer: accountId, wait: true }
+          { viewer: viewerId, wait: true }
         );
+        // Account switched mid-flight — do not confirm onto the new viewer.
+        if (lastGoodAccountRef.current !== viewerId) return;
         // Chain finality is confirm — roll the count; indexer soft-fills later.
         setEngagement((current) => {
           const live = current[key] ?? previous;
@@ -997,6 +1061,7 @@ export function usePostEngagement(
           };
         });
       } catch (cause) {
+        if (lastGoodAccountRef.current !== viewerId) return;
         rememberEngagementLastGood(lastGoodRef.current, key, previous);
         setEngagement((current) => ({ ...current, [key]: previous }));
         if (!isWalletUserCancellation(cause)) {
@@ -1007,11 +1072,13 @@ export function usePostEngagement(
           );
         }
       } finally {
-        setPendingReactionKeys((current) => {
-          const next = new Set(current);
-          next.delete(key);
-          return next;
-        });
+        if (lastGoodAccountRef.current === viewerId) {
+          setPendingReactionKeys((current) => {
+            const next = new Set(current);
+            next.delete(key);
+            return next;
+          });
+        }
       }
     },
     [accountId, connect, getClient, isConnected]
@@ -1027,6 +1094,7 @@ export function usePostEngagement(
         return;
       }
 
+      const viewerId = accountId;
       const previous = engagementRef.current[key] ?? EMPTY_POST_ENGAGEMENT;
       if (!previous.viewerFlagsReady) return;
       const applied = !previous.viewerSaved;
@@ -1045,9 +1113,10 @@ export function usePostEngagement(
         // Use content path string so guild posts save under the same key
         // engagement membership checks against.
         await client.saves.toggle(contentPath, {
-          viewer: accountId,
+          viewer: viewerId,
           wait: true,
         });
+        if (lastGoodAccountRef.current !== viewerId) return;
         setEngagement((current) => {
           const live = current[key] ?? previous;
           const row = {
@@ -1059,6 +1128,7 @@ export function usePostEngagement(
           return { ...current, [key]: row };
         });
       } catch (cause) {
+        if (lastGoodAccountRef.current !== viewerId) return;
         rememberEngagementLastGood(lastGoodRef.current, key, previous);
         setEngagement((current) => ({ ...current, [key]: previous }));
         if (!isWalletUserCancellation(cause)) {
@@ -1067,11 +1137,13 @@ export function usePostEngagement(
           );
         }
       } finally {
-        setPendingSaveKeys((current) => {
-          const next = new Set(current);
-          next.delete(key);
-          return next;
-        });
+        if (lastGoodAccountRef.current === viewerId) {
+          setPendingSaveKeys((current) => {
+            const next = new Set(current);
+            next.delete(key);
+            return next;
+          });
+        }
       }
     },
     [accountId, connect, getClient, isConnected]
