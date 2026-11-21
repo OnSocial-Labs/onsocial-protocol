@@ -102,7 +102,7 @@ describe('reaction confirmation', () => {
     );
   });
 
-  it('rolls the same total the indexer is asked to match', () => {
+  it('rolls the local total once the chain confirms', () => {
     expect(reactionCountAfterToggle(3, true)).toBe(4);
     expect(reactionCountAfterToggle(4, false)).toBe(3);
     expect(reactionCountAfterToggle(0, false)).toBe(0);

@@ -5,7 +5,6 @@ import { postContentPath, type PostRow } from '@onsocial/sdk';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { pollIndexConfirm } from '@/lib/index-confirm-poll';
 import {
   subscribePersonalQuoteConfirmed,
   subscribePersonalReplyConfirmed,
@@ -44,8 +43,8 @@ export interface EngagementMap {
 }
 
 /**
- * Heart moves immediately. The count stays until the like is final and the
- * indexer agrees, or that short wait ends, so a cancel never flashes a number.
+ * Heart moves immediately. The count stays until chain finality (`wait: true`)
+ * so a wallet cancel never flashes a number.
  */
 export function pendingReactionEngagement(
   previous: PostEngagement,
@@ -57,7 +56,7 @@ export function pendingReactionEngagement(
   };
 }
 
-/** Local like total. The indexer match and the timeout fallback both use this. */
+/** Local like total once the chain confirms the toggle. */
 export function reactionCountAfterToggle(
   count: number,
   applied: boolean
@@ -65,7 +64,7 @@ export function reactionCountAfterToggle(
   return Math.max(0, count + (applied ? 1 : -1));
 }
 
-/** Count moves once the like is settled and the heart can stop pulsing. */
+/** Count rolls when the like lands on chain — indexer soft-fills elsewhere. */
 export function confirmedReactionEngagement(
   previous: PostEngagement,
   applied: boolean
@@ -658,31 +657,13 @@ export function usePostEngagement(
           DEFAULT_REACTION_KIND,
           { viewer: accountId, wait: true }
         );
-        const expected = reactionCountAfterToggle(
-          previous.reactionCount,
-          applied
-        );
-        const reader = createReadOnlyOnSocialClient();
-        const indexed = await pollIndexConfirm(
-          async () => {
-            const counts = await reader.query.reactions.counts(
-              post.accountId,
-              `post/${post.postId}`
-            );
-            return counts.total ?? 0;
-          },
-          (count) => count === expected
-        );
+        // Chain finality is confirm — roll the count; indexer soft-fills later.
         setEngagement((current) => {
           const live = current[key] ?? previous;
-          const confirmed = confirmedReactionEngagement(
+          const row = confirmedReactionEngagement(
             { ...live, reactionCount: previous.reactionCount },
             applied
           );
-          const row =
-            indexed === expected
-              ? { ...confirmed, reactionCount: indexed }
-              : confirmed;
           rememberEngagementLastGood(lastGoodRef.current, key, row);
           return {
             ...current,
