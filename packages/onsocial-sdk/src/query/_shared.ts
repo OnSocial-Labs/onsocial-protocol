@@ -333,8 +333,11 @@ export function requirePulseKeyset(opts: {
 
 /**
  * Descending chrono page cursor — height + content path (matches `feed_recent`
- * ROW). Prefer keyset over offset when both are present (live inserts /
- * working-set trim).
+ * ROW). When `keysetExclusive` (default), omit `nextOffset` so load-more cannot
+ * silently fall back to offset under live inserts.
+ *
+ * Topic stub indexes (`postHashtags` etc.) still page by height/offset only —
+ * pass `keysetExclusive: false` until those tables grow a path leg.
  */
 export function chronoDescPage(
   items: PostRow[],
@@ -342,6 +345,8 @@ export function chronoDescPage(
   opts: {
     offset: number;
     usedKeyset: boolean;
+    /** When false, keep nextOffset alongside keyset (topic indexes). */
+    keysetExclusive?: boolean;
     /** Stub/raw count when hydrate can drop rows (topic indexes). */
     edgeCount?: number;
     edgeHeight?: number;
@@ -374,6 +379,8 @@ export function chronoDescPage(
           nextBeforeEventKey: nextKey,
         }
       : undefined;
+  const exclusive = opts.keysetExclusive !== false;
+  if (keyset && exclusive) return { items, ...keyset };
   if (opts.usedKeyset) {
     return keyset ? { items, ...keyset } : { items };
   }

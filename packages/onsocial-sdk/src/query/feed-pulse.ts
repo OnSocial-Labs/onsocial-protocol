@@ -68,17 +68,6 @@ function rankHeat(row: PostRow): number {
   return row.amplifyHeat ?? 0;
 }
 
-/** Hottest amplify on the card, then the newest row. A cold reply must not hide a boost on the root. */
-function rankOf(rows: readonly PostRow[]): { heat: number; height: number } {
-  let heat = 0;
-  let height = 0;
-  for (const row of rows) {
-    heat = Math.max(heat, rankHeat(row));
-    height = Math.max(height, rankHeight(row));
-  }
-  return { heat, height };
-}
-
 function rankHeight(row: PostRow): number {
   return row.blockHeight ?? 0;
 }
@@ -108,169 +97,6 @@ export function pulseCardEventCursor(
     height: Math.max(rankHeight(first), peek ? rankHeight(peek) : 0),
     heat: Math.max(rankHeat(first), peek ? rankHeat(peek) : 0),
     key: postContentPath(first),
-  };
-}
-
-function comparePulseRank(
-  a: { heat: number; height: number },
-  b: { heat: number; height: number },
-  sort: FeedSort
-): number {
-  if (sort === 'hot' && a.heat !== b.heat) return b.heat - a.heat;
-  return b.height - a.height;
-}
-
-type PulseEvent = {
-  heat: number;
-  height: number;
-  rows: PostRow[];
-};
-
-/**
- * Merge native circle rows with hydrated thread roots + one newest
- * circle reply per stranger conversation. `limit` / `offset` page events
- * (cards), not raw rows — a bridge event flattens to root + reply.
- */
-export function assemblePulsePage(input: {
-  native: readonly PostRow[];
-  bridges: readonly PostRow[];
-  parents: readonly PostRow[];
-  accounts: readonly string[];
-  sort: FeedSort;
-  offset: number;
-  limit: number;
-  take: number;
-}): Paginated<PostRow> {
-  const accounts = new Set(input.accounts);
-  const parentByPath = new Map<string, PostRow>();
-  for (const parent of input.parents) {
-    parentByPath.set(postContentPath(parent), parent);
-  }
-
-  const nativeEvents: PulseEvent[] = [];
-  const nativeKeys = new Set<string>();
-  const nativePaths = new Set<string>();
-  const nativeRoots: PostRow[] = [];
-  const nativeReplies: PostRow[] = [];
-  for (const row of input.native) {
-    if (!isCircleNativePost(row, accounts)) continue;
-    nativeKeys.add(postKey(row));
-    nativePaths.add(postContentPath(row));
-    if (parentAuthorOf(row)) nativeReplies.push(row);
-    else nativeRoots.push(row);
-  }
-
-  const rootByPath = new Map(
-    nativeRoots.map((root) => [postContentPath(root), root] as const)
-  );
-  for (const parent of input.parents) {
-    const path = postContentPath(parent);
-    if (!rootByPath.has(path)) rootByPath.set(path, parent);
-  }
-  const peekByRootKey = new Map<string, PostRow>();
-  for (const reply of nativeReplies) {
-    const cardPath = pulseBridgeCardPath(reply);
-    const root = cardPath ? rootByPath.get(cardPath) : undefined;
-    if (!root) continue;
-    const rootKey = postKey(root);
-    const existing = peekByRootKey.get(rootKey);
-    if (
-      !existing ||
-      comparePulseRank(
-        { heat: rankHeat(reply), height: rankHeight(reply) },
-        { heat: rankHeat(existing), height: rankHeight(existing) },
-        input.sort
-      ) < 0
-    ) {
-      peekByRootKey.set(rootKey, reply);
-    }
-  }
-
-  const attachedReplies = new Set<string>();
-  const emittedRoots = new Set<string>();
-  for (const root of nativeRoots) {
-    const peek = peekByRootKey.get(postKey(root));
-    if (peek) attachedReplies.add(postKey(peek));
-    emittedRoots.add(postKey(root));
-    const rows = peek ? [root, peek] : [root];
-    nativeEvents.push({
-      ...rankOf(rows),
-      rows,
-    });
-  }
-  for (const parent of input.parents) {
-    const key = postKey(parent);
-    if (emittedRoots.has(key)) continue;
-    const peek = peekByRootKey.get(key);
-    if (!peek) continue;
-    attachedReplies.add(postKey(peek));
-    emittedRoots.add(key);
-    const rows = [parent, peek];
-    nativeEvents.push({
-      ...rankOf(rows),
-      rows,
-    });
-  }
-  for (const reply of nativeReplies) {
-    if (attachedReplies.has(postKey(reply))) continue;
-    nativeEvents.push({
-      heat: rankHeat(reply),
-      height: rankHeight(reply),
-      rows: [reply],
-    });
-  }
-
-  const bestBridge = new Map<string, PostRow>();
-  for (const reply of input.bridges) {
-    if (isCircleNativePost(reply, accounts)) continue;
-    const cardPath = pulseBridgeCardPath(reply);
-    if (!cardPath) continue;
-    const existing = bestBridge.get(cardPath);
-    if (
-      !existing ||
-      comparePulseRank(
-        { heat: rankHeat(reply), height: rankHeight(reply) },
-        { heat: rankHeat(existing), height: rankHeight(existing) },
-        input.sort
-      ) < 0
-    ) {
-      bestBridge.set(cardPath, reply);
-    }
-  }
-
-  const bridgeEvents: PulseEvent[] = [];
-  for (const [cardPath, reply] of bestBridge) {
-    if (nativePaths.has(cardPath)) continue;
-    const parent = parentByPath.get(cardPath);
-    if (!parent || nativeKeys.has(postKey(parent))) continue;
-    bridgeEvents.push({
-      heat: rankHeat(reply),
-      height: rankHeight(reply),
-      rows: [parent, reply],
-    });
-  }
-
-  const events = [...nativeEvents, ...bridgeEvents].sort((a, b) => {
-    const byRank = comparePulseRank(a, b, input.sort);
-    if (byRank !== 0) return byRank;
-    const aKey = postKey(a.rows[0]!);
-    const bKey = postKey(b.rows[0]!);
-    return aKey < bKey ? -1 : aKey > bKey ? 1 : 0;
-  });
-
-  const sliced = events.slice(input.offset, input.offset + input.limit);
-  const nativeExhausted = input.native.length < input.take;
-  const bridgesExhausted = input.bridges.length < input.take;
-  // Folding replies onto roots shrinks the card list. Streams that still
-  // have rows mean older unreplied posts were not in this take yet.
-  const hasMore =
-    events.length > input.offset + input.limit ||
-    !nativeExhausted ||
-    !bridgesExhausted;
-
-  return {
-    items: sliced.flatMap((event) => event.rows),
-    nextOffset: hasMore ? input.offset + sliced.length : undefined,
   };
 }
 
@@ -392,8 +218,6 @@ export function paginatePulseFunctionRows(input: {
   offset: number;
   limit: number;
   extraParents?: readonly PostRow[];
-  /** When true, prefer card keyset cursors over `nextOffset`. */
-  usedKeyset?: boolean;
   sort?: FeedSort;
 }): Paginated<PostRow> {
   // SQL already applied cardOffset/keyset and asked for limit+1 cards. Join
@@ -412,22 +236,17 @@ export function paginatePulseFunctionRows(input: {
   const accountSet = new Set(input.accounts);
   const lastCard = sliced[sliced.length - 1];
   const cursor = lastCard ? pulseCardEventCursor(lastCard, accountSet) : null;
-  const keyset = {
-    ...(cursor
-      ? {
-          nextBeforeBlockHeight: cursor.height,
-          nextBeforeEventKey: cursor.key,
-          ...(input.sort === 'hot' ? { nextBeforeHeat: cursor.heat } : {}),
-        }
-      : {}),
-  };
-  if (input.usedKeyset) {
-    return { items: sliced.flat(), ...keyset };
+  if (cursor) {
+    return {
+      items: sliced.flat(),
+      nextBeforeBlockHeight: cursor.height,
+      nextBeforeEventKey: cursor.key,
+      ...(input.sort === 'hot' ? { nextBeforeHeat: cursor.heat } : {}),
+    };
   }
   return {
     items: sliced.flat(),
     nextOffset: input.offset + input.limit,
-    ...keyset,
   };
 }
 

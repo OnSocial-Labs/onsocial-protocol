@@ -169,27 +169,21 @@ function feedHotQuery(
  * Hot page cursor — heat + height + content path (matches `feed_hot` ROW).
  * Reuses Paginated heat/key fields shared with Pulse card cursors.
  */
-function hotDescPage(
-  items: PostRow[],
-  limit: number,
-  opts: { offset: number; usedKeyset: boolean }
-): Paginated<PostRow> {
+function hotDescPage(items: PostRow[], limit: number): Paginated<PostRow> {
   if (items.length < limit) return { items };
   const edge = items[items.length - 1];
   if (!edge) return { items };
   const nextBeforeBlockHeight = normalizeBeforeBlockHeight(edge.blockHeight);
-  if (nextBeforeBlockHeight === undefined) {
-    return opts.usedKeyset
-      ? { items }
-      : { items, nextOffset: opts.offset + limit };
+  const nextBeforeEventKey = postContentPath(edge);
+  if (nextBeforeBlockHeight === undefined || !nextBeforeEventKey) {
+    return { items };
   }
-  const keyset = {
+  return {
+    items,
     nextBeforeBlockHeight,
     nextBeforeHeat: edge.amplifyHeat ?? 0,
-    nextBeforeEventKey: postContentPath(edge),
+    nextBeforeEventKey,
   };
-  if (opts.usedKeyset) return { items, ...keyset };
-  return { items, nextOffset: opts.offset + limit, ...keyset };
 }
 
 function isFeedHotBeforeKeyUnavailableError(err: unknown): boolean {
@@ -406,7 +400,8 @@ export class FeedQuery {
 
   private async queryFeedRows(args: {
     postsFeedQuery: string;
-    postsCurrentQuery: string;
+    /** Omit for composite keyset pages — postsCurrent cannot express path. */
+    postsCurrentQuery?: string;
     variables: Record<string, unknown>;
     /** Chrono-only postsFeed query when amplifyHeat is not tracked yet. */
     postsFeedQueryNoHeat?: string;
@@ -587,6 +582,11 @@ export class FeedQuery {
       }
     }
 
+    if (!args.postsCurrentQuery) {
+      throw new Error(
+        'feed schema lag: composite keyset requires feed_recent / postsFeed'
+      );
+    }
     const res = await this._q.graphql<{ postsCurrent: PostRow[] }>({
       query: args.postsCurrentQuery,
       variables: args.variables,
@@ -858,16 +858,16 @@ export class FeedQuery {
           ${FEED_POST_ROW_FIELDS_NO_HEAT}
         }
       }`,
-        // postsCurrent has no contentPath — height-only last-resort fallback.
-        postsCurrentQuery: `query Posts(${[
-          ...(hasAuthor ? ['$author: String!'] : []),
-          ...(kind ? ['$kind: String!'] : []),
-          ...(before !== undefined && !hot
-            ? ['$beforeBlockHeight: bigint!']
-            : []),
-          '$limit: Int!',
-          '$offset: Int!',
-        ].join(', ')}) {
+        // postsCurrent has no contentPath — never use it for composite keyset.
+        ...(usedKeyset
+          ? {}
+          : {
+              postsCurrentQuery: `query Posts(${[
+                ...(hasAuthor ? ['$author: String!'] : []),
+                ...(kind ? ['$kind: String!'] : []),
+                '$limit: Int!',
+                '$offset: Int!',
+              ].join(', ')}) {
         postsCurrent(${(() => {
           const base: string[] = [];
           if (hasAuthor) base.push('accountId: {_eq: $author}');
@@ -879,19 +879,17 @@ export class FeedQuery {
           } else if (opts.section === 'reposts') {
             base.push('refType: {_eq: "repost"}');
           }
-          if (before !== undefined && !hot) {
-            base.push('blockHeight: {_lt: $beforeBlockHeight}');
-          }
           return base.length > 0 ? `where: {${base.join(', ')}}, ` : '';
         })()}limit: $limit, offset: $offset, orderBy: [{blockHeight: DESC}]) {
           ${POST_ROW_FIELDS}
         }
       }`,
+            }),
       });
     }
 
     return hot
-      ? hotDescPage(rows, limit, { offset, usedKeyset })
+      ? hotDescPage(rows, limit)
       : chronoDescPage(rows, limit, { offset, usedKeyset });
   }
 
@@ -1117,7 +1115,10 @@ export class FeedQuery {
           ${FEED_POST_ROW_FIELDS_NO_HEAT}
         }
       }`,
-        postsCurrentQuery: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!${beforeParam}) {
+        ...(usedKeyset
+          ? {}
+          : {
+              postsCurrentQuery: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!${beforeParam}) {
         postsCurrent(
           ${where},
           limit: $limit, offset: $offset,
@@ -1126,11 +1127,12 @@ export class FeedQuery {
           ${POST_ROW_FIELDS}
         }
       }`,
+            }),
       });
     }
 
     return hot
-      ? hotDescPage(rows, limit, { offset, usedKeyset })
+      ? hotDescPage(rows, limit)
       : chronoDescPage(rows, limit, { offset, usedKeyset });
   }
 
@@ -1268,7 +1270,6 @@ export class FeedQuery {
       accounts: opts.accounts,
       offset: usedKeyset ? 0 : (opts.offset ?? 0),
       limit,
-      usedKeyset,
       sort,
     });
   }
@@ -1433,6 +1434,8 @@ export class FeedQuery {
       : chronoDescPage(items, limit, {
           offset,
           usedKeyset,
+          // Topic index is height/offset only until a path leg exists.
+          keysetExclusive: false,
           edgeCount: stubs.length,
           edgeHeight: stubs[stubs.length - 1]?.blockHeight,
         });
@@ -1517,6 +1520,7 @@ export class FeedQuery {
       : chronoDescPage(items, limit, {
           offset,
           usedKeyset,
+          keysetExclusive: false,
           edgeCount: stubs.length,
           edgeHeight: stubs[stubs.length - 1]?.blockHeight,
         });
@@ -1601,6 +1605,7 @@ export class FeedQuery {
       : chronoDescPage(items, limit, {
           offset,
           usedKeyset,
+          keysetExclusive: false,
           edgeCount: stubs.length,
           edgeHeight: stubs[stubs.length - 1]?.blockHeight,
         });

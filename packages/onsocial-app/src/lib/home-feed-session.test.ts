@@ -538,7 +538,7 @@ describe('clampHomeFeedSessionPagination', () => {
     });
   });
 
-  it('snaps a truncated keyset cursor to the retained edge height', () => {
+  it('snaps a truncated keyset cursor to the retained edge (no nextOffset)', () => {
     expect(
       clampHomeFeedSessionPagination({
         postCount: 60,
@@ -547,14 +547,16 @@ describe('clampHomeFeedSessionPagination', () => {
         nextBeforeHeat: 9,
         nextBeforeEventKey: 'deep/post/x',
         edgeBlockHeight: 900,
+        edgeEventKey: 'a.near/post/edge',
+        edgeHeat: 4,
         offsetShiftApplied: 1,
         truncated: true,
       })
     ).toEqual({
-      nextOffset: 60,
+      nextOffset: undefined,
       nextBeforeBlockHeight: 900,
-      nextBeforeHeat: undefined,
-      nextBeforeEventKey: undefined,
+      nextBeforeHeat: 4,
+      nextBeforeEventKey: 'a.near/post/edge',
       offsetShiftApplied: 0,
     });
   });
