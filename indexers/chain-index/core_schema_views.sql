@@ -1125,12 +1125,10 @@ $$;
 -- Do not create them here: views deploy uses --single-transaction, and
 -- CONCURRENTLY cannot run inside a transaction.
 
-DROP FUNCTION IF EXISTS post_feed_shell(
-  text, text, text, bigint, bigint, text, text, text, text, text, text, text,
-  text, text, text, text, boolean, text, text, text, text, text, bigint,
-  bigint, bigint, bigint
-);
-
+-- New overload first (amplify_count). Live DBs still have the old 26-arg
+-- shell in use by posts_feed — dropping it first rolls the whole views
+-- update back. Create here, retarget posts_feed below, then drop the old
+-- signature after that view replaces.
 CREATE OR REPLACE FUNCTION post_feed_shell(
   account_id text,
   post_id text,
@@ -1397,6 +1395,13 @@ LEFT JOIN groups_current q2g
 LEFT JOIN post_amplify_counts q2_amplifies
   ON q2.account_id IS NOT NULL
  AND q2_amplifies.post_path = post_content_path(q2.account_id, q2.post_id, q2.group_id);
+
+-- posts_feed now calls the amplify overload; drop the pre-amplify signature.
+DROP FUNCTION IF EXISTS post_feed_shell(
+  text, text, text, bigint, bigint, text, text, text, text, text, text, text,
+  text, text, text, text, boolean, text, text, text, text, text, bigint,
+  bigint, bigint, bigint
+);
 
 -- Hot home feed. Rank on the light row (same amplify_heat and block_height
 -- as posts_feed, same rows, no count or quote work), cut the page, then

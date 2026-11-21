@@ -5,6 +5,7 @@ import {
   confirmedReactionEngagement,
   EMPTY_POST_ENGAGEMENT,
   engagementForAccountChange,
+  engagementFromPartialFetch,
   mergeEngagementSoftUpgrade,
   pendingReactionEngagement,
   pruneEngagementMap,
@@ -86,6 +87,45 @@ describe('amplify confirm / soft-fill account guard', () => {
     );
     expect(split.countPaths).toEqual(['b.near/post/2', 'c.near/post/3']);
     expect(split.colourPaths).toEqual(['a.near/post/1']);
+  });
+});
+
+describe('engagementFromPartialFetch', () => {
+  it('keeps loaded reply counts when likes fail and leaves colour loading', () => {
+    const painted = engagementFromPartialFetch({
+      previous: null,
+      threadsOk: true,
+      reactionsOk: false,
+      amplifyOk: true,
+      viewerReady: false,
+      repostsOk: true,
+      counts: { replyCount: 3, quoteCount: 1, repostCount: 2 },
+      amplifyCount: 4,
+      viewerAmplified: false,
+    });
+    expect(painted.replyCount).toBe(3);
+    expect(painted.quoteCount).toBe(1);
+    expect(painted.repostCount).toBe(2);
+    expect(painted.amplifyCount).toBe(4);
+    expect(painted.amplifyCountReady).toBe(true);
+    expect(painted.reactionCount).toBe(0);
+    expect(painted.viewerFlagsReady).toBe(false);
+    expect(painted.viewerReacted).toBe(false);
+  });
+
+  it('does not invent settled likes when reactions fail with no prior row', () => {
+    const painted = engagementFromPartialFetch({
+      previous: null,
+      threadsOk: true,
+      reactionsOk: false,
+      amplifyOk: false,
+      viewerReady: false,
+      repostsOk: false,
+      counts: { replyCount: 5, quoteCount: 0, repostCount: 0 },
+    });
+    expect(painted.replyCount).toBe(5);
+    expect(painted.viewerFlagsReady).toBe(false);
+    expect(painted.amplifyCountReady).toBe(false);
   });
 });
 

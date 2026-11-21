@@ -87,6 +87,85 @@ export function confirmedAmplifyEngagement(
 }
 
 /**
+ * Soft-fill row from settled query parts. Keep counts that loaded; never
+ * invent a settled 0 for a failed likes read (leave colour loading instead).
+ */
+export function engagementFromPartialFetch(input: {
+  previous: PostEngagement | null | undefined;
+  threadsOk: boolean;
+  reactionsOk: boolean;
+  amplifyOk: boolean;
+  viewerReady: boolean;
+  repostsOk: boolean;
+  counts?: {
+    replyCount: number;
+    quoteCount: number;
+    repostCount: number;
+  } | null;
+  reactionTotal?: number;
+  viewerReacted?: boolean;
+  amplifyCount?: number;
+  viewerAmplified?: boolean;
+  viewerSaved?: boolean;
+  viewerReposted?: boolean;
+  viewerRepostId?: string | null;
+  viewerRepostGroupId?: string | null;
+}): PostEngagement {
+  const previous = input.previous;
+  const row: PostEngagement = {
+    ...EMPTY_POST_ENGAGEMENT,
+    replyCount: input.threadsOk
+      ? (input.counts?.replyCount ?? 0)
+      : (previous?.replyCount ?? 0),
+    quoteCount: input.threadsOk
+      ? (input.counts?.quoteCount ?? 0)
+      : (previous?.quoteCount ?? 0),
+    repostCount: input.threadsOk
+      ? (input.counts?.repostCount ?? 0)
+      : (previous?.repostCount ?? 0),
+    reactionCount: input.reactionsOk
+      ? (input.reactionTotal ?? 0)
+      : (previous?.reactionCount ?? 0),
+    viewerReacted: input.viewerReady
+      ? Boolean(input.viewerReacted)
+      : (previous?.viewerReacted ?? false),
+    amplifyCount: input.amplifyOk
+      ? (input.amplifyCount ?? 0)
+      : (previous?.amplifyCount ?? 0),
+    amplifyCountReady: input.amplifyOk || Boolean(previous?.amplifyCountReady),
+    viewerAmplified: input.amplifyOk
+      ? Boolean(input.viewerAmplified)
+      : (previous?.viewerAmplified ?? false),
+    viewerSaved: input.viewerReady
+      ? Boolean(input.viewerSaved)
+      : (previous?.viewerSaved ?? false),
+    viewerReposted:
+      input.viewerReady && input.repostsOk
+        ? Boolean(input.viewerReposted)
+        : (previous?.viewerReposted ?? false),
+    viewerRepostId:
+      input.viewerReady && input.repostsOk
+        ? (input.viewerRepostId ?? null)
+        : (previous?.viewerRepostId ?? null),
+    viewerRepostGroupId:
+      input.viewerReady && input.repostsOk
+        ? (input.viewerRepostGroupId ?? null)
+        : (previous?.viewerRepostGroupId ?? null),
+    viewerFlagsReady:
+      input.viewerReady && input.repostsOk && input.amplifyOk,
+    reactionRoll: previous?.reactionRoll ?? 0,
+    saveRoll: previous?.saveRoll ?? 0,
+    amplifyRoll: previous?.amplifyRoll ?? 0,
+    replyRoll: previous?.replyRoll ?? 0,
+    shareRoll: previous?.shareRoll ?? 0,
+  };
+  if (row.viewerAmplified && row.amplifyCountReady) {
+    row.amplifyCount = Math.max(row.amplifyCount, 1);
+  }
+  return row;
+}
+
+/**
  * Drop viewer colour / rolls when the wallet changes (including logout).
  * Public counts stay so the row does not flash empty.
  */
@@ -586,6 +665,9 @@ export function usePostEngagement(
   if (lastGoodAccountRef.current !== (accountId ?? null)) {
     const nextAccount = accountId ?? null;
     lastGoodAccountRef.current = nextAccount;
+    // Invalidate in-flight soft-fills so a late then() cannot paint the
+    // previous wallet's likes onto this account.
+    loadIdRef.current += 1;
     lastGoodRef.current.clear();
     viewerOverlayRef.current = null;
     fetchRetryCountRef.current = 0;
@@ -986,6 +1068,11 @@ export function usePostEngagement(
         const overlayPainted: typeof pending = [];
         const repostsOk =
           !accountId || viewerRepostResult.status === 'fulfilled';
+        // Keep reply/quote/repost that loaded even when likes fail — colour
+        // stays loading (viewerFlagsReady false), not a settled fake 0.
+        if (!reactionsOk) {
+          scheduleFetchRetry();
+        }
         for (const target of pending) {
           if (!liveKeys.has(target.key)) continue;
           const counts = threadCounts[target.path];
@@ -993,61 +1080,29 @@ export function usePostEngagement(
           const amplify = amplifyCounts[target.path];
           const viewerRepost = viewerReposts.get(target.path);
           const previous = engagementRef.current[target.key];
-          // Reactions failed with no prior row — do not cache a fake like 0.
-          if (!reactionsOk && previous == null) {
-            scheduleFetchRetry();
-            continue;
-          }
-          const row: PostEngagement = {
-            ...EMPTY_POST_ENGAGEMENT,
-            replyCount: threadsOk
-              ? (counts?.replyCount ?? 0)
-              : (previous?.replyCount ?? 0),
-            quoteCount: threadsOk
-              ? (counts?.quoteCount ?? 0)
-              : (previous?.quoteCount ?? 0),
-            repostCount: threadsOk
-              ? (counts?.repostCount ?? 0)
-              : (previous?.repostCount ?? 0),
-            reactionCount: reactionsOk
-              ? (reactions?.counts.total ?? 0)
-              : (previous?.reactionCount ?? 0),
-            viewerReacted: viewerReady
-              ? (reactions?.viewerReacted.length ?? 0) > 0
-              : (previous?.viewerReacted ?? false),
-            amplifyCount: amplifyOk
-              ? (amplify?.amplifyCount ?? 0)
-              : (previous?.amplifyCount ?? 0),
-            amplifyCountReady:
-              amplifyOk || Boolean(previous?.amplifyCountReady),
-            viewerAmplified: amplifyOk
-              ? (amplify?.viewerAmplified ?? false)
-              : (previous?.viewerAmplified ?? false),
-            viewerSaved: viewerReady
-              ? savedPaths.has(target.path)
-              : (previous?.viewerSaved ?? false),
-            viewerReposted:
-              viewerReady && repostsOk
-                ? Boolean(viewerRepost)
-                : (previous?.viewerReposted ?? false),
-            viewerRepostId:
-              viewerReady && repostsOk
-                ? (viewerRepost?.repostId ?? null)
-                : (previous?.viewerRepostId ?? null),
-            viewerRepostGroupId:
-              viewerReady && repostsOk
-                ? (viewerRepost?.groupId ?? null)
-                : (previous?.viewerRepostGroupId ?? null),
-            viewerFlagsReady: viewerReady && repostsOk && amplifyOk,
-            reactionRoll: previous?.reactionRoll ?? 0,
-            saveRoll: previous?.saveRoll ?? 0,
-            amplifyRoll: previous?.amplifyRoll ?? 0,
-            replyRoll: previous?.replyRoll ?? 0,
-            shareRoll: previous?.shareRoll ?? 0,
-          };
-          if (row.viewerAmplified && row.amplifyCountReady) {
-            row.amplifyCount = Math.max(row.amplifyCount, 1);
-          }
+          const row = engagementFromPartialFetch({
+            previous,
+            threadsOk,
+            reactionsOk,
+            amplifyOk,
+            viewerReady,
+            repostsOk,
+            counts: counts
+              ? {
+                  replyCount: counts.replyCount,
+                  quoteCount: counts.quoteCount,
+                  repostCount: counts.repostCount,
+                }
+              : null,
+            reactionTotal: reactions?.counts.total,
+            viewerReacted: (reactions?.viewerReacted.length ?? 0) > 0,
+            amplifyCount: amplify?.amplifyCount,
+            viewerAmplified: amplify?.viewerAmplified,
+            viewerSaved: savedPaths.has(target.path),
+            viewerReposted: Boolean(viewerRepost),
+            viewerRepostId: viewerRepost?.repostId ?? null,
+            viewerRepostGroupId: viewerRepost?.groupId ?? null,
+          });
           next[target.key] = row;
           rememberEngagementLastGood(lastGood, target.key, row);
           if (row.viewerFlagsReady) overlayPainted.push(target);
