@@ -442,6 +442,7 @@ export function ProtocolProposalCard({
                 <OsTextFold
                   open={descOpen}
                   closedLines={2}
+                  contentKey={description}
                   onOverflow={setDescOverflows}
                 >
                   <p className="protocol-card-description">{description}</p>
