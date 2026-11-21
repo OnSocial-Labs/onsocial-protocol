@@ -80,6 +80,9 @@ describe('feed-paint-hydrate', () => {
   const countsByPaths = vi.fn();
   const statesForPosts = vi.fn();
   const amplifyCountsForPostPaths = vi.fn();
+  const viewerAmplifiedForPostPaths = vi.fn();
+  const savesForPaths = vi.fn();
+  const viewerReposts = vi.fn();
 
   const os = {
     query: {
@@ -88,9 +91,10 @@ describe('feed-paint-hydrate', () => {
         collectionsCurrent,
         collectionsCurrentByIds,
       },
-      threads: { countsByPaths },
+      threads: { countsByPaths, viewerReposts },
       reactions: { statesForPosts },
-      socialSpend: { amplifyCountsForPostPaths },
+      socialSpend: { amplifyCountsForPostPaths, viewerAmplifiedForPostPaths },
+      saves: { forPaths: savesForPaths },
     },
   };
 
@@ -101,7 +105,13 @@ describe('feed-paint-hydrate', () => {
     countsByPaths.mockReset();
     statesForPosts.mockReset();
     amplifyCountsForPostPaths.mockReset();
+    viewerAmplifiedForPostPaths.mockReset();
+    savesForPaths.mockReset();
+    viewerReposts.mockReset();
     collectionsCurrent.mockResolvedValue([]);
+    savesForPaths.mockResolvedValue([]);
+    viewerReposts.mockResolvedValue([]);
+    viewerAmplifiedForPostPaths.mockResolvedValue({});
   });
 
   it('loadPostEngagementMap batches thread/reaction/amplify counts', async () => {
@@ -142,6 +152,69 @@ describe('feed-paint-hydrate', () => {
     expect(countsByPaths).toHaveBeenCalledTimes(1);
     expect(statesForPosts).toHaveBeenCalledTimes(1);
     expect(amplifyCountsForPostPaths).toHaveBeenCalledTimes(1);
+    expect(savesForPaths).not.toHaveBeenCalled();
+    expect(viewerReposts).not.toHaveBeenCalled();
+  });
+
+  it('loadPostEngagementMap paints viewer colour with counts in one map', async () => {
+    const painted = {
+      ...post('alice.near', 'p1'),
+      replyCount: 2,
+      quoteCount: 1,
+      repostCount: 0,
+      reactionCount: 5,
+      amplifyCount: 3,
+    };
+    statesForPosts.mockResolvedValue({
+      'alice.near:p1': {
+        counts: { total: 5 },
+        viewerReacted: ['like'],
+      },
+    });
+    viewerAmplifiedForPostPaths.mockResolvedValue({
+      'alice.near/post/p1': true,
+    });
+    savesForPaths.mockResolvedValue([{ contentPath: 'alice.near/post/p1' }]);
+    viewerReposts.mockResolvedValue([
+      {
+        refPath: 'alice.near/post/p1',
+        repostId: 'r1',
+        groupId: null,
+      },
+    ]);
+
+    const map = await loadPostEngagementMap(os as never, [painted], {
+      viewer: 'carol.near',
+    });
+
+    expect(map['alice.near:p1']).toMatchObject({
+      replyCount: 2,
+      quoteCount: 1,
+      repostCount: 0,
+      reactionCount: 5,
+      amplifyCount: 3,
+      viewerReacted: true,
+      viewerAmplified: true,
+      viewerSaved: true,
+      viewerReposted: true,
+      viewerRepostId: 'r1',
+    });
+    // Row already had public counts — skip recount; colour via viewer batch.
+    expect(countsByPaths).not.toHaveBeenCalled();
+    expect(amplifyCountsForPostPaths).not.toHaveBeenCalled();
+    expect(statesForPosts).toHaveBeenCalledWith(
+      [{ owner: 'alice.near', postId: 'p1' }],
+      { viewer: 'carol.near' }
+    );
+    expect(viewerAmplifiedForPostPaths).toHaveBeenCalledWith('carol.near', [
+      'alice.near/post/p1',
+    ]);
+    expect(savesForPaths).toHaveBeenCalledWith('carol.near', [
+      'alice.near/post/p1',
+    ]);
+    expect(viewerReposts).toHaveBeenCalledWith('carol.near', [
+      'alice.near/post/p1',
+    ]);
   });
 
   it('loadPostEngagementMap seeds repost originals from refPath', async () => {
@@ -172,10 +245,13 @@ describe('feed-paint-hydrate', () => {
       'alice.near/post/shell',
       'bob.near/post/orig',
     ]);
-    expect(statesForPosts).toHaveBeenCalledWith([
-      { owner: 'alice.near', postId: 'shell' },
-      { owner: 'bob.near', postId: 'orig' },
-    ]);
+    expect(statesForPosts).toHaveBeenCalledWith(
+      [
+        { owner: 'alice.near', postId: 'shell' },
+        { owner: 'bob.near', postId: 'orig' },
+      ],
+      {}
+    );
   });
 
   it('hydrateLazyScarceEmbedsForPosts batches one activeListings by sourcePostPaths', async () => {

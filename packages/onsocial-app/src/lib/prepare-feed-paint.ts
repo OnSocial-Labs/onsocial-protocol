@@ -212,6 +212,8 @@ export type FeedPublicCounts = {
   quoteCount: number;
   repostCount: number;
   reactionCount: number;
+  /** Set when `posts_feed.amplify_count` is tracked; omit means soft-fill. */
+  amplifyCount?: number;
 };
 
 export function publicCountsOnFeedRow(
@@ -220,11 +222,13 @@ export function publicCountsOnFeedRow(
   if (!post) return null;
   const replyCount = countFromFeedValue(post.replyCount);
   if (replyCount == null) return null;
+  const amplifyCount = countFromFeedValue(post.amplifyCount);
   return {
     replyCount,
     quoteCount: countFromFeedValue(post.quoteCount) ?? 0,
     repostCount: countFromFeedValue(post.repostCount) ?? 0,
     reactionCount: countFromFeedValue(post.reactionCount) ?? 0,
+    ...(amplifyCount != null ? { amplifyCount } : {}),
   };
 }
 

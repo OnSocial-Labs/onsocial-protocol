@@ -6287,4 +6287,33 @@ describe('QueryModule', () => {
       expect(body.variables.beforeId).toBeUndefined();
     });
   });
+
+  describe('socialSpend.viewerAmplifiedForPostPaths()', () => {
+    it('filters boost_post events by spender and target paths', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          socialSpendEvents: [
+            { targetId: 'alice.near/post/1', spenderId: 'carol.near' },
+          ],
+        },
+      });
+      const map = await os.query.socialSpend.viewerAmplifiedForPostPaths(
+        'carol.near',
+        ['alice.near/post/1', 'bob.near/post/2']
+      );
+      expect(map).toEqual({
+        'alice.near/post/1': true,
+        'bob.near/post/2': false,
+      });
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({
+        spenderId: 'carol.near',
+        action: 'boost_post',
+        targetType: 'post',
+        targetIds: ['alice.near/post/1', 'bob.near/post/2'],
+      });
+    });
+  });
 });

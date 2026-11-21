@@ -53,6 +53,11 @@ export interface PostRow {
    */
   amplifyHeat?: number | null;
   /**
+   * Lifetime amplify (`boost_post`) count from `posts_feed.amplify_count`.
+   * Absent until Hasura tracks the column — callers soft-fill then.
+   */
+  amplifyCount?: number | string | null;
+  /**
    * Public counts and the quoted post, when `posts_feed` is serving the
    * paint columns. Absent until Hasura tracks them — callers keep the
    * second read in that case.
@@ -78,7 +83,7 @@ export const FEED_POST_ROW_FIELDS = `
   accountId postId value blockHeight blockTimestamp receiptId
   parentPath parentAuthor parentType refPath refAuthor refType channel kind audiences
   groupId isGroupContent
-  authorName authorAvatar groupName amplifyHeat
+  authorName authorAvatar groupName amplifyHeat amplifyCount
   replyCount quoteCount repostCount reactionCount quotedPost quotedRefPost
 `;
 
@@ -88,6 +93,11 @@ export const FEED_POST_ROW_PAINT_FIELDS =
 
 export function stripFeedPaintFields(query: string): string {
   return query.replace(FEED_POST_ROW_PAINT_FIELDS, '');
+}
+
+/** Amplify count column — own soft-fallback so paint counts stay when only this lags. */
+export function stripFeedAmplifyCountField(query: string): string {
+  return query.replace(/\s*amplifyCount\s*/, ' ');
 }
 
 /** Home / list feed ranking. `hot` needs `posts_feed.amplify_heat`. */

@@ -363,7 +363,11 @@ export function engagementSeedFromFeedRows(
     if (!counts) return;
     next[postKey(row)] = {
       ...EMPTY_POST_ENGAGEMENT,
-      ...counts,
+      replyCount: counts.replyCount,
+      quoteCount: counts.quoteCount,
+      repostCount: counts.repostCount,
+      reactionCount: counts.reactionCount,
+      amplifyCount: counts.amplifyCount ?? 0,
     };
   };
   for (const post of posts) {
@@ -395,14 +399,17 @@ export function fillEngagementSeedFromFeedRows(
 }
 
 /**
- * Batched reply/quote/reaction/amplify counts for feed/thread first paint.
- * Viewer flags stay false until the client soft-upgrades with a wallet.
+ * Batched reply/quote/reaction/amplify for feed first paint.
+ * Pass `viewer` so like/amplify/save/repost colour lands in the same map as
+ * counts — no second overlay flash when the card enters the window.
  */
 export async function loadPostEngagementMap(
   os: OnSocial,
-  posts: readonly PostRow[]
+  posts: readonly PostRow[],
+  opts?: { viewer?: string | null }
 ): Promise<PostEngagementMap> {
   if (posts.length === 0) return {};
+  const viewer = opts?.viewer?.trim() || null;
 
   const targets = posts.map((post) => ({
     key: postKey(post),
@@ -439,6 +446,7 @@ export async function loadPostEngagementMap(
       quoteCount: number;
       repostCount: number;
       reactionCount: number;
+      amplifyCount?: number;
     }
   >();
   for (const post of posts) {
@@ -453,24 +461,59 @@ export async function loadPostEngagementMap(
   }
   const missing = targets.filter((target) => !painted.has(target.key));
   const missingPaths = missing.map((target) => target.path);
+  // Viewer needs reaction state for every row — public count rows skip the
+  // count fetch, but still need like colour.
+  const reactionTargets = viewer ? targets : missing;
+  const amplifyCountMissing = targets.filter(
+    (target) => painted.get(target.key)?.amplifyCount == null
+  );
+  const amplifyCountPaths = amplifyCountMissing.map((t) => t.path);
   const emptyThreadCounts: Record<string, ThreadCounts> = {};
   const emptyReactionStates: Record<string, PostReactionState> = {};
+  const emptyAmplify: Record<
+    string,
+    { amplifyCount: number; viewerAmplified: boolean }
+  > = {};
+  const emptyViewerAmplify: Record<string, boolean> = {};
 
-  const [threadResult, reactionResult, amplifyResult] =
-    await Promise.allSettled([
-      missing.length > 0
-        ? os.query.threads.countsByPaths(missingPaths)
-        : Promise.resolve(emptyThreadCounts),
-      missing.length > 0
-        ? os.query.reactions.statesForPosts(
-            missing.map((target) => ({
-              owner: target.owner,
-              postId: target.postId,
-            }))
-          )
-        : Promise.resolve(emptyReactionStates),
-      os.query.socialSpend.amplifyCountsForPostPaths(paths),
-    ]);
+  const needFullAmplify = amplifyCountPaths.length > 0;
+  const needViewerAmplifyOnly =
+    Boolean(viewer) && !needFullAmplify && paths.length > 0;
+
+  const [
+    threadResult,
+    reactionResult,
+    amplifyResult,
+    viewerAmplifyResult,
+    savesResult,
+    repostResult,
+  ] = await Promise.allSettled([
+    missing.length > 0
+      ? os.query.threads.countsByPaths(missingPaths)
+      : Promise.resolve(emptyThreadCounts),
+    reactionTargets.length > 0
+      ? os.query.reactions.statesForPosts(
+          reactionTargets.map((target) => ({
+            owner: target.owner,
+            postId: target.postId,
+          })),
+          viewer ? { viewer } : {}
+        )
+      : Promise.resolve(emptyReactionStates),
+    needFullAmplify
+      ? os.query.socialSpend.amplifyCountsForPostPaths(
+          amplifyCountPaths,
+          viewer ? { viewer } : {}
+        )
+      : Promise.resolve(emptyAmplify),
+    needViewerAmplifyOnly
+      ? os.query.socialSpend.viewerAmplifiedForPostPaths(viewer!, paths)
+      : Promise.resolve(emptyViewerAmplify),
+    viewer ? os.query.saves.forPaths(viewer, paths) : Promise.resolve([]),
+    viewer
+      ? os.query.threads.viewerReposts(viewer, paths)
+      : Promise.resolve([]),
+  ]);
 
   const threadCounts: Record<string, ThreadCounts> =
     threadResult.status === 'fulfilled'
@@ -481,7 +524,25 @@ export async function loadPostEngagementMap(
       ? reactionResult.value
       : emptyReactionStates;
   const amplifyCounts =
-    amplifyResult.status === 'fulfilled' ? amplifyResult.value : {};
+    amplifyResult.status === 'fulfilled' ? amplifyResult.value : emptyAmplify;
+  const viewerAmplifiedMap =
+    viewerAmplifyResult.status === 'fulfilled'
+      ? viewerAmplifyResult.value
+      : emptyViewerAmplify;
+  const savedPaths = new Set(
+    (savesResult.status === 'fulfilled' ? savesResult.value : []).map(
+      (row: { contentPath: string }) => row.contentPath
+    )
+  );
+  const viewerReposts = new Map(
+    (repostResult.status === 'fulfilled' ? repostResult.value : []).map(
+      (row: {
+        refPath: string;
+        repostId?: string;
+        groupId?: string | null;
+      }) => [row.refPath, row]
+    )
+  );
 
   const next: PostEngagementMap = {};
   for (const target of targets) {
@@ -489,13 +550,23 @@ export async function loadPostEngagementMap(
     const reactions = reactionStates[`${target.owner}:${target.postId}`];
     const amplify = amplifyCounts[target.path];
     const onRow = painted.get(target.key);
+    const viewerRepost = viewerReposts.get(target.path);
     next[target.key] = {
       ...EMPTY_POST_ENGAGEMENT,
       replyCount: onRow?.replyCount ?? counts?.replyCount ?? 0,
       quoteCount: onRow?.quoteCount ?? counts?.quoteCount ?? 0,
       repostCount: onRow?.repostCount ?? counts?.repostCount ?? 0,
       reactionCount: onRow?.reactionCount ?? reactions?.counts.total ?? 0,
-      amplifyCount: amplify?.amplifyCount ?? 0,
+      amplifyCount:
+        onRow?.amplifyCount ?? amplify?.amplifyCount ?? 0,
+      viewerReacted: (reactions?.viewerReacted.length ?? 0) > 0,
+      viewerAmplified:
+        Boolean(amplify?.viewerAmplified) ||
+        Boolean(viewerAmplifiedMap[target.path]),
+      viewerSaved: savedPaths.has(target.path),
+      viewerReposted: Boolean(viewerRepost),
+      viewerRepostId: viewerRepost?.repostId ?? null,
+      viewerRepostGroupId: viewerRepost?.groupId ?? null,
     };
   }
   return next;

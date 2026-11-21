@@ -499,8 +499,43 @@ export class SocialSpendQuery {
   }
 
   /**
+   * Whether `viewer` has amplified each post path — one event scan filtered
+   * by spender. Prefer this when public `amplifyCount` already came on the
+   * feed row.
+   */
+  async viewerAmplifiedForPostPaths(
+    viewer: string,
+    postPaths: string[]
+  ): Promise<Record<string, boolean>> {
+    const spender = viewer.trim();
+    const paths = Array.from(
+      new Set(postPaths.map((path) => path.trim()).filter(Boolean))
+    );
+    const out: Record<string, boolean> = {};
+    for (const path of paths) out[path] = false;
+    if (!spender || paths.length === 0) return out;
+
+    const rows = await this.events({
+      action: 'boost_post',
+      targetType: 'post',
+      targetIds: paths,
+      spenderId: spender,
+      eventType: SOCIAL_SPEND_EVENT_TYPES.SOCIAL_SPENT,
+      success: true,
+      limit: Math.min(2_000, Math.max(paths.length, 50)),
+    });
+    for (const row of rows) {
+      const path = row.targetId?.trim();
+      if (path && path in out) out[path] = true;
+    }
+    return out;
+  }
+
+  /**
    * Amplify (`boost_post`) counts for a page of posts.
    * `count` = successful spend events (matches on-chain target totals).
+   * When counts already sit on the feed row, use
+   * {@link viewerAmplifiedForPostPaths} instead.
    */
   async amplifyCountsForPostPaths(
     postPaths: string[],

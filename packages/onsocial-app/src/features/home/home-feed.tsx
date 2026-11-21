@@ -1148,10 +1148,9 @@ export function HomePagePanel({
         ssrBootstrapDoneRef.current = true;
         fillSidePaint(items);
         if (!mergeHead) {
-          void loadPostEngagementMap(
-            createReadOnlyOnSocialClient(),
-            items
-          ).then(
+          void loadPostEngagementMap(createReadOnlyOnSocialClient(), items, {
+            viewer: accountId,
+          }).then(
             (engagement) => {
               if (!isCurrentLoadingRequest(loadIdRef.current, loadId)) return;
               setEngagementSeed((current) => ({
@@ -1311,10 +1310,12 @@ export function HomePagePanel({
           fillEngagementSeedFromFeedRows(current, appended)
         );
         applyFeedPageCursor(result.page);
-        // Soft-fill after rows mount — quote seats + amplify/gap engagement.
+        // Soft-fill after rows mount — quotes + counts/colour in one map.
         void Promise.all([
           loadFeedPaint(appended),
-          loadPostEngagementMap(createReadOnlyOnSocialClient(), appended),
+          loadPostEngagementMap(createReadOnlyOnSocialClient(), appended, {
+            viewer: accountId,
+          }),
         ]).then(
           ([appendedPaint, appendedEngagement]) => {
             if (!isCurrentLoadingRequest(loadIdRef.current, loadId)) return;

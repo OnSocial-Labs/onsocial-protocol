@@ -301,7 +301,9 @@ export function mergeEngagementSoftUpgrade(
  * until chain confirmation (icons still flip immediately — not pulsing dots).
  * Pass `initial` from the page paint so counts are final. A signed-in
  * viewer then overlays like, save, and repost flags without recounting —
- * and last-good memory keeps those flags across window prune.
+ * and last-good memory keeps those flags across window prune. Viewer
+ * overlay fetches are not cancelled by scroll (only wallet switch drops
+ * them); page soft-fill with `viewer` paints colour once per append.
  *
  * `posts` is the fetch band (near window + pad). Pass `retainPosts` as the
  * full in-memory feed list so prune does not drop counts the seed already has.
@@ -359,21 +361,51 @@ export function usePostEngagement(
   const incomingInitial = opts.initial ?? null;
   if (incomingInitial !== initialRef.current) {
     initialRef.current = incomingInitial;
-    if (
-      incomingInitial &&
-      Object.keys(incomingInitial).some(
-        (key) => !(key in engagementRef.current)
-      )
-    ) {
+    if (incomingInitial && Object.keys(incomingInitial).length > 0) {
       const lastGood = lastGoodRef.current;
-      setEngagement((prev) =>
-        resolveBandEngagement({
+      const seedKeys = Object.keys(incomingInitial);
+      // Soft-fill onto an existing row seed already carried viewer colour —
+      // skip the scroll-band overlay re-fetch for those keys.
+      const softFilledViewer =
+        Boolean(accountId) &&
+        seedKeys.some((key) => key in engagementRef.current);
+      if (softFilledViewer && accountId) {
+        const done = viewerOverlayRef.current;
+        const keys =
+          done && done.accountId === accountId
+            ? done.keys
+            : new Set<string>();
+        for (const key of seedKeys) keys.add(key);
+        viewerOverlayRef.current = { accountId, keys };
+      }
+      // Soft-fill may add viewer colour onto keys the row seed already
+      // planted — merge both missing keys and flag upgrades so counts and
+      // colour commit in the same paint as the soft-fill map.
+      setEngagement((prev) => {
+        const filled = resolveBandEngagement({
           live: prev,
           seed: incomingInitial,
           lastGood,
-          keys: Object.keys(incomingInitial),
-        })
-      );
+          keys: seedKeys,
+        });
+        const upgraded = mergeEngagementSoftUpgrade(
+          filled,
+          incomingInitial,
+          pendingReactionKeysRef.current,
+          pendingSaveKeysRef.current,
+          unrepostedKeysRef.current
+        );
+        let changed = filled !== prev;
+        const next: EngagementMap = { ...filled };
+        for (const [key, row] of Object.entries(upgraded)) {
+          if (next[key] !== row) {
+            next[key] = row;
+            changed = true;
+          }
+          rememberEngagementLastGood(lastGood, key, next[key]!);
+        }
+        return changed ? next : prev;
+      });
     }
   }
   const onErrorRef = useRef(opts.onError);
@@ -426,9 +458,16 @@ export function usePostEngagement(
       return;
     }
 
-    const known = engagementRef.current;
-    const missing = targets.filter((target) => !(target.key in known));
     const lastGood = lastGoodRef.current;
+    const seed = initialRef.current;
+    const known = engagementRef.current;
+    // Row seed / last-good already own public counts — do not recount those.
+    const missing = targets.filter((target) => {
+      if (target.key in known) return false;
+      if (seed?.[target.key]) return false;
+      if (lastGood.has(target.key)) return false;
+      return true;
+    });
     const overlayFor =
       accountId == null
         ? []
@@ -447,12 +486,24 @@ export function usePostEngagement(
       viewerOverlayRef.current = { accountId, keys };
     };
 
+    // Warm live map from seed + last-good before any network (scroll-back).
+    if (seed || lastGood.size > 0) {
+      setEngagement((current) =>
+        resolveBandEngagement({
+          live: current,
+          seed,
+          lastGood,
+          keys: targets.map((target) => target.key),
+        })
+      );
+    }
+
     // Counts already on the row stay. A signed-in viewer only picks up
     // their own like, save, and repost — a recount would roll the numbers.
+    // Overlay must not use loadId cancel: scroll thrash was dropping colour.
     if (missing.length === 0) {
       if (overlayFor.length === 0 || !accountId) return;
       const viewerId = accountId;
-      const loadId = ++loadIdRef.current;
       const client = createReadOnlyOnSocialClient();
       const paths = overlayFor.map((target) => target.path);
       const overlayRows = overlayFor;
@@ -466,12 +517,15 @@ export function usePostEngagement(
         ),
         client.query.saves.forPaths(viewerId, paths),
         client.query.threads.viewerReposts(viewerId, paths),
-        client.query.socialSpend.amplifyCountsForPostPaths(paths, {
-          viewer: viewerId,
-        }),
+        client.query.socialSpend.viewerAmplifiedForPostPaths(viewerId, paths),
       ]).then(
-        ([reactionResult, savesResult, viewerRepostResult, amplifyResult]) => {
-          if (loadIdRef.current !== loadId) return;
+        ([
+          reactionResult,
+          savesResult,
+          viewerRepostResult,
+          viewerAmplifyResult,
+        ]) => {
+          if (lastGoodAccountRef.current !== viewerId) return;
           const reactionStates =
             reactionResult.status === 'fulfilled' ? reactionResult.value : {};
           const savedPaths = new Set(
@@ -485,8 +539,10 @@ export function usePostEngagement(
               : []
             ).map((row) => [row.refPath, row])
           );
-          const amplifyCounts =
-            amplifyResult.status === 'fulfilled' ? amplifyResult.value : {};
+          const viewerAmplified =
+            viewerAmplifyResult.status === 'fulfilled'
+              ? viewerAmplifyResult.value
+              : {};
           rememberOverlay(overlayRows);
           setEngagement((current) => {
             const next: EngagementMap = { ...current };
@@ -496,14 +552,14 @@ export function usePostEngagement(
               const reactions =
                 reactionStates[`${target.owner}:${target.postId}`];
               const viewerRepost = viewerReposts.get(target.path);
-              const amplify = amplifyCounts[target.path];
               const row: PostEngagement = {
                 ...previous,
                 viewerReacted: (reactions?.viewerReacted.length ?? 0) > 0,
                 viewerSaved:
                   savedPaths.has(target.path) || previous.viewerSaved,
                 viewerAmplified:
-                  amplify?.viewerAmplified || previous.viewerAmplified,
+                  Boolean(viewerAmplified[target.path]) ||
+                  previous.viewerAmplified,
                 viewerReposted:
                   Boolean(viewerRepost) || previous.viewerReposted,
                 viewerRepostId:
@@ -519,22 +575,6 @@ export function usePostEngagement(
         }
       );
       return;
-    }
-
-    /*
-     * Write-through for scroll-back — render already paints from seed +
-     * last-good; keep the live map warm so the next prune remembers it.
-     */
-    const seed = initialRef.current;
-    if (seed || lastGood.size > 0) {
-      setEngagement((current) =>
-        resolveBandEngagement({
-          live: current,
-          seed,
-          lastGood,
-          keys: missing.map((target) => target.key),
-        })
-      );
     }
 
     const loadId = ++loadIdRef.current;

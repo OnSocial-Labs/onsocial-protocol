@@ -20,6 +20,7 @@ import {
   requireChronoKeyset,
   requireHotKeyset,
   requirePulseKeyset,
+  stripFeedAmplifyCountField,
   stripFeedPaintFields,
   type FeedSection,
   type FeedSort,
@@ -65,6 +66,13 @@ const FEED_POST_ROW_FIELDS_WITH_ROOT = `${FEED_POST_ROW_FIELDS}
 const FEED_POST_ROW_FIELDS_NO_HEAT_WITH_ROOT = `${FEED_POST_ROW_FIELDS_NO_HEAT}
   rootPath rootAuthor`;
 
+function withAmplifyCountFallback(
+  query: string,
+  amplifyCountFallbackActive: boolean
+): string {
+  return amplifyCountFallbackActive ? stripFeedAmplifyCountField(query) : query;
+}
+
 function isPostsFeedUnavailableError(err: unknown): boolean {
   if (!(err instanceof GraphQLValidationError)) return false;
   const hay =
@@ -82,6 +90,13 @@ function isAmplifyHeatUnavailableError(err: unknown): boolean {
   const hay =
     `${err.message} ${err.errors.map((e) => e.message ?? '').join(' ')}`.toLowerCase();
   return hay.includes('amplifyheat') || hay.includes('amplify_heat');
+}
+
+function isAmplifyCountUnavailableError(err: unknown): boolean {
+  if (!(err instanceof GraphQLValidationError)) return false;
+  const hay =
+    `${err.message} ${err.errors.map((e) => e.message ?? '').join(' ')}`.toLowerCase();
+  return hay.includes('amplifycount') || hay.includes('amplify_count');
 }
 
 function isFeedPaintUnavailableError(err: unknown): boolean {
@@ -346,6 +361,9 @@ export class FeedQuery {
   /** Set when GraphQL rejects `amplifyHeat` (column not tracked yet). */
   private amplifyHeatFallback = new SchemaFallback();
 
+  /** Set when GraphQL rejects `amplifyCount` (column not tracked yet). */
+  private amplifyCountFallback = new SchemaFallback();
+
   /** Set when the public-count / quoted-post columns are not tracked yet. */
   private feedPaintFallback = new SchemaFallback();
 
@@ -567,9 +585,12 @@ export class FeedQuery {
       !this.feedHotFallback.active &&
       !this.amplifyHeatFallback.active
     ) {
-      const hotQuery = this.feedPaintFallback.active
-        ? stripFeedPaintFields(args.feedHotQuery)
-        : args.feedHotQuery;
+      const hotQuery = withAmplifyCountFallback(
+        this.feedPaintFallback.active
+          ? stripFeedPaintFields(args.feedHotQuery)
+          : args.feedHotQuery,
+        this.amplifyCountFallback.active
+      );
       try {
         const res = await this._q.graphql<{ postsFeed: PostRow[] }>({
           query: hotQuery,
@@ -578,10 +599,23 @@ export class FeedQuery {
         if (hotQuery.includes(FEED_POST_ROW_PAINT_FIELDS)) {
           this.feedPaintFallback.clear();
         }
+        if (hotQuery.includes('amplifyCount')) {
+          this.amplifyCountFallback.clear();
+        }
         this.feedHotFallback.clear();
         this.amplifyHeatFallback.clear();
         return res.data?.postsFeed ?? [];
       } catch (err) {
+        if (
+          hotQuery.includes('amplifyCount') &&
+          isAmplifyCountUnavailableError(err)
+        ) {
+          this.amplifyCountFallback.trip();
+          return this.queryFeedRows({
+            ...args,
+            feedHotQuery: stripFeedAmplifyCountField(args.feedHotQuery),
+          });
+        }
         if (
           hotQuery.includes('replyCount') &&
           isFeedPaintUnavailableError(err)
@@ -620,9 +654,12 @@ export class FeedQuery {
       !this.feedRecentFallback.active &&
       !this.amplifyHeatFallback.active
     ) {
-      const recentQuery = this.feedPaintFallback.active
-        ? stripFeedPaintFields(args.feedRecentQuery)
-        : args.feedRecentQuery;
+      const recentQuery = withAmplifyCountFallback(
+        this.feedPaintFallback.active
+          ? stripFeedPaintFields(args.feedRecentQuery)
+          : args.feedRecentQuery,
+        this.amplifyCountFallback.active
+      );
       try {
         const res = await this._q.graphql<{ postsFeed: PostRow[] }>({
           query: recentQuery,
@@ -631,9 +668,22 @@ export class FeedQuery {
         if (recentQuery.includes(FEED_POST_ROW_PAINT_FIELDS)) {
           this.feedPaintFallback.clear();
         }
+        if (recentQuery.includes('amplifyCount')) {
+          this.amplifyCountFallback.clear();
+        }
         this.feedRecentFallback.clear();
         return res.data?.postsFeed ?? [];
       } catch (err) {
+        if (
+          recentQuery.includes('amplifyCount') &&
+          isAmplifyCountUnavailableError(err)
+        ) {
+          this.amplifyCountFallback.trip();
+          return this.queryFeedRows({
+            ...args,
+            feedRecentQuery: stripFeedAmplifyCountField(args.feedRecentQuery),
+          });
+        }
         if (
           recentQuery.includes('replyCount') &&
           isFeedPaintUnavailableError(err)
@@ -656,13 +706,19 @@ export class FeedQuery {
       }
     }
 
-    const postsFeedQuery = this.feedPaintFallback.active
-      ? stripFeedPaintFields(args.postsFeedQuery)
-      : args.postsFeedQuery;
+    const postsFeedQuery = withAmplifyCountFallback(
+      this.feedPaintFallback.active
+        ? stripFeedPaintFields(args.postsFeedQuery)
+        : args.postsFeedQuery,
+      this.amplifyCountFallback.active
+    );
     const postsFeedQueryNoHeat = args.postsFeedQueryNoHeat
-      ? this.feedPaintFallback.active
-        ? stripFeedPaintFields(args.postsFeedQueryNoHeat)
-        : args.postsFeedQueryNoHeat
+      ? withAmplifyCountFallback(
+          this.feedPaintFallback.active
+            ? stripFeedPaintFields(args.postsFeedQueryNoHeat)
+            : args.postsFeedQueryNoHeat,
+          this.amplifyCountFallback.active
+        )
       : undefined;
 
     if (!this.postsFeedFallback.active) {
@@ -678,8 +734,24 @@ export class FeedQuery {
         if (feedQuery.includes(FEED_POST_ROW_PAINT_FIELDS)) {
           this.feedPaintFallback.clear();
         }
+        if (feedQuery.includes('amplifyCount')) {
+          this.amplifyCountFallback.clear();
+        }
         return res.data?.postsFeed ?? [];
       } catch (err) {
+        if (
+          feedQuery.includes('amplifyCount') &&
+          isAmplifyCountUnavailableError(err)
+        ) {
+          this.amplifyCountFallback.trip();
+          return this.queryFeedRows({
+            ...args,
+            postsFeedQuery: stripFeedAmplifyCountField(args.postsFeedQuery),
+            postsFeedQueryNoHeat: args.postsFeedQueryNoHeat
+              ? stripFeedAmplifyCountField(args.postsFeedQueryNoHeat)
+              : undefined,
+          });
+        }
         if (
           feedQuery.includes('replyCount') &&
           isFeedPaintUnavailableError(err)
