@@ -135,56 +135,69 @@ export function pruneEngagementMap(
 }
 
 /**
- * Viewer-owned flags that must survive feed window prune. Public counts stay
- * on the seed; these paint active icon colour on scroll-back without waiting
- * for the async overlay.
+ * Last-good engagement that survives feed window prune. Seed + this map paint
+ * counts and viewer colour on scroll-back in the same frame — never wait for
+ * scroll settle or a network round-trip for a row we already knew.
  */
-export type ViewerEngagementMemory = {
-  viewerReacted: boolean;
-  viewerAmplified: boolean;
-  viewerSaved: boolean;
-  viewerReposted: boolean;
-  viewerRepostId: string | null;
-  viewerRepostGroupId: string | null;
-};
-
-export function viewerEngagementMemoryFrom(
-  row: PostEngagement
-): ViewerEngagementMemory {
-  return {
-    viewerReacted: row.viewerReacted,
-    viewerAmplified: row.viewerAmplified,
-    viewerSaved: row.viewerSaved,
-    viewerReposted: row.viewerReposted,
-    viewerRepostId: row.viewerRepostId,
-    viewerRepostGroupId: row.viewerRepostGroupId,
-  };
-}
-
-export function rememberViewerEngagement(
-  store: Map<string, ViewerEngagementMemory>,
+export function rememberEngagementLastGood(
+  store: Map<string, PostEngagement>,
   key: string,
   row: PostEngagement
 ): void {
-  store.set(key, viewerEngagementMemoryFrom(row));
+  store.set(key, row);
 }
 
-/** Merge last-good viewer flags onto a count-only seed row. */
-export function withViewerEngagementMemory(
-  row: PostEngagement,
-  memory: ViewerEngagementMemory | undefined
-): PostEngagement {
-  if (!memory) return row;
-  const next: PostEngagement = {
-    ...row,
-    viewerReacted: memory.viewerReacted,
-    viewerAmplified: memory.viewerAmplified,
-    viewerSaved: memory.viewerSaved,
-    viewerReposted: memory.viewerReposted,
-    viewerRepostId: memory.viewerRepostId,
-    viewerRepostGroupId: memory.viewerRepostGroupId,
-  };
-  return samePostEngagement(next, row) ? row : next;
+/**
+ * Resolve the live band for paint. Prefer the live map; fill pruned keys from
+ * seed (public counts) + last-good (viewer flags / confirmed bumps) before
+ * any effect runs.
+ */
+export function resolveBandEngagement(input: {
+  live: EngagementMap;
+  seed: EngagementMap | null;
+  lastGood: ReadonlyMap<string, PostEngagement>;
+  keys: readonly string[];
+}): EngagementMap {
+  let changed = false;
+  const next: EngagementMap = { ...input.live };
+  for (const key of input.keys) {
+    // Live band row is authoritative (includes unlike / unrepost optimism).
+    if (key in next) continue;
+    const good = input.lastGood.get(key);
+    const seeded = input.seed?.[key];
+    if (seeded && good) {
+      next[key] = {
+        ...seeded,
+        viewerReacted: good.viewerReacted,
+        viewerAmplified: good.viewerAmplified,
+        viewerSaved: good.viewerSaved,
+        viewerReposted: good.viewerReposted,
+        viewerRepostId: good.viewerRepostId,
+        viewerRepostGroupId: good.viewerRepostGroupId,
+        replyCount: Math.max(seeded.replyCount, good.replyCount),
+        quoteCount: Math.max(seeded.quoteCount, good.quoteCount),
+        repostCount: Math.max(seeded.repostCount, good.repostCount),
+        reactionCount: Math.max(seeded.reactionCount, good.reactionCount),
+        amplifyCount: Math.max(seeded.amplifyCount, good.amplifyCount),
+        reactionRoll: good.reactionRoll,
+        amplifyRoll: good.amplifyRoll,
+        replyRoll: good.replyRoll,
+        shareRoll: good.shareRoll,
+      };
+      changed = true;
+      continue;
+    }
+    if (seeded) {
+      next[key] = seeded;
+      changed = true;
+      continue;
+    }
+    if (good) {
+      next[key] = good;
+      changed = true;
+    }
+  }
+  return changed ? next : input.live;
 }
 
 /**
@@ -330,14 +343,12 @@ export function usePostEngagement(
     accountId: string;
     keys: Set<string>;
   } | null>(null);
-  /** Survives prune so scroll-back paints active colour with the seed counts. */
-  const viewerMemoryRef = useRef<Map<string, ViewerEngagementMemory>>(
-    new Map()
-  );
-  const viewerMemoryAccountRef = useRef<string | null>(accountId ?? null);
-  if (viewerMemoryAccountRef.current !== (accountId ?? null)) {
-    viewerMemoryAccountRef.current = accountId ?? null;
-    viewerMemoryRef.current.clear();
+  /** Survives prune — scroll-back paints counts + colour without waiting. */
+  const lastGoodRef = useRef<Map<string, PostEngagement>>(new Map());
+  const lastGoodAccountRef = useRef<string | null>(accountId ?? null);
+  if (lastGoodAccountRef.current !== (accountId ?? null)) {
+    lastGoodAccountRef.current = accountId ?? null;
+    lastGoodRef.current.clear();
     viewerOverlayRef.current = null;
   }
   const incomingInitial = opts.initial ?? null;
@@ -349,17 +360,15 @@ export function usePostEngagement(
         (key) => !(key in engagementRef.current)
       )
     ) {
-      const memory = viewerMemoryRef.current;
-      setEngagement((prev) => {
-        let changed = false;
-        const next = { ...prev };
-        for (const [key, row] of Object.entries(incomingInitial)) {
-          if (key in next) continue;
-          next[key] = withViewerEngagementMemory(row, memory.get(key));
-          changed = true;
-        }
-        return changed ? next : prev;
-      });
+      const lastGood = lastGoodRef.current;
+      setEngagement((prev) =>
+        resolveBandEngagement({
+          live: prev,
+          seed: incomingInitial,
+          lastGood,
+          keys: Object.keys(incomingInitial),
+        })
+      );
     }
   }
   const onErrorRef = useRef(opts.onError);
@@ -380,13 +389,13 @@ export function usePostEngagement(
     [targets, accountId]
   );
 
-  // Bound the map to the live band — remember viewer flags before prune.
+  // Bound the map to the live band — remember last-good before prune.
   useEffect(() => {
     const live = new Set(targets.map((target) => target.key));
-    const memory = viewerMemoryRef.current;
+    const lastGood = lastGoodRef.current;
     setEngagement((current) => {
       for (const [key, row] of Object.entries(current)) {
-        if (!live.has(key)) rememberViewerEngagement(memory, key, row);
+        if (!live.has(key)) rememberEngagementLastGood(lastGood, key, row);
       }
       return pruneEngagementMap(current, live);
     });
@@ -404,7 +413,7 @@ export function usePostEngagement(
 
     const known = engagementRef.current;
     const missing = targets.filter((target) => !(target.key in known));
-    const memory = viewerMemoryRef.current;
+    const lastGood = lastGoodRef.current;
     const overlayFor =
       accountId == null
         ? []
@@ -488,7 +497,7 @@ export function usePostEngagement(
                   viewerRepost?.groupId ?? previous.viewerRepostGroupId,
               };
               next[target.key] = row;
-              rememberViewerEngagement(memory, target.key, row);
+              rememberEngagementLastGood(lastGood, target.key, row);
             }
             return next;
           });
@@ -498,27 +507,19 @@ export function usePostEngagement(
     }
 
     /*
-     * Scroll-back: paint seed counts + last-good viewer flags in this frame
-     * so active colour is not waiting on the network.
+     * Write-through for scroll-back — render already paints from seed +
+     * last-good; keep the live map warm so the next prune remembers it.
      */
     const seed = initialRef.current;
-    if (seed || memory.size > 0) {
-      setEngagement((current) => {
-        let changed = false;
-        const next = { ...current };
-        for (const target of missing) {
-          if (target.key in next) continue;
-          const base = seed?.[target.key];
-          const remembered = memory.get(target.key);
-          if (!base && !remembered) continue;
-          next[target.key] = withViewerEngagementMemory(
-            base ?? EMPTY_POST_ENGAGEMENT,
-            remembered
-          );
-          changed = true;
-        }
-        return changed ? next : current;
-      });
+    if (seed || lastGood.size > 0) {
+      setEngagement((current) =>
+        resolveBandEngagement({
+          live: current,
+          seed,
+          lastGood,
+          keys: missing.map((target) => target.key),
+        })
+      );
     }
 
     const loadId = ++loadIdRef.current;
@@ -598,7 +599,7 @@ export function usePostEngagement(
             viewerRepostGroupId: viewerRepost?.groupId ?? null,
           };
           next[target.key] = row;
-          rememberViewerEngagement(memory, target.key, row);
+          rememberEngagementLastGood(lastGood, target.key, row);
         }
         if (accountId) rememberOverlay(pending);
         setEngagement((current) => ({
@@ -644,7 +645,7 @@ export function usePostEngagement(
 
       setPendingReactionKeys((current) => new Set(current).add(key));
       const pending = pendingReactionEngagement(previous, applied);
-      rememberViewerEngagement(viewerMemoryRef.current, key, pending);
+      rememberEngagementLastGood(lastGoodRef.current, key, pending);
       setEngagement((current) => ({
         ...current,
         [key]: pending,
@@ -682,14 +683,14 @@ export function usePostEngagement(
             indexed === expected
               ? { ...confirmed, reactionCount: indexed }
               : confirmed;
-          rememberViewerEngagement(viewerMemoryRef.current, key, row);
+          rememberEngagementLastGood(lastGoodRef.current, key, row);
           return {
             ...current,
             [key]: row,
           };
         });
       } catch (cause) {
-        rememberViewerEngagement(viewerMemoryRef.current, key, previous);
+        rememberEngagementLastGood(lastGoodRef.current, key, previous);
         setEngagement((current) => ({ ...current, [key]: previous }));
         if (!isWalletUserCancellation(cause)) {
           onErrorRef.current?.(
@@ -725,7 +726,7 @@ export function usePostEngagement(
 
       setPendingSaveKeys((current) => new Set(current).add(key));
       const pending = { ...previous, viewerSaved: applied };
-      rememberViewerEngagement(viewerMemoryRef.current, key, pending);
+      rememberEngagementLastGood(lastGoodRef.current, key, pending);
       setEngagement((current) => ({
         ...current,
         [key]: pending,
@@ -740,7 +741,7 @@ export function usePostEngagement(
           wait: true,
         });
       } catch (cause) {
-        rememberViewerEngagement(viewerMemoryRef.current, key, previous);
+        rememberEngagementLastGood(lastGoodRef.current, key, previous);
         setEngagement((current) => ({ ...current, [key]: previous }));
         if (!isWalletUserCancellation(cause)) {
           onErrorRef.current?.(
@@ -774,7 +775,7 @@ export function usePostEngagement(
             amplifyCount: previous.amplifyCount + 1,
             amplifyRoll: previous.amplifyRoll + 1,
           };
-      rememberViewerEngagement(viewerMemoryRef.current, key, row);
+      rememberEngagementLastGood(lastGoodRef.current, key, row);
       return { ...current, [key]: row };
     });
     // Invalidate Hot session snapshots — leave/return soft-refetches rank
@@ -810,7 +811,7 @@ export function usePostEngagement(
               repostCount: previous.repostCount + 1,
               shareRoll: previous.shareRoll + 1,
             };
-        rememberViewerEngagement(viewerMemoryRef.current, key, row);
+        rememberEngagementLastGood(lastGoodRef.current, key, row);
         return { ...current, [key]: row };
       });
     },
@@ -831,7 +832,7 @@ export function usePostEngagement(
         repostCount: Math.max(0, previous.repostCount - 1),
         shareRoll: previous.shareRoll + 1,
       };
-      rememberViewerEngagement(viewerMemoryRef.current, key, row);
+      rememberEngagementLastGood(lastGoodRef.current, key, row);
       return { ...current, [key]: row };
     });
   }, []);
@@ -918,8 +919,23 @@ export function usePostEngagement(
     []
   );
 
+  /*
+   * Same-frame band paint: seed + last-good fill pruned keys before effects.
+   * Scroll must not blank counts or active colour until a fetch settles.
+   */
+  const paintedEngagement = useMemo(
+    () =>
+      resolveBandEngagement({
+        live: engagement,
+        seed: initialRef.current,
+        lastGood: lastGoodRef.current,
+        keys: targets.map((target) => target.key),
+      }),
+    [engagement, targets, incomingInitial]
+  );
+
   return {
-    engagement,
+    engagement: paintedEngagement,
     toggleReaction,
     toggleSave,
     isReactionPending,

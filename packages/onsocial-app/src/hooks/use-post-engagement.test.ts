@@ -6,8 +6,8 @@ import {
   pendingReactionEngagement,
   pruneEngagementMap,
   reactionCountAfterToggle,
-  rememberViewerEngagement,
-  withViewerEngagementMemory,
+  rememberEngagementLastGood,
+  resolveBandEngagement,
   type PostEngagement,
 } from '@/hooks/use-post-engagement';
 
@@ -27,42 +27,57 @@ describe('pruneEngagementMap', () => {
   });
 });
 
-describe('viewer engagement memory', () => {
-  it('restores active flags onto a count-only seed after prune', () => {
-    const store = new Map();
-    rememberViewerEngagement(
-      store,
+describe('resolveBandEngagement', () => {
+  it('fills pruned keys from seed + last-good in one resolve', () => {
+    const lastGood = new Map<string, PostEngagement>();
+    rememberEngagementLastGood(
+      lastGood,
       'a:1',
       row({
         viewerReacted: true,
         viewerAmplified: true,
-        viewerSaved: true,
-        reactionCount: 4,
+        reactionCount: 5,
+        replyCount: 2,
       })
     );
-    const painted = withViewerEngagementMemory(
-      row({ reactionCount: 4, replyCount: 2 }),
-      store.get('a:1')
-    );
-    expect(painted.viewerReacted).toBe(true);
-    expect(painted.viewerAmplified).toBe(true);
-    expect(painted.viewerSaved).toBe(true);
-    expect(painted.reactionCount).toBe(4);
-    expect(painted.replyCount).toBe(2);
+    const painted = resolveBandEngagement({
+      live: {},
+      seed: { 'a:1': row({ reactionCount: 4, replyCount: 2 }) },
+      lastGood,
+      keys: ['a:1'],
+    });
+    expect(painted['a:1']?.viewerReacted).toBe(true);
+    expect(painted['a:1']?.viewerAmplified).toBe(true);
+    expect(painted['a:1']?.reactionCount).toBe(5);
+    expect(painted['a:1']?.replyCount).toBe(2);
   });
 
-  it('keeps identity when memory matches the row', () => {
-    const painted = row({ viewerReacted: true, reactionCount: 3 });
-    expect(
-      withViewerEngagementMemory(painted, {
-        viewerReacted: true,
-        viewerAmplified: false,
-        viewerSaved: false,
-        viewerReposted: false,
-        viewerRepostId: null,
-        viewerRepostGroupId: null,
-      })
-    ).toBe(painted);
+  it('keeps live identity when last-good adds nothing', () => {
+    const live = { 'a:1': row({ reactionCount: 3, viewerReacted: true }) };
+    const painted = resolveBandEngagement({
+      live,
+      seed: null,
+      lastGood: new Map(),
+      keys: ['a:1'],
+    });
+    expect(painted).toBe(live);
+  });
+
+  it('uses last-good alone when the seed was trimmed', () => {
+    const lastGood = new Map<string, PostEngagement>();
+    rememberEngagementLastGood(
+      lastGood,
+      'a:1',
+      row({ viewerReacted: true, reactionCount: 9 })
+    );
+    const painted = resolveBandEngagement({
+      live: {},
+      seed: null,
+      lastGood,
+      keys: ['a:1'],
+    });
+    expect(painted['a:1']?.viewerReacted).toBe(true);
+    expect(painted['a:1']?.reactionCount).toBe(9);
   });
 });
 
