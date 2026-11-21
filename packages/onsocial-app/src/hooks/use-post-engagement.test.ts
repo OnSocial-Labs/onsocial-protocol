@@ -176,6 +176,70 @@ describe('mergeEngagementSoftUpgrade', () => {
     expect(merged[key]?.amplifyCount).toBe(5);
   });
 
+  it('keeps chain-confirmed like when soft-fill lags on viewer flag', () => {
+    const key = 'alice.near:p1';
+    const merged = mergeEngagementSoftUpgrade(
+      {
+        [key]: row({
+          viewerReacted: true,
+          reactionCount: 5,
+          reactionRoll: 1,
+        }),
+      },
+      { [key]: row({ viewerReacted: false, reactionCount: 4 }) },
+      new Set(),
+      new Set()
+    );
+    expect(merged[key]?.viewerReacted).toBe(true);
+    expect(merged[key]?.reactionCount).toBe(5);
+  });
+
+  it('keeps chain-confirmed unlike when soft-fill still shows liked', () => {
+    const key = 'alice.near:p1';
+    const merged = mergeEngagementSoftUpgrade(
+      {
+        [key]: row({
+          viewerReacted: false,
+          reactionCount: 4,
+          reactionRoll: 1,
+        }),
+      },
+      { [key]: row({ viewerReacted: true, reactionCount: 5 }) },
+      new Set(),
+      new Set()
+    );
+    expect(merged[key]?.viewerReacted).toBe(false);
+    expect(merged[key]?.reactionCount).toBe(4);
+  });
+
+  it('does not dip a confirmed like total when soft-fill returns a lower count', () => {
+    const key = 'alice.near:p1';
+    const merged = mergeEngagementSoftUpgrade(
+      {
+        [key]: row({
+          viewerReacted: true,
+          reactionCount: 5,
+          reactionRoll: 1,
+        }),
+      },
+      { [key]: row({ viewerReacted: true, reactionCount: 4 }) },
+      new Set(),
+      new Set()
+    );
+    expect(merged[key]?.reactionCount).toBe(5);
+  });
+
+  it('still applies first viewer colour when reactionRoll is zero', () => {
+    const key = 'alice.near:p1';
+    const merged = mergeEngagementSoftUpgrade(
+      { [key]: row({ viewerReacted: false, reactionCount: 4 }) },
+      { [key]: row({ viewerReacted: true, reactionCount: 4 }) },
+      new Set(),
+      new Set()
+    );
+    expect(merged[key]?.viewerReacted).toBe(true);
+  });
+
   it('keeps a confirm roll when a later read changes the count', () => {
     const key = 'alice.near:p1';
     const merged = mergeEngagementSoftUpgrade(

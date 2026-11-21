@@ -186,6 +186,24 @@ export function mergeEngagementSoftUpgrade(
         viewerReacted: previous.viewerReacted,
         reactionCount: previous.reactionCount,
       };
+    } else if (
+      previous &&
+      previous.reactionRoll > 0 &&
+      previous.viewerReacted !== next.viewerReacted
+    ) {
+      // After a chain confirm, keep live until the indexer agrees — first
+      // colour soft-fill (reactionRoll 0) still applies viewer flags.
+      next = {
+        ...next,
+        viewerReacted: previous.viewerReacted,
+        reactionCount: previous.reactionCount,
+      };
+    } else if (previous?.viewerReacted && next.viewerReacted) {
+      // Same liked state: never dip below the confirmed local total.
+      next = {
+        ...next,
+        reactionCount: Math.max(next.reactionCount, previous.reactionCount),
+      };
     }
     if (previous && pendingSaveKeys.has(key)) {
       next = {
