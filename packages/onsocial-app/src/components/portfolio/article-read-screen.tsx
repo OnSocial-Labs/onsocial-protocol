@@ -254,6 +254,7 @@ function ArticleReadFooter({
 export function ArticleReadOverlay({
   open,
   onOpenChange,
+  onClosed,
   commerce,
   onReply,
   shareExtras,
@@ -268,6 +269,8 @@ export function ArticleReadOverlay({
   ArticleReadFooterProps & {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    /** After the exit slide — parents drop the tree (overlay-idle). */
+    onClosed?: () => void;
     /** Reply thread pinned over the page. Profile omits this. */
     pane?: ReactNode;
     threadOpen?: boolean;
@@ -318,6 +321,7 @@ export function ArticleReadOverlay({
     <OsSlideOverScreen
       open={open}
       onClose={() => onOpenChange(false)}
+      onClosed={onClosed}
       title={articleTitle}
       heading={<></>}
       immersiveHeader

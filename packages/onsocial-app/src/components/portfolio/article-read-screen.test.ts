@@ -10,6 +10,14 @@ const feed = readFileSync(
   join(here, '../../features/home/feed-article-read-screen.tsx'),
   'utf8'
 );
+const postCard = readFileSync(
+  join(here, '../../features/home/post-card.tsx'),
+  'utf8'
+);
+const medium = readFileSync(
+  join(here, '../../features/scarces/scarce-feed-medium-sheet.tsx'),
+  'utf8'
+);
 
 describe('article reader core', () => {
   it('is one overlay for feed and Writing list, plus a matching permalink', () => {
@@ -38,5 +46,19 @@ describe('writing list to article', () => {
     expect(list).toContain('onReturnToShelf');
     expect(list).toContain('consumeEssayReopen');
     expect(list).not.toContain('leaveGlass');
+  });
+});
+
+describe('overlay-idle leave', () => {
+  it('holds article and medium trees until onClosed after the close slide', () => {
+    expect(screen).toContain('onClosed={onClosed}');
+    expect(feed).toContain('onClosed={onClosed}');
+    expect(postCard).toContain('onClosed={articleScreen.onClosed}');
+    expect(postCard).toContain('onClosed={feedMediumSheet.onClosed}');
+    expect(postCard).not.toContain('articleScreen.onClosed()');
+    expect(postCard).not.toContain('feedMediumSheet.onClosed()');
+    expect(medium).toContain('onClosed={onClosed}');
+    expect(medium).toContain('onListenClosed={onClosed}');
+    expect(medium).not.toMatch(/if\s*\(\s*!open\s*\)\s*return\s*null/);
   });
 });

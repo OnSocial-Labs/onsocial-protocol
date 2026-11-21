@@ -59,6 +59,7 @@ function inlineSvgMarkup(svg: string): string {
 export function ScarceFeedMediumSheet({
   open,
   onOpenChange,
+  onClosed,
   mode,
   title,
   cover = null,
@@ -87,6 +88,8 @@ export function ScarceFeedMediumSheet({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** After the exit slide — parents drop the tree (overlay-idle). */
+  onClosed?: () => void;
   mode: ScarceFeedMediumMode;
   title: string;
   cover?: string | null;
@@ -311,7 +314,6 @@ export function ScarceFeedMediumSheet({
     );
 
   if (immersiveAudio) {
-    if (!open) return null;
     return (
       <ScarceClipPlayer
         clip={clip}
@@ -323,6 +325,7 @@ export function ScarceFeedMediumSheet({
         showTracks={false}
         immersiveListen
         feedEnlarge={feedEnlarge}
+        faceOpen={open}
         peekIdentity={peekIdentity}
         caption={caption}
         captionDate={captionDate}
@@ -335,6 +338,7 @@ export function ScarceFeedMediumSheet({
         threadPostId={threadPostId}
         threadRoot={threadRoot}
         onListenClose={() => onOpenChange(false)}
+        onListenClosed={onClosed}
         coverPlayNonce={coverPlayNonce}
         {...(playbackSessionId
           ? { persist: { collectionId: playbackSessionId, title: name } }
@@ -348,6 +352,7 @@ export function ScarceFeedMediumSheet({
       <WritingReadSheet
         open={open}
         onClose={() => onOpenChange(false)}
+        onClosed={onClosed}
         title={name}
         cover={rasterCover}
         coverSvg={coverSvg}
@@ -393,6 +398,7 @@ export function ScarceFeedMediumSheet({
       <OsMediaFaceShell
         open={open}
         onClose={() => onOpenChange(false)}
+        onClosed={onClosed}
         title={name}
         quietTitle
         trailing={trailing}

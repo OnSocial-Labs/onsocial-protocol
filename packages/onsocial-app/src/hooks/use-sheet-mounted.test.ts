@@ -56,4 +56,21 @@ describe('useSheetMounted', () => {
     });
     expect(result.current.mounted).toBe(true);
   });
+
+  it('holds through open=false so the close slide can finish before onClosed', () => {
+    const { result, rerender } = renderHook(
+      ({ open }) => useSheetMounted(open),
+      { initialProps: { open: true } }
+    );
+    act(() => {
+      rerender({ open: false });
+    });
+    // Intentionally not calling onClosed yet — same contract as article /
+    // medium: open flips first, leave animation owns the tree, then release.
+    expect(result.current.mounted).toBe(true);
+    act(() => {
+      result.current.onClosed();
+    });
+    expect(result.current.mounted).toBe(false);
+  });
 });

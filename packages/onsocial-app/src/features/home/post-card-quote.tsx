@@ -318,10 +318,8 @@ export function QuotedPostInset({
       {expanded && quoteAudioSheet.mounted ? (
         <ScarceFeedMediumSheet
           open={quoteAudioOpen}
-          onOpenChange={(next) => {
-            setQuoteAudioOpen(next);
-            if (!next) quoteAudioSheet.onClosed();
-          }}
+          onOpenChange={setQuoteAudioOpen}
+          onClosed={quoteAudioSheet.onClosed}
           mode="audio"
           title={quoteListenTitle}
           creatorId={post.accountId}

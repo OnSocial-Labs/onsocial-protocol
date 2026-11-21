@@ -51,6 +51,7 @@ function formatFaceTime(seconds: number): string {
 export function FeedAudioEnlarge({
   open,
   onClose,
+  onClosed,
   onOpenPlayer,
   title,
   cover,
@@ -86,6 +87,8 @@ export function FeedAudioEnlarge({
 }: {
   open: boolean;
   onClose: () => void;
+  /** After the exit slide — parents drop the tree (overlay-idle). */
+  onClosed?: () => void;
   onBeforeClose?: () => boolean;
   onOpenPlayer: () => void;
   title: string;
@@ -353,6 +356,7 @@ export function FeedAudioEnlarge({
         }
         onClose();
       }}
+      onClosed={onClosed}
       onLeave={onClose}
       title={title}
       quietTitle

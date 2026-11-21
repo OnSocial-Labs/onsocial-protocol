@@ -1896,9 +1896,9 @@ function PostCardImpl({
               setFeedBookCoverSvg(null);
               setDropReadPack(null);
               setPhotoThreadOpen(false);
-              articleScreen.onClosed();
             }
           }}
+          onClosed={articleScreen.onClosed}
           post={showDropEssay ? feedReadEssay! : post}
           authorProfile={
             showDropEssay
@@ -1969,9 +1969,9 @@ function PostCardImpl({
             setFeedMediumOpen(next);
             if (!next) {
               setPhotoThreadOpen(false);
-              feedMediumSheet.onClosed();
             }
           }}
+          onClosed={feedMediumSheet.onClosed}
           mode={feedMediumMode}
           threadOpen={photoThreadOpen}
           onDismissThread={dismissPhotoThread}

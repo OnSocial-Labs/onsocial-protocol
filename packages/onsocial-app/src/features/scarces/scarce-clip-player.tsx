@@ -161,6 +161,11 @@ interface ScarceClipPlayerProps {
    * opens from that face. Back from the player returns to the cover.
    */
   feedEnlarge?: boolean;
+  /**
+   * Cover face open state for feed enlarge. Stays true through the exit
+   * slide so overlay-idle can call `onListenClosed` after leave.
+   */
+  faceOpen?: boolean;
   peekIdentity?: ReactNode;
   caption?: string | null;
   captionDate?: string | null;
@@ -173,6 +178,8 @@ interface ScarceClipPlayerProps {
    */
   listenKeepDock?: boolean;
   onListenClose?: () => void;
+  /** After the cover face exit slide (feed enlarge). */
+  onListenClosed?: () => void;
   /** Feed reply drawer over listen. Omitted on the Drop page player. */
   threadOpen?: boolean;
   onDismissThread?: () => void;
@@ -238,6 +245,7 @@ export function ScarceClipPlayer({
   showDownloads = true,
   immersiveListen = false,
   feedEnlarge = false,
+  faceOpen = true,
   peekIdentity = null,
   caption = null,
   captionDate = null,
@@ -245,6 +253,7 @@ export function ScarceClipPlayer({
   listenFooter = null,
   listenKeepDock = false,
   onListenClose,
+  onListenClosed,
   threadOpen = false,
   onDismissThread,
   threadAuthor = null,
@@ -1144,7 +1153,7 @@ export function ScarceClipPlayer({
 
   const coverFace = feedEnlarge ? (
     <FeedAudioEnlarge
-      open
+      open={faceOpen}
       onBeforeClose={() => {
         // Pause in the click. The face animates out afterwards, and that
         // later unmount is too late for the launcher to start again.
@@ -1156,6 +1165,7 @@ export function ScarceClipPlayer({
         return true;
       }}
       onClose={() => onListenClose?.()}
+      onClosed={onListenClosed}
       onOpenPlayer={() => setListenOpen(true)}
       title={persist?.title?.trim() || 'Drop'}
       cover={cover}

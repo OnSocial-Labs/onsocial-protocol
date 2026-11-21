@@ -14,6 +14,7 @@ import { displayName } from '@/lib/profile-display';
 export function FeedArticleReadScreen({
   open,
   onOpenChange,
+  onClosed,
   post,
   authorProfile,
   engagement = null,
@@ -28,6 +29,8 @@ export function FeedArticleReadScreen({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** After the exit slide — parents drop the tree (overlay-idle). */
+  onClosed?: () => void;
   post: PostRow;
   authorProfile?: PostAuthorProfile;
   engagement?: ReactNode;
@@ -49,6 +52,7 @@ export function FeedArticleReadScreen({
     <ArticleReadOverlay
       open={open}
       onOpenChange={onOpenChange}
+      onClosed={onClosed}
       accountId={post.accountId}
       titleLabel={authorName}
       avatarUrl={authorProfile?.avatarUrl}
