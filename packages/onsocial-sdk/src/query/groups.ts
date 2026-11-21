@@ -680,7 +680,6 @@ export class GroupsQuery {
       },
     });
     return chronoDescPage(res.data?.postsCurrent ?? [], limit, {
-      offset,
       usedKeyset: keyset.usedKeyset,
     });
   }
@@ -710,7 +709,7 @@ export class GroupsQuery {
     const keyset = groupChronoKeyset(opts);
     const offset = keyset.usedKeyset ? 0 : (opts.offset ?? 0);
     if (groupIds.length === 0) {
-      return { items: [], nextOffset: undefined };
+      return { items: [] };
     }
     const res = await this._q.graphql<{ postsCurrent: PostRow[] }>({
       query: `query GroupsFeed($groupIds: [String!]!, $limit: Int!, $offset: Int!${keyset.beforeParam}) {
@@ -734,7 +733,6 @@ export class GroupsQuery {
       },
     });
     return chronoDescPage(res.data?.postsCurrent ?? [], limit, {
-      offset,
       usedKeyset: keyset.usedKeyset,
     });
   }
@@ -783,7 +781,6 @@ export class GroupsQuery {
     });
 
     return chronoDescPage(res.data?.postsCurrent ?? [], limit, {
-      offset,
       usedKeyset: keyset.usedKeyset,
     });
   }

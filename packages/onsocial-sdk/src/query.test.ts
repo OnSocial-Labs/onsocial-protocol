@@ -1777,6 +1777,60 @@ describe('QueryModule', () => {
       expect(page.items).toEqual([]);
       expect(fetch).not.toHaveBeenCalled();
     });
+
+    it('returns a composite keyset (not nextOffset) on a full filtered page', async () => {
+      const rows = Array.from({ length: 10 }, (_, i) => ({
+        accountId: 'bob.near',
+        postId: `p${i}`,
+        value: '{}',
+        blockHeight: 100 - i,
+        blockTimestamp: 0,
+        channel: 'engineering',
+      }));
+      const { os } = makeOs({ data: { postsFeed: rows } });
+
+      const page = await os.query.feed.fromAccountsFiltered({
+        accounts: ['bob.near'],
+        channel: 'engineering',
+        limit: 10,
+      });
+
+      expect(page.items).toHaveLength(10);
+      expect(page.nextOffset).toBeUndefined();
+      expect(page.nextBeforeBlockHeight).toBe(91);
+      expect(page.nextBeforeEventKey).toBe('bob.near/post/p9');
+    });
+
+    it('passes chrono keyset into feedRecent and postsFeed', async () => {
+      const { os, fetch } = makeOs({ data: { postsFeed: [] } });
+      await os.query.feed.fromAccountsFiltered({
+        accounts: ['bob.near'],
+        channel: 'engineering',
+        limit: 10,
+        beforeBlockHeight: 90,
+        beforePostKey: 'bob.near/post/p8',
+      });
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('feedRecent');
+      expect(body.query).toContain('before_block_height: $before_block_height');
+      expect(body.query).toContain('before_post_key: $before_post_key');
+      expect(body.variables).toMatchObject({
+        before_block_height: 90,
+        before_post_key: 'bob.near/post/p8',
+        offset: 0,
+        channel: 'engineering',
+      });
+    });
+
+    it('rejects incomplete chrono keysets', async () => {
+      const { os } = makeOs({ data: { postsFeed: [] } });
+      await expect(
+        os.query.feed.fromAccountsFiltered({
+          accounts: ['bob.near'],
+          beforeBlockHeight: 10,
+        })
+      ).rejects.toThrow(/beforeBlockHeight and beforePostKey/);
+    });
   });
 
   describe('getGroupFeed()', () => {

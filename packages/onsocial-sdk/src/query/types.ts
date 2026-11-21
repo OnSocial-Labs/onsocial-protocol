@@ -20,10 +20,10 @@ export interface Paginated<T> {
   /**
    * Offset for the next page, or `undefined` if this was the last page.
    *
-   * @deprecated For `feed.recent` / `fromAccounts` / `pulse`, prefer the
+   * @deprecated Chrono / Pulse / Hot feed pages never mint this — use the
    * composite keyset (`nextBeforeBlockHeight` + `nextBeforeEventKey`, and
-   * `nextBeforeHeat` for Hot). Full pages no longer return `nextOffset` when
-   * a keyset is available — height-only / offset-only load-more is legacy.
+   * `nextBeforeHeat` for Hot). Still used by non-feed lists (browse, scarces,
+   * market) and by thread replies/quotes when the caller stays on offset.
    */
   nextOffset?: number;
   /**
@@ -102,4 +102,11 @@ export interface FeedFilter {
   audience?: string;
   limit?: number;
   offset?: number;
+  /**
+   * Chrono keyset height — require `beforePostKey` (content path).
+   * Prefer over `offset` under live inserts / working-set trim.
+   */
+  beforeBlockHeight?: number;
+  /** Content-path tie-break for chrono keyset (`feed_recent` / postsFeed). */
+  beforePostKey?: string;
 }

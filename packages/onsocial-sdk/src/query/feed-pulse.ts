@@ -244,10 +244,8 @@ export function paginatePulseFunctionRows(input: {
       ...(input.sort === 'hot' ? { nextBeforeHeat: cursor.heat } : {}),
     };
   }
-  return {
-    items: sliced.flat(),
-    nextOffset: input.offset + input.limit,
-  };
+  // Exclusive keyset — do not mint soft-deprecated nextOffset.
+  return { items: sliced.flat() };
 }
 
 /**
