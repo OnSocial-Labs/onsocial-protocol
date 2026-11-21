@@ -50,6 +50,8 @@ function seededPage(): PersonalPostPageData {
     quotes: [],
     replyTree: [],
     hasMoreReplies: false,
+    // SSR already resolved the first reply page with the root.
+    directRepliesResolved: true,
     engagement: {
       'alice.near:root-post': {
         ...EMPTY_POST_ENGAGEMENT,

@@ -204,3 +204,10 @@ export function planHomeFeedMemoryTrim(
   });
 }
 
+/** Head drops shift document flow — pair with a scroll-anchor restore. */
+export function homeFeedMemoryTrimNeedsScrollAnchor(
+  trimmed: Pick<HomeFeedMemoryTrimResult, 'droppedHead'>
+): boolean {
+  return trimmed.droppedHead.length > 0;
+}
+

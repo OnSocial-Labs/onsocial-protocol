@@ -5,6 +5,7 @@ import {
   HOME_FEED_TRIM_NEAR_TOP_PX,
   HOME_FEED_TRIM_TAIL_PAD_BLOCKS,
   HOME_FEED_WORKING_SET_POSTS,
+  homeFeedMemoryTrimNeedsScrollAnchor,
   planHomeFeedMemoryTrim,
   trimHomeFeedWorkingSetAroundWindow,
   trimHomeFeedWorkingSetKeepingHead,
@@ -172,6 +173,21 @@ describe('planHomeFeedMemoryTrim', () => {
     expect(trimmed.posts).toBe(posts);
     expect(trimmed.droppedHead).toEqual([]);
     expect(trimmed.droppedTail).toEqual([]);
+  });
+});
+
+describe('homeFeedMemoryTrimNeedsScrollAnchor', () => {
+  it('is true only when the head dropped', () => {
+    expect(
+      homeFeedMemoryTrimNeedsScrollAnchor({
+        droppedHead: [row('a')],
+      })
+    ).toBe(true);
+    expect(
+      homeFeedMemoryTrimNeedsScrollAnchor({
+        droppedHead: [],
+      })
+    ).toBe(false);
   });
 });
 

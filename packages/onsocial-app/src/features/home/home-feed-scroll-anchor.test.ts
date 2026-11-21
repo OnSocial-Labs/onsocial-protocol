@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   captureVisibleFeedAnchor,
   DM_ANCHOR_QUERY,
+  feedListMutationNeedsScrollAnchor,
   NOTIFICATION_ANCHOR_QUERY,
   STANDING_ANCHOR_QUERY,
   restoreFeedAnchor,
@@ -46,6 +47,33 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+});
+
+describe('feedListMutationNeedsScrollAnchor', () => {
+  it('is true for reorder, head drop, remove, or update', () => {
+    expect(feedListMutationNeedsScrollAnchor({ reordered: true })).toBe(true);
+    expect(feedListMutationNeedsScrollAnchor({ droppedHead: true })).toBe(
+      true
+    );
+    expect(
+      feedListMutationNeedsScrollAnchor({ removedKeys: ['a/1'] })
+    ).toBe(true);
+    expect(
+      feedListMutationNeedsScrollAnchor({ updatedKeys: ['a/1'] })
+    ).toBe(true);
+  });
+
+  it('is false for a no-op mutation', () => {
+    expect(feedListMutationNeedsScrollAnchor({})).toBe(false);
+    expect(
+      feedListMutationNeedsScrollAnchor({
+        removedKeys: [],
+        updatedKeys: [],
+        reordered: false,
+        droppedHead: false,
+      })
+    ).toBe(false);
+  });
 });
 
 describe('captureVisibleFeedAnchor', () => {

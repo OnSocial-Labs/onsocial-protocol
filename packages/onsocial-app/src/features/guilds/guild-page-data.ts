@@ -58,7 +58,12 @@ export function pendingJoinRequest(request: JoinRequest | null): boolean {
 export function persistGuildPageCache(
   groupId: string,
   entry: GuildPageCacheEntry,
-  feed?: { filterId: string; posts: PostRow[]; hasMore: boolean }
+  feed?: {
+    filterId: string;
+    posts: PostRow[];
+    hasMore: boolean;
+    nextBeforeBlockHeight?: number;
+  }
 ) {
   writeGuildShellCache(groupId, entry.shell);
   writeGuildPageCache(groupId, entry);
@@ -66,9 +71,12 @@ export function persistGuildPageCache(
     writeGuildFeedCache(groupId, feed.filterId, {
       posts: feed.posts,
       hasMore: feed.hasMore,
+      nextBeforeBlockHeight: feed.nextBeforeBlockHeight,
     });
   }
 }
+
+export { feedPageHasMore as guildFeedPageHasMore } from '@/lib/feed-page-cursor';
 
 export function pageCacheFromInitial(
   initial: GuildPageData

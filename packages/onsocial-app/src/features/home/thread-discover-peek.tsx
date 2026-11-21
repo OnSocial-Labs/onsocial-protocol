@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import { ResolvedFeedPostCard } from '@/features/home/resolved-feed-post-card';
+import { PostRowSkeleton } from '@/features/home/post-card';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import type { WriteDockSubmit } from '@/contexts/compose-launcher-context';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
@@ -51,6 +52,11 @@ interface ThreadDiscoverPeekProps {
    * mounts this once so the peek never remounts across reply soft-fill.
    */
   armed?: boolean;
+  /**
+   * When false, a confirmed-empty peek keeps the skeleton seat so under-header
+   * land does not clamp upward. Parents flip this after land has settled.
+   */
+  allowEmptyCollapse?: boolean;
   /** Profiles already loaded by the thread (avoids a duplicate author fetch). */
   authorProfiles?: Record<string, PostAuthorProfile | undefined>;
   /** Keep ⋮ and share drawers above the open post sheet. */
@@ -64,13 +70,30 @@ interface ThreadDiscoverPeekProps {
 }
 
 /**
- * Empty-thread tail. Null until ready + ref settled (no seat). Soft-fills
- * below the hero appear with the shared opacity motion.
+ * Stable empty-tail seat — title line + one card row so the handoff to
+ * “More from” / Discover does not change scrollHeight when content paints.
+ */
+function ThreadDiscoverPeekSeat() {
+  return (
+    <div className="thread-discover-peek is-pending" aria-busy="true">
+      <div className="thread-discover-peek-title" aria-hidden>
+        &nbsp;
+      </div>
+      <PostRowSkeleton rows={1} />
+    </div>
+  );
+}
+
+/**
+ * Empty-thread tail. Parent keeps this mounted; `armed` only gates the fetch.
+ * Seat stays until the peek card (and quote inset) can paint — no second
+ * skeleton tree, no height drop before content lands.
  */
 export function ThreadDiscoverPeek({
   author,
   excludePostId,
   armed = true,
+  allowEmptyCollapse = true,
   authorProfiles,
   menuZIndex,
   onReply,
@@ -88,7 +111,8 @@ export function ThreadDiscoverPeek({
   const [refSettled, setRefSettled] = useState(true);
 
   useEffect(() => {
-    // Render already returns null when !armed; leave stale peek until re-arm.
+    // Hold the seat while unarmed — do not clear a painted peek on a brief
+    // arm flicker; only reset when a fetch is about to start.
     if (!armed) return;
     let cancelled = false;
     /* eslint-disable react-hooks/set-state-in-effect -- clear prior peek before async fetch so a new author never paints the old card */
@@ -201,7 +225,14 @@ export function ThreadDiscoverPeek({
     { onError: onEngagementError }
   );
 
-  if (!armed || !settled || !refSettled || !peek) return null;
+  // Unarmed / still fetching / quote inset open — one continuous seat.
+  if (!armed || !settled || !refSettled || !peek) {
+    // Settled empty: collapse only when land can absorb the height drop.
+    if (armed && settled && !peek) {
+      return allowEmptyCollapse ? null : <ThreadDiscoverPeekSeat />;
+    }
+    return <ThreadDiscoverPeekSeat />;
+  }
 
   const post = peek.post;
   const profile = postAuthorProfiles[post.accountId];

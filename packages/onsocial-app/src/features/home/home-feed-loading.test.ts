@@ -25,6 +25,8 @@ describe('home feed loading contract', () => {
     expect(source).toContain('writeHomeFeedSession');
     expect(source).toContain('homeFeedSessionProbeDelayMs');
     expect(source).toContain('isCurrentLoadingRequest');
+    expect(source).toContain('canStartHomeFeedAppend');
+    expect(source).toContain('canRunHomeFeedReconcile');
     expect(source).toContain('mergeHomeFeedHead');
     expect(source).toContain('growFeedWindow');
     expect(source).not.toContain('loadIdRef.current !== loadId');
@@ -38,11 +40,26 @@ describe('home feed loading contract', () => {
     expect(source).not.toContain('trimHomeFeedWorkingSet(');
     expect(source).toContain('trimHomeFeedWorkingSetKeepingHead');
     expect(source).toContain('planHomeFeedMemoryTrim');
+    expect(source).toContain('homeFeedMemoryTrimNeedsScrollAnchor');
+    expect(source).toContain('holdFeedScrollAnchor');
+    expect(source).toContain('feedListMutationNeedsScrollAnchor');
+    expect(source).toContain('scrollAnchorKey');
     expect(source).toContain('onWindowRangeChange');
+    expect(source).toContain('scheduleMemoryTrim');
+    // Lenis scroll events are untrusted — trim must still schedule.
+    expect(source).not.toContain('if (!event.isTrusted) return');
     expect(source).toContain('warmPostPanels');
     expect(source).toContain('quotedForPosts');
     expect(source).toContain('recordForPosts');
     expect(source).toContain("[data-feed-session=\"covered\"]");
+  });
+
+  it('windowed lists restore height via feed anchors only (no dual Lenis shift)', () => {
+    const windowSrc = readFileSync(join(homeSrc, 'use-feed-window.ts'), 'utf8');
+    expect(windowSrc).toContain('restoreFeedAnchor');
+    expect(windowSrc).toContain('pendingMeasureAnchorRef');
+    expect(windowSrc).toContain('Do not also Lenis-shift here');
+    expect(windowSrc).not.toContain('shiftAppLenisScroll');
   });
 
   it('soft-refresh and appear panels share the 280ms ease-out token', () => {
@@ -54,6 +71,14 @@ describe('home feed loading contract', () => {
     expect(softRefresh).toContain('var(--os-motion-appear, 280ms)');
     expect(softRefresh).toContain('var(--os-motion-ease-out');
     expect(softRefresh).not.toContain('160ms ease');
+
+    const savedRefresh = css.slice(
+      css.indexOf('.home-saved-feed-sheet-list.is-refreshing'),
+      css.indexOf('.home-saved-feed-sheet-list.is-refreshing') + 280
+    );
+    expect(savedRefresh).toContain('var(--os-motion-appear, 280ms)');
+    expect(savedRefresh).toContain('var(--os-motion-ease-out');
+    expect(savedRefresh).not.toContain('160ms ease');
 
     const sheet = readFileSync(
       join(homeSrc, '../../../../onsocial-ui/glass-sheet.css'),

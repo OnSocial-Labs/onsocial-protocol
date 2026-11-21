@@ -12,6 +12,12 @@ describe('secondary PostCard hosts share bare-repost resolve', () => {
     expect(peek).toContain('ResolvedFeedPostCard');
     expect(peek).toContain('isBareRepostShell');
     expect(peek).toContain('peekNeedsRefBody');
+    expect(peek).toContain('ThreadDiscoverPeekSeat');
+    expect(peek).toContain('PostRowSkeleton');
+    expect(peek).toContain('allowEmptyCollapse');
+    // Seat mirrors content: title line + one card — no 2-row height drop.
+    expect(peek).toContain('thread-discover-peek-title');
+    expect(peek).toContain('rows={1}');
     expect(peek).not.toContain('<PostCard');
   });
 

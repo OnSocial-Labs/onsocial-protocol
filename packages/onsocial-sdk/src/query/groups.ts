@@ -16,7 +16,9 @@ import {
   GraphQLValidationError,
   POST_ROW_FIELDS,
   audienceLikeValue,
+  chronoDescPage,
   groupPostPathValue,
+  normalizeBeforeBlockHeight,
 } from './_shared.js';
 
 const GROUP_CURRENT_SHELL_FIELDS = `
@@ -601,16 +603,25 @@ export class GroupsQuery {
     groupId: string;
     limit?: number;
     offset?: number;
+    /** Exclusive upper bound — prefer over `offset` under live inserts. */
+    beforeBlockHeight?: number;
   }): Promise<Paginated<PostRow>> {
     const limit = opts.limit ?? 20;
-    const offset = opts.offset ?? 0;
+    const before = normalizeBeforeBlockHeight(opts.beforeBlockHeight);
+    const usedKeyset = before !== undefined;
+    const offset = usedKeyset ? 0 : (opts.offset ?? 0);
+    const beforeParam = before !== undefined ? ', $beforeBlockHeight: bigint!' : '';
+    const beforeWhere =
+      before !== undefined
+        ? ', {blockHeight: {_lt: $beforeBlockHeight}}'
+        : '';
     const res = await this._q.graphql<{ postsCurrent: PostRow[] }>({
-      query: `query GroupFeed($groupId: String!, $limit: Int!, $offset: Int!) {
+      query: `query GroupFeed($groupId: String!, $limit: Int!, $offset: Int!${beforeParam}) {
         postsCurrent(
-          where: {
-            groupId: {_eq: $groupId},
-            isGroupContent: {_eq: true}
-          },
+          where: {_and: [
+            {groupId: {_eq: $groupId}},
+            {isGroupContent: {_eq: true}}${beforeWhere}
+          ]},
           limit: $limit,
           offset: $offset,
           orderBy: [{blockHeight: DESC}]
@@ -618,13 +629,17 @@ export class GroupsQuery {
           ${POST_ROW_FIELDS}
         }
       }`,
-      variables: { groupId: opts.groupId, limit, offset },
+      variables: {
+        groupId: opts.groupId,
+        limit,
+        offset,
+        ...(before !== undefined ? { beforeBlockHeight: before } : {}),
+      },
     });
-    const rows = res.data?.postsCurrent ?? [];
-    return {
-      items: rows,
-      nextOffset: rows.length >= limit ? offset + limit : undefined,
-    };
+    return chronoDescPage(res.data?.postsCurrent ?? [], limit, {
+      offset,
+      usedKeyset,
+    });
   }
 
   /**
@@ -642,22 +657,30 @@ export class GroupsQuery {
     groupIds: string[];
     limit?: number;
     offset?: number;
+    beforeBlockHeight?: number;
   }): Promise<Paginated<PostRow>> {
     const groupIds = [
       ...new Set(opts.groupIds.map((id) => id.trim()).filter(Boolean)),
     ];
     const limit = opts.limit ?? 20;
-    const offset = opts.offset ?? 0;
+    const before = normalizeBeforeBlockHeight(opts.beforeBlockHeight);
+    const usedKeyset = before !== undefined;
+    const offset = usedKeyset ? 0 : (opts.offset ?? 0);
     if (groupIds.length === 0) {
       return { items: [], nextOffset: undefined };
     }
+    const beforeParam = before !== undefined ? ', $beforeBlockHeight: bigint!' : '';
+    const beforeWhere =
+      before !== undefined
+        ? ', {blockHeight: {_lt: $beforeBlockHeight}}'
+        : '';
     const res = await this._q.graphql<{ postsCurrent: PostRow[] }>({
-      query: `query GroupsFeed($groupIds: [String!]!, $limit: Int!, $offset: Int!) {
+      query: `query GroupsFeed($groupIds: [String!]!, $limit: Int!, $offset: Int!${beforeParam}) {
         postsCurrent(
-          where: {
-            groupId: {_in: $groupIds},
-            isGroupContent: {_eq: true}
-          },
+          where: {_and: [
+            {groupId: {_in: $groupIds}},
+            {isGroupContent: {_eq: true}}${beforeWhere}
+          ]},
           limit: $limit,
           offset: $offset,
           orderBy: [{blockHeight: DESC}]
@@ -665,13 +688,17 @@ export class GroupsQuery {
           ${POST_ROW_FIELDS}
         }
       }`,
-      variables: { groupIds, limit, offset },
+      variables: {
+        groupIds,
+        limit,
+        offset,
+        ...(before !== undefined ? { beforeBlockHeight: before } : {}),
+      },
     });
-    const rows = res.data?.postsCurrent ?? [];
-    return {
-      items: rows,
-      nextOffset: rows.length >= limit ? offset + limit : undefined,
-    };
+    return chronoDescPage(res.data?.postsCurrent ?? [], limit, {
+      offset,
+      usedKeyset,
+    });
   }
 
   /**
@@ -687,14 +714,21 @@ export class GroupsQuery {
    */
   async feedFiltered(opts: GroupFeedFilter): Promise<Paginated<PostRow>> {
     const limit = opts.limit ?? 20;
-    const offset = opts.offset ?? 0;
+    const before = normalizeBeforeBlockHeight(opts.beforeBlockHeight);
+    const usedKeyset = before !== undefined;
+    const offset = usedKeyset ? 0 : (opts.offset ?? 0);
+    const beforeParam = before !== undefined ? ', $beforeBlockHeight: bigint!' : '';
+    const beforeWhere =
+      before !== undefined
+        ? ', {blockHeight: {_lt: $beforeBlockHeight}}'
+        : '';
 
     const res = await this._q.graphql<{ postsCurrent: PostRow[] }>({
-      query: `query FilteredGroupFeed($groupId: String!, $limit: Int!, $offset: Int!${opts.channel !== undefined ? ', $channel: String!' : ''}${opts.kind !== undefined ? ', $kind: String!' : ''}${opts.audience !== undefined ? ', $audienceLike: String!' : ''}) {
+      query: `query FilteredGroupFeed($groupId: String!, $limit: Int!, $offset: Int!${beforeParam}${opts.channel !== undefined ? ', $channel: String!' : ''}${opts.kind !== undefined ? ', $kind: String!' : ''}${opts.audience !== undefined ? ', $audienceLike: String!' : ''}) {
         postsCurrent(
           where: {_and: [
             {groupId: {_eq: $groupId}},
-            {isGroupContent: {_eq: true}}${opts.channel !== undefined ? ', {channel: {_eq: $channel}}' : ''}${opts.kind !== undefined ? ', {kind: {_eq: $kind}}' : ''}${opts.audience !== undefined ? ', {audiences: {_like: $audienceLike}}' : ''}
+            {isGroupContent: {_eq: true}}${opts.channel !== undefined ? ', {channel: {_eq: $channel}}' : ''}${opts.kind !== undefined ? ', {kind: {_eq: $kind}}' : ''}${opts.audience !== undefined ? ', {audiences: {_like: $audienceLike}}' : ''}${beforeWhere}
           ]},
           limit: $limit,
           offset: $offset,
@@ -707,6 +741,7 @@ export class GroupsQuery {
         groupId: opts.groupId,
         limit,
         offset,
+        ...(before !== undefined ? { beforeBlockHeight: before } : {}),
         ...(opts.channel !== undefined ? { channel: opts.channel } : {}),
         ...(opts.kind !== undefined ? { kind: opts.kind } : {}),
         ...(opts.audience !== undefined
@@ -715,11 +750,10 @@ export class GroupsQuery {
       },
     });
 
-    const rows = res.data?.postsCurrent ?? [];
-    return {
-      items: rows,
-      nextOffset: rows.length >= limit ? offset + limit : undefined,
-    };
+    return chronoDescPage(res.data?.postsCurrent ?? [], limit, {
+      offset,
+      usedKeyset,
+    });
   }
 
   /**

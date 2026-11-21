@@ -15,7 +15,6 @@ import { Divider, PulsingDots } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsHeaderBack } from '@/components/app/os-header-back';
 import { OsRouteSettle } from '@/components/app/os-route-settle';
-import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import {
@@ -68,16 +67,9 @@ import {
   type ComposerSubmit,
 } from '@/features/guilds/guild-composer-sheet';
 import {
-  GuildMembershipConfirmDrawer,
-  GuildMembershipJoinButton,
-  guildMembershipJoinLabel,
-  guildMembershipJoinPendingLabel,
-} from '@/features/guilds/guild-membership-join-button';
-import {
   canViewerPostInChannel,
   guildSpaceFeedChannel,
 } from '@/features/guilds/guild-structure';
-import { collaborativeJoinNeedsStorage } from '@/features/guilds/guild-config';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import {
   inheritedGuildReplyFeedMeta,
@@ -87,10 +79,8 @@ import {
   collectRelayTxHashes,
   guildPath,
   guildPostPath,
-  guildSheetPath,
 } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
-import { useUserStorageBalance } from '@/hooks/use-user-storage-balance';
 import {
   seedPostAuthorProfilesFromFeed,
   usePostAuthorProfiles,
@@ -119,14 +109,11 @@ import {
   sortThreadReplyRows,
   type ThreadReplySort,
 } from '@/lib/thread-reply-sort';
-import { useGuildMembershipAction } from '@/features/guilds/use-guild-membership-action';
-import type { GuildMembershipOutcome } from '@/features/guilds/guild-membership-action';
 import {
   GUILD_THREAD_LOAD_ERROR,
   GUILD_THREAD_LOAD_MORE_REPLIES_ERROR,
   useGuildThreadData,
 } from '@/features/guilds/use-guild-thread-data';
-import { readGuildMembershipCache } from '@/lib/guild-membership-cache';
 import {
   buildReplyRows,
   flattenTreePosts,
@@ -252,13 +239,6 @@ export function LiveGuildPostPanel({
     connect,
   } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
-  const [storageSheetOpen, setStorageSheetOpen] = useState(false);
-  const [storageRefreshKey, setStorageRefreshKey] = useState(0);
-  const userStorage = useUserStorageBalance(
-    accountId,
-    isConnected,
-    storageRefreshKey
-  );
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -286,13 +266,6 @@ export function LiveGuildPostPanel({
     guildStructure,
     guildName,
     viewerAccess,
-    isMember,
-    isBlacklisted,
-    accessGated,
-    memberDriven,
-    joinPending,
-    joinCancelReady,
-    pendingJoinProposalId,
     viewerAccessResolved,
     hasMoreReplies,
     loadingMore,
@@ -301,7 +274,6 @@ export function LiveGuildPostPanel({
     refresh,
     loadMore,
     scheduleReconcile,
-    applyMembershipOutcome,
   } = useGuildThreadData({
     groupId,
     author,
@@ -401,15 +373,30 @@ export function LiveGuildPostPanel({
   const threadHostRef = useRef<HTMLDivElement | null>(null);
   const threadScrollRef = useRef<HTMLElement | null>(null);
   const replyLoadMoreRef = useRef<HTMLDivElement | null>(null);
-  // Root + ancestors + replies — quotes page owns quote engagement paint.
-  const engagementPosts = useMemo(
-    () => [
+  // Trending needs every reply score; Relevant / Recent only the mounted band.
+  const replyEngagementBandRef = useRef<ReadonlySet<string> | null>(null);
+  const [replyEngagementBandEpoch, setReplyEngagementBandEpoch] = useState(0);
+  const engagementPosts = useMemo(() => {
+    const pinned = [
       ...ancestorChain,
       ...(conversation.root ? [conversation.root] : []),
-      ...replyPosts,
-    ],
-    [ancestorChain, conversation.root, replyPosts]
-  );
+    ];
+    if (replySort === 'trending') {
+      return [...pinned, ...replyPosts];
+    }
+    const band = replyEngagementBandRef.current;
+    if (band == null) return [...pinned, ...replyPosts];
+    return [
+      ...pinned,
+      ...replyPosts.filter((post) => band.has(postKey(post))),
+    ];
+  }, [
+    ancestorChain,
+    conversation.root,
+    replyPosts,
+    replySort,
+    replyEngagementBandEpoch,
+  ]);
   const quotedPostSources = useMemo(
     () => [...threadPosts, ...ancestorChain],
     [threadPosts, ancestorChain]
@@ -468,7 +455,7 @@ export function LiveGuildPostPanel({
       Boolean(
         seededEngagement?.[rootEngagementKey] || engagement[rootEngagementKey]
       ));
-  const { landSettled } = useThreadLandAppear({
+  const { landSettled, releaseSeatGuard } = useThreadLandAppear({
     openedPostRef,
     postId: conversation.root?.postId,
     hasParent,
@@ -478,15 +465,18 @@ export function LiveGuildPostPanel({
     pinKey: conversation.root?.postId ?? '',
     parked,
     landSeat,
+    // First reply page is already in flight — land with it, not before.
+    tailReady: repliesResolved,
     onThreadPainted,
   });
-  // After under-header land — a concurrent scrollIntoView loses to the re-pin.
+  // After under-header land — release seat guard before focus scroll.
   const threadFocus = useThreadFocusReply(
     loadState === 'ready' && landSettled,
     replyFocusKey,
     {
       resolveFocusRowKey: (postId) => resolveFocusRowKeyRef.current(postId),
       revealRow: (key) => revealReplyRowRef.current(key),
+      releaseLandSeatGuard: releaseSeatGuard,
     }
   );
   const permalinkReady = threadCoverReady({
@@ -529,6 +519,47 @@ export function LiveGuildPostPanel({
     () => threadWindowSizeCache(rootPath),
     [rootPath]
   );
+  useEffect(() => {
+    if (replySort !== 'trending') return;
+    if (replyEngagementBandRef.current == null) return;
+    replyEngagementBandRef.current = null;
+    setReplyEngagementBandEpoch((value) => value + 1);
+  }, [replySort]);
+  useEffect(() => {
+    if (replySort !== 'trending') return;
+    if (replyEngagementBandRef.current == null) return;
+    replyEngagementBandRef.current = null;
+    setReplyEngagementBandEpoch((value) => value + 1);
+  }, [replySort]);
+  const onReplyWindowRangeChange = useCallback(
+    (range: { start: number; end: number }) => {
+      if (replySort === 'trending') {
+        if (replyEngagementBandRef.current != null) {
+          replyEngagementBandRef.current = null;
+          setReplyEngagementBandEpoch((value) => value + 1);
+        }
+        return;
+      }
+      const from = Math.max(0, range.start - 1);
+      const to = Math.min(replyRowKeys.length, range.end + 1);
+      const next = new Set<string>();
+      for (let index = from; index < to; index += 1) {
+        const key = replyRowKeys[index];
+        if (key) next.add(key);
+      }
+      const prev = replyEngagementBandRef.current;
+      if (
+        prev &&
+        prev.size === next.size &&
+        [...next].every((key) => prev.has(key))
+      ) {
+        return;
+      }
+      replyEngagementBandRef.current = next;
+      setReplyEngagementBandEpoch((value) => value + 1);
+    },
+    [replyRowKeys, replySort]
+  );
   const {
     windowed: replyWindowed,
     start: replyWindowStart,
@@ -544,6 +575,7 @@ export function LiveGuildPostPanel({
     pinnedKey: focusPinKey,
     anchorQuery: THREAD_ANCHOR_QUERY,
     estimate: replyRowEstimates,
+    onRangeChange: onReplyWindowRangeChange,
   });
   revealReplyRowRef.current = revealReplyRow;
   resolveFocusRowKeyRef.current = (pendingId: string) => {
@@ -760,23 +792,49 @@ export function LiveGuildPostPanel({
   };
 
   const focusWriteDock = useFocusWriteDock();
+  /** Join lives on the guild page — post pages only toast + send you there. */
+  const gateGuildWrite = useCallback(
+    (channel: string | null | undefined): boolean => {
+      if (!accountId || !postAccessReady) return true;
+      if (canPostInChannel(channel)) return true;
+      if (!viewerAccess.isMember) {
+        setTxResult({
+          type: 'error',
+          msg: 'Join this guild to reply, quote, or repost.',
+        });
+        router.push(guildPath(groupId));
+        return false;
+      }
+      setTxResult({ type: 'error', msg: 'You cannot reply in this room.' });
+      return false;
+    },
+    [
+      accountId,
+      canPostInChannel,
+      groupId,
+      postAccessReady,
+      router,
+      setTxResult,
+      viewerAccess.isMember,
+    ]
+  );
   const replyHandler = (post: PostRow) => {
     const channel = post.channel ?? threadChannel;
-    if (accountId && postAccessReady && !canPostInChannel(channel)) return;
+    if (!gateGuildWrite(channel)) return;
     setDockTarget(post);
     focusWriteDock();
   };
   const quoteHandler = canPostInThread
     ? (post: PostRow) => {
         const channel = post.channel ?? threadChannel;
-        if (!canPostInChannel(channel)) return;
+        if (!gateGuildWrite(channel)) return;
         setModalSeed({ text: '', files: [] });
         openComposerModal('quote')(post);
       }
     : undefined;
   const expandReply = (post: PostRow, payload: WriteDockSubmit) => {
     const channel = post.channel ?? threadChannel;
-    if (accountId && !canPostInChannel(channel)) return;
+    if (!gateGuildWrite(channel)) return;
     const draftKey = threadDraftKey ?? writeDockDraftKey('post', postKey(post));
     const seed = writeDockExpandSeed(draftKey, payload);
     setModalSeed({ text: seed.initialText, files: seed.initialFiles });
@@ -785,7 +843,7 @@ export function LiveGuildPostPanel({
   const repostHandler = canPostInThread
     ? (post: PostRow) => {
         const channel = post.channel ?? threadChannel;
-        if (!canPostInChannel(channel)) return;
+        if (!gateGuildWrite(channel)) return;
         void withSharePending(post, async () => {
           if (!accountId) return;
           try {
@@ -887,134 +945,6 @@ export function LiveGuildPostPanel({
       setDockTarget(null);
     },
   });
-
-  const membershipHint = accountId
-    ? (readGuildMembershipCache(accountId, groupId) ?? null)
-    : null;
-  const effectiveIsMember = viewerAccessResolved
-    ? isMember
-    : Boolean(membershipHint?.isMember);
-  const effectiveJoinPending = viewerAccessResolved
-    ? joinPending
-    : Boolean(membershipHint?.joinPending);
-  const effectiveIsOwner = viewerAccessResolved ? viewerAccess.isOwner : false;
-  const effectiveIsBlacklisted = viewerAccessResolved ? isBlacklisted : false;
-  const needsCollaborativeStorage = collaborativeJoinNeedsStorage({
-    memberDriven,
-    isMember: effectiveIsMember,
-    joinPending: effectiveJoinPending,
-    availableYocto: userStorage.summary?.availableYocto,
-  });
-  const membershipActionReady = effectiveIsMember
-    ? true
-    : effectiveIsBlacklisted
-      ? false
-      : effectiveJoinPending
-        ? joinCancelReady
-        : !isConnected || (viewerAccessResolved && !effectiveIsMember);
-
-  const membershipSnapshot = useMemo(
-    () => ({
-      isMember: effectiveIsMember,
-      joinPending: effectiveJoinPending,
-      isOwner: effectiveIsOwner,
-      isBlacklisted: effectiveIsBlacklisted,
-      accessGated,
-      memberDriven,
-      pendingJoinProposalId,
-      joinCancelReady,
-    }),
-    [
-      accessGated,
-      effectiveIsBlacklisted,
-      effectiveIsMember,
-      effectiveIsOwner,
-      effectiveJoinPending,
-      joinCancelReady,
-      memberDriven,
-      pendingJoinProposalId,
-    ]
-  );
-
-  const handleMembershipConfirmed = useCallback(
-    (outcome: GuildMembershipOutcome) => {
-      applyMembershipOutcome(outcome);
-      void refresh({ background: true });
-    },
-    [applyMembershipOutcome, refresh]
-  );
-
-  const handleOwnerManage = useCallback(() => {
-    router.push(guildSheetPath(groupId, 'members'));
-  }, [groupId, router]);
-
-  const {
-    confirmKind,
-    actionPending: joinActionPending,
-    dismissConfirm,
-    confirmMembership,
-    handleMembershipClick: runMembershipClick,
-  } = useGuildMembershipAction({
-    groupId,
-    snapshot: membershipSnapshot,
-    onOwnerManage: handleOwnerManage,
-    onConfirmed: handleMembershipConfirmed,
-  });
-
-  const handleMembershipClick = () =>
-    runMembershipClick({
-      needsStorage: needsCollaborativeStorage,
-      onNeedsStorage: () => setStorageSheetOpen(true),
-      requireResolvedAccess: true,
-      viewerAccessResolved,
-    });
-
-  const membershipActionLabel = guildMembershipJoinLabel({
-    isConnected,
-    accessGated,
-    memberDriven,
-    joinPending: effectiveJoinPending,
-    joinCancelReady,
-    isMember: effectiveIsMember,
-    isBlacklisted: effectiveIsBlacklisted,
-    needsStorage: needsCollaborativeStorage,
-  });
-
-  const needsJoinToReply =
-    replyDockEnabled &&
-    Boolean(accountId) &&
-    viewerAccessResolved &&
-    !effectiveIsMember &&
-    !effectiveIsBlacklisted;
-  const joinControl = needsJoinToReply ? (
-    <GuildMembershipJoinButton
-      className="guild-hero-membership guild-thread-nav-membership"
-      label={membershipActionLabel}
-      ready={membershipActionReady}
-      active={effectiveIsMember}
-      pending={joinActionPending}
-      pendingLabel={guildMembershipJoinPendingLabel({
-        accessGated,
-        memberDriven,
-        canceling: effectiveJoinPending,
-        leaving: effectiveIsMember,
-      })}
-      disabled={
-        (effectiveJoinPending && !joinCancelReady) ||
-        (!viewerAccessResolved && Boolean(membershipHint))
-      }
-      onClick={handleMembershipClick}
-    />
-  ) : null;
-  const membershipDrawer = (
-    <GuildMembershipConfirmDrawer
-      kind={confirmKind}
-      guildName={guildDisplayName(guildName, groupId)}
-      pending={joinActionPending}
-      onConfirm={confirmMembership}
-      onCancel={dismissConfirm}
-    />
-  );
 
   const rootContinued = threadRootContinued(
     conversation.root?.accountId,
@@ -1314,24 +1244,6 @@ export function LiveGuildPostPanel({
           ) : null}
 
           <div className="guild-connected-stack" ref={replyStackRef}>
-            {!repliesResolved && sortedReplyRows.length === 0 ? (
-              <div aria-busy="true">
-                <PostRowSkeleton rows={2} />
-              </div>
-            ) : null}
-            {/* Reserve Join seat until ACL resolves — no post-appear shove. */}
-            {sortedReplyRows.length === 0 &&
-            !shareRow &&
-            (joinControl || !viewerAccessResolved) ? (
-              <div
-                className={`guild-thread-join-dock is-with-post${
-                  joinControl ? '' : ' is-pending'
-                }`}
-                aria-hidden={joinControl ? undefined : true}
-              >
-                {joinControl}
-              </div>
-            ) : null}
             {replyWindowed && replyTopSpacer > 0 ? (
               <div
                 style={{ height: replyTopSpacer }}
@@ -1341,11 +1253,16 @@ export function LiveGuildPostPanel({
             ) : null}
             {sortedReplyRows.length > 0 ? (
               replyListRows
-            ) : repliesResolved && emptyTailReady && !shareRow ? (
+            ) : !repliesResolved ? (
+              <div aria-busy="true">
+                <PostRowSkeleton rows={2} />
+              </div>
+            ) : shareRow ? null : (
               <ThreadDiscoverPeek
                 author={author}
                 excludePostId={postId}
-                armed={repliesResolved}
+                armed={emptyTailReady}
+                allowEmptyCollapse={landSettled}
                 authorProfiles={postAuthorProfiles}
                 onReply={replyHandler}
                 onExpandReply={expandReply}
@@ -1354,7 +1271,7 @@ export function LiveGuildPostPanel({
                 onUndoRepost={undoRepostHandler}
                 onAmplifyConfirmed={confirmAmplify}
               />
-            ) : null}
+            )}
             {replyWindowed && replyBottomSpacer > 0 ? (
               <div
                 style={{ height: replyBottomSpacer }}
@@ -1372,9 +1289,6 @@ export function LiveGuildPostPanel({
             />
           </div>
         </section>
-      ) : null}
-      {joinControl && (sortedReplyRows.length > 0 || shareRow) ? (
-        <div className="guild-thread-join-dock">{joinControl}</div>
       ) : null}
     </div>
   );
@@ -1421,18 +1335,6 @@ export function LiveGuildPostPanel({
           onSubmit={(payload) => void submitFromModal(payload)}
         />
       ) : null}
-      {accountId ? (
-        <AppStorageSheet
-          open={storageSheetOpen}
-          accountId={accountId}
-          refreshKey={storageRefreshKey}
-          onClose={() => setStorageSheetOpen(false)}
-          onStorageChanged={() =>
-            setStorageRefreshKey((current) => current + 1)
-          }
-        />
-      ) : null}
-      {membershipDrawer}
     </>
   );
 

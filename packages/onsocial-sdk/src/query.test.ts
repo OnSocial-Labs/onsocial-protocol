@@ -1966,6 +1966,36 @@ describe('QueryModule', () => {
       expect(body.variables.groupId).toBe('dao');
     });
 
+    it('feed prefers beforeBlockHeight keyset over offset', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          postsCurrent: Array.from({ length: 5 }, (_, i) => ({
+            accountId: 'alice.near',
+            postId: String(i),
+            value: '{}',
+            blockHeight: 100 - i,
+            blockTimestamp: 0,
+            groupId: 'dao',
+            isGroupContent: true,
+          })),
+        },
+      });
+
+      const page = await os.query.groups.feed({
+        groupId: 'dao',
+        limit: 5,
+        beforeBlockHeight: 200,
+        offset: 40,
+      });
+      expect(page.nextBeforeBlockHeight).toBe(96);
+      expect(page.nextOffset).toBeUndefined();
+
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('blockHeight: {_lt: $beforeBlockHeight}');
+      expect(body.variables.beforeBlockHeight).toBe(200);
+      expect(body.variables.offset).toBe(0);
+    });
+
     it('feedFromGroups batches groupId _in', async () => {
       const { os, fetch } = makeOs({
         data: {

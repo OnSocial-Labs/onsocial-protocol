@@ -1,12 +1,39 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  POST_AUTHOR_PROFILE_CACHE_LIMIT,
+  clearPostAuthorProfileCache,
+  postAuthorProfileCacheSize,
   seedPostAuthorProfile,
   seedPostAuthorProfilesFromFeed,
   selectPostAuthorProfiles,
   subscribePostAuthorProfiles,
 } from './use-post-author-profiles';
 
+afterEach(() => {
+  clearPostAuthorProfileCache();
+});
+
 describe('post author profile seeding', () => {
+  it('evicts the oldest profiles once the LRU cap is hit', () => {
+    const limit = POST_AUTHOR_PROFILE_CACHE_LIMIT;
+    for (let i = 0; i < limit + 5; i += 1) {
+      seedPostAuthorProfile({
+        accountId: `lru-${i}.testnet`,
+        displayName: `L${i}`,
+        avatarUrl: null,
+      });
+    }
+    expect(postAuthorProfileCacheSize()).toBe(limit);
+    expect(
+      selectPostAuthorProfiles(['lru-0.testnet'], 1)['lru-0.testnet']
+    ).toBeUndefined();
+    expect(
+      selectPostAuthorProfiles([`lru-${limit + 4}.testnet`], 1)[
+        `lru-${limit + 4}.testnet`
+      ]?.displayName
+    ).toBe(`L${limit + 4}`);
+  });
+
   it('notifies subscribers only when asked and only on change', () => {
     const listener = vi.fn();
     const unsubscribe = subscribePostAuthorProfiles(listener);

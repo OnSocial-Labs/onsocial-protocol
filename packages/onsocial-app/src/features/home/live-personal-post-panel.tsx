@@ -300,10 +300,16 @@ export function LivePersonalPostPanel({
   const [replyTree, setReplyTree] = useState<ThreadNode[]>(
     () => seeded?.replyTree ?? []
   );
-  /** First reply page ready — skeleton → replies; graft/tree enrich after. */
+  /**
+   * First reply page ready. SSR / session already catch it via
+   * `directRepliesResolved` — paint OP + directs together; no soft-fill join.
+   */
   const [repliesResolved, setRepliesResolved] = useState(
     () =>
-      sessionSeed.fromCache || Boolean(sessionSeed.data?.directRepliesResolved)
+      sessionSeed.fromCache ||
+      Boolean(
+        sessionSeed.data?.directRepliesResolved ?? seeded?.directRepliesResolved
+      )
   );
   /**
    * Empty-tail gate for More from. Appear does not wait — but peek must not
@@ -403,16 +409,30 @@ export function LivePersonalPostPanel({
     asAncestorChainState(useAncestorChain(parentPath));
   const hasParent = Boolean(parentPath);
   const hasAncestorRows = ancestorChain.length > 0;
-  // Root + ancestors + replies — quote list lives on the quotes page; share
-  // row already reads root engagement counts.
-  const engagementPosts = useMemo(
-    () => [
+  // Trending needs every reply score; Relevant / Recent only the mounted band.
+  const replyEngagementBandRef = useRef<ReadonlySet<string> | null>(null);
+  const [replyEngagementBandEpoch, setReplyEngagementBandEpoch] = useState(0);
+  const engagementPosts = useMemo(() => {
+    const pinned = [
       ...ancestorChain,
       ...(conversation.root ? [conversation.root] : []),
-      ...replyPosts,
-    ],
-    [ancestorChain, conversation.root, replyPosts]
-  );
+    ];
+    if (replySort === 'trending') {
+      return [...pinned, ...replyPosts];
+    }
+    const band = replyEngagementBandRef.current;
+    if (band == null) return [...pinned, ...replyPosts];
+    return [
+      ...pinned,
+      ...replyPosts.filter((post) => band.has(postKey(post))),
+    ];
+  }, [
+    ancestorChain,
+    conversation.root,
+    replyPosts,
+    replySort,
+    replyEngagementBandEpoch,
+  ]);
   const quotedPostSources = useMemo(
     () => [...threadPosts, ...ancestorChain],
     [threadPosts, ancestorChain]
@@ -474,7 +494,7 @@ export function LivePersonalPostPanel({
       Boolean(
         seeded?.engagement?.[rootEngagementKey] || engagement[rootEngagementKey]
       ));
-  const { landSettled } = useThreadLandAppear({
+  const { landSettled, releaseSeatGuard } = useThreadLandAppear({
     openedPostRef,
     postId: conversation.root?.postId,
     hasParent,
@@ -485,15 +505,18 @@ export function LivePersonalPostPanel({
     pinKey: conversation.root?.postId ?? '',
     parked,
     landSeat,
+    // First reply page is already in flight — land with it, not before.
+    tailReady: repliesResolved,
     onThreadPainted,
   });
-  // After under-header land — a concurrent scrollIntoView loses to the re-pin.
+  // After under-header land — release seat guard before focus scroll.
   const threadFocus = useThreadFocusReply(
     loadState === 'ready' && landSettled,
     replyFocusKey,
     {
       resolveFocusRowKey: (postId) => resolveFocusRowKeyRef.current(postId),
       revealRow: (key) => revealReplyRowRef.current(key),
+      releaseLandSeatGuard: releaseSeatGuard,
     }
   );
   const permalinkReady = threadCoverReady({
@@ -541,6 +564,47 @@ export function LivePersonalPostPanel({
     () => threadWindowSizeCache(rootPath),
     [rootPath]
   );
+  useEffect(() => {
+    if (replySort !== 'trending') return;
+    if (replyEngagementBandRef.current == null) return;
+    replyEngagementBandRef.current = null;
+    setReplyEngagementBandEpoch((value) => value + 1);
+  }, [replySort]);
+  useEffect(() => {
+    if (replySort !== 'trending') return;
+    if (replyEngagementBandRef.current == null) return;
+    replyEngagementBandRef.current = null;
+    setReplyEngagementBandEpoch((value) => value + 1);
+  }, [replySort]);
+  const onReplyWindowRangeChange = useCallback(
+    (range: { start: number; end: number }) => {
+      if (replySort === 'trending') {
+        if (replyEngagementBandRef.current != null) {
+          replyEngagementBandRef.current = null;
+          setReplyEngagementBandEpoch((value) => value + 1);
+        }
+        return;
+      }
+      const from = Math.max(0, range.start - 1);
+      const to = Math.min(replyRowKeys.length, range.end + 1);
+      const next = new Set<string>();
+      for (let index = from; index < to; index += 1) {
+        const key = replyRowKeys[index];
+        if (key) next.add(key);
+      }
+      const prev = replyEngagementBandRef.current;
+      if (
+        prev &&
+        prev.size === next.size &&
+        [...next].every((key) => prev.has(key))
+      ) {
+        return;
+      }
+      replyEngagementBandRef.current = next;
+      setReplyEngagementBandEpoch((value) => value + 1);
+    },
+    [replyRowKeys, replySort]
+  );
   const {
     windowed: replyWindowed,
     start: replyWindowStart,
@@ -556,6 +620,7 @@ export function LivePersonalPostPanel({
     pinnedKey: focusPinKey,
     anchorQuery: THREAD_ANCHOR_QUERY,
     estimate: replyRowEstimates,
+    onRangeChange: onReplyWindowRangeChange,
   });
   revealReplyRowRef.current = revealReplyRow;
   resolveFocusRowKeyRef.current = (pendingId: string) => {
@@ -586,8 +651,8 @@ export function LivePersonalPostPanel({
         const firstPagePromise = paintDirect
           ? startThreadFirstPage(rootPath)
           : null;
-        // First reply page soft-fills; tree enrich continues on idle. Quotes
-        // list loads on View quotes (share row uses engagement counts).
+        // First reply page runs with the root fetch; cover waits for both so
+        // OP + directs paint together. Graft / tree enrich stay on idle.
         const rootPromise = fetchPersonalPost({ author, postId });
 
         if (firstPagePromise) {
@@ -605,7 +670,7 @@ export function LivePersonalPostPanel({
               hasMoreRepliesRef.current = first.hasMore;
               firstPagePaintedRef.current = true;
               setRepliesResolved(true);
-              // Graft soft-fills nested lines after appear — don't block hero.
+              // Nested lines soft-fill after first paint — don't block cover.
               const visiblePaths = visibleReplyPaths(first.replies);
               if (visiblePaths.length > 0) {
                 void client.query.threads
@@ -1398,17 +1463,21 @@ export function LivePersonalPostPanel({
                 data-feed-window-spacer="top"
               />
             ) : null}
-            {!repliesResolved && sortedReplyRows.length === 0 ? (
+            {sortedReplyRows.length > 0 ? (
+              replyListRows
+            ) : !repliesResolved ? (
+              // Reply-shaped seat until the first page lands — not the
+              // discover peek (title + card would jump when replies replace it).
               <div aria-busy="true">
                 <PostRowSkeleton rows={2} />
               </div>
-            ) : sortedReplyRows.length > 0 ? (
-              replyListRows
-            ) : emptyTailReady && !shareRow ? (
+            ) : shareRow ? null : (
+              // Confirmed empty — one peek host owns seat through fetch.
               <ThreadDiscoverPeek
                 author={author}
                 excludePostId={postId}
-                armed={repliesResolved}
+                armed={emptyTailReady}
+                allowEmptyCollapse={landSettled}
                 authorProfiles={postAuthorProfiles}
                 menuZIndex={nestMenuZ}
                 onReply={replyHandler}
@@ -1418,7 +1487,7 @@ export function LivePersonalPostPanel({
                 onUndoRepost={undoRepostHandler}
                 onAmplifyConfirmed={confirmAmplify}
               />
-            ) : null}
+            )}
             {replyWindowed && replyBottomSpacer > 0 ? (
               <div
                 style={{ height: replyBottomSpacer }}

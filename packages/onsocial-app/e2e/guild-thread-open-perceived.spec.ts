@@ -320,6 +320,7 @@ test('a seeded guild post stays visible while replies load', async ({
   await expect(
     layer.locator('.guild-connected-stack .post-row-skeleton-list')
   ).toBeVisible();
+  await expect(layer.locator('.thread-discover-peek')).toHaveCount(0);
   const labelWhileLoading = await layer
     .getByRole('button', { name: 'Sort replies' })
     .count();
@@ -327,7 +328,6 @@ test('a seeded guild post stays visible while replies load', async ({
     .getByRole('link', { name: /View quotes|View reposts/ })
     .count();
   const seatWhileLoading = await controlSeat(page);
-  await expect(layer.locator('.thread-discover-peek')).toHaveCount(0);
 
   const skeletonTop = await layer
     .locator('.guild-connected-stack .post-card--skeleton')
@@ -430,7 +430,7 @@ test('an empty guild thread shows the root while replies load, then the discover
     timeout: 3_000,
   });
   await expect(layer.locator('.os-page-body-appear.is-ready')).toBeVisible();
-  await expect(layer.locator('.thread-discover-peek-title')).toHaveCount(0);
+  await expect(layer.locator('.thread-discover-peek')).toHaveCount(0);
   await expect(
     layer.locator('.guild-connected-stack .post-row-skeleton-list')
   ).toBeVisible();

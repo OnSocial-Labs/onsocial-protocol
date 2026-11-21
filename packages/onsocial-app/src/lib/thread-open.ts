@@ -1,19 +1,26 @@
-import { adoptAppLenisScroll, getAppLenis } from '@/lib/app-lenis-registry';
+import {
+  adoptAppLenisScroll,
+  getAppLenis,
+  readAppScrollTop,
+} from '@/lib/app-lenis-registry';
 
 export type ThreadLoadState = 'loading' | 'ready' | 'missing' | 'error';
 
 /**
- * The post cover lifts when the root is in hand, or the load has ended
- * without one. Replies do not hold it — they skeleton in their own slot.
+ * Cover lifts when the root and the first reply page are both ready (or the
+ * load ended without a root). The first page is already fetched in parallel
+ * (`startThreadFirstPage`) — holding until it resolves paints OP + directs
+ * in one frame so the reply rail never joins after appear.
  */
 export function threadCoverReady(input: {
   loadState: ThreadLoadState;
   hasRoot: boolean;
-  /** Present so callers can show it does not gate the cover. */
+  /** False while the first reply page is still in flight. */
   repliesResolved?: boolean;
 }): boolean {
   if (input.loadState === 'missing' || input.loadState === 'error') return true;
-  return input.loadState === 'ready' && input.hasRoot;
+  if (!(input.loadState === 'ready' && input.hasRoot)) return false;
+  return input.repliesResolved !== false;
 }
 
 /**
@@ -73,7 +80,7 @@ export function threadContentInset(
     return (
       box.getBoundingClientRect().top -
       scroller.getBoundingClientRect().top +
-      scroller.scrollTop +
+      readAppScrollTop(scroller) +
       parsedPad(getComputedStyle(box).paddingTop)
     );
   }
@@ -104,8 +111,9 @@ export function openedPostPinDeficit(
 export function scrollOpenedPostUnderHeader(post: HTMLElement): boolean {
   const scroller = threadScroller(post);
   if (!scroller) return false;
-  const top = openedPostPinDeficit(post, scroller) + scroller.scrollTop;
-  if (Math.abs(scroller.scrollTop - top) <= 1) return true;
+  const liveTop = readAppScrollTop(scroller);
+  const top = openedPostPinDeficit(post, scroller) + liveTop;
+  if (Math.abs(liveTop - top) <= 1) return true;
   pinThreadScroll(scroller, top);
   return true;
 }
@@ -118,7 +126,7 @@ export function openedPostDocumentTop(
   return (
     post.getBoundingClientRect().top -
     scroller.getBoundingClientRect().top +
-    scroller.scrollTop
+    readAppScrollTop(scroller)
   );
 }
 
@@ -131,6 +139,6 @@ export function compensateOpenedPostAboveShift(
   const next = openedPostDocumentTop(post, scroller);
   const delta = next - previousDocumentTop;
   if (Math.abs(delta) < 0.5) return next;
-  pinThreadScroll(scroller, scroller.scrollTop + delta);
+  pinThreadScroll(scroller, readAppScrollTop(scroller) + delta);
   return openedPostDocumentTop(post, scroller);
 }

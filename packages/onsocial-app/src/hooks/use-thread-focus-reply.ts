@@ -12,7 +12,8 @@ import {
 
 const HIGHLIGHT_MS = 2600;
 const SCROLL_RETRY_MS = 120;
-const SCROLL_MAX_ATTEMPTS = 24;
+/** Cover + land can eat the first few ticks before the focus row mounts. */
+const SCROLL_MAX_ATTEMPTS = 48;
 
 export function useThreadFocusReply(
   ready: boolean,
@@ -23,6 +24,8 @@ export function useThreadFocusReply(
     resolveFocusRowKey?: (postId: string) => string | null;
     /** Instant window scroll (Lenis-safe); prefer over smooth scrollIntoView. */
     revealRow?: (key: string) => boolean;
+    /** Drop OP land re-pin so focus scroll is not undone (~1.2s seat guard). */
+    releaseLandSeatGuard?: () => void;
   }
 ) {
   const router = useRouter();
@@ -37,10 +40,12 @@ export function useThreadFocusReply(
   const onFocusReplyRef = useRef(options?.onFocusReply);
   const resolveFocusRowKeyRef = useRef(options?.resolveFocusRowKey);
   const revealRowRef = useRef(options?.revealRow);
+  const releaseLandSeatGuardRef = useRef(options?.releaseLandSeatGuard);
   useEffect(() => {
     onFocusReplyRef.current = options?.onFocusReply;
     resolveFocusRowKeyRef.current = options?.resolveFocusRowKey;
     revealRowRef.current = options?.revealRow;
+    releaseLandSeatGuardRef.current = options?.releaseLandSeatGuard;
   });
 
   const stripFocusQuery = useCallback(() => {
@@ -114,6 +119,9 @@ export function useThreadFocusReply(
       const targetId = pendingPostIdRef.current;
       if (!targetId) return;
       const rowKey = resolveFocusRowKeyRef.current?.(targetId) ?? null;
+      // Stop OP land re-pin before we move — otherwise the seat guard
+      // scrolls back to the root after this highlight sticks.
+      releaseLandSeatGuardRef.current?.();
       if (rowKey) revealRowRef.current?.(rowKey);
       const node = document.querySelector<HTMLElement>(
         `[data-thread-focus-reply="${CSS.escape(targetId)}"]`

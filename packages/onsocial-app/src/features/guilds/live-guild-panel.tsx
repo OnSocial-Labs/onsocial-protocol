@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useRouter } from 'next/navigation';
 import { postContentPath, type PostRow } from '@onsocial/sdk';
 import { Divider, PulsingDots, replaceSheet } from '@onsocial/ui';
@@ -113,6 +120,20 @@ import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { useUserStorageBalance } from '@/hooks/use-user-storage-balance';
 import { coalesceFeedThreads } from '@/lib/feed-threads';
+import {
+  HOME_FEED_MEMORY_TRIM_IDLE_MS,
+  HOME_FEED_WORKING_SET_POSTS,
+  homeFeedMemoryTrimNeedsScrollAnchor,
+  planHomeFeedMemoryTrim,
+  trimHomeFeedWorkingSetKeepingHead,
+} from '@/lib/home-feed-working-set';
+import { readAppScrollTop } from '@/lib/app-lenis-registry';
+import {
+  captureVisibleFeedAnchor,
+  restoreFeedAnchor,
+  type FeedScrollAnchor,
+} from '@/features/home/home-feed-scroll-anchor';
+import type { FeedWindowRangeChange } from '@/features/home/use-feed-window';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { usePostEngagement } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
@@ -223,6 +244,7 @@ export function LiveGuildPanel({
     refresh,
     refreshFeed,
     loadMoreFeed,
+    trimFeedWorkingSet,
     scheduleReconcile,
   } = useGuildPageData({
     groupId,
@@ -533,6 +555,15 @@ export function LiveGuildPanel({
     [feedBlocks, quotedPosts]
   );
   const feedListRef = useRef<HTMLDivElement | null>(null);
+  const feedWindowRangeRef = useRef<FeedWindowRangeChange>({
+    start: 0,
+    end: 0,
+    blockCount: 0,
+  });
+  const [trimAnchor, setTrimAnchor] = useState<FeedScrollAnchor | null>(null);
+  const onFeedWindowRangeChange = useCallback((range: FeedWindowRangeChange) => {
+    feedWindowRangeRef.current = range;
+  }, []);
   /*
    * Same windowing + typed block estimates as home PersonalFeedList —
    * media/thread/jacket spacers so scroll-back does not jiggle.
@@ -548,6 +579,8 @@ export function LiveGuildPanel({
     keys: feedBlockKeys,
     hostRef: feedListRef,
     estimate: feedRowEstimates,
+    pinnedKey: trimAnchor?.key ?? null,
+    onRangeChange: onFeedWindowRangeChange,
   });
   const shellPresentation = resolveAppLoadingPresentation(
     loadState === 'loading'
@@ -732,6 +765,85 @@ export function LiveGuildPanel({
     enabled: hasMorePosts && state.posts.length > 0 && !loadMoreError,
     onIntersect: loadMoreFeed,
   });
+
+  // Keyset load-more — around-window trim like home. Optimistic local rows
+  // sit above the indexed list; keep tail-only trim while they are present.
+  const memoryTrimTimerRef = useRef<number | null>(null);
+  const maybeTrimFeedMemory = useCallback(() => {
+    if (loadingMore || isFeedRefreshing || feedPending) return;
+    const current = state.posts;
+    if (current.length <= HOME_FEED_WORKING_SET_POSTS) return;
+    const root = scrollRootRef.current;
+    // react-test-renderer has no HTMLElement global — skip trim there.
+    if (typeof HTMLElement === 'undefined' || !(root instanceof HTMLElement)) {
+      return;
+    }
+    let trimmed;
+    if (localPosts.length > 0) {
+      const keepHead = trimHomeFeedWorkingSetKeepingHead(current);
+      if (keepHead.dropped.length === 0) return;
+      trimmed = {
+        posts: keepHead.posts,
+        droppedHead: [] as PostRow[],
+        droppedTail: keepHead.dropped,
+      };
+    } else {
+      const range = feedWindowRangeRef.current;
+      trimmed = planHomeFeedMemoryTrim({
+        posts: current,
+        scrollTop: readAppScrollTop(root),
+        windowStart: range.start,
+        windowEnd: range.end,
+      });
+      if (
+        trimmed.droppedHead.length === 0 &&
+        trimmed.droppedTail.length === 0
+      ) {
+        return;
+      }
+    }
+    if (homeFeedMemoryTrimNeedsScrollAnchor(trimmed)) {
+      setTrimAnchor(captureVisibleFeedAnchor(root));
+    }
+    trimFeedWorkingSet(trimmed.posts);
+  }, [
+    feedPending,
+    isFeedRefreshing,
+    loadingMore,
+    localPosts.length,
+    state.posts,
+    trimFeedWorkingSet,
+  ]);
+  useEffect(() => {
+    const node = scrollRootRef.current;
+    if (typeof HTMLElement === 'undefined' || !(node instanceof HTMLElement)) {
+      return;
+    }
+    const onScroll = () => {
+      if (memoryTrimTimerRef.current != null) {
+        window.clearTimeout(memoryTrimTimerRef.current);
+      }
+      memoryTrimTimerRef.current = window.setTimeout(() => {
+        memoryTrimTimerRef.current = null;
+        maybeTrimFeedMemory();
+      }, HOME_FEED_MEMORY_TRIM_IDLE_MS);
+    };
+    node.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      node.removeEventListener('scroll', onScroll);
+      if (memoryTrimTimerRef.current != null) {
+        window.clearTimeout(memoryTrimTimerRef.current);
+        memoryTrimTimerRef.current = null;
+      }
+    };
+  }, [maybeTrimFeedMemory, state.posts.length]);
+
+  useLayoutEffect(() => {
+    if (!trimAnchor) return;
+    if (restoreFeedAnchor(scrollRootRef.current, trimAnchor)) {
+      setTrimAnchor(null);
+    }
+  }, [state.posts, trimAnchor]);
 
   // Never show a count the viewer knows is stale (e.g. "0 members" while the
   // member-only Leave action is visible) — trust the confirmed facepile.

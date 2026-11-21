@@ -118,6 +118,23 @@ export const EMPTY_POST_ENGAGEMENT: PostEngagement = {
 };
 
 /**
+ * Drop rows that left the live post list. Feed windowing only fetches the
+ * near band — without this prune the map grows for every row ever painted.
+ */
+export function pruneEngagementMap(
+  current: EngagementMap,
+  liveKeys: ReadonlySet<string>
+): EngagementMap {
+  let changed = false;
+  const next: EngagementMap = {};
+  for (const [key, row] of Object.entries(current)) {
+    if (liveKeys.has(key)) next[key] = row;
+    else changed = true;
+  }
+  return changed ? next : current;
+}
+
+/**
  * Merge indexer soft-upgrade into current engagement without clobbering
  * in-flight optimistic reaction/save toggles (or a confirmed amplify/save
  * that the indexer has not caught yet).
@@ -310,6 +327,17 @@ export function usePostEngagement(
     () => targets.map((t) => t.path).join('\n') + `\n@${accountId ?? ''}`,
     [targets, accountId]
   );
+
+  // Bound the map to the live band — scroll-back re-fetches a few keys.
+  useEffect(() => {
+    const live = new Set(targets.map((target) => target.key));
+    setEngagement((current) => pruneEngagementMap(current, live));
+    const overlay = viewerOverlayRef.current;
+    if (!overlay) return;
+    for (const key of [...overlay.keys]) {
+      if (!live.has(key)) overlay.keys.delete(key);
+    }
+  }, [targetsSignature, targets]);
 
   useEffect(() => {
     if (targets.length === 0) {

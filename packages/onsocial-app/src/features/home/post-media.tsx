@@ -180,8 +180,23 @@ export function scrollerOwnsFeedWindow(scroller: ParentNode): boolean {
   return scroller.querySelector('[data-feed-window-spacer]') != null;
 }
 
-/** Survives window remount so scroll-back does not re-fade known media. */
+/**
+ * Survives window remount so scroll-back does not re-fade known media.
+ * Insertion-ordered Set + cap — same session bound as the ratio LRU.
+ */
+const FEED_MEDIA_RESOLVED_SRC_LIMIT = 200;
 const feedMediaResolvedSrcs = new Set<string>();
+
+function rememberFeedMediaResolvedSrc(src: string): void {
+  if (!src) return;
+  if (feedMediaResolvedSrcs.has(src)) feedMediaResolvedSrcs.delete(src);
+  feedMediaResolvedSrcs.add(src);
+  while (feedMediaResolvedSrcs.size > FEED_MEDIA_RESOLVED_SRC_LIMIT) {
+    const oldest = feedMediaResolvedSrcs.values().next().value;
+    if (oldest == null) break;
+    feedMediaResolvedSrcs.delete(oldest);
+  }
+}
 
 /**
  * Fade a feed image or video in once it can paint. Cached files resolve on
@@ -197,7 +212,7 @@ export function useFeedMediaResolved(src: string) {
     setResolved(feedMediaResolvedSrcs.has(src));
   }
   const markResolved = useCallback(() => {
-    feedMediaResolvedSrcs.add(src);
+    rememberFeedMediaResolvedSrc(src);
     setResolved(true);
   }, [src]);
   const bind = useCallback(
@@ -205,13 +220,13 @@ export function useFeedMediaResolved(src: string) {
       if (!node) return;
       if (node instanceof HTMLImageElement) {
         if (node.complete && node.naturalWidth > 0) {
-          feedMediaResolvedSrcs.add(src);
+          rememberFeedMediaResolvedSrc(src);
           setResolved(true);
         }
         return;
       }
       if (node.readyState >= 1) {
-        feedMediaResolvedSrcs.add(src);
+        rememberFeedMediaResolvedSrc(src);
         setResolved(true);
       }
     },
@@ -270,6 +285,16 @@ export function feedMediaVideoSettleHandlers(
 /** Test helper — drop session resolve marks between cases. */
 export function clearFeedMediaResolvedSrcs(): void {
   feedMediaResolvedSrcs.clear();
+}
+
+/** @internal test helper — current resolved-src cache size. */
+export function feedMediaResolvedSrcCount(): number {
+  return feedMediaResolvedSrcs.size;
+}
+
+/** @internal test helper — remember a resolved src (LRU). */
+export function rememberFeedMediaResolvedSrcForTest(src: string): void {
+  rememberFeedMediaResolvedSrc(src);
 }
 
 interface PostMediaBlockProps {

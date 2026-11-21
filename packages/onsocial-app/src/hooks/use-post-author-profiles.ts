@@ -12,6 +12,13 @@ export interface PostAuthorProfile {
   kind?: ProfileKind | null;
 }
 
+/**
+ * SPA lifetime LRU. Deep feed + quotes can touch hundreds of authors; without
+ * a cap the map grows for the whole session and re-renders get heavier.
+ * Sized above one working-set of posts (~120) with quote/ref authors.
+ */
+export const POST_AUTHOR_PROFILE_CACHE_LIMIT = 400;
+
 const profileCache = new Map<string, PostAuthorProfile | null>();
 const batchInFlight = new Map<
   string,
@@ -29,6 +36,38 @@ const profileCacheListeners = new Set<() => void>();
 
 function notifyProfileCacheListeners(): void {
   for (const listener of profileCacheListeners) listener();
+}
+
+/** Insert/touch — Map insertion order is the LRU order. */
+function setProfileCacheEntry(
+  accountId: string,
+  value: PostAuthorProfile | null
+): void {
+  profileCache.delete(accountId);
+  profileCache.set(accountId, value);
+  while (profileCache.size > POST_AUTHOR_PROFILE_CACHE_LIMIT) {
+    const oldest = profileCache.keys().next().value;
+    if (oldest == null) break;
+    profileCache.delete(oldest);
+  }
+}
+
+function touchProfileCacheEntry(accountId: string): PostAuthorProfile | null | undefined {
+  if (!profileCache.has(accountId)) return undefined;
+  const value = profileCache.get(accountId) ?? null;
+  profileCache.delete(accountId);
+  profileCache.set(accountId, value);
+  return value;
+}
+
+/** Test hook — module state must not leak between specs. */
+export function clearPostAuthorProfileCache(): void {
+  profileCache.clear();
+  profileCacheVersion += 1;
+}
+
+export function postAuthorProfileCacheSize(): number {
+  return profileCache.size;
 }
 
 /**
@@ -63,7 +102,7 @@ function readCachedProfiles(
 ): Record<string, PostAuthorProfile> {
   const out: Record<string, PostAuthorProfile> = {};
   for (const accountId of accountIds) {
-    const cached = profileCache.get(accountId);
+    const cached = touchProfileCacheEntry(accountId);
     if (cached) out[accountId] = cached;
   }
   return out;
@@ -134,9 +173,11 @@ export function seedPostAuthorProfile(
     existing.avatarUrl === merged.avatarUrl &&
     existing.kind === merged.kind
   ) {
+    // Touch LRU without bumping version — hot authors stay ahead of one-offs.
+    setProfileCacheEntry(profile.accountId, existing);
     return;
   }
-  profileCache.set(profile.accountId, merged);
+  setProfileCacheEntry(profile.accountId, merged);
   profileCacheVersion += 1;
   if (options?.notify) notifyProfileCacheListeners();
 }
@@ -144,7 +185,7 @@ export function seedPostAuthorProfile(
 export function peekPostAuthorKind(
   accountId: string
 ): ProfileKind | null | undefined {
-  return profileCache.get(accountId)?.kind;
+  return touchProfileCacheEntry(accountId)?.kind;
 }
 
 export function seedPostAuthorProfiles(
@@ -229,7 +270,7 @@ async function fetchPostAuthorProfilesBatch(
           seedPostAuthorProfile(author);
           next[accountId] = author;
         } else if (!profileCache.has(accountId)) {
-          profileCache.set(accountId, null);
+          setProfileCacheEntry(accountId, null);
           profileCacheVersion += 1;
         }
       }
@@ -245,10 +286,10 @@ async function fetchPostAuthorProfilesBatch(
         : null;
       if (profile) {
         seedPostAuthorProfile(profile);
-        const merged = profileCache.get(accountId);
+        const merged = touchProfileCacheEntry(accountId);
         if (merged) next[accountId] = merged;
       } else if (!profileCache.has(accountId)) {
-        profileCache.set(accountId, null);
+        setProfileCacheEntry(accountId, null);
         profileCacheVersion += 1;
       }
     }

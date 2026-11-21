@@ -189,8 +189,8 @@ export function PersonalFeedList({
   });
   const { windowed, start, end, topSpacer, bottomSpacer, registerRow } =
     feedWindow;
-  // Engagement / poll only for the mounted band (+1 block pad). Hooks retain
-  // maps so scroll-back stays warm without fetching the whole working set.
+  // Engagement / poll only for the mounted band (+1 block pad). The hook
+  // prunes to that band so scroll depth does not grow the map forever.
   const nearPosts = useMemo(() => {
     const from = Math.max(0, start - 1);
     const to = Math.min(feedBlocks.length, end + 1);

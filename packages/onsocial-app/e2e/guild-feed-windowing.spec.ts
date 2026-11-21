@@ -56,19 +56,34 @@ function json(data: unknown) {
   };
 }
 
+/** Offset page or chrono keyset load-more (offset stays 0 under keyset). */
+function isGuildFeedPageTwo(variables?: {
+  offset?: number;
+  before_block_height?: number;
+  beforeBlockHeight?: number;
+}): boolean {
+  const offset = variables?.offset ?? 0;
+  if (offset >= 24) return true;
+  if (variables?.before_block_height != null) return true;
+  if (variables?.beforeBlockHeight != null) return true;
+  return false;
+}
+
 async function stubGuildFeedPaging(page: Page): Promise<void> {
   await page.route('**/api/onapi/graph/query', async (route: Route) => {
     const body = JSON.parse(route.request().postData() ?? '{}') as {
       query?: string;
-      variables?: { offset?: number };
+      variables?: {
+        offset?: number;
+        before_block_height?: number;
+        beforeBlockHeight?: number;
+      };
     };
     const query = body.query ?? '';
 
-    // The app pages with limit 20 and offset = posts held so far; rows ≥
-    // limit keeps nextOffset defined, an empty page ends pagination.
-    if (query.includes('GroupFeed')) {
-      const offset = body.variables?.offset ?? 0;
-      const rows = offset === 0 ? PAGE_ONE : offset === 24 ? PAGE_TWO : [];
+    // First page is cold; load-more uses beforeBlockHeight (or offset ≥ 24).
+    if (query.includes('GroupFeed') || query.includes('FilteredGroupFeed')) {
+      const rows = isGuildFeedPageTwo(body.variables) ? PAGE_TWO : PAGE_ONE;
       await route.fulfill(json({ data: { postsCurrent: rows } }));
       return;
     }

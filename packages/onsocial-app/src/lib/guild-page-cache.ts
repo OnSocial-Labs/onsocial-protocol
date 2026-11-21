@@ -22,6 +22,8 @@ export interface GuildPageCacheEntry {
 export interface GuildFeedCacheEntry {
   posts: PostRow[];
   hasMore: boolean;
+  /** Descending keyset edge — prefer over offset for load-more. */
+  nextBeforeBlockHeight?: number;
 }
 
 /** Soft cap so a long guild-hopping session stays small. */
