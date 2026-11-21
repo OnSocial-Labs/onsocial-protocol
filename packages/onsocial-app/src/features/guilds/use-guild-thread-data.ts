@@ -57,11 +57,8 @@ import {
   THREAD_REPLY_TREE_DEPTH,
   THREAD_REPLY_TREE_MAX_NODES,
 } from '@/lib/load-personal-post-page';
-import {
-  flattenTreePosts,
-  leafThreadNode,
-  withoutIndexedPosts,
-} from '@/lib/thread-display';
+import { indexedPostsVisibleInThread } from '@/lib/thread-confirmed-reply';
+import { leafThreadNode, withoutIndexedPosts } from '@/lib/thread-display';
 
 export type { GuildThreadLoadState } from '@/features/guilds/guild-thread-data';
 export {
@@ -108,6 +105,7 @@ export function useGuildThreadData({
   seededEngagement: PostEngagementMap | null;
   conversation: GroupConversation;
   replyTree: ThreadNode[];
+  setReplyTree: Dispatch<SetStateAction<ThreadNode[]>>;
   localReplies: PostRow[];
   setLocalReplies: Dispatch<SetStateAction<PostRow[]>>;
   localQuotes: PostRow[];
@@ -376,9 +374,14 @@ export function useGuildThreadData({
               if (threadKeyRef.current !== threadKey) return;
               if (refreshRequestIdRef.current !== requestId) return;
               const fetchedTree = treeResult.replies;
-              const fetchedTreePosts = flattenTreePosts(fetchedTree);
               setLocalReplies((current) =>
-                withoutIndexedPosts(current, fetchedTreePosts)
+                withoutIndexedPosts(
+                  current,
+                  indexedPostsVisibleInThread(
+                    fetchedTree,
+                    root?.accountId ?? conversation.root?.accountId
+                  )
+                )
               );
               if (options.background && paginatedRef.current) return;
               const keepFirstPage =
@@ -659,6 +662,7 @@ export function useGuildThreadData({
     seededEngagement: seeded?.engagement ?? null,
     conversation,
     replyTree,
+    setReplyTree,
     localReplies,
     setLocalReplies,
     localQuotes,
