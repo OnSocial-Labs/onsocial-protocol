@@ -1,6 +1,8 @@
 'use client';
 
 import {
+  useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   type CSSProperties,
@@ -72,18 +74,14 @@ export function OsTextFold({
   const clipRef = clipElementRef as RefObject<HTMLDivElement | null>;
   const innerRef = innerElementRef as RefObject<HTMLDivElement | null>;
 
-  const cappedRef = useRef(capped);
-  const closedLinesRef = useRef(closedLines);
   const onOverflowRef = useRef(onOverflow);
-  const measureRef = useRef(measure);
   const lastOverflowRef = useRef<boolean | null>(null);
-  cappedRef.current = capped;
-  closedLinesRef.current = closedLines;
-  onOverflowRef.current = onOverflow;
-  measureRef.current = measure;
 
-  const syncRef = useRef(() => {});
-  syncRef.current = () => {
+  useEffect(() => {
+    onOverflowRef.current = onOverflow;
+  }, [onOverflow]);
+
+  const sync = useCallback(() => {
     const host = hostRef.current;
     const clip = clipRef.current;
     const inner = innerRef.current;
@@ -94,20 +92,20 @@ export function OsTextFold({
         ? inner.firstElementChild
         : inner;
     const lineHeight = resolveLineHeight(getComputedStyle(text));
-    const peekPx = textFoldPeekPx(lineHeight, closedLinesRef.current);
+    const peekPx = textFoldPeekPx(lineHeight, closedLines);
     const overflows = textFoldOverflows(inner.scrollHeight, peekPx);
 
     // Capped folds keep the CSS `--os-fold-lines` seat on first paint.
     // Measure only drives open height + overflow ink — never rewrite the
     // closed seat (px vs em mismatch) or flip it to `auto`.
-    if (cappedRef.current) {
+    if (capped) {
       const openPx = Math.ceil(inner.scrollHeight);
       if (host.style.getPropertyValue('--os-reveal-closed')) {
         host.style.removeProperty('--os-reveal-closed');
       }
       setHostVar(host, '--os-reveal-open', `${openPx}px`);
     } else {
-      measureRef.current({ closedPx: peekPx });
+      measure({ closedPx: peekPx });
       if (!overflows) {
         setHostVar(host, '--os-reveal-closed', 'auto');
         setHostVar(host, '--os-reveal-open', 'auto');
@@ -118,19 +116,22 @@ export function OsTextFold({
       lastOverflowRef.current = overflows;
       onOverflowRef.current?.(overflows);
     }
-  };
+  }, [capped, closedLines, clipRef, hostRef, innerRef, measure]);
 
   useLayoutEffect(() => {
     lastOverflowRef.current = null;
-    syncRef.current();
+    sync();
+  }, [contentKey, capped, closedLines, sync]);
+
+  useEffect(() => {
     const inner = innerRef.current;
     if (!inner || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(() => {
-      syncRef.current();
+      sync();
     });
     observer.observe(inner);
     return () => observer.disconnect();
-  }, [capped, closedLines, contentKey, innerRef]);
+  }, [innerRef, sync]);
 
   const capStyle = capped
     ? ({ '--os-fold-lines': String(closedLines) } as CSSProperties)
