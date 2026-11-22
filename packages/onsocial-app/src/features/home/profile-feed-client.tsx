@@ -126,8 +126,9 @@ function emptySectionRequests(): Record<ProfileTextTab, number> {
   return { posts: 0, replies: 0, reposts: 0 };
 }
 
-// prettier-ignore
-function isProfileTextTab(tab: ProfileFeedTab | undefined): tab is ProfileTextTab {
+function isProfileTextTab(
+  tab: ProfileFeedTab | undefined
+): tab is ProfileTextTab {
   return tab === 'posts' || tab === 'replies' || tab === 'reposts';
 }
 
@@ -299,8 +300,8 @@ export function ProfileFeedClient({
       if (mediaPagingRef.current) return;
       mediaPagingRef.current = true;
       const requestId = mediaRequestRef.current;
-      // prettier-ignore
-      const isFirst = cursor.beforeBlockHeight == null && (cursor.offset ?? 0) === 0;
+      const isFirst =
+        cursor.beforeBlockHeight == null && (cursor.offset ?? 0) === 0;
       queueMicrotask(() => {
         setMediaPaging(true);
         if (isFirst) setPendingTab('media');
@@ -549,10 +550,7 @@ export function ProfileFeedClient({
   }, [posts, tab]);
 
   const activeSection = isProfileTextTab(tab) ? tab : null;
-  // prettier-ignore
-  const activeSectionPage = activeSection
-    ? sectionPages[activeSection]
-    : null;
+  const activeSectionPage = activeSection ? sectionPages[activeSection] : null;
   const onBlockKeyState = useCallback(
     (state: FeedBlockKeyState[]) => {
       if (!activeSection) return;
@@ -585,22 +583,12 @@ export function ProfileFeedClient({
     fetchMediaPage,
   ]);
 
-  // prettier-ignore
-  const sectionPaging = activeSection
-    ? sectionPagingMap[activeSection]
-    : false;
-  // prettier-ignore
-  const sectionFailed = activeSection
-    ? sectionFailedMap[activeSection]
-    : false;
+  const sectionPaging = activeSection ? sectionPagingMap[activeSection] : false;
+  const sectionFailed = activeSection ? sectionFailedMap[activeSection] : false;
 
   const loadOlderSection = useCallback(() => {
     if (!activeSection || !activeSectionPage) return;
-    // prettier-ignore
-    if (
-      !activeSectionPage.hasMore ||
-      sectionPagingRef.current[activeSection]
-    ) {
+    if (!activeSectionPage.hasMore || sectionPagingRef.current[activeSection]) {
       return;
     }
     setSectionFailedMap((current) => ({
@@ -647,11 +635,7 @@ export function ProfileFeedClient({
       windowStart: range.start,
       windowEnd: range.end,
     });
-    // prettier-ignore
-    if (
-      trimmed.droppedHead.length === 0 &&
-      trimmed.droppedTail.length === 0
-    ) {
+    if (trimmed.droppedHead.length === 0 && trimmed.droppedTail.length === 0) {
       return;
     }
     if (homeFeedMemoryTrimNeedsScrollAnchor(trimmed)) {

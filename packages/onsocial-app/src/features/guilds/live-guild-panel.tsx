@@ -333,9 +333,7 @@ export function LiveGuildPanel({
         const proposalsFromSettings =
           manageSheet === 'proposals' && settingsPredecessorRef.current;
         const settingsHref = guildSheetPath(groupId, 'settings');
-        // prettier-ignore
-        const hereNow = () =>
-          window.location.pathname + window.location.search;
+        const hereNow = () => window.location.pathname + window.location.search;
         const restoreSettings = () => {
           setManageSheet(null);
           setSettingsSheetOpen(true);
@@ -557,17 +555,10 @@ export function LiveGuildPanel({
   const feedBlocks = useMemo(() => coalesceFeedThreads(feedPosts), [feedPosts]);
   const heightSlotsRef = useRef(new Map<string, GuildFeedHeightSlot>());
   const heightSlotKey = guildFeedHeightSlotKey(groupId, selectedFeedFilterId);
-  const activeHeightRef = useRef<{
-    key: string;
-    slot: GuildFeedHeightSlot;
-  } | null>(null);
-  if (activeHeightRef.current?.key !== heightSlotKey) {
-    activeHeightRef.current = {
-      key: heightSlotKey,
-      slot: rememberGuildFeedHeightSlot(heightSlotsRef.current, heightSlotKey),
-    };
-  }
-  const heightSlot = activeHeightRef.current.slot;
+  const heightSlot = useMemo(
+    () => rememberGuildFeedHeightSlot(heightSlotsRef.current, heightSlotKey),
+    [heightSlotKey]
+  );
   const onFeedBlockKeyState = useCallback(
     (state: FeedBlockKeyState[]) => {
       heightSlot.blockKeys = state;
@@ -576,10 +567,8 @@ export function LiveGuildPanel({
   );
   const feedBlockKeys = useStableFeedBlockKeys(feedBlocks, onFeedBlockKeyState);
   const quotedPosts = useQuotedPosts(feedPosts);
-  // prettier-ignore
   const feedRowEstimates = useMemo(
-    () =>
-      feedBlocks.map((block) => feedBlockEstimatePx(block, quotedPosts)),
+    () => feedBlocks.map((block) => feedBlockEstimatePx(block, quotedPosts)),
     [feedBlocks, quotedPosts]
   );
   const feedListRef = useRef<HTMLDivElement | null>(null);
@@ -589,10 +578,12 @@ export function LiveGuildPanel({
     blockCount: 0,
   });
   const [trimAnchor, setTrimAnchor] = useState<FeedScrollAnchor | null>(null);
-  // prettier-ignore
-  const onFeedWindowRangeChange = useCallback((range: FeedWindowRangeChange) => {
-    feedWindowRangeRef.current = range;
-  }, []);
+  const onFeedWindowRangeChange = useCallback(
+    (range: FeedWindowRangeChange) => {
+      feedWindowRangeRef.current = range;
+    },
+    []
+  );
   /*
    * Same windowing + typed block estimates as home PersonalFeedList —
    * media/thread/jacket spacers so scroll-back does not jiggle.
