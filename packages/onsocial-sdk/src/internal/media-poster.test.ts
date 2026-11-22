@@ -72,9 +72,7 @@ describe('captureBlobVideoPoster', () => {
     );
     const raced = await Promise.race([
       pending,
-      vi
-        .advanceTimersByTimeAsync(2_000)
-        .then(() => 'still-pending' as const),
+      vi.advanceTimersByTimeAsync(2_000).then(() => 'still-pending' as const),
     ]);
     expect(raced).toBe(jpeg);
     expect(raced).toBeInstanceOf(Blob);
