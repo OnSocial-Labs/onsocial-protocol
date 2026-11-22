@@ -10,6 +10,7 @@ on:
       - 'indexers/chain-index/**'
       - '.github/workflows/onsocial-indexer.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'indexers/onsocial-indexer/**'
       - 'indexers/chain-index/**'
@@ -33,6 +34,7 @@ env:
 
 jobs:
   check:
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     name: Check & Test
     runs-on: ubuntu-26.04
     steps:

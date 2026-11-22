@@ -7,6 +7,7 @@ on:
       - 'indexers/chain-index/**'
       - '.github/workflows/indexer-ci.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'indexers/chain-index/**'
       - '.github/workflows/indexer-ci.yml'
@@ -17,6 +18,7 @@ defaults:
 
 jobs:
   check:
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     name: Check & Test
     runs-on: ubuntu-26.04
     steps:

@@ -10,6 +10,7 @@ on:
       - '.github/workflows/onsocial-backend-ci.yml'
       - 'pnpm-lock.yaml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - 'packages/onsocial-backend/**'
@@ -29,6 +30,7 @@ env:
 
 jobs:
   build-and-test:
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     name: Build & Test
     runs-on: ubuntu-26.04
     timeout-minutes: 10
