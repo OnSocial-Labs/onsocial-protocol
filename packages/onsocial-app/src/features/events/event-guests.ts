@@ -118,7 +118,12 @@ export function collectionGuestRoster(opts: {
     };
   }
   if (medium === 'ticket') {
-    return { kind: eventGuestKind(opts.window), holders: false };
+    const kind =
+      opts.window === 'past' &&
+      !hasShowDate(opts.eventStartsAtMs, opts.eventEndsAtMs)
+        ? 'going'
+        : eventGuestKind(opts.window);
+    return { kind, holders: false };
   }
   if (
     medium === 'membership' &&
@@ -184,9 +189,7 @@ export function eventGuestSheetCopy(
       countSingular: 'redeemed',
       countPlural: 'redeemed',
       emptyCopy:
-        kind === 'attended'
-          ? 'No one redeemed.'
-          : 'No one has redeemed yet.',
+        kind === 'attended' ? 'No one redeemed.' : 'No one has redeemed yet.',
       errorCopy: 'Couldn’t load who redeemed.',
       closeAriaLabel: 'Close who redeemed',
       backdropLabel: 'Close who redeemed',

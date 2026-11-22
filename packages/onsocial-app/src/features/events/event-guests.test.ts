@@ -105,7 +105,14 @@ describe('event guest counts', () => {
         nowMs: 10,
       })
     ).toEqual({ kind: 'going', holders: true });
-    for (const kind of ['art', 'writing', 'thought', 'video', 'custom', 'music']) {
+    for (const kind of [
+      'art',
+      'writing',
+      'thought',
+      'video',
+      'custom',
+      'music',
+    ]) {
       expect(
         collectionGuestRoster({ kind, window: 'past', nowMs: 10 }).holders
       ).toBe(true);
@@ -158,13 +165,34 @@ describe('event guest counts', () => {
     expect(eventGuestCountLabel('attended', 186)).toBe('186 attended');
   });
 
+  it('keeps going when an ended ticket has no show date', () => {
+    expect(
+      collectionGuestRoster({
+        kind: 'ticket',
+        window: 'past',
+        eventStartsAtMs: 1,
+        eventEndsAtMs: 5,
+        nowMs: 10,
+      })
+    ).toEqual({ kind: 'attended', holders: false });
+    expect(
+      collectionGuestRoster({
+        kind: 'ticket',
+        window: 'past',
+        eventStartsAtMs: null,
+        eventEndsAtMs: null,
+        nowMs: 10,
+      })
+    ).toEqual({ kind: 'going', holders: false });
+  });
+
   it('pairs sold with who is in, quietly', () => {
-    expect(
-      eventGuestTallyLine({ kind: 'in', present: 47, sold: 128 })
-    ).toBe('128 sold · 47 in');
-    expect(
-      eventGuestTallyLine({ kind: 'in', present: 1, sold: 1 })
-    ).toBe('1 sold · 1 in');
+    expect(eventGuestTallyLine({ kind: 'in', present: 47, sold: 128 })).toBe(
+      '128 sold · 47 in'
+    );
+    expect(eventGuestTallyLine({ kind: 'in', present: 1, sold: 1 })).toBe(
+      '1 sold · 1 in'
+    );
     expect(
       eventGuestTallyLine({
         kind: 'in',

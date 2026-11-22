@@ -24,7 +24,22 @@ export function eventWindowLabel(window: EventWindow): string {
   }
 }
 
-/** Show clock. A missing window stays upcoming so the host can still find it. */
+/**
+ * Sale close when the drop has no show date and the sale has ended.
+ * An open sale, a cancelled drop, and any show window stay off this clock.
+ */
+function endedSaleWithoutShowMs(
+  view: DropDiscoveryItem['view'],
+  nowMs: number
+): number | null {
+  if (!view || view.cancelled) return null;
+  if (view.eventStartsAtMs != null || view.eventEndsAtMs != null) return null;
+  const saleEnd = view.endTimeMs ?? null;
+  if (saleEnd == null || saleEnd > nowMs) return null;
+  return saleEnd;
+}
+
+/** Show clock. No show date stays upcoming until the sale closes. */
 export function eventWindowFor(
   item: Pick<DropDiscoveryItem, 'view'>,
   nowMs: number
@@ -34,6 +49,7 @@ export function eventWindowFor(
   if (end != null && end <= nowMs) return 'past';
   if (start != null && start > nowMs) return 'upcoming';
   if (end != null && end > nowMs) return 'now';
+  if (endedSaleWithoutShowMs(item.view, nowMs) != null) return 'past';
   return 'upcoming';
 }
 
@@ -78,9 +94,10 @@ export function groupEvents(
 }
 
 export function eventRowWhen(item: DropDiscoveryItem, nowMs: number): string {
+  const saleEnd = endedSaleWithoutShowMs(item.view, nowMs);
   return eventListWhenLabel(
     item.view?.eventStartsAtMs ?? null,
-    item.view?.eventEndsAtMs ?? null,
+    item.view?.eventEndsAtMs ?? saleEnd,
     nowMs
   );
 }
@@ -103,7 +120,7 @@ export function eventRowWhenAt(
     return start;
   }
   if (end != null && end > nowMs) return end;
-  return null;
+  return endedSaleWithoutShowMs(item.view, nowMs);
 }
 
 export function eventRowPlace(item: DropDiscoveryItem): string | null {
