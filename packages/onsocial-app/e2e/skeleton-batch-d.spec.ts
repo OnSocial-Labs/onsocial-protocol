@@ -6,9 +6,9 @@ import { seedE2eWallet } from './helpers/collection-page';
 import {
   setE2eGraphDrop,
   setE2eGraphDrops,
-  setE2eGraphMarket,
   setE2eGraphProfile,
 } from './helpers/e2e-graph';
+import { openSignedInMarket } from './helpers/skeleton-d-sections';
 import { E2E_PROFILE_ACCOUNT } from '../src/lib/e2e-graph-stubs';
 
 const ARTIFACTS = '/opt/cursor/artifacts';
@@ -282,12 +282,26 @@ test.describe('skeleton batch D', () => {
           timeout: 20_000,
         }
       );
+      await expect(page.getByRole('heading', { name: 'Past' })).toBeVisible();
       await shot('events');
 
-      await setE2eGraphMarket(page, 'live-first');
+      await openSignedInMarket(page);
       await gotoApp(page, '/market');
-      await expect(page.locator('.market-listing-row').first()).toBeVisible({
+      await expect(page.getByRole('heading', { name: 'Yours' })).toBeVisible({
         timeout: 20_000,
+      });
+      await expect(
+        page
+          .locator('[aria-labelledby="market-yours"]')
+          .getByText('Night Drive')
+          .first()
+      ).toBeVisible();
+      await expect(
+        page.getByRole('heading', { name: 'Recent sales' })
+      ).toBeVisible();
+      await expect(page.getByText('Night sale').first()).toBeVisible();
+      await page.locator('#market-sales').evaluate((el) => {
+        el.scrollIntoView({ block: 'center', inline: 'nearest' });
       });
       await shot('market');
 

@@ -1304,7 +1304,9 @@ export function DropsPagePanel({
                 <EmptyDropsStatus sort={sort} query={query} medium={medium} />
               </OsPageBodyAppear>
             ) : (
-              <OsPageBodyAppear>
+              <OsPageBodyAppear
+                className={upcomingGroups ? 'market-section' : undefined}
+              >
                 {upcomingGroups ? (
                   UPCOMING_SECTIONS.map((section) => {
                     const rows = upcomingGroups[section.id];

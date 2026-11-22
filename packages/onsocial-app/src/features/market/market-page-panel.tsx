@@ -2264,7 +2264,7 @@ export function MarketPagePanel({
 
         {!showListSkeleton ? (
           showMarketListBody ? (
-            <OsPageBodyAppear>
+            <OsPageBodyAppear className="market-page">
               {showNoActiveListingsHint || reserveNoActiveListingsHint ? (
                 <CatalogStatusLine reserved={reserveNoActiveListingsHint}>
                   {showNoActiveListingsHint
@@ -2618,7 +2618,7 @@ export function MarketPagePanel({
               ) : null}
             </OsPageBodyAppear>
           ) : (
-            <OsPageBodyAppear>
+            <OsPageBodyAppear className="market-page">
               {showEmptyBrowse ? (
                 <div className="market-page-empty">
                   <p className="market-page-empty-copy">

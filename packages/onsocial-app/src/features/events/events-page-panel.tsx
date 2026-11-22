@@ -707,7 +707,7 @@ export function EventsPagePanel({
               )}
             </OsPageBodyAppear>
           ) : (
-            <OsPageBodyAppear>
+            <OsPageBodyAppear className="market-page-body">
               {EVENT_WINDOW_ORDER.map((window) => {
                 const rows = grouped[window];
                 if (rows.length === 0) return null;

@@ -1,4 +1,7 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { act, createElement, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -59,6 +62,20 @@ const gates = vi.hoisted(() => {
       isLoadingMore: false,
       showLoadMoreSentinel: true,
     },
+    wallet: {
+      accountId: null as string | null,
+      isLoading: false,
+    },
+    owned: null as {
+      items: Array<{
+        tokenId: string;
+        title: string;
+        ownerId: string;
+        listingKind: null;
+      }>;
+      nextFromEnd: number;
+      hasMore: boolean;
+    } | null,
   };
 });
 
@@ -190,6 +207,27 @@ vi.mock('@/features/drops/drops-data', async () => {
   };
 });
 
+vi.mock('@/contexts/app-wallet-context', () => ({
+  useAppWallet: () => ({
+    accountId: gates.wallet.accountId,
+    isConnected: Boolean(gates.wallet.accountId),
+    isLoading: gates.wallet.isLoading,
+    getSigningWallet: async () => {
+      throw new Error('no wallet');
+    },
+  }),
+}));
+
+vi.mock('@/features/scarces/scarce-offers', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/features/scarces/scarce-offers')
+  >('@/features/scarces/scarce-offers');
+  return {
+    ...actual,
+    fetchMyOpenTokenOffers: async () => [],
+  };
+});
+
 vi.mock('@/features/market/market-listings', async () => {
   const actual = await vi.importActual<
     typeof import('@/features/market/market-listings')
@@ -204,6 +242,8 @@ vi.mock('@/features/market/market-listings', async () => {
       new Promise((resolve) => {
         gates.marketSalesWaiters.push(resolve);
       }),
+    fetchOwnedScarcesPage: async () =>
+      gates.owned ?? { items: [], nextFromEnd: 0, hasMore: false },
   };
 });
 
@@ -500,6 +540,63 @@ function resetGates() {
   gates.discover.showListSkeleton = false;
   gates.discover.isLoadingMore = false;
   gates.discover.showLoadMoreSentinel = true;
+  gates.wallet.accountId = null;
+  gates.wallet.isLoading = false;
+  gates.owned = null;
+}
+
+const PAGE_GAP_CSS = [
+  cssRule(
+    resolve(dirname(fileURLToPath(import.meta.url)), '../../app/globals.css'),
+    '.market-page {'
+  ),
+  cssRule(
+    resolve(dirname(fileURLToPath(import.meta.url)), '../../app/globals.css'),
+    '.market-page-body,'
+  ),
+  cssRule(
+    resolve(
+      dirname(fileURLToPath(import.meta.url)),
+      '../../../../onsocial-ui/glass-sheet.css'
+    ),
+    '.os-page-body-appear {'
+  ),
+].join('\n');
+
+function cssRule(file: string, marker: string): string {
+  const css = readFileSync(file, 'utf8');
+  const start = css.indexOf(marker);
+  if (start < 0) throw new Error(`missing ${marker} in ${file}`);
+  const close = css.indexOf('}', start);
+  return css.slice(start, close + 1);
+}
+
+function installPageGapCss(): void {
+  const style = document.createElement('style');
+  style.dataset.pageGap = 'true';
+  style.textContent = PAGE_GAP_CSS;
+  document.head.appendChild(style);
+}
+
+function sectionColumnGap(
+  host: HTMLElement,
+  pageSelector: string,
+  firstSelector: string,
+  secondSelector: string,
+  width: number
+): { pageGap: string; sectionGap: string } {
+  host.style.width = `${width}px`;
+  const page = host.querySelector(pageSelector);
+  const first = host.querySelector(firstSelector);
+  const second = host.querySelector(secondSelector);
+  expect(page, pageSelector).toBeTruthy();
+  expect(first, firstSelector).toBeTruthy();
+  expect(second, secondSelector).toBeTruthy();
+  expect(first?.parentElement).toBe(second?.parentElement);
+  return {
+    pageGap: getComputedStyle(page!).gap,
+    sectionGap: getComputedStyle(first!.parentElement!).gap,
+  };
 }
 
 describe('skeleton batch D', () => {
@@ -556,6 +653,7 @@ describe('skeleton batch D', () => {
 
   afterEach(() => {
     document.body.innerHTML = '';
+    document.querySelector('style[data-page-gap]')?.remove();
     vi.unstubAllGlobals();
   });
 
@@ -886,9 +984,9 @@ describe('skeleton batch D', () => {
     );
     const signalBox = signal?.closest('.standing-row-signals');
     expect(signalBox).toBeTruthy();
-    expect(signalBox?.parentElement?.classList.contains('os-page-body-appear')).toBe(
-      true
-    );
+    expect(
+      signalBox?.parentElement?.classList.contains('os-page-body-appear')
+    ).toBe(true);
     const name = Array.from(ledger.host.querySelectorAll('span')).find(
       (node) => node.textContent === 'Bob'
     );
@@ -945,5 +1043,77 @@ describe('skeleton batch D', () => {
     expect(pile).toBeTruthy();
     expect(pile?.closest('.os-page-body-appear')).toBeTruthy();
     view.unmount();
+  });
+
+  it('keeps the gap between market sections and event windows equal to the page column at 390 and 1280', async () => {
+    installPageGapCss();
+    const now = Date.now();
+    const events = new Mount(
+      createElement(EventsPagePanel, { initialNowMs: now })
+    );
+    await act(async () => {
+      gates.dropsWaiters.shift()?.({
+        items: [
+          {
+            ...dropItem('soon', 'Gate Pass', 'ticket'),
+            view: {
+              ...dropItem('soon', 'Gate Pass', 'ticket').view!,
+              kind: 'ticket',
+              eventStartsAtMs: now + 3_600_000,
+              eventEndsAtMs: now + 7_200_000,
+            },
+          },
+          pastEvent('earlier', 'Last Call'),
+        ],
+        hasMore: false,
+      });
+    });
+    gates.wallet.accountId = 'ada.near';
+    gates.owned = {
+      items: [
+        {
+          tokenId: 'held:1',
+          title: 'Held print',
+          ownerId: 'ada.near',
+          listingKind: null,
+        },
+      ],
+      nextFromEnd: 1,
+      hasMore: false,
+    };
+    const market = new Mount(createElement(MarketPagePanel));
+    await act(async () => {
+      gates.marketListWaiters.shift()?.({
+        items: [],
+        nextOffset: 0,
+        hasMore: false,
+      });
+      gates.marketSalesWaiters.shift()?.([sale('sale-1', 'Night sale')]);
+    });
+
+    for (const width of [390, 1280]) {
+      const eventGap = sectionColumnGap(
+        events.host,
+        '.drops-page-body',
+        '[aria-labelledby="events-upcoming"]',
+        '[aria-labelledby="events-past"]',
+        width
+      );
+      expect(eventGap.pageGap, `events ${width}`).toBe('1.35rem');
+      expect(eventGap.sectionGap, `events ${width}`).toBe(eventGap.pageGap);
+
+      const marketGap = sectionColumnGap(
+        market.host,
+        '.market-page',
+        '[aria-labelledby="market-yours"]',
+        '[aria-labelledby="market-sales"]',
+        width
+      );
+      expect(marketGap.pageGap, `market ${width}`).toBe('1.35rem');
+      expect(marketGap.sectionGap, `market ${width}`).toBe(marketGap.pageGap);
+    }
+
+    events.unmount();
+    market.unmount();
   });
 });
