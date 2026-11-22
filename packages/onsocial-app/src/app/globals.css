@@ -48177,3 +48177,19 @@ button.portfolio-page-chevron.glass-sheet-icon-action:focus-visible {
 .portfolio-summon-dock.is-reply-reserve .portfolio-summon {
   pointer-events: none;
 }
+
+/*
+ * Unlayered so it beats `.os-page-body-appear` (flex 1 / column / min-height 0).
+ * The signal row is the appear box, so it keeps the ledger signal size.
+ */
+.os-page-body-appear.standing-row-signals {
+  flex: 0 1 auto;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  align-self: flex-start;
+  width: 100%;
+  min-height: 0.95rem;
+  margin-bottom: 0.15rem;
+  gap: 0.35rem 0.5rem;
+}

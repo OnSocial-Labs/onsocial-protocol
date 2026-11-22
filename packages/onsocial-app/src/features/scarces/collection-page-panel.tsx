@@ -71,8 +71,6 @@ import {
   collectionCoverImmersive,
   collectionCoverSquare,
   collectionDropBackHref,
-  collectionPageSkeletonMedium,
-  collectionShowActivitySection,
   collectionOpensWritingReader,
   collectionRouteYieldsLoadingSkeleton,
   collectionShowCommerceMeter,
@@ -186,6 +184,45 @@ import { fallbackLabel } from '@/lib/profile-display';
 import { holdingsActionLabel } from '@/lib/portfolio-holdings';
 import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
 import { SHEET_Z } from '@/lib/sheet-z';
+
+/**
+ * Cold-shell geometry when a seed already names the medium.
+ * Null keeps CollectionPageSkeleton's unknown-medium default.
+ */
+function collectionPageSkeletonMedium(
+  source: Pick<
+    CollectionView,
+    'kind' | 'playables' | 'mediaUrl' | 'cardBg'
+  > | null
+): { isAudio: boolean; isImmersive: boolean } | null {
+  if (!source) return null;
+  const kind = (source.kind ?? '').trim().toLowerCase();
+  const playableCount = source.playables?.length ?? 0;
+  if (!kind && playableCount === 0) return null;
+  const isAudio = playableCount > 0 || kind === 'audio' || kind === 'music';
+  return {
+    isAudio,
+    isImmersive: collectionCoverImmersive({
+      hasMedia: Boolean(source.mediaUrl || source.cardBg),
+      kind: source.kind,
+    }),
+  };
+}
+
+/**
+ * Activity band. A drop with nothing minted stays collapsed until loaded
+ * rows exist — the 3-row skeleton must not paint and then vanish.
+ */
+function collectionShowActivitySection(opts: {
+  minted: number;
+  activityLoaded: boolean;
+  mintPreviewCount: number;
+  sheetActivityCount: number;
+}): boolean {
+  const hasRows = opts.mintPreviewCount > 0 || opts.sheetActivityCount > 0;
+  if (opts.minted === 0) return opts.activityLoaded && hasRows;
+  return !opts.activityLoaded || hasRows;
+}
 
 const MINT_ACTIVITY_OPS = new Set([
   'purchase',
