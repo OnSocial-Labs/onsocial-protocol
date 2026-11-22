@@ -31,11 +31,20 @@ async function openCreateDrop(
   path = '/drops/create'
 ): Promise<void> {
   await gotoApp(page, path);
-  await expect(page.locator('.drop-create-form')).toHaveAttribute(
+  await expect(page.locator('form#drop-create-form')).toHaveAttribute(
     'data-drop-create-ready',
     '',
     { timeout: E2E_CHROME_TIMEOUT_MS }
   );
+}
+
+/** Busy shells in the streamed document, not the flight payload. */
+function busyDropCreateShells(html: string): number {
+  const tags = html.match(/<div\b[^>]*>/g) ?? [];
+  return tags.filter(
+    (tag) =>
+      tag.includes('drop-create-form') && tag.includes('aria-busy="true"')
+  ).length;
 }
 
 test.describe('create drop', () => {
@@ -47,6 +56,68 @@ test.describe('create drop', () => {
     });
   });
 
+  test('streams a single busy new-drop shell', async ({ page }) => {
+    let busy = -1;
+    await page.addInitScript(() => {
+      const note = () => {
+        const count = document.querySelectorAll(
+          '.drop-create-form[aria-busy="true"]'
+        ).length;
+        const record = window as unknown as { __busyDropShells?: number[] };
+        (record.__busyDropShells ??= []).push(count);
+      };
+      new MutationObserver(note).observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+      });
+      note();
+    });
+    await page.route('**/drops/create*', async (route) => {
+      if (route.request().resourceType() !== 'document') {
+        await route.continue();
+        return;
+      }
+      const response = await route.fetch();
+      const body = await response.text();
+      const marker = '$RC("B:0","S:0")</script>';
+      const headers = response.headers();
+      delete headers['content-encoding'];
+      delete headers['content-length'];
+      if (!body.includes(marker)) {
+        await route.fulfill({
+          status: response.status(),
+          headers,
+          body,
+        });
+        return;
+      }
+      // Hold the reveal the way a slow stream splits the two boundaries.
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      busy = busyDropCreateShells(body);
+      await route.fulfill({
+        status: response.status(),
+        headers,
+        body,
+      });
+    });
+    await gotoApp(page, '/drops/create');
+    expect(busy).toBe(1);
+    const seen = await page.evaluate(
+      () =>
+        (window as unknown as { __busyDropShells?: number[] })
+          .__busyDropShells ?? []
+    );
+    expect(Math.max(0, ...seen)).toBeLessThanOrEqual(1);
+    await expect(
+      page.locator('.drop-create-form[aria-busy="true"]')
+    ).toHaveCount(0);
+    await expect(page.locator('form#drop-create-form')).toHaveAttribute(
+      'data-drop-create-ready',
+      ''
+    );
+  });
+
   test('titles New drop and leaves to Drops', async ({ page }) => {
     await gotoApp(page, '/home');
     await gotoApp(page, '/drops/create');
@@ -55,7 +126,7 @@ test.describe('create drop', () => {
       page.getByRole('heading', { level: 1, name: 'New drop' })
     ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     await expect(page).toHaveTitle(/New drop • OnSocial/);
-    await expect(page.locator('.drop-create-form')).toHaveAttribute(
+    await expect(page.locator('form#drop-create-form')).toHaveAttribute(
       'data-drop-create-back',
       '/drops'
     );
@@ -720,11 +791,11 @@ test.describe('create drop', () => {
     await expect(
       page.getByRole('heading', { level: 1, name: 'New drop' })
     ).toBeVisible();
-    await expect(page.locator('.drop-create-form')).toHaveAttribute(
+    await expect(page.locator('form#drop-create-form')).toHaveAttribute(
       'data-drop-create-back',
       '/apps/e2e-hub'
     );
-    await expect(page.locator('.drop-create-form')).toHaveAttribute(
+    await expect(page.locator('form#drop-create-form')).toHaveAttribute(
       'data-drop-create-series',
       'Audit Series'
     );

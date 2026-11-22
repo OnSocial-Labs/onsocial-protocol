@@ -92,7 +92,11 @@ describe('captureVisibleFeedAnchor', () => {
       fakeBlock({ top: -40, height: 200, key: 'a/2' }), // partially visible
       fakeBlock({ top: 160, height: 200, key: 'a/3' }),
     ]);
-    expect(captureVisibleFeedAnchor(root)).toEqual({ key: 'a/2', top: -140 });
+    expect(captureVisibleFeedAnchor(root)).toEqual({
+      key: 'a/2',
+      top: -140,
+      scrollTop: 0,
+    });
   });
 
   it('skips blocks whose bottom edge sits exactly at the root top', () => {
@@ -144,6 +148,57 @@ describe('restoreFeedAnchor', () => {
     restoreFeedAnchor(root, { key: 'a/2', top: -140 });
     expect(root.scrollTop).toBe(340);
     expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it('does not rewind an intervening scroll', () => {
+    // Captured at the bottom (scrollTop 3904, row 40px under the root).
+    // The reader then scrolls up to 2080, which moves that row down by 1824.
+    // Restore must leave the new scroll alone. Lenis still holds the bottom.
+    const root = fakeRoot(100, [
+      fakeBlock({ top: 100 + 40 + 1824, height: 93, key: 'a/2' }),
+    ]);
+    root.scrollTop = 2080;
+    const scrollTo = vi.fn(
+      (options: { top?: number } | number) => {
+        const top = typeof options === 'number' ? options : options.top;
+        if (typeof top === 'number') root.scrollTop = top;
+      }
+    );
+    root.scrollTo = scrollTo as HTMLElement['scrollTo'];
+    smoothScroll.registerAppLenis(root, {
+      limit: 3904,
+      scroll: 3904,
+      animatedScroll: 3904,
+      targetScroll: 3904,
+      resize: vi.fn(),
+      scrollTo,
+    });
+    restoreFeedAnchor(root, { key: 'a/2', top: 40, scrollTop: 3904 });
+    expect(root.scrollTop).toBe(2080);
+    expect(scrollTo).not.toHaveBeenCalled();
+    smoothScroll.unregisterAppLenis(root);
+  });
+
+  it('still lands a layout shift when scroll has not moved', () => {
+    // Home re-rank, profile trim, guild trim, and window restore all capture
+    // scrollTop and restore before paint. A row that moved under a still
+    // reader must be put back.
+    const root = fakeRoot(100, [
+      fakeBlock({ top: 100 + 60, height: 200, key: 'a/2' }),
+    ]);
+    root.scrollTop = 3904;
+    restoreFeedAnchor(root, { key: 'a/2', top: 40, scrollTop: 3904 });
+    expect(root.scrollTop).toBe(3924);
+  });
+
+  it('back-nav anchor without scrollTop still lands the row', () => {
+    // Session restore builds { key, top } only. The scroller is not yet on
+    // the saved line, so the whole row move is the landing.
+    const root = fakeRoot(100, [
+      fakeBlock({ top: 300, height: 200, key: 'a/2' }),
+    ]);
+    restoreFeedAnchor(root, { key: 'a/2', top: -140 });
+    expect(root.scrollTop).toBe(340);
   });
 
   it('does not sync the smooth-scroll layer for sub-pixel drift', () => {
@@ -206,6 +261,7 @@ describe('custom anchor queries (thread rows)', () => {
     expect(captureVisibleFeedAnchor(root, THREAD_ANCHOR_QUERY)).toEqual({
       key: 'a.near:p2',
       top: -140,
+      scrollTop: 0,
     });
   });
 
@@ -277,6 +333,7 @@ describe('custom anchor queries (notification rows)', () => {
     expect(captureVisibleFeedAnchor(root, NOTIFICATION_ANCHOR_QUERY)).toEqual({
       key: 'n-2',
       top: -60,
+      scrollTop: 0,
     });
   });
 
@@ -345,6 +402,7 @@ describe('custom anchor queries (DM thread rows)', () => {
     expect(captureVisibleFeedAnchor(root, DM_ANCHOR_QUERY)).toEqual({
       key: 'msg-2',
       top: -60,
+      scrollTop: 0,
     });
   });
 
@@ -412,6 +470,7 @@ describe('custom anchor queries (standing rows)', () => {
     expect(captureVisibleFeedAnchor(root, STANDING_ANCHOR_QUERY)).toEqual({
       key: 'b.testnet',
       top: -60,
+      scrollTop: 0,
     });
   });
 
