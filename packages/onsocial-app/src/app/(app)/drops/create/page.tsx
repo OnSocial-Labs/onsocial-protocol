@@ -10,6 +10,8 @@ export const metadata: Metadata = {
 };
 
 export default function CreateDropPage() {
+  // Static hard load reveals this boundary after loading.tsx. Null was a
+  // blank body until hydration. Same shell as loading.tsx, one screen.
   return (
     <Suspense
       fallback={

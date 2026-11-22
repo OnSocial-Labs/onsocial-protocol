@@ -7,7 +7,36 @@ import { shiftAppLenisScroll } from '@/lib/app-lenis-registry';
  * change is invisible. Row lookup is query-driven so any keyed list (feed
  * blocks, thread reply rows) can anchor with its own DOM contract.
  */
-export type FeedScrollAnchor = { key: string; top: number };
+export type FeedScrollAnchor = {
+  key: string;
+  /** Viewport offset of the row under the scroll root at capture. */
+  top: number;
+  /**
+   * `scrollTop` at capture. Live captures set it so a scroll between
+   * capture and restore is not treated as layout shift. A session
+   * back-nav anchor omits it: the scroller is not on that line yet, and
+   * the row move itself is the landing.
+   */
+  scrollTop?: number;
+};
+
+/**
+ * Layout-only scroll correction. Scrolling down by N moves the row up by N,
+ * so the intervening scroll is subtracted from the observed row move
+ * (`rowDelta + (scrollNow - scrollThen)`). No captured scroll means the
+ * whole row move is layout (back-nav).
+ */
+export function feedAnchorLayoutDelta(
+  rowDelta: number,
+  scrollTopNow: number,
+  scrollTopThen: number | undefined
+): number {
+  if (typeof scrollTopThen !== 'number' || !Number.isFinite(scrollTopThen)) {
+    return rowDelta;
+  }
+  if (!Number.isFinite(scrollTopNow)) return rowDelta;
+  return rowDelta + (scrollTopNow - scrollTopThen);
+}
 
 /** How to find anchor-eligible rows and read their stable keys. */
 export type FeedAnchorQuery = {
@@ -132,7 +161,9 @@ export function captureVisibleFeedAnchor(
     const rect = block.getBoundingClientRect();
     if (rect.bottom > rootTop + 1) {
       const key = query.rowKey(block);
-      if (key) return { key, top: rect.top - rootTop };
+      if (key) {
+        return { key, top: rect.top - rootTop, scrollTop: root.scrollTop };
+      }
     }
   }
   return null;
@@ -152,10 +183,20 @@ export function restoreFeedAnchor(
     query.rowSelectorForKey(anchor.key)
   );
   if (!block) return false;
-  const delta =
+  const rowDelta =
     block.getBoundingClientRect().top -
     root.getBoundingClientRect().top -
     anchor.top;
+  // Home turns overflow-anchor off, so a scroll between capture and restore
+  // is the reader's. Other windowed roots leave it auto: the browser already
+  // moves scrollTop when a row above the viewport grows, and subtracting
+  // that scroll would shift a second time.
+  const subtractInterveningScroll =
+    typeof getComputedStyle === 'function' &&
+    getComputedStyle(root).overflowAnchor === 'none';
+  const delta = subtractInterveningScroll
+    ? feedAnchorLayoutDelta(rowDelta, root.scrollTop, anchor.scrollTop)
+    : rowDelta;
   if (Math.abs(delta) <= 1) return true;
   shiftAppLenisScroll(root, delta);
   return true;

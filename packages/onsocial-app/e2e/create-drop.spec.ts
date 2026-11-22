@@ -31,11 +31,20 @@ async function openCreateDrop(
   path = '/drops/create'
 ): Promise<void> {
   await gotoApp(page, path);
-  await expect(page.locator('.drop-create-form')).toHaveAttribute(
+  await expect(page.locator('form#drop-create-form')).toHaveAttribute(
     'data-drop-create-ready',
     '',
     { timeout: E2E_CHROME_TIMEOUT_MS }
   );
+}
+
+/** Busy shells in the streamed document, not the flight payload. */
+function busyDropCreateShells(html: string): number {
+  const tags = html.match(/<div\b[^>]*>/g) ?? [];
+  return tags.filter(
+    (tag) =>
+      tag.includes('drop-create-form') && tag.includes('aria-busy="true"')
+  ).length;
 }
 
 test.describe('create drop', () => {
@@ -47,6 +56,148 @@ test.describe('create drop', () => {
     });
   });
 
+  test('streams a single busy new-drop shell', async ({ page }) => {
+    let busy = -1;
+    await page.addInitScript(() => {
+      const note = () => {
+        const count = document.querySelectorAll(
+          '.drop-create-form[aria-busy="true"]'
+        ).length;
+        const record = window as unknown as { __busyDropShells?: number[] };
+        (record.__busyDropShells ??= []).push(count);
+      };
+      new MutationObserver(note).observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+      });
+      note();
+    });
+    await page.route('**/drops/create*', async (route) => {
+      if (route.request().resourceType() !== 'document') {
+        await route.continue();
+        return;
+      }
+      const response = await route.fetch();
+      const body = await response.text();
+      const marker = '$RC("B:0","S:0")</script>';
+      const headers = response.headers();
+      delete headers['content-encoding'];
+      delete headers['content-length'];
+      if (!body.includes(marker)) {
+        await route.fulfill({
+          status: response.status(),
+          headers,
+          body,
+        });
+        return;
+      }
+      // Hold the reveal the way a slow stream splits the two boundaries.
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      busy = busyDropCreateShells(body);
+      await route.fulfill({
+        status: response.status(),
+        headers,
+        body,
+      });
+    });
+    await gotoApp(page, '/drops/create');
+    // The document carries the route shell and this boundary. The reveal
+    // script leaves one attached; the ready form then replaces it.
+    expect(busy).toBeGreaterThanOrEqual(1);
+    await expect(page.locator('.drop-create-form')).toHaveCount(1);
+    await expect(
+      page.locator('.drop-create-form[aria-busy="true"]')
+    ).toHaveCount(0);
+    await expect(page.locator('form#drop-create-form')).toHaveAttribute(
+      'data-drop-create-ready',
+      ''
+    );
+  });
+
+  /**
+   * Stall JS chunks so the create page cannot hydrate.
+   * `allowLoading` lets the route loading chunk paint on a client nav;
+   * the panel chunk stays held.
+   */
+  async function holdJsChunks(
+    page: Page,
+    options?: { allowLoading?: boolean }
+  ): Promise<() => void> {
+    let release = () => {};
+    const opened = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route('**/_next/static/chunks/**', async (route) => {
+      const url = route.request().url();
+      const loadingChunk =
+        options?.allowLoading && url.includes('/drops/create/loading');
+      if (!loadingChunk) await opened;
+      await route.continue().catch(() => undefined);
+    });
+    return release;
+  }
+
+  async function expectOneNewDropShell(page: Page): Promise<void> {
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        })
+    );
+    await expect(page.locator('.drop-create-form')).toHaveCount(1);
+    await expect(
+      page.locator('form#drop-create-form[data-drop-create-ready]')
+    ).toHaveCount(0);
+    const shell = page.locator('.drop-create-form[aria-busy="true"]');
+    const title = page.getByRole('heading', { level: 1, name: 'New drop' });
+    const shellVisible = await shell.isVisible();
+    const titleVisible = await title.isVisible();
+    expect(shellVisible || titleVisible).toBe(true);
+  }
+
+  test('hard load shows one new-drop shell before hydration', async ({
+    page,
+  }) => {
+    const release = await holdJsChunks(page);
+    try {
+      await page.goto('/drops/create', { waitUntil: 'domcontentloaded' });
+      await expectOneNewDropShell(page);
+    } finally {
+      release();
+    }
+  });
+
+  test('client nav keeps one new-drop form', async ({ page }) => {
+    // The router leaves Drops up until the create module arrives, then paints
+    // one form. Holding that module never reveals a second shell.
+    await page.addInitScript(() => {
+      const note = () => {
+        const count = document.querySelectorAll('.drop-create-form').length;
+        const record = window as unknown as { __dropFormOverlap?: boolean };
+        if (count > 1) record.__dropFormOverlap = true;
+      };
+      new MutationObserver(note).observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+      });
+    });
+    await gotoApp(page, '/drops');
+    await page.locator('a[href="/drops/create"]').first().click();
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'New drop' })
+    ).toBeVisible();
+    await expect(page.locator('.drop-create-form')).toHaveCount(1);
+    const overlap = await page.evaluate(
+      () =>
+        Boolean(
+          (window as unknown as { __dropFormOverlap?: boolean }).__dropFormOverlap
+        )
+    );
+    expect(overlap).toBe(false);
+  });
+
   test('titles New drop and leaves to Drops', async ({ page }) => {
     await gotoApp(page, '/home');
     await gotoApp(page, '/drops/create');
@@ -55,7 +206,7 @@ test.describe('create drop', () => {
       page.getByRole('heading', { level: 1, name: 'New drop' })
     ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     await expect(page).toHaveTitle(/New drop • OnSocial/);
-    await expect(page.locator('.drop-create-form')).toHaveAttribute(
+    await expect(page.locator('form#drop-create-form')).toHaveAttribute(
       'data-drop-create-back',
       '/drops'
     );
@@ -720,11 +871,11 @@ test.describe('create drop', () => {
     await expect(
       page.getByRole('heading', { level: 1, name: 'New drop' })
     ).toBeVisible();
-    await expect(page.locator('.drop-create-form')).toHaveAttribute(
+    await expect(page.locator('form#drop-create-form')).toHaveAttribute(
       'data-drop-create-back',
       '/apps/e2e-hub'
     );
-    await expect(page.locator('.drop-create-form')).toHaveAttribute(
+    await expect(page.locator('form#drop-create-form')).toHaveAttribute(
       'data-drop-create-series',
       'Audit Series'
     );

@@ -426,6 +426,8 @@ export function HomePagePanel({
       const key = restoredSession?.scrollAnchorKey?.trim();
       if (!key) return null;
       const top = restoredSession?.scrollAnchorTop;
+      // Omit scrollTop. This runs before the saved line is on the scroller,
+      // so the row move is the landing (home back-nav), not an intervening scroll.
       const anchor = {
         key,
         top: typeof top === 'number' && Number.isFinite(top) ? top : 0,
