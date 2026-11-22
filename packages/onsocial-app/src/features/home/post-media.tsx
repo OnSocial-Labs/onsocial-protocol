@@ -227,7 +227,8 @@ export function useFeedMediaResolved(src: string) {
         }
         return;
       }
-      if (node.readyState >= 1) {
+      // HAVE_CURRENT_DATA. Metadata (readyState 1) is not a frame.
+      if (node.readyState >= 2) {
         rememberFeedMediaResolvedSrc(src);
         setResolved(true);
       }
@@ -241,32 +242,37 @@ export function useFeedMediaResolved(src: string) {
 /**
  * Named fallback when decode events never fire (iOS metadata preload).
  * Shared by feed tiles and quote thumbs — do not copy the timer.
+ * A video with no decoded frame stays on the shimmer.
  */
 export function useFeedMediaResolveFallback(
   active: boolean,
   resolved: boolean,
-  markResolved: () => void
+  markResolved: () => void,
+  hasFrame?: () => boolean
 ) {
   useEffect(() => {
     if (!active || resolved) return;
-    const timer = window.setTimeout(
-      markResolved,
-      FEED_MEDIA_RESOLVE_FALLBACK_MS
-    );
+    const timer = window.setTimeout(() => {
+      // No decoded frame — leave the shimmer. iOS can still settle once
+      // readyState has current data and the decode events never fired.
+      if (!hasFrame?.()) return;
+      markResolved();
+    }, FEED_MEDIA_RESOLVE_FALLBACK_MS);
     return () => window.clearTimeout(timer);
-  }, [active, resolved, markResolved]);
+  }, [active, resolved, markResolved, hasFrame]);
 }
 
 type FeedMediaVideoSettleHandlers = {
   onLoadedMetadata: (event: { currentTarget: HTMLVideoElement }) => void;
   onCanPlay: () => void;
   onLoadedData: () => void;
-  onError: () => void;
+  onError: (event: { currentTarget: HTMLVideoElement }) => void;
 };
 
 /**
- * Settle video shimmer on metadata / canplay / loadeddata / error.
- * Optional dimension callback runs from the element that is actually shown.
+ * Settle video shimmer on a decoded frame (loadeddata / canplay) or a real
+ * error. Metadata only records dimensions. A load aborted because the
+ * element detached does not mark the src resolved.
  */
 export function feedMediaVideoSettleHandlers(
   markResolved: () => void,
@@ -276,11 +282,14 @@ export function feedMediaVideoSettleHandlers(
     onLoadedMetadata: (event) => {
       const video = event.currentTarget;
       onDimensions?.(video.videoWidth, video.videoHeight);
-      markResolved();
     },
     onCanPlay: markResolved,
     onLoadedData: markResolved,
-    onError: markResolved,
+    onError: (event) => {
+      const video = event.currentTarget;
+      if (!video?.isConnected) return;
+      markResolved();
+    },
   };
 }
 
@@ -613,9 +622,19 @@ function PostVisualMediaBlock({
     setSoundOff(focusedVideoMuted);
   }, [focusedVideoMuted]);
 
+  const videoElementRef = useRef<HTMLVideoElement | null>(null);
+  const videoHasFrame = useCallback(
+    () => (videoElementRef.current?.readyState ?? 0) >= 2,
+    []
+  );
   // iOS / low-power often skip decode events with preload=metadata — shared
   // settle handlers + named fallback (same path as quote thumbs).
-  useFeedMediaResolveFallback(isVideo && videoMounted, resolved, markResolved);
+  useFeedMediaResolveFallback(
+    isVideo && videoMounted,
+    resolved,
+    markResolved,
+    videoHasFrame
+  );
 
   const [measuredRatio, setMeasuredRatio] = useState<number | null>(() =>
     lookupFeedMediaRatio(item.url)
@@ -735,7 +754,6 @@ function PostVisualMediaBlock({
   // Compose after spread — rememberRatio closes over tile refs; passing it
   // into the helper would read refs during render (react-hooks/refs).
   const videoSettle = feedMediaVideoSettleHandlers(markResolved);
-  const videoElementRef = useRef<HTMLVideoElement | null>(null);
   useEffect(() => {
     const video = videoElementRef.current;
     if (!video || !showSoundControl) return;
