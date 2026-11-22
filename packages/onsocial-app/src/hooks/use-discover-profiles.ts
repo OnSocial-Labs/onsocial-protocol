@@ -234,7 +234,8 @@ export function useDiscoverProfiles(
     createListScrollMemory(
       restoredSession
         ? readDiscoverTabScroll(restoredSession.tabScroll, tab)
-        : 0
+        : 0,
+      tab === 'profiles' ? { restoreTop: true } : undefined
     )
   );
   const [profiles, setProfiles] = useState<DiscoverProfileSummary[]>(
@@ -325,7 +326,8 @@ export function useDiscoverProfiles(
       );
       resetListScrollMemory(
         scrollMemoryRef.current,
-        readDiscoverTabScroll(tabScrollRef.current, next)
+        readDiscoverTabScroll(tabScrollRef.current, next),
+        next === 'profiles' ? { restoreTop: true } : undefined
       );
       return next;
     },

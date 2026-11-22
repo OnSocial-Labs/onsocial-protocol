@@ -11,11 +11,22 @@ export type ListScrollMemory = {
   userAdjusted: boolean;
 };
 
-export function createListScrollMemory(savedTop: number): ListScrollMemory {
+export type ListScrollMemoryOptions = {
+  /**
+   * Treat a saved line of 0 as a restore to the top.
+   * Off by default: a fresh mount must not write scrollTop.
+   * Discover Profiles turns it on — that list shares a scroller with Moving.
+   */
+  restoreTop?: boolean;
+};
+
+export function createListScrollMemory(
+  savedTop: number,
+  options?: ListScrollMemoryOptions
+): ListScrollMemory {
   const saved = Number.isFinite(savedTop) && savedTop > 0 ? savedTop : 0;
   return {
-    // 0 is a real restore (the top). null means the line already landed.
-    pending: saved,
+    pending: saved > 0 ? saved : options?.restoreTop ? 0 : null,
     landed: saved,
     userAdjusted: false,
   };
@@ -23,9 +34,10 @@ export function createListScrollMemory(savedTop: number): ListScrollMemory {
 
 export function resetListScrollMemory(
   memory: ListScrollMemory,
-  savedTop: number
+  savedTop: number,
+  options?: ListScrollMemoryOptions
 ): void {
-  const next = createListScrollMemory(savedTop);
+  const next = createListScrollMemory(savedTop, options);
   memory.pending = next.pending;
   memory.landed = next.landed;
   memory.userAdjusted = next.userAdjusted;

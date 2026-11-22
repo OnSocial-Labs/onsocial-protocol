@@ -812,7 +812,9 @@ export function usePostEngagement(
       setFetchRetryEpoch((epoch) => epoch + 1);
     }, step.delayMs);
   };
+  let accountSwitched = false;
   if (lastGoodAccountRef.current !== (accountId ?? null)) {
+    accountSwitched = true;
     const nextAccount = accountId ?? null;
     // Invalidate in-flight soft-fills so a late then() cannot paint the
     // previous wallet's likes onto this account.
@@ -841,7 +843,10 @@ export function usePostEngagement(
   }
   const incomingInitial = seededInitial;
   if (incomingInitial !== initialRef.current) {
-    const foldSeed = (prev: EngagementMap): EngagementMap => {
+    const foldSeed = (
+      prev: EngagementMap,
+      remember: boolean
+    ): EngagementMap => {
       if (Object.keys(incomingInitial).length === 0) return prev;
       const lastGood = lastGoodRef.current;
       const seedKeys = Object.keys(incomingInitial);
@@ -865,7 +870,7 @@ export function usePostEngagement(
           next[key] = row;
           changed = true;
         }
-        rememberEngagementLastGood(lastGood, key, next[key]!);
+        if (remember) rememberEngagementLastGood(lastGood, key, next[key]!);
       }
       return changed ? next : prev;
     };
@@ -874,11 +879,18 @@ export function usePostEngagement(
      * reducer returns the same map. Essay actions pass `[post]`, a new array
      * each paint, so the seed object is new while the counts are not.
      * Publishing that loops the open. Only publish a real change.
+     * rememberEngagementLastGood runs once, on the map that will commit
+     * (post account-switch when that happened this render).
      */
-    const folded = foldSeed(engagementRef.current);
+    const base = accountSwitched
+      ? engagementForAccountChange(engagementRef.current, accountId ?? null)
+      : engagementRef.current;
+    const folded = foldSeed(base, false);
     initialRef.current = incomingInitial;
-    if (folded !== engagementRef.current) {
-      setEngagement((prev) => foldSeed(prev));
+    if (folded !== base) {
+      setEngagement((prev) => foldSeed(prev, true));
+    } else {
+      foldSeed(base, true);
     }
   }
   const onErrorRef = useRef(opts.onError);

@@ -49,6 +49,19 @@ function RestoreHarness({
   return createElement('div');
 }
 
+describe('list scroll restore', () => {
+  it('leaves a default list at the live offset when nothing was saved', () => {
+    const node = scroller(640);
+    const memory = createListScrollMemory(0);
+    expect(memory.pending).toBeNull();
+
+    render(createElement(RestoreHarness, { node, memory }));
+
+    expect(node.scrollTop).toBe(640);
+    expect(scrollTopToPersist(memory, node.scrollTop)).toBe(640);
+  });
+});
+
 describe('discover profiles scroll restore', () => {
   it('opens Profiles at the top after Moving left the shared scroller offset', () => {
     const node = scroller(640);
@@ -62,7 +75,11 @@ describe('discover profiles scroll restore', () => {
       'trending',
       scrollTopToPersist(memory, node.scrollTop)
     );
-    resetListScrollMemory(memory, readDiscoverTabScroll(tabScroll, 'profiles'));
+    resetListScrollMemory(
+      memory,
+      readDiscoverTabScroll(tabScroll, 'profiles'),
+      { restoreTop: true }
+    );
     expect(scrollTopToPersist(memory, node.scrollTop)).toBe(0);
 
     render(createElement(RestoreHarness, { node, memory }));

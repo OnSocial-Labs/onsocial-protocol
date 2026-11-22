@@ -28,7 +28,7 @@ export function useListScrollRestore(
       const memory = memoryRef.current;
       if (!memory || memory.userAdjusted) return;
       const pending = memory.pending;
-      if (pending == null) return;
+      if (pending == null || pending <= 0) return;
       if (applyListScrollRestore(node, pending)) {
         memory.pending = null;
         memory.landed = node.scrollTop;
