@@ -1,14 +1,9 @@
 'use client';
 
-import { useParams } from 'next/navigation';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OverlayPanelChrome } from '@/components/overlay/overlay-panel-chrome';
 import { PortfolioAboutPending } from '@/components/portfolio/portfolio-about-pending';
 import { portfolioPath } from '@/lib/overlay-routes';
-
-function resolveAboutAccountId(params: { accountId?: string }): string {
-  return typeof params?.accountId === 'string' ? params.accountId : '';
-}
 
 export function PortfolioAboutColdShell({
   accountId,
@@ -33,11 +28,6 @@ export function PortfolioAboutColdShell({
       <PortfolioAboutPending />
     </OsAppScreen>
   );
-}
-
-export function PortfolioAboutRouteLoading() {
-  const accountId = resolveAboutAccountId(useParams<{ accountId?: string }>());
-  return <PortfolioAboutColdShell accountId={accountId} />;
 }
 
 export function PortfolioAboutOverlayLoading({

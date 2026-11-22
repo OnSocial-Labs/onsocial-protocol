@@ -30,8 +30,11 @@ up to date when adding or changing a page.
 ## Route streaming (SSR-first)
 
 - **Known SSR pages** (portfolio face, create form with server `searchParams`,
-  seeded home): stream the real shell. No route `loading.tsx` and no page
-  Suspense that paints a full pending shell for that URL.
+  seeded home): paint the complete real shell once. No route `loading.tsx` and
+  no page Suspense that paints a full pending stub (avoids CLS and leftover
+  Flight twins). Soft-nav without a destination `loading.tsx` keeps the
+  previous route until the new RSC is ready — that is intentional, not a freeze
+  to paper over with a wrong skeleton.
 - **True-cold only:** route `loading.tsx` is for unknown structure (catalog,
   collection, thread cold opens). Never stack a second full-shell Suspense
   on the same URL (page fallback must not mirror `loading.tsx`).

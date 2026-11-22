@@ -29,7 +29,6 @@ import { displayName } from '@/lib/profile-display';
 import { GOVERNANCE_DAO_ACCOUNT, TREASURY_DAO_ACCOUNT } from '@/lib/app-config';
 import {
   APP_DAOS_CREATE_PATH,
-  DAOS_CREATE_QUERY,
   daosCreateHref,
   daoPath,
 } from '@/lib/app-routes';
@@ -38,7 +37,6 @@ import {
   readLauncherMineSession,
   writeLauncherMineSession,
 } from '@/lib/launcher-mine-session';
-import { useRouter, useSearchParams } from 'next/navigation';
 import { OsRowAction } from '@/lib/os-row-action';
 
 const MY_DAOS_SOFT_RETRY_MS = 2500;
@@ -80,8 +78,6 @@ function seedMyDaos(accountId: string | null): MyDaoMembership[] | null {
  */
 export function DaosIndexPanel() {
   const { accountId } = useAppWallet();
-  const searchParams = useSearchParams();
-  const router = useRouter();
   const [myDaos, setMyDaos] = useState<MyDaoMembership[] | null>(() =>
     seedMyDaos(accountId)
   );
@@ -106,14 +102,6 @@ export function DaosIndexPanel() {
   }, []);
 
   const discoverDaosHref = appDiscoverTabHref('daos');
-
-  useEffect(() => {
-    const wantsCreate =
-      searchParams.get(DAOS_CREATE_QUERY) === '1' ||
-      searchParams.get(DAOS_CREATE_QUERY) === 'true';
-    if (!wantsCreate) return;
-    router.replace(APP_DAOS_CREATE_PATH);
-  }, [router, searchParams]);
 
   useEffect(() => {
     let cancelled = false;

@@ -1,6 +1,5 @@
 'use client';
 
-import { useParams } from 'next/navigation';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OverlayPanelChrome } from '@/components/overlay/overlay-panel-chrome';
 import {
@@ -11,11 +10,7 @@ import { PortfolioWritingPending } from '@/components/portfolio/portfolio-writin
 import { displayName } from '@/lib/profile-display';
 import { portfolioPath } from '@/lib/overlay-routes';
 
-function resolveWritingAccountId(params: { accountId?: string }): string {
-  return typeof params?.accountId === 'string' ? params.accountId : '';
-}
-
-/** Shared Writing chrome for cold routes and overlay loading. */
+/** Shared Writing chrome for overlay soft-open. */
 export function PortfolioWritingColdShell({
   accountId,
   embedded = false,
@@ -27,7 +22,7 @@ export function PortfolioWritingColdShell({
 }) {
   const titleLabel = accountId ? displayName(accountId) : '';
 
-  const screen = (
+  return (
     <OsAppScreen
       title="Writing"
       compactChrome
@@ -54,14 +49,6 @@ export function PortfolioWritingColdShell({
       <PortfolioWritingPending />
     </OsAppScreen>
   );
-
-  return screen;
-}
-
-/** Route `loading.tsx` — same chrome as `PortfolioWritingScreen`. */
-export function PortfolioWritingRouteLoading() {
-  const accountId = resolveWritingAccountId(useParams<{ accountId?: string }>());
-  return <PortfolioWritingColdShell accountId={accountId} />;
 }
 
 /** Soft-nav Writing overlay while the intercept route resolves. */

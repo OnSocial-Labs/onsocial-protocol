@@ -29,14 +29,14 @@ describe('drops loading contract', () => {
     expect(source).toContain("failed && errorPresentation === 'overlay'");
   });
 
-  it('keeps catalog cold height tokens available for in-panel skeleton', () => {
-    const loadingSource = readFileSync(
-      join(dropsSrc, 'drops-loading-screen.tsx'),
+  it('paints in-panel cold with the shared catalog skeleton height', () => {
+    const panelSource = readFileSync(
+      join(dropsSrc, 'drops-page-panel.tsx'),
       'utf8'
     );
 
-    expect(loadingSource).toContain('dropsSortLabel(toolbar.sort)');
-    expect(loadingSource).toContain('DROPS_CATALOG_SKELETON_ROWS');
-    expect(loadingSource).toContain('variant="drops"');
+    expect(panelSource).toContain('DROPS_CATALOG_SKELETON_ROWS');
+    expect(panelSource).toContain('MarketListSkeleton');
+    expect(panelSource).toContain('variant="drops"');
   });
 });

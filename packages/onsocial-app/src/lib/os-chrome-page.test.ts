@@ -80,7 +80,6 @@ describe('os chrome page', () => {
       ['features/scarces/hubs-index-panel.tsx', 'LAUNCHER_HOME_PAGE_CLASS'],
       ['features/protocol/daos-index-panel.tsx', 'LAUNCHER_HOME_PAGE_CLASS'],
       ['features/drops/drops-page-panel.tsx', 'DROPS_INDEX_PAGE_CLASS'],
-      ['features/drops/drops-loading-screen.tsx', 'DROPS_INDEX_PAGE_CLASS'],
       ['features/market/market-page-panel.tsx', 'MARKET_INDEX_PAGE_CLASS'],
       ['features/market/market-loading-screen.tsx', 'MARKET_INDEX_PAGE_CLASS'],
       ['features/guilds/live-guild-panel.tsx', 'GUILDS_PAGE_CLASS'],
