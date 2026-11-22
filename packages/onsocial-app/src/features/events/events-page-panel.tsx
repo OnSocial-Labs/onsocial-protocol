@@ -63,9 +63,9 @@ import {
 } from '@/features/events/events-catalog';
 import { eventHintLive } from '@/features/scarces/ticket-event-facts';
 import {
+  collectionGuestRoster,
   eventGuestCountAria,
   eventGuestCountLabel,
-  eventGuestKind,
   loadHeldCollectionIds,
   resolveEventGuestCount,
   showEventGuestCount,
@@ -109,6 +109,21 @@ function eventGuestRoster(
   return source[collectionId];
 }
 
+/** List and detail share one guest tense. A closed sale with no show stays going. */
+function eventRowGuestKind(
+  item: DropDiscoveryItem,
+  window: EventWindow,
+  nowMs: number
+): EventGuestKind {
+  return collectionGuestRoster({
+    kind: 'ticket',
+    window,
+    eventStartsAtMs: item.view?.eventStartsAtMs,
+    eventEndsAtMs: item.view?.eventEndsAtMs,
+    nowMs,
+  }).kind;
+}
+
 function EventRow({
   item,
   nowMs,
@@ -148,7 +163,7 @@ function EventRow({
     eventRowPlace(item),
     eventRowPrice(item),
   ].filter((part) => part != null && part !== '');
-  const kind = eventGuestKind(window);
+  const kind = eventRowGuestKind(item, window, nowMs);
   const guestLabel = showEventGuestCount(kind, guestCount)
     ? eventGuestCountLabel(kind, guestCount)
     : null;
@@ -677,7 +692,9 @@ export function EventsPagePanel({
           ) : needsConnect || empty ? (
             <OsPageBodyAppear>
               {needsConnect ? (
-                <p className="market-section-title">Connect to see your events.</p>
+                <p className="market-section-title">
+                  Connect to see your events.
+                </p>
               ) : empty && listFiltered ? (
                 <p className="market-section-title">No events match.</p>
               ) : (
@@ -699,16 +716,13 @@ export function EventsPagePanel({
                   className="market-section"
                   aria-labelledby={`events-${window}`}
                 >
-                  <h2
-                    id={`events-${window}`}
-                    className="market-section-title"
-                  >
+                  <h2 id={`events-${window}`} className="market-section-title">
                     {eventWindowLabel(window)}
                   </h2>
                   <EventsWindowedList
                     rows={rows}
                     renderRow={(item) => {
-                      const kind = eventGuestKind(window);
+                      const kind = eventRowGuestKind(item, window, nowMs);
                       return (
                         <EventRow
                           item={item}

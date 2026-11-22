@@ -1,18 +1,29 @@
 import { describe, expect, it } from 'vitest';
 import type { DropDiscoveryItem } from '@/features/drops/drops-data';
+import { collectionGuestRoster } from '@/features/events/event-guests';
 import {
   eventMatchesMine,
   eventMatchesQuery,
   eventRowPrice,
+  eventRowWhen,
+  eventRowWhenAt,
   eventScanActive,
   eventWindowFor,
   groupEvents,
   scanTicketEvents,
 } from '@/features/events/events-catalog';
+import { eventListWhenLabel } from '@/features/scarces/ticket-event-facts';
 
 function item(
   id: string,
-  times: { start?: number | null; end?: number | null }
+  times: {
+    start?: number | null;
+    end?: number | null;
+    saleEnd?: number | null;
+    soldOut?: boolean;
+    paused?: boolean;
+    cancelled?: boolean;
+  } = {}
 ): DropDiscoveryItem {
   return {
     collectionId: id,
@@ -24,7 +35,7 @@ function item(
     remaining: 10,
     totalSupply: 10,
     startTimeMs: null,
-    endTimeMs: null,
+    endTimeMs: times.saleEnd ?? null,
     status: 'live',
     hasAllowlist: false,
     mediumKind: 'ticket',
@@ -35,7 +46,11 @@ function item(
     view: {
       eventStartsAtMs: times.start ?? null,
       eventEndsAtMs: times.end ?? null,
+      endTimeMs: times.saleEnd ?? null,
       place: 'lisbon',
+      soldOut: Boolean(times.soldOut),
+      paused: Boolean(times.paused),
+      cancelled: Boolean(times.cancelled),
     } as DropDiscoveryItem['view'],
   };
 }
@@ -110,6 +125,110 @@ describe('event windows', () => {
     expect(eventMatchesQuery(show, 'music')).toBe(true);
     expect(eventMatchesQuery(show, 'neartopia')).toBe(true);
     expect(eventMatchesQuery(show, 'sports')).toBe(false);
+  });
+});
+
+describe('closed sale with no show date', () => {
+  const now = Date.parse('2026-11-22T12:00:00.000Z');
+  const saleEnd = Date.parse('2026-08-17T06:30:00.000Z');
+  const day = eventListWhenLabel(null, saleEnd, now);
+
+  function guestKind(row: DropDiscoveryItem) {
+    return collectionGuestRoster({
+      kind: 'ticket',
+      window: eventWindowFor(row, now),
+      eventStartsAtMs: row.view?.eventStartsAtMs,
+      eventEndsAtMs: row.view?.eventEndsAtMs,
+      nowMs: now,
+    }).kind;
+  }
+
+  it('returns past when the sale has ended and the show window is missing', () => {
+    expect(eventWindowFor(item('onsocial-14oliw', { saleEnd }), now)).toBe(
+      'past'
+    );
+  });
+
+  it('labels that row with the sale-close day', () => {
+    const row = item('onsocial-14oliw', { saleEnd });
+    expect(day).toBe('Aug 17');
+    expect(eventRowWhen(row, now)).toBe(day);
+    expect(eventRowWhen(row, now)).toMatch(/^[A-Z][a-z]{2} \d{1,2}$/);
+    expect(eventRowWhenAt(row, now)).toBe(saleEnd);
+  });
+
+  it('groups that row under past and keeps going', () => {
+    const row = item('onsocial-14oliw', { saleEnd });
+    const grouped = groupEvents([row], now);
+    expect(grouped.past.map((entry) => entry.collectionId)).toEqual([
+      'onsocial-14oliw',
+    ]);
+    expect(grouped.upcoming).toEqual([]);
+    expect(grouped.now).toEqual([]);
+    expect(guestKind(row)).toBe('going');
+  });
+
+  it('files a sold-out ended sale with no show date under past', () => {
+    const row = item('sold', { saleEnd, soldOut: true });
+    expect(eventWindowFor(row, now)).toBe('past');
+    expect(eventRowWhen(row, now)).toBe(day);
+  });
+
+  it('files a paused ended sale with no show date under past', () => {
+    const row = item('paused', { saleEnd, paused: true });
+    expect(eventWindowFor(row, now)).toBe('past');
+    expect(eventRowWhen(row, now)).toBe(day);
+  });
+
+  it('leaves an open unscheduled sale upcoming', () => {
+    const row = item('open', { saleEnd: now + 86_400_000 });
+    expect(eventWindowFor(row, now)).toBe('upcoming');
+    expect(eventRowWhen(row, now)).toBe('Time to be set');
+    expect(eventRowWhenAt(row, now)).toBeNull();
+  });
+
+  it('keeps a future show upcoming after the sale ends', () => {
+    const row = item('later', {
+      start: now + 10 * 86_400_000,
+      end: now + 11 * 86_400_000,
+      saleEnd,
+    });
+    expect(eventWindowFor(row, now)).toBe('upcoming');
+    expect(eventRowWhen(row, now)).toBe(
+      eventListWhenLabel(
+        row.view?.eventStartsAtMs,
+        row.view?.eventEndsAtMs,
+        now
+      )
+    );
+    expect(eventRowWhen(row, now)).not.toBe(day);
+  });
+
+  it('keeps a live show on now after the sale ends', () => {
+    const row = item('live', {
+      start: now - 3_600_000,
+      end: now + 3_600_000,
+      saleEnd,
+    });
+    expect(eventWindowFor(row, now)).toBe('now');
+    expect(eventRowWhen(row, now)).toBe('On now');
+  });
+
+  it('keeps a dated past show attended', () => {
+    const row = item('done', {
+      start: now - 86_400_000,
+      end: now - 3_600_000,
+      saleEnd,
+    });
+    expect(eventWindowFor(row, now)).toBe('past');
+    expect(guestKind(row)).toBe('attended');
+  });
+
+  it('leaves a cancelled unscheduled sale upcoming', () => {
+    const row = item('cancelled', { saleEnd, cancelled: true });
+    expect(eventWindowFor(row, now)).toBe('upcoming');
+    expect(eventRowWhen(row, now)).toBe('Time to be set');
+    expect(eventRowWhenAt(row, now)).toBeNull();
   });
 });
 
