@@ -90,6 +90,8 @@ export function DiscoverFaceFilterRail() {
           items={FACE_ITEMS}
           value={face}
           onValueChange={setFace}
+          tabIdFor={(id) => `discover-face-tab-${id}`}
+          ariaControls="discover-panel-profiles"
         />
         {showCraft ? (
           <div
