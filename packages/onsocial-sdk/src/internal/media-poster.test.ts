@@ -59,6 +59,28 @@ describe('captureBlobVideoPoster', () => {
     if (raced instanceof Blob) expect(raced.type).toBe('image/jpeg');
   });
 
+  it('grabs a JPEG from seeked or canplay when fallback readyState is below HAVE_CURRENT_DATA', async () => {
+    vi.useFakeTimers();
+    const jpeg = installPosterDom({
+      duration: 10,
+      fireSeek: false,
+      readyState: 1,
+      frameEvent: 'canplay',
+    });
+    const pending = captureBlobVideoPoster(
+      new Blob([new Uint8Array([1])], { type: 'video/mp4' })
+    );
+    const raced = await Promise.race([
+      pending,
+      vi
+        .advanceTimersByTimeAsync(2_000)
+        .then(() => 'still-pending' as const),
+    ]);
+    expect(raced).toBe(jpeg);
+    expect(raced).toBeInstanceOf(Blob);
+    if (raced instanceof Blob) expect(raced.type).toBe('image/jpeg');
+  });
+
   it('captures a still from an empty-MIME .mp4', async () => {
     const jpeg = installPosterDom({ duration: 0, fireSeek: false });
     const frame = await captureBlobVideoPoster(
@@ -69,7 +91,12 @@ describe('captureBlobVideoPoster', () => {
   });
 });
 
-function installPosterDom(options: { duration: number; fireSeek: boolean }) {
+function installPosterDom(options: {
+  duration: number;
+  fireSeek: boolean;
+  readyState?: number;
+  frameEvent?: 'seeked' | 'canplay';
+}) {
   const jpeg = new Blob([Uint8Array.from([0xff, 0xd8, 0xff])], {
     type: 'image/jpeg',
   });
@@ -103,14 +130,23 @@ function installPosterDom(options: { duration: number; fireSeek: boolean }) {
         videoWidth: 1920,
         videoHeight: 1080,
         duration: options.duration,
-        readyState: 2,
+        readyState: options.readyState ?? 2,
         onloadedmetadata: null as null | (() => void),
         onseeked: null as null | (() => void),
         onerror: null as null | (() => void),
         removeAttribute() {},
         load() {},
-        addEventListener() {},
-        removeEventListener() {},
+        addEventListener(name: string, fn: () => void) {
+          listeners[name]?.add(fn);
+        },
+        removeEventListener(name: string, fn: () => void) {
+          listeners[name]?.delete(fn);
+        },
+      };
+      const listeners: Record<string, Set<() => void>> = {
+        loadeddata: new Set(),
+        seeked: new Set(),
+        canplay: new Set(),
       };
       let time = 0;
       Object.defineProperty(video, 'currentTime', {
@@ -118,9 +154,17 @@ function installPosterDom(options: { duration: number; fireSeek: boolean }) {
         get: () => time,
         set(next: number) {
           time = next;
-          if (!options.fireSeek) return;
-          const onseeked = video.onseeked as null | (() => void);
-          onseeked?.();
+          if (options.fireSeek) {
+            const onseeked = video.onseeked as null | (() => void);
+            onseeked?.();
+            return;
+          }
+          if (next === 0 && options.frameEvent) {
+            const name = options.frameEvent;
+            setTimeout(() => {
+              for (const fn of [...(listeners[name] ?? [])]) fn();
+            }, 0);
+          }
         },
       });
       Object.defineProperty(video, 'src', {

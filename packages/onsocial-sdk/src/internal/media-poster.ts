@@ -44,11 +44,20 @@ export function captureBlobVideoPoster(blob: Blob): Promise<Blob | null> {
       const video = document.createElement('video');
       let settled = false;
       let seekTimer: ReturnType<typeof setTimeout> | undefined;
+      let frameListener: (() => void) | undefined;
+      const unlistenFrame = () => {
+        if (!frameListener) return;
+        video.removeEventListener('loadeddata', frameListener);
+        video.removeEventListener('seeked', frameListener);
+        video.removeEventListener('canplay', frameListener);
+        frameListener = undefined;
+      };
       const settle = (value: Blob | null) => {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
         if (seekTimer) clearTimeout(seekTimer);
+        unlistenFrame();
         video.onloadedmetadata = null;
         video.onseeked = null;
         video.onerror = null;
@@ -90,11 +99,17 @@ export function captureBlobVideoPoster(blob: Blob): Promise<Blob | null> {
             grab();
             return;
           }
-          const onReady = () => {
-            video.removeEventListener('loadeddata', onReady);
+          // A hung seek leaves readyState at HAVE_METADATA. loadeddata already
+          // fired for the first load and will not fire again; seeked/canplay
+          // do, after the fallback seek to t=0.
+          unlistenFrame();
+          frameListener = () => {
+            unlistenFrame();
             grab();
           };
-          video.addEventListener('loadeddata', onReady);
+          video.addEventListener('loadeddata', frameListener);
+          video.addEventListener('seeked', frameListener);
+          video.addEventListener('canplay', frameListener);
         } catch {
           settle(null);
         }
@@ -116,12 +131,15 @@ export function captureBlobVideoPoster(blob: Blob): Promise<Blob | null> {
         }
         const fallback = () => {
           video.onseeked = null;
+          // Listen before the fallback seek so a synchronous seeked/canplay
+          // is not missed, and so a later event still arrives while readyState
+          // is only HAVE_METADATA.
+          grabDecoded();
           try {
             if (video.currentTime !== 0) video.currentTime = 0;
           } catch {
             // Draw whatever frame is already decoded.
           }
-          grabDecoded();
         };
         video.onseeked = () => {
           if (seekTimer) clearTimeout(seekTimer);
