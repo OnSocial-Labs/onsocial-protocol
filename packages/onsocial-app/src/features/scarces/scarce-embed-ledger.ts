@@ -64,11 +64,78 @@ function scarceSeedPaintEqual(a: PostScarceEmbed, b: PostScarceEmbed): boolean {
     a.collectionId === b.collectionId &&
     a.tokenId === b.tokenId &&
     a.priceNear === b.priceNear &&
+    a.usdE6 === b.usdE6 &&
     a.remaining === b.remaining &&
     a.copies === b.copies &&
     a.mediaUrl === b.mediaUrl &&
     a.appId === b.appId
   );
+}
+
+function embedHasPaintedPrice(embed: PostScarceEmbed): boolean {
+  return Boolean(embed.usdE6?.trim() || embed.priceNear?.trim());
+}
+
+/** Live CTA only when ask/terminal state is known — jacket paint alone holds the seat. */
+export function scarceEmbedCommercePaintReady(
+  embed: PostScarceEmbed | null | undefined
+): boolean {
+  if (!embed) return false;
+  if (embed.status === 'none') return false;
+  if (embed.status === 'sold' || embed.status === 'minted') return true;
+  return embedHasPaintedPrice(embed);
+}
+
+function scarceListingId(embed: PostScarceEmbed): string {
+  return embed.listingId?.trim() ?? '';
+}
+
+/**
+ * The ask is the NEAR price, plus a dollar sticker when both paints have one.
+ * A refresh that only adds or drops `usdE6` is the same ask — that is the
+ * quiet currency stick. A missing fetched price is not a new ask.
+ */
+function scarceAskUnchanged(
+  previous: PostScarceEmbed,
+  fetched: PostScarceEmbed
+): boolean {
+  const nextPrice = fetched.priceNear?.trim() ?? '';
+  if (nextPrice && (previous.priceNear?.trim() ?? '') !== nextPrice) {
+    return false;
+  }
+  const previousUsd = previous.usdE6?.trim() ?? '';
+  const nextUsd = fetched.usdE6?.trim() ?? '';
+  if (previousUsd && nextUsd && previousUsd !== nextUsd) return false;
+  return true;
+}
+
+/**
+ * Quiet refresh may update sold / remaining in place. Painted priceNear and
+ * usdE6 stay only while listingId and the ask are unchanged. A relist or a
+ * new ask takes the fetched values.
+ */
+export function stickScarceCommercePaint(
+  previous: PostScarceEmbed | null | undefined,
+  fetched: PostScarceEmbed
+): PostScarceEmbed {
+  if (!previous || !embedHasPaintedPrice(previous)) return fetched;
+  if (
+    scarceListingId(previous) !== scarceListingId(fetched) ||
+    !scarceAskUnchanged(previous, fetched)
+  ) {
+    return fetched;
+  }
+  const hadDollars = Boolean(previous.usdE6?.trim());
+  const next: PostScarceEmbed = {
+    ...fetched,
+    priceNear: previous.priceNear,
+  };
+  if (hadDollars) {
+    next.usdE6 = previous.usdE6;
+  } else if ('usdE6' in next) {
+    delete next.usdE6;
+  }
+  return next;
 }
 
 /**
@@ -87,14 +154,38 @@ export function seedScarceEmbedsFromSsr(
     if (!key || !embed) continue;
     if (overrides.has(key)) continue;
     const previous = ssrSeeds.get(key);
-    if (previous && scarceSeedPaintEqual(previous, embed)) {
+    // First seed takes indexer truth (incl. usdE6). Later seeds keep the
+    // painted ask only while the listing and the ask are unchanged.
+    const next = stickScarceCommercePaint(previous, embed);
+    if (previous && scarceSeedPaintEqual(previous, next)) {
       touchLruMapEntry(ssrSeeds, key);
       continue;
     }
-    setLruMapEntry(ssrSeeds, key, embed, SCARCE_EMBED_SEED_CACHE_LIMIT);
+    setLruMapEntry(ssrSeeds, key, next, SCARCE_EMBED_SEED_CACHE_LIMIT);
     changed = true;
   }
   if (changed && options?.notify) emit();
+}
+
+/**
+ * Persist a per-card indexer fetch so recycled feed cards remount with
+ * commerce already painted. Keeps the painted ask while the listing and
+ * the ask are unchanged; sold / remaining may still update in place.
+ */
+export function rememberScarceEmbedFetch(
+  key: string,
+  fetched: PostScarceEmbed,
+  options?: { notify?: boolean }
+): void {
+  if (!key) return;
+  const previous = ssrSeeds.get(key);
+  const next = stickScarceCommercePaint(previous, fetched);
+  if (previous && scarceSeedPaintEqual(previous, next)) {
+    touchLruMapEntry(ssrSeeds, key);
+    return;
+  }
+  setLruMapEntry(ssrSeeds, key, next, SCARCE_EMBED_SEED_CACHE_LIMIT);
+  if (options?.notify !== false) emit();
 }
 
 export function getScarceEmbedSeed(key: string): PostScarceEmbed | null {
@@ -125,6 +216,16 @@ export function setScarceEmbedOverride(
 
 export function clearScarceEmbedOverride(key: string): void {
   if (!overrides.delete(key)) return;
+  emit();
+}
+
+/**
+ * Drop optimistic CTAs when the signed-in account changes. Seeds stay —
+ * they are public indexer paint, not the previous viewer's local action.
+ */
+export function clearScarceEmbedOverrides(): void {
+  if (overrides.size === 0) return;
+  overrides.clear();
   emit();
 }
 

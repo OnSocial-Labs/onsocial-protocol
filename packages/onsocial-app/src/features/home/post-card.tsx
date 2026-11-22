@@ -79,6 +79,7 @@ import {
 import {
   PostScarceCta,
   PostScarceCtaPending,
+  scarcePostCtaPhase,
   type PostScarceCtaActionProps,
 } from '@/features/scarces/post-scarce-cta';
 import {
@@ -307,7 +308,6 @@ export {
 } from '@/features/home/post-skeleton';
 export type { PostSkeletonFrame } from '@/features/home/post-skeleton';
 
-
 /** Shared fallback so the scarce-CTA bundle keeps a stable embed identity. */
 const EMPTY_SCARCE_EMBED: PostScarceEmbed = {
   status: 'none',
@@ -465,7 +465,10 @@ function PostCardImpl({
   const dismissPhotoThread = useCallback(() => {
     setPhotoThreadOpen(false);
   }, []);
-  useEffect(() => onDismissReplyDrawers(dismissPhotoThread), [dismissPhotoThread]);
+  useEffect(
+    () => onDismissReplyDrawers(dismissPhotoThread),
+    [dismissPhotoThread]
+  );
   const [menuForceEmbed, setMenuForceEmbed] = useState(false);
   const [cancelScarcePending, setCancelScarcePending] = useState(false);
   const isSelf =
@@ -801,13 +804,16 @@ function PostCardImpl({
     mediaItems.length === 0 &&
     !showScarceArt &&
     (Boolean(dropPaint) || hasCollectionEmbed || hasTokenEmbed);
-  const scarceCtaLive =
-    !isRepostShell && Boolean(scarceEmbed || canListScarce);
-  /** Jacket known from paint/refs before commerce soft-fills — hold the CTA row. */
-  const scarceCtaSeat =
-    !isRepostShell &&
-    !scarceCtaLive &&
-    (Boolean(dropPaint) || hasCollectionEmbed || hasTokenEmbed);
+  const scarceCtaPhase = scarcePostCtaPhase({
+    isRepostShell,
+    embed: scarceEmbed,
+    hasDropPaint: Boolean(dropPaint),
+    hasCollectionEmbed,
+    hasTokenEmbed,
+    canListScarce,
+  });
+  const scarceCtaLive = scarceCtaPhase === 'live';
+  const scarceCtaSeat = scarceCtaPhase === 'pending';
   const articleIssuedAt =
     typeof post.blockTimestamp === 'number'
       ? post.blockTimestamp
@@ -1938,8 +1944,10 @@ function PostCardImpl({
                 : undefined
           }
           commerce={
-            !isRepostShell && (scarceEmbed || canListScarce) ? (
+            scarceCtaLive ? (
               <PostScarceCta {...scarceCtaActions} />
+            ) : scarceCtaSeat ? (
+              <PostScarceCtaPending />
             ) : null
           }
           engagement={
@@ -2045,8 +2053,10 @@ function PostCardImpl({
           bookPdf={collectionBookPdf}
           viewerAccountId={viewerAccountId}
           commerce={
-            !isRepostShell && (scarceEmbed || canListScarce) ? (
+            scarceCtaLive ? (
               <PostScarceCta {...scarceCtaActions} />
+            ) : scarceCtaSeat ? (
+              <PostScarceCtaPending />
             ) : null
           }
           engagement={

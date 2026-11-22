@@ -126,8 +126,10 @@ import {
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { useListScrollRestore } from '@/hooks/use-list-scroll-restore';
 import { sortPostsByHot } from '@/lib/amplify-heat';
+import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
 import {
   fillEngagementSeedFromFeedRows,
+  hydrateScarceEmbedsForPosts,
   loadPostEngagementMap,
 } from '@/lib/feed-paint-hydrate';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
@@ -865,6 +867,8 @@ export function HomePagePanel({
       if (items.length === 0 || clientRevealFlight.current !== 0) return;
       const flight = 1;
       clientRevealFlight.current = flight;
+      // Quotes / tallies / DAO only — scarce hydrate runs once with engagement
+      // soft-fill so the same page is never double-fetched.
       void loadFeedPaint(items).then(
         (paint) => {
           if (clientRevealFlight.current !== flight) return;
@@ -1149,15 +1153,20 @@ export function HomePagePanel({
         fillSidePaint(items);
         {
           const sessionAtSoftFill = feedSessionKeyRef.current;
-          void loadPostEngagementMap(createReadOnlyOnSocialClient(), items, {
-            viewer: accountId,
-          }).then(
-            (engagement) => {
+          const softClient = createReadOnlyOnSocialClient();
+          void Promise.all([
+            loadPostEngagementMap(softClient, items, {
+              viewer: accountId,
+            }),
+            hydrateScarceEmbedsForPosts(softClient, items),
+          ]).then(
+            ([engagement, scarce]) => {
               if (feedSessionKeyRef.current !== sessionAtSoftFill) return;
               setEngagementSeed((current) => ({
                 ...(current ?? {}),
                 ...engagement,
               }));
+              seedScarceEmbedsFromSsr(scarce, { notify: true });
             },
             () => {}
           );
@@ -1310,13 +1319,15 @@ export function HomePagePanel({
         );
         applyFeedPageCursor(result.page);
         const sessionAtSoftFill = feedSessionKeyRef.current;
+        const appendClient = createReadOnlyOnSocialClient();
         void Promise.all([
           loadFeedPaint(appended),
-          loadPostEngagementMap(createReadOnlyOnSocialClient(), appended, {
+          loadPostEngagementMap(appendClient, appended, {
             viewer: accountId,
           }),
+          hydrateScarceEmbedsForPosts(appendClient, appended),
         ]).then(
-          ([appendedPaint, appendedEngagement]) => {
+          ([appendedPaint, appendedEngagement, appendedScarce]) => {
             if (feedSessionKeyRef.current !== sessionAtSoftFill) return;
             sidePaintSavedRef.current = true;
             setQuotedSeed((current) => ({
@@ -1335,6 +1346,7 @@ export function HomePagePanel({
               ...(current ?? {}),
               ...appendedEngagement,
             }));
+            seedScarceEmbedsFromSsr(appendedScarce, { notify: true });
           },
           () => {}
         );

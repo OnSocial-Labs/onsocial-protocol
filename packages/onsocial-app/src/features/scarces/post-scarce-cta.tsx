@@ -9,6 +9,7 @@ import {
   isPrimaryMintStatus,
   resolvePostDropCta,
 } from '@/features/scarces/post-drop-cta';
+import { scarceEmbedCommercePaintReady } from '@/features/scarces/scarce-embed-ledger';
 import {
   appPath,
   collectionPath,
@@ -73,7 +74,7 @@ function primaryMintLive(embed: PostScarceEmbed): boolean {
   return false;
 }
 
-function formatPriceNear(priceNear: string | undefined): string | null {
+function formatPriceNear(priceNear: string | null | undefined): string | null {
   if (!priceNear?.trim()) return null;
   const n = Number.parseFloat(priceNear);
   if (!Number.isFinite(n)) return priceNear.trim();
@@ -81,6 +82,53 @@ function formatPriceNear(priceNear: string | undefined): string | null {
     return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
   }
   return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
+}
+
+/**
+ * Feed CTA price unit. Dollars when the listing stores `usdE6`, else NEAR.
+ * Ledger stick keeps the painted unit fixed under quiet refresh.
+ */
+export function scarceCtaPriceLabel(embed: {
+  usdE6?: string | null;
+  priceNear?: string | null;
+}): string | null {
+  const dollars = dollarStickerLabel(embed.usdE6);
+  if (dollars) return dollars;
+  const nearPrice = formatPriceNear(embed.priceNear);
+  return nearPrice ? `${nearPrice} NEAR` : null;
+}
+
+export { scarceEmbedCommercePaintReady };
+
+export type ScarcePostCtaPhase = 'live' | 'pending' | 'hidden';
+
+/**
+ * Feed commerce slot. A settled `none` seed (delisted token or collection)
+ * is not an ask still loading — render no seat.
+ */
+export function scarcePostCtaPhase(input: {
+  isRepostShell: boolean;
+  embed: PostScarceEmbed | null | undefined;
+  hasDropPaint: boolean;
+  hasCollectionEmbed: boolean;
+  hasTokenEmbed: boolean;
+  canListScarce: boolean;
+}): ScarcePostCtaPhase {
+  if (input.isRepostShell) return 'hidden';
+  const commerceReady = scarceEmbedCommercePaintReady(input.embed);
+  const jacketKnown =
+    input.hasDropPaint ||
+    input.hasCollectionEmbed ||
+    input.hasTokenEmbed ||
+    (input.embed != null && input.embed.status !== 'none');
+  const live =
+    commerceReady ||
+    (input.canListScarce && (!input.embed || input.embed.status === 'none'));
+  if (live) return 'live';
+  // Settled `none` (delisted token or collection) is not an ask still loading.
+  if (input.embed?.status === 'none') return 'hidden';
+  if (jacketKnown && !commerceReady) return 'pending';
+  return 'hidden';
 }
 
 function editionMeta(embed: PostScarceEmbed): string | null {
@@ -225,9 +273,7 @@ export const PostScarceCta = memo(function PostScarceCta({
   mediumSlot = null,
 }: PostScarceCtaProps) {
   const links = commerceLinks(embed, authorAccountId);
-  const nearPrice = formatPriceNear(embed.priceNear);
-  const price =
-    dollarStickerLabel(embed.usdE6) ?? (nearPrice ? `${nearPrice} NEAR` : null);
+  const price = scarceCtaPriceLabel(embed);
   const edition = editionMeta(embed);
   const collectionId =
     embed.collectionId?.trim() || embed.latest?.collectionId?.trim() || '';

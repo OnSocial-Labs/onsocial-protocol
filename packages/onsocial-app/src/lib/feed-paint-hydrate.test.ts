@@ -277,6 +277,7 @@ describe('feed-paint-hydrate', () => {
       creatorId: 'alice.near',
       appId: null,
       price: ONE_NEAR,
+      usdE6: '2500000',
       priceNumeric: '1',
       reservePrice: null,
       buyNowPrice: null,
@@ -317,6 +318,8 @@ describe('feed-paint-hydrate', () => {
       listingId: 'll:1',
       remaining: 7,
       copies: 10,
+      priceNear: '1',
+      usdE6: '2500000',
     });
     expect(map['alice.near/post/p2']).toBeUndefined();
   });
@@ -327,6 +330,7 @@ describe('feed-paint-hydrate', () => {
       creatorId: 'creator.near',
       appId: null,
       price: ONE_NEAR,
+      usdE6: '5000000',
       allowlistPrice: null,
       totalSupply: 10,
       mintedCount: 2,
@@ -384,6 +388,8 @@ describe('feed-paint-hydrate', () => {
       creatorId: 'creator.near',
       remaining: 8,
       mediumKind: 'audio',
+      priceNear: '1',
+      usdE6: '5000000',
     });
   });
 
@@ -398,6 +404,7 @@ describe('feed-paint-hydrate', () => {
         creatorId: 'alice.near',
         appId: null,
         price: ONE_NEAR,
+        usdE6: '1000000',
         priceNumeric: '1',
         reservePrice: null,
         buyNowPrice: null,
@@ -459,6 +466,7 @@ describe('feed-paint-hydrate', () => {
       tokenId: 's:post-1',
       listingId: 'nl:1',
       priceNear: '1',
+      usdE6: '1000000',
     });
   });
 });

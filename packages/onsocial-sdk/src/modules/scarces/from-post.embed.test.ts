@@ -122,6 +122,37 @@ describe('ScarcesFromPostApi.embed', () => {
     expect(r.mediumKind).toBe('art');
   });
 
+  it('copies usdE6 from event extraData', async () => {
+    const { api } = makeApi([
+      row({
+        eventType: 'LAZY_LISTING_UPDATE',
+        operation: 'created',
+        listingId: 'll:1',
+        extraData: JSON.stringify({
+          sourcePost: { path: 'alice.near/post/42' },
+          priceNear: '5',
+          usdE6: ' 2500000 ',
+        }),
+      }),
+    ]);
+    const camel = await api.embed(POST);
+    expect(camel.usdE6).toBe('2500000');
+
+    const snake = await makeApi([
+      row({
+        eventType: 'LAZY_LISTING_UPDATE',
+        operation: 'created',
+        listingId: 'll:1',
+        extraData: JSON.stringify({
+          sourcePost: { path: 'alice.near/post/42' },
+          price_near: '5',
+          usd_e6: '4000000',
+        }),
+      }),
+    ]).api.embed(POST);
+    expect(snake.usdE6).toBe('4000000');
+  });
+
   it("derives 'drop' from COLLECTION_UPDATE create", async () => {
     const { api } = makeApi([
       row({
@@ -367,6 +398,45 @@ describe('ScarcesFromPostApi.embed', () => {
       {} as ScarcesLazyApi
     );
     await expect(api.embed(POST)).rejects.toThrow(/QueryModule/);
+  });
+
+  it('copies usdE6 from the collection catalog row', async () => {
+    const eventsFn = vi.fn(async () => []);
+    const collectionsCurrent = vi.fn(async () => [
+      {
+        collectionId: 'sunset',
+        appId: 'hub.near',
+        price: '1000000000000000000000000',
+        usdE6: ' 2500000 ',
+        remaining: 4,
+        totalSupply: 10,
+        cancelled: false,
+        banned: false,
+        paused: false,
+        media: '',
+        mediumKind: 'art',
+        sourcePostPath: 'alice.near/post/42',
+        extraJson: null,
+        metadata: null,
+        metadataTemplate: null,
+      },
+    ]);
+    const query = {
+      scarces: { events: eventsFn, collectionsCurrent },
+    } as unknown as QueryModule;
+    const api = new ScarcesFromPostApi(
+      {} as ScarcesTokensApi,
+      {} as ScarcesLazyApi,
+      undefined,
+      query
+    );
+
+    const embed = await api.embed(POST);
+
+    expect(embed.status).toBe('drop');
+    expect(embed.collectionId).toBe('sunset');
+    expect(embed.priceNear).toBe('1');
+    expect(embed.usdE6).toBe('2500000');
   });
 
   it('passes author scope to query.scarces.events', async () => {

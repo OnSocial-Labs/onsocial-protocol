@@ -79,6 +79,21 @@ describe('home feed loading contract', () => {
     expect(source).toContain('reRankAnchorMissRef');
   });
 
+  it('soft-fills scarce embeds once per page (soft refresh + append)', () => {
+    const source = readFileSync(join(homeSrc, 'home-feed.tsx'), 'utf8');
+    expect(source).toContain('hydrateScarceEmbedsForPosts');
+    expect(source).toContain('seedScarceEmbedsFromSsr(appendedScarce');
+    expect(source).toContain('seedScarceEmbedsFromSsr(scarce, { notify: true })');
+    // Quotes side-paint must not double-hydrate scarce on the same items.
+    const fillStart = source.indexOf('const fillSidePaint');
+    const fillEnd = source.indexOf('const releaseColdLoad');
+    expect(fillStart).toBeGreaterThan(-1);
+    expect(fillEnd).toBeGreaterThan(fillStart);
+    expect(source.slice(fillStart, fillEnd)).not.toContain(
+      'hydrateScarceEmbedsForPosts'
+    );
+  });
+
   it('soft-refresh and appear panels share the 280ms ease-out token', () => {
     const css = readFileSync(join(homeSrc, '../../app/globals.css'), 'utf8');
     const softRefresh = css.slice(

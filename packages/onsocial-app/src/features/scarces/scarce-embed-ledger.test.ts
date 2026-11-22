@@ -1,16 +1,21 @@
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, beforeEach } from 'vitest';
 import type { PostScarceEmbed } from '@onsocial/sdk';
+import { scarceCtaPriceLabel } from '@/features/scarces/post-scarce-cta';
 import {
   SCARCE_EMBED_SEED_CACHE_LIMIT,
   clearScarceEmbedLedger,
-  clearScarceEmbedOverride,
+  clearScarceEmbedOverrides,
   getScarceEmbedOverride,
   getScarceEmbedSeed,
   reconcileScarceEmbedFromApi,
+  rememberScarceEmbedFetch,
   resolveScarceEmbed,
   scarceEmbedSeedCacheSize,
   seedScarceEmbedsFromSsr,
   setScarceEmbedOverride,
+  stickScarceCommercePaint,
 } from '@/features/scarces/scarce-embed-ledger';
 
 const KEY = 'alice.near/post/1';
@@ -198,12 +203,13 @@ describe('scarce-embed-ledger', () => {
     expect(getScarceEmbedOverride(KEY)).toBeNull();
   });
 
-  it('overwrites stale SSR seeds but never clobbers overrides', () => {
+  it('takes the fetched ask when the listing changes; never clobbers overrides', () => {
     seedScarceEmbedsFromSsr({
       [KEY]: embed({
         status: 'lazy_listing',
         listingId: 'll:old',
         priceNear: '1',
+        usdE6: '2500000',
       }),
     });
     expect(getScarceEmbedSeed(KEY)?.listingId).toBe('ll:old');
@@ -217,6 +223,16 @@ describe('scarce-embed-ledger', () => {
     });
     expect(getScarceEmbedSeed(KEY)?.listingId).toBe('ll:new');
     expect(getScarceEmbedSeed(KEY)?.priceNear).toBe('2');
+    expect(getScarceEmbedSeed(KEY)?.usdE6).toBeUndefined();
+    expect(
+      renderToStaticMarkup(
+        createElement(
+          'span',
+          null,
+          scarceCtaPriceLabel(getScarceEmbedSeed(KEY) ?? embed({}))
+        )
+      )
+    ).toBe('<span>2 NEAR</span>');
 
     setScarceEmbedOverride(
       KEY,
@@ -231,5 +247,160 @@ describe('scarce-embed-ledger', () => {
     });
     expect(getScarceEmbedSeed(KEY)?.listingId).toBe('ll:new');
     expect(getScarceEmbedOverride(KEY)?.collectionId).toBe('drop:1');
+  });
+
+  it('first seed can include dollars; later seeds stick NEAR-only paint', () => {
+    seedScarceEmbedsFromSsr({
+      [KEY]: embed({
+        status: 'lazy_listing',
+        listingId: 'll:1',
+        priceNear: '1',
+        usdE6: '2500000',
+      }),
+    });
+    expect(getScarceEmbedSeed(KEY)?.usdE6).toBe('2500000');
+
+    seedScarceEmbedsFromSsr({
+      [KEY]: embed({
+        status: 'lazy_listing',
+        listingId: 'll:1',
+        priceNear: '1',
+      }),
+    });
+    expect(getScarceEmbedSeed(KEY)?.usdE6).toBe('2500000');
+
+    clearScarceEmbedLedger();
+    seedScarceEmbedsFromSsr({
+      [KEY]: embed({
+        status: 'lazy_listing',
+        listingId: 'll:1',
+        priceNear: '1',
+      }),
+    });
+    seedScarceEmbedsFromSsr({
+      [KEY]: embed({
+        status: 'lazy_listing',
+        listingId: 'll:1',
+        priceNear: '1',
+        usdE6: '2500000',
+      }),
+    });
+    expect(getScarceEmbedSeed(KEY)?.usdE6).toBeUndefined();
+    expect(getScarceEmbedSeed(KEY)?.priceNear).toBe('1');
+  });
+
+  it('sticks painted currency when the ask is unchanged; a new ask is taken', () => {
+    const painted = embed({
+      status: 'lazy_listing',
+      listingId: 'll:1',
+      priceNear: '1',
+      usdE6: '2500000',
+      remaining: 3,
+    });
+    const sameAsk = stickScarceCommercePaint(
+      painted,
+      embed({
+        status: 'sold',
+        listingId: 'll:1',
+        priceNear: '1',
+        remaining: 0,
+      })
+    );
+    expect(sameAsk.status).toBe('sold');
+    expect(sameAsk.remaining).toBe(0);
+    expect(sameAsk.usdE6).toBe('2500000');
+    expect(sameAsk.priceNear).toBe('1');
+
+    const newAsk = stickScarceCommercePaint(
+      painted,
+      embed({
+        status: 'lazy_listing',
+        listingId: 'll:1',
+        priceNear: '9',
+        remaining: 0,
+      })
+    );
+    expect(newAsk.priceNear).toBe('9');
+    expect(newAsk.usdE6).toBeUndefined();
+    expect(newAsk.remaining).toBe(0);
+  });
+
+  it('takes fetched dollars when the ask changes on the same listing', () => {
+    const painted = embed({
+      status: 'lazy_listing',
+      listingId: 'll:1',
+      priceNear: '1',
+    });
+    const refreshed = stickScarceCommercePaint(
+      painted,
+      embed({
+        status: 'lazy_listing',
+        listingId: 'll:1',
+        priceNear: '2',
+        usdE6: '2500000',
+      })
+    );
+    expect(refreshed.priceNear).toBe('2');
+    expect(refreshed.usdE6).toBe('2500000');
+  });
+
+  it('remembers fetches so recycled cards remount with commerce', () => {
+    rememberScarceEmbedFetch(
+      KEY,
+      embed({
+        status: 'lazy_listing',
+        listingId: 'll:1',
+        priceNear: '1',
+        usdE6: '2500000',
+      }),
+      { notify: false }
+    );
+    expect(getScarceEmbedSeed(KEY)?.listingId).toBe('ll:1');
+    expect(getScarceEmbedSeed(KEY)?.usdE6).toBe('2500000');
+
+    rememberScarceEmbedFetch(
+      KEY,
+      embed({
+        status: 'lazy_listing',
+        listingId: 'll:1',
+        priceNear: '1',
+        remaining: 1,
+      }),
+      { notify: false }
+    );
+    expect(getScarceEmbedSeed(KEY)?.priceNear).toBe('1');
+    expect(getScarceEmbedSeed(KEY)?.usdE6).toBe('2500000');
+    expect(getScarceEmbedSeed(KEY)?.remaining).toBe(1);
+
+    rememberScarceEmbedFetch(
+      KEY,
+      embed({
+        status: 'lazy_listing',
+        listingId: 'll:1',
+        priceNear: '9',
+        remaining: 1,
+      }),
+      { notify: false }
+    );
+    expect(getScarceEmbedSeed(KEY)?.priceNear).toBe('9');
+    expect(getScarceEmbedSeed(KEY)?.usdE6).toBeUndefined();
+  });
+
+  it('clears optimistic overrides without dropping indexer seeds', () => {
+    seedScarceEmbedsFromSsr({
+      [KEY]: embed({
+        status: 'lazy_listing',
+        listingId: 'll:1',
+        priceNear: '2',
+      }),
+    });
+    setScarceEmbedOverride(
+      KEY,
+      embed({ status: 'lazy_listing', priceNear: '1' })
+    );
+    clearScarceEmbedOverrides();
+    expect(getScarceEmbedOverride(KEY)).toBeNull();
+    expect(getScarceEmbedSeed(KEY)?.listingId).toBe('ll:1');
+    expect(getScarceEmbedSeed(KEY)?.priceNear).toBe('2');
   });
 });

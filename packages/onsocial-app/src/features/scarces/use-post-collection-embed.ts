@@ -16,7 +16,9 @@ import {
   getScarceEmbedSeed,
   postScarceKey,
   reconcileScarceEmbedFromApi,
+  rememberScarceEmbedFetch,
   resolveScarceEmbed,
+  scarceEmbedCommercePaintReady,
   subscribeScarceEmbedLedger,
 } from '@/features/scarces/scarce-embed-ledger';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
@@ -67,7 +69,6 @@ export function usePostCollectionEmbed(
   const key = postScarceKey(post.accountId, post.postId);
   const rootRef = useRef<HTMLElement | null>(null);
   const [inView, setInView] = useState(false);
-  const [fetched, setFetched] = useState<PostScarceEmbed | null>(null);
   const [playables, setPlayables] = useState<ScarcePlayableMedia[]>([]);
   const [readables, setReadables] = useState<ScarceReadableMedia[]>([]);
   const [writingFormat, setWritingFormat] =
@@ -76,7 +77,6 @@ export function usePostCollectionEmbed(
   const [writingMetaKey, setWritingMetaKey] = useState<string | null>(null);
   const [bookPdf, setBookPdf] = useState<ScarceReadableMedia | null>(null);
   const [dropTitle, setDropTitle] = useState<string | null>(null);
-  const [fetchedKey, setFetchedKey] = useState<string | null>(null);
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
 
@@ -91,7 +91,13 @@ export function usePostCollectionEmbed(
     () => getScarceEmbedSeed(key)
   );
 
-  const shouldFetch = enabled && (force || inView);
+  const shouldFetch =
+    enabled &&
+    (force || inView) &&
+    (force ||
+      Boolean(override) ||
+      seed == null ||
+      (seed.status !== 'none' && !scarceEmbedCommercePaintReady(seed)));
 
   useEffect(() => {
     if (!enabled) return;
@@ -216,9 +222,9 @@ export function usePostCollectionEmbed(
         if (tokenId) {
           try {
             const listed = await client.query.scarces.activeListings({
-              sellerId: post.accountId,
               kinds: ['native', 'auction'],
-              limit: 40,
+              tokenIds: [tokenId],
+              limit: 1,
             });
             const hit = listed.find(
               (entry) =>
@@ -255,8 +261,8 @@ export function usePostCollectionEmbed(
 
         if (cancelled) return;
         reconcileScarceEmbedFromApi(key, resolved);
-        setFetched(resolved);
-        setFetchedKey(key);
+        rememberScarceEmbedFetch(key, resolved);
+        setErrorKey((current) => (current === key ? null : current));
       } catch {
         if (cancelled) return;
         setErrorKey(key);
@@ -290,16 +296,15 @@ export function usePostCollectionEmbed(
 
   const paint = parseDropPaintSnapshot(post.value);
   const paintBaseline =
-    parsed && !seed && !fetched
+    parsed && !seed
       ? paintToEmbed(parsed.collectionId, parsed.tokenId, paint)
       : null;
-  const baseline =
-    fetchedKey === key && fetched != null ? fetched : (seed ?? paintBaseline);
+  const baseline = seed ?? paintBaseline;
   const embed = enabled ? resolveScarceEmbed(key, baseline) : null;
 
   const status: PostScarceEmbedStatus = !enabled
     ? 'idle'
-    : fetchedKey === key || seed != null || paintBaseline != null
+    : seed != null || paintBaseline != null
       ? 'ready'
       : errorKey === key
         ? 'error'
