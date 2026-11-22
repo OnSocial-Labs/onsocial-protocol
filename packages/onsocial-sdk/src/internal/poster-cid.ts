@@ -108,6 +108,13 @@ export function isIpfsCid(value: string): boolean {
 
 export type PosterCidRejection = 'length' | 'not-a-cid';
 
+function hasNonAscii(raw: string): boolean {
+  for (let i = 0; i < raw.length; i += 1) {
+    if (raw.charCodeAt(i) > 127) return true;
+  }
+  return false;
+}
+
 /**
  * Why a poster string cannot be stored, or null when it is a bare CIDv0/v1
  * or `ipfs://` CID of at most 128 characters. Length is reported on its own
@@ -116,7 +123,7 @@ export type PosterCidRejection = 'length' | 'not-a-cid';
 export function posterCidRejection(raw: string): PosterCidRejection | null {
   if (typeof raw !== 'string' || raw.length === 0) return 'not-a-cid';
   if (raw.length > POSTER_CID_MAX_CHARS) return 'length';
-  if (raw !== raw.trim() || /\s/u.test(raw) || /[^\x00-\x7F]/u.test(raw)) {
+  if (raw !== raw.trim() || /\s/u.test(raw) || hasNonAscii(raw)) {
     return 'not-a-cid';
   }
   const bare = raw.startsWith('ipfs://') ? raw.slice('ipfs://'.length) : raw;
