@@ -191,13 +191,38 @@ export function DiscoverTrendingPanel({
     }
     return standingLedgerVersion >= 0 ? ids : ids;
   }, [standingLedgerVersion]);
+  // Lock Active order after first paint for this filter — standing soft-fill
+  // must not reshuffle the row. A new query needle starts a fresh lock.
+  const lockedActiveIdsRef = useRef<string[] | null>(null);
+  const lockedActiveQueryRef = useRef<string | null>(null);
   const visibleProfiles = useMemo(() => {
     if (board == null) return null;
-    return preferStandingPosters(
+    const ranked = preferStandingPosters(
       filterMovingActive(board.profiles, query),
       [...standingIds, ...standingFromLedger],
       SECTION_LIMIT
     );
+    if (lockedActiveQueryRef.current !== query) {
+      lockedActiveQueryRef.current = query;
+      lockedActiveIdsRef.current = null;
+    }
+    if (lockedActiveIdsRef.current == null) {
+      lockedActiveIdsRef.current = ranked.map((row) => row.accountId);
+      return ranked;
+    }
+    const byId = new Map(ranked.map((row) => [row.accountId, row]));
+    const locked: typeof ranked = [];
+    for (const id of lockedActiveIdsRef.current) {
+      const hit = byId.get(id);
+      if (hit) {
+        locked.push(hit);
+        byId.delete(id);
+      }
+    }
+    for (const row of ranked) {
+      if (byId.has(row.accountId)) locked.push(row);
+    }
+    return locked.slice(0, SECTION_LIMIT);
   }, [board, query, standingFromLedger, standingIds]);
   const mentionNow = useMemo(
     () => new Date(clockTick >= 0 ? Date.now() : Date.now()),
@@ -349,10 +374,10 @@ export function DiscoverTrendingPanel({
   );
 }
 
-/** Cold route cover — same section order as the landing, before rows exist. */
+/** Cold route cover — same panel + section order as the landing. */
 export function DiscoverMovingLandingSkeleton() {
   return (
-    <>
+    <div className="discover-trending-panel" aria-hidden>
       <MovingPostPeekSection heading="Hot posts" why="hot" rows={null} />
       <MovingPostPeekSection heading="Talked about" why="talk" rows={null} />
       <MovingCoverPeekSection heading="Just sold" rows={null} />
@@ -360,6 +385,6 @@ export function DiscoverMovingLandingSkeleton() {
       <MovingFacePeekSection heading="Active" rows={null} onSeeAll={() => undefined} />
       <MovingHubPeekSection heading="Hot hubs" rows={null} onSeeAll={() => undefined} />
       <MovingProposalPeekSection heading="New proposals" rows={null} />
-    </>
+    </div>
   );
 }

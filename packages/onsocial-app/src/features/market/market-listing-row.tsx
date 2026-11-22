@@ -20,10 +20,15 @@ import {
 } from '@/features/scarces/scarce-embed-ledger';
 import { socialTimeProps } from '@/lib/post-display';
 import { personalPostPath } from '@/lib/post-routes';
+import { seedCollectionViewFromMarketListing } from '@/features/market/market-drop-open';
 import {
   marketPostLayerLinkHandlers,
   useMarketPostLayer,
 } from '@/features/market/market-post-layer';
+import {
+  dropOverlayLinkHandlers,
+  useDropOverlayOpen,
+} from '@/features/scarces/drop-overlay-open';
 import { scarceRowPartyLead } from '@/lib/scarce-row-kind';
 
 interface MarketListingRowProps {
@@ -93,6 +98,7 @@ export function MarketListingRow({
   onCancel,
 }: MarketListingRowProps) {
   const openMarketPost = useMarketPostLayer();
+  const openDrop = useDropOverlayOpen();
   const rowKey = marketListingRowKey(item);
   const sellerId = item.creatorId;
   const postHref = item.postHref ?? postHrefFromSourcePath(item.sourcePostPath);
@@ -103,6 +109,18 @@ export function MarketListingRow({
     tokenId: item.tokenId,
     postHref,
   });
+  const dropInitial =
+    rowTarget?.kind === 'drop'
+      ? seedCollectionViewFromMarketListing(item)
+      : null;
+  const rowOpenHandlers =
+    rowTarget?.kind === 'post'
+      ? marketPostLayerLinkHandlers(rowTarget.href, openMarketPost, () =>
+          seedListedEmbed(item)
+        )
+      : rowTarget?.kind === 'drop'
+        ? dropOverlayLinkHandlers(rowTarget.href, openDrop, dropInitial)
+        : null;
   const [confirmRowKey, setConfirmRowKey] = useState<string | null>(null);
   const confirmTimerRef = useRef<number | null>(null);
   const confirmingCancel =
@@ -200,11 +218,7 @@ export function MarketListingRow({
               ? `Open post for ${item.title}`
               : `Open drop for ${item.title}`
           }
-          {...(rowOpensPost
-            ? marketPostLayerLinkHandlers(rowTarget.href, openMarketPost, () =>
-                seedListedEmbed(item)
-              )
-            : {})}
+          {...(rowOpenHandlers ?? {})}
         />
       ) : null}
       {rowTarget ? (

@@ -272,6 +272,18 @@ export function seedCollectionViewFromNowPlaying(
 }
 
 /**
+ * Peek / now-playing placeholders paint cover + title on frame 1 with
+ * `createdAtMs === 0`. SSR catalog shells always carry a real createdAt —
+ * only those may skip the first keyed soft-fill.
+ */
+export function collectionViewNeedsCatalogSoftFill(
+  view: CollectionView | null | undefined
+): boolean {
+  if (!view) return true;
+  return view.createdAtMs <= 0;
+}
+
+/**
  * List / cover-peek seed — title + cover on frame 1; kind and commerce
  * soft-fill from the indexer after open. Prefer a full `CollectionView`
  * when the list already has one.

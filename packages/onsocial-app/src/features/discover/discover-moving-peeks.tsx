@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import type { MouseEvent } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import { IpfsImg, ipfsImgSrcSet } from '@onsocial/ui';
 import {
@@ -17,11 +16,11 @@ import {
 import type { DiscoverScarcePeek } from '@/features/discover/discover-scarce-peeks';
 import { communityMonogram } from '@/components/community-cards/community-monogram';
 import { placeFallbackCoverStyle } from '@/components/community-cards/community-cover';
-import {
-  isUnmodifiedPrimaryClick,
-  usePostThreadLayer,
-} from '@/features/home/post-thread-layer';
 import { seedCollectionViewFromPeek } from '@/features/scarces/collection-page-view';
+import {
+  dropOverlayLinkHandlers,
+  useDropOverlayOpen,
+} from '@/features/scarces/drop-overlay-open';
 import { appPath, collectionPath } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
 import type { DiscoverTrendingHub } from '@/lib/discover-trending-server';
@@ -287,7 +286,7 @@ export function MovingCoverPeekSection({
   seeAll?: { href?: string; onClick?: () => void } | null;
   rows: DiscoverScarcePeek[] | null;
 }) {
-  const { openDrop } = usePostThreadLayer();
+  const openDrop = useDropOverlayOpen();
   const resolvedSeeAll = seeAll ?? (seeAllHref ? { href: seeAllHref } : null);
   if (rows === null) {
     return (
@@ -306,27 +305,24 @@ export function MovingCoverPeekSection({
             : null;
           const meta = signal || scarce.appId?.trim() || null;
           const href = collectionPath(scarce.collectionId);
-          const initial = seedCollectionViewFromPeek({
-            collectionId: scarce.collectionId,
-            title: scarce.title,
-            coverUrl: scarce.coverUrl,
-            appId: scarce.appId,
-          });
+          // Same open seed as Drops: solid catalog view when hydrated.
+          const initial =
+            scarce.view ??
+            seedCollectionViewFromPeek({
+              collectionId: scarce.collectionId,
+              title: scarce.title,
+              coverUrl: scarce.coverUrl,
+              appId: scarce.appId,
+              creatorId: scarce.creatorId,
+              kind: scarce.kind,
+            });
+          const dropHandlers = dropOverlayLinkHandlers(href, openDrop, initial);
           return (
             <li key={`${heading}-${scarce.collectionId}`}>
               <Link
                 href={href}
                 className="discover-cover-peek"
-                onClick={(event: MouseEvent<HTMLAnchorElement>) => {
-                  if (!isUnmodifiedPrimaryClick(event)) return;
-                  if (openDrop({ href, initial })) {
-                    event.preventDefault();
-                    event.stopPropagation();
-                  }
-                }}
-                onNavigate={(event) => {
-                  if (openDrop({ href, initial })) event.preventDefault();
-                }}
+                {...dropHandlers}
               >
                 <MovingCoverThumb
                   src={scarce.coverUrl}

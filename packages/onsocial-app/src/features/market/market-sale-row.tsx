@@ -9,10 +9,15 @@ import {
   formatMarketVerbStamp,
   type MarketSaleItem,
 } from '@/features/market/market-listings';
+import { seedCollectionViewFromMarketSale } from '@/features/market/market-drop-open';
 import {
   marketPostLayerLinkHandlers,
   useMarketPostLayer,
 } from '@/features/market/market-post-layer';
+import {
+  dropOverlayLinkHandlers,
+  useDropOverlayOpen,
+} from '@/features/scarces/drop-overlay-open';
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { QuantityCount } from '@/features/scarces/quantity-count';
 import { appendEach } from '@/features/scarces/quantity-count-format';
@@ -103,12 +108,20 @@ export function MarketSaleRow({
   avatarUrl?: string | null;
 }) {
   const openMarketPost = useMarketPostLayer();
+  const openDrop = useDropOverlayOpen();
   const partyId = salePartyAccountId(sale);
   const saleTime = formatMarketVerbStamp('Sold', sale.blockTimestamp);
   const detail = marketSaleDetailHref(sale);
-  const postHandlers = detail
-    ? marketPostLayerLinkHandlers(detail.href, openMarketPost)
-    : null;
+  const openHandlers =
+    detail?.kind === 'post'
+      ? marketPostLayerLinkHandlers(detail.href, openMarketPost)
+      : detail?.kind === 'drop'
+        ? dropOverlayLinkHandlers(
+            detail.href,
+            openDrop,
+            seedCollectionViewFromMarketSale(sale)
+          )
+        : null;
   const priceLine = marketSalePriceLabel(sale);
   const title = marketSaleRowTitle(sale);
   const thumbClass = `market-listing-thumb${sale.mediaUrl ? ' has-media' : ''}`;
@@ -130,7 +143,7 @@ export function MarketSaleRow({
               ? `Open post for ${title}`
               : `Open drop for ${title}`
           }
-          {...(postHandlers ?? {})}
+          {...(openHandlers ?? {})}
         />
       ) : null}
       <div className={thumbClass} aria-hidden>

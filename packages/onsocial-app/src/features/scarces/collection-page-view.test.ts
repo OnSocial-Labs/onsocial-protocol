@@ -16,6 +16,7 @@ import {
   collectionShowCommerceMeter,
   collectionShowInlineTracks,
   collectionUseFirst,
+  collectionViewNeedsCatalogSoftFill,
   peekHoldsCollection,
   peekHoldsCollectionForDropPage,
   peekOwnedTokenForCollection,
@@ -327,12 +328,36 @@ describe('collection page view', () => {
       title: 'Just Sold',
       coverUrl: 'https://cdn.example/cover.jpg',
       appId: 'hub.near',
+      creatorId: 'alice.near',
+      kind: 'writing',
     });
     expect(view?.collectionId).toBe('just-sold');
     expect(view?.title).toBe('Just Sold');
     expect(view?.mediaUrl).toBe('https://cdn.example/cover.jpg');
     expect(view?.appId).toBe('hub.near');
+    expect(view?.creatorId).toBe('alice.near');
+    expect(view?.kind).toBe('writing');
     expect(view?.playables).toEqual([]);
+    expect(collectionViewNeedsCatalogSoftFill(view)).toBe(true);
     expect(seedCollectionViewFromPeek({ collectionId: '  ' })).toBeNull();
+  });
+
+  it('soft-fills peek placeholders and skips solid SSR shells', () => {
+    expect(collectionViewNeedsCatalogSoftFill(null)).toBe(true);
+    const peek = seedCollectionViewFromPeek({
+      collectionId: 'drop-1',
+      title: 'Drop',
+    });
+    expect(collectionViewNeedsCatalogSoftFill(peek)).toBe(true);
+    expect(
+      collectionViewNeedsCatalogSoftFill({
+        ...peek!,
+        createdAtMs: 1_700_000_000_000,
+        creatorId: 'alice.near',
+        totalSupply: 5,
+        minted: 1,
+        remaining: 4,
+      })
+    ).toBe(false);
   });
 });
