@@ -1,9 +1,12 @@
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, beforeEach } from 'vitest';
 import type { PostScarceEmbed } from '@onsocial/sdk';
+import { scarceCtaPriceLabel } from '@/features/scarces/post-scarce-cta';
 import {
   SCARCE_EMBED_SEED_CACHE_LIMIT,
   clearScarceEmbedLedger,
-  clearScarceEmbedOverride,
+  clearScarceEmbedOverrides,
   getScarceEmbedOverride,
   getScarceEmbedSeed,
   reconcileScarceEmbedFromApi,
@@ -200,12 +203,13 @@ describe('scarce-embed-ledger', () => {
     expect(getScarceEmbedOverride(KEY)).toBeNull();
   });
 
-  it('updates listing identity but sticks painted ask; never clobbers overrides', () => {
+  it('takes the fetched ask when the listing changes; never clobbers overrides', () => {
     seedScarceEmbedsFromSsr({
       [KEY]: embed({
         status: 'lazy_listing',
         listingId: 'll:old',
         priceNear: '1',
+        usdE6: '2500000',
       }),
     });
     expect(getScarceEmbedSeed(KEY)?.listingId).toBe('ll:old');
@@ -218,7 +222,17 @@ describe('scarce-embed-ledger', () => {
       }),
     });
     expect(getScarceEmbedSeed(KEY)?.listingId).toBe('ll:new');
-    expect(getScarceEmbedSeed(KEY)?.priceNear).toBe('1');
+    expect(getScarceEmbedSeed(KEY)?.priceNear).toBe('2');
+    expect(getScarceEmbedSeed(KEY)?.usdE6).toBeUndefined();
+    expect(
+      renderToStaticMarkup(
+        createElement(
+          'span',
+          null,
+          scarceCtaPriceLabel(getScarceEmbedSeed(KEY) ?? embed({}))
+        )
+      )
+    ).toBe('<span>2 NEAR</span>');
 
     setScarceEmbedOverride(
       KEY,
@@ -275,7 +289,7 @@ describe('scarce-embed-ledger', () => {
     expect(getScarceEmbedSeed(KEY)?.priceNear).toBe('1');
   });
 
-  it('sticks painted currency under quiet refresh; sold can update in place', () => {
+  it('sticks painted currency when the ask is unchanged; a new ask is taken', () => {
     const painted = embed({
       status: 'lazy_listing',
       listingId: 'll:1',
@@ -283,22 +297,35 @@ describe('scarce-embed-ledger', () => {
       usdE6: '2500000',
       remaining: 3,
     });
-    const refreshed = stickScarceCommercePaint(
+    const sameAsk = stickScarceCommercePaint(
       painted,
       embed({
         status: 'sold',
+        listingId: 'll:1',
+        priceNear: '1',
+        remaining: 0,
+      })
+    );
+    expect(sameAsk.status).toBe('sold');
+    expect(sameAsk.remaining).toBe(0);
+    expect(sameAsk.usdE6).toBe('2500000');
+    expect(sameAsk.priceNear).toBe('1');
+
+    const newAsk = stickScarceCommercePaint(
+      painted,
+      embed({
+        status: 'lazy_listing',
         listingId: 'll:1',
         priceNear: '9',
         remaining: 0,
       })
     );
-    expect(refreshed.status).toBe('sold');
-    expect(refreshed.remaining).toBe(0);
-    expect(refreshed.usdE6).toBe('2500000');
-    expect(refreshed.priceNear).toBe('1');
+    expect(newAsk.priceNear).toBe('9');
+    expect(newAsk.usdE6).toBeUndefined();
+    expect(newAsk.remaining).toBe(0);
   });
 
-  it('does not introduce dollars after a NEAR-only first paint', () => {
+  it('takes fetched dollars when the ask changes on the same listing', () => {
     const painted = embed({
       status: 'lazy_listing',
       listingId: 'll:1',
@@ -313,8 +340,8 @@ describe('scarce-embed-ledger', () => {
         usdE6: '2500000',
       })
     );
-    expect(refreshed.priceNear).toBe('1');
-    expect(refreshed.usdE6).toBeUndefined();
+    expect(refreshed.priceNear).toBe('2');
+    expect(refreshed.usdE6).toBe('2500000');
   });
 
   it('remembers fetches so recycled cards remount with commerce', () => {
@@ -336,7 +363,7 @@ describe('scarce-embed-ledger', () => {
       embed({
         status: 'lazy_listing',
         listingId: 'll:1',
-        priceNear: '9',
+        priceNear: '1',
         remaining: 1,
       }),
       { notify: false }
@@ -344,5 +371,36 @@ describe('scarce-embed-ledger', () => {
     expect(getScarceEmbedSeed(KEY)?.priceNear).toBe('1');
     expect(getScarceEmbedSeed(KEY)?.usdE6).toBe('2500000');
     expect(getScarceEmbedSeed(KEY)?.remaining).toBe(1);
+
+    rememberScarceEmbedFetch(
+      KEY,
+      embed({
+        status: 'lazy_listing',
+        listingId: 'll:1',
+        priceNear: '9',
+        remaining: 1,
+      }),
+      { notify: false }
+    );
+    expect(getScarceEmbedSeed(KEY)?.priceNear).toBe('9');
+    expect(getScarceEmbedSeed(KEY)?.usdE6).toBeUndefined();
+  });
+
+  it('clears optimistic overrides without dropping indexer seeds', () => {
+    seedScarceEmbedsFromSsr({
+      [KEY]: embed({
+        status: 'lazy_listing',
+        listingId: 'll:1',
+        priceNear: '2',
+      }),
+    });
+    setScarceEmbedOverride(
+      KEY,
+      embed({ status: 'lazy_listing', priceNear: '1' })
+    );
+    clearScarceEmbedOverrides();
+    expect(getScarceEmbedOverride(KEY)).toBeNull();
+    expect(getScarceEmbedSeed(KEY)?.listingId).toBe('ll:1');
+    expect(getScarceEmbedSeed(KEY)?.priceNear).toBe('2');
   });
 });

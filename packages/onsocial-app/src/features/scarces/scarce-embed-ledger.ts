@@ -86,15 +86,45 @@ export function scarceEmbedCommercePaintReady(
   return embedHasPaintedPrice(embed);
 }
 
+function scarceListingId(embed: PostScarceEmbed): string {
+  return embed.listingId?.trim() ?? '';
+}
+
 /**
- * Quiet refresh may update sold / remaining in place, but the painted
- * currency and ask must not rewrite under a scrolling reader.
+ * The ask is the NEAR price, plus a dollar sticker when both paints have one.
+ * A refresh that only adds or drops `usdE6` is the same ask — that is the
+ * quiet currency stick. A missing fetched price is not a new ask.
+ */
+function scarceAskUnchanged(
+  previous: PostScarceEmbed,
+  fetched: PostScarceEmbed
+): boolean {
+  const nextPrice = fetched.priceNear?.trim() ?? '';
+  if (nextPrice && (previous.priceNear?.trim() ?? '') !== nextPrice) {
+    return false;
+  }
+  const previousUsd = previous.usdE6?.trim() ?? '';
+  const nextUsd = fetched.usdE6?.trim() ?? '';
+  if (previousUsd && nextUsd && previousUsd !== nextUsd) return false;
+  return true;
+}
+
+/**
+ * Quiet refresh may update sold / remaining in place. Painted priceNear and
+ * usdE6 stay only while listingId and the ask are unchanged. A relist or a
+ * new ask takes the fetched values.
  */
 export function stickScarceCommercePaint(
   previous: PostScarceEmbed | null | undefined,
   fetched: PostScarceEmbed
 ): PostScarceEmbed {
   if (!previous || !embedHasPaintedPrice(previous)) return fetched;
+  if (
+    scarceListingId(previous) !== scarceListingId(fetched) ||
+    !scarceAskUnchanged(previous, fetched)
+  ) {
+    return fetched;
+  }
   const hadDollars = Boolean(previous.usdE6?.trim());
   const next: PostScarceEmbed = {
     ...fetched,
@@ -124,8 +154,8 @@ export function seedScarceEmbedsFromSsr(
     if (!key || !embed) continue;
     if (overrides.has(key)) continue;
     const previous = ssrSeeds.get(key);
-    // First seed takes indexer truth (incl. usdE6). Later seeds stick ask /
-    // currency so soft refresh never rewrites under a scrolling reader.
+    // First seed takes indexer truth (incl. usdE6). Later seeds keep the
+    // painted ask only while the listing and the ask are unchanged.
     const next = stickScarceCommercePaint(previous, embed);
     if (previous && scarceSeedPaintEqual(previous, next)) {
       touchLruMapEntry(ssrSeeds, key);
@@ -139,8 +169,8 @@ export function seedScarceEmbedsFromSsr(
 
 /**
  * Persist a per-card indexer fetch so recycled feed cards remount with
- * commerce already painted. Sticks currency/ask from the first paint;
- * sold / remaining may still update in place.
+ * commerce already painted. Keeps the painted ask while the listing and
+ * the ask are unchanged; sold / remaining may still update in place.
  */
 export function rememberScarceEmbedFetch(
   key: string,
@@ -186,6 +216,16 @@ export function setScarceEmbedOverride(
 
 export function clearScarceEmbedOverride(key: string): void {
   if (!overrides.delete(key)) return;
+  emit();
+}
+
+/**
+ * Drop optimistic CTAs when the signed-in account changes. Seeds stay —
+ * they are public indexer paint, not the previous viewer's local action.
+ */
+export function clearScarceEmbedOverrides(): void {
+  if (overrides.size === 0) return;
+  overrides.clear();
   emit();
 }
 

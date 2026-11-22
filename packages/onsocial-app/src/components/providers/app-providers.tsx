@@ -31,6 +31,7 @@ import { PortfolioCustomizeProvider } from '@/contexts/portfolio-customize-conte
 import { ViewerProfileShellProvider } from '@/contexts/viewer-profile-shell-context';
 import { ViewerWalletMoodProvider } from '@/contexts/viewer-wallet-mood-context';
 import { DropComposeHost } from '@/features/scarces/drop-compose-host';
+import { useResetScarceEmbedOverrides } from '@/features/scarces/scarce-embed-account';
 import { ViewerMuteBlockHost } from '@/components/providers/viewer-mute-block-host';
 import { OsFaceLeaveProvider } from '@/components/providers/os-face-leave-provider';
 import { DmUnreadHost } from '@/components/providers/dm-unread-host';
@@ -45,6 +46,13 @@ import { WebPushProvider } from '@/components/providers/web-push-provider';
 import { GlassSheetPortalProvider } from '@onsocial/ui';
 import { IntentPrefetchHost } from '@/components/providers/intent-prefetch-host';
 import { SingleMediaPlaybackHost } from '@/components/providers/single-media-playback-host';
+
+/** Optimistic scarce CTAs belong to the viewer who signed them. */
+function ScarceEmbedOverrideReset() {
+  const { accountId } = useAppWallet();
+  useResetScarceEmbedOverrides(accountId);
+  return null;
+}
 
 /** Remount the join/claim ledger when the wallet account changes. */
 function SeasonParticipationGate({ children }: { children: React.ReactNode }) {
@@ -82,6 +90,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       <SingleMediaPlaybackHost />
       <AppSmoothScrollProvider>
         <AppWalletProvider>
+          <ScarceEmbedOverrideReset />
           <AppTransactionFeedbackProvider>
             <SeasonParticipationGate>
               <AppSocialBalanceProvider>

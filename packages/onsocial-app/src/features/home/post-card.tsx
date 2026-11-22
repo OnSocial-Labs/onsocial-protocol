@@ -79,7 +79,7 @@ import {
 import {
   PostScarceCta,
   PostScarceCtaPending,
-  scarceEmbedCommercePaintReady,
+  scarcePostCtaPhase,
   type PostScarceCtaActionProps,
 } from '@/features/scarces/post-scarce-cta';
 import {
@@ -308,7 +308,6 @@ export {
 } from '@/features/home/post-skeleton';
 export type { PostSkeletonFrame } from '@/features/home/post-skeleton';
 
-
 /** Shared fallback so the scarce-CTA bundle keeps a stable embed identity. */
 const EMPTY_SCARCE_EMBED: PostScarceEmbed = {
   status: 'none',
@@ -466,7 +465,10 @@ function PostCardImpl({
   const dismissPhotoThread = useCallback(() => {
     setPhotoThreadOpen(false);
   }, []);
-  useEffect(() => onDismissReplyDrawers(dismissPhotoThread), [dismissPhotoThread]);
+  useEffect(
+    () => onDismissReplyDrawers(dismissPhotoThread),
+    [dismissPhotoThread]
+  );
   const [menuForceEmbed, setMenuForceEmbed] = useState(false);
   const [cancelScarcePending, setCancelScarcePending] = useState(false);
   const isSelf =
@@ -802,28 +804,16 @@ function PostCardImpl({
     mediaItems.length === 0 &&
     !showScarceArt &&
     (Boolean(dropPaint) || hasCollectionEmbed || hasTokenEmbed);
-  const scarceCommerceReady = scarceEmbedCommercePaintReady(scarceEmbed);
-  /** Commerce jacket known — not `none`, not a plain text post. */
-  const scarceJacketKnown =
-    Boolean(dropPaint) ||
-    hasCollectionEmbed ||
-    hasTokenEmbed ||
-    (scarceEmbed != null && scarceEmbed.status !== 'none');
-  const scarceCtaLive =
-    !isRepostShell &&
-    (scarceCommerceReady ||
-      (canListScarce &&
-        (!scarceEmbed || scarceEmbed.status === 'none')));
-  /**
-   * Pending only when a jacket is known but the ask has not landed yet.
-   * Never seat plain posts during fromPost IO — that painted skeletons
-   * under every card, then stuck on remembered `none`.
-   */
-  const scarceCtaSeat =
-    !isRepostShell &&
-    !scarceCtaLive &&
-    scarceJacketKnown &&
-    !scarceCommerceReady;
+  const scarceCtaPhase = scarcePostCtaPhase({
+    isRepostShell,
+    embed: scarceEmbed,
+    hasDropPaint: Boolean(dropPaint),
+    hasCollectionEmbed,
+    hasTokenEmbed,
+    canListScarce,
+  });
+  const scarceCtaLive = scarceCtaPhase === 'live';
+  const scarceCtaSeat = scarceCtaPhase === 'pending';
   const articleIssuedAt =
     typeof post.blockTimestamp === 'number'
       ? post.blockTimestamp

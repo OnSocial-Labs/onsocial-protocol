@@ -239,8 +239,8 @@ export function usePostScarceEmbed(
     };
   }, [override, shouldFetch, key]);
 
-  // If list succeeded but listingId wasn't in the relay payload, pull it from
-  // live contract state so cancel / buy can proceed before the indexer lands.
+  // If list succeeded but listingId wasn't in the relay payload, read it from
+  // the indexer so cancel / buy can proceed before that row lands.
   useEffect(() => {
     if (
       !override ||

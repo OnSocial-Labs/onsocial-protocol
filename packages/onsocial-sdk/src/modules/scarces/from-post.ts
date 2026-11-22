@@ -799,6 +799,11 @@ export class ScarcesFromPostApi {
           (extra['price_near'] as string | undefined);
         if (typeof p === 'string' && p) out.priceNear = p;
 
+        const usdRaw = extra['usdE6'] ?? extra['usd_e6'];
+        if (typeof usdRaw === 'string' && usdRaw.trim()) {
+          out.usdE6 = usdRaw.trim();
+        }
+
         const remaining = remainingFromEventExtra(latest.extraData);
         if (remaining != null) out.remaining = remaining;
 

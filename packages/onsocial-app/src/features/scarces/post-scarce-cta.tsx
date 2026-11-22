@@ -9,6 +9,7 @@ import {
   isPrimaryMintStatus,
   resolvePostDropCta,
 } from '@/features/scarces/post-drop-cta';
+import { scarceEmbedCommercePaintReady } from '@/features/scarces/scarce-embed-ledger';
 import {
   appPath,
   collectionPath,
@@ -97,7 +98,38 @@ export function scarceCtaPriceLabel(embed: {
   return nearPrice ? `${nearPrice} NEAR` : null;
 }
 
-export { scarceEmbedCommercePaintReady } from '@/features/scarces/scarce-embed-ledger';
+export { scarceEmbedCommercePaintReady };
+
+export type ScarcePostCtaPhase = 'live' | 'pending' | 'hidden';
+
+/**
+ * Feed commerce slot. A settled `none` seed (delisted token or collection)
+ * is not an ask still loading — render no seat.
+ */
+export function scarcePostCtaPhase(input: {
+  isRepostShell: boolean;
+  embed: PostScarceEmbed | null | undefined;
+  hasDropPaint: boolean;
+  hasCollectionEmbed: boolean;
+  hasTokenEmbed: boolean;
+  canListScarce: boolean;
+}): ScarcePostCtaPhase {
+  if (input.isRepostShell) return 'hidden';
+  const commerceReady = scarceEmbedCommercePaintReady(input.embed);
+  const jacketKnown =
+    input.hasDropPaint ||
+    input.hasCollectionEmbed ||
+    input.hasTokenEmbed ||
+    (input.embed != null && input.embed.status !== 'none');
+  const live =
+    commerceReady ||
+    (input.canListScarce && (!input.embed || input.embed.status === 'none'));
+  if (live) return 'live';
+  // Settled `none` (delisted token or collection) is not an ask still loading.
+  if (input.embed?.status === 'none') return 'hidden';
+  if (jacketKnown && !commerceReady) return 'pending';
+  return 'hidden';
+}
 
 function editionMeta(embed: PostScarceEmbed): string | null {
   if (embed.copies == null || embed.copies <= 1) return null;
