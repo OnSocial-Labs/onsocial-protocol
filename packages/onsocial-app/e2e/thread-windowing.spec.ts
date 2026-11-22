@@ -98,7 +98,12 @@ function scrollThreadTo(page: Page, position: 'top' | 'bottom') {
   return page
     .locator('.post-thread-sheet-panel .os-app-screen-body')
     .evaluate((node, at) => {
-      node.scrollTop = at === 'bottom' ? node.scrollHeight : 0;
+      const top = at === 'bottom' ? node.scrollHeight : 0;
+      // Lenis owns this root and rewrites a bare scrollTop on the next
+      // frame, which can drop the jump back into the cold overscan. The
+      // thumb event is the adopt path that keeps the line.
+      node.scrollTop = top;
+      node.dispatchEvent(new CustomEvent('os-thumb-scroll', { detail: top }));
     }, position);
 }
 
@@ -142,16 +147,22 @@ test.describe('thread reply windowing', () => {
       0
     );
 
-    // Deep scroll — the tail row materializes, head rows collapse. The first
-    // pass can land mid-list as spacers settle, so scroll twice.
-    await scrollThreadTo(page, 'bottom');
-    await expect(drawer).toContainText('Window reply win-39', {
-      timeout: 15_000,
-    });
-    await scrollThreadTo(page, 'bottom');
-    await expect(drawer.locator('[data-feed-window-spacer="top"]')).toHaveCount(
-      1
-    );
+    // Spacer measurement grows scrollHeight after each jump, so one read of
+    // the bottom still leaves the head inside the overscan and the top
+    // spacer at 0. Adopt the bottom again until the head has collapsed.
+    await expect
+      .poll(
+        async () => {
+          await scrollThreadTo(page, 'bottom');
+          const tail = await drawer.getByText('Window reply win-39').count();
+          const spacer = await drawer
+            .locator('[data-feed-window-spacer="top"]')
+            .count();
+          return tail > 0 && spacer === 1;
+        },
+        { timeout: 15_000 }
+      )
+      .toBe(true);
     await expect
       .poll(() => renderedReplyCount(page), { timeout: 15_000 })
       .toBeLessThan(REPLY_COUNT);
