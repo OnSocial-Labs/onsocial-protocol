@@ -13,6 +13,7 @@ import { acceptedPosterCid } from '../internal/poster-cid.js';
 import {
   omitPostersOverStorageBudget,
   personalPostStorageKey,
+  stripUnacceptedPosters,
 } from '../internal/post-storage-budget.js';
 import { applyFeedMeta, type SocialSetData } from './_shared.js';
 
@@ -20,7 +21,10 @@ function sealPersonalPost(
   postId: string,
   value: Record<string, unknown>
 ): Record<string, unknown> {
-  return omitPostersOverStorageBudget(value, personalPostStorageKey(postId));
+  return omitPostersOverStorageBudget(
+    stripUnacceptedPosters(value),
+    personalPostStorageKey(postId)
+  );
 }
 
 export function buildPostSetData(

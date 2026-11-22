@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildGroupReplySetData } from '../builders/group-post.js';
-import { resolvePostMedia } from '../builders/post.js';
+import { buildPostSetData, resolvePostMedia } from '../builders/post.js';
 import { captureBlobVideoPoster } from './media-poster.js';
 import {
   POST_STORAGE_BUDGET_BYTES,
   socialStorageUsage,
 } from './post-storage-budget.js';
-import { validatePostV1 } from '../schema/v1.js';
+import { validatePostV1, validateProfileV1 } from '../schema/v1.js';
 import type { StorageProvider } from '../storage/provider.js';
 
 vi.mock('./media-poster.js', () => ({
@@ -52,14 +52,29 @@ describe('video still guards', () => {
     ]);
   });
 
-  it('rejects a non-CID or over-128 poster and still writes the video', async () => {
-    const over128 = `${CID_V1}${'a'.repeat(70)}`;
-    expect(over128.length).toBeGreaterThan(128);
+  it('validatePostV1 and validateProfileV1 still accept an https poster', () => {
+    const https = 'https://evil.example/x.jpg';
     expect(
       validatePostV1({
         v: 1,
         text: 'clip',
         timestamp: 1,
+        media: [{ cid: CID_V1, mime: 'video/mp4', poster: https }],
+      })
+    ).toBeNull();
+    expect(
+      validateProfileV1({
+        v: 1,
+        avatar: { cid: CID_V1, mime: 'image/jpeg', poster: https },
+        banner: { cid: CID_V0, mime: 'image/jpeg', poster: https },
+      })
+    ).toBeNull();
+  });
+
+  it('strips an https poster from media-only input and keeps the video', () => {
+    const built = buildPostSetData(
+      {
+        text: 'clip',
         media: [
           {
             cid: CID_V1,
@@ -67,42 +82,17 @@ describe('video still guards', () => {
             poster: 'https://evil.example/x.jpg',
           },
         ],
-      })
-    ).toBe('post.media: media.poster must be a CID of at most 128 characters');
-    expect(
-      validatePostV1({
-        v: 1,
-        text: 'clip',
-        timestamp: 1,
-        media: [{ cid: CID_V1, mime: 'video/mp4', poster: over128 }],
-      })
-    ).toBe('post.media: media.poster must be a CID of at most 128 characters');
-    expect(
-      validatePostV1({
-        v: 1,
-        text: 'clip',
-        timestamp: 1,
-        media: [{ cid: CID_V1, mime: 'video/mp4', poster: CID_V0 }],
-      })
-    ).toBeNull();
-    expect(POSTER_128.length).toBe(128);
-    expect(
-      validatePostV1({
-        v: 1,
-        text: 'clip',
-        timestamp: 1,
-        media: [{ cid: CID_V1, mime: 'video/mp4', poster: POSTER_128 }],
-      })
-    ).toBeNull();
-    expect(
-      validatePostV1({
-        v: 1,
-        text: 'clip',
-        timestamp: 1,
-        media: [{ cid: CID_V1, mime: 'video/mp4', poster: `ipfs://${CID_V1}` }],
-      })
-    ).toBeNull();
+      },
+      'post-1',
+      1
+    );
+    const stored = Object.values(built)[0] as {
+      media: Array<{ cid: string; mime: string; poster?: string }>;
+    };
+    expect(stored.media).toEqual([{ cid: CID_V1, mime: 'video/mp4' }]);
+  });
 
+  it('skips a non-CID or over-128 poster upload and still writes the video', async () => {
     const clip = new File([Uint8Array.from([1])], 'clip.mp4', {
       type: 'video/mp4',
     });

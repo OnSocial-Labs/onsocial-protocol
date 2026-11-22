@@ -4,14 +4,20 @@
 
 import { SCHEMA_VERSION } from '../schema/v1.js';
 import type { GroupPostRef, PostData } from '../types.js';
-import { omitPostersOverStorageBudget } from '../internal/post-storage-budget.js';
+import {
+  omitPostersOverStorageBudget,
+  stripUnacceptedPosters,
+} from '../internal/post-storage-budget.js';
 import { applyFeedMeta, type SocialSetData } from './_shared.js';
 
 function sealGroupPost(
   storageKey: string,
   value: Record<string, unknown>
 ): Record<string, unknown> {
-  return omitPostersOverStorageBudget(value, storageKey);
+  return omitPostersOverStorageBudget(
+    stripUnacceptedPosters(value),
+    storageKey
+  );
 }
 
 /**

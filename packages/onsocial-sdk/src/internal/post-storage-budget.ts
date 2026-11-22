@@ -1,3 +1,5 @@
+import { acceptedPosterCid } from './poster-cid.js';
+
 // Sponsored post writes are capped by the core contract's platform allowance.
 // Testnet config: platform_allowance_max_bytes 6000, max_value_bytes 10240.
 //
@@ -43,6 +45,34 @@ export function socialStorageUsage(storageKey: string, value: unknown): number {
     DATA_ENTRY_BORSH_OVERHEAD +
     SOCIAL_STORAGE_RECORD_OVERHEAD
   );
+}
+
+/**
+ * Drop posters that are not a CIDv0/v1 (bare or `ipfs://`) of at most 128
+ * characters. A valid `ipfs://` poster is stored as the bare CID. The video
+ * ref stays. Runs before the storage budget so a rejected still never counts.
+ */
+export function stripUnacceptedPosters<T>(value: T): T {
+  if (!value || typeof value !== 'object') return value;
+  const media = (value as { media?: unknown }).media;
+  if (!Array.isArray(media)) return value;
+  let changed = false;
+  const nextMedia = media.map((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return item;
+    if (!('poster' in item)) return item;
+    const raw = (item as { poster?: unknown }).poster;
+    if (raw === undefined) return item;
+    const accepted = typeof raw === 'string' ? acceptedPosterCid(raw) : null;
+    if (accepted && accepted === raw) return item;
+    changed = true;
+    if (!accepted) {
+      const { poster: _poster, ...rest } = item as Record<string, unknown>;
+      return rest;
+    }
+    return { ...(item as Record<string, unknown>), poster: accepted };
+  });
+  if (!changed) return value;
+  return { ...(value as object), media: nextMedia } as T;
 }
 
 function withoutPoster(item: unknown): unknown {
