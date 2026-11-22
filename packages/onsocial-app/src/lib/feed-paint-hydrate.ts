@@ -48,6 +48,7 @@ function lazyEmbedFromActiveRow(
   const mediaUrl = resolveScarceMediaUrl(row.media ?? null) ?? undefined;
   const cardBg = row.cardBg?.trim() || undefined;
   const priceNear = priceNearFromYocto(row.price) ?? undefined;
+  const usdE6 = row.usdE6?.trim() || undefined;
   const appId = row.appId?.trim() || undefined;
   const mediumKind = row.mediumKind?.trim().toLowerCase() || undefined;
   return {
@@ -56,6 +57,7 @@ function lazyEmbedFromActiveRow(
     ...(appId ? { appId } : {}),
     ...(mediumKind ? { mediumKind } : {}),
     ...(priceNear ? { priceNear } : {}),
+    ...(usdE6 ? { usdE6 } : {}),
     ...(typeof row.copies === 'number' ? { copies: row.copies } : {}),
     ...(typeof row.remaining === 'number' ? { remaining: row.remaining } : {}),
     ...(mediaUrl ? { mediaUrl } : {}),
@@ -78,6 +80,7 @@ function dropEmbedFromCollectionRow(
       ? Math.max(0, Math.floor(row.totalSupply))
       : undefined;
   const priceNear = priceNearFromYocto(row.price) ?? undefined;
+  const usdE6 = row.usdE6?.trim() || undefined;
   const appId = row.appId?.trim() || undefined;
   const mediumKind =
     row.mediumKind?.trim().toLowerCase() ||
@@ -124,6 +127,7 @@ function dropEmbedFromCollectionRow(
     ...(seriesTitle ? { seriesTitle } : {}),
     ...(mediumKind ? { mediumKind } : {}),
     ...(priceNear ? { priceNear } : {}),
+    ...(usdE6 ? { usdE6 } : {}),
     ...(copies != null ? { copies } : {}),
     ...(remaining != null ? { remaining } : {}),
     ...(mediaUrl ? { mediaUrl } : {}),
@@ -180,6 +184,7 @@ function applySellerListingToEmbed(
   );
   if (listed?.kind === 'native' && listed.tokenId) {
     const priceNear = priceNearFromYocto(listed.price) ?? next.priceNear;
+    const usdE6 = listed.usdE6?.trim() || next.usdE6;
     next = {
       ...next,
       status: 'listed',
@@ -188,6 +193,7 @@ function applySellerListingToEmbed(
         ? { listingId: listed.listingId.trim() }
         : {}),
       ...(priceNear ? { priceNear } : {}),
+      ...(usdE6 ? { usdE6 } : {}),
     };
   } else if (listed?.kind === 'auction' && listed.tokenId) {
     const priceNear =

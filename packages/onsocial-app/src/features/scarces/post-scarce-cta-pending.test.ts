@@ -22,9 +22,15 @@ describe('PostScarceCtaPending', () => {
   it('is wired as the structure seat on the feed card', () => {
     expect(postCard).toContain('scarceCtaSeat');
     expect(postCard).toContain('<PostScarceCtaPending');
+    expect(postCard).toContain('scarceEmbedCommercePaintReady');
+    expect(postCard).toContain('scarceJacketKnown');
     expect(postCard).toContain('mediumSlot=');
     expect(postCard).toContain('post-card-scarce-read');
     expect(postCard).not.toContain('listenSlot');
     expect(postCard).not.toContain('post-card-scarce-listen');
+    // Plain fromPost loading must not seat every card.
+    expect(postCard).not.toContain(
+      "fromPostScarceStatus === 'loading' ||"
+    );
   });
 });

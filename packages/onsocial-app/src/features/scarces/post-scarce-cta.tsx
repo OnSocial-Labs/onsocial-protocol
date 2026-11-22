@@ -73,7 +73,7 @@ function primaryMintLive(embed: PostScarceEmbed): boolean {
   return false;
 }
 
-function formatPriceNear(priceNear: string | undefined): string | null {
+function formatPriceNear(priceNear: string | null | undefined): string | null {
   if (!priceNear?.trim()) return null;
   const n = Number.parseFloat(priceNear);
   if (!Number.isFinite(n)) return priceNear.trim();
@@ -82,6 +82,22 @@ function formatPriceNear(priceNear: string | undefined): string | null {
   }
   return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
 }
+
+/**
+ * Feed CTA price unit. Dollars when the listing stores `usdE6`, else NEAR.
+ * Ledger stick keeps the painted unit fixed under quiet refresh.
+ */
+export function scarceCtaPriceLabel(embed: {
+  usdE6?: string | null;
+  priceNear?: string | null;
+}): string | null {
+  const dollars = dollarStickerLabel(embed.usdE6);
+  if (dollars) return dollars;
+  const nearPrice = formatPriceNear(embed.priceNear);
+  return nearPrice ? `${nearPrice} NEAR` : null;
+}
+
+export { scarceEmbedCommercePaintReady } from '@/features/scarces/scarce-embed-ledger';
 
 function editionMeta(embed: PostScarceEmbed): string | null {
   if (embed.copies == null || embed.copies <= 1) return null;
@@ -225,9 +241,7 @@ export const PostScarceCta = memo(function PostScarceCta({
   mediumSlot = null,
 }: PostScarceCtaProps) {
   const links = commerceLinks(embed, authorAccountId);
-  const nearPrice = formatPriceNear(embed.priceNear);
-  const price =
-    dollarStickerLabel(embed.usdE6) ?? (nearPrice ? `${nearPrice} NEAR` : null);
+  const price = scarceCtaPriceLabel(embed);
   const edition = editionMeta(embed);
   const collectionId =
     embed.collectionId?.trim() || embed.latest?.collectionId?.trim() || '';

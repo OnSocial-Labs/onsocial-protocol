@@ -4,26 +4,32 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
 import {
   findLiveListingForPost,
-  fetchScarceTokenMeta,
+  resolveScarceMediaUrl,
 } from '@/features/market/market-listings';
-import {
-  fetchScarceAuctionView,
-  minNextBidNear,
-} from '@/features/scarces/scarce-auction';
 import {
   getScarceEmbedOverride,
   getScarceEmbedSeed,
   postScarceKey,
   reconcileScarceEmbedFromApi,
+  rememberScarceEmbedFetch,
   resolveScarceEmbed,
+  scarceEmbedCommercePaintReady,
   setScarceEmbedOverride,
   subscribeScarceEmbedLedger,
 } from '@/features/scarces/scarce-embed-ledger';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { yoctoToNear } from '@/lib/app-near-rpc';
 
 export type PostScarceEmbedStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 const RECONCILE_RETRY_MS = [2_000, 5_000] as const;
+
+function priceNearFromYocto(
+  raw: string | null | undefined
+): string | undefined {
+  if (!raw?.trim() || !/^\d+$/.test(raw.trim())) return undefined;
+  return yoctoToNear(raw.trim());
+}
 
 function isActivelyListed(embed: PostScarceEmbed | null): boolean {
   if (!embed) return false;
@@ -36,9 +42,10 @@ function isActivelyListed(embed: PostScarceEmbed | null): boolean {
 }
 
 /**
- * Resolves post scarce CTAs. SSR / page seeds paint immediately; otherwise
- * lazy-loads when the card enters view (or `force` — author ⋮ menu).
- * Optimistic ledger overrides win until the indexer catches up.
+ * Resolves post scarce CTAs. SSR / page / remembered seeds paint immediately;
+ * quiet indexer refresh runs when the card enters view (or `force` — author ⋮).
+ * Fetches land in the ledger so recycled cards remount without a pop.
+ * Optimistic overrides win until the indexer catches up. RPC stays at buy.
  */
 export function usePostScarceEmbed(
   post: PostRow,
@@ -49,8 +56,6 @@ export function usePostScarceEmbed(
   const key = postScarceKey(post.accountId, post.postId);
   const rootRef = useRef<HTMLElement | null>(null);
   const [inView, setInView] = useState(false);
-  const [fetched, setFetched] = useState<PostScarceEmbed | null>(null);
-  const [fetchedKey, setFetchedKey] = useState<string | null>(null);
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
 
@@ -65,7 +70,16 @@ export function usePostScarceEmbed(
     () => getScarceEmbedSeed(key)
   );
 
-  const shouldFetch = enabled && (force || inView);
+  // Skip when seed settled (ask ready, or confirmed `none`). force / override
+  // still refresh. Do not treat `none` as "needs fill" — that re-fetched every
+  // plain post and parked a loading seat under the engagement row.
+  const shouldFetch =
+    enabled &&
+    (force || inView) &&
+    (force ||
+      Boolean(override) ||
+      seed == null ||
+      (seed.status !== 'none' && !scarceEmbedCommercePaintReady(seed)));
 
   useEffect(() => {
     if (!enabled) return;
@@ -153,37 +167,55 @@ export function usePostScarceEmbed(
             };
           }
         } else if (
-          embed.status === 'listed' ||
-          embed.status === 'auction' ||
-          embed.status === 'sold' ||
-          embed.status === 'minted'
+          (embed.status === 'listed' || embed.status === 'auction') &&
+          embed.tokenId?.trim()
         ) {
-          if (embed.tokenId && !embed.mediaUrl) {
-            const meta = await fetchScarceTokenMeta(embed.tokenId);
-            if (meta) {
-              resolved = {
-                ...resolved,
-                ...(meta.mediaUrl ? { mediaUrl: meta.mediaUrl } : {}),
-                ...(meta.cardBg && !resolved.cardBg
-                  ? { cardBg: meta.cardBg }
-                  : {}),
-              };
-            }
-          }
-          if (embed.status === 'auction' && embed.tokenId) {
-            const auction = await fetchScarceAuctionView(embed.tokenId);
-            if (auction && !auction.isEnded) {
-              resolved = {
-                ...resolved,
-                priceNear: minNextBidNear(auction),
-              };
-            }
+          // Indexer listing by tokenId — media + ask without chain RPC.
+          const tokenId = embed.tokenId.trim();
+          const listed = await client.query.scarces
+            .activeListings({
+              kinds: ['native', 'auction'],
+              tokenIds: [tokenId],
+              limit: 1,
+            })
+            .catch(() => []);
+          const hit = listed[0];
+          if (hit?.kind === 'native' && hit.tokenId) {
+            const listPrice = priceNearFromYocto(hit.price);
+            const mediaUrl = hit.media?.trim()
+              ? (resolveScarceMediaUrl(hit.media.trim()) ?? undefined)
+              : undefined;
+            resolved = {
+              ...resolved,
+              status: 'listed',
+              tokenId: hit.tokenId.trim(),
+              ...(hit.listingId?.trim()
+                ? { listingId: hit.listingId.trim() }
+                : {}),
+              ...(listPrice ? { priceNear: listPrice } : {}),
+              ...(hit.usdE6?.trim() ? { usdE6: hit.usdE6.trim() } : {}),
+              ...(mediaUrl ? { mediaUrl } : {}),
+            };
+          } else if (hit?.kind === 'auction' && hit.tokenId) {
+            const listPrice = priceNearFromYocto(
+              hit.highestBid ?? hit.reservePrice
+            );
+            const mediaUrl = hit.media?.trim()
+              ? (resolveScarceMediaUrl(hit.media.trim()) ?? undefined)
+              : undefined;
+            resolved = {
+              ...resolved,
+              status: 'auction',
+              tokenId: hit.tokenId.trim(),
+              ...(listPrice ? { priceNear: listPrice } : {}),
+              ...(mediaUrl ? { mediaUrl } : {}),
+            };
           }
         }
         if (cancelled) return;
         reconcileScarceEmbedFromApi(key, resolved);
-        setFetched(resolved);
-        setFetchedKey(key);
+        rememberScarceEmbedFetch(key, resolved);
+        setErrorKey((current) => (current === key ? null : current));
       })
       .catch(() => {
         if (cancelled) return;
@@ -233,6 +265,11 @@ export function usePostScarceEmbed(
         ...current,
         listingId: live.listingId,
         priceNear: current.priceNear ?? live.priceNear,
+        ...(current.usdE6?.trim()
+          ? { usdE6: current.usdE6 }
+          : live.usdE6?.trim()
+            ? { usdE6: live.usdE6.trim() }
+            : {}),
       });
     });
     return () => {
@@ -240,11 +277,10 @@ export function usePostScarceEmbed(
     };
   }, [override, shouldFetch, key, post.accountId, post.postId]);
 
-  const baseline = fetchedKey === key && fetched != null ? fetched : seed;
-  const embed = resolveScarceEmbed(key, baseline);
+  const embed = resolveScarceEmbed(key, seed);
 
   const status: PostScarceEmbedStatus =
-    fetchedKey === key || seed != null
+    seed != null
       ? 'ready'
       : errorKey === key
         ? 'error'

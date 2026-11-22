@@ -79,6 +79,7 @@ import {
 import {
   PostScarceCta,
   PostScarceCtaPending,
+  scarceEmbedCommercePaintReady,
   type PostScarceCtaActionProps,
 } from '@/features/scarces/post-scarce-cta';
 import {
@@ -801,13 +802,28 @@ function PostCardImpl({
     mediaItems.length === 0 &&
     !showScarceArt &&
     (Boolean(dropPaint) || hasCollectionEmbed || hasTokenEmbed);
+  const scarceCommerceReady = scarceEmbedCommercePaintReady(scarceEmbed);
+  /** Commerce jacket known — not `none`, not a plain text post. */
+  const scarceJacketKnown =
+    Boolean(dropPaint) ||
+    hasCollectionEmbed ||
+    hasTokenEmbed ||
+    (scarceEmbed != null && scarceEmbed.status !== 'none');
   const scarceCtaLive =
-    !isRepostShell && Boolean(scarceEmbed || canListScarce);
-  /** Jacket known from paint/refs before commerce soft-fills — hold the CTA row. */
+    !isRepostShell &&
+    (scarceCommerceReady ||
+      (canListScarce &&
+        (!scarceEmbed || scarceEmbed.status === 'none')));
+  /**
+   * Pending only when a jacket is known but the ask has not landed yet.
+   * Never seat plain posts during fromPost IO — that painted skeletons
+   * under every card, then stuck on remembered `none`.
+   */
   const scarceCtaSeat =
     !isRepostShell &&
     !scarceCtaLive &&
-    (Boolean(dropPaint) || hasCollectionEmbed || hasTokenEmbed);
+    scarceJacketKnown &&
+    !scarceCommerceReady;
   const articleIssuedAt =
     typeof post.blockTimestamp === 'number'
       ? post.blockTimestamp
@@ -1938,8 +1954,10 @@ function PostCardImpl({
                 : undefined
           }
           commerce={
-            !isRepostShell && (scarceEmbed || canListScarce) ? (
+            scarceCtaLive ? (
               <PostScarceCta {...scarceCtaActions} />
+            ) : scarceCtaSeat ? (
+              <PostScarceCtaPending />
             ) : null
           }
           engagement={
@@ -2045,8 +2063,10 @@ function PostCardImpl({
           bookPdf={collectionBookPdf}
           viewerAccountId={viewerAccountId}
           commerce={
-            !isRepostShell && (scarceEmbed || canListScarce) ? (
+            scarceCtaLive ? (
               <PostScarceCta {...scarceCtaActions} />
+            ) : scarceCtaSeat ? (
+              <PostScarceCtaPending />
             ) : null
           }
           engagement={

@@ -64,11 +64,48 @@ function scarceSeedPaintEqual(a: PostScarceEmbed, b: PostScarceEmbed): boolean {
     a.collectionId === b.collectionId &&
     a.tokenId === b.tokenId &&
     a.priceNear === b.priceNear &&
+    a.usdE6 === b.usdE6 &&
     a.remaining === b.remaining &&
     a.copies === b.copies &&
     a.mediaUrl === b.mediaUrl &&
     a.appId === b.appId
   );
+}
+
+function embedHasPaintedPrice(embed: PostScarceEmbed): boolean {
+  return Boolean(embed.usdE6?.trim() || embed.priceNear?.trim());
+}
+
+/** Live CTA only when ask/terminal state is known — jacket paint alone holds the seat. */
+export function scarceEmbedCommercePaintReady(
+  embed: PostScarceEmbed | null | undefined
+): boolean {
+  if (!embed) return false;
+  if (embed.status === 'none') return false;
+  if (embed.status === 'sold' || embed.status === 'minted') return true;
+  return embedHasPaintedPrice(embed);
+}
+
+/**
+ * Quiet refresh may update sold / remaining in place, but the painted
+ * currency and ask must not rewrite under a scrolling reader.
+ */
+export function stickScarceCommercePaint(
+  previous: PostScarceEmbed | null | undefined,
+  fetched: PostScarceEmbed
+): PostScarceEmbed {
+  if (!previous || !embedHasPaintedPrice(previous)) return fetched;
+  const hadDollars = Boolean(previous.usdE6?.trim());
+  const next: PostScarceEmbed = {
+    ...fetched,
+    priceNear: previous.priceNear,
+  };
+  if (hadDollars) {
+    next.usdE6 = previous.usdE6;
+  } else if ('usdE6' in next) {
+    delete next.usdE6;
+  }
+  return next;
 }
 
 /**
@@ -87,14 +124,38 @@ export function seedScarceEmbedsFromSsr(
     if (!key || !embed) continue;
     if (overrides.has(key)) continue;
     const previous = ssrSeeds.get(key);
-    if (previous && scarceSeedPaintEqual(previous, embed)) {
+    // First seed takes indexer truth (incl. usdE6). Later seeds stick ask /
+    // currency so soft refresh never rewrites under a scrolling reader.
+    const next = stickScarceCommercePaint(previous, embed);
+    if (previous && scarceSeedPaintEqual(previous, next)) {
       touchLruMapEntry(ssrSeeds, key);
       continue;
     }
-    setLruMapEntry(ssrSeeds, key, embed, SCARCE_EMBED_SEED_CACHE_LIMIT);
+    setLruMapEntry(ssrSeeds, key, next, SCARCE_EMBED_SEED_CACHE_LIMIT);
     changed = true;
   }
   if (changed && options?.notify) emit();
+}
+
+/**
+ * Persist a per-card indexer fetch so recycled feed cards remount with
+ * commerce already painted. Sticks currency/ask from the first paint;
+ * sold / remaining may still update in place.
+ */
+export function rememberScarceEmbedFetch(
+  key: string,
+  fetched: PostScarceEmbed,
+  options?: { notify?: boolean }
+): void {
+  if (!key) return;
+  const previous = ssrSeeds.get(key);
+  const next = stickScarceCommercePaint(previous, fetched);
+  if (previous && scarceSeedPaintEqual(previous, next)) {
+    touchLruMapEntry(ssrSeeds, key);
+    return;
+  }
+  setLruMapEntry(ssrSeeds, key, next, SCARCE_EMBED_SEED_CACHE_LIMIT);
+  if (options?.notify !== false) emit();
 }
 
 export function getScarceEmbedSeed(key: string): PostScarceEmbed | null {

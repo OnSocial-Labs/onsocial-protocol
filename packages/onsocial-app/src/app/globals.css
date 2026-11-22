@@ -25764,6 +25764,7 @@ a.os-surface-row,
 
   .post-card-scarce-cta--pending,
   .post-card-scarce-cta--muted,
+  .post-card-scarce-cta--sold,
   .post-card-scarce-buy {
     min-height: calc(0.4rem + 1.2 * var(--os-stamp-size, 0.75rem));
   }

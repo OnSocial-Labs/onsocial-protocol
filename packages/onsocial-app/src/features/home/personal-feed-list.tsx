@@ -149,8 +149,13 @@ export function PersonalFeedList({
   useLayoutEffect(() => {
     seedPostAuthorProfilesFromFeed(posts, { notify: true });
     seedGuildDisplayNamesFromFeed(posts, { notify: true });
+  }, [posts]);
+
+  // Scarce SSR map only — do not re-apply on every posts append (ledger
+  // soft-fill / remember already owns fresher commerce for those keys).
+  useLayoutEffect(() => {
     seedScarceEmbedsFromSsr(initialScarceEmbeds, { notify: true });
-  }, [posts, initialScarceEmbeds]);
+  }, [initialScarceEmbeds]);
 
   useLayoutEffect(() => {
     const quoted = Object.values(quotedPosts);

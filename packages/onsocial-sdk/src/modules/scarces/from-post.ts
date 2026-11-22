@@ -446,6 +446,7 @@ function embedFromCollectionRow(
     row.price?.trim() && /^\d+$/.test(row.price.trim())
       ? priceNearFromYocto(row.price.trim())
       : undefined;
+  const usdE6 = row.usdE6?.trim() || undefined;
   const medium =
     row.mediumKind?.trim().toLowerCase() ||
     (row.kind?.trim().toLowerCase() === 'music'
@@ -471,6 +472,7 @@ function embedFromCollectionRow(
     ...(series.seriesTitle ? { seriesTitle: series.seriesTitle } : {}),
     ...(medium ? { mediumKind: medium } : {}),
     ...(priceNear ? { priceNear } : {}),
+    ...(usdE6 ? { usdE6 } : {}),
     ...(copies != null ? { copies } : {}),
     ...(remaining != null ? { remaining } : {}),
     ...(row.media?.trim() ? { mediaUrl: row.media.trim() } : {}),
