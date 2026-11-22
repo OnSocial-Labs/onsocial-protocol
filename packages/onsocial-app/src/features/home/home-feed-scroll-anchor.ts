@@ -187,11 +187,16 @@ export function restoreFeedAnchor(
     block.getBoundingClientRect().top -
     root.getBoundingClientRect().top -
     anchor.top;
-  const delta = feedAnchorLayoutDelta(
-    rowDelta,
-    root.scrollTop,
-    anchor.scrollTop
-  );
+  // Home turns overflow-anchor off, so a scroll between capture and restore
+  // is the reader's. Other windowed roots leave it auto: the browser already
+  // moves scrollTop when a row above the viewport grows, and subtracting
+  // that scroll would shift a second time.
+  const subtractInterveningScroll =
+    typeof getComputedStyle === 'function' &&
+    getComputedStyle(root).overflowAnchor === 'none';
+  const delta = subtractInterveningScroll
+    ? feedAnchorLayoutDelta(rowDelta, root.scrollTop, anchor.scrollTop)
+    : rowDelta;
   if (Math.abs(delta) <= 1) return true;
   shiftAppLenisScroll(root, delta);
   return true;

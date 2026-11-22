@@ -26,6 +26,7 @@ function fakeBlock({ top, height, key }: FakeBlock) {
 function fakeRoot(rootTop: number, blocks: ReturnType<typeof fakeBlock>[]) {
   const root = {
     scrollTop: 0,
+    dataset: {} as { overflowAnchor?: string },
     getBoundingClientRect: () => ({ top: rootTop }),
     querySelectorAll: (selector: string) =>
       selector === '.home-feed-block[data-feed-key]' ? blocks : [],
@@ -43,6 +44,13 @@ function fakeRoot(rootTop: number, blocks: ReturnType<typeof fakeBlock>[]) {
 beforeEach(() => {
   // Node has no CSS global; keys in these tests need no escaping.
   vi.stubGlobal('CSS', { escape: (value: string) => value });
+  // Home's scroller sets overflow-anchor: none. Other windowed roots stay auto.
+  vi.stubGlobal(
+    'getComputedStyle',
+    (el: { dataset?: { overflowAnchor?: string } }) => ({
+      overflowAnchor: el?.dataset?.overflowAnchor ?? 'none',
+    })
+  );
 });
 
 afterEach(() => {
@@ -150,10 +158,28 @@ describe('restoreFeedAnchor', () => {
     expect(scrollTo).not.toHaveBeenCalled();
   });
 
+  it('does not shift again when the browser already anchored the growth', () => {
+    // Non-home windowed root (notifications, messages, market, drops, …).
+    // overflow-anchor stays auto, so a row above the viewport growing by 80
+    // moves scrollTop by 80 and leaves the anchored row where it was.
+    // Restore must not apply that scroll as a second shift.
+    const root = fakeRoot(100, [
+      fakeBlock({ top: 100 + 40, height: 200, key: 'n-2' }),
+    ]);
+    root.dataset.overflowAnchor = 'auto';
+    root.scrollTop = 480;
+    const scrollTo = vi.fn();
+    root.scrollTo = scrollTo as HTMLElement['scrollTo'];
+    restoreFeedAnchor(root, { key: 'n-2', top: 40, scrollTop: 400 });
+    expect(root.scrollTop).toBe(480);
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
   it('does not rewind an intervening scroll', () => {
-    // Captured at the bottom (scrollTop 3904, row 40px under the root).
-    // The reader then scrolls up to 2080, which moves that row down by 1824.
-    // Restore must leave the new scroll alone. Lenis still holds the bottom.
+    // Home scroller (overflow-anchor: none). Captured at the bottom
+    // (scrollTop 3904, row 40px under the root). The reader then scrolls
+    // up to 2080, which moves that row down by 1824. Restore must leave
+    // the new scroll alone. Lenis still holds the bottom.
     const root = fakeRoot(100, [
       fakeBlock({ top: 100 + 40 + 1824, height: 93, key: 'a/2' }),
     ]);

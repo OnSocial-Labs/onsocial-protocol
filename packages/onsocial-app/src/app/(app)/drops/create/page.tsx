@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+import { CreatePageLoadingScreen } from '@/components/create/create-page-loading-screen';
 import { CreateDropPanel } from '@/features/scarces/create-drop-panel';
+import { dropCreateScreenTitle } from '@/features/scarces/drop-create-layout';
 
 export const metadata: Metadata = {
   title: 'New drop • OnSocial',
@@ -8,11 +10,18 @@ export const metadata: Metadata = {
 };
 
 export default function CreateDropPage() {
-  // loading.tsx is the shell. A second fallback here is another
-  // .drop-create-form that stays in the streamed document beside the form.
-  // The boundary stays so useSearchParams does not bail the page.
+  // Static hard load reveals this boundary after loading.tsx. Null was a
+  // blank body until hydration. Same shell as loading.tsx, one screen.
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <CreatePageLoadingScreen
+          title={dropCreateScreenTitle(false)}
+          formClassName="drop-create-form"
+          loadingLabel="Loading new drop…"
+        />
+      }
+    >
       <CreateDropPanel />
     </Suspense>
   );
