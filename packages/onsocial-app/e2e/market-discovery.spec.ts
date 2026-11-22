@@ -15,6 +15,9 @@ import {
   expectMediumSelected,
   expectTabSelected,
   expectTabVisible,
+  expectGlassSheetHidden,
+  expectGlassSheetVisible,
+  glassSheetVisible,
   gotoApp,
   marketListSkeleton,
   marketListingResults,
@@ -162,7 +165,7 @@ test.describe('market discovery', () => {
     await expect(page).toHaveURL(/\/collection\/gate-pass/);
   });
 
-  test('dock Back from a listing drop returns to Market', async ({ page }) => {
+  test('sheet Back from a listing drop returns to Market', async ({ page }) => {
     await setE2eGraphMarket(page, 'live-first');
     await stubMarketLiveFirstBrowse(page);
     await gotoApp(page, '/market');
@@ -179,9 +182,11 @@ test.describe('market discovery', () => {
     await liveRow
       .getByRole('link', { name: 'Open drop for e2e-live-first Live Ask' })
       .click();
+    // Seeded overlay: URL is the drop, Market stays under; sheet Back closes.
     await expect(page).toHaveURL(/\/collection\/e2e-live/);
-
-    await page.getByRole('button', { name: 'Back' }).click();
+    await expectGlassSheetVisible(page);
+    await glassSheetVisible(page).getByRole('button', { name: 'Back' }).click();
+    await expectGlassSheetHidden(page);
     await expect(page).toHaveURL(/\/market/);
     await expect(page).not.toHaveURL(/\/collection\//);
     await expect(page).not.toHaveURL(/\/drops/);
