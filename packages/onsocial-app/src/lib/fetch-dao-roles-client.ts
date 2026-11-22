@@ -1,3 +1,4 @@
+import { writeBoundedMap } from '@/lib/bounded-map';
 import { formatDaoRoleLabel } from '@/lib/page-drawer-meta';
 import type {
   ProtocolDaoCouncilRole,
@@ -18,6 +19,13 @@ export type DaoRolesClientPayload = {
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const CACHE_VERSION = 'v3';
+/**
+ * One payload per account. Name-trailing soft-fill misses the feed page
+ * seed (standing, discover, profile faces). A few minutes of those lists is
+ * a couple hundred accounts — same order as the scarce-embed seed cap.
+ * `fetchDaoRolesPage` does not write this map. Reads do not refresh recency.
+ */
+export const DAO_ROLES_CLIENT_CACHE_MAX = 200;
 
 type CacheEntry = {
   at: number;
@@ -26,6 +34,14 @@ type CacheEntry = {
 };
 
 const cache = new Map<string, CacheEntry>();
+
+function rememberDaoRoles(key: string, entry: CacheEntry): void {
+  writeBoundedMap(cache, key, entry, DAO_ROLES_CLIENT_CACHE_MAX);
+}
+
+export function clearDaoRolesClientCacheForTests(): void {
+  cache.clear();
+}
 
 function normalizeAccountId(accountId: string): string {
   return accountId.trim().toLowerCase();
@@ -121,6 +137,13 @@ export async function fetchDaoRolesClient(
 
   let inflight = hit?.inflight;
   if (!inflight) {
+    // Identity of this request's placeholder. A later cap eviction can
+    // replace it; the settled write and the error delete must not touch
+    // that newer entry.
+    const placeholder: CacheEntry = {
+      at: now,
+      value: hit?.value ?? emptyPayload(accountId),
+    };
     inflight = (async (): Promise<DaoRolesClientPayload> => {
       try {
         // Shared request — never bind a single consumer’s AbortSignal here.
@@ -158,19 +181,18 @@ export async function fetchDaoRolesClient(
             proposer: parseProposerFlags(body?.memberships?.proposer),
           },
         };
-        cache.set(key, { at: Date.now(), value });
+        if (cache.get(key) === placeholder) {
+          rememberDaoRoles(key, { at: Date.now(), value });
+        }
         return value;
       } catch (error) {
-        cache.delete(key);
+        if (cache.get(key) === placeholder) cache.delete(key);
         throw error;
       }
     })();
+    placeholder.inflight = inflight;
 
-    cache.set(key, {
-      at: now,
-      value: hit?.value ?? emptyPayload(accountId),
-      inflight,
-    });
+    rememberDaoRoles(key, placeholder);
   }
 
   try {

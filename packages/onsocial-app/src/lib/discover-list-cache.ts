@@ -1,5 +1,14 @@
 import type { DiscoverFaceFilter } from '@onsocial/sdk';
+import { readBoundedMap, writeBoundedMap } from '@/lib/bounded-map';
 import type { DiscoverProfileSummary } from '@/lib/discover-profiles';
+
+/**
+ * Query × 6 faces × industry × craft. A heavy session is one pass over the
+ * face rail, a handful of industries on the faces that show them, a few
+ * crafts, and some searches — not the 37×12 catalog. Each entry is a page
+ * of profiles.
+ */
+export const DISCOVER_LIST_CACHE_MAX = 36;
 
 export interface DiscoverListCacheEntry {
   viewerAccountId: string | null;
@@ -25,14 +34,14 @@ export function discoverListCacheKey(
 export function readDiscoverListCache(
   key: string
 ): DiscoverListCacheEntry | undefined {
-  return discoverListCache.get(key);
+  return readBoundedMap(discoverListCache, key);
 }
 
 export function writeDiscoverListCache(
   key: string,
   entry: DiscoverListCacheEntry
 ): void {
-  discoverListCache.set(key, entry);
+  writeBoundedMap(discoverListCache, key, entry, DISCOVER_LIST_CACHE_MAX);
 }
 
 export function clearDiscoverListCacheForTests(): void {

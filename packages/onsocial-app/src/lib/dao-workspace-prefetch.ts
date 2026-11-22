@@ -6,6 +6,7 @@
 import { fetchProtocolDaoTransferAssets } from '@/features/protocol/protocol-dao-context-client';
 import { fetchProtocolFeed } from '@/features/protocol/protocol-feed-client';
 import type { ProtocolFeedResponse } from '@/features/protocol/types';
+import { writeBoundedMap } from '@/lib/bounded-map';
 import type { ProtocolDaoTransferAsset } from '@/lib/protocol-dao-transfer-assets';
 import { fetchProfileSupportBalanceYocto } from '@/lib/social-spend-profile';
 
@@ -14,6 +15,12 @@ const ACCOUNT_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/;
 /** Fresh enough to paint sheets without a cold spinner. */
 export const DAO_WORKSPACE_FEED_TTL_MS = 60_000;
 export const DAO_WORKSPACE_TREASURY_TTL_MS = 45_000;
+/**
+ * One feed snapshot and one treasury snapshot per DAO. TTLs stay 60s / 45s.
+ * The values are heavy (proposals + assets), and a fast face-hop inside that
+ * window is about two dozen DAOs. Reads do not refresh recency.
+ */
+export const DAO_WORKSPACE_CACHE_MAX = 24;
 
 export type DaoWorkspaceTreasurySnapshot = {
   assets: ProtocolDaoTransferAsset[];
@@ -52,7 +59,12 @@ export function writeDaoFeedCache(
 ): void {
   const id = normalizeDaoId(daoAccountId);
   if (!id) return;
-  feedCache.set(id, { at: Date.now(), value: feed });
+  writeBoundedMap(
+    feedCache,
+    id,
+    { at: Date.now(), value: feed },
+    DAO_WORKSPACE_CACHE_MAX
+  );
 }
 
 export function readDaoFeedCache(
@@ -69,7 +81,12 @@ export function writeDaoTreasuryCache(
 ): void {
   const id = normalizeDaoId(daoAccountId);
   if (!id) return;
-  treasuryCache.set(id, { at: Date.now(), value: snapshot });
+  writeBoundedMap(
+    treasuryCache,
+    id,
+    { at: Date.now(), value: snapshot },
+    DAO_WORKSPACE_CACHE_MAX
+  );
 }
 
 export function readDaoTreasuryCache(

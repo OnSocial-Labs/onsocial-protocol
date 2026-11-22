@@ -119,7 +119,16 @@ import {
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { useUserStorageBalance } from '@/hooks/use-user-storage-balance';
-import { coalesceFeedThreads } from '@/lib/feed-threads';
+import {
+  coalesceFeedThreads,
+  type FeedBlockKeyState,
+} from '@/lib/feed-threads';
+import {
+  guildFeedHeightSlotKey,
+  rememberGuildFeedHeightSlot,
+  retainFeedWindowHeights,
+  type GuildFeedHeightSlot,
+} from '@/lib/feed-window-height-retain';
 import { useStableFeedBlockKeys } from '@/features/home/use-stable-feed-block-keys';
 import {
   HOME_FEED_MEMORY_TRIM_IDLE_MS,
@@ -343,8 +352,7 @@ export function LiveGuildPanel({
         const proposalsFromSettings =
           manageSheet === 'proposals' && settingsPredecessorRef.current;
         const settingsHref = guildSheetPath(groupId, 'settings');
-        const hereNow = () =>
-          window.location.pathname + window.location.search;
+        const hereNow = () => window.location.pathname + window.location.search;
         const restoreSettings = () => {
           setManageSheet(null);
           setSettingsSheetOpen(true);
@@ -564,11 +572,22 @@ export function LiveGuildPanel({
     setComposerSpaceId(space.id);
   }, [selectedFeedFilterId, config, postableSpaces]);
   const feedBlocks = useMemo(() => coalesceFeedThreads(feedPosts), [feedPosts]);
-  const feedBlockKeys = useStableFeedBlockKeys(feedBlocks);
+  const heightSlotsRef = useRef(new Map<string, GuildFeedHeightSlot>());
+  const heightSlotKey = guildFeedHeightSlotKey(groupId, selectedFeedFilterId);
+  const heightSlot = useMemo(
+    () => rememberGuildFeedHeightSlot(heightSlotsRef.current, heightSlotKey),
+    [heightSlotKey]
+  );
+  const onFeedBlockKeyState = useCallback(
+    (state: FeedBlockKeyState[]) => {
+      heightSlot.blockKeys = state;
+    },
+    [heightSlot]
+  );
+  const feedBlockKeys = useStableFeedBlockKeys(feedBlocks, onFeedBlockKeyState);
   const quotedPosts = useQuotedPosts(feedPosts);
   const feedRowEstimates = useMemo(
-    () =>
-      feedBlocks.map((block) => feedBlockEstimatePx(block, quotedPosts)),
+    () => feedBlocks.map((block) => feedBlockEstimatePx(block, quotedPosts)),
     [feedBlocks, quotedPosts]
   );
   const feedListRef = useRef<HTMLDivElement | null>(null);
@@ -578,9 +597,12 @@ export function LiveGuildPanel({
     blockCount: 0,
   });
   const [trimAnchor, setTrimAnchor] = useState<FeedScrollAnchor | null>(null);
-  const onFeedWindowRangeChange = useCallback((range: FeedWindowRangeChange) => {
-    feedWindowRangeRef.current = range;
-  }, []);
+  const onFeedWindowRangeChange = useCallback(
+    (range: FeedWindowRangeChange) => {
+      feedWindowRangeRef.current = range;
+    },
+    []
+  );
   /*
    * Same windowing + typed block estimates as home PersonalFeedList —
    * media/thread/jacket spacers so scroll-back does not jiggle.
@@ -595,6 +617,7 @@ export function LiveGuildPanel({
   } = useFeedWindow({
     keys: feedBlockKeys,
     hostRef: feedListRef,
+    sizeCache: heightSlot.cache,
     estimate: feedRowEstimates,
     pinnedKey: trimAnchor?.key ?? null,
     onRangeChange: onFeedWindowRangeChange,
@@ -790,6 +813,10 @@ export function LiveGuildPanel({
 
   // Keyset load-more — around-window trim like home. Optimistic local rows
   // sit above the indexed list; keep tail-only trim while they are present.
+  // Dep stays `localPosts.length`: rows are only prepended. The ref is read
+  // at trim time. The scroll effect calls this from the scroll handler only.
+  const localPostsRef = useRef(localPosts);
+  localPostsRef.current = localPosts;
   const memoryTrimTimerRef = useRef<number | null>(null);
   const maybeTrimFeedMemory = useCallback(() => {
     if (loadingMore || isFeedRefreshing || feedPending) return;
@@ -827,12 +854,28 @@ export function LiveGuildPanel({
     if (homeFeedMemoryTrimNeedsScrollAnchor(trimmed)) {
       setTrimAnchor(captureVisibleFeedAnchor(root));
     }
+    const indexedKeys = new Set(trimmed.posts.map(postKey));
+    const pendingLocal = localPostsRef.current.filter(
+      (post) =>
+        !indexedKeys.has(postKey(post)) &&
+        (!selectedFeedSpace ||
+          guildSpaceMatchesPostChannel(selectedFeedSpace, post.channel))
+    );
+    const [nextKeys] = retainFeedWindowHeights(heightSlot.cache, [
+      {
+        posts: [...pendingLocal, ...trimmed.posts],
+        previous: heightSlot.blockKeys,
+      },
+    ]);
+    heightSlot.blockKeys = nextKeys ?? [];
     trimFeedWorkingSet(trimmed.posts);
   }, [
     feedPending,
+    heightSlot,
     isFeedRefreshing,
     loadingMore,
     localPosts.length,
+    selectedFeedSpace,
     state.posts,
     trimFeedWorkingSet,
   ]);
