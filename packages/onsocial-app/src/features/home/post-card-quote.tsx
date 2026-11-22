@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, type CSSProperties } from 'react';
+import { useCallback, useRef, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
@@ -347,11 +347,23 @@ export function QuoteThumbTile({
   const { containerRef, bindVideoEl, videoPreload, videoMounted } =
     usePostVideoPlayback(isVideo ? 'poster' : null);
   const { resolved, markResolved, bind } = useFeedMediaResolved(item.url);
-  useFeedMediaResolveFallback(isVideo && videoMounted, resolved, markResolved);
+  const posterReady = Boolean(item.posterUrl?.trim());
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const videoHasFrame = useCallback(
+    () => posterReady || (videoRef.current?.readyState ?? 0) >= 2,
+    [posterReady]
+  );
+  useFeedMediaResolveFallback(
+    isVideo && videoMounted,
+    resolved,
+    markResolved,
+    videoHasFrame
+  );
   const remember = (width: number, height: number) => {
     if (width > 0 && height > 0) onRatio(item.url, width / height);
   };
   const bindVideo = (node: HTMLVideoElement | null) => {
+    videoRef.current = node;
     bind(node);
     bindVideoEl(node);
   };
@@ -361,7 +373,11 @@ export function QuoteThumbTile({
   ]
     .filter(Boolean)
     .join(' ');
-  const videoSettle = feedMediaVideoSettleHandlers(markResolved, remember);
+  const videoSettle = feedMediaVideoSettleHandlers(
+    markResolved,
+    remember,
+    posterReady
+  );
   return (
     <span
       className="post-card-quote-thumb-cell"

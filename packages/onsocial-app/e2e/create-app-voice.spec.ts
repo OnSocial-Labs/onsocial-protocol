@@ -1,5 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { dismissNextDevOverlay, gotoApp, setLookPreviewFile } from './helpers';
+import {
+  dismissNextDevOverlay,
+  gotoApp,
+  setLookPreviewFile,
+  settledNode,
+} from './helpers';
 
 const LOOK_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -112,9 +117,9 @@ test.describe('create app voice', () => {
     await expect(
       page.getByRole('button', { name: 'Add banner', exact: true })
     ).toBeVisible();
-    await page.locator('#app-create-name').click();
-    const banner = page.locator('.hub-look-preview-banner');
-    const logo = page.locator('.hub-look-preview-logo');
+    await settledNode(page, '#app-create-name').click();
+    const banner = settledNode(page, '.hub-look-preview-banner');
+    const logo = settledNode(page, '.hub-look-preview-logo');
     await expect(banner).toBeVisible();
     await expect(logo).toBeVisible();
     const bannerBox = await banner.boundingBox();
@@ -126,10 +131,10 @@ test.describe('create app voice', () => {
       bannerBox!.y + bannerBox!.height
     );
     expect(bannerBox!.height).toBeLessThan(110);
-    const nameLabel = page.locator('.guild-field', {
+    const nameLabel = settledNode(page, '.guild-field').filter({
       has: page.locator('#app-create-name'),
     });
-    const idLabel = page.locator('.guild-field', {
+    const idLabel = settledNode(page, '.guild-field').filter({
       has: page.locator('#app-create-id'),
     });
     const nameBox = await nameLabel.boundingBox();
@@ -142,7 +147,7 @@ test.describe('create app voice', () => {
 
     await setLookPreviewFile(
       page,
-      '[data-hub-look-file="banner"]',
+      settledNode(page, '[data-hub-look-file="banner"]'),
       {
         name: 'banner.png',
         mimeType: 'image/png',
@@ -151,15 +156,17 @@ test.describe('create app voice', () => {
       // Pan surface replaces Change — Remove is the confirm control.
       page.getByRole('button', { name: 'Remove banner' })
     );
-    await expect(page.locator('.hub-look-preview img').first()).toBeVisible();
-    await page.locator('.hub-look-preview-banner').hover();
+    await expect(
+      settledNode(page, '.hub-look-preview').locator('img').first()
+    ).toBeVisible();
+    await settledNode(page, '.hub-look-preview-banner').hover();
     await expect(
       page.getByRole('button', { name: 'Remove banner' })
     ).toBeVisible();
 
     await setLookPreviewFile(
       page,
-      '[data-hub-look-file="logo"]',
+      settledNode(page, '[data-hub-look-file="logo"]'),
       {
         name: 'logo.png',
         mimeType: 'image/png',
@@ -167,18 +174,20 @@ test.describe('create app voice', () => {
       },
       page.getByRole('button', { name: 'Remove logo' })
     );
-    await expect(page.locator('.hub-look-preview img')).toHaveCount(2);
-    await page.locator('.hub-look-preview-logo').hover();
+    await expect(
+      settledNode(page, '.hub-look-preview').locator('img')
+    ).toHaveCount(2);
+    await settledNode(page, '.hub-look-preview-logo').hover();
     await expect(
       page.getByRole('button', { name: 'Remove logo' })
     ).toBeVisible();
 
-    await page.locator('.hub-look-preview-banner').hover();
+    await settledNode(page, '.hub-look-preview-banner').hover();
     await page.getByRole('button', { name: 'Remove banner' }).click();
     await expect(
       page.getByRole('button', { name: 'Add banner', exact: true })
     ).toBeVisible();
-    await page.locator('.hub-look-preview-logo').hover();
+    await settledNode(page, '.hub-look-preview-logo').hover();
     await page.getByRole('button', { name: 'Remove logo' }).click();
     await expect(
       page.getByRole('button', { name: 'Add logo', exact: true })
@@ -247,32 +256,32 @@ test.describe('create app voice', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoApp(page, '/apps/create');
 
-    const form = page.locator('.hub-create-form');
-    const footer = page.locator('.os-app-screen-footer');
+    const form = settledNode(page, '.hub-create-form');
+    const footer = settledNode(page, '.os-app-screen-footer');
     await expect(
       page.getByRole('heading', { name: 'Open a hub' })
     ).toBeVisible();
     await expect(form).toBeVisible();
     await expect(form).not.toHaveAttribute('data-form-focused');
-    await expect(page.locator('.portfolio-summon-dock')).toHaveCount(0);
+    await expect(settledNode(page, '.portfolio-summon-dock')).toHaveCount(0);
     await expect(footer.getByRole('button', { name: 'Connect' })).toBeVisible();
 
     await dismissNextDevOverlay(page);
 
-    const nameField = page.locator('#app-create-name');
+    const nameField = settledNode(page, '#app-create-name');
     await nameField.scrollIntoViewIfNeeded();
     await nameField.click();
     await nameField.focus();
     await expect(form).toHaveAttribute('data-form-focused', '');
-    await expect(page.locator('#app-create-name')).toBeInViewport();
+    await expect(settledNode(page, '#app-create-name')).toBeInViewport();
     await expect(footer).toBeInViewport();
 
-    const commissionField = page.locator('#app-create-commission');
+    const commissionField = settledNode(page, '#app-create-commission');
     await commissionField.scrollIntoViewIfNeeded();
     await commissionField.click();
     await commissionField.focus();
     await expect(form).toHaveAttribute('data-form-focused', '');
-    await expect(page.locator('#app-create-commission')).toBeInViewport();
+    await expect(settledNode(page, '#app-create-commission')).toBeInViewport();
     await expect(footer).toBeInViewport();
   });
 });
