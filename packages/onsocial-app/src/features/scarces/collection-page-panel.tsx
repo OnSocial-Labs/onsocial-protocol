@@ -71,6 +71,8 @@ import {
   collectionCoverImmersive,
   collectionCoverSquare,
   collectionDropBackHref,
+  collectionPageSkeletonMedium,
+  collectionShowActivitySection,
   collectionOpensWritingReader,
   collectionRouteYieldsLoadingSkeleton,
   collectionShowCommerceMeter,
@@ -965,6 +967,13 @@ export function CollectionPagePanel({
       })
     : catalogLeaveHref;
   const onDockBack = useCatalogDockBack(dockFallbackHref);
+  const skeletonSeed =
+    view ??
+    initial ??
+    (isNowPlayingThisDrop && nowPlaying?.session
+      ? seedCollectionViewFromNowPlaying(nowPlaying.session)
+      : null);
+  const skeletonMedium = collectionPageSkeletonMedium(skeletonSeed);
   if (catalogShell === 'skeleton') {
     if (
       collectionRouteYieldsLoadingSkeleton({
@@ -982,9 +991,16 @@ export function CollectionPagePanel({
         onDockBack={embedded ? undefined : onDockBack}
         backFallbackHref={catalogLeaveHref}
         leading={embedded ? collectionOverlayBack(onClose) : undefined}
-        immersiveHeader
+        immersiveHeader={skeletonMedium ? skeletonMedium.isImmersive : true}
       >
-        <CollectionPageSkeleton />
+        <CollectionPageSkeleton
+          {...(skeletonMedium
+            ? {
+                isAudio: skeletonMedium.isAudio,
+                isImmersive: skeletonMedium.isImmersive,
+              }
+            : {})}
+        />
       </OsAppScreen>
     );
   }
@@ -1156,8 +1172,12 @@ export function CollectionPagePanel({
   });
   const createdRel =
     view.createdAtMs > 0 ? formatMarketRelativeTime(view.createdAtMs) : '';
-  const showActivitySection =
-    !activityLoaded || mintPreview.length > 0 || sheetActivity.length > 0;
+  const showActivitySection = collectionShowActivitySection({
+    minted: view.minted,
+    activityLoaded,
+    mintPreviewCount: mintPreview.length,
+    sheetActivityCount: sheetActivity.length,
+  });
   const showActivitySeeAll =
     activityLoaded && sheetActivity.length > mintPreview.length;
 
@@ -1316,24 +1336,26 @@ export function CollectionPagePanel({
             <div className="collection-commerce-actions">
               {showDropLove && dropLoves.fanCount > 0 ? (
                 <div className="collection-drop-fans">
-                  <GuildFacepile
-                    memberIds={dropFanIds}
-                    profiles={dropFanProfiles}
-                    memberCount={dropLoves.fanCount}
-                    countUnit={{ one: 'fan', other: 'fans' }}
-                    slots={Math.min(5, Math.max(1, dropLoves.fanCount))}
-                    loading={dropLoves.fansLoading && dropFanIds.length === 0}
-                    className="collection-drop-fans-facepile"
-                    onPointerDown={() => {
-                      if (dropLoves.fanIds.length > 0) {
-                        warmProfileListAccounts(
-                          dropLoves.fanIds,
-                          viewerAccountId ?? null
-                        );
-                      }
-                    }}
-                    onClick={() => setDropFansOpen(true)}
-                  />
+                  <OsPageBodyAppear>
+                    <GuildFacepile
+                      memberIds={dropFanIds}
+                      profiles={dropFanProfiles}
+                      memberCount={dropLoves.fanCount}
+                      countUnit={{ one: 'fan', other: 'fans' }}
+                      slots={Math.min(5, Math.max(1, dropLoves.fanCount))}
+                      loading={dropLoves.fansLoading && dropFanIds.length === 0}
+                      className="collection-drop-fans-facepile"
+                      onPointerDown={() => {
+                        if (dropLoves.fanIds.length > 0) {
+                          warmProfileListAccounts(
+                            dropLoves.fanIds,
+                            viewerAccountId ?? null
+                          );
+                        }
+                      }}
+                      onClick={() => setDropFansOpen(true)}
+                    />
+                  </OsPageBodyAppear>
                 </div>
               ) : null}
               <div className="collection-commerce-action-icons">

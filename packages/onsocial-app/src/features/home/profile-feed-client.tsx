@@ -124,7 +124,9 @@ function emptySectionRequests(): Record<ProfileTextTab, number> {
   return { posts: 0, replies: 0, reposts: 0 };
 }
 
-function isProfileTextTab(tab: ProfileFeedTab | undefined): tab is ProfileTextTab {
+function isProfileTextTab(
+  tab: ProfileFeedTab | undefined
+): tab is ProfileTextTab {
   return tab === 'posts' || tab === 'replies' || tab === 'reposts';
 }
 
@@ -214,10 +216,7 @@ export function ProfileFeedClient({
   }, [posts]);
 
   /** Durable for the drawer lifetime — survives tab switches within a visit. */
-  const windowSizeCache = useMemo(
-    () => new FeedWindowSizeCache(),
-    [accountId]
-  );
+  const windowSizeCache = useMemo(() => new FeedWindowSizeCache(), [accountId]);
 
   const [pendingTab, setPendingTab] = useState<ProfileFeedTab | null>(() =>
     tab === 'posts' && initialPosts.length === 0 && postCount > 0
@@ -230,7 +229,8 @@ export function ProfileFeedClient({
       if (mediaPagingRef.current) return;
       mediaPagingRef.current = true;
       const requestId = mediaRequestRef.current;
-      const isFirst = cursor.beforeBlockHeight == null && (cursor.offset ?? 0) === 0;
+      const isFirst =
+        cursor.beforeBlockHeight == null && (cursor.offset ?? 0) === 0;
       queueMicrotask(() => {
         setMediaPaging(true);
         if (isFirst) setPendingTab('media');
@@ -479,9 +479,7 @@ export function ProfileFeedClient({
   }, [posts, tab]);
 
   const activeSection = isProfileTextTab(tab) ? tab : null;
-  const activeSectionPage = activeSection
-    ? sectionPages[activeSection]
-    : null;
+  const activeSectionPage = activeSection ? sectionPages[activeSection] : null;
 
   const mediaLooking =
     tab === 'media' &&
@@ -507,19 +505,12 @@ export function ProfileFeedClient({
     fetchMediaPage,
   ]);
 
-  const sectionPaging = activeSection
-    ? sectionPagingMap[activeSection]
-    : false;
-  const sectionFailed = activeSection
-    ? sectionFailedMap[activeSection]
-    : false;
+  const sectionPaging = activeSection ? sectionPagingMap[activeSection] : false;
+  const sectionFailed = activeSection ? sectionFailedMap[activeSection] : false;
 
   const loadOlderSection = useCallback(() => {
     if (!activeSection || !activeSectionPage) return;
-    if (
-      !activeSectionPage.hasMore ||
-      sectionPagingRef.current[activeSection]
-    ) {
+    if (!activeSectionPage.hasMore || sectionPagingRef.current[activeSection]) {
       return;
     }
     setSectionFailedMap((current) => ({
@@ -566,10 +557,7 @@ export function ProfileFeedClient({
       windowStart: range.start,
       windowEnd: range.end,
     });
-    if (
-      trimmed.droppedHead.length === 0 &&
-      trimmed.droppedTail.length === 0
-    ) {
+    if (trimmed.droppedHead.length === 0 && trimmed.droppedTail.length === 0) {
       return;
     }
     if (homeFeedMemoryTrimNeedsScrollAnchor(trimmed)) {
@@ -789,7 +777,9 @@ export function ProfileFeedClient({
       ) : null}
       {tab === 'media' ? (
         <>
-          <PageDrawerMediaGrid posts={visiblePosts} />
+          <OsPageBodyAppear>
+            <PageDrawerMediaGrid posts={visiblePosts} />
+          </OsPageBodyAppear>
           {mediaFailed ? (
             <OsLoadMore onClick={loadOlderMedia} pending={mediaPaging}>
               Show earlier
@@ -804,19 +794,21 @@ export function ProfileFeedClient({
         </>
       ) : (
         <>
-          <PersonalFeedList
-            posts={visiblePosts}
-            includeForeignReplies={tab === 'replies'}
-            onReply={replyHandler}
-            onExpandReply={openFullReply}
-            onQuote={quoteHandler}
-            onRepost={repostHandler}
-            onUndoRepost={undoRepostHandler}
-            className="home-feed-list"
-            windowSizeCache={windowSizeCache}
-            pinnedFeedKey={trimAnchor?.key ?? null}
-            onWindowRangeChange={onWindowRangeChange}
-          />
+          <OsPageBodyAppear>
+            <PersonalFeedList
+              posts={visiblePosts}
+              includeForeignReplies={tab === 'replies'}
+              onReply={replyHandler}
+              onExpandReply={openFullReply}
+              onQuote={quoteHandler}
+              onRepost={repostHandler}
+              onUndoRepost={undoRepostHandler}
+              className="home-feed-list"
+              windowSizeCache={windowSizeCache}
+              pinnedFeedKey={trimAnchor?.key ?? null}
+              onWindowRangeChange={onWindowRangeChange}
+            />
+          </OsPageBodyAppear>
           {activeSection ? (
             sectionFailed ? (
               <OsLoadMore onClick={loadOlderSection} pending={sectionPaging}>

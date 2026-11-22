@@ -196,40 +196,42 @@ export function DiscoverPanelContent() {
                   </OsPageBodyAppear>
                 ) : null
               ) : (
-                <ProfileSocialList
-                  accounts={profilesWithOffers}
-                  listKey={listKey}
-                  viewerAccountId={viewerAccountId}
-                  showSolidarityBadge
-                  standingTimeMode="viewer-only"
-                  viewerRelationshipsLoading={
-                    isConnected &&
-                    Boolean(viewerAccountId) &&
-                    !relationshipSynced
-                  }
-                  canUpdateStandingFor={(account) =>
-                    isConnected &&
-                    Boolean(viewerAccountId) &&
-                    viewerAccountId !== account.accountId
-                  }
-                  isPendingFor={isStandingPendingForTarget}
-                  onUpdateStanding={(account, shouldStand) => {
-                    if (
-                      !viewerAccountId ||
-                      viewerAccountId === account.accountId
-                    ) {
-                      return;
+                <OsPageBodyAppear>
+                  <ProfileSocialList
+                    accounts={profilesWithOffers}
+                    listKey={listKey}
+                    viewerAccountId={viewerAccountId}
+                    showSolidarityBadge
+                    standingTimeMode="viewer-only"
+                    viewerRelationshipsLoading={
+                      isConnected &&
+                      Boolean(viewerAccountId) &&
+                      !relationshipSynced
                     }
-                    void handleUpdateStanding(account, shouldStand);
-                  }}
-                  loadMoreSentinelRef={loadMoreRef}
-                  footerSummary={footerSummary}
-                  isLoadingMore={showAppendPending}
-                  showLoadMoreSentinel={showLoadMoreSentinel}
-                  directoryLine={
-                    face === 'offers' || face === 'hiring' ? face : undefined
-                  }
-                />
+                    canUpdateStandingFor={(account) =>
+                      isConnected &&
+                      Boolean(viewerAccountId) &&
+                      viewerAccountId !== account.accountId
+                    }
+                    isPendingFor={isStandingPendingForTarget}
+                    onUpdateStanding={(account, shouldStand) => {
+                      if (
+                        !viewerAccountId ||
+                        viewerAccountId === account.accountId
+                      ) {
+                        return;
+                      }
+                      void handleUpdateStanding(account, shouldStand);
+                    }}
+                    loadMoreSentinelRef={loadMoreRef}
+                    footerSummary={footerSummary}
+                    isLoadingMore={showAppendPending}
+                    showLoadMoreSentinel={showLoadMoreSentinel}
+                    directoryLine={
+                      face === 'offers' || face === 'hiring' ? face : undefined
+                    }
+                  />
+                </OsPageBodyAppear>
               )}
             </div>
           </div>

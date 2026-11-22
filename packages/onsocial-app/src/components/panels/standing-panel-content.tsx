@@ -111,31 +111,33 @@ export function StandingPanelContent() {
             </OsPageBodyAppear>
           )
         ) : (
-          <ProfileSocialList
-            accounts={listAccounts}
-            listKey={listKey}
-            viewerAccountId={viewerAccountId}
-            showSolidarityBadge={kind !== 'mutual'}
-            viewerRelationshipsLoading={
-              isConnected && Boolean(viewerAccountId) && !relationshipSynced
-            }
-            canUpdateStandingFor={(account) =>
-              isConnected &&
-              Boolean(viewerAccountId) &&
-              viewerAccountId !== account.accountId
-            }
-            isPendingFor={(accountId) => mergedPendingIds.has(accountId)}
-            onUpdateStanding={(account, shouldStand) =>
-              void handleUpdateStanding(
-                profileListAccountToStandingSummary(account),
-                shouldStand
-              )
-            }
-            loadMoreSentinelRef={loadMoreRef}
-            footerSummary={footerSummary}
-            isLoadingMore={isLoadingMore}
-            showLoadMoreSentinel={showLoadMoreSentinel}
-          />
+          <OsPageBodyAppear>
+            <ProfileSocialList
+              accounts={listAccounts}
+              listKey={listKey}
+              viewerAccountId={viewerAccountId}
+              showSolidarityBadge={kind !== 'mutual'}
+              viewerRelationshipsLoading={
+                isConnected && Boolean(viewerAccountId) && !relationshipSynced
+              }
+              canUpdateStandingFor={(account) =>
+                isConnected &&
+                Boolean(viewerAccountId) &&
+                viewerAccountId !== account.accountId
+              }
+              isPendingFor={(accountId) => mergedPendingIds.has(accountId)}
+              onUpdateStanding={(account, shouldStand) =>
+                void handleUpdateStanding(
+                  profileListAccountToStandingSummary(account),
+                  shouldStand
+                )
+              }
+              loadMoreSentinelRef={loadMoreRef}
+              footerSummary={footerSummary}
+              isLoadingMore={isLoadingMore}
+              showLoadMoreSentinel={showLoadMoreSentinel}
+            />
+          </OsPageBodyAppear>
         )}
       </div>
     </div>

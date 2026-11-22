@@ -707,51 +707,56 @@ export function EventsPagePanel({
               )}
             </OsPageBodyAppear>
           ) : (
-            EVENT_WINDOW_ORDER.map((window) => {
-              const rows = grouped[window];
-              if (rows.length === 0) return null;
-              return (
-                <section
-                  key={window}
-                  className="market-section"
-                  aria-labelledby={`events-${window}`}
-                >
-                  <h2 id={`events-${window}`} className="market-section-title">
-                    {eventWindowLabel(window)}
-                  </h2>
-                  <EventsWindowedList
-                    rows={rows}
-                    renderRow={(item) => {
-                      const kind = eventRowGuestKind(item, window, nowMs);
-                      return (
-                        <EventRow
-                          item={item}
-                          nowMs={nowMs}
-                          window={window}
-                          guestCount={resolveEventGuestCount(kind, {
-                            mintedCount: item.mintedCount,
-                            roster: eventGuestRoster(
-                              kind,
-                              item.collectionId,
-                              guestRosters
-                            ),
-                          })}
-                          onGuests={openGuests}
-                          saved={viewerSaved(item.collectionId)}
-                          savePending={isSavePending(item.collectionId)}
-                          onToggleSave={() => {
-                            void toggleSave(item.collectionId);
-                          }}
-                          onOwnerManaged={(change) =>
-                            onOwnerManaged(item.collectionId, change)
-                          }
-                        />
-                      );
-                    }}
-                  />
-                </section>
-              );
-            })
+            <OsPageBodyAppear>
+              {EVENT_WINDOW_ORDER.map((window) => {
+                const rows = grouped[window];
+                if (rows.length === 0) return null;
+                return (
+                  <section
+                    key={window}
+                    className="market-section"
+                    aria-labelledby={`events-${window}`}
+                  >
+                    <h2
+                      id={`events-${window}`}
+                      className="market-section-title"
+                    >
+                      {eventWindowLabel(window)}
+                    </h2>
+                    <EventsWindowedList
+                      rows={rows}
+                      renderRow={(item) => {
+                        const kind = eventRowGuestKind(item, window, nowMs);
+                        return (
+                          <EventRow
+                            item={item}
+                            nowMs={nowMs}
+                            window={window}
+                            guestCount={resolveEventGuestCount(kind, {
+                              mintedCount: item.mintedCount,
+                              roster: eventGuestRoster(
+                                kind,
+                                item.collectionId,
+                                guestRosters
+                              ),
+                            })}
+                            onGuests={openGuests}
+                            saved={viewerSaved(item.collectionId)}
+                            savePending={isSavePending(item.collectionId)}
+                            onToggleSave={() => {
+                              void toggleSave(item.collectionId);
+                            }}
+                            onOwnerManaged={(change) =>
+                              onOwnerManaged(item.collectionId, change)
+                            }
+                          />
+                        );
+                      }}
+                    />
+                  </section>
+                );
+              })}
+            </OsPageBodyAppear>
           )}
           {showAppendPending ? (
             <div className="list-append-pending">

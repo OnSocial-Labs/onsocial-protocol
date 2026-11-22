@@ -1304,7 +1304,7 @@ export function DropsPagePanel({
                 <EmptyDropsStatus sort={sort} query={query} medium={medium} />
               </OsPageBodyAppear>
             ) : (
-              <>
+              <OsPageBodyAppear>
                 {upcomingGroups ? (
                   UPCOMING_SECTIONS.map((section) => {
                     const rows = upcomingGroups[section.id];
@@ -1324,13 +1324,13 @@ export function DropsPagePanel({
                     renderRow={renderRow}
                   />
                 )}
-                {showAppendPending ? (
-                  <div className="list-append-pending">
-                    <PulsingDots size="sm" label="Loading more" />
-                  </div>
-                ) : null}
-              </>
+              </OsPageBodyAppear>
             )}
+            {showAppendPending ? (
+              <div className="list-append-pending">
+                <PulsingDots size="sm" label="Loading more" />
+              </div>
+            ) : null}
             {failed && errorPresentation === 'overlay' ? (
               <OsChromeListAlert
                 message="Couldn’t refresh drops."
@@ -1354,10 +1354,12 @@ export function DropsPagePanel({
             ) : null}
           </section>
 
-          <DropsEmptyRecovery
-            copy="Looking for secondary listings?"
-            actions={[{ href: APP_MARKET_PATH, label: 'Open Market' }]}
-          />
+          {showCatalogSkeleton ? null : (
+            <DropsEmptyRecovery
+              copy="Looking for secondary listings?"
+              actions={[{ href: APP_MARKET_PATH, label: 'Open Market' }]}
+            />
+          )}
         </div>
 
         {coverItem ? (
