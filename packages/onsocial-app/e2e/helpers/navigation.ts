@@ -98,6 +98,16 @@ export async function expectPortfolioIdentityOrSkip(
   await expect(identity).toBeVisible({ timeout: 5_000 });
 }
 
+/**
+ * Soft-nav streaming keeps a second copy under a Suspense boundary
+ * (`[id^="S:"]`). CSS locators are strict and match that copy too.
+ * Scope to the committed node — the same reason portfolio identity
+ * prefers `main`.
+ */
+export function settledNode(page: Page, selector: string): Locator {
+  return page.locator(`${selector}:not([id^="S:"] ${selector})`);
+}
+
 /** Visible glass sheet (soft intercept), via UI `GlassSheet` class contract. */
 export function glassSheetVisible(page: Page): Locator {
   return page.locator('.glass-sheet-root.is-visible');
