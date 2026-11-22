@@ -93,6 +93,8 @@ export function useGuildPageData({
   shellPreview: GuildShellCacheEntry | null;
   shellExtrasResolved: boolean;
   viewerAccessResolved: boolean;
+  /** True once the indexer membership row says this viewer is a member. */
+  indexedMemberHint: boolean;
   feedPending: boolean;
   hasMorePosts: boolean;
   loadingMore: boolean;
@@ -181,6 +183,8 @@ export function useGuildPageData({
   );
   /** ACL resolved — separate from shell paint so join/leave never guess. */
   const [viewerAccessResolved, setViewerAccessResolved] = useState(false);
+  /** Indexer membership row landed — paint member chrome before chain ACL. */
+  const [indexedMemberHint, setIndexedMemberHint] = useState(false);
   const [feedPending, setFeedPending] = useState(
     () => !initial && !readGuildFeedCache(groupId, 'all')
   );
@@ -203,6 +207,8 @@ export function useGuildPageData({
   const loadMoreInFlightRef = useRef(false);
   const groupIdRef = useRef(groupId);
   groupIdRef.current = groupId;
+  const accountIdRef = useRef(accountId);
+  accountIdRef.current = accountId;
   const guildShellRequestIdRef = useRef(0);
   const guildFeedRequestIdRef = useRef(0);
   const selectedFeedFilterIdRef = useRef(selectedFeedFilterId);
@@ -318,22 +324,28 @@ export function useGuildPageData({
         return;
       }
 
+      const requestedAccountId = accountId;
+      const stillCurrent = () =>
+        groupIdRef.current === groupId &&
+        accountIdRef.current === requestedAccountId;
+
       // Fast membership hint from indexer before heavier ACL RPCs.
       try {
         const membership = await client.query.groups.membershipFor(
           groupId,
-          accountId
+          requestedAccountId
         );
-        if (membership && groupIdRef.current === groupId) {
-          writeGuildMembershipCache(accountId, groupId, {
+        if (membership && stillCurrent()) {
+          writeGuildMembershipCache(requestedAccountId, groupId, {
             isMember: true,
             joinPending: false,
           });
+          setIndexedMemberHint(true);
         }
       } catch {
         // Cache hint is best-effort.
       }
-      if (groupIdRef.current !== groupId) return;
+      if (!stillCurrent()) return;
 
       let resolved: Awaited<ReturnType<typeof resolveGuildViewerAccess>>;
       try {
@@ -342,14 +354,14 @@ export function useGuildPageData({
           accessGated: normalizedConfig.accessGated,
         });
       } catch {
-        if (groupIdRef.current !== groupId) return;
+        if (!stillCurrent()) return;
         setShellExtrasResolved(true);
         setViewerAccessResolved(true);
         return;
       }
       const viewerState = resolved?.viewer ?? null;
       const moderationState = resolved?.moderation ?? null;
-      if (groupIdRef.current !== groupId) return;
+      if (!stillCurrent()) return;
 
       if (viewerState?.isMember) {
         try {
@@ -366,8 +378,9 @@ export function useGuildPageData({
         }
       } else {
         setAllowlistSpaceIds(new Set());
+        setIndexedMemberHint(false);
       }
-      if (groupIdRef.current !== groupId) return;
+      if (!stillCurrent()) return;
 
       setState((current) => ({
         ...current,
@@ -809,6 +822,7 @@ export function useGuildPageData({
       moderation: null,
     }));
     setViewerAccessResolved(false);
+    setIndexedMemberHint(false);
     const softSsr =
       ssrGroupIdRef.current === groupId && Boolean(initialRef.current);
     if (!softSsr) {
@@ -1021,6 +1035,7 @@ export function useGuildPageData({
     shellPreview,
     shellExtrasResolved,
     viewerAccessResolved,
+    indexedMemberHint,
     feedPending,
     hasMorePosts,
     loadingMore,
