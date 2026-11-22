@@ -106,6 +106,12 @@ const BOOST_COLLECT_CELEBRATION_MAX_REDUCED_MS = 3200;
 
 type BoostClaimCelebration = { id: number; amountYocto: bigint };
 
+/** One wallet read. A balance with a different accountId is not spendable. */
+type WalletSocialBalance = {
+  accountId: string;
+  yocto: bigint;
+};
+
 function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined') return false;
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -361,7 +367,25 @@ export function PortfolioBoostSheet({
   const [extendMonths, setExtendMonths] = useState<BoostLockPeriod | null>(
     null
   );
-  const [balanceYocto, setBalanceYocto] = useState<bigint | null>(null);
+  const [walletBalance, setWalletBalance] =
+    useState<WalletSocialBalance | null>(null);
+  const balanceRequestRef = useRef(0);
+  const accountIdRef = useRef(accountId);
+  accountIdRef.current = accountId;
+  const [balanceAccountId, setBalanceAccountId] = useState(accountId);
+  // Drop the previous wallet on the same render the account changes, open or
+  // closed, and retire any read that is still in flight.
+  if (balanceAccountId !== accountId) {
+    setBalanceAccountId(accountId);
+    balanceRequestRef.current += 1;
+    setWalletBalance(null);
+  }
+  const balanceYocto =
+    balanceAccountId === accountId &&
+    walletBalance != null &&
+    walletBalance.accountId === accountId
+      ? walletBalance.yocto
+      : null;
   const [fieldError, setFieldError] = useState<string | null>(null);
   const claimableYoctoRef = useRef(0n);
 
@@ -465,14 +489,29 @@ export function PortfolioBoostSheet({
   useScrollLock(open || closing);
 
   const refreshWalletBalance = useCallback(async () => {
-    if (!accountId.trim()) {
-      setBalanceYocto(null);
+    const requestedAccountId = accountId;
+    const requestId = ++balanceRequestRef.current;
+    if (!requestedAccountId.trim()) {
+      setWalletBalance(null);
       return;
     }
     try {
-      setBalanceYocto(await fetchWalletSocialBalanceYocto(accountId));
+      const yocto = await fetchWalletSocialBalanceYocto(requestedAccountId);
+      if (
+        requestId !== balanceRequestRef.current ||
+        requestedAccountId !== accountIdRef.current
+      ) {
+        return;
+      }
+      setWalletBalance({ accountId: requestedAccountId, yocto });
     } catch {
-      setBalanceYocto(null);
+      if (
+        requestId !== balanceRequestRef.current ||
+        requestedAccountId !== accountIdRef.current
+      ) {
+        return;
+      }
+      setWalletBalance(null);
     }
   }, [accountId]);
 
@@ -525,14 +564,16 @@ export function PortfolioBoostSheet({
     ? BigInt(socialToYocto(normalizedAmount))
     : 0n;
   const belowMinimum = amountYocto > 0n && amountYocto < BOOST_MIN_LOCK_YOCTO;
-  const insufficient =
-    amountYocto > 0n && balanceYocto != null && amountYocto > balanceYocto;
+  const insufficient = balanceYocto != null && amountYocto > balanceYocto;
   const amountError = belowMinimum
     ? `Minimum is ${BOOST_MIN_LOCK_SOCIAL_LABEL} SOCIAL.`
     : insufficient
       ? 'Not enough SOCIAL in your wallet.'
       : null;
-  const amountReady = amountYocto >= BOOST_MIN_LOCK_YOCTO && !insufficient;
+  const amountReady =
+    balanceYocto != null &&
+    amountYocto >= BOOST_MIN_LOCK_YOCTO &&
+    !insufficient;
   const increaseInfluenceYocto =
     mode === 'increase' && amountReady && currentOption
       ? applyLockBonus(lockedYocto + amountYocto, currentOption.bonusPercent)
@@ -676,7 +717,7 @@ export function PortfolioBoostSheet({
     const months = hasPosition
       ? (currentOption?.months ?? null)
       : commitOption.months;
-    if (months == null) return;
+    if (months == null || balanceYocto == null) return;
     if (amountYocto < BOOST_MIN_LOCK_YOCTO || insufficient) {
       setFieldError(
         amountError ?? `Minimum is ${BOOST_MIN_LOCK_SOCIAL_LABEL} SOCIAL.`
