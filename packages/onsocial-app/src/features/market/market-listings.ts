@@ -844,9 +844,7 @@ export function viewerOwnsRelatedEdition(
   return false;
 }
 
-export function saleTitle(
-  row: Pick<ScarcesEventRow, 'extraData' | 'tokenId'>
-): string {
+export function saleTitle(row: Pick<ScarcesEventRow, 'extraData'>): string {
   const extra = parseExtra(row.extraData);
   const titled =
     stringField(extra, 'title') ??
@@ -854,11 +852,8 @@ export function saleTitle(
     stringField(extra, 'tokenTitle') ??
     null;
   if (titled) return titled;
-  const tokenId = row.tokenId?.trim();
-  if (!tokenId) return 'Scarce';
-  // Named collections / editions (e.g. royalty-test:1) keep their id.
-  if (tokenId.includes(':') && !tokenId.startsWith('s:')) return tokenId;
-  // Native token ids (s:319) — quiet label, not a raw id dump.
+  // Edition ids (`name:N`) are not titles, same as native `s:` ids.
+  // 'Scarce' is the untitled sentinel fetchMarketSales already hydrates.
   return 'Scarce';
 }
 
@@ -2562,9 +2557,7 @@ export async function fetchMarketSales(
     const sourcePostPath = saleSourcePostFromRow(row);
     const usdE6 = saleUsdE6(row);
     const batchQuantity =
-      row.quantity != null &&
-      Number.isInteger(row.quantity) &&
-      row.quantity > 1
+      row.quantity != null && Number.isInteger(row.quantity) && row.quantity > 1
         ? row.quantity
         : undefined;
     const priceNear = batchQuantity

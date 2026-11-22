@@ -1,13 +1,41 @@
+// @vitest-environment jsdom
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { createElement } from 'react';
+import { cleanup, render } from '@testing-library/react';
+import type { OnSocial, ScarcesEventRow } from '@onsocial/sdk';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fetchMarketSales } from '@/features/market/market-listings';
 import {
+  MarketSaleRow,
   marketSaleDetailHref,
   marketSalePriceLabel,
   salePartyAccountId,
   salePartyLead,
 } from '@/features/market/market-sale-row';
+
+const viewNearContract = vi.fn();
+
+vi.mock('@/contexts/app-transaction-feedback-context', () => ({
+  useAppTransactionFeedback: () => ({
+    txResult: null,
+    setTxResult: () => {},
+    clearTxResult: () => {},
+    trackTransaction: async () => false,
+  }),
+}));
+
+vi.mock('@/lib/app-near-rpc', async () => {
+  const actual =
+    await vi.importActual<typeof import('@/lib/app-near-rpc')>(
+      '@/lib/app-near-rpc'
+    );
+  return {
+    ...actual,
+    viewNearContract: (...args: unknown[]) => viewNearContract(...args),
+  };
+});
 
 const rowSrc = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -105,5 +133,116 @@ describe('MarketSaleRow layout', () => {
     expect(menuAt).toBeGreaterThan(trailAt);
     expect(source).not.toContain('OsSheetAction');
     expect(source).not.toContain('>Buy<');
+  });
+});
+
+function saleEvent(
+  tokenId: string,
+  extra: Record<string, unknown>
+): ScarcesEventRow {
+  return {
+    eventType: 'SCARCE_UPDATE',
+    operation: 'purchase',
+    author: 'buyer.testnet',
+    blockHeight: 10,
+    blockTimestamp: Date.parse('2026-06-01T00:00:00.000Z'),
+    tokenId,
+    extraData: JSON.stringify(extra),
+    price: '1000000000000000000000000',
+  } as ScarcesEventRow;
+}
+
+function salesClient(rows: ScarcesEventRow[]): OnSocial {
+  return {
+    query: {
+      scarces: {
+        recentSales: async () => rows,
+      },
+    },
+  } as unknown as OnSocial;
+}
+
+function visibleSaleTitles(): string[] {
+  return [...document.querySelectorAll('.market-listing-title')].map(
+    (node) => node.textContent ?? ''
+  );
+}
+
+describe('recent sale row titles', () => {
+  beforeEach(() => {
+    viewNearContract.mockReset();
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn().mockReturnValue({
+        matches: false,
+        media: '',
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      })
+    );
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('hydrates a collection edition instead of painting the raw token id', async () => {
+    const tokenTitles = new Map<string, string | null>([
+      ['name-xyz:1', 'A Quiet Miracle'],
+      ['name-xyz:2', null],
+      ['name-kept:1', 'Chain title that must not win'],
+      ['s:319', 'Native Scarce'],
+      ['s:42', null],
+      ['s:7', 'Should not replace'],
+    ]);
+    viewNearContract.mockImplementation(
+      async (_contract: unknown, method: unknown, args: unknown) => {
+        if (method !== 'nft_token') return null;
+        const tokenId =
+          (args as { token_id?: string } | null)?.token_id?.trim() ?? '';
+        const title = tokenTitles.get(tokenId) ?? null;
+        return { metadata: { title } };
+      }
+    );
+
+    const sales = await fetchMarketSales({
+      client: salesClient([
+        saleEvent('name-xyz:1', { kind: 'art' }),
+        saleEvent('name-xyz:2', { kind: 'art' }),
+        saleEvent('name-kept:1', { title: 'Kept by the sale' }),
+        saleEvent('s:319', { kind: 'thought' }),
+        saleEvent('s:42', { kind: 'thought' }),
+        saleEvent('s:7', { title: 'Posted scarce' }),
+      ]),
+    });
+
+    render(
+      createElement(
+        'ul',
+        null,
+        sales.map((sale, index) =>
+          createElement(MarketSaleRow, {
+            key: `${sale.tokenId ?? 'sale'}:${index}`,
+            sale,
+          })
+        )
+      )
+    );
+
+    expect(visibleSaleTitles()).toEqual([
+      'A Quiet Miracle',
+      'Scarce',
+      'Kept by the sale',
+      'Native Scarce',
+      'Scarce',
+      'Posted scarce',
+    ]);
+    expect(
+      document
+        .querySelector('.market-listing-row-open')
+        ?.getAttribute('aria-label')
+    ).toBe('Open drop for A Quiet Miracle');
+    expect(visibleSaleTitles().join('\n')).not.toMatch(/name-xyz:\d/);
   });
 });
