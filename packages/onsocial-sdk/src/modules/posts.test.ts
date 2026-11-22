@@ -142,7 +142,17 @@ describe('resolvePostMedia', () => {
     posterMock.mockResolvedValue(
       new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' })
     );
+    const posterCid =
+      'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi';
     const provider = makeProvider();
+    provider.upload = vi.fn(async (file: Blob | File) => {
+      provider.uploads.push(file);
+      return {
+        cid: file.type === 'image/jpeg' ? posterCid : 'bafy-1',
+        mime: file.type || 'application/octet-stream',
+        size: file.size,
+      };
+    });
     const clip = new File(['vid'], 'clip.mp4', { type: 'video/mp4' });
     const out = await resolvePostMedia(
       { text: 'clip', files: [clip] },
@@ -157,7 +167,7 @@ describe('resolvePostMedia', () => {
         size: clip.size,
         width: 1280,
         height: 720,
-        poster: 'bafy-2',
+        poster: posterCid,
       },
     ]);
   });

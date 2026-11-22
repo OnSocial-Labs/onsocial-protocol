@@ -4,7 +4,15 @@
 
 import { SCHEMA_VERSION } from '../schema/v1.js';
 import type { GroupPostRef, PostData } from '../types.js';
+import { omitPostersOverStorageBudget } from '../internal/post-storage-budget.js';
 import { applyFeedMeta, type SocialSetData } from './_shared.js';
+
+function sealGroupPost(
+  storageKey: string,
+  value: Record<string, unknown>
+): Record<string, unknown> {
+  return omitPostersOverStorageBudget(value, storageKey);
+}
 
 /**
  * Build a post written into a group's content namespace. The contract stores
@@ -21,12 +29,13 @@ export function buildGroupPostSetData(
   postId: string,
   now = Date.now()
 ): SocialSetData {
+  const path = `groups/${groupId}/content/post/${postId}`;
   return {
-    [`groups/${groupId}/content/post/${postId}`]: {
+    [path]: sealGroupPost(path, {
       v: SCHEMA_VERSION,
       ...applyFeedMeta(post),
       timestamp: post.timestamp ?? now,
-    },
+    }),
   };
 }
 
@@ -41,14 +50,15 @@ export function buildGroupReplySetData(
   replyId: string,
   now = Date.now()
 ): SocialSetData {
+  const path = `groups/${groupId}/content/post/${replyId}`;
   return {
-    [`groups/${groupId}/content/post/${replyId}`]: {
+    [path]: sealGroupPost(path, {
       v: SCHEMA_VERSION,
       ...applyFeedMeta(post),
       parent: parentPath,
       parentType: 'post',
       timestamp: post.timestamp ?? now,
-    },
+    }),
   };
 }
 
@@ -60,15 +70,16 @@ export function buildGroupQuoteSetData(
   now = Date.now()
 ): SocialSetData {
   const [refAuthor] = refPath.split('/', 1);
+  const path = `groups/${groupId}/content/post/${quoteId}`;
   return {
-    [`groups/${groupId}/content/post/${quoteId}`]: {
+    [path]: sealGroupPost(path, {
       v: SCHEMA_VERSION,
       ...applyFeedMeta(post),
       ref: refPath,
       ...(refAuthor ? { refAuthor } : {}),
       refType: 'quote',
       timestamp: post.timestamp ?? now,
-    },
+    }),
   };
 }
 
@@ -80,14 +91,15 @@ export function buildGroupRepostSetData(
   now = Date.now()
 ): SocialSetData {
   const [refAuthor] = refPath.split('/', 1);
+  const path = `groups/${groupId}/content/post/${repostId}`;
   return {
-    [`groups/${groupId}/content/post/${repostId}`]: {
+    [path]: sealGroupPost(path, {
       v: SCHEMA_VERSION,
       ...applyFeedMeta({ ...post, text: post.text ?? '' }),
       ref: refPath,
       ...(refAuthor ? { refAuthor } : {}),
       refType: 'repost',
       timestamp: post.timestamp ?? now,
-    },
+    }),
   };
 }

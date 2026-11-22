@@ -13,6 +13,8 @@
 //    block_timestamp for source-of-truth ordering).
 // ---------------------------------------------------------------------------
 
+import { acceptedPosterCid } from '../internal/poster-cid.js';
+
 export const SCHEMA_VERSION = 1 as const;
 
 // ── Media ───────────────────────────────────────────────────────────────────
@@ -247,8 +249,12 @@ function validateMedia(m: unknown): string | null {
   if (m.alt !== undefined && !isStr(m.alt)) return 'media.alt must be string';
   if (m.blurhash !== undefined && !isStr(m.blurhash))
     return 'media.blurhash must be string';
-  if (m.poster !== undefined && !isStr(m.poster))
-    return 'media.poster must be string';
+  if (m.poster !== undefined) {
+    if (!isStr(m.poster)) return 'media.poster must be string';
+    if (acceptedPosterCid(m.poster) === null) {
+      return 'media.poster must be a CID of at most 128 characters';
+    }
+  }
   return null;
 }
 
