@@ -347,10 +347,11 @@ export function QuoteThumbTile({
   const { containerRef, bindVideoEl, videoPreload, videoMounted } =
     usePostVideoPlayback(isVideo ? 'poster' : null);
   const { resolved, markResolved, bind } = useFeedMediaResolved(item.url);
+  const posterReady = Boolean(item.posterUrl?.trim());
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const videoHasFrame = useCallback(
-    () => (videoRef.current?.readyState ?? 0) >= 2,
-    []
+    () => posterReady || (videoRef.current?.readyState ?? 0) >= 2,
+    [posterReady]
   );
   useFeedMediaResolveFallback(
     isVideo && videoMounted,
@@ -372,7 +373,11 @@ export function QuoteThumbTile({
   ]
     .filter(Boolean)
     .join(' ');
-  const videoSettle = feedMediaVideoSettleHandlers(markResolved, remember);
+  const videoSettle = feedMediaVideoSettleHandlers(
+    markResolved,
+    remember,
+    posterReady
+  );
   return (
     <span
       className="post-card-quote-thumb-cell"

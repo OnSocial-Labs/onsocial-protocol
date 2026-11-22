@@ -271,17 +271,20 @@ type FeedMediaVideoSettleHandlers = {
 
 /**
  * Settle video shimmer on a decoded frame (loadeddata / canplay) or a real
- * error. Metadata only records dimensions. A load aborted because the
- * element detached does not mark the src resolved.
+ * error. Metadata only records dimensions, unless a poster is already
+ * paintable — WebKit metadata preload never reaches readyState 2.
+ * A load aborted because the element detached does not mark the src resolved.
  */
 export function feedMediaVideoSettleHandlers(
   markResolved: () => void,
-  onDimensions?: (width: number, height: number) => void
+  onDimensions?: (width: number, height: number) => void,
+  posterReady = false
 ): FeedMediaVideoSettleHandlers {
   return {
     onLoadedMetadata: (event) => {
       const video = event.currentTarget;
       onDimensions?.(video.videoWidth, video.videoHeight);
+      if (posterReady) markResolved();
     },
     onCanPlay: markResolved,
     onLoadedData: markResolved,
@@ -622,10 +625,11 @@ function PostVisualMediaBlock({
     setSoundOff(focusedVideoMuted);
   }, [focusedVideoMuted]);
 
+  const posterReady = Boolean(item.posterUrl?.trim());
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
   const videoHasFrame = useCallback(
-    () => (videoElementRef.current?.readyState ?? 0) >= 2,
-    []
+    () => posterReady || (videoElementRef.current?.readyState ?? 0) >= 2,
+    [posterReady]
   );
   // iOS / low-power often skip decode events with preload=metadata — shared
   // settle handlers + named fallback (same path as quote thumbs).
@@ -753,7 +757,11 @@ function PostVisualMediaBlock({
     .join(' ');
   // Compose after spread — rememberRatio closes over tile refs; passing it
   // into the helper would read refs during render (react-hooks/refs).
-  const videoSettle = feedMediaVideoSettleHandlers(markResolved);
+  const videoSettle = feedMediaVideoSettleHandlers(
+    markResolved,
+    undefined,
+    posterReady
+  );
   useEffect(() => {
     const video = videoElementRef.current;
     if (!video || !showSoundControl) return;

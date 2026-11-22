@@ -54,6 +54,12 @@ const VIDEO_ITEM = {
   cid: 'bafyquote',
 };
 
+const POSTER_ITEM = {
+  ...VIDEO_ITEM,
+  url: 'blob:quote-thumb-poster',
+  posterUrl: 'https://cdn.testnet.onsocial.id/ipfs/bafyposter',
+};
+
 function shimmerCount(root: ReturnType<typeof create>): number {
   return root.root.findAll(
     (n) =>
@@ -128,6 +134,46 @@ describe('quote media thumb settle (render)', () => {
     });
 
     expect(shimmerCount(root)).toBe(1);
+  });
+
+  it('uncovers a poster clip on loadedmetadata without a decoded frame', () => {
+    let root!: ReturnType<typeof create>;
+    act(() => {
+      root = create(
+        createElement(QuoteThumbTile, {
+          item: POSTER_ITEM,
+          onRatio: () => {},
+        })
+      );
+    });
+    expect(shimmerCount(root)).toBe(1);
+
+    act(() => {
+      videoNode(root).props.onLoadedMetadata?.({
+        currentTarget: { videoWidth: 1280, videoHeight: 720, duration: 3 },
+      });
+    });
+
+    expect(shimmerCount(root)).toBe(0);
+  });
+
+  it('uncovers a poster clip at 8s when loadeddata never fires', () => {
+    let root!: ReturnType<typeof create>;
+    act(() => {
+      root = create(
+        createElement(QuoteThumbTile, {
+          item: POSTER_ITEM,
+          onRatio: () => {},
+        })
+      );
+    });
+    expect(shimmerCount(root)).toBe(1);
+
+    act(() => {
+      vi.advanceTimersByTime(FEED_MEDIA_RESOLVE_FALLBACK_MS);
+    });
+
+    expect(shimmerCount(root)).toBe(0);
   });
 
   it('clears the shimmer on loadeddata', () => {
