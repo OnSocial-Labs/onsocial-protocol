@@ -231,6 +231,7 @@ export function LiveGuildPanel({
     shellPreview,
     shellExtrasResolved,
     viewerAccessResolved,
+    indexedMemberHint,
     feedPending,
     hasMorePosts,
     loadingMore,
@@ -873,7 +874,13 @@ export function LiveGuildPanel({
     viewerIsShellOwner ||
     Boolean(rosterViewer) ||
     Boolean(membershipHint?.isMember) ||
+    indexedMemberHint ||
     (viewerAccessResolved && Boolean(viewer?.isMember));
+  const proposalsIsMember: boolean | null = knownMember
+    ? true
+    : viewerAccessResolved
+      ? false
+      : null;
   const membershipChromePending =
     walletLoading ||
     (isConnected &&
@@ -1705,7 +1712,7 @@ export function LiveGuildPanel({
             open
             groupId={groupId}
             accountId={accountId}
-            isMember={viewer?.isMember ?? false}
+            isMember={proposalsIsMember}
             memberDriven={config.memberDriven}
             accessGated={config.accessGated}
             focusProposal={initialProposal}

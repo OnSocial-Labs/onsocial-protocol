@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import type { Proposal, ProposalTally } from '@onsocial/sdk';
 import {
   Divider,
@@ -42,7 +49,8 @@ interface GuildProposalsSheetProps {
   open: boolean;
   groupId: string;
   accountId: string | null;
-  isMember: boolean;
+  /** `null` while the guild has not resolved this viewer yet. */
+  isMember: boolean | null;
   memberDriven: boolean;
   /** Access-gated guilds don't advertise per-proposal share links. */
   accessGated?: boolean;
@@ -382,7 +390,11 @@ export function GuildProposalsSheet({
   };
 
   const joinRequestCount = listActiveJoinRequestProposals(allProposals).length;
-  const canVote = memberDriven && isMember;
+  const awaitingMembership = memberDriven && isMember === null;
+  const canVote = memberDriven && isMember === true;
+  const settled = loadState === 'ready' && !awaitingMembership;
+  const showLoading =
+    loadState !== 'error' && (loadState === 'loading' || awaitingMembership);
   const profileIds = useMemo(() => {
     const ids = new Set<string>();
     for (const proposal of [...proposals, ...resolvedProposals]) {
@@ -393,6 +405,13 @@ export function GuildProposalsSheet({
     return [...ids];
   }, [proposals, resolvedProposals]);
   const profiles = usePostAuthorProfiles(profileIds);
+  // The open sheet portals into the card already in the document. SSR has no
+  // document, so the first client render must stay empty until after hydrate.
+  const clientMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
   const votersTargetName = (() => {
     if (!votersFor) return null;
     const targetId = guildProposalPresentation(
@@ -401,11 +420,15 @@ export function GuildProposalsSheet({
     return targetId ? (profiles[targetId]?.displayName ?? null) : null;
   })();
 
-  const subtitle = canVote
-    ? 'Support or oppose active governance items.'
-    : memberDriven
-      ? 'Join this guild to vote on proposals.'
-      : 'Active governance items excluding join requests.';
+  const subtitle = awaitingMembership
+    ? undefined
+    : canVote
+      ? 'Support or oppose active governance items.'
+      : memberDriven
+        ? 'Join this guild to vote on proposals.'
+        : 'Active governance items excluding join requests.';
+
+  if (!clientMounted) return null;
 
   return (
     <>
@@ -434,7 +457,7 @@ export function GuildProposalsSheet({
             </OsRowAction>
           ) : null}
 
-          {loadState === 'loading' ? (
+          {showLoading ? (
             <div className="guild-manage-sheet-state">
               <PulsingDots size="sm" />
             </div>
@@ -449,7 +472,7 @@ export function GuildProposalsSheet({
             </div>
           ) : null}
 
-          {loadState === 'ready' &&
+          {settled &&
           proposals.length === 0 &&
           resolvedProposals.length === 0 ? (
             <div className="guild-manage-sheet-empty">
@@ -462,13 +485,13 @@ export function GuildProposalsSheet({
             </div>
           ) : null}
 
-          {loadState === 'ready' &&
+          {settled &&
           proposals.length === 0 &&
           resolvedProposals.length > 0 ? (
             <p className="guild-proposals-section-note">No active proposals</p>
           ) : null}
 
-          {loadState === 'ready' && proposals.length > 0 ? (
+          {settled && proposals.length > 0 ? (
             <OsProposalCardList className="guild-proposal-list">
               {proposals.map((proposal) => (
                 <GuildProposalCard
@@ -493,7 +516,7 @@ export function GuildProposalsSheet({
             </OsProposalCardList>
           ) : null}
 
-          {loadState === 'ready' && resolvedProposals.length > 0 ? (
+          {settled && resolvedProposals.length > 0 ? (
             <>
               <Divider
                 variant="detail"

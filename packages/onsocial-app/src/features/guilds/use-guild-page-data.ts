@@ -93,6 +93,8 @@ export function useGuildPageData({
   shellPreview: GuildShellCacheEntry | null;
   shellExtrasResolved: boolean;
   viewerAccessResolved: boolean;
+  /** True once the indexer membership row says this viewer is a member. */
+  indexedMemberHint: boolean;
   feedPending: boolean;
   hasMorePosts: boolean;
   loadingMore: boolean;
@@ -181,6 +183,8 @@ export function useGuildPageData({
   );
   /** ACL resolved — separate from shell paint so join/leave never guess. */
   const [viewerAccessResolved, setViewerAccessResolved] = useState(false);
+  /** Indexer membership row landed — paint member chrome before chain ACL. */
+  const [indexedMemberHint, setIndexedMemberHint] = useState(false);
   const [feedPending, setFeedPending] = useState(
     () => !initial && !readGuildFeedCache(groupId, 'all')
   );
@@ -329,6 +333,7 @@ export function useGuildPageData({
             isMember: true,
             joinPending: false,
           });
+          setIndexedMemberHint(true);
         }
       } catch {
         // Cache hint is best-effort.
@@ -809,6 +814,7 @@ export function useGuildPageData({
       moderation: null,
     }));
     setViewerAccessResolved(false);
+    setIndexedMemberHint(false);
     const softSsr =
       ssrGroupIdRef.current === groupId && Boolean(initialRef.current);
     if (!softSsr) {
@@ -1021,6 +1027,7 @@ export function useGuildPageData({
     shellPreview,
     shellExtrasResolved,
     viewerAccessResolved,
+    indexedMemberHint,
     feedPending,
     hasMorePosts,
     loadingMore,
