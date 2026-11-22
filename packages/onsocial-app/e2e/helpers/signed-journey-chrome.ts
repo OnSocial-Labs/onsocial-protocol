@@ -10,6 +10,7 @@ import {
   dismissNextDevOverlay,
   expectPortfolioIdentityOrSkip,
   gotoApp,
+  settledNode,
   waitForPortfolioClientReady,
 } from './navigation';
 
@@ -83,12 +84,17 @@ export async function expectSignedVisitorGestures(
   page: Page,
   target = signedChromeTargetAccount()
 ): Promise<void> {
-  await expect(page.locator('.portfolio-name')).not.toHaveText(target);
-  await expect(page.locator('.portfolio-handle')).toHaveText(`@${target}`);
-  const row = page.locator('.portfolio-identity-gesture-row').first();
+  // Soft-nav can leave a second face. Scope to main, same as portfolio identity.
+  const identity = page
+    .getByRole('main')
+    .locator('.portfolio-identity')
+    .first();
+  await expect(identity.locator('.portfolio-name')).not.toHaveText(target);
+  await expect(identity.locator('.portfolio-handle')).toHaveText(`@${target}`);
+  const row = identity.locator('.portfolio-identity-gesture-row').first();
   await expect(row).toBeVisible({ timeout: 15_000 });
   await expect(
-    page.locator('.portfolio-identity-gesture-row--loading')
+    identity.locator('.portfolio-identity-gesture-row--loading')
   ).toHaveCount(0);
   await expect(row.getByRole('button', { name: /^Stand with / })).toBeVisible();
   await expect(row.getByText('Stand', { exact: true })).toBeVisible();
@@ -97,9 +103,11 @@ export async function expectSignedVisitorGestures(
   await expect(row.getByRole('button', { name: /^Message / })).toBeVisible();
   await expect(page.getByText('Connect wallet')).toHaveCount(0);
   await expect(
-    page.locator('.portfolio-summon-account.is-connect')
+    settledNode(page, '.portfolio-summon-account.is-connect')
   ).toHaveCount(0);
-  await expect(page.locator('.portfolio-summon-account.is-you')).toBeVisible();
+  await expect(
+    settledNode(page, '.portfolio-summon-account.is-you')
+  ).toBeVisible();
 }
 
 /** Face Endorse sheet for a painted visitor — submit chrome, no writes. */
