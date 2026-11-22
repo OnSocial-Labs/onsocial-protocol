@@ -25,7 +25,7 @@ export function EndorsementMediaStrip({
   onActivate?: () => void;
 }) {
   const [audioOpen, setAudioOpen] = useState(false);
-  const audioMounted = useSheetMounted(audioOpen);
+  const audioSheet = useSheetMounted(audioOpen);
   const isAudio = isRenderablePostAudioMime(item.mime);
   const playables: ScarcePlayableMedia[] = useMemo(() => {
     if (!isAudio || !item.url) return [];
@@ -51,10 +51,13 @@ export function EndorsementMediaStrip({
           playables.length > 0 ? () => setAudioOpen(true) : undefined
         }
       />
-      {audioMounted ? (
+      {audioSheet.mounted ? (
         <ScarceFeedMediumSheet
           open={audioOpen}
-          onOpenChange={setAudioOpen}
+          onOpenChange={(next) => {
+            setAudioOpen(next);
+            if (!next) audioSheet.onClosed();
+          }}
           mode="audio"
           title={title}
           playables={playables}

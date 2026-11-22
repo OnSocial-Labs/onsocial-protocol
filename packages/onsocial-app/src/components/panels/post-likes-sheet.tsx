@@ -12,6 +12,8 @@ import { SHEET_Z } from '@/lib/sheet-z';
 export type PostLikesSheetProps = {
   open: boolean;
   onClose: () => void;
+  /** After the leave animation — parents unmount with `useSheetMounted`. */
+  onClosed?: () => void;
   postOwner: string;
   postId: string;
   groupId?: string | null;
@@ -52,6 +54,7 @@ function seedLikerIds(input: {
 export function PostLikesSheet({
   open,
   onClose,
+  onClosed,
   postOwner,
   postId,
   groupId = null,
@@ -147,6 +150,7 @@ export function PostLikesSheet({
     <ScarceFansSheet
       open={open}
       onClose={onClose}
+      onClosed={onClosed}
       fanIds={likerIds}
       fanCount={likeCount}
       dropTitle={title}

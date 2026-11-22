@@ -148,6 +148,7 @@ function formatVideoTime(seconds: number): string {
 export function FeedPhotoEnlargeScreen({
   open,
   onOpenChange,
+  onClosed,
   title,
   caption = null,
   captionDate = null,
@@ -172,6 +173,8 @@ export function FeedPhotoEnlargeScreen({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** After leave — parents drop the tree (overlay-idle). */
+  onClosed?: () => void;
   title: string;
   /** Full post body — film shows a 2-line peek; tap expands in place. */
   caption?: string | null;
@@ -406,6 +409,16 @@ export function FeedPhotoEnlargeScreen({
     hiddenThumbRef.current = null;
     if (el) el.style.visibility = '';
   }, []);
+
+  // Overlay-idle drops this tree on leave. Shell leave (~280ms) can beat the
+  // zoom-exit settle (~250ms + rAF), cancelling the timer without restore —
+  // always clear the shared-element hide on unmount so the card thumb cannot
+  // stick at visibility:hidden.
+  useEffect(() => {
+    return () => {
+      restoreHiddenThumb();
+    };
+  }, [restoreHiddenThumb]);
 
   /* Thumbnail → stage shared-element flight (still photos, full motion). */
   useLayoutEffect(() => {
@@ -1569,6 +1582,7 @@ export function FeedPhotoEnlargeScreen({
         open={open}
         faceOwnerId={faceOwnerId}
         onClose={handleClose}
+        onClosed={onClosed}
         onBeforeClose={handleBeforeShellClose}
         title={title}
         quietTitle

@@ -31,6 +31,8 @@ export type OsMediaFaceShellProps = {
    * nested thread and would leave the film up.
    */
   onLeave?: () => void;
+  /** After the exit slide — parents drop the tree (overlay-idle). */
+  onClosed?: () => void;
   /**
    * Called when the shell's own close controls (× / Escape) start the exit
    * slide — a last chance to measure the stage before it unmounts (e.g.
@@ -112,6 +114,7 @@ export function OsMediaFaceShell({
   open,
   onClose,
   onLeave,
+  onClosed,
   onBeforeClose,
   title,
   faceTitle = null,
@@ -200,6 +203,7 @@ export function OsMediaFaceShell({
     <OsSlideOverScreen
       open={open}
       onClose={onClose}
+      onClosed={onClosed}
       onBeforeClose={onBeforeClose}
       title={dialogName}
       hideNav={!screenHeader}

@@ -391,6 +391,7 @@ function BookReaderShareAction({
 export function WritingReadSheet({
   open,
   onClose,
+  onClosed,
   title,
   cover = null,
   coverSvg = null,
@@ -412,6 +413,8 @@ export function WritingReadSheet({
 }: {
   open: boolean;
   onClose: () => void;
+  /** After the exit slide — parents drop the tree (overlay-idle). */
+  onClosed?: () => void;
   title: string;
   cover?: string | null;
   coverSvg?: string | null;
@@ -561,6 +564,7 @@ export function WritingReadSheet({
     <OsSlideOverScreen
       open={open}
       onClose={requestClose}
+      onClosed={onClosed}
       title={dialogName}
       heading={<></>}
       immersiveHeader

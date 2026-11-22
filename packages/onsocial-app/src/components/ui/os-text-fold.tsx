@@ -76,6 +76,7 @@ export function OsTextFold({
 
   const onOverflowRef = useRef(onOverflow);
   const lastOverflowRef = useRef<boolean | null>(null);
+  const lastScrollHeightRef = useRef<number | null>(null);
 
   useEffect(() => {
     onOverflowRef.current = onOverflow;
@@ -87,19 +88,20 @@ export function OsTextFold({
     const inner = innerRef.current;
     if (!host || !clip || !inner) return;
 
+    const scrollHeight = inner.scrollHeight;
     const text =
       inner.firstElementChild instanceof HTMLElement
         ? inner.firstElementChild
         : inner;
     const lineHeight = resolveLineHeight(getComputedStyle(text));
     const peekPx = textFoldPeekPx(lineHeight, closedLines);
-    const overflows = textFoldOverflows(inner.scrollHeight, peekPx);
+    const overflows = textFoldOverflows(scrollHeight, peekPx);
 
     // Capped folds keep the CSS `--os-fold-lines` seat on first paint.
     // Measure only drives open height + overflow ink — never rewrite the
     // closed seat (px vs em mismatch) or flip it to `auto`.
     if (capped) {
-      const openPx = Math.ceil(inner.scrollHeight);
+      const openPx = Math.ceil(scrollHeight);
       if (host.style.getPropertyValue('--os-reveal-closed')) {
         host.style.removeProperty('--os-reveal-closed');
       }
@@ -112,6 +114,7 @@ export function OsTextFold({
       }
     }
 
+    lastScrollHeightRef.current = scrollHeight;
     if (lastOverflowRef.current !== overflows) {
       lastOverflowRef.current = overflows;
       onOverflowRef.current?.(overflows);
@@ -120,6 +123,7 @@ export function OsTextFold({
 
   useLayoutEffect(() => {
     lastOverflowRef.current = null;
+    lastScrollHeightRef.current = null;
     sync();
   }, [contentKey, capped, closedLines, sync]);
 
@@ -127,6 +131,8 @@ export function OsTextFold({
     const inner = innerRef.current;
     if (!inner || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(() => {
+      const height = inner.scrollHeight;
+      if (lastScrollHeightRef.current === height) return;
       sync();
     });
     observer.observe(inner);

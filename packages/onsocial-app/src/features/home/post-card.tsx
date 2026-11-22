@@ -427,16 +427,16 @@ function PostCardImpl({
     useState<FeedPhotoZoomOrigin | null>(null);
   /** Mood / craft article — slide-over reader (stays on feed). */
   const [articleOpen, setArticleOpen] = useState(false);
-  // Nine overlays sit under every card; mount each on first open only.
-  const amplifySheetMounted = useSheetMounted(amplifyOpen);
-  const listScarceSheetMounted = useSheetMounted(listScarceOpen);
-  const buyScarceSheetMounted = useSheetMounted(buyScarceOpen);
-  const bidScarceSheetMounted = useSheetMounted(bidScarceOpen);
-  const transferScarceSheetMounted = useSheetMounted(transferScarceOpen);
-  const sellScarceSheetMounted = useSheetMounted(sellScarceOpen);
-  const feedMediumSheetMounted = useSheetMounted(feedMediumOpen);
-  const photoScreenMounted = useSheetMounted(photoOpen);
-  const articleScreenMounted = useSheetMounted(articleOpen);
+  // Overlays mount on open and drop after leave — idle cards keep zero trees.
+  const amplifySheet = useSheetMounted(amplifyOpen);
+  const listScarceSheet = useSheetMounted(listScarceOpen);
+  const buyScarceSheet = useSheetMounted(buyScarceOpen);
+  const bidScarceSheet = useSheetMounted(bidScarceOpen);
+  const transferScarceSheet = useSheetMounted(transferScarceOpen);
+  const sellScarceSheet = useSheetMounted(sellScarceOpen);
+  const feedMediumSheet = useSheetMounted(feedMediumOpen);
+  const photoScreen = useSheetMounted(photoOpen);
+  const articleScreen = useSheetMounted(articleOpen);
   /** Shared drop whose essay lives on another post. */
   const [feedReadEssay, setFeedReadEssay] = useState<PostRow | null>(null);
   const [feedBookRead, setFeedBookRead] = useState(false);
@@ -1706,7 +1706,7 @@ function PostCardImpl({
             : {})}
         />
       </div>
-      {amplifySheetMounted ? (
+      {amplifySheet.mounted ? (
         <PostAmplifySheet
           open={amplifyOpen}
           post={amplifyOpen ? post : null}
@@ -1716,31 +1716,40 @@ function PostCardImpl({
             dropPaint?.title?.trim() ||
             null
           }
-          onOpenChange={setAmplifyOpen}
+          onOpenChange={(next) => {
+            setAmplifyOpen(next);
+            if (!next) amplifySheet.onClosed();
+          }}
           onAmplified={(amplified, detail) =>
             onAmplifyConfirmed?.(amplified, detail)
           }
           zIndex={actionZ}
         />
       ) : null}
-      {listScarceSheetMounted ? (
+      {listScarceSheet.mounted ? (
         <ScarceListSheet
           open={listScarceOpen}
           post={listScarceOpen ? post : null}
           authorName={authorProfile?.displayName}
-          onOpenChange={setListScarceOpen}
+          onOpenChange={(next) => {
+            setListScarceOpen(next);
+            if (!next) listScarceSheet.onClosed();
+          }}
           onListed={() => retryScarceEmbed()}
           zIndex={actionZ}
         />
       ) : null}
-      {buyScarceSheetMounted ? (
+      {buyScarceSheet.mounted ? (
         <ScarceBuySheet
           open={buyScarceOpen}
           post={buyScarceOpen ? post : null}
           authorName={authorProfile?.displayName}
           embed={scarceEmbed}
           alreadyOwnsEdition={Boolean(ownedScarceItem)}
-          onOpenChange={setBuyScarceOpen}
+          onOpenChange={(next) => {
+            setBuyScarceOpen(next);
+            if (!next) buyScarceSheet.onClosed();
+          }}
           onPurchased={() => {
             retryScarceEmbed();
             refreshOwnedScarce();
@@ -1748,23 +1757,29 @@ function PostCardImpl({
           zIndex={actionZ}
         />
       ) : null}
-      {bidScarceSheetMounted ? (
+      {bidScarceSheet.mounted ? (
         <ScarceBidSheet
           open={bidScarceOpen}
           post={bidScarceOpen ? post : null}
           authorName={authorProfile?.displayName}
           embed={scarceEmbed}
-          onOpenChange={setBidScarceOpen}
+          onOpenChange={(next) => {
+            setBidScarceOpen(next);
+            if (!next) bidScarceSheet.onClosed();
+          }}
           onBid={() => retryScarceEmbed()}
           zIndex={actionZ}
         />
       ) : null}
-      {transferScarceSheetMounted ? (
+      {transferScarceSheet.mounted ? (
         <ScarceTransferSheet
           open={transferScarceOpen && ownedScarceItem != null}
           item={ownedScarceItem}
           ownerAccountId={viewerAccountId}
-          onOpenChange={setTransferScarceOpen}
+          onOpenChange={(next) => {
+            setTransferScarceOpen(next);
+            if (!next) transferScarceSheet.onClosed();
+          }}
           onTransferred={() => {
             setTransferScarceOpen(false);
             retryScarceEmbed();
@@ -1773,12 +1788,15 @@ function PostCardImpl({
           zIndex={actionZ}
         />
       ) : null}
-      {sellScarceSheetMounted ? (
+      {sellScarceSheet.mounted ? (
         <ScarceSellSheet
           open={sellScarceOpen && ownedScarceItem != null}
           item={ownedScarceItem}
           sellerAccountId={viewerAccountId}
-          onOpenChange={setSellScarceOpen}
+          onOpenChange={(next) => {
+            setSellScarceOpen(next);
+            if (!next) sellScarceSheet.onClosed();
+          }}
           onListed={() => {
             setSellScarceOpen(false);
             retryScarceEmbed();
@@ -1787,7 +1805,7 @@ function PostCardImpl({
           zIndex={actionZ}
         />
       ) : null}
-      {photoScreenMounted ? (
+      {photoScreen.mounted ? (
         <FeedPhotoEnlargeScreen
           open={photoOpen}
           onOpenChange={(open) => {
@@ -1797,6 +1815,7 @@ function PostCardImpl({
               setPhotoThreadOpen(false);
             }
           }}
+          onClosed={photoScreen.onClosed}
           title={enlargeTitle}
           onActiveIndexChange={handleFacePhotoIndex}
           peekIdentity={mediaPeekIdentity}
@@ -1863,7 +1882,7 @@ function PostCardImpl({
           }
         />
       ) : null}
-      {articleScreenMounted ? (
+      {articleScreen.mounted ? (
         <FeedArticleReadScreen
           open={articleOpen}
           onOpenChange={(next) => {
@@ -1879,6 +1898,7 @@ function PostCardImpl({
               setPhotoThreadOpen(false);
             }
           }}
+          onClosed={articleScreen.onClosed}
           post={showDropEssay ? feedReadEssay! : post}
           authorProfile={
             showDropEssay
@@ -1941,14 +1961,17 @@ function PostCardImpl({
           }
         />
       ) : null}
-      {feedMediumSheetMounted ? (
+      {feedMediumSheet.mounted ? (
         <ScarceFeedMediumSheet
           key={mediumEpoch}
           open={feedMediumOpen}
           onOpenChange={(next) => {
             setFeedMediumOpen(next);
-            if (!next) setPhotoThreadOpen(false);
+            if (!next) {
+              setPhotoThreadOpen(false);
+            }
           }}
+          onClosed={feedMediumSheet.onClosed}
           mode={feedMediumMode}
           threadOpen={photoThreadOpen}
           onDismissThread={dismissPhotoThread}
