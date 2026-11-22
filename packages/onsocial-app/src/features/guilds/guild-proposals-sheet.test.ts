@@ -289,7 +289,6 @@ function MembershipSurface({
   accountId: string;
   groupId: string;
 }) {
-  wallet.accountId = accountId;
   const data = useGuildPageData({
     groupId,
     initial: guildSeed(groupId),
@@ -365,6 +364,7 @@ describe('indexer membership hint yields to chain ACL', () => {
       }
       return Promise.resolve(null);
     };
+    wallet.accountId = 'visitor.testnet';
     let renderer: ReactTestRenderer;
     await act(async () => {
       renderer = create(
@@ -395,6 +395,7 @@ describe('indexer membership hint yields to chain ACL', () => {
       if (accountId === 'alice.testnet') return aliceMembership;
       return new Promise(() => {});
     };
+    wallet.accountId = 'alice.testnet';
     let renderer: ReactTestRenderer;
     await act(async () => {
       renderer = create(
@@ -404,6 +405,7 @@ describe('indexer membership hint yields to chain ACL', () => {
         })
       );
     });
+    wallet.accountId = 'bob.testnet';
     await act(async () => {
       renderer!.update(
         createElement(MembershipSurface, {
