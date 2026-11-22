@@ -52,6 +52,21 @@ export function salePartyLead(
     : false;
 }
 
+/** Row label. A raw edition id is not a title — same quiet word as an untitled scarce. */
+function marketSaleRowTitle(
+  sale: Pick<MarketSaleItem, 'title' | 'tokenId'>
+): string {
+  const title = sale.title.trim();
+  const tokenId = sale.tokenId?.trim() || '';
+  if (
+    !title ||
+    (tokenId && title === tokenId && collectionIdFromTokenId(tokenId))
+  ) {
+    return 'Scarce';
+  }
+  return title;
+}
+
 function formatSalePriceNear(priceNear: string, fractionDigits: 2 | 4): string {
   const n = Number.parseFloat(priceNear);
   if (!Number.isFinite(n)) return priceNear;
@@ -95,7 +110,7 @@ export function MarketSaleRow({
     ? marketPostLayerLinkHandlers(detail.href, openMarketPost)
     : null;
   const priceLine = marketSalePriceLabel(sale);
-  const title = sale.title.trim() || 'Scarce';
+  const title = marketSaleRowTitle(sale);
   const thumbClass = `market-listing-thumb${sale.mediaUrl ? ' has-media' : ''}`;
   const thumbArt = sale.mediaUrl ? (
     <CatalogThumbImage src={sale.mediaUrl} />
@@ -161,9 +176,7 @@ export function MarketSaleRow({
             {priceLine || sale.quantity ? (
               <p className="market-listing-meta market-listing-meta--price">
                 <QuantityCount quantity={sale.quantity} verb="minted" />
-                {sale.quantity && sale.quantity > 1 && priceLine
-                  ? ' · '
-                  : null}
+                {sale.quantity && sale.quantity > 1 && priceLine ? ' · ' : null}
                 {priceLine ? (
                   <span className="market-listing-price">{priceLine}</span>
                 ) : null}
