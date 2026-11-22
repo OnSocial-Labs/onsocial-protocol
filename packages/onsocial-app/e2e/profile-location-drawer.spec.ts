@@ -125,15 +125,30 @@ test.describe('profile location drawer', () => {
     await editor.getByRole('button', { name: 'Location, Based in' }).click();
     const drawer = page.getByRole('dialog', { name: 'Location' });
     await expect(drawer).toBeVisible();
+    // Hug enter arms after layout, so one frame can sample before the
+    // animation exists and `getAnimations()` is empty.
     const oldWait = await drawer.evaluate(async (panel) => {
-      panel.classList.add('glass-sheet-panel--enter');
-      await new Promise((resolve) => {
-        requestAnimationFrame(() => resolve(undefined));
-      });
-      const pending = panel
-        .getAnimations()
-        .map((animation) => animation.finished);
-      for (const animation of panel.getAnimations()) animation.cancel();
+      const deadline = performance.now() + 4_000;
+      const runningEnter = () =>
+        panel.getAnimations({ subtree: false }).filter((animation) => {
+          const named = animation as Animation & { animationName?: string };
+          const name =
+            typeof named.animationName === 'string' ? named.animationName : '';
+          return (
+            (name === 'glass-sheet-enter' || name === 'glass-sheet-appear') &&
+            animation.playState === 'running'
+          );
+        });
+      let running = runningEnter();
+      while (running.length === 0 && performance.now() < deadline) {
+        panel.classList.add('glass-sheet-panel--enter');
+        await new Promise((resolve) => {
+          requestAnimationFrame(() => resolve(undefined));
+        });
+        running = runningEnter();
+      }
+      const pending = running.map((animation) => animation.finished);
+      for (const animation of running) animation.cancel();
       if (pending.length === 0) return 'empty';
       try {
         await Promise.all(pending);

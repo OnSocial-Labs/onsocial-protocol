@@ -13,7 +13,9 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   timeout: 60_000,
-  reporter: process.env.CI ? 'github' : 'list',
+  reporter: process.env.CI
+    ? [['github'], ['./e2e/reporters/skip-reasons.ts']]
+    : 'list',
   use: {
     baseURL,
     trace: 'on-first-retry',
