@@ -78,4 +78,49 @@ describe('fetchDaoRolesClient cache bound', () => {
     await fetchDaoRolesClient('s0.near');
     expect(fetchMock).toHaveBeenCalledTimes(DAO_ROLES_CLIENT_CACHE_MAX + 2);
   });
+
+  it('keeps the newer inflight when an evicted fetch rejects', async () => {
+    let rejectFirst: ((error: Error) => void) | undefined;
+    let resolveSecond: ((response: Response) => void) | undefined;
+    let firstFetches = 0;
+    const fetchMock = vi.fn((input: RequestInfo) => {
+      const accountId = new URL(String(input), 'http://local').searchParams.get(
+        'accountId'
+      );
+      if (accountId === 'first.near') {
+        firstFetches += 1;
+        if (firstFetches === 1) {
+          return new Promise<Response>((_resolve, reject) => {
+            rejectFirst = reject;
+          });
+        }
+        return new Promise<Response>((resolve) => {
+          resolveSecond = resolve;
+        });
+      }
+      return Promise.resolve(rolesResponse(accountId ?? ''));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const first = fetchDaoRolesClient('first.near');
+    for (let i = 0; i < DAO_ROLES_CLIENT_CACHE_MAX; i += 1) {
+      await fetchDaoRolesClient(`pad${i}.near`);
+    }
+    const second = fetchDaoRolesClient('first.near');
+    if (!rejectFirst) throw new Error('first fetch did not start');
+    rejectFirst(new Error('first fetch failed'));
+    await first;
+
+    const joined = fetchDaoRolesClient('first.near');
+    expect(firstFetches).toBe(2);
+    if (!resolveSecond) throw new Error('second fetch did not start');
+    resolveSecond(rolesResponse('first.near'));
+    await expect(second).resolves.toMatchObject({
+      daoRoleIds: ['first.near'],
+    });
+    await expect(joined).resolves.toMatchObject({
+      daoRoleIds: ['first.near'],
+    });
+    expect(firstFetches).toBe(2);
+  });
 });

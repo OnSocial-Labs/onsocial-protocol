@@ -137,6 +137,13 @@ export async function fetchDaoRolesClient(
 
   let inflight = hit?.inflight;
   if (!inflight) {
+    // Identity of this request's placeholder. A later cap eviction can
+    // replace it; the settled write and the error delete must not touch
+    // that newer entry.
+    const placeholder: CacheEntry = {
+      at: now,
+      value: hit?.value ?? emptyPayload(accountId),
+    };
     inflight = (async (): Promise<DaoRolesClientPayload> => {
       try {
         // Shared request — never bind a single consumer’s AbortSignal here.
@@ -174,19 +181,18 @@ export async function fetchDaoRolesClient(
             proposer: parseProposerFlags(body?.memberships?.proposer),
           },
         };
-        rememberDaoRoles(key, { at: Date.now(), value });
+        if (cache.get(key) === placeholder) {
+          rememberDaoRoles(key, { at: Date.now(), value });
+        }
         return value;
       } catch (error) {
-        cache.delete(key);
+        if (cache.get(key) === placeholder) cache.delete(key);
         throw error;
       }
     })();
+    placeholder.inflight = inflight;
 
-    rememberDaoRoles(key, {
-      at: now,
-      value: hit?.value ?? emptyPayload(accountId),
-      inflight,
-    });
+    rememberDaoRoles(key, placeholder);
   }
 
   try {
