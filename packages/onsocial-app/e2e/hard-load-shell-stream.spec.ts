@@ -70,12 +70,19 @@ function classListHas(tag: string, className: string): boolean {
   return match[1].split(/\s+/).includes(className);
 }
 
-/** Busy create shell from `loading.tsx`, not the settled `<form>`. */
-function countBusyDropShells(html: string): number {
+/** Server-drawn create form, not the busy `loading.tsx` div. */
+function readyDropForms(html: string): string[] {
   return openingTags(html).filter(
     (tag) =>
-      classListHas(tag, 'drop-create-form') && tag.includes('aria-busy="true"')
-  ).length;
+      tag.startsWith('<form') &&
+      tag.includes('id="drop-create-form"') &&
+      classListHas(tag, 'drop-create-form')
+  );
+}
+
+function tagAttr(tag: string, name: string): string | null {
+  const match = new RegExp(`\\s${name}="([^"]*)"`).exec(tag);
+  return match?.[1] ?? null;
 }
 
 /** Pending portfolio frame from `loading.tsx`, not the settled face. */
@@ -98,24 +105,35 @@ async function readShellStream(page: Page): Promise<ShellStream> {
 }
 
 test.describe('hard-load streamed shells', () => {
-  test('hard load of /drops/create keeps one drop shell', async ({
+  test('hard load of /drops/create draws one form and drops the busy shell', async ({
     page,
     request,
   }) => {
     const response = await request.get('/drops/create');
     expect(response.ok()).toBe(true);
-    expect(countBusyDropShells(await response.text())).toBe(1);
+    expect(readyDropForms(await response.text())).toHaveLength(1);
 
-    await page.addInitScript(installShellStreamObserver);
     await gotoApp(page, '/drops/create');
-    const stream = await readShellStream(page);
-    expect(stream.dropCreateForm).toBe(1);
-
+    const busy = await page.evaluate(
+      () =>
+        document.querySelectorAll('.drop-create-form[aria-busy="true"]').length
+    );
+    expect(busy).toBe(0);
     const form = page.locator('form#drop-create-form');
     await expect(form).toHaveCount(1);
     await expect(form).toHaveAttribute('data-drop-create-ready', '', {
       timeout: E2E_CHROME_TIMEOUT_MS,
     });
+  });
+
+  test('hard load of /drops/create?series= prefills the server form', async ({
+    request,
+  }) => {
+    const response = await request.get('/drops/create?series=Night+Roads');
+    expect(response.ok()).toBe(true);
+    const forms = readyDropForms(await response.text());
+    expect(forms).toHaveLength(1);
+    expect(tagAttr(forms[0]!, 'data-drop-create-series')).toBe('Night Roads');
   });
 
   test('hard load of /@alice.testnet keeps one portfolio shell', async ({

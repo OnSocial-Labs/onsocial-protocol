@@ -10,7 +10,7 @@ import {
   type FocusEvent,
   type FormEvent,
 } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import './drop-create-spacing.css';
 import {
   DiscardConfirmSheet,
@@ -216,12 +216,7 @@ import {
 import { ScarceRoyaltyField } from '@/features/scarces/scarce-royalty-field';
 import { finalizeAmountInput } from '@/lib/amount-input';
 import { nearToYocto } from '@/lib/app-near-rpc';
-import {
-  DROP_CREATE_SERIES_PARAM,
-  MARKET_APP_PARAM,
-  collectionPath,
-  dropCreateBackHref,
-} from '@/lib/app-routes';
+import { collectionPath, dropCreateBackHref } from '@/lib/app-routes';
 import { DROP_STUDIO_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { DROP_CREATE_FORM_CLASS } from '@/lib/os-create-page';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
@@ -297,15 +292,22 @@ function slugify(value: string): string {
     .slice(0, 32);
 }
 
-export function CreateDropPanel() {
+export function CreateDropPanel({
+  app = '',
+  series = '',
+  template: templateProp = '',
+}: {
+  app?: string;
+  series?: string;
+  template?: string;
+} = {}) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const appId = searchParams.get(MARKET_APP_PARAM)?.trim() ?? '';
-  const seriesQuery = searchParams.get(DROP_CREATE_SERIES_PARAM)?.trim() ?? '';
+  const appId = app.trim();
+  const seriesQuery = series.trim();
   const { accountId, isConnected, isLoading, connect, getSigningWallet } =
     useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
-  const templateQuery = searchParams.get('template')?.trim() ?? '';
+  const templateQuery = templateProp.trim();
   const [templateId, setTemplateId] = useState<DropTemplateId>(
     templateQuery === 'ticket' ? 'ticket' : 'art'
   );
@@ -385,7 +387,7 @@ export function CreateDropPanel() {
   const [studioHelpOpen, setStudioHelpOpen] = useState(false);
   const [design, setDesign] = useState<BuilderDesignSummary | null>(null);
   const builderRef = useRef<GenerativeBuilderHandle>(null);
-  const [seriesName, setSeriesName] = useState('');
+  const [seriesName, setSeriesName] = useState(() => seriesQuery.slice(0, 48));
   const [pending, setPending] = useState(false);
   /** Upload pins first (album tracks); wallet sign stays a separate label. */
   const [pendingLabel, setPendingLabel] = useState('Publishing…');
@@ -3810,154 +3812,150 @@ export function CreateDropPanel() {
             id={fieldId('advanced-panel')}
             className="drop-create-advanced-reveal"
           >
-                {isWriting && writingFormat === 'book' && bookPdfInMore ? (
-                  <div
-                    className="drop-create-attach"
-                    data-drop-create-attach="book-pdf"
-                  >
-                    {bookPdfFile ? (
-                      <p className="drop-create-attach-hint">
-                        {bookPdfFile.name}
-                      </p>
-                    ) : pinnedWriting?.hasBookPdf ? (
-                      <p className="drop-pin-resume-detail">
-                        PDF pinned · ready to sign
-                      </p>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          className="collection-allowlist-toggle drop-create-attach-action"
-                          disabled={pending}
-                          onClick={() => bookPdfInputRef.current?.click()}
-                        >
-                          {dropCreateAttachAction('pdf')}
-                        </button>
-                        <p className="drop-create-attach-hint">
-                          Optional · holders download the full book · ≤20 MB
-                        </p>
-                      </>
-                    )}
-                    {bookPdfFile || pinnedWriting?.hasBookPdf ? (
-                      <div
-                        className="app-storage-presets"
-                        role="group"
-                        aria-label="Book PDF actions"
-                      >
-                        <button
-                          type="button"
-                          className="os-surface-chip"
-                          disabled={pending}
-                          onClick={() => bookPdfInputRef.current?.click()}
-                        >
-                          {bookPdfFile
-                            ? 'Replace'
-                            : dropCreateAttachAction('pdf')}
-                        </button>
-                        {bookPdfFile ? (
-                          <button
-                            type="button"
-                            className="os-surface-chip"
-                            disabled={pending}
-                            onClick={() => {
-                              setBookPdfFile(null);
-                              setError(null);
-                            }}
-                          >
-                            Clear
-                          </button>
-                        ) : null}
-                      </div>
-                    ) : null}
-                    <input
-                      ref={bookPdfInputRef}
-                      type="file"
-                      accept="application/pdf,.pdf"
-                      className="scarce-cover-file-input"
-                      tabIndex={-1}
-                      aria-hidden
+            {isWriting && writingFormat === 'book' && bookPdfInMore ? (
+              <div
+                className="drop-create-attach"
+                data-drop-create-attach="book-pdf"
+              >
+                {bookPdfFile ? (
+                  <p className="drop-create-attach-hint">{bookPdfFile.name}</p>
+                ) : pinnedWriting?.hasBookPdf ? (
+                  <p className="drop-pin-resume-detail">
+                    PDF pinned · ready to sign
+                  </p>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="collection-allowlist-toggle drop-create-attach-action"
                       disabled={pending}
-                      onChange={onBookPdfChange}
-                    />
+                      onClick={() => bookPdfInputRef.current?.click()}
+                    >
+                      {dropCreateAttachAction('pdf')}
+                    </button>
+                    <p className="drop-create-attach-hint">
+                      Optional · holders download the full book · ≤20 MB
+                    </p>
+                  </>
+                )}
+                {bookPdfFile || pinnedWriting?.hasBookPdf ? (
+                  <div
+                    className="app-storage-presets"
+                    role="group"
+                    aria-label="Book PDF actions"
+                  >
+                    <button
+                      type="button"
+                      className="os-surface-chip"
+                      disabled={pending}
+                      onClick={() => bookPdfInputRef.current?.click()}
+                    >
+                      {bookPdfFile ? 'Replace' : dropCreateAttachAction('pdf')}
+                    </button>
+                    {bookPdfFile ? (
+                      <button
+                        type="button"
+                        className="os-surface-chip"
+                        disabled={pending}
+                        onClick={() => {
+                          setBookPdfFile(null);
+                          setError(null);
+                        }}
+                      >
+                        Clear
+                      </button>
+                    ) : null}
                   </div>
                 ) : null}
-                <DropCreateExtraList>
-                  {isTicket ? (
-                    <DropCreateExtraRow
-                      label={dropCreateExtraRowLabel('renewals', { isTicket })}
-                      value={dropCreateRenewalsSummary({
-                        on: renewable,
-                        isTicket,
-                      })}
-                      disabled={pending}
-                      onClick={() => setExtraSheet('renewals')}
-                    />
-                  ) : null}
-                  <DropCreateExtraRow
-                    label={dropCreateExtraRowLabel('dropId')}
-                    value={dropCreateDropIdSummary(slug)}
-                    disabled={pending}
-                    onClick={() => setExtraSheet('dropId')}
-                  />
-                  <DropCreateExtraRow
-                    label={dropCreateExtraRowLabel('series')}
-                    value={dropCreateOptionalSummary(seriesName)}
-                    disabled={pending}
-                    onClick={() => setExtraSheet('series')}
-                  />
-                  {createFacetMedium ? (
-                    <DropCreateExtraRow
-                      label={dropCreateExtraRowLabel('facets', {
-                        facetLabel: facetRowLabel,
-                      })}
-                      value={dropCreateFacetsSummary(facets, dropFacetLabel)}
-                      disabled={pending}
-                      onClick={() => setExtraSheet('facets')}
-                    />
-                  ) : null}
-                  <DropCreateExtraRow
-                    label={dropCreateExtraRowLabel('perWallet')}
-                    value={perWalletRowValue}
-                    disabled={pending}
-                    onClick={() => setExtraSheet('perWallet')}
-                  />
-                  <DropCreateExtraRow
-                    label={dropCreateExtraRowLabel('burnable')}
-                    value={burnableRowValue}
-                    disabled={pending}
-                    onClick={() => setExtraSheet('burnable')}
-                  />
-                  {!isTicket ? (
-                    <DropCreateExtraRow
-                      label={dropCreateExtraRowLabel('renewals', { isTicket })}
-                      value={dropCreateRenewalsSummary({
-                        on: renewable,
-                        isTicket,
-                        accessEndsLabel: accessEnds
-                          ? formatScheduleLabel(accessEnds)
-                          : '',
-                        requiresAccessEnd: Boolean(template.requiresAccessEnd),
-                      })}
-                      disabled={pending}
-                      onClick={() => setExtraSheet('renewals')}
-                    />
-                  ) : null}
-                  <DropCreateExtraRow
-                    label={dropCreateExtraRowLabel('allowlist')}
-                    value={dropCreateAllowlistSummary(
-                      draftAllowlist.length,
-                      Boolean(accountId)
-                    )}
-                    disabled={pending}
-                    onClick={() => {
-                      if (!accountId) {
-                        void connect();
-                        return;
-                      }
-                      setAllowlistSheetOpen(true);
-                    }}
-                  />
-                </DropCreateExtraList>
+                <input
+                  ref={bookPdfInputRef}
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  className="scarce-cover-file-input"
+                  tabIndex={-1}
+                  aria-hidden
+                  disabled={pending}
+                  onChange={onBookPdfChange}
+                />
+              </div>
+            ) : null}
+            <DropCreateExtraList>
+              {isTicket ? (
+                <DropCreateExtraRow
+                  label={dropCreateExtraRowLabel('renewals', { isTicket })}
+                  value={dropCreateRenewalsSummary({
+                    on: renewable,
+                    isTicket,
+                  })}
+                  disabled={pending}
+                  onClick={() => setExtraSheet('renewals')}
+                />
+              ) : null}
+              <DropCreateExtraRow
+                label={dropCreateExtraRowLabel('dropId')}
+                value={dropCreateDropIdSummary(slug)}
+                disabled={pending}
+                onClick={() => setExtraSheet('dropId')}
+              />
+              <DropCreateExtraRow
+                label={dropCreateExtraRowLabel('series')}
+                value={dropCreateOptionalSummary(seriesName)}
+                disabled={pending}
+                onClick={() => setExtraSheet('series')}
+              />
+              {createFacetMedium ? (
+                <DropCreateExtraRow
+                  label={dropCreateExtraRowLabel('facets', {
+                    facetLabel: facetRowLabel,
+                  })}
+                  value={dropCreateFacetsSummary(facets, dropFacetLabel)}
+                  disabled={pending}
+                  onClick={() => setExtraSheet('facets')}
+                />
+              ) : null}
+              <DropCreateExtraRow
+                label={dropCreateExtraRowLabel('perWallet')}
+                value={perWalletRowValue}
+                disabled={pending}
+                onClick={() => setExtraSheet('perWallet')}
+              />
+              <DropCreateExtraRow
+                label={dropCreateExtraRowLabel('burnable')}
+                value={burnableRowValue}
+                disabled={pending}
+                onClick={() => setExtraSheet('burnable')}
+              />
+              {!isTicket ? (
+                <DropCreateExtraRow
+                  label={dropCreateExtraRowLabel('renewals', { isTicket })}
+                  value={dropCreateRenewalsSummary({
+                    on: renewable,
+                    isTicket,
+                    accessEndsLabel: accessEnds
+                      ? formatScheduleLabel(accessEnds)
+                      : '',
+                    requiresAccessEnd: Boolean(template.requiresAccessEnd),
+                  })}
+                  disabled={pending}
+                  onClick={() => setExtraSheet('renewals')}
+                />
+              ) : null}
+              <DropCreateExtraRow
+                label={dropCreateExtraRowLabel('allowlist')}
+                value={dropCreateAllowlistSummary(
+                  draftAllowlist.length,
+                  Boolean(accountId)
+                )}
+                disabled={pending}
+                onClick={() => {
+                  if (!accountId) {
+                    void connect();
+                    return;
+                  }
+                  setAllowlistSheetOpen(true);
+                }}
+              />
+            </DropCreateExtraList>
           </CreateRevealPanel>
         </div>
 
