@@ -884,10 +884,11 @@ describe('skeleton batch D', () => {
     const signal = Array.from(ledger.host.querySelectorAll('span')).find(
       (node) => node.textContent === 'Stands with you'
     );
-    const signalBox = signal?.closest('.os-page-body-appear');
+    const signalBox = signal?.closest('.standing-row-signals');
     expect(signalBox).toBeTruthy();
-    expect(signalBox?.classList.contains('standing-row-signals')).toBe(true);
-    expect(signalBox?.querySelector('.standing-row-signals')).toBeNull();
+    expect(signalBox?.parentElement?.classList.contains('os-page-body-appear')).toBe(
+      true
+    );
     const name = Array.from(ledger.host.querySelectorAll('span')).find(
       (node) => node.textContent === 'Bob'
     );

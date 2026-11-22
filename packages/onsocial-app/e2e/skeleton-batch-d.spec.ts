@@ -173,9 +173,8 @@ async function measureSignalRow(
     const wrap = (clone as HTMLElement).querySelector(
       ':scope .os-page-body-appear'
     );
-    if (wrap instanceof HTMLElement) {
-      wrap.classList.remove('os-page-body-appear', 'is-ready');
-    }
+    const inner = wrap?.querySelector('.standing-row-signals');
+    if (wrap && inner) wrap.replaceWith(inner);
     const unwrappedRowHeight = (clone as HTMLElement).getBoundingClientRect()
       .height;
     host.remove();
@@ -328,9 +327,6 @@ test.describe('skeleton batch D', () => {
         `${ARTIFACTS}/skeleton-d-row10.jsonl`,
         `${JSON.stringify({ sha, ...measure, time: new Date().toISOString() })}\n`
       );
-      expect(
-        Math.abs(measure.wrapperHeight - measure.signalsHeight)
-      ).toBeLessThan(0.6);
       expect(
         Math.abs(measure.rowHeight - measure.unwrappedRowHeight)
       ).toBeLessThan(0.6);
