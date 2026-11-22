@@ -11,10 +11,22 @@ export type ListScrollMemory = {
   userAdjusted: boolean;
 };
 
-export function createListScrollMemory(savedTop: number): ListScrollMemory {
+export type ListScrollMemoryOptions = {
+  /**
+   * Treat a saved line of 0 as a restore to the top.
+   * Off by default: a fresh mount must not write scrollTop.
+   * Discover Profiles turns it on — that list shares a scroller with Moving.
+   */
+  restoreTop?: boolean;
+};
+
+export function createListScrollMemory(
+  savedTop: number,
+  options?: ListScrollMemoryOptions
+): ListScrollMemory {
   const saved = Number.isFinite(savedTop) && savedTop > 0 ? savedTop : 0;
   return {
-    pending: saved > 0 ? saved : null,
+    pending: saved > 0 ? saved : options?.restoreTop ? 0 : null,
     landed: saved,
     userAdjusted: false,
   };
@@ -22,9 +34,10 @@ export function createListScrollMemory(savedTop: number): ListScrollMemory {
 
 export function resetListScrollMemory(
   memory: ListScrollMemory,
-  savedTop: number
+  savedTop: number,
+  options?: ListScrollMemoryOptions
 ): void {
-  const next = createListScrollMemory(savedTop);
+  const next = createListScrollMemory(savedTop, options);
   memory.pending = next.pending;
   memory.landed = next.landed;
   memory.userAdjusted = next.userAdjusted;
@@ -51,8 +64,14 @@ export function applyListScrollRestore(
 ): boolean {
   const goal = Math.max(0, Math.round(target));
   if (goal <= 0) {
+    const lenis = getAppLenis(node);
+    if (lenis) {
+      lenis.resize();
+      lenis.scrollTo(0, { immediate: true, force: true });
+    }
+    if (node.scrollTop !== 0) node.scrollTop = 0;
     delete node.dataset.osScrollRestore;
-    return true;
+    return Math.abs(node.scrollTop) <= LIST_SCROLL_RESTORE_SLOP_PX;
   }
   node.dataset.osScrollRestore = String(goal);
   const lenis = getAppLenis(node);
@@ -95,6 +114,8 @@ export function scrollTopToPersist(
 ): number {
   const top = Number.isFinite(live) ? Math.max(0, live) : 0;
   if (memory.userAdjusted) return top;
+  // Owed top must not adopt the offset another list left on this scroller.
+  if (memory.pending === 0) return 0;
   if (
     memory.pending != null &&
     memory.pending > 0 &&

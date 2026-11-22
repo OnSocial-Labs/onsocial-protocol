@@ -19,7 +19,10 @@ import {
 import { postKey } from '@/lib/post-display';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
-export type { EngagementMap, PostEngagement } from '@/lib/post-engagement-model';
+export type {
+  EngagementMap,
+  PostEngagement,
+} from '@/lib/post-engagement-model';
 export { EMPTY_POST_ENGAGEMENT } from '@/lib/post-engagement-model';
 
 const DEFAULT_REACTION_KIND = 'like';
@@ -179,8 +182,7 @@ export function engagementFromPartialFetch(input: {
       input.viewerReady && input.repostsOk
         ? (input.viewerRepostGroupId ?? null)
         : (previous?.viewerRepostGroupId ?? null),
-    viewerFlagsReady:
-      input.viewerReady && input.repostsOk && input.amplifyOk,
+    viewerFlagsReady: input.viewerReady && input.repostsOk && input.amplifyOk,
     reactionRoll: previous?.reactionRoll ?? 0,
     saveRoll: previous?.saveRoll ?? 0,
     amplifyRoll: previous?.amplifyRoll ?? 0,
@@ -332,10 +334,7 @@ export function rememberEngagementLastGood(
   key: string,
   row: PostEngagement
 ): void {
-  if (
-    engagementNeedsCountSoftFill(row) &&
-    !engagementHasViewerColour(row)
-  ) {
+  if (engagementNeedsCountSoftFill(row) && !engagementHasViewerColour(row)) {
     return;
   }
   store.set(key, row);
@@ -354,10 +353,7 @@ export function shouldResetEngagementFetchRetry(input: {
   viewerReady: boolean;
 }): boolean {
   return (
-    input.threadsOk &&
-    input.reactionsOk &&
-    input.amplifyOk &&
-    input.viewerReady
+    input.threadsOk && input.reactionsOk && input.amplifyOk && input.viewerReady
   );
 }
 
@@ -531,8 +527,7 @@ export function applyViewerOverlayEngagement(
     viewerRepostGroupId = previous.viewerRepostGroupId;
   }
 
-  const viewerAmplified =
-    overlay.viewerAmplified || previous.viewerAmplified;
+  const viewerAmplified = overlay.viewerAmplified || previous.viewerAmplified;
   let amplifyCount = previous.amplifyCount;
   let amplifyCountReady = previous.amplifyCountReady;
   if (overlay.amplifyCount != null) {
@@ -817,7 +812,9 @@ export function usePostEngagement(
       setFetchRetryEpoch((epoch) => epoch + 1);
     }, step.delayMs);
   };
+  let accountSwitched = false;
   if (lastGoodAccountRef.current !== (accountId ?? null)) {
+    accountSwitched = true;
     const nextAccount = accountId ?? null;
     // Invalidate in-flight soft-fills so a late then() cannot paint the
     // previous wallet's likes onto this account.
@@ -846,35 +843,54 @@ export function usePostEngagement(
   }
   const incomingInitial = seededInitial;
   if (incomingInitial !== initialRef.current) {
-    initialRef.current = incomingInitial;
-    if (Object.keys(incomingInitial).length > 0) {
+    const foldSeed = (
+      prev: EngagementMap,
+      remember: boolean
+    ): EngagementMap => {
+      if (Object.keys(incomingInitial).length === 0) return prev;
       const lastGood = lastGoodRef.current;
       const seedKeys = Object.keys(incomingInitial);
-      setEngagement((prev) => {
-        const filled = resolveBandEngagement({
-          live: prev,
-          seed: incomingInitial,
-          lastGood,
-          keys: seedKeys,
-        });
-        const upgraded = mergeEngagementSoftUpgrade(
-          filled,
-          incomingInitial,
-          pendingReactionKeysRef.current,
-          pendingSaveKeysRef.current,
-          unrepostedKeysRef.current
-        );
-        let changed = filled !== prev;
-        const next: EngagementMap = { ...filled };
-        for (const [key, row] of Object.entries(upgraded)) {
-          if (next[key] !== row) {
-            next[key] = row;
-            changed = true;
-          }
-          rememberEngagementLastGood(lastGood, key, next[key]!);
-        }
-        return changed ? next : prev;
+      const filled = resolveBandEngagement({
+        live: prev,
+        seed: incomingInitial,
+        lastGood,
+        keys: seedKeys,
       });
+      const upgraded = mergeEngagementSoftUpgrade(
+        filled,
+        incomingInitial,
+        pendingReactionKeysRef.current,
+        pendingSaveKeysRef.current,
+        unrepostedKeysRef.current
+      );
+      let changed = filled !== prev;
+      const next: EngagementMap = { ...filled };
+      for (const [key, row] of Object.entries(upgraded)) {
+        if (next[key] !== row) {
+          next[key] = row;
+          changed = true;
+        }
+        if (remember) rememberEngagementLastGood(lastGood, key, next[key]!);
+      }
+      return changed ? next : prev;
+    };
+    /*
+     * Render-phase setState always schedules another pass, even when the
+     * reducer returns the same map. Essay actions pass `[post]`, a new array
+     * each paint, so the seed object is new while the counts are not.
+     * Publishing that loops the open. Only publish a real change.
+     * rememberEngagementLastGood runs once, on the map that will commit
+     * (post account-switch when that happened this render).
+     */
+    const base = accountSwitched
+      ? engagementForAccountChange(engagementRef.current, accountId ?? null)
+      : engagementRef.current;
+    const folded = foldSeed(base, false);
+    initialRef.current = incomingInitial;
+    if (folded !== base) {
+      setEngagement((prev) => foldSeed(prev, true));
+    } else {
+      foldSeed(base, true);
     }
   }
   const onErrorRef = useRef(opts.onError);
@@ -1017,8 +1033,7 @@ export function usePostEngagement(
                 amplifyCount,
                 amplifyCountReady: true,
                 viewerAmplified:
-                  previous.viewerAmplified ||
-                  Boolean(amplify?.viewerAmplified),
+                  previous.viewerAmplified || Boolean(amplify?.viewerAmplified),
               };
               if (samePostEngagement(previous, row)) continue;
               next[target.key] = row;
@@ -1203,8 +1218,7 @@ export function usePostEngagement(
         const threadsOk = threadResult.status === 'fulfilled';
         const reactionsOk = reactionResult.status === 'fulfilled';
         const amplifyOk = amplifyResult.status === 'fulfilled';
-        const savesOk =
-          !accountId || savesResult.status === 'fulfilled';
+        const savesOk = !accountId || savesResult.status === 'fulfilled';
         const viewerReady = accountId ? reactionsOk && savesOk : true;
         // Reset and schedule are mutually exclusive in this then() — never
         // clear the budget on the same pass that queues another attempt.
@@ -1347,7 +1361,9 @@ export function usePostEngagement(
           { viewer: viewerId, wait: true }
         );
         // Account switched mid-flight — do not confirm onto the new viewer.
-        if (!shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)) {
+        if (
+          !shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)
+        ) {
           return;
         }
         // Chain finality is confirm — roll the count; indexer soft-fills later.
@@ -1364,7 +1380,9 @@ export function usePostEngagement(
           };
         });
       } catch (cause) {
-        if (!shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)) {
+        if (
+          !shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)
+        ) {
           return;
         }
         rememberEngagementLastGood(lastGoodRef.current, key, previous);
@@ -1377,7 +1395,9 @@ export function usePostEngagement(
           );
         }
       } finally {
-        if (shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)) {
+        if (
+          shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)
+        ) {
           setPendingReactionKeys((current) => {
             const next = new Set(current);
             next.delete(key);
@@ -1421,7 +1441,9 @@ export function usePostEngagement(
           viewer: viewerId,
           wait: true,
         });
-        if (!shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)) {
+        if (
+          !shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)
+        ) {
           return;
         }
         setEngagement((current) => {
@@ -1435,7 +1457,9 @@ export function usePostEngagement(
           return { ...current, [key]: row };
         });
       } catch (cause) {
-        if (!shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)) {
+        if (
+          !shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)
+        ) {
           return;
         }
         rememberEngagementLastGood(lastGoodRef.current, key, previous);
@@ -1446,7 +1470,9 @@ export function usePostEngagement(
           );
         }
       } finally {
-        if (shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)) {
+        if (
+          shouldApplyViewerToggleConfirm(lastGoodAccountRef.current, viewerId)
+        ) {
           setPendingSaveKeys((current) => {
             const next = new Set(current);
             next.delete(key);
