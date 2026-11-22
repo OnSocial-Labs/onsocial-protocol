@@ -41,6 +41,8 @@ import { emptyCopy } from '@/lib/empty-copy';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { readAppScrollTop } from '@/lib/app-lenis-registry';
 import { feedPageHasMore } from '@/lib/feed-page-cursor';
+import type { FeedBlockKeyState } from '@/lib/feed-threads';
+import { retainFeedWindowHeights } from '@/lib/feed-window-height-retain';
 import { clampHomeFeedCursorAfterTrim } from '@/lib/home-feed-session';
 import {
   HOME_FEED_MEMORY_TRIM_IDLE_MS,
@@ -124,7 +126,9 @@ function emptySectionRequests(): Record<ProfileTextTab, number> {
   return { posts: 0, replies: 0, reposts: 0 };
 }
 
-function isProfileTextTab(tab: ProfileFeedTab | undefined): tab is ProfileTextTab {
+function isProfileTextTab(
+  tab: ProfileFeedTab | undefined
+): tab is ProfileTextTab {
   return tab === 'posts' || tab === 'replies' || tab === 'reposts';
 }
 
@@ -148,6 +152,33 @@ const FEED_TAB_OWNER_HINT: Partial<Record<ProfileFeedTab, string>> = {
  * the pool is necessarily older than the pool's newest window, so appending
  * keeps the global newest-first order (and optimistic prepends untouched).
  */
+const PROFILE_TEXT_SECTIONS = ['posts', 'replies', 'reposts'] as const;
+
+/** Rows that stay after an around-window trim, including one inactive page. */
+export function profilePostsAfterMemoryTrim(
+  current: readonly PostRow[],
+  visiblePosts: readonly PostRow[],
+  trimmedPosts: readonly PostRow[],
+  activeSection: ProfileTextTab | null
+): PostRow[] {
+  const keptKeys = new Set(trimmedPosts.map(postKey));
+  const visibleKeys = new Set(visiblePosts.map(postKey));
+  const inactiveKept: Record<ProfileTextTab, number> = {
+    posts: 0,
+    replies: 0,
+    reposts: 0,
+  };
+  return current.filter((row) => {
+    const key = postKey(row);
+    if (visibleKeys.has(key)) return keptKeys.has(key);
+    const section = profilePostTextSection(row);
+    if (activeSection != null && section === activeSection) return true;
+    if (inactiveKept[section] >= PROFILE_FEED_PAGE_SIZE) return false;
+    inactiveKept[section] += 1;
+    return true;
+  });
+}
+
 function mergePostRows(current: PostRow[], incoming: PostRow[]): PostRow[] {
   if (incoming.length === 0) return current;
   const seen = new Set(current.map(postKey));
@@ -216,7 +247,16 @@ export function ProfileFeedClient({
   /** Durable for the drawer lifetime — survives tab switches within a visit. */
   const windowSizeCache = useMemo(
     () => new FeedWindowSizeCache(),
+    // Reset key when the drawer changes profile. Not read by the factory.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [accountId]
+  );
+  const blockKeyStatesRef = useRef<Record<ProfileTextTab, FeedBlockKeyState[]>>(
+    {
+      posts: [],
+      replies: [],
+      reposts: [],
+    }
   );
 
   const [pendingTab, setPendingTab] = useState<ProfileFeedTab | null>(() =>
@@ -230,7 +270,8 @@ export function ProfileFeedClient({
       if (mediaPagingRef.current) return;
       mediaPagingRef.current = true;
       const requestId = mediaRequestRef.current;
-      const isFirst = cursor.beforeBlockHeight == null && (cursor.offset ?? 0) === 0;
+      const isFirst =
+        cursor.beforeBlockHeight == null && (cursor.offset ?? 0) === 0;
       queueMicrotask(() => {
         setMediaPaging(true);
         if (isFirst) setPendingTab('media');
@@ -479,9 +520,14 @@ export function ProfileFeedClient({
   }, [posts, tab]);
 
   const activeSection = isProfileTextTab(tab) ? tab : null;
-  const activeSectionPage = activeSection
-    ? sectionPages[activeSection]
-    : null;
+  const activeSectionPage = activeSection ? sectionPages[activeSection] : null;
+  const onBlockKeyState = useCallback(
+    (state: FeedBlockKeyState[]) => {
+      if (!activeSection) return;
+      blockKeyStatesRef.current[activeSection] = state;
+    },
+    [activeSection]
+  );
 
   const mediaLooking =
     tab === 'media' &&
@@ -507,19 +553,12 @@ export function ProfileFeedClient({
     fetchMediaPage,
   ]);
 
-  const sectionPaging = activeSection
-    ? sectionPagingMap[activeSection]
-    : false;
-  const sectionFailed = activeSection
-    ? sectionFailedMap[activeSection]
-    : false;
+  const sectionPaging = activeSection ? sectionPagingMap[activeSection] : false;
+  const sectionFailed = activeSection ? sectionFailedMap[activeSection] : false;
 
   const loadOlderSection = useCallback(() => {
     if (!activeSection || !activeSectionPage) return;
-    if (
-      !activeSectionPage.hasMore ||
-      sectionPagingRef.current[activeSection]
-    ) {
+    if (!activeSectionPage.hasMore || sectionPagingRef.current[activeSection]) {
       return;
     }
     setSectionFailedMap((current) => ({
@@ -566,36 +605,49 @@ export function ProfileFeedClient({
       windowStart: range.start,
       windowEnd: range.end,
     });
-    if (
-      trimmed.droppedHead.length === 0 &&
-      trimmed.droppedTail.length === 0
-    ) {
+    if (trimmed.droppedHead.length === 0 && trimmed.droppedTail.length === 0) {
       return;
     }
     if (homeFeedMemoryTrimNeedsScrollAnchor(trimmed)) {
       setTrimAnchor(captureVisibleFeedAnchor(scrollNode));
     }
-    const keptKeys = new Set(trimmed.posts.map(postKey));
-    const visibleKeys = new Set(visiblePosts.map(postKey));
     // Cap inactive text sections to one page (newest-first) so tab hops
     // do not grow the shared list without bound.
-    const inactiveKept = {
-      posts: 0,
-      replies: 0,
-      reposts: 0,
-    } satisfies Record<ProfileTextTab, number>;
+    const base = postsRef.current;
+    const surviving = profilePostsAfterMemoryTrim(
+      base,
+      visiblePosts,
+      trimmed.posts,
+      activeSection
+    );
+    // Active section keeps the list's stable keys. Other sections keep tip
+    // keys — a tab change reassigns against the other tab, so overlap is 0.
+    const states = retainFeedWindowHeights(
+      windowSizeCache,
+      PROFILE_TEXT_SECTIONS.map((section) => ({
+        posts: surviving.filter(
+          (post) => profilePostTextSection(post) === section
+        ),
+        previous:
+          section === activeSection ? blockKeyStatesRef.current[section] : [],
+        options:
+          section === 'replies' ? { includeForeignReplies: true } : undefined,
+      }))
+    );
+    blockKeyStatesRef.current = {
+      posts: states[0] ?? [],
+      replies: states[1] ?? [],
+      reposts: states[2] ?? [],
+    };
     setPosts((current) =>
-      current.filter((row) => {
-        const key = postKey(row);
-        if (visibleKeys.has(key)) return keptKeys.has(key);
-        const section = profilePostTextSection(row);
-        if (activeSection != null && section === activeSection) {
-          return true;
-        }
-        if (inactiveKept[section] >= PROFILE_FEED_PAGE_SIZE) return false;
-        inactiveKept[section] += 1;
-        return true;
-      })
+      current === base
+        ? surviving
+        : profilePostsAfterMemoryTrim(
+            current,
+            visiblePosts,
+            trimmed.posts,
+            activeSection
+          )
     );
     if (activeSection) {
       const clamped = clampHomeFeedCursorAfterTrim({
@@ -624,6 +676,7 @@ export function ProfileFeedClient({
     sectionPages,
     sectionPaging,
     visiblePosts,
+    windowSizeCache,
   ]);
   useEffect(() => {
     if (!(scrollNode instanceof HTMLElement)) return;
@@ -649,7 +702,6 @@ export function ProfileFeedClient({
   useLayoutEffect(() => {
     if (!trimAnchor || !(scrollNode instanceof HTMLElement)) return;
     if (restoreFeedAnchor(scrollNode, trimAnchor)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear pin after pre-paint scroll restore
       setTrimAnchor(null);
     }
   }, [posts, scrollNode, trimAnchor]);
@@ -816,6 +868,7 @@ export function ProfileFeedClient({
             windowSizeCache={windowSizeCache}
             pinnedFeedKey={trimAnchor?.key ?? null}
             onWindowRangeChange={onWindowRangeChange}
+            onBlockKeyState={onBlockKeyState}
           />
           {activeSection ? (
             sectionFailed ? (

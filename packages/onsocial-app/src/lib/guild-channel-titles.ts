@@ -9,6 +9,15 @@ import {
   guildSpaceFeedChannel,
   parseGuildStructure,
 } from '@/features/guilds/guild-structure';
+import { readBoundedMap, writeBoundedMap } from '@/lib/bounded-map';
+
+/**
+ * Two keys per room (space id and feed channel). The guild page cache keeps
+ * 50 guilds; 50 × 2 rooms × 2 keys = 200. Seeding a guild rewrites its rooms
+ * as the newest keys. One guild would have to exceed 100 rooms to evict its
+ * own titles mid-seed.
+ */
+export const GUILD_CHANNEL_TITLE_CACHE_MAX = 200;
 
 const titleCache = new Map<string, string>();
 const warmInflight = new Map<string, Promise<void>>();
@@ -28,7 +37,12 @@ export function seedGuildChannelTitles(
     const id = channel.trim();
     const label = title.trim();
     if (!id || !label) continue;
-    titleCache.set(cacheKey(guild, id), label);
+    writeBoundedMap(
+      titleCache,
+      cacheKey(guild, id),
+      label,
+      GUILD_CHANNEL_TITLE_CACHE_MAX
+    );
   }
 }
 
@@ -40,7 +54,7 @@ export function peekGuildChannelTitle(
   const guild = groupId.trim();
   const id = channel.trim();
   if (!guild || !id) return undefined;
-  return titleCache.get(cacheKey(guild, id));
+  return readBoundedMap(titleCache, cacheKey(guild, id));
 }
 
 /** All cached titles for a guild — merge under live structure maps. */

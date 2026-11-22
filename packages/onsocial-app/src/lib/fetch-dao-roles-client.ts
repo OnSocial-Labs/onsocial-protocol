@@ -1,3 +1,4 @@
+import { writeBoundedMap } from '@/lib/bounded-map';
 import { formatDaoRoleLabel } from '@/lib/page-drawer-meta';
 import type {
   ProtocolDaoCouncilRole,
@@ -18,6 +19,13 @@ export type DaoRolesClientPayload = {
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const CACHE_VERSION = 'v3';
+/**
+ * One payload per account. Name-trailing soft-fill misses the feed page
+ * seed (standing, discover, profile faces). A few minutes of those lists is
+ * a couple hundred accounts — same order as the scarce-embed seed cap.
+ * `fetchDaoRolesPage` does not write this map. Reads do not refresh recency.
+ */
+export const DAO_ROLES_CLIENT_CACHE_MAX = 200;
 
 type CacheEntry = {
   at: number;
@@ -26,6 +34,14 @@ type CacheEntry = {
 };
 
 const cache = new Map<string, CacheEntry>();
+
+function rememberDaoRoles(key: string, entry: CacheEntry): void {
+  writeBoundedMap(cache, key, entry, DAO_ROLES_CLIENT_CACHE_MAX);
+}
+
+export function clearDaoRolesClientCacheForTests(): void {
+  cache.clear();
+}
 
 function normalizeAccountId(accountId: string): string {
   return accountId.trim().toLowerCase();
@@ -158,7 +174,7 @@ export async function fetchDaoRolesClient(
             proposer: parseProposerFlags(body?.memberships?.proposer),
           },
         };
-        cache.set(key, { at: Date.now(), value });
+        rememberDaoRoles(key, { at: Date.now(), value });
         return value;
       } catch (error) {
         cache.delete(key);
@@ -166,7 +182,7 @@ export async function fetchDaoRolesClient(
       }
     })();
 
-    cache.set(key, {
+    rememberDaoRoles(key, {
       at: now,
       value: hit?.value ?? emptyPayload(accountId),
       inflight,

@@ -1,3 +1,4 @@
+import { writeBoundedMap } from '@/lib/bounded-map';
 import {
   isProfileSearchQuery,
   normalizeProfileSearchQuery,
@@ -20,6 +21,12 @@ export type NetworkOrbitResult = {
 
 const FRESH_MS = 45_000;
 const STALE_MS = 5 * 60_000;
+/**
+ * Subject × viewer × filter × search. Orbit loads skip the read and still
+ * write. A heavy graph walk is about 40 tapped faces plus a few searches.
+ * Each value is a full ring sample. Reads do not refresh recency.
+ */
+export const PROFILE_NETWORK_CACHE_MAX = 48;
 
 type CacheEntry = {
   data: NetworkOrbitResult;
@@ -28,6 +35,14 @@ type CacheEntry = {
 };
 
 const memoryCache = new Map<string, CacheEntry>();
+
+function rememberNetwork(key: string, entry: CacheEntry): void {
+  writeBoundedMap(memoryCache, key, entry, PROFILE_NETWORK_CACHE_MAX);
+}
+
+export function clearProfileNetworkCacheForTests(): void {
+  memoryCache.clear();
+}
 
 function isAbortLike(error: unknown, signal?: AbortSignal | null): boolean {
   if (signal?.aborted) return true;
@@ -134,7 +149,7 @@ export async function fetchNetworkOrbit(
         if (!cached.revalidatePromise) {
           cached.revalidatePromise = fetchNetworkOrbitFresh(options)
             .then((data) => {
-              memoryCache.set(key, { data, fetchedAt: Date.now() });
+              rememberNetwork(key, { data, fetchedAt: Date.now() });
               fetchOptions?.onRevalidate?.(data);
               return data;
             })
@@ -153,6 +168,6 @@ export async function fetchNetworkOrbit(
   }
 
   const data = await fetchNetworkOrbitFresh(options, fetchOptions?.signal);
-  memoryCache.set(key, { data, fetchedAt: now });
+  rememberNetwork(key, { data, fetchedAt: now });
   return data;
 }

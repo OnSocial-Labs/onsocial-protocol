@@ -1,4 +1,16 @@
-import type { StanceDetailKind, StandingAccountSummary } from '@/lib/profile-social-standings';
+import { readBoundedMap, writeBoundedMap } from '@/lib/bounded-map';
+import type {
+  StanceDetailKind,
+  StandingAccountSummary,
+} from '@/lib/profile-social-standings';
+
+/**
+ * Profile × kind (3) × settled search. Load-more rewrites the same key.
+ * A heavy session is about 16 profiles with all three kinds, or ~30 opens
+ * on the default kind plus a few searches. Each entry is the merged list,
+ * so this is the recent back-stack.
+ */
+export const STANDING_LIST_CACHE_MAX = 48;
 
 export interface StandingListCacheEntry {
   viewerAccountId: string | null;
@@ -23,14 +35,14 @@ export function standingListCacheKey(
 export function readStandingListCache(
   key: string
 ): StandingListCacheEntry | undefined {
-  return standingListCache.get(key);
+  return readBoundedMap(standingListCache, key);
 }
 
 export function writeStandingListCache(
   key: string,
   entry: StandingListCacheEntry
 ): void {
-  standingListCache.set(key, entry);
+  writeBoundedMap(standingListCache, key, entry, STANDING_LIST_CACHE_MAX);
 }
 
 export function clearStandingListCacheForTests(): void {
