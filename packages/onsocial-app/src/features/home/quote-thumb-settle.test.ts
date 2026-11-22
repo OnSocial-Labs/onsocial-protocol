@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   FEED_MEDIA_RESOLVE_FALLBACK_MS,
   clearFeedMediaResolvedSrcs,
+  feedMediaResolvedSrcCount,
 } from '@/features/home/post-media';
 
 (
@@ -51,6 +52,12 @@ const VIDEO_ITEM = {
   url: 'blob:quote-thumb-video',
   mime: 'video/mp4',
   cid: 'bafyquote',
+};
+
+const POSTER_ITEM = {
+  ...VIDEO_ITEM,
+  url: 'blob:quote-thumb-poster',
+  posterUrl: 'https://cdn.testnet.onsocial.id/ipfs/bafyposter',
 };
 
 function shimmerCount(root: ReturnType<typeof create>): number {
@@ -108,7 +115,87 @@ describe('quote media thumb settle (render)', () => {
     expect(shimmerCount(root)).toBe(0);
   });
 
-  it('clears shimmer after the named 8s fallback when no decode events fire', () => {
+  it('keeps the shimmer on loadedmetadata alone', () => {
+    let root!: ReturnType<typeof create>;
+    act(() => {
+      root = create(
+        createElement(QuoteThumbTile, {
+          item: VIDEO_ITEM,
+          onRatio: () => {},
+        })
+      );
+    });
+    expect(shimmerCount(root)).toBe(1);
+
+    act(() => {
+      videoNode(root).props.onLoadedMetadata?.({
+        currentTarget: { videoWidth: 1280, videoHeight: 720 },
+      });
+    });
+
+    expect(shimmerCount(root)).toBe(1);
+  });
+
+  it('uncovers a poster clip on loadedmetadata without a decoded frame', () => {
+    let root!: ReturnType<typeof create>;
+    act(() => {
+      root = create(
+        createElement(QuoteThumbTile, {
+          item: POSTER_ITEM,
+          onRatio: () => {},
+        })
+      );
+    });
+    expect(shimmerCount(root)).toBe(1);
+
+    act(() => {
+      videoNode(root).props.onLoadedMetadata?.({
+        currentTarget: { videoWidth: 1280, videoHeight: 720, duration: 3 },
+      });
+    });
+
+    expect(shimmerCount(root)).toBe(0);
+  });
+
+  it('uncovers a poster clip at 8s when loadeddata never fires', () => {
+    let root!: ReturnType<typeof create>;
+    act(() => {
+      root = create(
+        createElement(QuoteThumbTile, {
+          item: POSTER_ITEM,
+          onRatio: () => {},
+        })
+      );
+    });
+    expect(shimmerCount(root)).toBe(1);
+
+    act(() => {
+      vi.advanceTimersByTime(FEED_MEDIA_RESOLVE_FALLBACK_MS);
+    });
+
+    expect(shimmerCount(root)).toBe(0);
+  });
+
+  it('clears the shimmer on loadeddata', () => {
+    let root!: ReturnType<typeof create>;
+    act(() => {
+      root = create(
+        createElement(QuoteThumbTile, {
+          item: { ...VIDEO_ITEM, url: 'blob:quote-thumb-frame' },
+          onRatio: () => {},
+        })
+      );
+    });
+    expect(shimmerCount(root)).toBe(1);
+
+    act(() => {
+      videoNode(root).props.onLoadedData?.();
+    });
+
+    expect(shimmerCount(root)).toBe(0);
+  });
+
+  it('keeps the shimmer after 8s when no frame has decoded', () => {
     let root!: ReturnType<typeof create>;
     act(() => {
       root = create(
@@ -124,10 +211,11 @@ describe('quote media thumb settle (render)', () => {
       vi.advanceTimersByTime(FEED_MEDIA_RESOLVE_FALLBACK_MS);
     });
 
-    expect(shimmerCount(root)).toBe(0);
+    expect(shimmerCount(root)).toBe(1);
+    expect(feedMediaResolvedSrcCount()).toBe(0);
   });
 
-  it('clears shimmer on error', () => {
+  it('clears shimmer on a real error while the element stays mounted', () => {
     let root!: ReturnType<typeof create>;
     act(() => {
       root = create(
@@ -140,9 +228,34 @@ describe('quote media thumb settle (render)', () => {
     expect(shimmerCount(root)).toBe(1);
 
     act(() => {
-      videoNode(root).props.onError?.();
+      videoNode(root).props.onError?.({
+        currentTarget: { isConnected: true },
+      });
     });
 
     expect(shimmerCount(root)).toBe(0);
+    expect(feedMediaResolvedSrcCount()).toBe(1);
+  });
+
+  it('does not cache a detach-abort or drop the shimmer', () => {
+    let root!: ReturnType<typeof create>;
+    act(() => {
+      root = create(
+        createElement(QuoteThumbTile, {
+          item: { ...VIDEO_ITEM, url: 'blob:quote-thumb-detach' },
+          onRatio: () => {},
+        })
+      );
+    });
+    expect(shimmerCount(root)).toBe(1);
+
+    act(() => {
+      videoNode(root).props.onError?.({
+        currentTarget: { isConnected: false },
+      });
+    });
+
+    expect(shimmerCount(root)).toBe(1);
+    expect(feedMediaResolvedSrcCount()).toBe(0);
   });
 });

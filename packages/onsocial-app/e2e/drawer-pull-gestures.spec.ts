@@ -327,9 +327,15 @@ test.describe('drawer pull gestures', () => {
     await dismissNextDevOverlay(page);
     const entry = page.getByRole('button', { name: 'Open page', exact: true });
     await entry.waitFor();
-    await page.locator('.portfolio-summon-dock').evaluate((el) => {
-      el.classList.add('is-writing');
-    });
+    // Streaming leaves a second `.portfolio-summon-dock` under `[id^="S:"]`.
+    // Class the dock that owns this chevron.
+    await entry
+      .locator(
+        'xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " portfolio-summon-dock ")][1]'
+      )
+      .evaluate((el) => {
+        el.classList.add('is-writing');
+      });
     await expectChevronConcealed(entry);
   });
 
