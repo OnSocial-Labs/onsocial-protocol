@@ -45,6 +45,18 @@ import {
 
 const PROPOSAL_SOFT_RETRY_MS = [2000, 5000] as const;
 
+function subscribeProposalsSheetMounted() {
+  return () => {};
+}
+
+function readProposalsSheetClientMounted() {
+  return true;
+}
+
+function readProposalsSheetServerMounted() {
+  return false;
+}
+
 interface GuildProposalsSheetProps {
   open: boolean;
   groupId: string;
@@ -408,9 +420,9 @@ export function GuildProposalsSheet({
   // The open sheet portals into the card already in the document. SSR has no
   // document, so the first client render must stay empty until after hydrate.
   const clientMounted = useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false
+    subscribeProposalsSheetMounted,
+    readProposalsSheetClientMounted,
+    readProposalsSheetServerMounted
   );
   const votersTargetName = (() => {
     if (!votersFor) return null;

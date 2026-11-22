@@ -182,6 +182,24 @@ function isGuildManageSheet(
   return sheet === 'proposals' || sheet === 'requests' || sheet === 'members';
 }
 
+/** Membership the hero and proposals sheet may trust. The indexer hint only fills the gap before chain ACL. */
+export function guildKnownMember(input: {
+  shellOwner: boolean;
+  rosterMember: boolean;
+  cachedMember: boolean;
+  indexedMemberHint: boolean;
+  viewerAccessResolved: boolean;
+  viewerIsMember: boolean;
+}): boolean {
+  return (
+    input.shellOwner ||
+    input.rosterMember ||
+    input.cachedMember ||
+    (!input.viewerAccessResolved && input.indexedMemberHint) ||
+    (input.viewerAccessResolved && input.viewerIsMember)
+  );
+}
+
 export function LiveGuildPanel({
   groupId,
   initial = null,
@@ -870,12 +888,14 @@ export function LiveGuildPanel({
         guildViewerOwnsShell(accountId, member.memberId)
       )
     : undefined;
-  const knownMember =
-    viewerIsShellOwner ||
-    Boolean(rosterViewer) ||
-    Boolean(membershipHint?.isMember) ||
-    indexedMemberHint ||
-    (viewerAccessResolved && Boolean(viewer?.isMember));
+  const knownMember = guildKnownMember({
+    shellOwner: viewerIsShellOwner,
+    rosterMember: Boolean(rosterViewer),
+    cachedMember: Boolean(membershipHint?.isMember),
+    indexedMemberHint,
+    viewerAccessResolved,
+    viewerIsMember: Boolean(viewer?.isMember),
+  });
   const proposalsIsMember: boolean | null = knownMember
     ? true
     : viewerAccessResolved

@@ -207,6 +207,8 @@ export function useGuildPageData({
   const loadMoreInFlightRef = useRef(false);
   const groupIdRef = useRef(groupId);
   groupIdRef.current = groupId;
+  const accountIdRef = useRef(accountId);
+  accountIdRef.current = accountId;
   const guildShellRequestIdRef = useRef(0);
   const guildFeedRequestIdRef = useRef(0);
   const selectedFeedFilterIdRef = useRef(selectedFeedFilterId);
@@ -322,14 +324,19 @@ export function useGuildPageData({
         return;
       }
 
+      const requestedAccountId = accountId;
+      const stillCurrent = () =>
+        groupIdRef.current === groupId &&
+        accountIdRef.current === requestedAccountId;
+
       // Fast membership hint from indexer before heavier ACL RPCs.
       try {
         const membership = await client.query.groups.membershipFor(
           groupId,
-          accountId
+          requestedAccountId
         );
-        if (membership && groupIdRef.current === groupId) {
-          writeGuildMembershipCache(accountId, groupId, {
+        if (membership && stillCurrent()) {
+          writeGuildMembershipCache(requestedAccountId, groupId, {
             isMember: true,
             joinPending: false,
           });
@@ -338,7 +345,7 @@ export function useGuildPageData({
       } catch {
         // Cache hint is best-effort.
       }
-      if (groupIdRef.current !== groupId) return;
+      if (!stillCurrent()) return;
 
       let resolved: Awaited<ReturnType<typeof resolveGuildViewerAccess>>;
       try {
@@ -347,14 +354,14 @@ export function useGuildPageData({
           accessGated: normalizedConfig.accessGated,
         });
       } catch {
-        if (groupIdRef.current !== groupId) return;
+        if (!stillCurrent()) return;
         setShellExtrasResolved(true);
         setViewerAccessResolved(true);
         return;
       }
       const viewerState = resolved?.viewer ?? null;
       const moderationState = resolved?.moderation ?? null;
-      if (groupIdRef.current !== groupId) return;
+      if (!stillCurrent()) return;
 
       if (viewerState?.isMember) {
         try {
@@ -371,8 +378,9 @@ export function useGuildPageData({
         }
       } else {
         setAllowlistSpaceIds(new Set());
+        setIndexedMemberHint(false);
       }
-      if (groupIdRef.current !== groupId) return;
+      if (!stillCurrent()) return;
 
       setState((current) => ({
         ...current,
