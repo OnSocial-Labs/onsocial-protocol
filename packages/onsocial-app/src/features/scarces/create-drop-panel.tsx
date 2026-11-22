@@ -10,7 +10,7 @@ import {
   type FocusEvent,
   type FormEvent,
 } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import './drop-create-spacing.css';
 import {
   DiscardConfirmSheet,
@@ -216,12 +216,7 @@ import {
 import { ScarceRoyaltyField } from '@/features/scarces/scarce-royalty-field';
 import { finalizeAmountInput } from '@/lib/amount-input';
 import { nearToYocto } from '@/lib/app-near-rpc';
-import {
-  DROP_CREATE_SERIES_PARAM,
-  MARKET_APP_PARAM,
-  collectionPath,
-  dropCreateBackHref,
-} from '@/lib/app-routes';
+import { collectionPath, dropCreateBackHref } from '@/lib/app-routes';
 import { DROP_STUDIO_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { DROP_CREATE_FORM_CLASS } from '@/lib/os-create-page';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
@@ -297,15 +292,22 @@ function slugify(value: string): string {
     .slice(0, 32);
 }
 
-export function CreateDropPanel() {
+export function CreateDropPanel({
+  app = '',
+  series = '',
+  template: templateProp = '',
+}: {
+  app?: string;
+  series?: string;
+  template?: string;
+} = {}) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const appId = searchParams.get(MARKET_APP_PARAM)?.trim() ?? '';
-  const seriesQuery = searchParams.get(DROP_CREATE_SERIES_PARAM)?.trim() ?? '';
+  const appId = app.trim();
+  const seriesQuery = series.trim();
   const { accountId, isConnected, isLoading, connect, getSigningWallet } =
     useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
-  const templateQuery = searchParams.get('template')?.trim() ?? '';
+  const templateQuery = templateProp.trim();
   const [templateId, setTemplateId] = useState<DropTemplateId>(
     templateQuery === 'ticket' ? 'ticket' : 'art'
   );
@@ -385,7 +387,7 @@ export function CreateDropPanel() {
   const [studioHelpOpen, setStudioHelpOpen] = useState(false);
   const [design, setDesign] = useState<BuilderDesignSummary | null>(null);
   const builderRef = useRef<GenerativeBuilderHandle>(null);
-  const [seriesName, setSeriesName] = useState('');
+  const [seriesName, setSeriesName] = useState(() => seriesQuery.slice(0, 48));
   const [pending, setPending] = useState(false);
   /** Upload pins first (album tracks); wallet sign stays a separate label. */
   const [pendingLabel, setPendingLabel] = useState('Publishing…');

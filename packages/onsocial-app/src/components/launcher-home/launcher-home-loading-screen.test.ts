@@ -11,7 +11,7 @@ const screen = readFileSync(
 const mine = readFileSync(join(here, 'launcher-home-section.tsx'), 'utf8');
 
 describe('launcher home Structure→Paint', () => {
-  it('exposes a shared route loading shell for guilds/daos/hubs', () => {
+  it('exposes a shared launcher cold shell for index Suspense (daos)', () => {
     expect(screen).toContain('LauncherMineRailSkeleton');
     expect(screen).toContain('LAUNCHER_HOME_PAGE_CLASS');
   });

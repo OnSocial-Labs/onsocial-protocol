@@ -58,7 +58,7 @@ describe('app loading matrix', () => {
 
     expect(new Set(ids).size).toBe(ids.length);
     expect(new Set(routes).size).toBe(routes.length);
-    expect(APP_LOADING_MATRIX).toHaveLength(22);
+    expect(APP_LOADING_MATRIX).toHaveLength(23);
     expect(APP_LOADING_MATRIX.every((page) => families.includes(page.family))).toBe(
       true
     );

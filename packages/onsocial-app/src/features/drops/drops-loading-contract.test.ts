@@ -29,7 +29,7 @@ describe('drops loading contract', () => {
     expect(source).toContain("failed && errorPresentation === 'overlay'");
   });
 
-  it('shares the ready-state heading and skeleton height in route loading', () => {
+  it('keeps catalog cold height tokens available for in-panel skeleton', () => {
     const loadingSource = readFileSync(
       join(dropsSrc, 'drops-loading-screen.tsx'),
       'utf8'

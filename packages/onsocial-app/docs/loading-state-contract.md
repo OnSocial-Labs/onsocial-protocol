@@ -20,10 +20,23 @@ Skeletons should share the final page shell and row geometry. Do not add
 placeholder `min-height` to intermittent chrome; use a skeleton only when it
 represents real cold-load content.
 
+## Route streaming
+
+| Kind | Presentation |
+| ---- | ------------ |
+| Known SSR (portfolio face, create with server params, seeded home) | Stream the real shell — no route `loading.tsx`, no page Suspense full-shell twin |
+| True cold (catalog / collection / thread) | One leaf `loading.tsx` matching the destination |
+| Parent + mixed children (`/drops` + `/drops/create`) | No parent full-page `loading.tsx`; index cold in-panel |
+
+Never stack page Suspense with the same full-page shell as `loading.tsx`. Prefer
+RSC `searchParams` → props over `useSearchParams` when that would force a
+whole-page boundary. Soft-nav cover is `OsRouteSettle` only.
+
 ## Page-change checklist
 
 1. Update the real layout.
-2. Update the cold skeleton and route `loading.tsx`, if present.
+2. Update the cold skeleton and route `loading.tsx` only when the page is
+   true-cold; omit route loading for known SSR pages.
 3. Preserve painted rows during refresh and use footer `PulsingDots` / `OsLoadMore` for pagination (never mid-list skeleton rows).
 4. Update the matrix row and implementation references.
 5. Add or update the contract test.

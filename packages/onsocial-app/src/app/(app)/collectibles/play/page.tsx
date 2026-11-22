@@ -1,6 +1,4 @@
-import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { CollectiblesPlayLoadingScreen } from '@/features/collectibles/collectibles-play-loading-screen';
 import { CollectiblesPlayPanel } from '@/features/collectibles/collectibles-play-panel';
 import {
   COLLECTIBLES_PLAY_PARAM,
@@ -39,13 +37,11 @@ export default async function CollectiblesPlayPage({
       : { view: null, creator: null };
 
   return (
-    <Suspense fallback={<CollectiblesPlayLoadingScreen />}>
-      <CollectiblesPlayPanel
-        initialCollectionId={collectionId || null}
-        initialTokenId={tokenId || null}
-        initialView={initial.view}
-        initialCreator={initial.creator}
-      />
-    </Suspense>
+    <CollectiblesPlayPanel
+      initialCollectionId={collectionId || null}
+      initialTokenId={tokenId || null}
+      initialView={initial.view}
+      initialCreator={initial.creator}
+    />
   );
 }
