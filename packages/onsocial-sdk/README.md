@@ -181,6 +181,10 @@ await os.profiles.update({ name: 'Alice', bio: 'Builder', kind: 'person' });
 await os.posts.create({ text: 'Hello OnSocial', tags: ['intro'] });
 ```
 
+### Media / poster
+
+A video poster must be a CID (bare or `ipfs://`, normalized to the bare form). Non-CID posters are dropped on write without error and the video ref is always kept; posters are omitted when a post would exceed the storage budget. Validators are unchanged.
+
 ### Groups
 
 ```ts

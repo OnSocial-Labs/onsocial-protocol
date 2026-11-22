@@ -8,7 +8,24 @@ import type { PostData } from '../types.js';
 import type { StorageProvider } from '../storage/provider.js';
 import { probeBlobDimensions } from '../internal/media-dimensions.js';
 import { captureBlobVideoPoster } from '../internal/media-poster.js';
+import { videoMimeForBlob } from '../internal/video-mime.js';
+import { acceptedPosterCid } from '../internal/poster-cid.js';
+import {
+  omitPostersOverStorageBudget,
+  personalPostStorageKey,
+  stripUnacceptedPosters,
+} from '../internal/post-storage-budget.js';
 import { applyFeedMeta, type SocialSetData } from './_shared.js';
+
+function sealPersonalPost(
+  postId: string,
+  value: Record<string, unknown>
+): Record<string, unknown> {
+  return omitPostersOverStorageBudget(
+    stripUnacceptedPosters(value),
+    personalPostStorageKey(postId)
+  );
+}
 
 export function buildPostSetData(
   post: PostData,
@@ -16,11 +33,11 @@ export function buildPostSetData(
   now = Date.now()
 ): SocialSetData {
   return {
-    [`post/${postId}`]: {
+    [`post/${postId}`]: sealPersonalPost(postId, {
       v: SCHEMA_VERSION,
       ...applyFeedMeta(post),
       timestamp: post.timestamp ?? now,
-    },
+    }),
   };
 }
 
@@ -42,13 +59,13 @@ export function buildReplySetData(
   now = Date.now()
 ): SocialSetData {
   return {
-    [`post/${replyId}`]: {
+    [`post/${replyId}`]: sealPersonalPost(replyId, {
       v: SCHEMA_VERSION,
       ...applyFeedMeta(post),
       parent: `${parentAuthor}/post/${parentId}`,
       parentType: 'post',
       timestamp: post.timestamp ?? now,
-    },
+    }),
   };
 }
 
@@ -65,13 +82,13 @@ export function buildQuoteSetData(
   now = Date.now()
 ): SocialSetData {
   return {
-    [`post/${quoteId}`]: {
+    [`post/${quoteId}`]: sealPersonalPost(quoteId, {
       v: SCHEMA_VERSION,
       ...applyFeedMeta(post),
       ref: `${refAuthor}/${refPath}`,
       refType: 'quote',
       timestamp: post.timestamp ?? now,
-    },
+    }),
   };
 }
 
@@ -87,14 +104,28 @@ export function buildRepostSetData(
   now = Date.now()
 ): SocialSetData {
   return {
-    [`post/${repostId}`]: {
+    [`post/${repostId}`]: sealPersonalPost(repostId, {
       v: SCHEMA_VERSION,
       ...applyFeedMeta({ ...post, text: post.text ?? '' }),
       ref: `${refAuthor}/${refPath}`,
       refType: 'repost',
       timestamp: post.timestamp ?? now,
-    },
+    }),
   };
+}
+
+function withAcceptedPoster(entry: string | MediaRef): string | MediaRef {
+  if (typeof entry !== 'object' || entry === null || !('poster' in entry)) {
+    return entry;
+  }
+  const raw = entry.poster;
+  if (raw === undefined) return entry;
+  const poster = typeof raw === 'string' ? acceptedPosterCid(raw) : null;
+  if (!poster) {
+    const { poster: _drop, ...rest } = entry;
+    return rest;
+  }
+  return poster === raw ? entry : { ...entry, poster };
 }
 
 export function isFileLike(value: unknown): value is Blob | File {
@@ -129,7 +160,9 @@ export async function resolvePostMedia(
   if (!hasImage && !hasFiles) return post;
 
   const { image: _dropImage, files: _dropFiles, ...rest } = post;
-  const existing = (post.media ?? []) as Array<string | MediaRef>;
+  const existing = ((post.media ?? []) as Array<string | MediaRef>).map(
+    withAcceptedPoster
+  );
   const prepended: Array<string | MediaRef> = [];
 
   if (hasImage && post.image) {
@@ -139,18 +172,19 @@ export async function resolvePostMedia(
   if (hasFiles && post.files) {
     const uploads = await Promise.all(
       (post.files as Array<Blob | File>).map(async (f) => {
-        const mime = typeof f.type === 'string' && f.type ? f.type : '';
-        const wantsPoster = mime.toLowerCase().startsWith('video/');
+        const declared = typeof f.type === 'string' && f.type ? f.type : '';
+        const videoMime = videoMimeForBlob(f);
         const [u, dims, posterBlob] = await Promise.all([
           storage.upload(f),
-          probeBlobDimensions(f, mime),
-          wantsPoster ? captureBlobVideoPoster(f) : Promise.resolve(null),
+          probeBlobDimensions(f, videoMime ?? declared),
+          videoMime ? captureBlobVideoPoster(f) : Promise.resolve(null),
         ]);
         let poster: string | undefined;
         if (posterBlob) {
           try {
             const still = await storage.upload(posterBlob);
-            if (still.cid?.trim()) poster = still.cid.trim();
+            const accepted = acceptedPosterCid(still.cid ?? '');
+            if (accepted) poster = accepted;
           } catch {
             // Poster is optional — keep the video ref without it.
           }
