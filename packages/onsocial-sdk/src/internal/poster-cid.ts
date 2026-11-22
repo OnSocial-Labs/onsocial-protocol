@@ -106,16 +106,29 @@ export function isIpfsCid(value: string): boolean {
   return isCidV0(value) || isCidV1(value);
 }
 
+export type PosterCidRejection = 'length' | 'not-a-cid';
+
+/**
+ * Why a poster string cannot be stored, or null when it is a bare CIDv0/v1
+ * or `ipfs://` CID of at most 128 characters. Length is reported on its own
+ * so a too-long CID is not treated as a generic non-CID.
+ */
+export function posterCidRejection(raw: string): PosterCidRejection | null {
+  if (typeof raw !== 'string' || raw.length === 0) return 'not-a-cid';
+  if (raw.length > POSTER_CID_MAX_CHARS) return 'length';
+  if (raw !== raw.trim() || /\s/u.test(raw) || /[^\x00-\x7F]/u.test(raw)) {
+    return 'not-a-cid';
+  }
+  const bare = raw.startsWith('ipfs://') ? raw.slice('ipfs://'.length) : raw;
+  if (!bare || bare.includes('/') || !isIpfsCid(bare)) return 'not-a-cid';
+  return null;
+}
+
 /**
  * Bare CID to store, or null when `raw` is not a CIDv0/v1 (bare or `ipfs://`)
- * of at most 128 characters.
+ * of at most 128 characters. Whitespace and non-ASCII are rejected, not trimmed.
  */
 export function acceptedPosterCid(raw: string): string | null {
-  const trimmed = raw.trim();
-  if (!trimmed || trimmed.length > POSTER_CID_MAX_CHARS) return null;
-  const bare = trimmed.startsWith('ipfs://')
-    ? trimmed.slice('ipfs://'.length)
-    : trimmed;
-  if (!bare || bare !== bare.trim() || !isIpfsCid(bare)) return null;
-  return bare;
+  if (posterCidRejection(raw) !== null) return null;
+  return raw.startsWith('ipfs://') ? raw.slice('ipfs://'.length) : raw;
 }

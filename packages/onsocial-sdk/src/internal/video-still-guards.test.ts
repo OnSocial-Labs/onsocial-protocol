@@ -1,11 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildGroupReplySetData } from '../builders/group-post.js';
+import {
+  buildGroupPostSetData,
+  buildGroupReplySetData,
+} from '../builders/group-post.js';
 import { buildPostSetData, resolvePostMedia } from '../builders/post.js';
 import { captureBlobVideoPoster } from './media-poster.js';
 import {
+  omitPostersOverStorageBudget,
   POST_STORAGE_BUDGET_BYTES,
   socialStorageUsage,
 } from './post-storage-budget.js';
+import * as posterCid from './poster-cid.js';
 import { validatePostV1, validateProfileV1 } from '../schema/v1.js';
 import type { StorageProvider } from '../storage/provider.js';
 
@@ -177,7 +182,9 @@ describe('video still guards', () => {
       postId,
       post.timestamp
     );
-    const storageKey = Object.keys(built)[0]!;
+    const setPath = Object.keys(built)[0]!;
+    expect(setPath).toBe(`groups/${groupId}/content/post/${postId}`);
+    const storageKey = `${accountId}/groups/${groupId}/content/post/${postId}`;
     const stored = Object.values(built)[0] as {
       media: Array<{ cid: string; mime: string; poster?: string }>;
     };
@@ -185,7 +192,7 @@ describe('video still guards', () => {
       ...stored,
       media: stored.media.map((item) => ({ ...item, poster: POSTER_128 })),
     };
-    expect(socialStorageUsage(storageKey, withPosters)).toBe(6036);
+    expect(socialStorageUsage(storageKey, withPosters)).toBe(6101);
     expect(socialStorageUsage(storageKey, withPosters)).toBeGreaterThan(
       PLATFORM_ALLOWANCE_MAX_BYTES
     );
@@ -196,7 +203,7 @@ describe('video still guards', () => {
         (item) => item.cid === CID_V1 && item.mime === 'video/quicktime'
       )
     ).toBe(true);
-    expect(socialStorageUsage(storageKey, stored)).toBe(5476);
+    expect(socialStorageUsage(storageKey, stored)).toBe(5541);
     expect(socialStorageUsage(storageKey, stored)).toBeLessThanOrEqual(
       POST_STORAGE_BUDGET_BYTES
     );
@@ -204,4 +211,132 @@ describe('video still guards', () => {
       PLATFORM_ALLOWANCE_MAX_BYTES
     );
   });
+
+  it('keeps posters at exactly 5700 bytes and drops them at 5701', () => {
+    const atBudget = valueAtStorageUsage(5700);
+    expect(socialStorageUsage(atBudget.key, atBudget.value)).toBe(5700);
+    const kept = omitPostersOverStorageBudget(atBudget.value, atBudget.key) as {
+      media: Array<{ poster?: string; cid: string }>;
+    };
+    expect(kept.media[0]?.poster).toBe(CID_V1);
+    expect(kept.media[0]?.cid).toBe(CID_V1);
+
+    const overBudget = valueAtStorageUsage(5701);
+    expect(socialStorageUsage(overBudget.key, overBudget.value)).toBe(5701);
+    const dropped = omitPostersOverStorageBudget(
+      overBudget.value,
+      overBudget.key
+    ) as { media: Array<{ poster?: string; cid: string; mime: string }> };
+    expect(dropped.media[0]?.poster).toBeUndefined();
+    expect(dropped.media[0]).toEqual({ cid: CID_V1, mime: 'video/mp4' });
+  });
+
+  it('counts multi-byte text as utf-8 bytes', () => {
+    const key = 'k';
+    const value = { text: '你'.repeat(10) };
+    const json = JSON.stringify(value);
+    const utf8 = new TextEncoder().encode(json).length;
+    expect(utf8).toBe(json.length + 20);
+    expect(socialStorageUsage(key, value)).toBe(
+      new TextEncoder().encode(key).length + utf8 + 13 + 40
+    );
+    expect(socialStorageUsage(key, value)).not.toBe(
+      key.length + json.length + 13 + 40
+    );
+  });
+
+  it('rejects a 129-character cid for length, not as a generic non-cid', () => {
+    const long = `b${'a'.repeat(128)}`;
+    expect(long.length).toBe(129);
+    expect(posterReason(long)).toBe('length');
+    expect(posterReason(long)).not.toBe('not-a-cid');
+    expect(posterReason('not a cid')).toBe('not-a-cid');
+  });
+
+  it('rejects ipfs path, whitespace, and unicode posters', () => {
+    expect(posterReason(`ipfs://${CID_V1}/path`)).toBe('not-a-cid');
+    expect(posterReason(` ${CID_V1}`)).toBe('not-a-cid');
+    expect(posterReason(`${CID_V1} `)).toBe('not-a-cid');
+    expect(posterReason(`${CID_V1}\n`)).toBe('not-a-cid');
+    expect(posterReason(`${CID_V1}你`)).toBe('not-a-cid');
+    expect(posterReason('ｂａｆｙ')).toBe('not-a-cid');
+  });
+
+  it('budgets a group post on the author-prefixed storage key', () => {
+    const groupId = 'g';
+    const postId = '1';
+    const author = 'a'.repeat(64);
+    const shortKey = `groups/${groupId}/content/post/${postId}`;
+    const chargedKey = `${author}/${shortKey}`;
+    const text = textForShortKeyUsage(shortKey, 5660);
+    const input = {
+      text,
+      media: [{ cid: CID_V1, mime: 'video/mp4' as const, poster: POSTER_128 }],
+    };
+    const probed = buildGroupPostSetData(groupId, input, postId, 1);
+    const probedValue = Object.values(probed)[0] as {
+      media: Array<{ poster?: string; cid: string; mime: string }>;
+    };
+    const withPosters = {
+      ...probedValue,
+      media: probedValue.media.map((item) => ({ ...item, poster: POSTER_128 })),
+    };
+    expect(socialStorageUsage(shortKey, withPosters)).toBe(5660);
+    expect(socialStorageUsage(chargedKey, withPosters)).toBe(5725);
+    expect(Object.keys(probed)[0]).toBe(shortKey);
+    expect(probedValue.media[0]?.poster).toBeUndefined();
+    expect(probedValue.media[0]?.cid).toBe(CID_V1);
+    expect(probedValue.media[0]?.mime).toBe('video/mp4');
+  });
 });
+
+function posterReason(raw: string): string | null {
+  const rejection = (
+    posterCid as {
+      posterCidRejection?: (value: string) => string | null;
+    }
+  ).posterCidRejection;
+  if (rejection) return rejection(raw);
+  return posterCid.acceptedPosterCid(raw) === null ? 'not-a-cid' : null;
+}
+
+function valueAtStorageUsage(target: number): {
+  key: string;
+  value: {
+    text: string;
+    media: Array<{ cid: string; mime: string; poster: string }>;
+  };
+} {
+  const key = 'budget-key';
+  const media = [{ cid: CID_V1, mime: 'video/mp4', poster: CID_V1 }];
+  const base = socialStorageUsage(key, { text: '', media });
+  const value = { text: 'x'.repeat(target - base), media };
+  return { key, value };
+}
+
+function textForShortKeyUsage(shortKey: string, target: number): string {
+  const groupId = 'g';
+  const postId = '1';
+  for (let length = 0; length < 8000; length += 1) {
+    const built = buildGroupPostSetData(
+      groupId,
+      {
+        text: 'x'.repeat(length),
+        media: [{ cid: CID_V1, mime: 'video/mp4', poster: POSTER_128 }],
+      },
+      postId,
+      1
+    );
+    const value = Object.values(built)[0] as {
+      media: Array<{ poster?: string }>;
+    };
+    const withPosters = {
+      ...value,
+      media: value.media.map((item) => ({ ...item, poster: POSTER_128 })),
+    };
+    if (socialStorageUsage(shortKey, withPosters) === target) {
+      return 'x'.repeat(length);
+    }
+  }
+  throw new Error(`no text length hits storage usage ${target}`);
+}

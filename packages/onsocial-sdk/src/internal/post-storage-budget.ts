@@ -8,16 +8,14 @@ import { acceptedPosterCid } from './poster-cid.js';
 // The value is borsh(DataEntry): 1-byte enum tag + u32 length + JSON + u64
 // block height, so the JSON is wrapped in 13 extra bytes.
 //
-// Measured maximum composer group reply (64-char group and account ids,
+// Measured maximum composer group reply on the charged key
+// `{author}/groups/{id}/content/post/{id}` (64-char author and group ids,
 // 13-digit post id, 4000-char text, 80-char warning, 64-char place and channel,
 // 128-char audience, 4 videos at the 200MB / 7680×4320 composer caps):
-//   with 4×128-char stills: 6036 bytes (over the 6000 allowance)
-//   without stills:         5476 bytes
-// Realistic CIDv1 (59-char) stills on that reply: 5760 with a max audience,
-// 5615 without. A personal max post with 128-char stills: 5681.
-//
-// Budget 5700 sits under the allowance (300 bytes of headroom) and between
-// the stripped max (5476) and the stills that would blow it (6036).
+//   with 4×128-char stills: 6101 bytes (over the 6000 allowance)
+//   without stills:         5541 bytes
+// The 5700 cap stays: 5541 and 5700 are both under 6000, and the stills
+// that cross the allowance are dropped.
 
 export const SOCIAL_STORAGE_RECORD_OVERHEAD = 40;
 export const DATA_ENTRY_BORSH_OVERHEAD = 13;
@@ -27,6 +25,28 @@ const MAX_ACCOUNT_ID_CHARS = 64;
 
 export function personalPostStorageKey(postId: string): string {
   const key = `${'a'.repeat(MAX_ACCOUNT_ID_CHARS)}/post/${postId}`;
+  return key.length <= MAX_STORAGE_KEY_BYTES
+    ? key
+    : key.slice(0, MAX_STORAGE_KEY_BYTES);
+}
+
+/**
+ * Storage key the core contract charges for a group post:
+ * `{author}/groups/{groupId}/content/post/{postId}`.
+ * Uses the signer when the builder knows it; otherwise a 64-char account.
+ */
+export function groupPostStorageKey(
+  groupId: string,
+  postId: string,
+  authorId?: string
+): string {
+  const author =
+    typeof authorId === 'string' &&
+    authorId.length > 0 &&
+    authorId.length <= MAX_ACCOUNT_ID_CHARS
+      ? authorId
+      : 'a'.repeat(MAX_ACCOUNT_ID_CHARS);
+  const key = `${author}/groups/${groupId}/content/post/${postId}`;
   return key.length <= MAX_STORAGE_KEY_BYTES
     ? key
     : key.slice(0, MAX_STORAGE_KEY_BYTES);

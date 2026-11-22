@@ -77,6 +77,11 @@ export class GroupsModule {
     this._resolveMedia = resolveMedia ?? ((p) => Promise.resolve(p));
   }
 
+  private _signerAccountId(): string | undefined {
+    const id = this._getSession()?.accountId;
+    return typeof id === 'string' && id.length > 0 ? id : undefined;
+  }
+
   private execute(
     action: Record<string, unknown>,
     methodLabel?: string
@@ -244,7 +249,13 @@ export class GroupsModule {
   ): Promise<RelayResponse> {
     const id = postId ?? Date.now().toString();
     const resolved = await this._resolveMedia(post);
-    const data = buildGroupPostSetData(groupId, resolved, id);
+    const data = buildGroupPostSetData(
+      groupId,
+      resolved,
+      id,
+      undefined,
+      this._signerAccountId()
+    );
     const entries = Object.entries(data);
     const [path, value] = entries[0];
     return composeAndSign(
@@ -269,7 +280,14 @@ export class GroupsModule {
   ): Promise<RelayResponse> {
     const id = replyId ?? Date.now().toString();
     const resolved = await this._resolveMedia(post);
-    const data = buildGroupReplySetData(groupId, parentPath, resolved, id);
+    const data = buildGroupReplySetData(
+      groupId,
+      parentPath,
+      resolved,
+      id,
+      undefined,
+      this._signerAccountId()
+    );
     const [path, value] = Object.entries(data)[0];
     return composeAndSign(
       this._http,
@@ -302,7 +320,14 @@ export class GroupsModule {
   ): Promise<RelayResponse> {
     const id = quoteId ?? Date.now().toString();
     const resolved = await this._resolveMedia(post);
-    const data = buildGroupQuoteSetData(groupId, refPath, resolved, id);
+    const data = buildGroupQuoteSetData(
+      groupId,
+      refPath,
+      resolved,
+      id,
+      undefined,
+      this._signerAccountId()
+    );
     const [path, value] = Object.entries(data)[0];
     return composeAndSign(
       this._http,
@@ -335,7 +360,14 @@ export class GroupsModule {
   ): Promise<RelayResponse> {
     const id = repostId ?? Date.now().toString();
     const resolved = await this._resolveMedia(post);
-    const data = buildGroupRepostSetData(groupId, refPath, resolved, id);
+    const data = buildGroupRepostSetData(
+      groupId,
+      refPath,
+      resolved,
+      id,
+      undefined,
+      this._signerAccountId()
+    );
     const [path, value] = Object.entries(data)[0];
     return composeAndSign(
       this._http,
