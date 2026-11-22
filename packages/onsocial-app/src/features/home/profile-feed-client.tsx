@@ -126,9 +126,8 @@ function emptySectionRequests(): Record<ProfileTextTab, number> {
   return { posts: 0, replies: 0, reposts: 0 };
 }
 
-function isProfileTextTab(
-  tab: ProfileFeedTab | undefined
-): tab is ProfileTextTab {
+// prettier-ignore
+function isProfileTextTab(tab: ProfileFeedTab | undefined): tab is ProfileTextTab {
   return tab === 'posts' || tab === 'replies' || tab === 'reposts';
 }
 
@@ -153,6 +152,41 @@ const FEED_TAB_OWNER_HINT: Partial<Record<ProfileFeedTab, string>> = {
  * keeps the global newest-first order (and optimistic prepends untouched).
  */
 const PROFILE_TEXT_SECTIONS = ['posts', 'replies', 'reposts'] as const;
+
+export type ProfileFeedBlockKeyStates = Record<
+  ProfileTextTab,
+  FeedBlockKeyState[]
+>;
+
+/**
+ * Measured row heights for the posts that survive a working-set cut.
+ * Every text section keeps the block keys it last mounted, so a tab
+ * return still has those heights. Rows that left the cut are dropped.
+ */
+export function retainProfileTextSectionHeights(
+  cache: FeedWindowSizeCache,
+  surviving: readonly PostRow[],
+  activeSection: ProfileTextTab | null,
+  previous: ProfileFeedBlockKeyStates
+): ProfileFeedBlockKeyStates {
+  const liveKeys = activeSection ? previous[activeSection] : [];
+  const states = retainFeedWindowHeights(
+    cache,
+    PROFILE_TEXT_SECTIONS.map((section) => ({
+      posts: surviving.filter(
+        (post) => profilePostTextSection(post) === section
+      ),
+      previous: section === activeSection ? liveKeys : previous[section],
+      options:
+        section === 'replies' ? { includeForeignReplies: true } : undefined,
+    }))
+  );
+  return {
+    posts: states[0] ?? [],
+    replies: states[1] ?? [],
+    reposts: states[2] ?? [],
+  };
+}
 
 /** Rows that stay after an around-window trim, including one inactive page. */
 export function profilePostsAfterMemoryTrim(
@@ -245,12 +279,7 @@ export function ProfileFeedClient({
   }, [posts]);
 
   /** Durable for the drawer lifetime — survives tab switches within a visit. */
-  const windowSizeCache = useMemo(
-    () => new FeedWindowSizeCache(),
-    // Reset key when the drawer changes profile. Not read by the factory.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [accountId]
-  );
+  const windowSizeCache = useMemo(() => new FeedWindowSizeCache(), [accountId]);
   const blockKeyStatesRef = useRef<Record<ProfileTextTab, FeedBlockKeyState[]>>(
     {
       posts: [],
@@ -270,8 +299,8 @@ export function ProfileFeedClient({
       if (mediaPagingRef.current) return;
       mediaPagingRef.current = true;
       const requestId = mediaRequestRef.current;
-      const isFirst =
-        cursor.beforeBlockHeight == null && (cursor.offset ?? 0) === 0;
+      // prettier-ignore
+      const isFirst = cursor.beforeBlockHeight == null && (cursor.offset ?? 0) === 0;
       queueMicrotask(() => {
         setMediaPaging(true);
         if (isFirst) setPendingTab('media');
@@ -520,7 +549,10 @@ export function ProfileFeedClient({
   }, [posts, tab]);
 
   const activeSection = isProfileTextTab(tab) ? tab : null;
-  const activeSectionPage = activeSection ? sectionPages[activeSection] : null;
+  // prettier-ignore
+  const activeSectionPage = activeSection
+    ? sectionPages[activeSection]
+    : null;
   const onBlockKeyState = useCallback(
     (state: FeedBlockKeyState[]) => {
       if (!activeSection) return;
@@ -553,12 +585,22 @@ export function ProfileFeedClient({
     fetchMediaPage,
   ]);
 
-  const sectionPaging = activeSection ? sectionPagingMap[activeSection] : false;
-  const sectionFailed = activeSection ? sectionFailedMap[activeSection] : false;
+  // prettier-ignore
+  const sectionPaging = activeSection
+    ? sectionPagingMap[activeSection]
+    : false;
+  // prettier-ignore
+  const sectionFailed = activeSection
+    ? sectionFailedMap[activeSection]
+    : false;
 
   const loadOlderSection = useCallback(() => {
     if (!activeSection || !activeSectionPage) return;
-    if (!activeSectionPage.hasMore || sectionPagingRef.current[activeSection]) {
+    // prettier-ignore
+    if (
+      !activeSectionPage.hasMore ||
+      sectionPagingRef.current[activeSection]
+    ) {
       return;
     }
     setSectionFailedMap((current) => ({
@@ -605,7 +647,11 @@ export function ProfileFeedClient({
       windowStart: range.start,
       windowEnd: range.end,
     });
-    if (trimmed.droppedHead.length === 0 && trimmed.droppedTail.length === 0) {
+    // prettier-ignore
+    if (
+      trimmed.droppedHead.length === 0 &&
+      trimmed.droppedTail.length === 0
+    ) {
       return;
     }
     if (homeFeedMemoryTrimNeedsScrollAnchor(trimmed)) {
@@ -620,25 +666,12 @@ export function ProfileFeedClient({
       trimmed.posts,
       activeSection
     );
-    // Active section keeps the list's stable keys. Other sections keep tip
-    // keys — a tab change reassigns against the other tab, so overlap is 0.
-    const states = retainFeedWindowHeights(
+    blockKeyStatesRef.current = retainProfileTextSectionHeights(
       windowSizeCache,
-      PROFILE_TEXT_SECTIONS.map((section) => ({
-        posts: surviving.filter(
-          (post) => profilePostTextSection(post) === section
-        ),
-        previous:
-          section === activeSection ? blockKeyStatesRef.current[section] : [],
-        options:
-          section === 'replies' ? { includeForeignReplies: true } : undefined,
-      }))
+      surviving,
+      activeSection,
+      blockKeyStatesRef.current
     );
-    blockKeyStatesRef.current = {
-      posts: states[0] ?? [],
-      replies: states[1] ?? [],
-      reposts: states[2] ?? [],
-    };
     setPosts((current) =>
       current === base
         ? surviving
@@ -702,6 +735,7 @@ export function ProfileFeedClient({
   useLayoutEffect(() => {
     if (!trimAnchor || !(scrollNode instanceof HTMLElement)) return;
     if (restoreFeedAnchor(scrollNode, trimAnchor)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear pin after pre-paint scroll restore
       setTrimAnchor(null);
     }
   }, [posts, scrollNode, trimAnchor]);

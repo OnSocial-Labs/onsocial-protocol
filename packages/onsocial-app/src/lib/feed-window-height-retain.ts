@@ -19,6 +19,13 @@ export type GuildFeedHeightSlot = {
   blockKeys: FeedBlockKeyState[];
 };
 
+export function guildFeedHeightSlotKey(
+  groupId: string,
+  filterId: string
+): string {
+  return `${groupId}\0${filterId}`;
+}
+
 /** LRU slot for one guild room. The cache itself is trimmed by retain. */
 export function rememberGuildFeedHeightSlot(
   slots: Map<string, GuildFeedHeightSlot>,

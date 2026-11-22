@@ -124,6 +124,7 @@ import {
   type FeedBlockKeyState,
 } from '@/lib/feed-threads';
 import {
+  guildFeedHeightSlotKey,
   rememberGuildFeedHeightSlot,
   retainFeedWindowHeights,
   type GuildFeedHeightSlot,
@@ -332,7 +333,9 @@ export function LiveGuildPanel({
         const proposalsFromSettings =
           manageSheet === 'proposals' && settingsPredecessorRef.current;
         const settingsHref = guildSheetPath(groupId, 'settings');
-        const hereNow = () => window.location.pathname + window.location.search;
+        // prettier-ignore
+        const hereNow = () =>
+          window.location.pathname + window.location.search;
         const restoreSettings = () => {
           setManageSheet(null);
           setSettingsSheetOpen(true);
@@ -553,7 +556,7 @@ export function LiveGuildPanel({
   }, [selectedFeedFilterId, config, postableSpaces]);
   const feedBlocks = useMemo(() => coalesceFeedThreads(feedPosts), [feedPosts]);
   const heightSlotsRef = useRef(new Map<string, GuildFeedHeightSlot>());
-  const heightSlotKey = `${groupId}\0${selectedFeedFilterId}`;
+  const heightSlotKey = guildFeedHeightSlotKey(groupId, selectedFeedFilterId);
   const activeHeightRef = useRef<{
     key: string;
     slot: GuildFeedHeightSlot;
@@ -573,8 +576,10 @@ export function LiveGuildPanel({
   );
   const feedBlockKeys = useStableFeedBlockKeys(feedBlocks, onFeedBlockKeyState);
   const quotedPosts = useQuotedPosts(feedPosts);
+  // prettier-ignore
   const feedRowEstimates = useMemo(
-    () => feedBlocks.map((block) => feedBlockEstimatePx(block, quotedPosts)),
+    () =>
+      feedBlocks.map((block) => feedBlockEstimatePx(block, quotedPosts)),
     [feedBlocks, quotedPosts]
   );
   const feedListRef = useRef<HTMLDivElement | null>(null);
@@ -584,12 +589,10 @@ export function LiveGuildPanel({
     blockCount: 0,
   });
   const [trimAnchor, setTrimAnchor] = useState<FeedScrollAnchor | null>(null);
-  const onFeedWindowRangeChange = useCallback(
-    (range: FeedWindowRangeChange) => {
-      feedWindowRangeRef.current = range;
-    },
-    []
-  );
+  // prettier-ignore
+  const onFeedWindowRangeChange = useCallback((range: FeedWindowRangeChange) => {
+    feedWindowRangeRef.current = range;
+  }, []);
   /*
    * Same windowing + typed block estimates as home PersonalFeedList —
    * media/thread/jacket spacers so scroll-back does not jiggle.
@@ -800,6 +803,10 @@ export function LiveGuildPanel({
 
   // Keyset load-more — around-window trim like home. Optimistic local rows
   // sit above the indexed list; keep tail-only trim while they are present.
+  // Dep stays `localPosts.length`: rows are only prepended. The ref is read
+  // at trim time. The scroll effect calls this from the scroll handler only.
+  const localPostsRef = useRef(localPosts);
+  localPostsRef.current = localPosts;
   const memoryTrimTimerRef = useRef<number | null>(null);
   const maybeTrimFeedMemory = useCallback(() => {
     if (loadingMore || isFeedRefreshing || feedPending) return;
@@ -838,7 +845,7 @@ export function LiveGuildPanel({
       setTrimAnchor(captureVisibleFeedAnchor(root));
     }
     const indexedKeys = new Set(trimmed.posts.map(postKey));
-    const pendingLocal = localPosts.filter(
+    const pendingLocal = localPostsRef.current.filter(
       (post) =>
         !indexedKeys.has(postKey(post)) &&
         (!selectedFeedSpace ||
@@ -857,7 +864,7 @@ export function LiveGuildPanel({
     heightSlot,
     isFeedRefreshing,
     loadingMore,
-    localPosts,
+    localPosts.length,
     selectedFeedSpace,
     state.posts,
     trimFeedWorkingSet,
