@@ -31,6 +31,17 @@ describe('discover loading contract', () => {
     expect(source).toContain('setLoadError(message)');
   });
 
+  it('does not stack a route settle cover on Discover page (loading.tsx owns it)', () => {
+    const source = readFileSync(
+      join(discoverSrc, 'discover-page-panel.tsx'),
+      'utf8'
+    );
+    expect(source).not.toContain('os-route-settle');
+    expect(source).not.toContain('settleMoving');
+    expect(source).not.toContain('DiscoverMovingLandingSkeleton');
+    expect(source).toContain('DiscoverPanelContent');
+  });
+
   it('appends hubs/guilds/DAOs with footer dots, not mid-list skeletons', () => {
     for (const file of [
       'discover-hubs-panel.tsx',

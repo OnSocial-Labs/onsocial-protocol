@@ -1,19 +1,14 @@
 'use client';
 
-import { useCallback, useRef, useState, type RefObject } from 'react';
+import { useCallback, useRef, type RefObject } from 'react';
 import { useRouter } from 'next/navigation';
-import { OsAppChromePage } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { OsRouteSettle } from '@/components/app/os-route-settle';
 import { useOsInAppPop } from '@/components/providers/os-face-leave-provider';
 import { DiscoverPanelContent } from '@/features/discover/discover-panel-content';
-import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import {
   DiscoverHeaderTabs,
   DiscoverNavSearch,
 } from '@/features/discover/discover-screen-chrome';
-import { DiscoverMovingLandingSkeleton } from '@/features/discover/discover-trending-panel';
-import { isMovingLandingPainted } from '@/lib/discover-moving';
 import { DiscoverPanelRoot } from '@/features/discover/discover-panel';
 import type { GuildSummaryCardModel } from '@/features/guilds/guild-summary-card';
 import { APP_HOME_PATH } from '@/lib/app-routes';
@@ -30,11 +25,8 @@ function DiscoverPageScreen({
 }) {
   const router = useRouter();
   const popInApp = useOsInAppPop();
-  const { tab, initialTrending } = useDiscoverPanel();
-  // Chosen once for this route mount. A tab change must not swap the wrapper.
-  const [settleMoving] = useState(
-    () => tab === 'trending' && isMovingLandingPainted(initialTrending)
-  );
+  // Route skeleton lives only in `app/(app)/discover/loading.tsx`. Do not
+  // stack a second route cover over painted SSR (that was the double flicker).
   const onDockBack = useCallback(() => {
     if (popInApp()) return;
     router.push(backFallbackHref);
@@ -54,16 +46,7 @@ function DiscoverPageScreen({
       heading={<DiscoverNavSearch />}
       toolbar={<DiscoverHeaderTabs />}
     >
-      <OsRouteSettle
-        settle={settleMoving}
-        skeleton={
-          <OsAppChromePage className="discover-panel">
-            <DiscoverMovingLandingSkeleton />
-          </OsAppChromePage>
-        }
-      >
-        <DiscoverPanelContent />
-      </OsRouteSettle>
+      <DiscoverPanelContent />
     </OsAppScreen>
   );
 }

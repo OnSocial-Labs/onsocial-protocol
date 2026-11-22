@@ -76,6 +76,7 @@ import {
   collectionShowCommerceMeter,
   collectionShowInlineTracks,
   collectionUseFirst,
+  collectionViewNeedsCatalogSoftFill,
   peekHoldsCollection,
   peekHoldsCollectionForDropPage,
   peekOwnedTokenForCollection,
@@ -374,7 +375,9 @@ export function CollectionPagePanel({
     key: string;
     rows: CollectionActivityRow[];
   } | null>(() =>
-    initial != null ? { key: ssrActivityKey, rows: initialActivity } : null
+    initial != null && !collectionViewNeedsCatalogSoftFill(initial)
+      ? { key: ssrActivityKey, rows: initialActivity }
+      : null
   );
   const initialCreatorId = initial?.creatorId?.trim() || '';
   const [creatorAvatarUrl, setCreatorAvatarUrl] = useState<string | null>(
@@ -408,10 +411,15 @@ export function CollectionPagePanel({
     accountIdsEqual(viewerAccountId!, view.creatorId);
   const hasImmersiveCover = Boolean(view?.mediaUrl || view?.cardBg);
 
-  // Soft indexer refresh after paint (minted/remaining/paused/price); RPC only if thin.
-  // SSR already seeded a solid shell — skip the first keyed refetch.
+  // Soft-fill catalog after paint; solid SSR shells skip the first keyed refetch.
   useEffect(() => {
-    if (refreshKey === 0 && initial != null) return;
+    if (
+      refreshKey === 0 &&
+      initial != null &&
+      !collectionViewNeedsCatalogSoftFill(initial)
+    ) {
+      return;
+    }
     let cancelled = false;
     void fetchCollectionPreferIndexer(collectionId)
       .then(async (next) => {
@@ -422,7 +430,7 @@ export function CollectionPagePanel({
       })
       .finally(() => {
         if (cancelled) return;
-        if (refreshKey === 0 && initial == null) {
+        if (refreshKey === 0 && collectionViewNeedsCatalogSoftFill(initial)) {
           setClientSettled(true);
         }
       });
@@ -472,8 +480,14 @@ export function CollectionPagePanel({
   ]);
 
   useEffect(() => {
-    // SSR already seeded activity for first paint — refetch only after mint.
-    if (refreshKey === 0 && initial != null) return;
+    // Solid SSR activity stays; thin peeks and post-mint refresh refetch.
+    if (
+      refreshKey === 0 &&
+      initial != null &&
+      !collectionViewNeedsCatalogSoftFill(initial)
+    ) {
+      return;
+    }
     let cancelled = false;
     const key = activityRequestKey;
     const client = createReadOnlyOnSocialClient();
@@ -920,9 +934,13 @@ export function CollectionPagePanel({
     [sheetActivity]
   );
   const activityProfiles = usePostAuthorProfiles(activityAccountIds);
+  /** List→overlay already has a jacket seed — no mid-face shimmers on open. */
+  const seededOverlayOpen = embedded && initial != null;
   const creatorId = view?.creatorId?.trim() || '';
   const creatorShellLoading =
-    Boolean(creatorId) && creatorResolvedKey !== creatorId;
+    !seededOverlayOpen &&
+    Boolean(creatorId) &&
+    creatorResolvedKey !== creatorId;
   const resolvedCreatorAvatar = creatorShellLoading ? null : creatorAvatarUrl;
   const creatorNameLine = collectionCreatorNameLine(
     creatorId,
@@ -1156,10 +1174,21 @@ export function CollectionPagePanel({
   });
   const createdRel =
     view.createdAtMs > 0 ? formatMarketRelativeTime(view.createdAtMs) : '';
+  // Seeded overlay opens already paint the drop face — don't put an Activity
+  // skeleton under it (reads as "loading the page"). Cold catalog misses still
+  // reserve the rail. Soft-fill peeks reveal Activity when rows land.
+  const showActivityPending = !activityLoaded && initial == null;
   const showActivitySection =
-    !activityLoaded || mintPreview.length > 0 || sheetActivity.length > 0;
+    showActivityPending ||
+    (activityLoaded &&
+      (mintPreview.length > 0 || sheetActivity.length > 0));
   const showActivitySeeAll =
     activityLoaded && sheetActivity.length > mintPreview.length;
+  // Seeded: wait for fan ids — never shimmer slots then swap avatars.
+  const showFansFacepile =
+    showDropLove &&
+    dropLoves.fanCount > 0 &&
+    (!seededOverlayOpen || dropFanIds.length > 0);
 
   return (
     <OsAppScreen
@@ -1314,7 +1343,7 @@ export function CollectionPagePanel({
               />
             ) : null}
             <div className="collection-commerce-actions">
-              {showDropLove && dropLoves.fanCount > 0 ? (
+              {showFansFacepile ? (
                 <div className="collection-drop-fans">
                   <GuildFacepile
                     memberIds={dropFanIds}
@@ -1322,7 +1351,11 @@ export function CollectionPagePanel({
                     memberCount={dropLoves.fanCount}
                     countUnit={{ one: 'fan', other: 'fans' }}
                     slots={Math.min(5, Math.max(1, dropLoves.fanCount))}
-                    loading={dropLoves.fansLoading && dropFanIds.length === 0}
+                    loading={
+                      seededOverlayOpen
+                        ? false
+                        : dropLoves.fansLoading && dropFanIds.length === 0
+                    }
                     className="collection-drop-fans-facepile"
                     onPointerDown={() => {
                       if (dropLoves.fanIds.length > 0) {

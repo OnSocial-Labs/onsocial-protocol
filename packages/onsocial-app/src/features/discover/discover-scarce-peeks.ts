@@ -1,6 +1,10 @@
 import type { OnSocial, ScarcesEventRow } from '@onsocial/sdk';
 import { resolveScarceMediaUrl } from '@/features/market/market-listings';
 import {
+  collectionCurrentRowToView,
+  type CollectionView,
+} from '@/features/scarces/collections-data';
+import {
   collectionIdFromSaleEvent,
   justSoldCollectionRefs,
 } from '@/lib/discover-moving';
@@ -10,9 +14,16 @@ export type DiscoverScarcePeek = {
   collectionId: string;
   title: string | null;
   appId: string | null;
+  creatorId?: string | null;
+  kind?: string | null;
   coverUrl?: string | null;
   signalCount?: number | null;
   lastSaleTimestamp?: number | null;
+  /**
+   * Solid catalog shell when `collectionsCurrentByIds` mapped — same open
+   * seed Drops uses (`item.view`). Thin peeks fall back to cover seed.
+   */
+  view?: CollectionView | null;
 };
 
 const DEFAULT_LIMIT = 6;
@@ -49,14 +60,23 @@ async function hydrateScarcePeeks(
       });
       continue;
     }
+    let view: CollectionView | null = null;
+    try {
+      view = collectionCurrentRowToView(shell);
+    } catch {
+      view = null;
+    }
     out.push({
       collectionId: shell.collectionId,
       title: shell.title?.trim() || null,
       appId: shell.appId?.trim() || appById.get(id) || null,
+      creatorId: shell.creatorId?.trim() || null,
+      kind: shell.mediumKind?.trim() || shell.kind?.trim() || null,
       coverUrl: resolveScarceMediaUrl(shell.media),
       signalCount:
         signal != null && Number.isFinite(signal) && signal > 0 ? signal : null,
       lastSaleTimestamp,
+      view,
     });
   }
   return out;
