@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import {
   Divider,
   ProtocolMotionArrow,
@@ -413,35 +414,37 @@ export function ProfileSocialListRow({
           avatarClassName="standing-row-avatar-slot"
           copyLeading={
             showRelationshipSignals ? (
-              <div className="standing-row-signals">
-                {sharedSolidarity ? (
-                  <StandingRelationshipSignal
-                    label="Solidarity"
-                    tone="solidarity"
-                    title="You both stand with each other"
-                  />
-                ) : theyStandWithViewer ? (
-                  <StandingRelationshipSignal
-                    label="Stands with you"
-                    tone="standing"
-                    title="This account stands with you"
-                  />
-                ) : null}
-                {showEndorsedYou ? (
-                  <StandingRelationshipSignal
-                    label="Endorsed you"
-                    tone="endorse"
-                    title="This account has endorsed you"
-                  />
-                ) : null}
-                {showEndorsedThem ? (
-                  <StandingRelationshipSignal
-                    label="Endorsed"
-                    tone="endorse"
-                    title="You endorsed this account"
-                  />
-                ) : null}
-              </div>
+              <OsPageBodyAppear>
+                <div className="standing-row-signals">
+                  {sharedSolidarity ? (
+                    <StandingRelationshipSignal
+                      label="Solidarity"
+                      tone="solidarity"
+                      title="You both stand with each other"
+                    />
+                  ) : theyStandWithViewer ? (
+                    <StandingRelationshipSignal
+                      label="Stands with you"
+                      tone="standing"
+                      title="This account stands with you"
+                    />
+                  ) : null}
+                  {showEndorsedYou ? (
+                    <StandingRelationshipSignal
+                      label="Endorsed you"
+                      tone="endorse"
+                      title="This account has endorsed you"
+                    />
+                  ) : null}
+                  {showEndorsedThem ? (
+                    <StandingRelationshipSignal
+                      label="Endorsed"
+                      tone="endorse"
+                      title="You endorsed this account"
+                    />
+                  ) : null}
+                </div>
+              </OsPageBodyAppear>
             ) : null
           }
           nameTrailing={

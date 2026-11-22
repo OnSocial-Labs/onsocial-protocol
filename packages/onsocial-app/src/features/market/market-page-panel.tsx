@@ -20,9 +20,7 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
-import {
-  MarketSearchHeading,
-} from '@/features/market/market-heading';
+import { MarketSearchHeading } from '@/features/market/market-heading';
 import { MarketCreatorShop } from '@/features/market/market-creator-shop';
 import {
   listedCollectionIdSet,
@@ -2039,9 +2037,7 @@ export function MarketPagePanel({
     showMyOffersSection ||
     showSalesSection ||
     loadMoreFailed ||
-    (clientDiscoveryFilterActive &&
-      listingsState.hasMore &&
-      !showEmptyFilter);
+    (clientDiscoveryFilterActive && listingsState.hasMore && !showEmptyFilter);
 
   const renderBrowseListingRow = (item: MarketListingItem) => {
     const rowKey = marketListingRowKey(item);
@@ -2268,337 +2264,361 @@ export function MarketPagePanel({
 
         {!showListSkeleton ? (
           showMarketListBody ? (
-          <>
-        {showNoActiveListingsHint || reserveNoActiveListingsHint ? (
-          <CatalogStatusLine reserved={reserveNoActiveListingsHint}>
-            {showNoActiveListingsHint
-              ? emptyCopy.noActiveListingsSalesBelow
-              : null}
-          </CatalogStatusLine>
-        ) : null}
-
-        {searching &&
-        !searchSettled &&
-        discoveryFilteredListings.length === 0 &&
-        shopDrops.length === 0 ? (
-          <CatalogStatusLine>{emptyCopy.lookingForMatches}</CatalogStatusLine>
-        ) : null}
-
-        {clientDiscoveryFilterActive &&
-        !searching &&
-        listingsState.hasMore &&
-        discoveryFilteredListings.length === 0 &&
-        !showEmptyFilter ? (
-          <CatalogStatusLine>{emptyCopy.lookingForMatches}</CatalogStatusLine>
-        ) : null}
-
-        <section
-          id="market-listing-results"
-          role={shopMode ? undefined : 'tabpanel'}
-          aria-labelledby={
-            shopMode ? undefined : `market-listing-tab-${shopListingFilter}`
-          }
-          className={`market-section${
-            showCatalogRefreshing ? ' drops-catalog--refreshing' : ''
-          }`}
-          hidden={discoveryFilteredListings.length === 0}
-          aria-busy={showCatalogRefreshing || undefined}
-        >
-          <h2
-            id="market-new"
-            className={
-              creatorFilter && shopDrops.length > 0
-                ? 'collection-section-label'
-                : 'sr-only'
-            }
-          >
-            {creatorFilter && shopDrops.length > 0
-              ? 'For sale'
-              : listingFilter === 'auctions'
-                ? 'Auctions'
-                : listingFilter === 'fixed'
-                  ? 'Fixed price'
-                  : 'Listings'}
-          </h2>
-          {discoveryFilteredListings.length > 0 ? (
-            <>
-              {liveBrowseListings.length > 0 ? (
-                <div
-                  ref={liveBrowseListRef}
-                  className="market-listing-list"
-                  role="list"
-                  data-market-listing-group="live"
-                >
-                  {liveBrowseWindow.windowed &&
-                  liveBrowseWindow.topSpacer > 0 ? (
-                    <div
-                      style={{ height: liveBrowseWindow.topSpacer }}
-                      aria-hidden="true"
-                      data-feed-window-spacer="top"
-                    />
-                  ) : null}
-                  {liveBrowseListings
-                    .slice(liveBrowseWindow.start, liveBrowseWindow.end)
-                    .map((item) => {
-                      const key = marketListingRowKey(item);
-                      return (
-                        <div
-                          key={key}
-                          ref={liveBrowseWindow.registerRow(key)}
-                          data-catalog-key={key}
-                        >
-                          {renderBrowseListingRow(item)}
-                        </div>
-                      );
-                    })}
-                  {liveBrowseWindow.windowed &&
-                  liveBrowseWindow.bottomSpacer > 0 ? (
-                    <div
-                      style={{ height: liveBrowseWindow.bottomSpacer }}
-                      aria-hidden="true"
-                      data-feed-window-spacer="bottom"
-                    />
-                  ) : null}
-                </div>
+            <OsPageBodyAppear className="market-page">
+              {showNoActiveListingsHint || reserveNoActiveListingsHint ? (
+                <CatalogStatusLine reserved={reserveNoActiveListingsHint}>
+                  {showNoActiveListingsHint
+                    ? emptyCopy.noActiveListingsSalesBelow
+                    : null}
+                </CatalogStatusLine>
               ) : null}
-              {endedBrowseListings.length > 0 ? (
+
+              {searching &&
+              !searchSettled &&
+              discoveryFilteredListings.length === 0 &&
+              shopDrops.length === 0 ? (
+                <CatalogStatusLine>
+                  {emptyCopy.lookingForMatches}
+                </CatalogStatusLine>
+              ) : null}
+
+              {clientDiscoveryFilterActive &&
+              !searching &&
+              listingsState.hasMore &&
+              discoveryFilteredListings.length === 0 &&
+              !showEmptyFilter ? (
+                <CatalogStatusLine>
+                  {emptyCopy.lookingForMatches}
+                </CatalogStatusLine>
+              ) : null}
+
+              <section
+                id="market-listing-results"
+                role={shopMode ? undefined : 'tabpanel'}
+                aria-labelledby={
+                  shopMode
+                    ? undefined
+                    : `market-listing-tab-${shopListingFilter}`
+                }
+                className={`market-section${
+                  showCatalogRefreshing ? ' drops-catalog--refreshing' : ''
+                }`}
+                hidden={discoveryFilteredListings.length === 0}
+                aria-busy={showCatalogRefreshing || undefined}
+              >
+                <h2
+                  id="market-new"
+                  className={
+                    creatorFilter && shopDrops.length > 0
+                      ? 'collection-section-label'
+                      : 'sr-only'
+                  }
+                >
+                  {creatorFilter && shopDrops.length > 0
+                    ? 'For sale'
+                    : listingFilter === 'auctions'
+                      ? 'Auctions'
+                      : listingFilter === 'fixed'
+                        ? 'Fixed price'
+                        : 'Listings'}
+                </h2>
+                {discoveryFilteredListings.length > 0 ? (
+                  <>
+                    {liveBrowseListings.length > 0 ? (
+                      <div
+                        ref={liveBrowseListRef}
+                        className="market-listing-list"
+                        role="list"
+                        data-market-listing-group="live"
+                      >
+                        {liveBrowseWindow.windowed &&
+                        liveBrowseWindow.topSpacer > 0 ? (
+                          <div
+                            style={{ height: liveBrowseWindow.topSpacer }}
+                            aria-hidden="true"
+                            data-feed-window-spacer="top"
+                          />
+                        ) : null}
+                        {liveBrowseListings
+                          .slice(liveBrowseWindow.start, liveBrowseWindow.end)
+                          .map((item) => {
+                            const key = marketListingRowKey(item);
+                            return (
+                              <div
+                                key={key}
+                                ref={liveBrowseWindow.registerRow(key)}
+                                data-catalog-key={key}
+                              >
+                                {renderBrowseListingRow(item)}
+                              </div>
+                            );
+                          })}
+                        {liveBrowseWindow.windowed &&
+                        liveBrowseWindow.bottomSpacer > 0 ? (
+                          <div
+                            style={{ height: liveBrowseWindow.bottomSpacer }}
+                            aria-hidden="true"
+                            data-feed-window-spacer="bottom"
+                          />
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {endedBrowseListings.length > 0 ? (
+                      <>
+                        {showEndedGroupLabel ? (
+                          <p
+                            className="collection-section-label"
+                            data-market-ended-label
+                          >
+                            Ended
+                          </p>
+                        ) : null}
+                        <div
+                          ref={endedBrowseListRef}
+                          className="market-listing-list"
+                          role="list"
+                          data-market-listing-group="ended"
+                        >
+                          {endedBrowseWindow.windowed &&
+                          endedBrowseWindow.topSpacer > 0 ? (
+                            <div
+                              style={{ height: endedBrowseWindow.topSpacer }}
+                              aria-hidden="true"
+                              data-feed-window-spacer="top"
+                            />
+                          ) : null}
+                          {endedBrowseListings
+                            .slice(
+                              endedBrowseWindow.start,
+                              endedBrowseWindow.end
+                            )
+                            .map((item) => {
+                              const key = marketListingRowKey(item);
+                              return (
+                                <div
+                                  key={key}
+                                  ref={endedBrowseWindow.registerRow(key)}
+                                  data-catalog-key={key}
+                                >
+                                  {renderBrowseListingRow(item)}
+                                </div>
+                              );
+                            })}
+                          {endedBrowseWindow.windowed &&
+                          endedBrowseWindow.bottomSpacer > 0 ? (
+                            <div
+                              style={{ height: endedBrowseWindow.bottomSpacer }}
+                              aria-hidden="true"
+                              data-feed-window-spacer="bottom"
+                            />
+                          ) : null}
+                        </div>
+                      </>
+                    ) : null}
+                  </>
+                ) : null}
+              </section>
+
+              {loadMoreFailed ? (
+                <OsChromeListAlert
+                  message="Couldn’t load more."
+                  retryLabel="Retry"
+                  onRetry={loadMoreListings}
+                />
+              ) : null}
+
+              {(discoveryFilteredListings.length > 0 ||
+                (clientDiscoveryFilterActive && listingsState.hasMore)) &&
+              listingsState.hasMore &&
+              !loadMoreFailed &&
+              !showCatalogRefreshing ? (
                 <>
-                  {showEndedGroupLabel ? (
-                    <p
-                      className="collection-section-label"
-                      data-market-ended-label
-                    >
-                      Ended
-                    </p>
+                  {showAppendPending ? (
+                    <div className="list-append-pending">
+                      <PulsingDots size="sm" label="Loading more" />
+                    </div>
                   ) : null}
                   <div
-                    ref={endedBrowseListRef}
+                    ref={listingsSentinelRef}
+                    className="market-listing-sentinel"
+                    aria-hidden
+                  />
+                </>
+              ) : null}
+
+              {showOwnedSection || showOwnedLoadingSeat ? (
+                <section
+                  className="market-section"
+                  aria-labelledby="market-yours"
+                  aria-busy={showOwnedLoadingSeat ? true : undefined}
+                >
+                  <div className="market-section-title-row">
+                    <h2 id="market-yours" className="market-section-title">
+                      Yours
+                    </h2>
+                    {viewerAccountId ? (
+                      <OsRowAction
+                        href={portfolioCollectiblesPath(viewerAccountId)}
+                      >
+                        Open Collectibles
+                        <ProtocolMotionArrow className="os-row-action-arrow" />
+                      </OsRowAction>
+                    ) : null}
+                  </div>
+                  <div
+                    ref={ownedListRef}
                     className="market-listing-list"
                     role="list"
-                    data-market-listing-group="ended"
                   >
-                    {endedBrowseWindow.windowed &&
-                    endedBrowseWindow.topSpacer > 0 ? (
+                    {ownedWindow.windowed && ownedWindow.topSpacer > 0 ? (
                       <div
-                        style={{ height: endedBrowseWindow.topSpacer }}
+                        style={{ height: ownedWindow.topSpacer }}
                         aria-hidden="true"
                         data-feed-window-spacer="top"
                       />
                     ) : null}
-                    {endedBrowseListings
-                      .slice(endedBrowseWindow.start, endedBrowseWindow.end)
+                    {owned
+                      .slice(ownedWindow.start, ownedWindow.end)
                       .map((item) => {
-                        const key = marketListingRowKey(item);
+                        const offerSummary = offerByToken.get(item.tokenId);
+                        const authorId = ownedAuthorAccountId(item);
+                        const author = authorId
+                          ? ownedAuthorProfiles[authorId]
+                          : undefined;
                         return (
                           <div
-                            key={key}
-                            ref={endedBrowseWindow.registerRow(key)}
-                            data-catalog-key={key}
+                            key={item.tokenId}
+                            ref={ownedWindow.registerRow(item.tokenId)}
+                            data-catalog-key={item.tokenId}
                           >
-                            {renderBrowseListingRow(item)}
+                            <MarketOwnedRow
+                              item={item}
+                              nowMs={nowMs}
+                              authorDisplayName={author?.displayName}
+                              authorAvatarUrl={author?.avatarUrl}
+                              highestOfferNear={
+                                offerSummary?.highestAmountNear ?? null
+                              }
+                              offerCount={offerSummary?.offerCount ?? 0}
+                              settlePending={settleTokenId === item.tokenId}
+                              onSell={setSellItem}
+                              onTransfer={setTransferItem}
+                              onChanged={handleListed}
+                              onOffers={setOffersItem}
+                              onSettle={(row) => {
+                                void handleSettleOwned(row);
+                              }}
+                            />
                           </div>
                         );
                       })}
-                    {endedBrowseWindow.windowed &&
-                    endedBrowseWindow.bottomSpacer > 0 ? (
+                    {ownedWindow.windowed && ownedWindow.bottomSpacer > 0 ? (
                       <div
-                        style={{ height: endedBrowseWindow.bottomSpacer }}
+                        style={{ height: ownedWindow.bottomSpacer }}
                         aria-hidden="true"
                         data-feed-window-spacer="bottom"
                       />
                     ) : null}
                   </div>
-                </>
-              ) : null}
-            </>
-          ) : null}
-        </section>
-
-        {loadMoreFailed ? (
-          <OsChromeListAlert
-            message="Couldn’t load more."
-            retryLabel="Retry"
-            onRetry={loadMoreListings}
-          />
-        ) : null}
-
-        {(discoveryFilteredListings.length > 0 ||
-          (clientDiscoveryFilterActive && listingsState.hasMore)) &&
-        listingsState.hasMore &&
-        !loadMoreFailed &&
-        !showCatalogRefreshing ? (
-          <>
-            {showAppendPending ? (
-              <div className="list-append-pending">
-                <PulsingDots size="sm" label="Loading more" />
-              </div>
-            ) : null}
-            <div
-              ref={listingsSentinelRef}
-              className="market-listing-sentinel"
-              aria-hidden
-            />
-          </>
-        ) : null}
-
-        {showOwnedSection || showOwnedLoadingSeat ? (
-          <section
-            className="market-section"
-            aria-labelledby="market-yours"
-            aria-busy={showOwnedLoadingSeat ? true : undefined}
-          >
-            <div className="market-section-title-row">
-              <h2 id="market-yours" className="market-section-title">
-                Yours
-              </h2>
-              {viewerAccountId ? (
-                <OsRowAction href={portfolioCollectiblesPath(viewerAccountId)}>
-                  Open Collectibles
-                  <ProtocolMotionArrow className="os-row-action-arrow" />
-                </OsRowAction>
-              ) : null}
-            </div>
-            <div ref={ownedListRef} className="market-listing-list" role="list">
-              {ownedWindow.windowed && ownedWindow.topSpacer > 0 ? (
-                <div
-                  style={{ height: ownedWindow.topSpacer }}
-                  aria-hidden="true"
-                  data-feed-window-spacer="top"
-                />
-              ) : null}
-              {owned.slice(ownedWindow.start, ownedWindow.end).map((item) => {
-                const offerSummary = offerByToken.get(item.tokenId);
-                const authorId = ownedAuthorAccountId(item);
-                const author = authorId
-                  ? ownedAuthorProfiles[authorId]
-                  : undefined;
-                return (
-                  <div
-                    key={item.tokenId}
-                    ref={ownedWindow.registerRow(item.tokenId)}
-                    data-catalog-key={item.tokenId}
-                  >
-                    <MarketOwnedRow
-                      item={item}
-                      nowMs={nowMs}
-                      authorDisplayName={author?.displayName}
-                      authorAvatarUrl={author?.avatarUrl}
-                      highestOfferNear={offerSummary?.highestAmountNear ?? null}
-                      offerCount={offerSummary?.offerCount ?? 0}
-                      settlePending={settleTokenId === item.tokenId}
-                      onSell={setSellItem}
-                      onTransfer={setTransferItem}
-                      onChanged={handleListed}
-                      onOffers={setOffersItem}
-                      onSettle={(row) => {
-                        void handleSettleOwned(row);
-                      }}
+                  {ownedLoadingMore ? (
+                    <div className="list-append-pending">
+                      <PulsingDots size="sm" label="Loading more" />
+                    </div>
+                  ) : null}
+                  {ownedLoadMoreFailed ? (
+                    <OsChromeListAlert
+                      message="Couldn’t load more."
+                      retryLabel="Retry"
+                      onRetry={loadMoreOwned}
                     />
+                  ) : null}
+                  {ownedState.hasMore && !ownedLoadMoreFailed ? (
+                    <div
+                      ref={ownedSentinelRef}
+                      className="standing-panel-sentinel"
+                      aria-hidden
+                    />
+                  ) : null}
+                </section>
+              ) : null}
+
+              {showMyOffersSection ? (
+                <section
+                  className="market-section"
+                  aria-labelledby="market-my-offers"
+                >
+                  <h2 id="market-my-offers" className="market-section-title">
+                    Your offers
+                  </h2>
+                  <div className="market-listing-list" role="list">
+                    {manageOffers.map((offer) => {
+                      const meta = titleForToken(offer.tokenId);
+                      return (
+                        <MarketOfferRow
+                          key={`my-offer:${offer.tokenId}`}
+                          tokenId={offer.tokenId}
+                          title={meta.title}
+                          mediaUrl={meta.mediaUrl}
+                          amountNear={offer.amountNear}
+                          createdAtNs={offer.createdAtNs}
+                          expiresAtNs={offer.expiresAtNs}
+                          nowMs={nowMs}
+                          onManage={() => {
+                            void handleManageOffer(offer);
+                          }}
+                        />
+                      );
+                    })}
                   </div>
-                );
-              })}
-              {ownedWindow.windowed && ownedWindow.bottomSpacer > 0 ? (
-                <div
-                  style={{ height: ownedWindow.bottomSpacer }}
-                  aria-hidden="true"
-                  data-feed-window-spacer="bottom"
-                />
+                </section>
               ) : null}
-            </div>
-            {ownedLoadingMore ? (
-              <div className="list-append-pending">
-                <PulsingDots size="sm" label="Loading more" />
-              </div>
-            ) : null}
-            {ownedLoadMoreFailed ? (
-              <OsChromeListAlert
-                message="Couldn’t load more."
-                retryLabel="Retry"
-                onRetry={loadMoreOwned}
-              />
-            ) : null}
-            {ownedState.hasMore && !ownedLoadMoreFailed ? (
-              <div
-                ref={ownedSentinelRef}
-                className="standing-panel-sentinel"
-                aria-hidden
-              />
-            ) : null}
-          </section>
-        ) : null}
 
-        {showMyOffersSection ? (
-          <section
-            className="market-section"
-            aria-labelledby="market-my-offers"
-          >
-            <h2 id="market-my-offers" className="market-section-title">
-              Your offers
-            </h2>
-            <div className="market-listing-list" role="list">
-              {manageOffers.map((offer) => {
-                const meta = titleForToken(offer.tokenId);
-                return (
-                  <MarketOfferRow
-                    key={`my-offer:${offer.tokenId}`}
-                    tokenId={offer.tokenId}
-                    title={meta.title}
-                    mediaUrl={meta.mediaUrl}
-                    amountNear={offer.amountNear}
-                    createdAtNs={offer.createdAtNs}
-                    expiresAtNs={offer.expiresAtNs}
-                    nowMs={nowMs}
-                    onManage={() => {
-                      void handleManageOffer(offer);
-                    }}
-                  />
-                );
-              })}
-            </div>
-          </section>
-        ) : null}
-
-        {showSalesSection ? (
-          <section className="market-section" aria-labelledby="market-sales">
-            <h2 id="market-sales" className="market-section-title">
-              Recent sales
-            </h2>
-            {saleFacesReady ? (
-              <ul className="market-sales-list">
-                {visibleSales.map((sale, index) => {
-                  const partyId = salePartyAccountId(sale);
-                  const profile = partyId ? saleProfiles[partyId] : undefined;
-                  return (
-                    <MarketSaleRow
-                      key={`${sale.listingId ?? sale.tokenId ?? 'sale'}:${sale.blockTimestamp}:${index}`}
-                      sale={sale}
-                      displayName={profile?.displayName}
-                      avatarUrl={profile?.avatarUrl}
+              {showSalesSection ? (
+                <section
+                  className="market-section"
+                  aria-labelledby="market-sales"
+                >
+                  <h2 id="market-sales" className="market-section-title">
+                    Recent sales
+                  </h2>
+                  {saleFacesReady ? (
+                    <ul className="market-sales-list">
+                      {visibleSales.map((sale, index) => {
+                        const partyId = salePartyAccountId(sale);
+                        const profile = partyId
+                          ? saleProfiles[partyId]
+                          : undefined;
+                        return (
+                          <MarketSaleRow
+                            key={`${sale.listingId ?? sale.tokenId ?? 'sale'}:${sale.blockTimestamp}:${index}`}
+                            sale={sale}
+                            displayName={profile?.displayName}
+                            avatarUrl={profile?.avatarUrl}
+                          />
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <MarketListSkeleton
+                      rows={Math.min(visibleSales.length, 8)}
+                      variant="drops"
                     />
-                  );
-                })}
-              </ul>
-            ) : (
-              <MarketListSkeleton
-                rows={Math.min(visibleSales.length, 8)}
-                variant="drops"
-              />
-            )}
-            {hiddenSalesCount > 0 ? (
-              <OsLoadMore onClick={() => setSalesExpanded(true)}>
-                Show {hiddenSalesCount} more
-              </OsLoadMore>
-            ) : null}
-            {salesExpanded && salesRows.length > RECENT_SALES_PREVIEW ? (
-              <OsLoadMore onClick={() => setSalesExpanded(false)}>
-                Show less
-              </OsLoadMore>
-            ) : null}
-          </section>
-        ) : null}
-          </>
+                  )}
+                  {hiddenSalesCount > 0 ? (
+                    <OsLoadMore onClick={() => setSalesExpanded(true)}>
+                      Show {hiddenSalesCount} more
+                    </OsLoadMore>
+                  ) : null}
+                  {salesExpanded && salesRows.length > RECENT_SALES_PREVIEW ? (
+                    <OsLoadMore onClick={() => setSalesExpanded(false)}>
+                      Show less
+                    </OsLoadMore>
+                  ) : null}
+                </section>
+              ) : null}
+            </OsPageBodyAppear>
           ) : (
-            <OsPageBodyAppear>
+            <OsPageBodyAppear className="market-page">
               {showEmptyBrowse ? (
                 <div className="market-page-empty">
                   <p className="market-page-empty-copy">

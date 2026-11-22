@@ -819,6 +819,61 @@ export function e2eMarketShopCatalogRows(market: E2eGraphMarket) {
   ];
 }
 
+/** One completed sale so a signed-in Market page can show Recent sales. */
+export function e2eMarketSaleEvents(
+  variables: Record<string, unknown> = {}
+): Array<Record<string, unknown>> {
+  const operation = variables.operation;
+  const ops = Array.isArray(operation)
+    ? operation.map(String)
+    : operation == null
+      ? []
+      : [String(operation)];
+  const isSale = ops.some(
+    (op) => op === 'purchase' || op === 'purchased' || op === 'auction_settled'
+  );
+  if (!isSale) return [];
+  return [
+    {
+      eventType: 'SCARCE_UPDATE',
+      operation: 'purchase',
+      author: 'alice.near',
+      blockHeight: 12,
+      blockTimestamp: Date.now(),
+      tokenId: 'night-drive:9',
+      collectionId: 'night-drive',
+      listingId: null,
+      ownerId: null,
+      creatorId: 'alice.near',
+      buyerId: E2E_VAULT_OWNER,
+      sellerId: 'alice.near',
+      bidder: null,
+      accountId: null,
+      appId: null,
+      scarceContractId: null,
+      amount: null,
+      price: '1000000000000000000000000',
+      oldPrice: null,
+      newPrice: null,
+      bidAmount: null,
+      marketplaceFee: null,
+      appPoolAmount: null,
+      creatorPayment: null,
+      usdE6: null,
+      quantity: 1,
+      totalSupply: null,
+      redeemCount: null,
+      maxRedeems: null,
+      reservePrice: null,
+      buyNowPrice: null,
+      expiresAt: null,
+      reason: null,
+      memo: null,
+      extraData: JSON.stringify({ title: 'Night sale', priceNear: '1' }),
+    },
+  ];
+}
+
 export function e2eMarketListingRows(market: E2eGraphMarket) {
   if (market === 'window') return e2eMarketWindowRows();
   if (market !== 'live-first') return [];
@@ -1091,6 +1146,21 @@ export function e2eEventsCatalogRows(): ReturnType<typeof collectionRow>[] {
       maxRedeems: 1,
       coverMedia: DROPS_COVER_MEDIA,
     }),
+    collectionRow({
+      collectionId: 'last-call',
+      title: 'Last Call',
+      kind: 'ticket',
+      price: '0',
+      usdE6: '2000000',
+      extra: {
+        kind: 'ticket',
+        place: 'lisbon',
+        eventStartsAt: start - 26 * 60 * 60 * 1000,
+        eventEndsAt: start - 24 * 60 * 60 * 1000,
+      },
+      maxRedeems: 1,
+      coverMedia: DROPS_COVER_MEDIA,
+    }),
   ];
 }
 
@@ -1267,8 +1337,7 @@ function e2eArticlesWindowRows() {
  */
 function e2eArticlesWindowPage(variables: Record<string, unknown>) {
   const rows = e2eArticlesWindowRows();
-  const before =
-    typeof variables.before === 'number' ? variables.before : null;
+  const before = typeof variables.before === 'number' ? variables.before : null;
   if (before == null) return rows.slice(0, 25);
   return rows.filter((row) => row.blockHeight < before);
 }
@@ -1390,7 +1459,10 @@ export function resolveE2eGraphStub(opts: {
       },
     };
   }
-  if (parsed.articles === 'window' && opts.query.includes('IndexedPostsByRefs')) {
+  if (
+    parsed.articles === 'window' &&
+    opts.query.includes('IndexedPostsByRefs')
+  ) {
     return { data: { postsCurrent: [] } };
   }
   if (
@@ -1400,7 +1472,10 @@ export function resolveE2eGraphStub(opts: {
   ) {
     return { data: { reactionsCurrent: [], socialSpendEvents: [] } };
   }
-  if (parsed.articles === 'window' && opts.query.includes('PostReactionCounts')) {
+  if (
+    parsed.articles === 'window' &&
+    opts.query.includes('PostReactionCounts')
+  ) {
     return { data: { reactionCounts: [] } };
   }
   if (
@@ -1476,7 +1551,10 @@ export function resolveE2eGraphStub(opts: {
   if (parsed.profile === 'links' && opts.query.includes('query PageConfig(')) {
     return { data: { pagesCurrent: [] } };
   }
-  if (parsed.profile === 'links' && opts.query.includes('query ProfileLookup(')) {
+  if (
+    parsed.profile === 'links' &&
+    opts.query.includes('query ProfileLookup(')
+  ) {
     const id =
       typeof variables.id === 'string' && variables.id.trim()
         ? variables.id
@@ -1562,7 +1640,7 @@ export function resolveE2eGraphStub(opts: {
     };
   }
   if (parsed.market && isScarcesEventsQuery(opts.query)) {
-    return { data: { scarcesEvents: [] } };
+    return { data: { scarcesEvents: e2eMarketSaleEvents(variables) } };
   }
   if (parsed.market && isProfileBatchQuery(opts.query)) {
     return { data: { profileSearch: [], profileKinds: [] } };

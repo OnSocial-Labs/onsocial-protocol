@@ -313,6 +313,18 @@ describe('resolveE2eGraphStub', () => {
         cookieValue: 'market=live-first',
       })?.data.scarcesActiveListings
     ).toHaveLength(2);
+    expect(
+      resolveE2eGraphStub({
+        query: 'query ScarcesEvents { scarcesEvents { tokenId } }',
+        variables: { operation: ['purchase'] },
+        cookieValue: 'market=live-first',
+      })?.data.scarcesEvents
+    ).toEqual([
+      expect.objectContaining({
+        operation: 'purchase',
+        extraData: expect.stringContaining('Night sale'),
+      }),
+    ]);
   });
 
   it('returns Night Drive for ScarcesCollectionCurrent when opted in', () => {
@@ -420,7 +432,7 @@ describe('resolveE2eGraphStub', () => {
     })?.data.scarcesCollectionsCurrent as ReturnType<
       typeof e2eEventsCatalogRows
     >;
-    expect(rows).toHaveLength(1);
+    expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({
       collectionId: 'gate-pass',
       kind: 'ticket',

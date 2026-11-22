@@ -185,6 +185,45 @@ import { holdingsActionLabel } from '@/lib/portfolio-holdings';
 import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
 import { SHEET_Z } from '@/lib/sheet-z';
 
+/**
+ * Cold-shell geometry when a seed already names the medium.
+ * Null keeps CollectionPageSkeleton's unknown-medium default.
+ */
+function collectionPageSkeletonMedium(
+  source: Pick<
+    CollectionView,
+    'kind' | 'playables' | 'mediaUrl' | 'cardBg'
+  > | null
+): { isAudio: boolean; isImmersive: boolean } | null {
+  if (!source) return null;
+  const kind = (source.kind ?? '').trim().toLowerCase();
+  const playableCount = source.playables?.length ?? 0;
+  if (!kind && playableCount === 0) return null;
+  const isAudio = playableCount > 0 || kind === 'audio' || kind === 'music';
+  return {
+    isAudio,
+    isImmersive: collectionCoverImmersive({
+      hasMedia: Boolean(source.mediaUrl || source.cardBg),
+      kind: source.kind,
+    }),
+  };
+}
+
+/**
+ * Activity band. A drop with nothing minted stays collapsed until loaded
+ * rows exist — the 3-row skeleton must not paint and then vanish.
+ */
+function collectionShowActivitySection(opts: {
+  minted: number;
+  activityLoaded: boolean;
+  mintPreviewCount: number;
+  sheetActivityCount: number;
+}): boolean {
+  const hasRows = opts.mintPreviewCount > 0 || opts.sheetActivityCount > 0;
+  if (opts.minted === 0) return opts.activityLoaded && hasRows;
+  return !opts.activityLoaded || hasRows;
+}
+
 const MINT_ACTIVITY_OPS = new Set([
   'purchase',
   'creator_mint',
@@ -965,6 +1004,13 @@ export function CollectionPagePanel({
       })
     : catalogLeaveHref;
   const onDockBack = useCatalogDockBack(dockFallbackHref);
+  const skeletonSeed =
+    view ??
+    initial ??
+    (isNowPlayingThisDrop && nowPlaying?.session
+      ? seedCollectionViewFromNowPlaying(nowPlaying.session)
+      : null);
+  const skeletonMedium = collectionPageSkeletonMedium(skeletonSeed);
   if (catalogShell === 'skeleton') {
     if (
       collectionRouteYieldsLoadingSkeleton({
@@ -982,9 +1028,16 @@ export function CollectionPagePanel({
         onDockBack={embedded ? undefined : onDockBack}
         backFallbackHref={catalogLeaveHref}
         leading={embedded ? collectionOverlayBack(onClose) : undefined}
-        immersiveHeader
+        immersiveHeader={skeletonMedium ? skeletonMedium.isImmersive : true}
       >
-        <CollectionPageSkeleton />
+        <CollectionPageSkeleton
+          {...(skeletonMedium
+            ? {
+                isAudio: skeletonMedium.isAudio,
+                isImmersive: skeletonMedium.isImmersive,
+              }
+            : {})}
+        />
       </OsAppScreen>
     );
   }
@@ -1156,8 +1209,12 @@ export function CollectionPagePanel({
   });
   const createdRel =
     view.createdAtMs > 0 ? formatMarketRelativeTime(view.createdAtMs) : '';
-  const showActivitySection =
-    !activityLoaded || mintPreview.length > 0 || sheetActivity.length > 0;
+  const showActivitySection = collectionShowActivitySection({
+    minted: view.minted,
+    activityLoaded,
+    mintPreviewCount: mintPreview.length,
+    sheetActivityCount: sheetActivity.length,
+  });
   const showActivitySeeAll =
     activityLoaded && sheetActivity.length > mintPreview.length;
 
@@ -1316,24 +1373,26 @@ export function CollectionPagePanel({
             <div className="collection-commerce-actions">
               {showDropLove && dropLoves.fanCount > 0 ? (
                 <div className="collection-drop-fans">
-                  <GuildFacepile
-                    memberIds={dropFanIds}
-                    profiles={dropFanProfiles}
-                    memberCount={dropLoves.fanCount}
-                    countUnit={{ one: 'fan', other: 'fans' }}
-                    slots={Math.min(5, Math.max(1, dropLoves.fanCount))}
-                    loading={dropLoves.fansLoading && dropFanIds.length === 0}
-                    className="collection-drop-fans-facepile"
-                    onPointerDown={() => {
-                      if (dropLoves.fanIds.length > 0) {
-                        warmProfileListAccounts(
-                          dropLoves.fanIds,
-                          viewerAccountId ?? null
-                        );
-                      }
-                    }}
-                    onClick={() => setDropFansOpen(true)}
-                  />
+                  <OsPageBodyAppear>
+                    <GuildFacepile
+                      memberIds={dropFanIds}
+                      profiles={dropFanProfiles}
+                      memberCount={dropLoves.fanCount}
+                      countUnit={{ one: 'fan', other: 'fans' }}
+                      slots={Math.min(5, Math.max(1, dropLoves.fanCount))}
+                      loading={dropLoves.fansLoading && dropFanIds.length === 0}
+                      className="collection-drop-fans-facepile"
+                      onPointerDown={() => {
+                        if (dropLoves.fanIds.length > 0) {
+                          warmProfileListAccounts(
+                            dropLoves.fanIds,
+                            viewerAccountId ?? null
+                          );
+                        }
+                      }}
+                      onClick={() => setDropFansOpen(true)}
+                    />
+                  </OsPageBodyAppear>
                 </div>
               ) : null}
               <div className="collection-commerce-action-icons">
