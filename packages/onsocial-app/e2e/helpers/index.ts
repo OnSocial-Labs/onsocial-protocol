@@ -33,6 +33,7 @@ export {
   gotoApp,
   openDiscoverFromStandingDrawer,
   openStandingFromProfile,
+  settledNode,
   softOpenPortfolioOverlay,
   switchStandingView,
   waitForPortfolioClientReady,
