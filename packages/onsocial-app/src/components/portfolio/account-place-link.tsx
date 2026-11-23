@@ -7,8 +7,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   accountIdFromPath,
   isPortfolioOverlayPath,
-  writingCatalogOpenerHref,
-  writingShelfBackHref,
 } from '@/lib/overlay-routes';
 import {
   beginPortfolioShelfHop,
@@ -66,27 +64,6 @@ export function isWritingShelfHref(href: string): boolean {
   return /\/writing(?:\/|$)/.test(path);
 }
 
-/**
- * Hard-assign Writing only when Collectibles / Drops opened the visit.
- * Feed / portfolio soft-open the glass shelf (Writing dialog).
- */
-export function shouldSolidAssignWritingShelf(
-  href: string,
-  pathname: string
-): boolean {
-  if (!isWritingShelfHref(href)) return false;
-  if (writingCatalogOpenerHref(pathname)) return true;
-  const bare = (href.split('#')[0] ?? href).trim();
-  const q = bare.indexOf('?');
-  const path = q === -1 ? bare : bare.slice(0, q);
-  const search = q === -1 ? '' : bare.slice(q + 1);
-  const accountId = accountIdFromPath(path);
-  if (!accountId) return false;
-  return Boolean(
-    writingCatalogOpenerHref(writingShelfBackHref(accountId, search))
-  );
-}
-
 function shelfHopFace(
   hop: string,
   hint?: AccountPlaceLinkProps['shelfFace']
@@ -111,10 +88,9 @@ export function AccountPlaceLink({
   const router = useRouter();
   const target = typeof href === 'string' ? href : href.toString();
   const hop = feedPanelHopHref(pathname, target);
-  const solidWriting = shouldSolidAssignWritingShelf(
-    target,
-    pathname ?? ''
-  );
+  // Writing shelf / article — full load. Soft hop through the face flashes
+  // the portfolio overlay and breaks Collectibles / article bylines.
+  const solidWriting = isWritingShelfHref(target);
   const faceLabel = shelfFace?.titleLabel ?? null;
   const faceAvatar = shelfFace?.avatarUrl ?? null;
 
