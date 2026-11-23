@@ -259,7 +259,7 @@ export function warmPostPanels(): void {
 }
 
 /**
- * Drop overlay is its own chunk (dynamic, ssr: false). Warm it on Discover /
+ * Drop place panel is its own chunk (dynamic, ssr: false). Warm it on Discover /
  * Market so Just sold and list rows paint the seeded jacket on first tap.
  */
 export function warmDropPanel(): void {

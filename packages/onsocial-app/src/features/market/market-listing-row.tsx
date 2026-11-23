@@ -25,7 +25,8 @@ import {
   marketPostLayerLinkHandlers,
   useMarketPostLayer,
 } from '@/features/market/market-post-layer';
-import { DropOverlayLink } from '@/features/scarces/drop-overlay-open';
+import { collectionCreatorFaceSeed } from '@/features/scarces/collection-creator-face';
+import { DropPlaceLink } from '@/features/scarces/drop-place-open';
 import { scarceRowPartyLead } from '@/lib/scarce-row-kind';
 
 interface MarketListingRowProps {
@@ -109,6 +110,10 @@ export function MarketListingRow({
     rowTarget?.kind === 'drop'
       ? seedCollectionViewFromMarketListing(item)
       : null;
+  const dropCreator = collectionCreatorFaceSeed({
+    displayName: item.creatorDisplayName,
+    avatarUrl: item.creatorAvatarUrl,
+  });
   const postOpenHandlers =
     rowTarget?.kind === 'post'
       ? marketPostLayerLinkHandlers(rowTarget.href, openMarketPost, () =>
@@ -201,9 +206,10 @@ export function MarketListingRow({
   return (
     <div className="market-listing-row" role="listitem">
       {rowTarget?.kind === 'drop' ? (
-        <DropOverlayLink
+        <DropPlaceLink
           href={rowTarget.href}
           initial={dropInitial}
+          initialCreator={dropCreator}
           className="market-listing-row-open"
           aria-label={`Open drop for ${item.title}`}
         />

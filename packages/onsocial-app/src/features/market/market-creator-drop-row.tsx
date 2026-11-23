@@ -6,10 +6,11 @@ import {
   marketCreatorDropMetaBits,
   marketCreatorDropMintable,
 } from '@/features/market/market-creator-view';
+import { collectionCreatorFaceSeed } from '@/features/scarces/collection-creator-face';
 import {
-  DropOverlayLink,
+  DropPlaceLink,
   seedCollectionViewFromStoreDrop,
-} from '@/features/scarces/drop-overlay-open';
+} from '@/features/scarces/drop-place-open';
 import { collectionPath } from '@/lib/app-routes';
 import { OsRowAction } from '@/lib/os-row-action';
 import type { ProfileStoreDrop } from '@/lib/profile-store-types';
@@ -18,12 +19,16 @@ import type { ProfileStoreDrop } from '@/lib/profile-store-types';
 export function MarketCreatorDropRow({
   drop,
   creatorId,
+  displayName = null,
+  avatarUrl = null,
   onMint,
   showStatus = true,
 }: {
   drop: ProfileStoreDrop;
-  /** Shop owner — seeds the overlay face on frame 1. */
+  /** Shop owner — seeds the place face on frame 1. */
   creatorId?: string | null;
+  displayName?: string | null;
+  avatarUrl?: string | null;
   onMint?: (drop: ProfileStoreDrop) => void;
   showStatus?: boolean;
 }) {
@@ -32,6 +37,7 @@ export function MarketCreatorDropRow({
   const mintable = Boolean(onMint) && marketCreatorDropMintable(drop);
   const href = collectionPath(drop.collectionId);
   const dropInitial = seedCollectionViewFromStoreDrop(drop, creatorId);
+  const dropCreator = collectionCreatorFaceSeed({ displayName, avatarUrl });
   const meta = marketCreatorDropMetaBits(drop, { includeStatus: showStatus });
 
   return (
@@ -40,9 +46,10 @@ export function MarketCreatorDropRow({
       role="listitem"
       data-market-creator-drop={drop.collectionId}
     >
-      <DropOverlayLink
+      <DropPlaceLink
         href={href}
         initial={dropInitial}
+        initialCreator={dropCreator}
         className="market-listing-row-open"
         aria-label={mintable ? `Open ${drop.title}` : `Open drop for ${drop.title}`}
       />

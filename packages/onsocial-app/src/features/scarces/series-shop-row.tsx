@@ -8,9 +8,9 @@ import {
   type CollectionView,
 } from '@/features/scarces/collections-data';
 import {
-  DropOverlayLink,
-  useDropOverlayOpen,
-} from '@/features/scarces/drop-overlay-open';
+  DropPlaceLink,
+  useDropPlaceOpen,
+} from '@/features/scarces/drop-place-open';
 import {
   seriesShopActionLabel,
   seriesShopClock,
@@ -49,7 +49,7 @@ export function SeriesShopRow({
       : null;
   const action = seriesShopActionLabel(status);
   const href = collectionPath(view.collectionId);
-  const openDrop = useDropOverlayOpen();
+  const openDrop = useDropPlaceOpen();
   const creatorLabel = showCreator ? shopRowCreatorLabel(view.creatorId) : '';
   const price =
     dollarStickerLabel(view.usdE6) ??
@@ -73,7 +73,7 @@ export function SeriesShopRow({
 
   return (
     <div className="market-listing-row series-shop-row" role="listitem">
-      <DropOverlayLink
+      <DropPlaceLink
         href={href}
         initial={view}
         className="market-listing-row-open"

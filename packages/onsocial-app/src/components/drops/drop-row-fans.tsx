@@ -16,6 +16,23 @@ import {
   warmDropFanIds,
 } from '@/lib/scarce-drop-fans';
 
+/** Same pending chrome on drop rows and the drop face — discovery facepile CSS. */
+export function DropRowFansPending() {
+  return (
+    <span className="drops-discovery-deal-fans" aria-hidden>
+      <GuildFacepile
+        memberIds={[]}
+        profiles={{}}
+        slots={3}
+        loading
+        showCount
+        countUnit={{ one: 'fan', other: 'fans' }}
+        className="drops-discovery-fans-facepile"
+      />
+    </span>
+  );
+}
+
 /** Loved fans on a drop row — facepile or count-only fallback. */
 export function DropRowFans({
   fanIds,
@@ -28,6 +45,22 @@ export function DropRowFans({
   const profiles = usePostAuthorProfiles(ids);
   const profilesLoading = ids.length > 0 && !arePostAuthorProfilesResolved(ids);
   if (ids.length === 0) {
+    if (fanCount > 0) {
+      return (
+        <span className="drops-discovery-deal-fans">
+          <GuildFacepile
+            memberIds={[]}
+            profiles={{}}
+            memberCount={fanCount}
+            countUnit={{ one: 'fan', other: 'fans' }}
+            slots={3}
+            loading
+            showCount
+            className="drops-discovery-fans-facepile"
+          />
+        </span>
+      );
+    }
     return (
       <span className="drops-discovery-deal-bit">
         {fanCount === 1 ? '1 fan' : `${fanCount} fans`}
@@ -143,5 +176,57 @@ export function DropFansButton({
         />
       ) : null}
     </>
+  );
+}
+
+/**
+ * Drop face commerce row — same fans control as Drops / market rows.
+ * Pending uses DropRowFansPending so lines do not jump when counts land.
+ */
+export function DropFaceFans({
+  creatorId,
+  collectionId,
+  title,
+  fanIds,
+  fanCount,
+  countsLoading,
+}: {
+  creatorId: string;
+  collectionId: string;
+  title: string;
+  fanIds?: string[];
+  fanCount: number;
+  countsLoading: boolean;
+}) {
+  const rosterPending =
+    countsLoading || (fanCount > 0 && (fanIds?.length ?? 0) === 0);
+
+  if (rosterPending) {
+    return (
+      <span className="collection-drop-fans">
+        <DropRowFansPending />
+      </span>
+    );
+  }
+  if (fanCount <= 0) {
+    return (
+      <span
+        className="collection-drop-fans collection-drop-fans--chassis"
+        aria-hidden
+      >
+        <DropRowFansPending />
+      </span>
+    );
+  }
+  return (
+    <span className="collection-drop-fans">
+      <DropFansButton
+        creatorId={creatorId}
+        collectionId={collectionId}
+        title={title}
+        fanIds={fanIds}
+        fanCount={fanCount}
+      />
+    </span>
   );
 }

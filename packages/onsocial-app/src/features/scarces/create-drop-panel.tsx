@@ -11,7 +11,7 @@ import {
   type FormEvent,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { useDropOverlayOpen } from '@/features/scarces/drop-overlay-open';
+import { useDropPlaceOpen } from '@/features/scarces/drop-place-open';
 import { seedCollectionViewFromPeek } from '@/features/scarces/collection-page-view';
 import './drop-create-spacing.css';
 import {
@@ -304,7 +304,7 @@ export function CreateDropPanel({
   template?: string;
 } = {}) {
   const router = useRouter();
-  const openDrop = useDropOverlayOpen();
+  const openDrop = useDropPlaceOpen();
   const appId = app.trim();
   const seriesQuery = series.trim();
   const { accountId, isConnected, isLoading, connect, getSigningWallet } =

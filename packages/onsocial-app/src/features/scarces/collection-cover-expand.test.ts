@@ -18,7 +18,7 @@ describe('drop cover expand wiring', () => {
     expect(panel).toContain('setMediaOverlayOpen(true)');
     expect(panel).toContain('collectionOpensWritingReader');
     expect(panel).toContain('openWritingRead');
-    expect(panel).toContain('>Read</OsRowAction>');
+    expect(panel).toMatch(/>\s*Read\s*<\/OsRowAction>/);
     expect(panel).toContain('setCoverListenOpen(true)');
     expect(panel).toContain('collectiblesPlayPath');
     expect(panel).not.toContain('collectionCoverArtChip');

@@ -10,6 +10,7 @@ import {
   guestRosterShouldLive,
   eventGuestSheetCopy,
   collectionGuestRoster,
+  eventGuestSoldPrefix,
   eventGuestTallyLine,
   passGuestKind,
   loadHeldCollectionIdsFrom,
@@ -184,6 +185,11 @@ describe('event guest counts', () => {
         nowMs: 10,
       })
     ).toEqual({ kind: 'going', holders: false });
+  });
+
+  it('formats sold prefix for pending tally paint', () => {
+    expect(eventGuestSoldPrefix(5)).toBe('5 sold');
+    expect(eventGuestSoldPrefix(1)).toBe('1 sold');
   });
 
   it('pairs sold with who is in, quietly', () => {

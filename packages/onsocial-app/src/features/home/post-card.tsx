@@ -1296,13 +1296,32 @@ function PostCardImpl({
     ]
   );
 
-  const scarceDropTitle = collectionDropTitle ?? tokenDropTitle ?? null;
+  // Paint title is on the post from first paint — never wait on catalog fetch
+  // or the Drop place seeds collectionId as the visible title.
+  const scarceDropTitle =
+    collectionDropTitle?.trim() ||
+    tokenDropTitle?.trim() ||
+    dropPaint?.title?.trim() ||
+    null;
+  // Same as Drops list: pass the painted author face when they are the creator.
+  const scarceDropCreatorId =
+    scarceEmbed?.creatorId?.trim() || post.accountId;
+  const scarceDropCreator =
+    authorProfile &&
+    accountIdsEqual(scarceDropCreatorId, post.accountId) &&
+    (authorProfile.displayName?.trim() || authorProfile.avatarUrl?.trim())
+      ? {
+          displayName: authorProfile.displayName?.trim() || null,
+          avatarUrl: authorProfile.avatarUrl?.trim() || null,
+        }
+      : null;
   const scarceCtaActions = useMemo<PostScarceCtaActionProps>(
     () => ({
       embed: scarceEmbed ?? EMPTY_SCARCE_EMBED,
       isAuthor: isSelf,
       authorAccountId: scarceEmbed?.creatorId?.trim() || post.accountId,
       dropTitle: scarceDropTitle,
+      dropCreator: scarceDropCreator,
       canList: canListScarce,
       onList: openListScarce,
       canSell: canSellScarce,
@@ -1319,6 +1338,7 @@ function PostCardImpl({
       isSelf,
       post.accountId,
       scarceDropTitle,
+      scarceDropCreator,
       canListScarce,
       openListScarce,
       canSellScarce,
@@ -1942,8 +1962,6 @@ function PostCardImpl({
                     bookPdf={dropBookPdf}
                     writingFormat={dropWritingFormat}
                     hydrateSettled
-                    canRead
-                    lockedHint=""
                     onChromeTap={onChromeTap}
                   />
                 )

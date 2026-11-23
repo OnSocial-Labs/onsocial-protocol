@@ -9,7 +9,8 @@ import {
   isUnmodifiedPrimaryClick,
   usePostThreadLayer,
 } from '@/features/home/post-thread-layer';
-import { DropOverlayLink } from '@/features/scarces/drop-overlay-open';
+import { collectionCreatorFaceSeed } from '@/features/scarces/collection-creator-face';
+import { DropPlaceLink } from '@/features/scarces/drop-place-open';
 import type { CollectionView } from '@/features/scarces/collections-data';
 import { parseInAppDropLayerHref } from '@/lib/app-routes';
 import { isAppPostSheetHref } from '@/lib/post-routes';
@@ -182,10 +183,14 @@ export function LauncherSocialPeekRow({
   relationTargetProfileName?: string | null;
   /** Seed the overlay thread when this row is the post being opened. */
   overlayRoot?: PostRow | null;
-  /** Seed the drop overlay when this row opens a collection. */
+  /** Seed the drop place when this row opens a collection. */
   dropInitial?: CollectionView | null;
   showDivider?: boolean;
 }) {
+  const dropCreator = collectionCreatorFaceSeed({
+    displayName: profileName,
+    avatarUrl,
+  });
   const { openPostThread } = usePostThreadLayer();
   const dropHref = parseInAppDropLayerHref(href) ? href : null;
   const { label } = standingIdentityLabel(accountId, profileName);
@@ -206,9 +211,10 @@ export function LauncherSocialPeekRow({
       <div className="standing-row launcher-home-peek-row">
         <div className="standing-row-main">
           {dropHref ? (
-            <DropOverlayLink
+            <DropPlaceLink
               href={dropHref}
               initial={dropInitial}
+              initialCreator={dropCreator}
               className="standing-row-hit"
               aria-label={ariaLabel}
             />

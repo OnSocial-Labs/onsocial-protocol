@@ -1,6 +1,7 @@
 'use client';
 
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsHeaderBack } from '@/components/app/os-header-back';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { CollectiblesPlaySkeleton } from '@/features/collectibles/collectibles-play-skeleton';
 import { collectiblesPlayBackHref } from '@/features/collectibles/collectibles-play-view';
@@ -11,13 +12,12 @@ import { PLAY_LOADING_PAGE_CLASS } from '@/lib/os-chrome-page';
 export function CollectiblesPlayLoadingScreen() {
   const { accountId } = useAppWallet();
   const backHref = collectiblesPlayBackHref(accountId);
-  const onDockBack = useCatalogDockBack(backHref);
+  const onBack = useCatalogDockBack(backHref);
   return (
     <OsAppScreen
       title="Player"
-      dockBack
-      onDockBack={onDockBack}
       backFallbackHref={backHref}
+      leading={<OsHeaderBack fallbackHref={backHref} onBack={onBack} />}
       immersiveHeader
     >
       <div aria-hidden className="os-chrome-glass" />

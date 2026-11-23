@@ -138,6 +138,11 @@ export function collectionGuestRoster(opts: {
  * Quiet totals for the guest list. Sold is passes minted. Present is the
  * people on the list. Coupons say holding until access ends, then redeemed.
  */
+export function eventGuestSoldPrefix(sold: number): string {
+  const n = Math.max(0, Math.floor(sold));
+  return n === 1 ? '1 sold' : `${n} sold`;
+}
+
 export function eventGuestTallyLine(opts: {
   kind: EventGuestKind;
   present: number;
@@ -149,9 +154,7 @@ export function eventGuestTallyLine(opts: {
     redeemed: opts.redeemed,
   });
   if (opts.sold == null || !Number.isFinite(opts.sold)) return presentLabel;
-  const sold = Math.max(0, Math.floor(opts.sold));
-  const soldLabel = sold === 1 ? '1 sold' : `${sold} sold`;
-  return `${soldLabel} · ${presentLabel}`;
+  return `${eventGuestSoldPrefix(opts.sold)} · ${presentLabel}`;
 }
 
 export function eventGuestSheetCopy(

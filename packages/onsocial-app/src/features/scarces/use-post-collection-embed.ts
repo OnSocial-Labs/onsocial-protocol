@@ -6,6 +6,7 @@ import {
   collectionCurrentRowToView,
   hydrateWritingManifest,
 } from '@/features/scarces/collections-data';
+import { rememberCollectionView } from '@/features/scarces/collection-view-cache';
 import type { ScarcePlayableMedia } from '@/features/market/market-listings';
 import type {
   ScarceReadableMedia,
@@ -189,6 +190,8 @@ export function usePostCollectionEmbed(
           if (!cancelled) {
             const hydrated = view ? await hydrateWritingManifest(view) : null;
             if (cancelled) return;
+            // Same as Drops `item.view` — Drop open peeks this for an instant face.
+            rememberCollectionView(hydrated ?? view);
             setPlayables(hydrated?.playables ?? view?.playables ?? []);
             setReadables(hydrated?.readables ?? view?.readables ?? []);
             setWritingFormat(
@@ -321,7 +324,8 @@ export function usePostCollectionEmbed(
     sourcePostPath: writingMetaKey === key ? sourcePostPath : null,
     writingMetaSettled: writingMetaKey === key,
     bookPdf,
-    dropTitle,
+    // Paint carries the name before catalog fetch — Drop place seeds need it.
+    dropTitle: dropTitle?.trim() || paint?.title?.trim() || null,
     hasCollectionEmbed: Boolean(parsed),
     status,
     retry: () => setRetryKey((value) => value + 1),

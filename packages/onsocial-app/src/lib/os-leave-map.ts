@@ -243,10 +243,10 @@ export const OS_LEAVE_MAP = [
     id: 'collectibles-play-loading',
     place: 'Collectibles play loading',
     route: '/collectibles/play',
-    dockBack: true,
+    dockBack: false,
     parent: '/@viewer/collectibles',
     verdict: 'matches',
-    note: 'Cold leave is the viewer vault, or the OS hop when signed out. In this tab, dock Back returns to the screen that opened the player (drawer, vault, or drop).',
+    note: 'Use surface — header chevron leave (OsHeaderBack). Cold leave is the viewer vault, or the OS hop when signed out. In this tab, header back returns to the screen that opened the player (drawer, vault, or drop).',
   },
   {
     id: 'writing-shelf',

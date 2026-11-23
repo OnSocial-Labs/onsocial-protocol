@@ -85,8 +85,8 @@ export function WritingReadDocument({
   writingFormat = null,
   textAlign = null,
   publishedAt = null,
-  canRead,
-  lockedHint,
+  canRead = true,
+  lockedHint = '',
   hydrateSettled = true,
   onChromeTap,
   sourcePostPath = null,
@@ -103,8 +103,9 @@ export function WritingReadDocument({
   writingFormat?: WritingReleaseFormat | null;
   textAlign?: 'left' | 'center' | 'justify' | null;
   publishedAt?: number | null;
-  canRead: boolean;
-  lockedHint: string;
+  /** Writing is public. A caller passes false only to show `lockedHint`. */
+  canRead?: boolean;
+  lockedHint?: string;
   hydrateSettled?: boolean;
   onChromeTap?: () => void;
   sourcePostPath?: string | null;
@@ -438,8 +439,8 @@ export function WritingReadSheet({
   writingFormat: writingFormatProp = null,
   textAlign: textAlignProp = null,
   publishedAt = null,
-  canRead,
-  lockedHint,
+  canRead = true,
+  lockedHint = '',
   footer = null,
   threadOpen = false,
   onDismissThread,
@@ -464,8 +465,9 @@ export function WritingReadSheet({
   textAlign?: 'left' | 'center' | 'justify' | null;
   /** Drop created time. Drives the date above Book / Issue. */
   publishedAt?: number | null;
-  canRead: boolean;
-  lockedHint: string;
+  /** Writing is public. A caller passes false only to show `lockedHint`. */
+  canRead?: boolean;
+  lockedHint?: string;
   footer?: ReactNode;
   /** Feed reply drawer. A Drop or profile reader leaves these unset. */
   threadOpen?: boolean;

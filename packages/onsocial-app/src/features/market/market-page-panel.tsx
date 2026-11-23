@@ -465,7 +465,7 @@ export function MarketPagePanel({
     onBlur: onListingSearchBlur,
   } = useSearchDraft('', { debounceMs: SEARCH_DEBOUNCE_MS });
   const [salesExpanded, setSalesExpanded] = useState(false);
-  // Prefetch drop overlay chunk so Just sold / listing taps are not blank.
+  // Prefetch drop place chunk so listing taps are not blank.
   useEffect(() => {
     warmDropPanel();
   }, []);

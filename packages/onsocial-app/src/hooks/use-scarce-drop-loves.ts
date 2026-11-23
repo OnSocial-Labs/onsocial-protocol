@@ -56,8 +56,9 @@ export function useScarceDropLoves(opts: {
   const { accountId, isConnected, connect } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { setTxResult } = useAppTransactionFeedback();
+  const active = Boolean(creatorId && collectionId);
   const [state, setState] = useState<DropLoveState>(EMPTY);
-  const [fansLoading, setFansLoading] = useState(false);
+  const [fansLoading, setFansLoading] = useState(active);
   const [pending, setPending] = useState(false);
   const stateRef = useRef(state);
   stateRef.current = state;

@@ -8,15 +8,20 @@ import {
   collectionCatalogShell,
   collectionCoverExpandAction,
   collectionCoverImmersive,
+  collectionCoverIsAudio,
+  collectionCoverIsTextCard,
   collectionCoverSquare,
   collectionOpensWritingReader,
   collectionChildLeaveHref,
   collectionDropBackHref,
+  editionTokenForCollection,
   collectionRouteYieldsLoadingSkeleton,
-  collectionShowCommerceMeter,
   collectionShowInlineTracks,
   collectionUseFirst,
   collectionViewNeedsCatalogSoftFill,
+  collectionFaceTitle,
+  collectionSoftFillPeek,
+  mergeCatalogSoftFillIntoSeed,
   peekHoldsCollection,
   peekHoldsCollectionForDropPage,
   peekOwnedTokenForCollection,
@@ -28,6 +33,14 @@ import {
 } from '@/features/scarces/collection-page-view';
 
 describe('collection page view', () => {
+  it('keeps ?t= only when the token belongs to this drop', () => {
+    expect(
+      editionTokenForCollection('cats', 'cats:1')
+    ).toBe('cats:1');
+    expect(editionTokenForCollection('cats', 'other:1')).toBe('');
+    expect(editionTokenForCollection('cats', '  ')).toBe('');
+  });
+
   it('keeps Art as an inset square, not a 16/10 bleed', () => {
     expect(collectionCoverSquare({ kind: 'art', isAudio: false })).toBe(true);
     expect(collectionCoverSquare({ kind: 'ticket', isAudio: false })).toBe(
@@ -43,6 +56,36 @@ describe('collection page view', () => {
     expect(collectionCoverImmersive({ hasMedia: false, kind: 'art' })).toBe(
       false
     );
+  });
+
+  it('treats playables and writing cards like the live drop place', () => {
+    expect(
+      collectionCoverIsAudio({ kind: 'video', playablesLength: 2 })
+    ).toBe(true);
+    expect(
+      collectionCoverIsAudio({ kind: 'art', playablesLength: 0 })
+    ).toBe(false);
+    expect(
+      collectionCoverIsTextCard({
+        kind: 'writing',
+        cardBg: null,
+        isAudio: false,
+      })
+    ).toBe(true);
+    expect(
+      collectionCoverIsTextCard({
+        kind: 'art',
+        cardBg: 'linear-gradient(#000,#111)',
+        isAudio: false,
+      })
+    ).toBe(true);
+    expect(
+      collectionCoverIsTextCard({
+        kind: 'writing',
+        cardBg: null,
+        isAudio: true,
+      })
+    ).toBe(false);
   });
 
   it('opens the larger cover from the picture and keeps Read on the labeled action', () => {
@@ -123,43 +166,9 @@ describe('collection page view', () => {
     expect(collectionUseFirst('unknown')).toBe(false);
   });
 
-  it('keeps the mint meter for visitors and holders who can mint more', () => {
-    expect(
-      collectionShowCommerceMeter({ useFirst: false, canMintMore: false })
-    ).toBe(true);
-    expect(
-      collectionShowCommerceMeter({ useFirst: true, canMintMore: false })
-    ).toBe(false);
-    expect(
-      collectionShowCommerceMeter({ useFirst: true, canMintMore: true })
-    ).toBe(true);
-  });
-
-  it('shows inline tracks for visitors only', () => {
-    expect(
-      collectionShowInlineTracks({
-        hasPlayables: true,
-        ownership: 'visitor',
-      })
-    ).toBe(true);
-    expect(
-      collectionShowInlineTracks({
-        hasPlayables: true,
-        ownership: 'holder',
-      })
-    ).toBe(false);
-    expect(
-      collectionShowInlineTracks({
-        hasPlayables: true,
-        ownership: 'unknown',
-      })
-    ).toBe(false);
-    expect(
-      collectionShowInlineTracks({
-        hasPlayables: false,
-        ownership: 'visitor',
-      })
-    ).toBe(false);
+  it('keeps the track list for every viewer', () => {
+    expect(collectionShowInlineTracks({ hasPlayables: true })).toBe(true);
+    expect(collectionShowInlineTracks({ hasPlayables: false })).toBe(false);
   });
 
   it('paints a skeleton on SSR miss until the client catalog settles', () => {
@@ -193,7 +202,7 @@ describe('collection page view', () => {
     ).toBe('drop');
   });
 
-  it('lets route loading.tsx own the SSR skeleton; overlay still paints', () => {
+  it('lets route loading.tsx own the SSR skeleton; appear-over still paints', () => {
     expect(
       collectionRouteYieldsLoadingSkeleton({
         embedded: false,
@@ -405,5 +414,73 @@ describe('collection page view', () => {
     expect(view?.totalSupply).toBe(25);
     expect(view?.remaining).toBe(10);
     expect(view?.creatorId).toBe('alice.testnet');
+  });
+
+  it('never paints the collection id as the Drop title', () => {
+    const peek = seedCollectionViewFromPeek({ collectionId: 'night-piece' });
+    expect(peek?.title).toBe('');
+    expect(collectionFaceTitle(peek?.title, 'night-piece')).toBe('');
+    expect(collectionFaceTitle('night-piece', 'night-piece')).toBe('');
+    expect(collectionFaceTitle('Night piece', 'night-piece')).toBe(
+      'Night piece'
+    );
+    const feed = seedCollectionViewFromPostScarceEmbed({
+      collectionId: 'night-piece',
+      mediaUrl: 'https://cdn.example/cover.jpg',
+      status: 'drop',
+    });
+    expect(feed?.title).toBe('');
+  });
+
+  it('keeps a seed title stable when catalog soft-fill lands', () => {
+    const seed = seedCollectionViewFromPeek({
+      collectionId: 'night-piece',
+      title: 'Night piece',
+      coverUrl: 'https://cdn.example/seed.jpg',
+      kind: 'writing',
+    });
+    expect(seed).not.toBeNull();
+    const catalog = {
+      ...seed!,
+      title: 'Night Piece',
+      description: 'A long blurb',
+      createdAtMs: 1_700_000_000_000,
+      mediaUrl: 'https://cdn.example/catalog.jpg',
+      totalSupply: 10,
+      remaining: 4,
+      minted: 6,
+      kind: 'art',
+    };
+    const merged = mergeCatalogSoftFillIntoSeed(seed!, catalog);
+    expect(merged.title).toBe('Night piece');
+    expect(merged.kind).toBe('writing');
+    expect(merged.description).toBe('A long blurb');
+    expect(merged.createdAtMs).toBe(1_700_000_000_000);
+    expect(merged.totalSupply).toBe(10);
+    expect(merged.mediaUrl).toBe('https://cdn.example/catalog.jpg');
+  });
+
+  it('drops catalog id-as-title on soft-fill merge', () => {
+    const seed = seedCollectionViewFromPeek({
+      collectionId: 'night-piece',
+      coverUrl: 'https://cdn.example/seed.jpg',
+    });
+    const catalog = {
+      ...seed!,
+      title: 'night-piece',
+      createdAtMs: 1_700_000_000_000,
+    };
+    expect(mergeCatalogSoftFillIntoSeed(seed!, catalog).title).toBe('');
+  });
+
+  it('flags list→place soft-fill peeks for shimmer rails', () => {
+    const peek = seedCollectionViewFromPeek({
+      collectionId: 'night-piece',
+      title: 'Night piece',
+    });
+    expect(collectionSoftFillPeek(peek)).toBe(true);
+    expect(
+      collectionSoftFillPeek({ ...peek!, createdAtMs: 1_700_000_000_000 })
+    ).toBe(false);
   });
 });

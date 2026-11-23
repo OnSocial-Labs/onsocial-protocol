@@ -14,7 +14,8 @@ import {
   marketPostLayerLinkHandlers,
   useMarketPostLayer,
 } from '@/features/market/market-post-layer';
-import { DropOverlayLink } from '@/features/scarces/drop-overlay-open';
+import { collectionCreatorFaceSeed } from '@/features/scarces/collection-creator-face';
+import { DropPlaceLink } from '@/features/scarces/drop-place-open';
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { QuantityCount } from '@/features/scarces/quantity-count';
 import { appendEach } from '@/features/scarces/quantity-count-format';
@@ -114,6 +115,10 @@ export function MarketSaleRow({
       : null;
   const dropInitial =
     detail?.kind === 'drop' ? seedCollectionViewFromMarketSale(sale) : null;
+  const dropCreator = collectionCreatorFaceSeed({
+    displayName,
+    avatarUrl,
+  });
   const priceLine = marketSalePriceLabel(sale);
   const title = marketSaleRowTitle(sale);
   const thumbClass = `market-listing-thumb${sale.mediaUrl ? ' has-media' : ''}`;
@@ -126,9 +131,10 @@ export function MarketSaleRow({
   return (
     <li className="market-listing-row market-sale-row">
       {detail?.kind === 'drop' ? (
-        <DropOverlayLink
+        <DropPlaceLink
           href={detail.href}
           initial={dropInitial}
+          initialCreator={dropCreator}
           className="market-listing-row-open"
           aria-label={`Open drop for ${title}`}
         />

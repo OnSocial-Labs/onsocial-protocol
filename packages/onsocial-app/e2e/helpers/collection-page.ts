@@ -18,6 +18,116 @@ export type StubCollectionId = E2eDropCollectionId;
  * Browser GraphQL for drop-page settle. Pair with `setE2eGraphDrop` for SSR.
  * Omit the cookie for the SSR-miss skeleton test.
  */
+type CollectionChassisProbe = {
+  armed: boolean;
+  first: number | null;
+  last: number | null;
+  chassisShift: number;
+  cls: number;
+};
+
+/** Watch commerce-band top through creator / fans / guest tally settle. */
+export async function armCollectionChassisProbe(page: Page): Promise<void> {
+  await page.addInitScript(`(() => {
+    const probe = {
+      armed: false,
+      first: null,
+      last: null,
+      chassisShift: 0,
+      cls: 0,
+    };
+    window.__collectionChassisProbe = probe;
+    try {
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          if (entry.hadRecentInput) continue;
+          const value = entry.value || 0;
+          probe.cls += value;
+          for (const source of entry.sources || []) {
+            const node = source.node;
+            if (
+              node instanceof Element &&
+              node.closest(
+                '.collection-commerce-actions, .collection-product-row, .collection-guest-tally, .drops-discovery-by'
+              )
+            ) {
+              probe.chassisShift += value;
+            }
+          }
+        }
+      }).observe({ type: 'layout-shift', buffered: true });
+    } catch (error) {}
+    const mark = () => {
+      const el = document.querySelector(
+        '.collection-page:not(.collection-page--skeleton) .collection-commerce-actions'
+      );
+      if (!(el instanceof HTMLElement)) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.height < 1) return;
+      if (probe.first == null) probe.first = rect.top;
+      probe.last = rect.top;
+    };
+    const arm = () => {
+      if (!document.documentElement) return false;
+      mark();
+      if (probe.armed) return true;
+      probe.armed = true;
+      new MutationObserver(mark).observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        characterData: true,
+      });
+      const loop = () => {
+        mark();
+        requestAnimationFrame(loop);
+      };
+      requestAnimationFrame(loop);
+      return true;
+    };
+    const wait = () => {
+      if (!arm()) setTimeout(wait, 0);
+    };
+    wait();
+  })();`);
+}
+
+export async function readCollectionChassisProbe(
+  page: Page
+): Promise<CollectionChassisProbe> {
+  return page.evaluate(() => {
+    const probe = (
+      window as unknown as { __collectionChassisProbe?: CollectionChassisProbe }
+    ).__collectionChassisProbe;
+    return (
+      probe ?? {
+        armed: false,
+        first: null,
+        last: null,
+        chassisShift: 0,
+        cls: 1,
+      }
+    );
+  });
+}
+
+export async function expectCollectionChassisStable(page: Page): Promise<void> {
+  await page.evaluate(() => document.fonts.ready);
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      })
+  );
+  const probe = await readCollectionChassisProbe(page);
+  expect(probe.armed).toBe(true);
+  expect(probe.first).not.toBeNull();
+  expect(probe.last).not.toBeNull();
+  expect(Math.abs((probe.first ?? 0) - (probe.last ?? 0))).toBeLessThan(0.75);
+  expect(probe.chassisShift).toBeLessThan(0.01);
+  expect(probe.cls).toBeLessThan(0.05);
+}
+
 export async function stubCollectionPageGraph(
   page: Page,
   opts?: {
@@ -26,11 +136,15 @@ export async function stubCollectionPageGraph(
     endedIds?: readonly StubCollectionId[];
     /** Hold ScarcesCollectionCurrent so the SSR-miss skeleton can be asserted. */
     catalogDelayMs?: number;
+    profileDelayMs?: number;
+    fansDelayMs?: number;
   }
 ): Promise<void> {
   const held = new Set(opts?.heldIds ?? []);
   const ended = new Set(opts?.endedIds ?? []);
   const catalogDelayMs = opts?.catalogDelayMs ?? 0;
+  const profileDelayMs = opts?.profileDelayMs ?? 0;
+  const fansDelayMs = opts?.fansDelayMs ?? 0;
   await page.route('**/api/onapi/graph/query', async (route) => {
     const raw = route.request().postData() ?? '';
     let query = '';
@@ -96,6 +210,134 @@ export async function stubCollectionPageGraph(
       return;
     }
 
+    if (
+      query.includes('Profiles(') ||
+      (query.includes('profilesCurrent') && query.includes('Profiles'))
+    ) {
+      if (profileDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, profileDelayMs));
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            profilesCurrent: [
+              {
+                accountId: 'alice.near',
+                field: 'name',
+                value: 'Alice',
+                blockHeight: 1,
+                blockTimestamp: 1,
+                operation: 'set',
+              },
+            ],
+          },
+        }),
+      });
+      return;
+    }
+
+    if (query.includes('ProfileStatsBatch')) {
+      if (profileDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, profileDelayMs));
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            profileSearch: [
+              { accountId: 'alice.near', name: 'Alice', avatar: null },
+            ],
+            profileKinds: [],
+            reputationScores: [],
+          },
+        }),
+      });
+      return;
+    }
+
+    if (query.includes('ScarceDropLoveCount')) {
+      if (fansDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, fansDelayMs));
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            reactionCounts: [
+              {
+                postPath: `scarce/${String(variables.collectionId ?? 'quiet-print')}`,
+                reactionCount: 5,
+              },
+            ],
+          },
+        }),
+      });
+      return;
+    }
+
+    if (query.includes('ScarceDropFanCount')) {
+      if (fansDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, fansDelayMs));
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: { scarceDropLoveFans: [{ fanCount: 2 }] },
+        }),
+      });
+      return;
+    }
+
+    if (query.includes('ScarceDropFanAccounts')) {
+      if (fansDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, fansDelayMs));
+      }
+      const collectionId = String(variables.collectionId ?? 'quiet-print');
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            reactionsCurrent: [
+              { accountId: 'maya.near', path: `scarce/${collectionId}` },
+              { accountId: 'alex.near', path: `scarce/${collectionId}` },
+            ],
+          },
+        }),
+      });
+      return;
+    }
+
+    if (query.includes('ViewerScarceDropLove')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { reactionsCurrent: [] } }),
+      });
+      return;
+    }
+
+    if (query.includes('EventHolders')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            scarcesTokenOwners: [
+              { ownerId: 'maya.near' },
+              { ownerId: 'alex.near' },
+            ],
+          },
+        }),
+      });
+      return;
+    }
+
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -153,8 +395,7 @@ export async function expectCollectionVisitorChrome(page: Page): Promise<void> {
 
 export async function expectCollectionHolderChrome(
   page: Page,
-  backHref: string,
-  opts?: { hideCommerce?: boolean }
+  backHref: string
 ): Promise<void> {
   const root = collectionPageRoot(page);
   await expect(root).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
@@ -164,8 +405,7 @@ export async function expectCollectionHolderChrome(
   await expect(
     page.getByRole('link', { name: 'Open Collectibles' })
   ).toBeVisible();
-  if (opts?.hideCommerce !== false) {
-    await expect(root.locator('.collection-product-price')).toHaveCount(0);
-    await expect(root.locator('.collection-progress')).toHaveCount(0);
-  }
+  // Supply + progress always seat — ownership must not collapse the meter.
+  await expect(root.locator('.collection-commerce-supply')).toBeVisible();
+  await expect(root.locator('.collection-progress')).toBeVisible();
 }

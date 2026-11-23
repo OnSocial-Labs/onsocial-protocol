@@ -29236,6 +29236,27 @@ a.os-surface-row,
     margin-bottom: 0.35rem;
   }
 
+  .collection-skeleton-icon {
+    display: block;
+    width: 1.65rem;
+    height: 1.65rem;
+    border-radius: 9999px;
+    flex: 0 0 auto;
+  }
+
+  .collection-skeleton-product-line {
+    display: block;
+    width: min(100%, 12rem);
+    height: 0.72rem;
+    border-radius: 9999px;
+  }
+
+  /* Floor ≈ section label + 4 track rows — skeleton → player must not shove. */
+  .collection-tracks-seat,
+  .collection-tracks-skeleton {
+    min-height: 8.5rem;
+  }
+
   .collection-skeleton-track-list,
   .collection-skeleton-activity-list {
     display: flex;
@@ -29725,18 +29746,44 @@ a.os-surface-row,
 
   .collection-commerce-actions {
     display: flex;
+    flex-wrap: nowrap;
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
     width: 100%;
+    min-height: var(--os-engagement-row-height, 1.75rem);
     margin-top: 0.35rem;
   }
 
+  /* Love drops: fans left, love · save · share right (discovery facepile). */
+  .collection-commerce-actions.has-fans-seat {
+    min-height: var(--os-engagement-row-height, 1.75rem);
+  }
+
   .collection-commerce-actions .collection-drop-fans {
-    display: flex;
-    align-items: center;
+    display: inline-flex;
     flex: 0 1 auto;
+    align-items: center;
     min-width: 0;
+    margin: 0;
+  }
+
+  .collection-commerce-actions .collection-drop-fans--chassis {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .collection-commerce-actions .drops-discovery-fans-button {
+    color: var(--os-surface-muted);
+  }
+
+  .collection-commerce-actions .drops-discovery-fans-button:hover,
+  .collection-commerce-actions .drops-discovery-fans-button:focus-visible {
+    color: var(--os-surface-emphasis);
+  }
+
+  .collection-commerce-actions .drops-discovery-deal-fans {
+    flex: 0 0 auto;
     margin: 0;
   }
 
@@ -29980,34 +30027,6 @@ a.os-surface-row,
     height: var(--os-engagement-glyph-size, 1.125rem);
   }
 
-  .collection-drop-fans {
-    display: flex;
-    align-items: center;
-    margin: 0;
-  }
-
-  button.collection-drop-fans-facepile.guild-facepile {
-    display: inline-flex;
-    align-items: center;
-    min-height: 1.75rem;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: var(--os-surface-muted);
-  }
-
-  .collection-drop-fans-facepile .guild-facepile-avatars--slots {
-    height: 1.35rem;
-    align-items: center;
-  }
-
-  button.collection-drop-fans-facepile.guild-facepile:hover,
-  button.collection-drop-fans-facepile.guild-facepile:focus-visible {
-    color: var(--os-surface-emphasis);
-    outline: none;
-  }
-
   /*
    * Mint progress sits on our real Divider (detail fade) — not a hard bar.
    * Green fill rides the same rule; edges fade with the divider.
@@ -30068,11 +30087,23 @@ a.os-surface-row,
     margin-top: -0.15rem;
   }
 
+  /*
+   * Always seated under commerce — Open Collectibles / Play / Read fill the
+   * same box after wallet hydrate (no late mount shoving supply down).
+   */
   .collection-use-actions {
     display: flex;
     flex-direction: column;
     gap: 0.45rem;
     margin-top: 0.35rem;
+    min-height: 2rem;
+  }
+
+  .collection-use-actions-chassis {
+    display: block;
+    visibility: hidden;
+    width: 100%;
+    min-height: 2rem;
   }
 
   .collection-reading-row {
@@ -30085,14 +30116,6 @@ a.os-surface-row,
 
   .collection-page.is-use-first .collection-reading-row {
     min-height: 2rem;
-  }
-
-  .collection-skeleton-use-pill {
-    display: block;
-    width: 4.5rem;
-    height: 1.65rem;
-    border-radius: 9999px;
-    flex: 0 0 auto;
   }
 
   .collection-reading-row .collection-section-label {
@@ -31984,12 +32007,21 @@ a.os-surface-row,
     margin-top: 0.15rem;
   }
 
+  /* Floor matches 3-row activity skeleton — pending → empty/rows must not shove. */
+  .collection-activity-seat {
+    min-height: 5.4rem;
+  }
+
   .collection-activity-head {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 0.75rem;
     margin-top: 0.15rem;
+  }
+
+  .collection-product-line.is-reserved {
+    visibility: hidden;
   }
 
   .collection-activity-more {
@@ -32124,8 +32156,23 @@ a.os-surface-row,
   }
 
   .collection-guest-tally {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+    min-height: 1.45rem;
     letter-spacing: 0;
     font-variant-numeric: normal;
+  }
+
+  /* Present count while check-in roster loads — pairs with eventGuestSoldPrefix. */
+  .collection-guest-tally-present {
+    display: inline-block;
+    width: 4.75rem;
+    max-width: 42%;
+    height: 0.7rem;
+    border-radius: 9999px;
+    vertical-align: baseline;
   }
 
   .scarce-fans-empty {
@@ -37442,6 +37489,7 @@ a.os-surface-row,
   .drops-discovery-party--lead .drops-discovery-by {
     grid-column: 2;
     grid-row: 2;
+    min-height: calc(var(--os-identity-name-size, 0.9375rem) * 1.25);
   }
 
   .drops-discovery-party--lead .drops-discovery-sub {
@@ -48176,4 +48224,21 @@ button.portfolio-page-chevron.glass-sheet-icon-action:focus-visible {
 
 .portfolio-summon-dock.is-reply-reserve .portfolio-summon {
   pointer-events: none;
+}
+
+/* One story line from the first frame. Late copy fills it; Open Collectibles stays put. */
+.collection-about-seat {
+  display: block;
+  width: 100%;
+  height: calc(var(--os-identity-meta-size, 0.875rem) * 1.45);
+  margin-top: 0.15rem;
+  overflow: hidden;
+}
+
+.collection-about-seat .collection-about-teaser,
+.collection-about-seat .collection-about-teaser-line {
+  margin-top: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

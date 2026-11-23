@@ -23,6 +23,7 @@ import {
   parseAudioFormat,
   parseDropFacets,
 } from '@/features/scarces/drop-facets';
+import { rememberCollectionView } from '@/features/scarces/collection-view-cache';
 import {
   parseTicketEventFromCollectionMetadata,
   parseTicketEventFromExtra,
@@ -1109,12 +1110,18 @@ export async function fetchCollectionPreferIndexer(
     const row = await client.query.scarces.collectionCurrent(id);
     if (row) {
       const view = collectionCurrentRowToView(row);
-      if (view) return hydrateWritingManifest(view);
+      if (view) {
+        const hydrated = await hydrateWritingManifest(view);
+        rememberCollectionView(hydrated);
+        return hydrated;
+      }
     }
   } catch {
     // Fall through to RPC.
   }
-  return fetchCollection(id);
+  const rpc = await fetchCollection(id);
+  rememberCollectionView(rpc);
+  return rpc;
 }
 
 /** Load onsocial.writing.v1 chapters when manifesto CID is present. */

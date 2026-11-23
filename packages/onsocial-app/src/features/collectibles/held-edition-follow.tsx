@@ -4,22 +4,22 @@ import { useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { HeldEditionsSheet } from '@/features/collectibles/held-editions-sheet';
+import { seedCollectionViewFromOwnedPass } from '@/features/market/market-drop-open';
 import {
   collectionIdFromTokenId,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
 import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-data';
+import { useDropPlaceOpen } from '@/features/scarces/drop-place-open';
 import { OwnedShowPassSheet } from '@/features/scarces/owned-show-pass-sheet';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
+import { parseInAppDropLayerHref } from '@/lib/app-routes';
 import {
   heldEditionBrowseHref,
   heldEditionDestination,
 } from '@/lib/portfolio-holdings';
 
-/**
- * Edition list: face opens the drop; the use pill does Show pass / Play / Read.
- * A pass stays on this page. Read opens the reader. Play follows the link.
- */
+/** Edition list: face soft-navs to the drop place; use pill does pass / play / read. */
 export function HeldEditionFollow({
   open,
   title,
@@ -41,6 +41,7 @@ export function HeldEditionFollow({
   renderOwnerMenu?: (item: OwnedScarceItem) => ReactNode;
 }) {
   const router = useRouter();
+  const openDrop = useDropPlaceOpen();
   const { accountId } = useAppWallet();
   const [pass, setPass] = useState<OwnedScarceItem | null>(null);
   const [reader, setReader] = useState<OwnedScarceItem | null>(null);
@@ -49,9 +50,32 @@ export function HeldEditionFollow({
     string | null
   >(null);
 
+  const openOwnedDrop = (item: OwnedScarceItem, href: string) => {
+    openDrop({
+      href,
+      initial: seedCollectionViewFromOwnedPass({
+        collectionId:
+          item.collectionId?.trim() ||
+          collectionIdFromTokenId(item.tokenId) ||
+          null,
+        title: item.title,
+        mediaUrl: item.mediaUrl,
+        creatorId: item.creatorId,
+        mediumKind: item.mediumKind,
+        audioFormat: item.audioFormat ?? null,
+      }),
+    });
+    onClose();
+  };
+
   const followBrowse = (item: OwnedScarceItem) => {
     const href = heldEditionBrowseHref(item);
-    if (href) router.push(href);
+    if (!href) return;
+    if (parseInAppDropLayerHref(href)) {
+      openOwnedDrop(item, href);
+      return;
+    }
+    router.push(href);
   };
 
   const followUse = (item: OwnedScarceItem) => {
@@ -81,7 +105,13 @@ export function HeldEditionFollow({
         });
       return;
     }
-    if (destination.href) router.push(destination.href);
+    const href = destination.href?.trim() || '';
+    if (!href) return;
+    if (parseInAppDropLayerHref(href)) {
+      openOwnedDrop(item, href);
+      return;
+    }
+    router.push(href);
   };
 
   const readerId =
@@ -135,8 +165,6 @@ export function HeldEditionFollow({
           creatorId={readerCreatorId ?? reader.creatorId}
           sourcePostPath={readerSourcePostPath ?? reader.sourcePostPath}
           readables={[]}
-          canRead
-          lockedHint=""
           publishedAt={
             reader.mintedAtMs != null && reader.mintedAtMs > 0
               ? reader.mintedAtMs

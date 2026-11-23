@@ -7,10 +7,11 @@ import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stac
 import { DropsDiscoveryRowMenu } from '@/features/drops/drops-discovery-row-menu';
 import { formatMarketVerbStamp } from '@/features/market/market-listings';
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
+import { collectionCreatorFaceSeed } from '@/features/scarces/collection-creator-face';
 import {
-  DropOverlayLink,
+  DropPlaceLink,
   seedCollectionViewFromStoreDrop,
-} from '@/features/scarces/drop-overlay-open';
+} from '@/features/scarces/drop-place-open';
 import { collectionPath } from '@/lib/app-routes';
 import { socialTimeProps } from '@/lib/post-display';
 import { profileStoreDropToDiscoveryItem } from '@/lib/profile-store-drop-discovery';
@@ -88,7 +89,12 @@ export function PortfolioDropRow({
   onOwnerManaged?: (change: 'paused' | 'resumed' | 'deleted') => void;
 }) {
   const href = collectionPath(drop.collectionId);
+  // Thin row seed; resolveDropOpenSeed prefers a remembered full view on open.
   const dropInitial = seedCollectionViewFromStoreDrop(drop, pageAccountId);
+  const dropCreator = collectionCreatorFaceSeed({
+    displayName,
+    avatarUrl,
+  });
   const showMint = onMint != null && isDropMintable(drop);
   const dealBits = dropRowDealBits(drop);
   const fanCount =
@@ -107,9 +113,10 @@ export function PortfolioDropRow({
 
   return (
     <div className="market-listing-row drops-discovery-row" role="listitem">
-      <DropOverlayLink
+      <DropPlaceLink
         href={href}
         initial={dropInitial}
+        initialCreator={dropCreator}
         className="market-listing-row-open"
         aria-label={
           drop.hasPlayable ? `Listen to ${drop.title}` : `Open ${drop.title}`

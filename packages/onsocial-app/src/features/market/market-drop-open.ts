@@ -6,8 +6,8 @@ import {
 import type { CollectionView } from '@/features/scarces/collections-data';
 
 /**
- * Market listing → overlay seed. Jacket + known deal line on frame 1;
- * catalog soft-fills the rest.
+ * Market listing → place seed. Jacket + known deal line on frame 1;
+ * catalog soft-fills the rest. Drop open resolve prefers peeked full view.
  */
 export function seedCollectionViewFromMarketListing(item: {
   collectionId?: string | null;
@@ -61,7 +61,7 @@ export function seedCollectionViewFromMarketListing(item: {
   });
 }
 
-/** Market Recent sale → overlay seed when the row opens a drop (not a post). */
+/** Market Recent sale → place seed when the row opens a drop (not a post). */
 export function seedCollectionViewFromMarketSale(sale: {
   tokenId?: string | null;
   title: string;
@@ -95,7 +95,7 @@ export function seedCollectionViewFromMarketSale(sale: {
   });
 }
 
-/** Owned pass row → overlay seed from the holding already on the row. */
+/** Owned pass row → place seed from the holding already on the row. */
 export function seedCollectionViewFromOwnedPass(item: {
   collectionId?: string | null;
   title: string;

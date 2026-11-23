@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useState } from 'react';
 import {
   OsHugSheet,
@@ -26,6 +25,7 @@ import {
   formatFutureRelativeTime,
   formatMarketRelativePhrase,
 } from '@/features/market/market-listings';
+import { DropPlaceLink } from '@/features/scarces/drop-place-open';
 import { collectionPath } from '@/lib/app-routes';
 import { formatPageDrawerJoinedFullLabel } from '@/lib/page-drawer-meta';
 import { SHEET_Z } from '@/lib/sheet-z';
@@ -243,13 +243,14 @@ export function TicketDoorEventSheet({
             <SheetFactRow
               label="Drop"
               value={
-                <Link
+                <DropPlaceLink
                   href={dropHref}
+                  initial={view}
                   className="guild-facts-link"
-                  scroll={false}
+                  onClick={onClose}
                 >
                   View drop
-                </Link>
+                </DropPlaceLink>
               }
             />
           </SheetFactSection>

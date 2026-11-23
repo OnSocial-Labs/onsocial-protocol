@@ -61,7 +61,8 @@ import {
   groupEvents,
   type EventWindow,
 } from '@/features/events/events-catalog';
-import { DropOverlayLink } from '@/features/scarces/drop-overlay-open';
+import { collectionCreatorFaceSeed } from '@/features/scarces/collection-creator-face';
+import { DropPlaceLink } from '@/features/scarces/drop-place-open';
 import { seedCollectionViewFromPeek } from '@/features/scarces/collection-page-view';
 import { eventHintLive } from '@/features/scarces/ticket-event-facts';
 import { warmDropPanel } from '@/lib/thread-first-page';
@@ -149,12 +150,19 @@ function EventRow({
   onOwnerManaged: (change: 'paused' | 'resumed' | 'deleted') => void;
 }) {
   const href = collectionPath(item.collectionId);
-  const dropInitial = seedCollectionViewFromPeek({
-    collectionId: item.collectionId,
-    title: item.title,
-    coverUrl: item.mediaUrl,
-    creatorId: item.creatorId,
-    kind: item.mediumKind,
+  // Same as Drops: solid list view when present; else thin jacket seed.
+  const dropInitial =
+    item.view ??
+    seedCollectionViewFromPeek({
+      collectionId: item.collectionId,
+      title: item.title,
+      coverUrl: item.mediaUrl,
+      creatorId: item.creatorId,
+      kind: item.mediumKind,
+    });
+  const dropCreator = collectionCreatorFaceSeed({
+    displayName: item.creatorDisplayName,
+    avatarUrl: item.creatorAvatarUrl,
   });
   const when = eventRowWhen(item, nowMs);
   const whenAt = eventRowWhenAt(item, nowMs);
@@ -180,9 +188,10 @@ function EventRow({
 
   return (
     <div className="market-listing-row drops-discovery-row" role="listitem">
-      <DropOverlayLink
+      <DropPlaceLink
         href={href}
         initial={dropInitial}
+        initialCreator={dropCreator}
         className="market-listing-row-open"
         aria-label={`Open ${item.title}`}
       />
@@ -317,7 +326,7 @@ export function EventsPagePanel({
   /** URL `q` — grouped search hands the same words here. */
   initialQuery?: string;
 }) {
-  // Prefetch drop overlay chunk so the first event tap is not a blank wait.
+  // Prefetch drop place chunk so the first event tap is not a blank wait.
   useEffect(() => {
     warmDropPanel();
   }, []);

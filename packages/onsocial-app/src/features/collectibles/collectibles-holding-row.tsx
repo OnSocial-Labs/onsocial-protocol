@@ -21,9 +21,13 @@ import {
   heldEditionDestination,
   type PortfolioHoldingPeek,
 } from '@/lib/portfolio-holdings';
-import { DropOverlayLink } from '@/features/scarces/drop-overlay-open';
+import { collectionCreatorFaceSeed } from '@/features/scarces/collection-creator-face';
+import {
+  DropPlaceLink,
+  useDropPlaceOpen,
+} from '@/features/scarces/drop-place-open';
 import { seedCollectionViewFromPeek } from '@/features/scarces/collection-page-view';
-import { collectionPath } from '@/lib/app-routes';
+import { collectionPath, parseInAppDropLayerHref } from '@/lib/app-routes';
 import { OsRowAction } from '@/lib/os-row-action';
 import { scarceRowPartyLead } from '@/lib/scarce-row-kind';
 
@@ -143,12 +147,16 @@ export function CollectiblesHoldingRow({
   const [readSourcePostPath, setReadSourcePostPath] = useState<string | null>(
     null
   );
+  const openDrop = useDropPlaceOpen();
   const showThumb = Boolean(item.mediaUrl) && brokenMediaUrl !== item.mediaUrl;
   const collectionId = item.collectionId?.trim() || '';
   const opensPass = isPassMediumKind(item.mediumKind) && Boolean(collectionId);
   const dropHref = collectionId ? collectionPath(collectionId) : null;
+  const opensDropPage =
+    Boolean(dropHref) &&
+    (opensPass || parseInAppDropLayerHref(item.href) != null);
   const dropInitial =
-    opensPass && collectionId
+    opensDropPage && collectionId
       ? seedCollectionViewFromPeek({
           collectionId,
           title: item.title,
@@ -158,13 +166,17 @@ export function CollectiblesHoldingRow({
           audioFormat: item.audioFormat ?? null,
         })
       : null;
+  const dropCreator = collectionCreatorFaceSeed({
+    displayName: authorDisplayName,
+    avatarUrl: authorAvatarUrl,
+  });
   const readDestination = heldEditionDestination({
     tokenId: item.tokenId,
     collectionId,
     sourcePostPath: item.sourcePostPath ?? undefined,
     mediumKind: item.mediumKind,
   });
-  /** Folio reader on the vault page — same as Just sold / drop overlay embedded Read. */
+  /** Folio reader on the vault page — same as Just sold / drop place Read. */
   const opensInPlaceRead =
     item.actionLabel === 'Read' &&
     Boolean(collectionId) &&
@@ -178,7 +190,7 @@ export function CollectiblesHoldingRow({
     audioFormat: item.audioFormat ?? null,
   });
   const seatMark = heldEditionRowMark(item.tokenId, editionCount);
-  const rowHref = opensPass ? dropHref : item.href;
+  const rowHref = opensDropPage ? dropHref : item.href;
 
   return (
     <div
@@ -192,10 +204,11 @@ export function CollectiblesHoldingRow({
           aria-label={`Choose an edition of ${item.title}`}
           onClick={onOpenEditions}
         />
-      ) : opensPass && dropHref ? (
-        <DropOverlayLink
+      ) : opensDropPage && dropHref ? (
+        <DropPlaceLink
           href={dropHref}
           initial={dropInitial}
+          initialCreator={dropCreator}
           className="market-listing-row-open"
           aria-label={`Open drop for ${item.title}`}
         />
@@ -304,6 +317,20 @@ export function CollectiblesHoldingRow({
               >
                 {item.actionLabel}
               </OsRowAction>
+            ) : opensDropPage && dropHref ? (
+              <OsRowAction
+                className="collectibles-holding-action"
+                aria-label={`${item.actionLabel} ${item.title}`}
+                onClick={() => {
+                  openDrop({
+                    href: dropHref,
+                    initial: dropInitial,
+                    initialCreator: dropCreator,
+                  });
+                }}
+              >
+                {item.actionLabel}
+              </OsRowAction>
             ) : (
               <OsRowAction
                 href={item.href}
@@ -327,8 +354,6 @@ export function CollectiblesHoldingRow({
           accountId={viewerAccountId}
           creatorId={readCreatorId ?? creatorId}
           readables={[]}
-          canRead
-          lockedHint=""
           sourcePostPath={readSourcePostPath ?? item.sourcePostPath}
           publishedAt={
             item.mintedAtMs != null && item.mintedAtMs > 0

@@ -275,7 +275,7 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     id: 'collection',
     route: '/collection/[collectionId]',
     family: 'immersive-detail',
-    cold: 'CollectionPageSkeleton',
+    cold: 'CollectionPageSkeleton (seeded soft-nav paints real panel)',
     refreshing: 'Keep resolved collection shell',
     appending:
       'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',
@@ -286,6 +286,7 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
       'features/scarces/collection-page-skeleton.tsx',
       'features/scarces/collection-page-panel.tsx',
       'features/scarces/collection-route-loading.tsx',
+      'features/scarces/drop-place-open.tsx',
     ],
   },
   {

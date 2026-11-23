@@ -14,11 +14,12 @@ up to date when adding or changing a page.
 - Data already available (seed, session, SSR) renders with no skeleton over
   real content.
 - Cold with no painted data → structural skeleton matching the final shell.
-- Client navigation without ready data: `OsRouteSettle` paints the skeleton
-  it is given on the first frame (`cover` starts at `hold`). No delay before
-  that paint. After settle, the cover fades off over `--os-motion-appear`
+- Client navigation without ready data: `OsRouteSettle` / `HomeFeedReveal`
+  paints the skeleton on the first frame (`cover` starts at `hold`). No delay
+  before that paint. After settle, the cover fades off over `--os-motion-appear`
   (280ms fallback) and then unmounts; `prefers-reduced-motion` drops the
-  cover immediately.
+  cover immediately. Seeded / known bodies paint opaque immediately — do not
+  gate them behind `OsPageBodyAppear` opacity 0 (late + flicker).
 - Refresh with painted data → keep rows and set `is-refreshing`.
 - Load more → silent happy path; late/in-flight = footer PulsingDots
   (OsLoadMore / sentinel). Never append cold skeleton rows mid-list.

@@ -26,7 +26,8 @@ import {
   collectionPath,
   parseInAppDropLayerHref,
 } from '@/lib/app-routes';
-import { DropOverlayLink } from '@/features/scarces/drop-overlay-open';
+import { collectionCreatorFaceSeed } from '@/features/scarces/collection-creator-face';
+import { DropPlaceLink } from '@/features/scarces/drop-place-open';
 import { seedCollectionViewFromPeek } from '@/features/scarces/collection-page-view';
 import { ArticleReadOverlay } from '@/components/portfolio/article-read-screen';
 import { DiscoverArticlesList } from '@/features/discover/discover-articles-list';
@@ -121,6 +122,13 @@ function CatalogRow({
         collectionId: drop.collectionId,
         title,
         coverUrl,
+        creatorId: face?.accountId,
+      })
+    : null;
+  const dropCreator = face
+    ? collectionCreatorFaceSeed({
+        displayName: face.name,
+        avatarUrl: face.avatarUrl,
       })
     : null;
   const body = (
@@ -142,14 +150,15 @@ function CatalogRow({
   );
   if (drop) {
     return (
-      <DropOverlayLink
+      <DropPlaceLink
         href={href}
         initial={dropInitial}
+        initialCreator={dropCreator}
         className={className}
         onClick={onOpen}
       >
         {body}
-      </DropOverlayLink>
+      </DropPlaceLink>
     );
   }
   return (

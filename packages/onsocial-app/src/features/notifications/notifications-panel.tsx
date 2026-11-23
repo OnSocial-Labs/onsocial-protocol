@@ -44,7 +44,7 @@ import {
   parseInAppDropLayerHref,
 } from '@/lib/app-routes';
 import { accountIdsEqual } from '@/lib/account-match';
-import { useDropOverlayOpen } from '@/features/scarces/drop-overlay-open';
+import { useDropPlaceOpen } from '@/features/scarces/drop-place-open';
 import { seedCollectionViewFromPeek } from '@/features/scarces/collection-page-view';
 import {
   peekActivityInboxSession,
@@ -82,7 +82,7 @@ const PAGE_SIZE = 40;
  */
 export function NotificationsPanel() {
   const router = useRouter();
-  const openDrop = useDropOverlayOpen();
+  const openDrop = useDropPlaceOpen();
   const { openAccountSheet } = useAppAccountSheet();
   const {
     accountId,
