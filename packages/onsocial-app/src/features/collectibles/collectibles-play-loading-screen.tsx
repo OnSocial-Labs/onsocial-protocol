@@ -18,6 +18,7 @@ export function CollectiblesPlayLoadingScreen() {
       title="Player"
       backFallbackHref={backHref}
       leading={<OsHeaderBack fallbackHref={backHref} onBack={onBack} />}
+      dockBack={false}
       immersiveHeader
     >
       <div aria-hidden className="os-chrome-glass" />

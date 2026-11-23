@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { HeldEditionsSheet } from '@/features/collectibles/held-editions-sheet';
@@ -12,6 +12,8 @@ import {
 import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-data';
 import { useDropPlaceOpen } from '@/features/scarces/drop-place-open';
 import { OwnedShowPassSheet } from '@/features/scarces/owned-show-pass-sheet';
+import { prefetchShowPass } from '@/features/scarces/show-pass-ahead';
+import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
 import { parseInAppDropLayerHref } from '@/lib/app-routes';
 import {
@@ -78,9 +80,40 @@ export function HeldEditionFollow({
     router.push(href);
   };
 
+  // Warm pass rows while the edition list is open.
+  useEffect(() => {
+    if (!open) return;
+    for (const item of editions) {
+      if (!isPassMediumKind(item.mediumKind)) continue;
+      const collectionId =
+        item.collectionId?.trim() ||
+        collectionIdFromTokenId(item.tokenId) ||
+        '';
+      if (!collectionId) continue;
+      void prefetchShowPass({
+        collectionId,
+        tokenId: item.tokenId,
+        seedTitle: item.title,
+        seedCover: item.mediaUrl,
+      });
+    }
+  }, [editions, open]);
+
   const followUse = (item: OwnedScarceItem) => {
     const destination = heldEditionDestination(item);
     if (destination.type === 'pass') {
+      const collectionId =
+        item.collectionId?.trim() ||
+        collectionIdFromTokenId(item.tokenId) ||
+        '';
+      if (collectionId) {
+        void prefetchShowPass({
+          collectionId,
+          tokenId: item.tokenId,
+          seedTitle: item.title,
+          seedCover: item.mediaUrl,
+        });
+      }
       setPass(item);
       return;
     }
@@ -103,6 +136,12 @@ export function HeldEditionFollow({
         .catch(() => {
           /* byline still uses edition creator / path */
         });
+      return;
+    }
+    if (destination.type === 'play') {
+      const href = destination.href.trim();
+      if (!href) return;
+      router.push(href);
       return;
     }
     const href = destination.href?.trim() || '';

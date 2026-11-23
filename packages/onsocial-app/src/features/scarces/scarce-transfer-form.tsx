@@ -10,7 +10,7 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   heldCopySuccessLine,
-  heldEditionMark,
+  heldEditionDrawerLine,
 } from '@/features/collectibles/held-editions';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
@@ -201,7 +201,7 @@ export function ScarceTransferForm({
   }
 
   const title = item.title?.trim() || 'Scarce';
-  const copyMark = heldEditionMark(item.tokenId);
+  const copyMark = heldEditionDrawerLine(item.tokenId, item.mediumKind);
   const mediaUrl = item.mediaUrl?.trim() || null;
   const playable = item.playable ?? hydratedPlayable;
   const playables = item.playables ?? hydratedPlayables ?? undefined;

@@ -8,7 +8,7 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import '@/features/scarces/scarce-buy-deal.css';
 import {
   heldCopySuccessLine,
-  heldEditionMark,
+  heldEditionDrawerLine,
 } from '@/features/collectibles/held-editions';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
@@ -95,6 +95,7 @@ interface ScarceBidFormProps {
     title?: string;
     description?: string;
     mediaUrl?: string | null;
+    mediumKind?: string | null;
     sellerId: string;
     artistId?: string;
     priceNear?: string;
@@ -235,6 +236,8 @@ export function ScarceBidForm({
   const [artistHydrateSettled, setArtistHydrateSettled] = useState(false);
 
   const tokenId = listing?.tokenId ?? embed?.tokenId ?? '';
+  const mediumKind =
+    listing?.mediumKind?.trim() || embed?.mediumKind?.trim() || null;
   const collectionId =
     embed?.collectionId?.trim() ||
     (tokenId ? collectionIdFromTokenId(tokenId) : null) ||
@@ -604,7 +607,7 @@ export function ScarceBidForm({
           ? txToastConfirming.buyingScarceNow
           : txToastConfirming.biddingScarce,
         successMessage: settlesImmediately
-          ? (heldCopySuccessLine(tokenId, embed?.mediumKind, 'collected') ??
+          ? (heldCopySuccessLine(tokenId, mediumKind, 'collected') ??
             txToastSuccess.scarceBoughtNow)
           : txToastSuccess.scarceBidPlaced,
         failureMessage: settlesImmediately
@@ -694,7 +697,7 @@ export function ScarceBidForm({
         submittedMessage: txToastConfirming.settlingScarceAuction,
         successMessage:
           isHighestBidder && !isOwnAuction
-            ? (heldCopySuccessLine(tokenId, embed?.mediumKind, 'collected') ??
+            ? (heldCopySuccessLine(tokenId, mediumKind, 'collected') ??
               txToastSuccess.scarceAuctionCollected)
             : txToastSuccess.scarceAuctionSettled,
         failureMessage: txToastError.settleScarceAuctionFailed,
@@ -816,7 +819,7 @@ export function ScarceBidForm({
       mintPriceNear,
       mintedAtMs,
       listedAtMs: listing?.listedAtMs ?? null,
-      mediumKind: embed?.mediumKind ?? null,
+      mediumKind,
       authorId: artistId ?? null,
       sellerId: sellerId ?? null,
       sourcePostPath: resolvedSourcePostPath,
@@ -843,7 +846,7 @@ export function ScarceBidForm({
     listing?.postHref,
     mintPriceNear,
     mintedAtMs,
-    embed?.mediumKind,
+    mediumKind,
     resolvedSourcePostPath,
     artistId,
     sellerId,
@@ -900,7 +903,7 @@ export function ScarceBidForm({
 
         <ScarceCommerceSummary
           title={title}
-          mark={heldEditionMark(tokenId)}
+          mark={heldEditionDrawerLine(tokenId, mediumKind)}
           story={
             <ScarceProvenanceCopy
               title={title}

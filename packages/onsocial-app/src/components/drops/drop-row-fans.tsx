@@ -1,14 +1,11 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { GuildFacepile } from '@/features/guilds/guild-facepile';
 import { ScarceFansSheet } from '@/features/scarces/scarce-fans-sheet';
 import { useSheetMounted } from '@/hooks/use-sheet-mounted';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import {
-  arePostAuthorProfilesResolved,
-  usePostAuthorProfiles,
-} from '@/hooks/use-post-author-profiles';
+import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { warmProfileListAccounts } from '@/lib/load-profile-list-accounts';
 import {
   loadDropFanIds,
@@ -33,19 +30,74 @@ export function DropRowFansPending() {
   );
 }
 
-/** Loved fans on a drop row — facepile or count-only fallback. */
+function fanCountLabel(fanCount: number): string {
+  return fanCount === 1 ? '1 fan' : `${fanCount} fans`;
+}
+
+/**
+ * Loved fans on a drop row — facepile or count-only fallback.
+ * Count-only soft-fill must resolve ids (or fall back to text) — never leave
+ * the facepile shimmering forever with `loading` and no member ids.
+ */
 export function DropRowFans({
+  creatorId,
+  collectionId,
   fanIds,
   fanCount,
 }: {
+  creatorId: string;
+  collectionId: string;
   fanIds?: string[];
   fanCount: number;
 }) {
-  const ids = (fanIds ?? []).slice(0, 3);
+  const peeked = peekDropFanIds(creatorId, collectionId);
+  const [roster, setRoster] = useState<string[]>(
+    () => fanIds ?? peeked ?? []
+  );
+  const [rosterSettled, setRosterSettled] = useState(
+    () => (fanIds?.length ?? 0) > 0 || peeked != null || fanCount <= 0
+  );
+
+  useEffect(() => {
+    if (fanIds && fanIds.length > 0) {
+      setRoster(fanIds);
+      setRosterSettled(true);
+    }
+  }, [fanIds]);
+
+  useEffect(() => {
+    if (roster.length > 0 || fanCount <= 0) {
+      setRosterSettled(true);
+      return;
+    }
+    let cancelled = false;
+    const cached = peekDropFanIds(creatorId, collectionId);
+    if (cached) {
+      setRoster(cached);
+      setRosterSettled(true);
+      return;
+    }
+    setRosterSettled(false);
+    void loadDropFanIds(creatorId, collectionId)
+      .then((ids) => {
+        if (cancelled) return;
+        setRoster(ids);
+        setRosterSettled(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setRoster([]);
+        setRosterSettled(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [creatorId, collectionId, fanCount, roster.length]);
+
+  const ids = roster.slice(0, 3);
   const profiles = usePostAuthorProfiles(ids);
-  const profilesLoading = ids.length > 0 && !arePostAuthorProfilesResolved(ids);
   if (ids.length === 0) {
-    if (fanCount > 0) {
+    if (fanCount > 0 && !rosterSettled) {
       return (
         <span className="drops-discovery-deal-fans">
           <GuildFacepile
@@ -63,10 +115,11 @@ export function DropRowFans({
     }
     return (
       <span className="drops-discovery-deal-bit">
-        {fanCount === 1 ? '1 fan' : `${fanCount} fans`}
+        {fanCountLabel(fanCount)}
       </span>
     );
   }
+  // Count stays painted while avatars resolve — never shimmer "3 fans" again.
   return (
     <span className="drops-discovery-deal-fans">
       <GuildFacepile
@@ -75,7 +128,7 @@ export function DropRowFans({
         memberCount={fanCount}
         countUnit={{ one: 'fan', other: 'fans' }}
         slots={Math.min(3, ids.length)}
-        loading={profilesLoading}
+        loading={false}
         showCount
         className="drops-discovery-fans-facepile"
       />
@@ -107,7 +160,7 @@ export function DropFansButton({
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
-  const label = fanCount === 1 ? '1 fan' : `${fanCount} fans`;
+  const label = fanCountLabel(fanCount);
 
   const warmFans = () => {
     warmDropFanIds(creatorId, collectionId);
@@ -161,7 +214,12 @@ export function DropFansButton({
           openFans();
         }}
       >
-        <DropRowFans fanIds={fanIds} fanCount={fanCount} />
+        <DropRowFans
+          creatorId={creatorId}
+          collectionId={collectionId}
+          fanIds={fanIds}
+          fanCount={fanCount}
+        />
       </button>
       {fansSheet.mounted ? (
         <ScarceFansSheet
@@ -198,8 +256,11 @@ export function DropFaceFans({
   fanCount: number;
   countsLoading: boolean;
 }) {
+  const hasRoster = (fanIds?.length ?? 0) > 0;
+  // First roster only. A refresh must not tear down the painted fans control.
   const rosterPending =
-    countsLoading || (fanCount > 0 && (fanIds?.length ?? 0) === 0);
+    (fanCount > 0 && !hasRoster) ||
+    (countsLoading && fanCount <= 0 && !hasRoster);
 
   if (rosterPending) {
     return (

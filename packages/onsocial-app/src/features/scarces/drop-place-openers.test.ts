@@ -35,18 +35,18 @@ describe('Drop place openers', () => {
     expect(open).toContain('resolveDropOpenSeed');
   });
 
-  it('keeps Discover Just sold on appear-over (header chevron)', () => {
-    expect(src('features/scarces/drop-place-open.tsx')).toContain(
-      'export function DropAppearLink'
-    );
-    expect(src('features/scarces/drop-place-open.tsx')).toContain(
-      'export function useDropAppearOpen'
-    );
-    expect(src('features/discover/discover-moving-peeks.tsx')).toContain(
+  it('opens Discover Just sold as the full drop place (dock Mint)', () => {
+    expect(src('features/scarces/drop-place-open.tsx')).not.toContain(
       'DropAppearLink'
     );
-    expect(src('features/discover/discover-moving-peeks.tsx')).not.toContain(
+    expect(src('features/scarces/drop-place-open.tsx')).not.toContain(
+      'useDropAppearOpen'
+    );
+    expect(src('features/discover/discover-moving-peeks.tsx')).toContain(
       'DropPlaceLink'
+    );
+    expect(src('features/discover/discover-moving-peeks.tsx')).not.toContain(
+      'DropAppearLink'
     );
   });
 
@@ -69,9 +69,13 @@ describe('Drop place openers', () => {
     expect(src('features/market/market-listing-row.tsx')).toContain(
       'DropPlaceLink'
     );
-    expect(src('features/drops/drops-page-panel.tsx')).toContain(
-      'DropPlaceLink'
-    );
+    const drops = src('features/drops/drops-page-panel.tsx');
+    expect(drops).toContain('DropPlaceLink');
+    expect(drops).toContain('market-listing-row-open');
+    // Thumb is part of the place link — no list listen/read/artwork sheet.
+    expect(drops).not.toContain('onOpenCover');
+    expect(drops).not.toContain('ScarceFeedMediumSheet');
+    expect(drops).not.toContain('dropsListCoverAction');
   });
 
   it('passes list creator face into the place seed like Drops', () => {
@@ -132,15 +136,16 @@ describe('Drop place openers', () => {
     const vault = src('features/collectibles/collectibles-holding-row.tsx');
     expect(vault).toContain('opensDropPage');
     expect(vault).toContain('DropPlaceLink');
-    expect(vault).toContain('parseInAppDropLayerHref');
+    expect(vault).toContain('holdingsPlayHref');
 
     const owned = src('features/market/market-owned-row.tsx');
     expect(owned).toContain('opensDropPage');
     expect(owned).toContain('DropPlaceLink');
+    expect(owned).toContain('holdingsPlayHref');
 
     const edition = src('features/collectibles/held-edition-follow.tsx');
     expect(edition).toContain('useDropPlaceOpen');
-    expect(edition).toContain('parseInAppDropLayerHref(href)');
+    expect(edition).toContain("destination.type === 'play'");
     expect(edition).toContain('openDrop({');
     expect(edition).not.toContain('router.push(heldEditionBrowseHref');
   });
@@ -218,13 +223,13 @@ describe('Drop place openers', () => {
 
     const play = src('features/collectibles/collectibles-play-panel.tsx');
     expect(play).toContain('OsHeaderBack');
-    expect(play).not.toMatch(/\bdockBack\b/);
+    expect(play).toContain('dockBack={false}');
 
     const playLoading = src(
       'features/collectibles/collectibles-play-loading-screen.tsx'
     );
     expect(playLoading).toContain('OsHeaderBack');
-    expect(playLoading).not.toMatch(/\bdockBack\b/);
+    expect(playLoading).toContain('dockBack={false}');
   });
 
   it('seeded hot place never returns CollectionPageSkeleton', () => {
@@ -244,7 +249,7 @@ describe('Drop place openers', () => {
     expect(panel).not.toContain('collectionShowCommerceMeter');
   });
 
-  it('reserves activity and ticket event lines; tracks stay once the drop has them', () => {
+  it('reserves activity and ticket event lines; soft-fill holds the tracks seat', () => {
     const panel = src('features/scarces/collection-page-panel.tsx');
     expect(panel).toContain('collection-activity-seat');
     expect(panel).toContain('DropFaceFans');
@@ -253,7 +258,10 @@ describe('Drop place openers', () => {
     );
     expect(panel).toContain('collection-tracks-seat');
     expect(panel).toContain('collectionShowInlineTracks');
-    expect(panel).not.toContain('collectionReserveInlineTracks');
+    expect(panel).toContain('collectionMediumBodyPending');
+    expect(panel).toContain('CollectionTracksSkeleton');
+    expect(panel).toContain('catalogFacePending');
+    expect(panel).toContain('collection-skeleton-title');
     expect(panel).toContain('isTicketKind');
     expect(panel).toContain('productStatus');
     expect(panel).not.toContain('showCollectiblesEarly');

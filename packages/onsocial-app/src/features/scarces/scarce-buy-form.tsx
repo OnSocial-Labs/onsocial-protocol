@@ -12,7 +12,7 @@ import '@/features/scarces/scarce-buy-deal.css';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import {
   heldCopySuccessLine,
-  heldEditionMark,
+  heldEditionDrawerLine,
 } from '@/features/collectibles/held-editions';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
@@ -562,7 +562,10 @@ export function ScarceBuyForm({
 
   const isLazyBuy = status === 'lazy_listing' && Boolean(listingId);
   const isDropBuy = status === 'drop' && Boolean(collectionId);
-  const copyMark = !isDropBuy && tokenId ? heldEditionMark(tokenId) : null;
+  const copyMark =
+    !isDropBuy && tokenId
+      ? heldEditionDrawerLine(tokenId, mediumKind)
+      : null;
   const isMarketBuy = status === 'listed' && Boolean(tokenId);
   const isPrimaryMint = isLazyBuy || isDropBuy;
   const dollarScope: DollarScope | null = isMarketBuy

@@ -71,16 +71,21 @@ describe('PostScarceCtaPending', () => {
       join(here, 'collection-page-panel.tsx'),
       'utf8'
     );
-    // Use-actions seat is always mounted; chassis holds height until vaultHref.
+    // Lead ghost reserves Open Collectibles; trail Read/Play stays put on login.
     expect(panel).not.toContain('showCollectiblesEarly');
     expect(panel).not.toContain('holderActionsPending');
     expect(panel).not.toContain('Checking your collection');
-    expect(panel).toContain('collection-use-actions-chassis');
+    expect(panel).toContain('CollectionOpenCollectiblesLead');
+    expect(panel).toContain('collection-use-actions-lead-ghost');
+    expect(panel).toContain('collection-use-actions-trail-ghost');
+    expect(panel).toContain('collection-use-actions-trail-chassis');
     expect(panel).toContain('vaultHref');
     expect(panel).toContain('Open Collectibles');
     expect(panel).toContain('DropFaceFans');
     expect(panel).toContain('has-fans-seat');
-    expect(panel).toContain('countsLoading={dropLoves.fansLoading}');
+    expect(panel).toContain('countsLoading={faceFans.fansLoading}');
+    expect(panel).toContain('showAlbumFans={false}');
+    expect(panel).toContain('has-fans-seat');
   });
 
   it('passes sourcePostPath into the feed folio reader', () => {

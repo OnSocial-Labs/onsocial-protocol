@@ -7,10 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  isUnmodifiedPrimaryClick,
-  usePostThreadLayer,
-} from '@/features/home/post-thread-layer';
+import { isUnmodifiedPrimaryClick } from '@/features/home/post-thread-layer';
 import type { CollectionCreatorFace } from '@/features/scarces/collection-creator-face';
 import { rememberCollectionCreatorFace } from '@/features/scarces/collection-creator-face-cache';
 import type { CollectionView } from '@/features/scarces/collections-data';
@@ -123,38 +120,6 @@ export function useDropPlaceOpen(): (input: DropPlaceOpenInput) => boolean {
   );
 }
 
-/**
- * Appear-over drop (header chevron) — Discover Just sold and similar.
- * Catalog opens use DropPlaceLink / useDropPlaceOpen.
- */
-export function useDropAppearOpen(): (
-  input: DropPlaceOpenInput
-) => boolean {
-  const { openDrop } = usePostThreadLayer();
-  return useCallback(
-    (input: DropPlaceOpenInput) => {
-      const parsed = parseInAppDropLayerHref(input.href);
-      if (!parsed) return false;
-      const seed = resolveDropOpenSeed({
-        collectionId: parsed.collectionId,
-        initial: input.initial,
-      });
-      if (seed) rememberCollectionView(seed);
-      if (input.initialCreator) {
-        rememberCollectionCreatorFace(
-          parsed.collectionId,
-          input.initialCreator
-        );
-      }
-      return openDrop({
-        ...input,
-        initial: seed,
-      });
-    },
-    [openDrop]
-  );
-}
-
 /** Market / store card → place seed when a full view is not in hand. */
 export function seedCollectionViewFromStoreDrop(
   drop: ProfileStoreDrop,
@@ -214,53 +179,6 @@ export function DropPlaceLink({
         event.preventDefault();
         event.stopPropagation();
         navigateDropPlace(router as DropPlaceRouter, {
-          href: resolved,
-          initial,
-          initialCreator,
-        });
-      }}
-    >
-      {children}
-    </a>
-  );
-}
-
-/** Appear-over drop link — Discover Just sold and similar. */
-export function DropAppearLink({
-  href,
-  collectionId,
-  initial = null,
-  initialCreator = null,
-  children,
-  onClick,
-  className,
-  ...props
-}: DropPlaceLinkProps) {
-  const openAppear = useDropAppearOpen();
-  const resolved =
-    href?.trim() ||
-    (collectionId?.trim() ? collectionPath(collectionId.trim()) : '');
-  if (!resolved) return null;
-  const collectionIdForWarm =
-    collectionId?.trim() ||
-    parseInAppDropLayerHref(resolved)?.collectionId ||
-    '';
-  return (
-    <a
-      href={resolved}
-      className={className}
-      {...props}
-      onPointerDown={() => {
-        if (collectionIdForWarm) warmCollectionView(collectionIdForWarm);
-      }}
-      onClick={(event: MouseEvent<HTMLAnchorElement>) => {
-        onClick?.(event);
-        if (event.defaultPrevented) return;
-        if (!isUnmodifiedPrimaryClick(event)) return;
-        if (!parseInAppDropLayerHref(resolved)) return;
-        event.preventDefault();
-        event.stopPropagation();
-        openAppear({
           href: resolved,
           initial,
           initialCreator,

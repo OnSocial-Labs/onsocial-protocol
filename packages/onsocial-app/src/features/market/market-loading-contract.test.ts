@@ -13,10 +13,18 @@ describe('market loading contract', () => {
     );
 
     expect(source).toContain('resolveAppLoadingPresentation');
+    expect(source).toContain('marketBrowseColdPending');
     expect(source).toContain('showListSkeleton');
     expect(source).toContain('showCatalogRefreshing');
     expect(source).toContain('showAppendPending');
     expect(source).toContain("loadingPresentation === 'append-pending'");
+    expect(source).toContain('hasPaintedRows = listings.length > 0');
+    expect(source).not.toContain(
+      'hasPaintedRows = listings.length > 0 && listingsReady'
+    );
+    expect(source).toContain('reserveSalesSeat');
+    expect(source).toContain('browseColdPending');
+    expect(source).toContain('listingsState.items.length === 0');
     expect(source).toContain('PulsingDots');
     expect(source).toContain('listingsError');
     expect(source).toContain('errorPresentation');
@@ -43,6 +51,18 @@ describe('market loading contract', () => {
     expect(source).toContain('!catalogRefreshing');
     expect(source).toContain('ownedState.loaded');
     expect(source).not.toContain('showOwnedCheckSkeleton');
+  });
+
+  it('paints Yours from the vault page only — no early catalog-listed drip', () => {
+    const source = readFileSync(
+      join(marketSrc, 'market-page-panel.tsx'),
+      'utf8'
+    );
+
+    expect(source).toContain('const owned = ownedState.items');
+    expect(source).not.toContain('mergeOwnedYoursItems(');
+    expect(source).toContain('catalogListedOwned');
+    expect(source).toContain('showOwnedLoadingSeat');
   });
 
   it('keeps creator-shop listing-type chips out of the route loading shell', () => {

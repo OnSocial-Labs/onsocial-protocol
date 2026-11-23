@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { CopyIcon, Divider } from '@onsocial/ui';
+import { CheckIcon, CopyIcon, Divider, ShareIcon } from '@onsocial/ui';
 import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
 import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
 import { AccountAvatar } from '@/components/profile/account-avatar';
@@ -40,6 +40,10 @@ import { TicketPassQr } from '@/features/scarces/ticket-pass-qr';
 import { TicketClaimRefundAction } from '@/features/scarces/ticket-claim-refund-action';
 import { TICKET_PASS_CONNECT_LIVE } from '@/features/scarces/ticket-door-voice';
 import {
+  peekShowPassStatus,
+  prefetchShowPass,
+} from '@/features/scarces/show-pass-ahead';
+import {
   fetchTicketTokenStatus,
   type TicketTokenStatus,
 } from '@/features/scarces/ticket-token-status';
@@ -63,6 +67,7 @@ import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
  * On a phone, Save shares that picture so the guest can keep it in Photos.
  * Copy puts the signed code on the clipboard for the door paste field.
  * The seat row shows a short preview, never the full string.
+ * Tap the live QR to enlarge it in the same overlay as cover art.
  */
 export function TicketShowPassSheet({
   open,
@@ -94,10 +99,11 @@ export function TicketShowPassSheet({
   const [statusReady, setStatusReady] = useState(false);
   const [thumbFailed, setThumbFailed] = useState(false);
   const [artEnlargeOpen, setArtEnlargeOpen] = useState(false);
+  const [qrEnlargeOpen, setQrEnlargeOpen] = useState(false);
   const [livePayload, setLivePayload] = useState<string | null>(null);
   const [liveError, setLiveError] = useState<string | null>(null);
   const [liveReady, setLiveReady] = useState(false);
-  const [exporting, setExporting] = useState<'download' | 'save' | null>(null);
+  const [exporting, setExporting] = useState<'download' | 'share' | null>(null);
   const [exportNote, setExportNote] = useState<string | null>(null);
   const [canSave, setCanSave] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
@@ -113,11 +119,19 @@ export function TicketShowPassSheet({
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
-      setStatus(null);
-      setStatusError(null);
-      setStatusReady(false);
+      const peeked = peekShowPassStatus(tokenId);
+      if (peeked) {
+        setStatus(peeked.status);
+        setStatusError(peeked.statusError);
+        setStatusReady(true);
+      } else {
+        setStatus(null);
+        setStatusError(null);
+        setStatusReady(false);
+      }
       setThumbFailed(false);
       setArtEnlargeOpen(false);
+      setQrEnlargeOpen(false);
       setExporting(null);
       setExportNote(null);
       setCodeCopied(false);
@@ -162,23 +176,22 @@ export function TicketShowPassSheet({
     const id = tokenId.trim();
     if (!id) return;
     let cancelled = false;
-    void fetchTicketTokenStatus(id)
-      .then((next) => {
-        if (cancelled) return;
-        setStatus(next);
-        setStatusError(next ? null : 'Could not load this pass.');
-        setStatusReady(true);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setStatus(null);
-        setStatusError('Could not load this pass.');
-        setStatusReady(true);
-      });
+    void prefetchShowPass({
+      collectionId,
+      tokenId: id,
+      seedTitle: title,
+      seedCover: cover,
+      revalidateStatus: true,
+    }).then((ahead) => {
+      if (cancelled) return;
+      setStatus(ahead.status);
+      setStatusError(ahead.statusError);
+      setStatusReady(true);
+    });
     return () => {
       cancelled = true;
     };
-  }, [open, tokenId]);
+  }, [collectionId, cover, open, title, tokenId]);
 
   const ownerId = status?.ownerId?.trim() || '';
   const shouldFetchHolder = open && Boolean(ownerId);
@@ -350,7 +363,8 @@ export function TicketShowPassSheet({
     tokenId,
   ]);
 
-  const name = (status?.title ?? title).trim() || 'Pass';
+  // Prop / schedule title first — status metadata must not replace a painted name.
+  const name = (title.trim() || status?.title?.trim() || 'Pass');
   const coverUrl = resolveScarceMediaUrl(cover?.trim() || null);
   const statusUrl = resolveScarceMediaUrl(status?.mediaUrl?.trim() || null);
   const media = thumbFailed ? null : coverUrl || statusUrl;
@@ -385,7 +399,23 @@ export function TicketShowPassSheet({
     ? commercePartyLines(ownerId, holderFaceForOwner?.displayName)
     : { name: '', handle: '' };
   const holderAccount = holderHandle ? `@${holderHandle}` : '';
-  const qrHint = !liveReady ? 'Preparing…' : liveError ? liveError : null;
+  const viewerId = accountId?.trim() || '';
+  const viewerIsOwner =
+    Boolean(viewerId) && Boolean(ownerId) && accountIdsEqual(viewerId, ownerId);
+  /**
+   * White QR plate only with a code, or while the owner’s code is still
+   * preparing. Non-owners get a one-line note — no empty barcode square.
+   */
+  const preparingOwnerCode =
+    !liveReady && !liveError && (statusLoading || viewerIsOwner);
+  const showQrPlate = Boolean(livePayload) || preparingOwnerCode;
+  const qrHint = !liveReady
+    ? 'Preparing…'
+    : liveError
+      ? liveError
+      : livePayload
+        ? null
+        : 'Pass code unavailable.';
 
   const noteExport = useCallback((note: string) => {
     setExportNote(note);
@@ -442,14 +472,14 @@ export function TicketShowPassSheet({
     }
   }, [buildPassPicture, exporting, name, noteExport, passCode]);
 
-  const savePicture = useCallback(async () => {
+  const sharePicture = useCallback(async () => {
     if (!passCode || exporting) return;
-    setExporting('save');
+    setExporting('share');
     setExportNote(null);
     try {
       const blob = await buildPassPicture();
       if (!blob) {
-        noteExport('Could not save');
+        noteExport('Could not share');
         return;
       }
       const shared = await shareTicketPassPicture(
@@ -457,10 +487,10 @@ export function TicketShowPassSheet({
         ticketPassPictureFilename(name),
         name
       );
-      if (shared === 'shared') noteExport('Saved');
-      else if (shared === 'unavailable') noteExport('Could not save');
+      // Share sheet is the confirmation — no in-pass toast on success.
+      if (shared === 'unavailable') noteExport('Could not share');
     } catch {
-      noteExport('Could not save');
+      noteExport('Could not share');
     } finally {
       setExporting(null);
     }
@@ -480,30 +510,41 @@ export function TicketShowPassSheet({
     >
       <div className="ticket-show-pass">
         <div className="ticket-show-pass-body">
-          {media ? (
-            <button
-              type="button"
-              className="ticket-show-pass-mark-btn"
-              onClick={() => setArtEnlargeOpen(true)}
-              aria-label={`View artwork for ${name}`}
-            >
-              <IpfsImg
-                src={media}
-                srcSet={mediaSrcSet}
-                sizes={mediaSrcSet ? TICKET_MARK_SIZES : undefined}
-                alt=""
-                className="ticket-show-pass-mark"
-                onError={() => setThumbFailed(true)}
-              />
-            </button>
-          ) : null}
+          <div className="ticket-show-pass-mark-seat">
+            {media ? (
+              <button
+                type="button"
+                className="ticket-show-pass-mark-btn"
+                onClick={() => setArtEnlargeOpen(true)}
+                aria-label={`View artwork for ${name}`}
+              >
+                <IpfsImg
+                  src={media}
+                  srcSet={mediaSrcSet}
+                  sizes={mediaSrcSet ? TICKET_MARK_SIZES : undefined}
+                  alt=""
+                  className="ticket-show-pass-mark"
+                  onError={() => setThumbFailed(true)}
+                />
+              </button>
+            ) : null}
+          </div>
           <p className="ticket-show-pass-name">{name}</p>
-          {whenLabel ? (
-            <p className="ticket-show-pass-when">{whenLabel}</p>
-          ) : null}
-          {placeLabel ? (
-            <p className="ticket-show-pass-when">{placeLabel}</p>
-          ) : null}
+          {/* When / place seats from frame 1 — late schedule must not shove Expired. */}
+          <p
+            className={`ticket-show-pass-when${
+              whenLabel ? '' : ' is-reserved'
+            }`}
+          >
+            {whenLabel || <span aria-hidden>When</span>}
+          </p>
+          <p
+            className={`ticket-show-pass-when${
+              placeLabel ? '' : ' is-reserved'
+            }`}
+          >
+            {placeLabel || <span aria-hidden>Place</span>}
+          </p>
           {/* One line from the first paint, so a late status cannot drop the QR. */}
           <div className="ticket-show-pass-status-slot">
             {statusLine ? (
@@ -513,49 +554,69 @@ export function TicketShowPassSheet({
             ) : null}
           </div>
 
-          <div
-            className="ticket-show-pass-qr"
-            aria-busy={livePayload ? undefined : true}
-          >
-            {livePayload ? (
-              <TicketPassQr
-                value={livePayload}
-                title={`QR for ${name}`}
-                className="ticket-show-pass-qr-code"
-              />
+          {showQrPlate ? (
+            livePayload ? (
+              <button
+                type="button"
+                className="ticket-show-pass-qr ticket-show-pass-qr--zoom"
+                onClick={() => setQrEnlargeOpen(true)}
+                aria-label={`Enlarge pass code for ${name}`}
+                aria-haspopup="dialog"
+                aria-expanded={qrEnlargeOpen}
+              >
+                <TicketPassQr
+                  value={livePayload}
+                  title={`QR for ${name}`}
+                  className="ticket-show-pass-qr-code"
+                />
+              </button>
             ) : (
-              <p className="ticket-show-pass-hint">
-                {qrHint ?? 'Pass code unavailable.'}
-              </p>
-            )}
-          </div>
+              <div className="ticket-show-pass-qr" aria-busy>
+                <p className="ticket-show-pass-hint">{qrHint}</p>
+              </div>
+            )
+          ) : qrHint ? (
+            <p className="ticket-show-pass-qr-note" role="status">
+              {qrHint}
+            </p>
+          ) : null}
 
           <div className="ticket-show-pass-footer">
             <div
               className={`ticket-show-pass-identity${
-                ownerId ? '' : ' is-solo'
+                ownerId || statusLoading ? '' : ' is-solo'
               }`}
             >
-              {ownerId ? (
-                <AccountAvatar
-                  accountId={ownerId}
-                  src={holderFaceForOwner?.avatarUrl ?? null}
-                  fallbackInitial={holderName || ownerId}
-                  size="sm"
-                  shellLoading={!holderReady}
-                  className="ticket-show-pass-holder-avatar"
-                />
+              {ownerId || statusLoading ? (
+                <>
+                  <AccountAvatar
+                    accountId={ownerId || undefined}
+                    src={holderFaceForOwner?.avatarUrl ?? null}
+                    fallbackInitial={
+                      holderReady ? holderName || ownerId : undefined
+                    }
+                    size="sm"
+                    shellLoading={!holderReady || statusLoading}
+                    className="ticket-show-pass-holder-avatar"
+                  />
+                  <div className="ticket-show-pass-identity-copy">
+                    <p
+                      className={`ticket-show-pass-holder-name${
+                        holderName ? '' : ' is-reserved'
+                      }`}
+                    >
+                      {holderName || <span aria-hidden>Holder</span>}
+                    </p>
+                    <p
+                      className={`ticket-show-pass-holder-account${
+                        holderAccount ? '' : ' is-reserved'
+                      }`}
+                    >
+                      {holderAccount || <span aria-hidden>@handle</span>}
+                    </p>
+                  </div>
+                </>
               ) : null}
-              <div className="ticket-show-pass-identity-copy">
-                {ownerId && holderName ? (
-                  <p className="ticket-show-pass-holder-name">{holderName}</p>
-                ) : null}
-                {ownerId && holderAccount ? (
-                  <p className="ticket-show-pass-holder-account">
-                    {holderAccount}
-                  </p>
-                ) : null}
-              </div>
             </div>
 
             <Divider variant="detail" className="ticket-show-pass-divider" />
@@ -587,54 +648,71 @@ export function TicketShowPassSheet({
                   }
                 >
                   <span className="ticket-show-pass-code-preview">
-                    {codeCopied ? 'Copied' : passCodePreview}
+                    {passCodePreview}
                   </span>
-                  {codeCopied ? null : (
-                    <CopyIcon
-                      className="ticket-show-pass-code-icon"
-                      aria-hidden
-                    />
-                  )}
+                  <span className="ticket-show-pass-code-copy" aria-hidden>
+                    <CopyIcon className="ticket-show-pass-code-icon" />
+                    <CheckIcon className="ticket-show-pass-code-icon ticket-show-pass-code-tick" />
+                  </span>
                 </button>
+              ) : preparingOwnerCode ? (
+                <span className="ticket-show-pass-code is-reserved" aria-hidden>
+                  <span className="ticket-show-pass-code-preview">••••</span>
+                  <span className="ticket-show-pass-code-copy">
+                    <CopyIcon className="ticket-show-pass-code-icon" />
+                  </span>
+                </span>
               ) : null}
             </div>
 
-            <div className="ticket-show-pass-actions">
-              {passCode ? (
-                <button
-                  type="button"
-                  className="ticket-show-pass-action"
-                  onClick={() => void downloadPicture()}
-                  disabled={exporting != null}
-                >
-                  {exporting === 'download' ? 'Downloading…' : 'Download'}
-                </button>
-              ) : (
-                <span
-                  className="ticket-show-pass-action is-reserved"
-                  aria-hidden
-                >
-                  Download
-                </span>
-              )}
-              {canSave && passCode ? (
-                <button
-                  type="button"
-                  className="ticket-show-pass-action"
-                  onClick={() => void savePicture()}
-                  disabled={exporting != null}
-                >
-                  {exporting === 'save' ? 'Saving…' : 'Save'}
-                </button>
-              ) : null}
-            </div>
+            {passCode || preparingOwnerCode ? (
+              <div className="ticket-show-pass-actions">
+                {passCode ? (
+                  <button
+                    type="button"
+                    className="ticket-show-pass-action"
+                    onClick={() => void downloadPicture()}
+                    disabled={exporting != null}
+                  >
+                    Download
+                  </button>
+                ) : (
+                  <span
+                    className="ticket-show-pass-action is-reserved"
+                    aria-hidden
+                  >
+                    Download
+                  </span>
+                )}
+                {canSave ? (
+                  passCode ? (
+                    <button
+                      type="button"
+                      className="ticket-show-pass-share"
+                      onClick={() => void sharePicture()}
+                      disabled={exporting != null}
+                      aria-label={
+                        exporting === 'share' ? 'Sharing pass' : 'Share pass'
+                      }
+                    >
+                      <ShareIcon
+                        className="ticket-show-pass-share-icon"
+                        aria-hidden
+                      />
+                    </button>
+                  ) : (
+                    <span
+                      className="ticket-show-pass-share is-reserved"
+                      aria-hidden
+                    >
+                      <ShareIcon className="ticket-show-pass-share-icon" />
+                    </span>
+                  )
+                ) : null}
+              </div>
+            ) : null}
             {exportNote ? (
-              <p
-                className={`ticket-show-pass-export-note${
-                  exportNote === 'Saved' ? ' is-saved' : ''
-                }`}
-                role="status"
-              >
+              <p className="ticket-show-pass-export-note" role="status">
                 {exportNote}
               </p>
             ) : null}
@@ -665,6 +743,22 @@ export function TicketShowPassSheet({
           label={name}
           onClose={() => setArtEnlargeOpen(false)}
         />
+      ) : null}
+      {livePayload && qrEnlargeOpen ? (
+        <DropArtOverlay
+          open={qrEnlargeOpen}
+          label={`Pass code for ${name}`}
+          closeAriaLabel="Close enlarged pass code"
+          onClose={() => setQrEnlargeOpen(false)}
+        >
+          <div className="ticket-show-pass-qr-zoom">
+            <TicketPassQr
+              value={livePayload}
+              title={`QR for ${name}`}
+              className="ticket-show-pass-qr-zoom-code"
+            />
+          </div>
+        </DropArtOverlay>
       ) : null}
     </OsMediaFaceShell>
   );

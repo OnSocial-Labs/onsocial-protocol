@@ -11,6 +11,7 @@ import {
   type MarketListingItem,
 } from '@/features/market/market-listings';
 import { marketListingRowTarget } from '@/features/market/market-row-targets';
+import { heldEditionMark } from '@/features/collectibles/held-editions';
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { MarketListingRowMenu } from '@/features/market/market-listing-row-menu';
 import { marketAuctionClockLabel } from '@/features/scarces/scarce-auction';
@@ -172,6 +173,11 @@ export function MarketListingRow({
   };
 
   const isPrimaryMint = item.kind === 'lazy';
+  // Specific edition on resale / auction — never on open mint supply.
+  const seatMark =
+    !isPrimaryMint && item.tokenId
+      ? heldEditionMark(item.tokenId)
+      : null;
   const buyLabel =
     item.kind === 'auction'
       ? auctionClockLabel === 'Ended'
@@ -279,6 +285,12 @@ export function MarketListingRow({
                 {dollarStickerLabel(item.usdE6) ??
                   `${formatPriceNear(item.priceNear)} NEAR`}
               </span>
+              {seatMark ? (
+                <span className="market-listing-own">
+                  {' · '}
+                  {seatMark}
+                </span>
+              ) : null}
               {bidCount != null ? (
                 <span className="market-listing-own">
                   {' · '}

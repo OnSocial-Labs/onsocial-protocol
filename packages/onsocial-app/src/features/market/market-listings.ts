@@ -752,7 +752,11 @@ export function excludeOwnedNativeListings(
   );
 }
 
-/** Native / auction rows the viewer is selling — Yours before the vault returns. */
+/**
+ * Native / auction rows the viewer is selling on the live catalog.
+ * Used to keep those rows out of browse while Yours waits on the vault —
+ * not to paint Yours early (that drips a couple rows then the rest).
+ */
 export function ownedListedItemsFromViewerListings(
   listings: MarketListingItem[],
   viewerAccountId: string | null | undefined
@@ -787,7 +791,10 @@ export function ownedListedItemsFromViewerListings(
   return out;
 }
 
-/** Vault wins on overlap; catalog-only listed rows stay until the vault catches up. */
+/**
+ * Merge helper for tests / callers that still need catalog+vault union.
+ * Market Yours first paint uses the vault page alone.
+ */
 export function mergeOwnedYoursItems(
   vault: OwnedScarceItem[],
   catalogListed: OwnedScarceItem[]

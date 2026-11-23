@@ -43,8 +43,9 @@ function useGuestIds(
         })
         .catch(() => {
           if (cancelled) return;
+          // Keep last-good people — never clear a painted roster on a miss.
           setPack((current) =>
-            current.key === key && current.ids
+            current.key === key && current.ids != null
               ? current
               : { key, ids: null, error: true }
           );
@@ -195,7 +196,6 @@ export function CollectionEventGuests({
   );
   const holderWords = holders || voice === 'redeem';
   const copy = eventGuestSheetCopy(kind, { redeemed: holderWords });
-  const rosterPending = roster.ids == null && !roster.error;
   const tally =
     roster.ids != null
       ? eventGuestTallyLine({
@@ -205,6 +205,18 @@ export function CollectionEventGuests({
           redeemed: holderWords,
         })
       : null;
+  // First paint only for this drop. Sold can move without a holding shimmer.
+  const [lastGood, setLastGood] = useState<{
+    key: string;
+    tally: string;
+  } | null>(null);
+  const tallyKey = `${collectionId}\0${kind}`;
+  if (tally != null && (lastGood?.key !== tallyKey || lastGood.tally !== tally)) {
+    setLastGood({ key: tallyKey, tally });
+  }
+  const painted =
+    tally ?? (lastGood?.key === tallyKey ? lastGood.tally : null);
+  const rosterPending = painted == null && roster.ids == null && !roster.error;
 
   return (
     <section className="collection-reading" aria-label={copy.label}>
@@ -219,7 +231,7 @@ export function CollectionEventGuests({
               />
             </>
           ) : (
-            tally
+            painted
           )}
         </p>
         <OsRowAction onClick={() => setOpen(true)}>See who</OsRowAction>

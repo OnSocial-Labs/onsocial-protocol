@@ -20,6 +20,7 @@ import {
   collectionUseFirst,
   collectionViewNeedsCatalogSoftFill,
   collectionFaceTitle,
+  collectionMediumBodyPending,
   collectionSoftFillPeek,
   mergeCatalogSoftFillIntoSeed,
   peekHoldsCollection,
@@ -341,6 +342,7 @@ describe('collection page view', () => {
       appId: 'hub.near',
       creatorId: 'alice.near',
       kind: 'writing',
+      description: 'A line from the list.',
     });
     expect(view?.collectionId).toBe('just-sold');
     expect(view?.title).toBe('Just Sold');
@@ -348,6 +350,7 @@ describe('collection page view', () => {
     expect(view?.appId).toBe('hub.near');
     expect(view?.creatorId).toBe('alice.near');
     expect(view?.kind).toBe('writing');
+    expect(view?.description).toBe('A line from the list.');
     expect(view?.playables).toEqual([]);
     expect(collectionViewNeedsCatalogSoftFill(view)).toBe(true);
     expect(seedCollectionViewFromPeek({ collectionId: '  ' })).toBeNull();
@@ -481,6 +484,37 @@ describe('collection page view', () => {
     expect(collectionSoftFillPeek(peek)).toBe(true);
     expect(
       collectionSoftFillPeek({ ...peek!, createdAtMs: 1_700_000_000_000 })
+    ).toBe(false);
+  });
+
+  it('holds the audio medium seat until soft-fill lands tracks', () => {
+    expect(
+      collectionMediumBodyPending({
+        softFillPeek: true,
+        isAudio: true,
+        hasPlayables: false,
+      })
+    ).toBe(true);
+    expect(
+      collectionMediumBodyPending({
+        softFillPeek: true,
+        isAudio: true,
+        hasPlayables: true,
+      })
+    ).toBe(false);
+    expect(
+      collectionMediumBodyPending({
+        softFillPeek: false,
+        isAudio: true,
+        hasPlayables: false,
+      })
+    ).toBe(false);
+    expect(
+      collectionMediumBodyPending({
+        softFillPeek: true,
+        isAudio: false,
+        hasPlayables: false,
+      })
     ).toBe(false);
   });
 });

@@ -7,7 +7,7 @@ import {
   useAppWallet,
   WalletConnectedReviewError,
 } from '@/contexts/app-wallet-context';
-import { heldEditionMark } from '@/features/collectibles/held-editions';
+import { heldEditionDrawerLine } from '@/features/collectibles/held-editions';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import type { OwnedScarceItem } from '@/features/market/market-listings';
 import {
@@ -233,6 +233,10 @@ export function ScarceOffersSheet({
     selectedOffer,
   ]);
 
+  const offersCopyLine = item
+    ? heldEditionDrawerLine(item.tokenId, item.mediumKind)
+    : null;
+
   return (
     <OsGestureSheet
       open={sheetOpen}
@@ -267,10 +271,8 @@ export function ScarceOffersSheet({
           <div className="scarce-buy-summary">
             <div className="scarce-buy-identity">
               <p className="scarce-buy-title">{item.title}</p>
-              {heldEditionMark(item.tokenId) ? (
-                <p className="collection-edition-line">
-                  {heldEditionMark(item.tokenId)}
-                </p>
+              {offersCopyLine ? (
+                <p className="collection-edition-line">{offersCopyLine}</p>
               ) : null}
             </div>
             {loading ? (

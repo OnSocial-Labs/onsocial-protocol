@@ -19,7 +19,12 @@ export function useScarceCollectionSaves(opts: {
   collectionIds?: ReadonlyArray<string>;
   onError?: (message: string) => void;
 } = {}) {
-  const { accountId, isConnected, connect } = useAppWallet();
+  const {
+    accountId,
+    isConnected,
+    connect,
+    isLoading: walletLoading,
+  } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set());
   const [pendingIds, setPendingIds] = useState<Set<string>>(() => new Set());
@@ -41,7 +46,8 @@ export function useScarceCollectionSaves(opts: {
 
   const reload = useCallback(async () => {
     if (!accountId) {
-      setSavedIds(new Set());
+      // Wallet hydrate — keep last-good bookmarks; only clear when settled out.
+      if (!walletLoading) setSavedIds(new Set());
       return;
     }
     const loadId = ++loadIdRef.current;
@@ -85,7 +91,7 @@ export function useScarceCollectionSaves(opts: {
     } catch {
       if (loadIdRef.current !== loadId) return;
     }
-  }, [accountId]);
+  }, [accountId, walletLoading]);
 
   useEffect(() => {
     void reload();

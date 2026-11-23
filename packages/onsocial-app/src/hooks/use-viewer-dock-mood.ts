@@ -3,11 +3,19 @@
 import { useMemo, type CSSProperties } from 'react';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerWalletMoodVars } from '@/hooks/use-viewer-wallet-mood-vars';
-import { resolvePortfolioMood } from '@/lib/moods/resolve';
+import {
+  pageContentDrawerPanelStyle,
+  portfolioMoodShellStyle,
+  resolvePortfolioMood,
+} from '@/lib/moods/resolve';
 
 /**
  * Summon dock chrome for the connected viewer — same mood everywhere
  * (home, OS apps, visiting someone else’s page).
+ *
+ * Seed protocol mood vars on frame 1 while the wallet mood fetch catches
+ * up — same as guild compose — so Market / Drops / OS screens never flash
+ * a flat base then recolor when `data-mood` + CSS vars land late.
  */
 export function useViewerDockMood(pageAccountId?: string): {
   moodId: string | null;
@@ -28,11 +36,12 @@ export function useViewerDockMood(pageAccountId?: string): {
 
   const style = useMemo(() => {
     if (!accountId) return undefined;
-    // Live / fetched vars only. Protocol inline would stamp OS wash over
-    // inherited face vars when Edit profile portals into `.portfolio-frame`.
     if (fetchedMoodStyle) return fetchedMoodStyle;
-    return undefined;
-  }, [accountId, fetchedMoodStyle]);
+    return {
+      ...portfolioMoodShellStyle(fallbackMood.cssVars),
+      ...pageContentDrawerPanelStyle(fallbackMood.cssVars),
+    } as CSSProperties;
+  }, [accountId, fallbackMood.cssVars, fetchedMoodStyle]);
 
   return { moodId, style };
 }

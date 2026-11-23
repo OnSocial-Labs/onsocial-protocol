@@ -121,7 +121,7 @@ describe('excludeOwnedNativeListings', () => {
 });
 
 describe('ownedListedItemsFromViewerListings', () => {
-  it('lifts the viewer’s native and auction rows so Yours can paint before the vault', () => {
+  it('lifts the viewer’s native and auction rows for browse exclusion while Yours waits', () => {
     const listings: MarketListingItem[] = [
       { ...baseListing, kind: 'lazy', listingId: 'll:1' },
       { ...baseListing, kind: 'native', tokenId: 's:1' },

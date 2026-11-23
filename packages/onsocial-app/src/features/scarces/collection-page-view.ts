@@ -236,12 +236,15 @@ function collectionViewPlaceholder(input: {
   kind?: string | null;
   audioFormat?: CollectionView['audioFormat'];
   playables?: CollectionView['playables'];
+  description?: string | null;
 }): CollectionView {
+  const description = input.description?.trim() || undefined;
   return {
     collectionId: input.collectionId,
     creatorId: input.creatorId?.trim() || '',
     title: input.title,
     mediaUrl: input.mediaUrl,
+    ...(description ? { description } : {}),
     priceNear: null,
     priceYocto: '0',
     totalSupply: 0,
@@ -341,6 +344,19 @@ export function collectionSoftFillPeek(
 }
 
 /**
+ * Soft-fill peek still waiting on catalog for the medium body.
+ * Hold the tracks skeleton in place — never mount the seat only when
+ * playables arrive (face-first then tracks = early partial paint).
+ */
+export function collectionMediumBodyPending(opts: {
+  softFillPeek: boolean;
+  isAudio: boolean;
+  hasPlayables: boolean;
+}): boolean {
+  return opts.softFillPeek && opts.isAudio && !opts.hasPlayables;
+}
+
+/**
  * Soft-fill a peek seed with catalog without swapping frame-1 face chrome.
  * Keeps a real seed title (and jacket) stable so soft-fill does not jump
  * the hero; commerce / about sheet fields take the catalog values.
@@ -377,6 +393,8 @@ export function seedCollectionViewFromPeek(input: {
   creatorId?: string | null;
   kind?: string | null;
   audioFormat?: CollectionView['audioFormat'];
+  /** List blurb when the row already has it — about teaser paints frame 1. */
+  description?: string | null;
 }): CollectionView | null {
   const collectionId = input.collectionId.trim();
   if (!collectionId) return null;
@@ -391,6 +409,7 @@ export function seedCollectionViewFromPeek(input: {
     creatorId: input.creatorId ?? undefined,
     kind: input.kind ?? null,
     audioFormat: input.audioFormat ?? null,
+    description: input.description,
   });
 }
 

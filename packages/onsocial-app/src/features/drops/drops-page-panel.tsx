@@ -54,10 +54,6 @@ import {
   DropPlaceLink,
 } from '@/features/scarces/drop-place-open';
 import { seedCollectionViewFromPeek } from '@/features/scarces/collection-page-view';
-import {
-  dropsListCoverAction,
-  dropsListCoverLabel,
-} from '@/features/drops/drops-page-view';
 import { dropListClock } from '@/features/drops/drops-row-clock';
 import { socialTimeProps } from '@/lib/post-display';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
@@ -68,10 +64,6 @@ import {
 } from '@/features/market/market-medium';
 import { fetchAllowlistRemaining } from '@/features/scarces/collections-data';
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
-import {
-  ScarceFeedMediumSheet,
-  resolveScarceFeedMediumMode,
-} from '@/features/scarces/scarce-feed-medium-sheet';
 import {
   APP_DROP_CREATE_PATH,
   APP_EVENTS_PATH,
@@ -271,7 +263,6 @@ function DropRow({
   omitKind = false,
   onToggleSave,
   onOwnerManaged,
-  onOpenCover,
 }: {
   item: DropDiscoveryItem;
   sort: DropsSort;
@@ -283,8 +274,6 @@ function DropRow({
   omitKind?: boolean;
   onToggleSave: () => void;
   onOwnerManaged?: (change: 'paused' | 'resumed' | 'deleted') => void;
-  /** Cover tap — listen, read, or view art on this list. */
-  onOpenCover?: () => void;
 }) {
   const metaBits = dropRowMetaBits(item, sort, allowlistRemaining, nowMs);
   const partyLead = scarceRowPartyLead(
@@ -313,12 +302,12 @@ function DropRow({
       coverUrl: item.mediaUrl,
       creatorId: item.creatorId,
       kind: item.mediumKind,
+      description: item.description,
     });
   const dropCreator = collectionCreatorFaceSeed({
     displayName: item.creatorDisplayName,
     avatarUrl: item.creatorAvatarUrl,
   });
-  const coverAction = dropsListCoverAction(item);
   const thumbClass = `market-listing-thumb drops-discovery-thumb${
     item.mediaUrl ? ' has-media' : ''
   }`;
@@ -348,23 +337,9 @@ function DropRow({
         className="market-listing-row-open"
         aria-label={`Open ${item.title}`}
       />
-      {coverAction && onOpenCover ? (
-        <button
-          type="button"
-          className={thumbClass}
-          aria-label={dropsListCoverLabel(coverAction, item.title)}
-          onClick={onOpenCover}
-        >
-          {thumb}
-          {coverAction === 'listen' ? (
-            <span className="market-listing-thumb-play" aria-hidden />
-          ) : null}
-        </button>
-      ) : (
-        <div className={thumbClass} aria-hidden>
-          {thumb}
-        </div>
-      )}
+      <div className={thumbClass} aria-hidden>
+        {thumb}
+      </div>
       <div className="drops-discovery-body">
         <div className="drops-discovery-top">
           <div className="market-listing-head drops-discovery-head">
@@ -681,7 +656,6 @@ export function DropsPagePanel({
   const [allowlistById, setAllowlistById] = useState<
     Record<string, number | null>
   >({});
-  const [coverItem, setCoverItem] = useState<DropDiscoveryItem | null>(null);
 
   const collectionIds = useMemo(
     () => items.map((item) => item.collectionId),
@@ -1238,9 +1212,6 @@ export function DropsPagePanel({
           ),
         }));
       }}
-      onOpenCover={() => {
-        setCoverItem(item);
-      }}
     />
   );
 
@@ -1366,26 +1337,6 @@ export function DropsPagePanel({
           />
         </div>
 
-        {coverItem ? (
-          <ScarceFeedMediumSheet
-            open
-            onOpenChange={(open) => {
-              if (!open) setCoverItem(null);
-            }}
-            mode={resolveScarceFeedMediumMode(
-              coverItem.mediumKind ?? coverItem.view?.kind
-            )}
-            title={coverItem.title}
-            cover={coverItem.mediaUrl}
-            creatorId={coverItem.creatorId}
-            collectionId={coverItem.collectionId}
-            playables={coverItem.view?.playables ?? []}
-            readables={coverItem.view?.readables ?? []}
-            writingFormat={coverItem.view?.writingFormat ?? null}
-            bookPdf={coverItem.view?.bookPdf ?? null}
-            viewerAccountId={accountId}
-          />
-        ) : null}
       </div>
     </OsAppScreen>
   );

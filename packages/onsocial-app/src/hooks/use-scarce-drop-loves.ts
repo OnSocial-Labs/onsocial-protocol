@@ -6,6 +6,7 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { accountIdsEqual } from '@/lib/account-match';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { APP_WALLET_ACCOUNT_KEY } from '@/lib/gate-return';
 import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
 import {
   dedupeDropFanIds,
@@ -35,6 +36,56 @@ const EMPTY: DropLoveState = {
   fanIds: [],
 };
 
+/** Last-good love face — reopen / wallet hydrate must not flash empty→filled. */
+const dropLoveCache = new Map<string, DropLoveState>();
+
+function peekStoredWalletAccountId(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage.getItem(APP_WALLET_ACCOUNT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function dropLoveViewerId(accountId: string | null | undefined): string {
+  return accountId?.trim() || peekStoredWalletAccountId()?.trim() || '';
+}
+
+function dropLoveCacheKey(
+  viewerId: string,
+  creatorId: string,
+  collectionId: string
+): string {
+  return `${viewerId.toLowerCase()}\0${creatorId}\0${collectionId}`;
+}
+
+function peekDropLoveState(
+  viewerId: string,
+  creatorId: string,
+  collectionId: string
+): DropLoveState | null {
+  if (!viewerId || !creatorId || !collectionId) return null;
+  return (
+    dropLoveCache.get(
+      dropLoveCacheKey(viewerId, creatorId, collectionId)
+    ) ?? null
+  );
+}
+
+function rememberDropLoveState(
+  viewerId: string,
+  creatorId: string,
+  collectionId: string,
+  state: DropLoveState
+): void {
+  if (!viewerId || !creatorId || !collectionId) return;
+  dropLoveCache.set(
+    dropLoveCacheKey(viewerId, creatorId, collectionId),
+    state
+  );
+}
+
 /** True when reaction path is drop-level love (not a track under the same id). */
 function pathIsDropLove(collectionId: string, path: string): boolean {
   const marker = `/scarce/${collectionId}`;
@@ -53,19 +104,61 @@ export function useScarceDropLoves(opts: {
 }) {
   const creatorId = opts.creatorId?.trim() || '';
   const collectionId = opts.collectionId?.trim() || '';
-  const { accountId, isConnected, connect } = useAppWallet();
+  const {
+    accountId,
+    isConnected,
+    connect,
+    isLoading: walletLoading,
+  } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { setTxResult } = useAppTransactionFeedback();
   const active = Boolean(creatorId && collectionId);
-  const [state, setState] = useState<DropLoveState>(EMPTY);
-  const [fansLoading, setFansLoading] = useState(active);
+  const dropKey = active ? `${creatorId}\0${collectionId}` : '';
+  const [state, setState] = useState<DropLoveState>(() => {
+    if (!active) return EMPTY;
+    return (
+      peekDropLoveState(
+        dropLoveViewerId(accountId),
+        creatorId,
+        collectionId
+      ) ?? EMPTY
+    );
+  });
+  const [fansLoading, setFansLoading] = useState(() => {
+    if (!active) return false;
+    const cached = peekDropLoveState(
+      dropLoveViewerId(accountId),
+      creatorId,
+      collectionId
+    );
+    return !(cached && (cached.fanCount > 0 || cached.fanIds.length > 0));
+  });
   const [pending, setPending] = useState(false);
+  const [boundKey, setBoundKey] = useState(dropKey);
   const stateRef = useRef(state);
   stateRef.current = state;
   const ledgerRef = useRef<DropLoveLedger>(null);
   const apiLovedRef = useRef(false);
   const retryTimersRef = useRef<number[]>([]);
   const loadIdRef = useRef(0);
+
+  if (boundKey !== dropKey) {
+    setBoundKey(dropKey);
+    const cached = active
+      ? peekDropLoveState(
+          dropLoveViewerId(accountId),
+          creatorId,
+          collectionId
+        )
+      : null;
+    setState(cached ?? EMPTY);
+    setFansLoading(
+      Boolean(dropKey) &&
+        !(cached && (cached.fanCount > 0 || cached.fanIds.length > 0))
+    );
+    ledgerRef.current = null;
+    apiLovedRef.current = cached?.viewerLoved ?? false;
+  }
 
   const clearRetryTimers = useCallback(() => {
     for (const timer of retryTimersRef.current) window.clearTimeout(timer);
@@ -84,10 +177,18 @@ export function useScarceDropLoves(opts: {
       return;
     }
     const loadId = ++loadIdRef.current;
-    setFansLoading(true);
+    // First paint only — keep last-good fans through wallet settle and soft retries.
+    if (
+      stateRef.current.fanIds.length === 0 &&
+      stateRef.current.fanCount === 0
+    ) {
+      setFansLoading(true);
+    }
     const client = createReadOnlyOnSocialClient();
     const path = scarceDropContentPath(collectionId);
     const like = scarceDropLovePathLike(collectionId);
+    // Wallet still hydrating — never treat missing account as "unloved".
+    const viewerLovePending = !accountId && walletLoading;
     try {
       const [countResult, viewerResult, fanCountResult] = await Promise.allSettled([
         client.query.graphql<{
@@ -159,11 +260,15 @@ export function useScarceDropLoves(opts: {
       const apiCount =
         Number(countRows.data?.reactionCounts?.[0]?.reactionCount ?? 0) || 0;
       let apiLoved = false;
-      for (const row of viewerRows?.data?.reactionsCurrent ?? []) {
-        if (pathIsDropLove(collectionId, row.path)) {
-          apiLoved = true;
-          break;
+      if (accountId) {
+        for (const row of viewerRows?.data?.reactionsCurrent ?? []) {
+          if (pathIsDropLove(collectionId, row.path)) {
+            apiLoved = true;
+            break;
+          }
         }
+      } else if (viewerLovePending) {
+        apiLoved = stateRef.current.viewerLoved;
       }
 
       apiLovedRef.current = apiLoved;
@@ -197,12 +302,19 @@ export function useScarceDropLoves(opts: {
         fanCount > 0 ||
         ledgerRef.current != null ||
         stateRef.current.fanIds.length > 0;
-      setState({
+      const nextState: DropLoveState = {
         loveCount,
         viewerLoved: loved,
         fanCount,
         fanIds: needFanRoster ? stateRef.current.fanIds : [],
-      });
+      };
+      setState(nextState);
+      rememberDropLoveState(
+        dropLoveViewerId(accountId),
+        creatorId,
+        collectionId,
+        nextState
+      );
       if (ledgerRef.current == null) clearRetryTimers();
       if (!needFanRoster || stateRef.current.fanIds.length > 0) {
         setFansLoading(false);
@@ -246,14 +358,23 @@ export function useScarceDropLoves(opts: {
           apiLoved,
           nextLoved: loved,
         });
-        setState((previous) => ({
-          ...previous,
-          fanIds,
-          fanCount: dropFanCountMatchingRoster({
-            fanCount,
+        setState((previous) => {
+          const next: DropLoveState = {
+            ...previous,
             fanIds,
-          }),
-        }));
+            fanCount: dropFanCountMatchingRoster({
+              fanCount,
+              fanIds,
+            }),
+          };
+          rememberDropLoveState(
+            dropLoveViewerId(accountId),
+            creatorId,
+            collectionId,
+            next
+          );
+          return next;
+        });
       } catch {
         if (loadId !== loadIdRef.current) return;
       } finally {
@@ -269,6 +390,7 @@ export function useScarceDropLoves(opts: {
     collectionId,
     creatorId,
     resolveLoved,
+    walletLoading,
   ]);
 
   useEffect(() => {
@@ -293,24 +415,28 @@ export function useScarceDropLoves(opts: {
 
     setPending(true);
     ledgerRef.current = { loved: nextLoved };
-    setState((previous) => ({
-      loveCount: Math.max(0, previous.loveCount + (nextLoved ? 1 : -1)),
-      viewerLoved: nextLoved,
-      fanCount: nextDropFanCountAfterToggle({
-        fanCount: previous.fanCount,
-        creatorId,
-        viewerId: accountId,
-        apiLoved: previous.viewerLoved,
-        nextLoved,
-      }),
-      fanIds: nextDropFanIdsAfterToggle({
-        fanIds: previous.fanIds,
-        creatorId,
-        viewerId: accountId,
-        apiLoved: previous.viewerLoved,
-        nextLoved,
-      }),
-    }));
+    setState((previous) => {
+      const next: DropLoveState = {
+        loveCount: Math.max(0, previous.loveCount + (nextLoved ? 1 : -1)),
+        viewerLoved: nextLoved,
+        fanCount: nextDropFanCountAfterToggle({
+          fanCount: previous.fanCount,
+          creatorId,
+          viewerId: accountId,
+          apiLoved: previous.viewerLoved,
+          nextLoved,
+        }),
+        fanIds: nextDropFanIdsAfterToggle({
+          fanIds: previous.fanIds,
+          creatorId,
+          viewerId: accountId,
+          apiLoved: previous.viewerLoved,
+          nextLoved,
+        }),
+      };
+      rememberDropLoveState(accountId, creatorId, collectionId, next);
+      return next;
+    });
 
     try {
       const { client } = await getClient();

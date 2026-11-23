@@ -509,6 +509,33 @@
   }
 }
 
+/*
+ * Late seat fill (OsLateFill) — one line / chip, not page chrome.
+ * Seeded content is opaque; late content fades once with --os-motion-appear.
+ */
+.os-late-fill.is-pending {
+  opacity: 0;
+}
+
+.os-late-fill.is-seeded {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .os-late-fill.is-ready {
+    animation: glass-sheet-appear var(--os-motion-appear, 280ms)
+      var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1)) forwards;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .os-late-fill.is-pending,
+  .os-late-fill.is-ready {
+    opacity: 1;
+    animation: none;
+  }
+}
+
 .glass-sheet-panel[data-presentation='appear'].is-open.glass-sheet-panel--enter.is-dragging,
 .glass-sheet-panel[data-presentation='appear'].is-dragging {
   animation: none;
