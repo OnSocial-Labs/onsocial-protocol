@@ -1,22 +1,68 @@
 'use client';
 
+import { useSyncExternalStore } from 'react';
 import { useParams } from 'next/navigation';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { CollectionPagePanel } from '@/features/scarces/collection-page-panel';
 import { CollectionPageSkeleton } from '@/features/scarces/collection-page-skeleton';
-import { collectionChildLeaveHref } from '@/features/scarces/collection-page-view';
+import { readCollectionCreatorFace } from '@/features/scarces/collection-creator-face-cache';
+import { readCollectionView } from '@/features/scarces/collection-view-cache';
+import {
+  collectionChildLeaveHref,
+  editionTokenForCollection,
+} from '@/features/scarces/collection-page-view';
 import { useCatalogDockBack } from '@/hooks/use-catalog-dock-back';
-import { APP_DROPS_PATH } from '@/lib/app-routes';
+import { APP_DROPS_PATH, COLLECTION_PASS_TOKEN_PARAM } from '@/lib/app-routes';
 import { DOOR_PAGE_CLASS } from '@/lib/os-chrome-page';
 
 function collectionIdFromParams(params: { collectionId?: string | string[] }) {
   const raw = params.collectionId;
   const id = Array.isArray(raw) ? raw[0] : raw;
-  return typeof id === 'string' ? id : '';
+  return typeof id === 'string' ? decodeURIComponent(id) : '';
 }
 
-/** Route `loading.tsx` — cold leave is Drops until the panel knows the holder. */
+const subscribeLocation = () => () => {};
+
+/** `?t=` on the live URL. Server snapshot stays empty so hydration matches. */
+function useDropEditionToken(collectionId: string): string {
+  return useSyncExternalStore(
+    subscribeLocation,
+    () => {
+      if (!collectionId) return '';
+      const query = new URLSearchParams(window.location.search);
+      return editionTokenForCollection(
+        collectionId,
+        query.get(COLLECTION_PASS_TOKEN_PARAM)
+      );
+    },
+    () => ''
+  );
+}
+
+/**
+ * Route `loading.tsx` — hot soft-nav paints the real drop panel with the
+ * remembered seed (same layout as settled; activity fetches while RSC lands).
+ * Cold leave is Drops until the panel knows the holder.
+ */
 export function CollectionPageLoadingScreen() {
+  const params = useParams<{ collectionId?: string }>();
+  const collectionId = collectionIdFromParams(params);
+  const editionToken = useDropEditionToken(collectionId);
+  const seed = collectionId ? readCollectionView(collectionId) : null;
+  const creator = collectionId ? readCollectionCreatorFace(collectionId) : null;
   const onDockBack = useCatalogDockBack(APP_DROPS_PATH);
+
+  if (seed && collectionId) {
+    return (
+      <CollectionPagePanel
+        collectionId={collectionId}
+        initial={seed}
+        initialCreator={creator}
+        initialEditionToken={editionToken || null}
+      />
+    );
+  }
+
   return (
     <OsAppScreen
       title="Drop"
@@ -25,7 +71,7 @@ export function CollectionPageLoadingScreen() {
       backFallbackHref={APP_DROPS_PATH}
       immersiveHeader
     >
-      <CollectionPageSkeleton />
+      <CollectionPageSkeleton hasEdition={Boolean(editionToken)} />
     </OsAppScreen>
   );
 }

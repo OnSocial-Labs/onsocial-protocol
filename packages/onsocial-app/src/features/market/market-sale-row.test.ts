@@ -17,6 +17,16 @@ import {
 
 const viewNearContract = vi.fn();
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: () => {},
+    replace: () => {},
+    prefetch: () => {},
+  }),
+  usePathname: () => '/market',
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 vi.mock('@/contexts/app-transaction-feedback-context', () => ({
   useAppTransactionFeedback: () => ({
     txResult: null,

@@ -6,6 +6,12 @@ import {
   parsePortfolioEssayParam,
   parseWritingArticleHref,
   portfolioFromEssayPath,
+  authorWritingShelfHref,
+  collectiblesReturnHref,
+  resolveWritingShelfLeaveHref,
+  writingOutsideOpenerHref,
+  writingShelfBackHref,
+  writingShelfOpenerHref,
   isAccountWritingPlace,
   withEssayReturnSearch,
   writingArticlePath,
@@ -389,6 +395,138 @@ describe('portfolioFromEssayPath', () => {
         'essay=7&from=%2Fhome'
       )
     ).toBe('/@alice.testnet/writing?essay=7&from=%2Fhome');
+  });
+
+  it('authorWritingShelfHref resolves author from sourcePostPath or id', () => {
+    expect(
+      authorWritingShelfHref({
+        authorId: 'alice.testnet',
+        pathname: '/collectibles',
+      })
+    ).toBe('/@alice.testnet/writing?from=%2Fcollectibles');
+    expect(
+      authorWritingShelfHref({
+        authorId: 'alice.testnet',
+        pathname: '/@alice.testnet',
+      })
+    ).toBe('/@alice.testnet/writing');
+    expect(
+      authorWritingShelfHref({
+        sourcePostPath: 'alice.testnet/post/42',
+        pathname: '/collectibles',
+      })
+    ).toBe('/@alice.testnet/writing?essay=42&from=%2Fcollectibles');
+    expect(authorWritingShelfHref({ pathname: '/collectibles' })).toBeNull();
+  });
+
+  it('writing shelf back returns to the opener, else the face', () => {
+    expect(writingShelfBackHref('alice.testnet', '')).toBe('/@alice.testnet');
+    expect(writingShelfBackHref('alice.testnet', 'from=%2Fcollectibles')).toBe(
+      '/collectibles'
+    );
+    expect(
+      writingShelfBackHref(
+        'alice.testnet',
+        'from=%2F%40alice.testnet%2Fcollectibles'
+      )
+    ).toBe('/@alice.testnet/collectibles');
+    expect(
+      writingShelfBackHref(
+        'alice.testnet',
+        'from=%2F%40alice.testnet%3Ftab%3Dcollection'
+      )
+    ).toBe('/@alice.testnet?tab=collection');
+    expect(
+      writingShelfBackHref('alice.testnet', 'from=%2Fcollection%2Fdrop-1')
+    ).toBe('/collection/drop-1');
+    expect(
+      writingShelfBackHref('alice.testnet', 'from=%2F%40alice.testnet')
+    ).toBe('/@alice.testnet');
+    expect(
+      writingShelfBackHref(
+        'alice.testnet',
+        'from=%2F%40alice.testnet%2Fwriting%2F9'
+      )
+    ).toBe('/@alice.testnet');
+  });
+
+  it('keeps Collectibles when Writing is opened from an article', () => {
+    expect(
+      collectiblesReturnHref('/@alice.testnet', 'tab=collection')
+    ).toBe('/@alice.testnet?tab=collection');
+    expect(
+      authorWritingShelfHref({
+        authorId: 'alice.testnet',
+        pathname: '/@alice.testnet',
+        search: 'tab=collection',
+      })
+    ).toBe('/@alice.testnet/writing?from=%2F%40alice.testnet%3Ftab%3Dcollection');
+    expect(
+      writingOutsideOpenerHref('/@alice.testnet/writing/9', 'alice.testnet')
+    ).toBeNull();
+    expect(
+      writingOutsideOpenerHref('/collection/drop-1', 'alice.testnet')
+    ).toBe('/collection/drop-1');
+    expect(
+      writingShelfOpenerHref(
+        [
+          '/@alice.testnet/collectibles',
+          '/@alice.testnet/writing/9',
+          '/@alice.testnet/writing',
+        ],
+        'alice.testnet'
+      )
+    ).toBe('/@alice.testnet/collectibles');
+    expect(
+      writingShelfOpenerHref(
+        [
+          '/@alice.testnet?tab=collection',
+          '/@alice.testnet/writing/9',
+        ],
+        'alice.testnet'
+      )
+    ).toBe('/@alice.testnet?tab=collection');
+    expect(
+      writingShelfOpenerHref(
+        ['/@alice.testnet', '/@alice.testnet/writing/9'],
+        'alice.testnet'
+      )
+    ).toBeNull();
+  });
+
+  it('prefers Collectibles over a drop opened from it', () => {
+    expect(
+      writingShelfOpenerHref(
+        [
+          '/@alice.testnet/collectibles',
+          '/collection/drop-1',
+          '/@bob.testnet/writing',
+        ],
+        'bob.testnet'
+      )
+    ).toBe('/@alice.testnet/collectibles');
+    expect(
+      resolveWritingShelfLeaveHref(
+        'bob.testnet',
+        'from=%2Fcollection%2Fdrop-1',
+        ['/@alice.testnet/collectibles', '/collection/drop-1']
+      )
+    ).toBe('/@alice.testnet/collectibles');
+    expect(
+      authorWritingShelfHref({
+        authorId: 'bob.testnet',
+        pathname: '/collection/drop-1',
+        openerHref: '/@alice.testnet/collectibles',
+      })
+    ).toBe(
+      '/@bob.testnet/writing?from=%2F%40alice.testnet%2Fcollectibles'
+    );
+    expect(
+      writingShelfOpenerHref(
+        ['/drops', '/collection/drop-1', '/@bob.testnet/writing'],
+        'bob.testnet'
+      )
+    ).toBe('/drops');
   });
 });
 

@@ -30,6 +30,8 @@ import { OsRouteSettle } from '@/components/app/os-route-settle';
 import { PostQuotesTrackHostProvider } from '@/features/home/post-quotes-track-host';
 import { PostQuotesPageSkeleton } from '@/features/home/post-quotes-skeleton';
 import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
+import type { CollectionCreatorFace } from '@/features/scarces/collection-creator-face';
+import { editionTokenForCollection } from '@/features/scarces/collection-page-view';
 import type { CollectionView } from '@/features/scarces/collections-data';
 import { scarceEmbedsForOpenRoot } from '@/features/scarces/scarce-embed-ledger';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
@@ -58,6 +60,7 @@ import {
 } from '@/lib/guild-thread-card-context';
 import {
   canonicalizeDropLayerHref,
+  COLLECTION_PASS_TOKEN_PARAM,
   collectionPath,
   parseInAppDropLayerHref,
 } from '@/lib/app-routes';
@@ -91,6 +94,7 @@ import {
 import { warmGuildChannelTitles } from '@/lib/guild-channel-titles';
 import {
   threadContentPath,
+  warmDropPanel,
   warmPostPanels,
   warmThreadOpen,
 } from '@/lib/thread-first-page';
@@ -226,12 +230,33 @@ type PostThreadLayerTarget = {
   openedAboveMediaFace: boolean;
 };
 
+function editionTokenFromDropHref(
+  href: string,
+  collectionId: string
+): string | null {
+  const q = href.indexOf('?');
+  if (q < 0) return null;
+  const hash = href.indexOf('#');
+  const params = new URLSearchParams(
+    href.slice(q + 1, hash < 0 ? undefined : hash)
+  );
+  const token = editionTokenForCollection(
+    collectionId,
+    params.get(COLLECTION_PASS_TOKEN_PARAM)
+  );
+  return token || null;
+}
+
 type DropLayerTarget = {
   id: string;
   kind: 'drop';
   collectionId: string;
   /** Cover/title seed — paints the drop shell before the indexer returns. */
   initial: CollectionView | null;
+  /** List/feed creator face when already known — no account shimmer. */
+  initialCreator: CollectionCreatorFace | null;
+  /** `?t=` from the opener so #1 is on the first frame. */
+  initialEditionToken: string | null;
   zIndex: number;
   openedAboveMediaFace: boolean;
 };
@@ -277,6 +302,7 @@ type PostThreadLayerValue = {
   openDrop: (input: {
     href: string;
     initial?: CollectionView | null;
+    initialCreator?: CollectionCreatorFace | null;
   }) => boolean;
   closePostThread: () => void;
 };
@@ -759,8 +785,11 @@ function DropLayerSheet({
           Drop
         </span>
         <CollectionPagePanel
+          key={layer.collectionId}
           collectionId={layer.collectionId}
           initial={layer.initial}
+          initialCreator={layer.initialCreator}
+          initialEditionToken={layer.initialEditionToken}
           embedded
           onClose={onClose}
         />
@@ -829,6 +858,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   // Prefetch thread chunks on mount so a cold first open is not download-bound.
   useEffect(() => {
     warmPostPanels();
+    warmDropPanel();
   }, []);
 
   useLayoutEffect(() => {
@@ -1245,9 +1275,11 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     ({
       href,
       initial = null,
+      initialCreator = null,
     }: {
       href: string;
       initial?: CollectionView | null;
+      initialCreator?: CollectionCreatorFace | null;
     }) => {
       const parsed = parseInAppDropLayerHref(href);
       if (!parsed) return false;
@@ -1276,6 +1308,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         collectionIdsEqual(initial.collectionId, parsed.collectionId)
           ? initial
           : null;
+      const seededCreator = seeded ? (initialCreator ?? null) : null;
 
       if (stackRef.current.length > 0) {
         const next: DropLayerTarget = {
@@ -1283,6 +1316,11 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
           kind: 'drop',
           collectionId: parsed.collectionId,
           initial: seeded,
+          initialCreator: seededCreator,
+          initialEditionToken: editionTokenFromDropHref(
+            href,
+            parsed.collectionId
+          ),
           zIndex: stackRef.current[0]?.zIndex ?? SHEET_Z.overlayHost,
           openedAboveMediaFace: isOsMediaFaceOpen(),
         };
@@ -1305,6 +1343,11 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         kind: 'drop',
         collectionId: parsed.collectionId,
         initial: seeded,
+        initialCreator: seededCreator,
+        initialEditionToken: editionTokenFromDropHref(
+          href,
+          parsed.collectionId
+        ),
         zIndex: nextStackedLayerZ(stackRef.current),
         openedAboveMediaFace: isOsMediaFaceOpen(),
       };
@@ -1321,13 +1364,20 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       setStack((prev) => [...prev, next]);
 
       if (typeof window === 'undefined') return true;
-      getPostLayerPopGuard().depth = 1;
-      const currentUrl = `${window.location.pathname}${window.location.search}`;
-      if (currentUrl === canonical) return true;
+      const syncCanonical = () => {
+        getPostLayerPopGuard().depth = 1;
+        const currentUrl = `${window.location.pathname}${window.location.search}`;
+        if (currentUrl === canonical) return;
+        if (isFirst) {
+          nativeHistoryPushState(withPostLayerHistoryState(), canonical);
+        } else {
+          nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
+        }
+      };
       if (isFirst) {
-        nativeHistoryPushState(withPostLayerHistoryState(), canonical);
+        queueMicrotask(syncCanonical);
       } else {
-        nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
+        syncCanonical();
       }
       return true;
     },

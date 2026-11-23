@@ -8,6 +8,20 @@ export type CollectionCreatorFace = {
   displayName: string | null;
 };
 
+/**
+ * List/feed → place creator seed when name or avatar is already painted.
+ * Omit when neither is known so the panel may shimmer until profile lands.
+ */
+export function collectionCreatorFaceSeed(input: {
+  displayName?: string | null;
+  avatarUrl?: string | null;
+}): CollectionCreatorFace | null {
+  const displayName = input.displayName?.trim() || null;
+  const avatarUrl = input.avatarUrl?.trim() || null;
+  if (!displayName && !avatarUrl) return null;
+  return { displayName, avatarUrl };
+}
+
 /** Shared display-name / avatar rules for drop + player creator chrome. */
 export function resolveCollectionCreatorFace(
   creatorId: string,

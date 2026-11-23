@@ -152,8 +152,6 @@ export function PortfolioBookMark({ book }: { book: PortfolioBookMarkModel }) {
         writingFormat={book.writingFormat}
         textAlign={book.textAlign ?? null}
         publishedAt={book.createdAtMs > 0 ? book.createdAtMs : null}
-        canRead
-        lockedHint=""
       />
     </>
   );

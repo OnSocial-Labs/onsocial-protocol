@@ -23,6 +23,10 @@ import {
 } from '@/features/scarces/access-ends-facts';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import {
+  DropPlaceLink,
+} from '@/features/scarces/drop-place-open';
+import { seedCollectionViewFromPeek } from '@/features/scarces/collection-page-view';
+import {
   ACTIVE_NEAR_EXPLORER_URL,
   ACTIVE_NEAR_NETWORK,
 } from '@/lib/app-config';
@@ -445,15 +449,20 @@ export function ScarceListingFactsSheet({
                 <SheetFactRow
                   label="Source"
                   value={
-                    <Link
+                    <DropPlaceLink
                       href={collectionPath(facts.collectionId.trim())}
-                      scroll={false}
+                      initial={seedCollectionViewFromPeek({
+                        collectionId: facts.collectionId.trim(),
+                        title: facts.title,
+                        creatorId: facts.authorId,
+                        kind: facts.mediumKind,
+                      })}
                       className="guild-facts-link scarce-facts-source-link group"
                       onClick={requestClose}
                     >
                       <span className="guild-facts-link-label">Drop page</span>
                       <ProtocolMotionArrow className="guild-facts-link-arrow" />
-                    </Link>
+                    </DropPlaceLink>
                   }
                 />
               ) : null}

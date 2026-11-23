@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { DropFansButton } from '@/components/drops/drop-row-fans';
 import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
@@ -8,6 +7,11 @@ import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stac
 import { DropsDiscoveryRowMenu } from '@/features/drops/drops-discovery-row-menu';
 import { formatMarketVerbStamp } from '@/features/market/market-listings';
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
+import { collectionCreatorFaceSeed } from '@/features/scarces/collection-creator-face';
+import {
+  DropPlaceLink,
+  seedCollectionViewFromStoreDrop,
+} from '@/features/scarces/drop-place-open';
 import { collectionPath } from '@/lib/app-routes';
 import { socialTimeProps } from '@/lib/post-display';
 import { profileStoreDropToDiscoveryItem } from '@/lib/profile-store-drop-discovery';
@@ -85,6 +89,12 @@ export function PortfolioDropRow({
   onOwnerManaged?: (change: 'paused' | 'resumed' | 'deleted') => void;
 }) {
   const href = collectionPath(drop.collectionId);
+  // Thin row seed; resolveDropOpenSeed prefers a remembered full view on open.
+  const dropInitial = seedCollectionViewFromStoreDrop(drop, pageAccountId);
+  const dropCreator = collectionCreatorFaceSeed({
+    displayName,
+    avatarUrl,
+  });
   const showMint = onMint != null && isDropMintable(drop);
   const dealBits = dropRowDealBits(drop);
   const fanCount =
@@ -97,19 +107,22 @@ export function PortfolioDropRow({
     displayName,
     avatarUrl,
   });
+  const thumbClass = `market-listing-thumb drops-discovery-thumb${
+    drop.mediaUrl ? ' has-media' : ''
+  }`;
 
   return (
     <div className="market-listing-row drops-discovery-row" role="listitem">
-      <Link
+      <DropPlaceLink
         href={href}
-        scroll={false}
-        className={`market-listing-thumb drops-discovery-thumb${
-          drop.mediaUrl ? ' has-media' : ''
-        }`}
+        initial={dropInitial}
+        initialCreator={dropCreator}
+        className="market-listing-row-open"
         aria-label={
           drop.hasPlayable ? `Listen to ${drop.title}` : `Open ${drop.title}`
         }
-      >
+      />
+      <div className={thumbClass} aria-hidden>
         {drop.mediaUrl ? (
           <CatalogThumbImage src={drop.mediaUrl} />
         ) : (
@@ -118,13 +131,11 @@ export function PortfolioDropRow({
         {drop.hasPlayable ? (
           <span className="market-listing-thumb-play" aria-hidden />
         ) : null}
-      </Link>
+      </div>
       <div className="drops-discovery-body">
         <div className="drops-discovery-top">
           <div className="market-listing-head drops-discovery-head">
-            <Link href={href} scroll={false} className="market-listing-title">
-              {drop.title}
-            </Link>
+            <p className="market-listing-title">{drop.title}</p>
           </div>
           <div
             className={`market-listing-action-col drops-discovery-action-col${
@@ -165,13 +176,9 @@ export function PortfolioDropRow({
             {dealBits.length > 0 || fanCount != null ? (
               <div className="drops-discovery-deal">
                 {dealBits.length > 0 ? (
-                  <Link
-                    href={href}
-                    scroll={false}
-                    className="drops-discovery-deal-bits"
-                  >
+                  <span className="drops-discovery-deal-bits">
                     {dealBits.join(' · ')}
-                  </Link>
+                  </span>
                 ) : null}
                 {fanCount != null ? (
                   <>

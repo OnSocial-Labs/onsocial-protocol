@@ -13,7 +13,6 @@ import {
   CATALOG_PLACE_MEMORY_TTL_MS,
   mergeCatalogHead,
 } from '@/lib/catalog-place-memory';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { PulsingDots } from '@onsocial/ui';
 import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
@@ -50,10 +49,10 @@ import {
   type DropsSort,
   type UpcomingBucket,
 } from '@/features/drops/drops-data';
+import { collectionCreatorFaceSeed } from '@/features/scarces/collection-creator-face';
 import {
-  dropOverlayLinkHandlers,
-  useDropOverlayOpen,
-} from '@/features/scarces/drop-overlay-open';
+  DropPlaceLink,
+} from '@/features/scarces/drop-place-open';
 import { seedCollectionViewFromPeek } from '@/features/scarces/collection-page-view';
 import {
   dropsListCoverAction,
@@ -96,6 +95,7 @@ import {
   type DropsPageQuery,
 } from '@/lib/load-drops-page';
 import { scarceRowPartyLead } from '@/lib/scarce-row-kind';
+import { warmDropPanel } from '@/lib/thread-first-page';
 
 /** Debounce before search keystrokes hit the indexer (snappy, still typed). */
 const SEARCH_DEBOUNCE_MS = 200;
@@ -305,7 +305,6 @@ function DropRow({
         ? 'Drop'
         : null;
   const href = collectionPath(item.collectionId);
-  const openDrop = useDropOverlayOpen();
   const dropInitial =
     item.view ??
     seedCollectionViewFromPeek({
@@ -315,7 +314,10 @@ function DropRow({
       creatorId: item.creatorId,
       kind: item.mediumKind,
     });
-  const dropHandlers = dropOverlayLinkHandlers(href, openDrop, dropInitial);
+  const dropCreator = collectionCreatorFaceSeed({
+    displayName: item.creatorDisplayName,
+    avatarUrl: item.creatorAvatarUrl,
+  });
   const coverAction = dropsListCoverAction(item);
   const thumbClass = `market-listing-thumb drops-discovery-thumb${
     item.mediaUrl ? ' has-media' : ''
@@ -339,12 +341,12 @@ function DropRow({
 
   return (
     <div className="market-listing-row drops-discovery-row" role="listitem">
-      <Link
+      <DropPlaceLink
         href={href}
-        scroll={false}
+        initial={dropInitial}
+        initialCreator={dropCreator}
         className="market-listing-row-open"
         aria-label={`Open ${item.title}`}
-        {...dropHandlers}
       />
       {coverAction && onOpenCover ? (
         <button
@@ -629,6 +631,10 @@ export function DropsPagePanel({
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [nowMs, setNowMs] = useState(() => initialNowMs ?? Date.now());
+
+  useEffect(() => {
+    warmDropPanel();
+  }, []);
 
   useEffect(() => {
     setNowMs(Date.now());

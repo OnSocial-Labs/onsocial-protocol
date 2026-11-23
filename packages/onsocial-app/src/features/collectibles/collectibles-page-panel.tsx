@@ -70,6 +70,7 @@ import {
   mergeCatalogHead,
 } from '@/lib/catalog-place-memory';
 import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
+import { warmDropPanel } from '@/lib/thread-first-page';
 import {
   listOfflineAlbums,
   offlineAlbumToHoldingPeek,
@@ -291,6 +292,9 @@ export function CollectiblesPagePanel({
   useEffect(() => {
     holdingsRef.current = holdings;
   });
+  useEffect(() => {
+    warmDropPanel();
+  }, []);
   useEffect(() => {
     return registerCollectiblesForget((accountId) => {
       if (!ownerAccountId || !accountIdsEqual(accountId, ownerAccountId)) {

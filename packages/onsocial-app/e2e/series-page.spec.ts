@@ -97,7 +97,7 @@ test.describe('series page', () => {
     await expect(seriesPageRoot(page)).toHaveCount(1);
     await expect(page.locator('.series-hero-title')).toHaveText('Night Roads');
     await expect(
-      page.getByRole('link', { name: 'Collect Night Drive' })
+      page.getByRole('button', { name: 'Collect Night Drive' })
     ).toBeVisible();
     await expect(
       page.locator('.series-shop-row').filter({ hasText: 'Quiet Print' })
@@ -117,7 +117,7 @@ test.describe('series page', () => {
     });
     await expect(page.getByText('No drops in this series yet.')).toHaveCount(0);
     await expect(
-      page.getByRole('link', { name: 'Collect Night Drive' })
+      page.getByRole('button', { name: 'Collect Night Drive' })
     ).toBeVisible({
       timeout: 12_000,
     });

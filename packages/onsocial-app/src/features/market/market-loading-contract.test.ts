@@ -51,6 +51,7 @@ describe('market loading contract', () => {
       'utf8'
     );
 
-    expect(source).toContain('hideListingTypes={Boolean(query.creator)}');
+    expect(source).toContain('hideListingTypes={shopMode}');
+    expect(source).toContain('marketCreatorShop(query.creator)');
   });
 });

@@ -281,5 +281,6 @@ describe('seeded thread open chunks', () => {
     expect(source).not.toContain('loading: () => <PostQuotesPageSkeleton');
     expect(source).toContain('<Suspense fallback={null}>');
     expect(source).toContain('warmPostPanels');
+    expect(source).toContain('warmDropPanel');
   });
 });

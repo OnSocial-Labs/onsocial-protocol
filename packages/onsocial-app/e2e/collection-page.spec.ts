@@ -9,7 +9,9 @@ import {
 import {
   COLLECTION_E2E_VIEWER,
   collectionPageRoot,
+  armCollectionChassisProbe,
   collectionPageSkeleton,
+  expectCollectionChassisStable,
   expectCollectionHolderChrome,
   expectCollectionPageSettled,
   expectCollectionVisitorChrome,
@@ -25,6 +27,45 @@ const LIVE_DROP_SUPPLY_MS = 8_000;
 const HOLDER_BACK = `/@${COLLECTION_E2E_VIEWER}/collectibles`;
 
 test.describe('collection drop page', () => {
+  test('SSR catalog miss skeleton reserves the settled commerce chassis', async ({
+    page,
+  }) => {
+    await stubCollectionPageGraph(page, { catalogDelayMs: 1200 });
+    await gotoApp(page, '/collection/quiet-print');
+    const skeleton = collectionPageSkeleton(page);
+    await expect(skeleton).toBeVisible({ timeout: 8_000 });
+    await expect(skeleton.locator('.collection-commerce-actions')).toBeVisible();
+    await expect(skeleton.locator('.has-fans-seat')).toBeVisible();
+    await expect(skeleton.locator('.collection-product-row')).toBeVisible();
+    await expect(skeleton.locator('.collection-progress')).toBeVisible();
+    await expect(skeleton.locator('.drops-discovery-party--lead')).toBeVisible();
+    await expectCollectionPageSettled(page);
+  });
+
+  test('commerce band stays stable while creator and fans settle', async ({
+    page,
+  }) => {
+    await setE2eGraphDrop(page, 'default');
+    await stubCollectionPageGraph(page, {
+      profileDelayMs: 600,
+      fansDelayMs: 1_200,
+    });
+    await armCollectionChassisProbe(page);
+    await gotoApp(page, '/collection/quiet-print');
+    await expectCollectionPageSettled(page);
+    await expect(
+      collectionPageRoot(page).locator('.has-fans-seat')
+    ).toBeVisible();
+    await expect(
+      collectionPageRoot(page).locator('.drops-discovery-by')
+    ).toHaveText('Alice', { timeout: 12_000 });
+    await expect(
+      collectionPageRoot(page).getByRole('button', { name: /fans/i })
+    ).toBeVisible({ timeout: 12_000 });
+    await page.waitForTimeout(400);
+    await expectCollectionChassisStable(page);
+  });
+
   test('SSR catalog miss keeps the skeleton until the client fetch settles', async ({
     page,
   }) => {
@@ -112,8 +153,9 @@ test.describe('collection drop page', () => {
         collectionPageRoot(page).locator('.collection-title')
       ).toHaveText('Chapter One');
       await expectCollectionVisitorChrome(page);
-      await expect(page.getByRole('region', { name: 'Reading' })).toBeVisible();
-      const read = page.getByRole('button', { name: 'Read', exact: true });
+      const read = collectionPageRoot(page)
+        .locator('.collection-use-actions')
+        .getByRole('button', { name: 'Read', exact: true });
       await expect(read).toBeVisible();
       await expectOsRowAction(read);
       await expect(
@@ -280,7 +322,7 @@ test.describe('collection drop page', () => {
       'href',
       /\/collectibles\/play\?.*night-drive/
     );
-    await expect(page.locator('.collection-tracks')).toHaveCount(0);
+    await expect(page.locator('.collection-tracks')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Open listen' })).toHaveCount(
       0
     );

@@ -25,7 +25,10 @@ import { OwnedShowPassSheet } from '@/features/scarces/owned-show-pass-sheet';
 import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
-import { collectionPath } from '@/lib/app-routes';
+import { seedCollectionViewFromOwnedPass } from '@/features/market/market-drop-open';
+import { collectionCreatorFaceSeed } from '@/features/scarces/collection-creator-face';
+import { DropPlaceLink } from '@/features/scarces/drop-place-open';
+import { collectionPath, parseInAppDropLayerHref } from '@/lib/app-routes';
 import {
   holdingsActionLabel,
   holdingsHrefForOwned,
@@ -167,6 +170,16 @@ export function MarketOwnedRow({
   const opensPass =
     isPassMediumKind(item.mediumKind) && Boolean(passCollectionId);
   const dropHref = passCollectionId ? collectionPath(passCollectionId) : null;
+  const opensDropPage =
+    Boolean(dropHref) &&
+    (opensPass || parseInAppDropLayerHref(useHref) != null);
+  const dropInitial = opensDropPage
+    ? seedCollectionViewFromOwnedPass(item)
+    : null;
+  const dropCreator = collectionCreatorFaceSeed({
+    displayName: authorDisplayName,
+    avatarUrl: authorAvatarUrl,
+  });
   const openPass = () => {
     setPassMounted(true);
     setPassOpen(true);
@@ -181,7 +194,7 @@ export function MarketOwnedRow({
     <span className="market-listing-thumb-fallback" aria-hidden />
   );
 
-  const title = opensPass ? (
+  const title = opensDropPage ? (
     item.title
   ) : useHref ? (
     <Link
@@ -198,15 +211,16 @@ export function MarketOwnedRow({
 
   return (
     <div className="market-listing-row" role="listitem">
-      {opensPass && dropHref ? (
-        <Link
+      {opensDropPage && dropHref ? (
+        <DropPlaceLink
           href={dropHref}
-          scroll={false}
+          initial={dropInitial}
+          initialCreator={dropCreator}
           className="market-listing-row-open"
           aria-label={`Open drop for ${item.title}`}
         />
       ) : null}
-      {opensPass ? (
+      {opensDropPage ? (
         <div
           className={`market-listing-thumb${showThumb ? ' has-media' : ''}`}
           aria-hidden

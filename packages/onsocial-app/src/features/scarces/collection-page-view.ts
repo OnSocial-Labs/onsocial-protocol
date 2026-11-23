@@ -6,6 +6,29 @@ import { portfolioCollectiblesPath } from '@/lib/overlay-routes';
 import type { CollectiblesNowPlayingSession } from '@/contexts/collectibles-now-playing-context';
 import type { CollectionView } from '@/features/scarces/collections-data';
 
+/** `?t=` only when it names this drop. */
+export function editionTokenForCollection(
+  collectionId: string,
+  raw: string | null | undefined
+): string {
+  const token = raw?.trim() || '';
+  const owner = collectionIdFromTokenId(token);
+  return owner != null && owner === collectionId.trim() ? token : '';
+}
+
+/** Playable cover — clips / albums count as audio for square + tracks chrome. */
+export function collectionCoverIsAudio(opts: {
+  kind?: string | null;
+  playablesLength?: number;
+}): boolean {
+  const mediumKind = (opts.kind ?? '').trim().toLowerCase();
+  return (
+    (opts.playablesLength ?? 0) > 0 ||
+    mediumKind === 'audio' ||
+    mediumKind === 'music'
+  );
+}
+
 /** Art matches create-drop / wallets: inset 1×1. Audio is also square. */
 export function collectionCoverSquare(opts: {
   kind?: string | null;
@@ -13,6 +36,24 @@ export function collectionCoverSquare(opts: {
 }): boolean {
   if (opts.isAudio) return true;
   return (opts.kind ?? '').trim().toLowerCase() === 'art';
+}
+
+/**
+ * Aa / thought cards — inset object, not immersive album bleed.
+ * `cardBg` when theme was stamped; `thought`/`writing` for from-post text.
+ */
+export function collectionCoverIsTextCard(opts: {
+  kind?: string | null;
+  cardBg?: string | null;
+  isAudio: boolean;
+}): boolean {
+  if (opts.isAudio) return false;
+  const mediumKind = (opts.kind ?? '').trim().toLowerCase();
+  return (
+    Boolean(opts.cardBg?.trim()) ||
+    mediumKind === 'thought' ||
+    mediumKind === 'writing'
+  );
 }
 
 /** Art stays an inset square — no 16/10 immersive bleed. */
@@ -82,20 +123,11 @@ export function collectionUseFirst(ownership: CollectionOwnership): boolean {
   return ownership === 'holder';
 }
 
-/** Mint meter / NEAR / supply — visitors, or holders who can still mint. */
-export function collectionShowCommerceMeter(opts: {
-  useFirst: boolean;
-  canMintMore: boolean;
-}): boolean {
-  return !opts.useFirst || opts.canMintMore;
-}
-
-/** Visitors only — holders listen on /collectibles/play. */
+/** Track list stays on the drop for every viewer. Play still opens the play page for a holder. */
 export function collectionShowInlineTracks(opts: {
   hasPlayables: boolean;
-  ownership: CollectionOwnership;
 }): boolean {
-  return opts.hasPlayables && opts.ownership === 'visitor';
+  return opts.hasPlayables;
 }
 
 /** First paint after an SSR catalog miss — skeleton until the client settles. */
@@ -110,9 +142,9 @@ export function collectionCatalogShell(opts: {
 }
 
 /**
- * Route `loading.tsx` already paints `CollectionPageSkeleton`. The panel
- * must not SSR a second copy during that handoff. Overlay / post-hydrate
- * miss still owns the skeleton (no loading.tsx there).
+ * Route `loading.tsx` already paints cold skeleton or the seeded drop panel.
+ * The panel must not SSR a second skeleton during that handoff. Appear-over /
+ * post-hydrate miss still owns the skeleton (no loading.tsx there).
  */
 export function collectionRouteYieldsLoadingSkeleton(opts: {
   embedded: boolean;
@@ -284,6 +316,55 @@ export function collectionViewNeedsCatalogSoftFill(
 }
 
 /**
+ * Visible drop title for the face. Empty when missing or equal to the
+ * collection id — never paint the id as a title (omit / shimmer instead).
+ */
+export function collectionFaceTitle(
+  title: string | null | undefined,
+  collectionId: string
+): string {
+  const trimmed = title?.trim() || '';
+  const id = collectionId.trim();
+  if (!trimmed || !id) return trimmed;
+  if (trimmed === id) return '';
+  return trimmed;
+}
+
+/**
+ * List→place soft-fill seed (createdAtMs === 0). Face fields come from the
+ * seed like Drops' row view; catalog still soft-fills quietly afterward.
+ */
+export function collectionSoftFillPeek(
+  initial: CollectionView | null | undefined
+): boolean {
+  return initial != null && collectionViewNeedsCatalogSoftFill(initial);
+}
+
+/**
+ * Soft-fill a peek seed with catalog without swapping frame-1 face chrome.
+ * Keeps a real seed title (and jacket) stable so soft-fill does not jump
+ * the hero; commerce / about sheet fields take the catalog values.
+ */
+export function mergeCatalogSoftFillIntoSeed(
+  seed: CollectionView,
+  catalog: CollectionView
+): CollectionView {
+  const seedTitle = collectionFaceTitle(seed.title, seed.collectionId);
+  const catalogTitle = collectionFaceTitle(catalog.title, catalog.collectionId);
+  const seedKind = seed.kind?.trim() || null;
+  return {
+    ...catalog,
+    title: seedTitle || catalogTitle,
+    mediaUrl: catalog.mediaUrl?.trim() || seed.mediaUrl,
+    cardBg: catalog.cardBg || seed.cardBg,
+    // Keep medium identity from the seed so party lead / Read do not swap.
+    kind: seedKind || catalog.kind,
+    audioFormat: seed.audioFormat ?? catalog.audioFormat,
+    writingFormat: seed.writingFormat ?? catalog.writingFormat,
+  };
+}
+
+/**
  * List / cover-peek seed — title + cover on frame 1; kind and commerce
  * soft-fill from the indexer after open. Prefer a full `CollectionView`
  * when the list already has one.
@@ -299,7 +380,9 @@ export function seedCollectionViewFromPeek(input: {
 }): CollectionView | null {
   const collectionId = input.collectionId.trim();
   if (!collectionId) return null;
-  const title = input.title?.trim() || collectionId;
+  // Never paint the collection id as the title — that flashes then jumps when
+  // catalog soft-fill lands. Empty title soft-fills; callers pass a real name.
+  const title = input.title?.trim() || '';
   return collectionViewPlaceholder({
     collectionId,
     title,
@@ -309,4 +392,113 @@ export function seedCollectionViewFromPeek(input: {
     kind: input.kind ?? null,
     audioFormat: input.audioFormat ?? null,
   });
+}
+
+type StoreDropSeed = {
+  collectionId: string;
+  title: string;
+  mediaUrl?: string | null;
+  priceNear?: string | null;
+  usdE6?: string | null;
+  remaining: number;
+  totalSupply: number;
+  status: 'upcoming' | 'live' | 'sold_out' | 'ended' | 'paused' | 'cancelled';
+  mediumKind?: string | null;
+  audioFormat?: CollectionView['audioFormat'];
+  writingFormat?: CollectionView['writingFormat'];
+  createdAtMs?: number | null;
+};
+
+/**
+ * Feed scarce CTA → thin place seed (jacket + deal). Remembered full views
+ * are applied at open via resolveDropOpenSeed — never read during render.
+ */
+export function seedCollectionViewFromPostScarceEmbed(
+  embed: {
+    collectionId?: string | null;
+    mediaUrl?: string | null;
+    mediumKind?: string | null;
+    creatorId?: string | null;
+    appId?: string | null;
+    priceNear?: string | null;
+    usdE6?: string | null;
+    copies?: number | null;
+    remaining?: number | null;
+    status?: string | null;
+    latest?: { collectionId?: string | null; appId?: string | null } | null;
+  },
+  opts?: { title?: string | null }
+): CollectionView | null {
+  const collectionId =
+    embed.collectionId?.trim() || embed.latest?.collectionId?.trim() || '';
+  if (!collectionId) return null;
+  const totalSupply =
+    embed.copies != null && embed.copies > 0 ? embed.copies : 0;
+  const remaining =
+    embed.remaining != null && embed.remaining >= 0
+      ? embed.remaining
+      : totalSupply;
+  const soldOut =
+    embed.status === 'sold' ||
+    embed.status === 'minted' ||
+    (totalSupply > 0 && remaining === 0);
+  return seedCollectionViewFromStoreDrop(
+    {
+      collectionId,
+      title: opts?.title?.trim() || '',
+      mediaUrl: embed.mediaUrl,
+      priceNear: embed.priceNear,
+      usdE6: embed.usdE6,
+      remaining,
+      totalSupply,
+      status: soldOut ? 'sold_out' : 'live',
+      mediumKind: embed.mediumKind,
+    },
+    embed.creatorId
+  );
+}
+
+/**
+ * Creator shop / portfolio store row → place seed.
+ * Paints jacket + deal status/supply/price on frame 1 so soft-fill does not
+ * pop those fields after open. `createdAtMs` stays 0 so catalog still soft-fills.
+ */
+export function seedCollectionViewFromStoreDrop(
+  drop: StoreDropSeed,
+  creatorId?: string | null
+): CollectionView | null {
+  const base = seedCollectionViewFromPeek({
+    collectionId: drop.collectionId,
+    title: drop.title,
+    coverUrl: drop.mediaUrl,
+    creatorId: creatorId ?? null,
+    kind: drop.mediumKind ?? null,
+    audioFormat: drop.audioFormat ?? null,
+  });
+  if (!base) return null;
+
+  const totalSupply = drop.totalSupply > 0 ? drop.totalSupply : 0;
+  const remaining = Math.max(0, drop.remaining);
+  const minted = totalSupply > 0 ? Math.max(0, totalSupply - remaining) : 0;
+  const now = Date.now();
+  const priceNear = drop.priceNear?.trim() || null;
+  const priced = Boolean(priceNear && priceNear !== '0');
+
+  return {
+    ...base,
+    priceNear,
+    priceYocto: priced ? '1' : '0',
+    ...(drop.usdE6?.trim() ? { usdE6: drop.usdE6.trim() } : {}),
+    totalSupply,
+    remaining,
+    minted,
+    soldOut: drop.status === 'sold_out' || (totalSupply > 0 && remaining === 0),
+    paused: drop.status === 'paused',
+    cancelled: drop.status === 'cancelled',
+    startTimeMs: drop.status === 'upcoming' ? now + 60_000 : null,
+    endTimeMs: drop.status === 'ended' ? now - 60_000 : null,
+    writingFormat: drop.writingFormat ?? null,
+    // Keep soft-fill on for event/about; list already owned the deal line.
+    createdAtMs: 0,
+  };
 }

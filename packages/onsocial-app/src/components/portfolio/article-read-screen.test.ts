@@ -47,6 +47,12 @@ describe('writing list to article', () => {
     expect(list).toContain('consumeEssayReopen');
     expect(list).not.toContain('leaveGlass');
   });
+
+  it('expands More on the solid permalink instead of pushing the shelf', () => {
+    const pageFn = screen.slice(screen.indexOf('export function ArticleReadPage'));
+    expect(pageFn).toContain('onReturnToShelf={undefined}');
+    expect(pageFn).not.toContain('router.push(shelfHref)');
+  });
 });
 
 describe('overlay-idle leave', () => {

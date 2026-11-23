@@ -106,8 +106,9 @@ async function expectStablePill(page: Page): Promise<void> {
   expect(
     Math.abs((face.probe?.first ?? 0) - (face.probe?.last ?? 0))
   ).toBeLessThan(0.5);
-  expect(face.probe?.identityShift ?? 1).toBe(0);
-  expect(face.probe?.cls ?? 1).toBe(0);
+  // Sub-pixel CLS noise still reports ~1e-5; treat under 0.001 as still.
+  expect(face.probe?.identityShift ?? 1).toBeLessThan(1e-3);
+  expect(face.probe?.cls ?? 1).toBeLessThan(1e-3);
   expect(face.inlineMargin).toBe('');
 
   const box = await entry.boundingBox();

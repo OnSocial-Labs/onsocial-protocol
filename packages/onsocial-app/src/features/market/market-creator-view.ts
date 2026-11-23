@@ -26,7 +26,10 @@ export function marketCreatorShop(creator: string | null | undefined): boolean {
   return Boolean(creator?.trim());
 }
 
-/** Leave the shop to global Market — same destination as dock back. */
+/**
+ * Cold parent for a creator shop (`?creator=`).
+ * In-tab dock Back pops the opener first (feed, listings, …).
+ */
 export function marketCreatorBackHref(): string {
   return APP_MARKET_PATH;
 }

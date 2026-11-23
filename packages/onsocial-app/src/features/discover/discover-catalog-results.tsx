@@ -20,7 +20,15 @@ import {
   type DiscoverCatalogResults,
 } from '@/features/discover/discover-catalog-search';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
-import { APP_EVENTS_PATH, dropsPath, collectionPath } from '@/lib/app-routes';
+import {
+  APP_EVENTS_PATH,
+  dropsPath,
+  collectionPath,
+  parseInAppDropLayerHref,
+} from '@/lib/app-routes';
+import { collectionCreatorFaceSeed } from '@/features/scarces/collection-creator-face';
+import { DropPlaceLink } from '@/features/scarces/drop-place-open';
+import { seedCollectionViewFromPeek } from '@/features/scarces/collection-page-view';
 import { ArticleReadOverlay } from '@/components/portfolio/article-read-screen';
 import { DiscoverArticlesList } from '@/features/discover/discover-articles-list';
 import { isArticlePost } from '@/lib/article-post-payload';
@@ -105,15 +113,26 @@ function CatalogRow({
   coverUrl?: string | null;
   onOpen?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) {
-  return (
-    <Link
-      href={href}
-      scroll={false}
-      className={`market-listing-row discover-catalog-row${
-        face ? ' discover-catalog-row--face' : ''
-      }`}
-      onClick={onOpen}
-    >
+  const className = `market-listing-row discover-catalog-row${
+    face ? ' discover-catalog-row--face' : ''
+  }`;
+  const drop = parseInAppDropLayerHref(href);
+  const dropInitial = drop
+    ? seedCollectionViewFromPeek({
+        collectionId: drop.collectionId,
+        title,
+        coverUrl,
+        creatorId: face?.accountId,
+      })
+    : null;
+  const dropCreator = face
+    ? collectionCreatorFaceSeed({
+        displayName: face.name,
+        avatarUrl: face.avatarUrl,
+      })
+    : null;
+  const body = (
+    <>
       {face ? (
         <CatalogFace
           accountId={face.accountId}
@@ -127,6 +146,24 @@ function CatalogRow({
         <span className="market-listing-title">{title}</span>
         {meta ? <p className="drops-discovery-deal">{meta}</p> : null}
       </div>
+    </>
+  );
+  if (drop) {
+    return (
+      <DropPlaceLink
+        href={href}
+        initial={dropInitial}
+        initialCreator={dropCreator}
+        className={className}
+        onClick={onOpen}
+      >
+        {body}
+      </DropPlaceLink>
+    );
+  }
+  return (
+    <Link href={href} scroll={false} className={className} onClick={onOpen}>
+      {body}
     </Link>
   );
 }

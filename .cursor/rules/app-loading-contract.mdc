@@ -14,11 +14,12 @@ up to date when adding or changing a page.
 - Data already available (seed, session, SSR) renders with no skeleton over
   real content.
 - Cold with no painted data → structural skeleton matching the final shell.
-- Client navigation without ready data: `OsRouteSettle` paints the skeleton
-  it is given on the first frame (`cover` starts at `hold`). No delay before
-  that paint. After settle, the cover fades off over `--os-motion-appear`
+- Client navigation without ready data: `OsRouteSettle` / `HomeFeedReveal`
+  paints the skeleton on the first frame (`cover` starts at `hold`). No delay
+  before that paint. After settle, the cover fades off over `--os-motion-appear`
   (280ms fallback) and then unmounts; `prefers-reduced-motion` drops the
-  cover immediately.
+  cover immediately. Seeded / known bodies paint opaque immediately — do not
+  gate them behind `OsPageBodyAppear` opacity 0 (late + flicker).
 - Refresh with painted data → keep rows and set `is-refreshing`.
 - Load more → silent happy path; late/in-flight = footer PulsingDots
   (OsLoadMore / sentinel). Never append cold skeleton rows mid-list.
@@ -27,13 +28,33 @@ up to date when adding or changing a page.
 - Error with painted rows → `OsChromeListAlert` / whisper overlay.
 - Intermittent chrome → fixed overlay or `null`; never reserve hidden flow.
 
+## Route streaming (SSR-first)
+
+- **Known SSR pages** (portfolio face, create form with server `searchParams`,
+  seeded home): paint the complete real shell once. No route `loading.tsx` and
+  no page Suspense that paints a full pending stub (avoids CLS and leftover
+  Flight twins). Soft-nav without a destination `loading.tsx` keeps the
+  previous route until the new RSC is ready — that is intentional, not a freeze
+  to paper over with a wrong skeleton.
+- **True-cold only:** route `loading.tsx` is for unknown structure (catalog,
+  collection, thread cold opens). Never stack a second full-shell Suspense
+  on the same URL (page fallback must not mirror `loading.tsx`).
+- **Parent segments with mixed children** (e.g. `/drops` + `/drops/create`)
+  must not own a full-page `loading.tsx`. Index cold lives in the panel or an
+  index-only Suspense; create leaves stream their own form or leaf loading.
+- Prefer RSC `searchParams` → props over `useSearchParams` when that would
+  force a whole-page Suspense.
+- `Suspense fallback={null}` is only valid when an already-mounted shell remains
+  visible and a blank first navigation is not possible.
+- Unmanaged hard load: `OsRouteSettle` starts cover off so it does not add a
+  second skeleton on top of streamed content.
+
 ## Geometry
 
 - Skeleton and production rows share layout primitives, variants, and tokens.
 - Cold skeletons match live row classes and box sizes (`PostRowSkeleton`,
   `HOME_FEED_COLD_SKELETON_FRAMES`).
-- Route `loading.tsx` must preserve the page shell when the shell is known.
-- `Suspense fallback={null}` is only valid when an already-mounted shell remains
-  visible and a blank first navigation is not possible.
+- Route `loading.tsx` (when present) must match the destination shell — never
+  a parent index shell over a child route.
 - New content requires updating the real layout, skeleton, matrix row, and
   contract/visual coverage together.

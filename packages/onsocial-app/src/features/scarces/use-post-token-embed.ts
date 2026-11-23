@@ -223,7 +223,7 @@ export function usePostTokenEmbed(
   return {
     rootRef,
     embed,
-    dropTitle,
+    dropTitle: dropTitle?.trim() || paint?.title?.trim() || null,
     hasTokenEmbed: Boolean(parsed),
     status,
     retry: () => setRetryKey((value) => value + 1),

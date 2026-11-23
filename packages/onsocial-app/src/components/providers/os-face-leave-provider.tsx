@@ -41,6 +41,8 @@ type OsFaceLeaveInternalValue = OsFaceLeaveContextValue & {
   beginPop: () => boolean;
   /** Screen under the current one in this tab. Null on a cold open. */
   previousInAppHref: () => string | null;
+  /** Screens opened in this tab, oldest first. */
+  inAppHrefs: () => readonly string[];
 };
 
 const FALLBACK_LEAVE: OsFaceLeaveContextValue = {
@@ -104,6 +106,7 @@ export function OsFaceLeaveProvider({ children }: { children: ReactNode }) {
     () => previousOsInAppHref(trailRef.current),
     []
   );
+  const inAppHrefs = useCallback(() => trailRef.current, []);
 
   const beginPop = useCallback(() => {
     if (depthRef.current <= 1) return false;
@@ -131,8 +134,17 @@ export function OsFaceLeaveProvider({ children }: { children: ReactNode }) {
       noteArrival,
       beginPop,
       previousInAppHref,
+      inAppHrefs,
     }),
-    [beginPop, consumeLeave, noteArrival, previousInAppHref, state, trackHref]
+    [
+      beginPop,
+      consumeLeave,
+      inAppHrefs,
+      noteArrival,
+      previousInAppHref,
+      state,
+      trackHref,
+    ]
   );
 
   return (
@@ -158,6 +170,12 @@ function OsFaceLeavePathTracker() {
   }, [href, noteArrival, trackHref]);
 
   return null;
+}
+
+/** Screens opened in this tab, oldest first. */
+export function useOsInAppHrefs(): () => readonly string[] {
+  const read = useContext(OsFaceLeaveContext)?.inAppHrefs;
+  return useCallback(() => read?.() ?? [], [read]);
 }
 
 /** Screen under the current one. Null when this tab opened here. */

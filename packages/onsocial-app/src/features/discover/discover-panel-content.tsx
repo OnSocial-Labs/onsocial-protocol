@@ -24,8 +24,12 @@ import { discoverProfilesLead } from '@/lib/discover-tab-lead';
 import { fetchOfferCounts } from '@/lib/profile-offers';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
+import { warmDropPanel } from '@/lib/thread-first-page';
 
 export function DiscoverPanelContent() {
+  useEffect(() => {
+    warmDropPanel();
+  }, []);
   const [recommendedShownIds, setRecommendedShownIds] = useState<string[]>([]);
   const handleRecommendedShownIds = useCallback((ids: string[]) => {
     setRecommendedShownIds((prev) => {

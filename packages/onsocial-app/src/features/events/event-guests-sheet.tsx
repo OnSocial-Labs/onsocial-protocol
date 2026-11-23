@@ -6,6 +6,7 @@ import { ScarceFansSheet } from '@/features/scarces/scarce-fans-sheet';
 import type { PassStaffVoice } from '@/features/scarces/ticket-pass-payload';
 import {
   eventGuestSheetCopy,
+  eventGuestSoldPrefix,
   eventGuestTallyLine,
   guestRosterShouldLive,
   loadEventCheckInIds,
@@ -32,6 +33,7 @@ function useGuestIds(
   useEffect(() => {
     if (!active || !collectionId.trim()) return;
     let cancelled = false;
+    let timer = 0;
     const load = () => {
       const run = kind === 'going' ? loadEventHolderIds : loadEventCheckInIds;
       void run(collectionId)
@@ -48,16 +50,32 @@ function useGuestIds(
           );
         });
     };
+    const arm = () => {
+      window.clearInterval(timer);
+      timer = 0;
+      if (refreshMs <= 0 || document.hidden) return;
+      timer = window.setInterval(load, refreshMs);
+    };
+    const onVisibility = () => {
+      if (document.hidden) {
+        window.clearInterval(timer);
+        timer = 0;
+        return;
+      }
+      load();
+      arm();
+    };
     load();
-    if (refreshMs <= 0) {
-      return () => {
-        cancelled = true;
-      };
+    arm();
+    if (refreshMs > 0) {
+      document.addEventListener('visibilitychange', onVisibility);
     }
-    const timer = window.setInterval(load, refreshMs);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
+      if (refreshMs > 0) {
+        document.removeEventListener('visibilitychange', onVisibility);
+      }
     };
   }, [active, collectionId, key, kind, refreshMs, reloadKey]);
 
@@ -177,6 +195,7 @@ export function CollectionEventGuests({
   );
   const holderWords = holders || voice === 'redeem';
   const copy = eventGuestSheetCopy(kind, { redeemed: holderWords });
+  const rosterPending = roster.ids == null && !roster.error;
   const tally =
     roster.ids != null
       ? eventGuestTallyLine({
@@ -191,7 +210,17 @@ export function CollectionEventGuests({
     <section className="collection-reading" aria-label={copy.label}>
       <div className="collection-reading-row">
         <p className="collection-section-label collection-guest-tally">
-          {tally ?? copy.label}
+          {rosterPending ? (
+            <>
+              <span>{eventGuestSoldPrefix(sold)} · </span>
+              <span
+                className="standing-row-shimmer collection-guest-tally-present"
+                aria-hidden
+              />
+            </>
+          ) : (
+            tally
+          )}
         </p>
         <OsRowAction onClick={() => setOpen(true)}>See who</OsRowAction>
       </div>

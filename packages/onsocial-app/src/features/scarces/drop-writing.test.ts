@@ -35,7 +35,6 @@ import {
   writingScrollIsLayoutSnap,
   writingReaderTap,
   writingRubberBandOffset,
-  writingReadingSectionLabel,
   writingScrollRatioStorageKey,
   writingSwipeDirection,
   writeWritingChapterIndex,
@@ -459,14 +458,6 @@ describe('writingContentUrl', () => {
       '/api/ipfs/bafybeigabcdefghijklmnopqrstuv'
     );
     expect(writingContentUrl('not-a-cid')).toBeNull();
-  });
-});
-
-describe('writingReadingSectionLabel', () => {
-  it('labels chapter counts for the collection section', () => {
-    expect(writingReadingSectionLabel(0)).toBe('Writing');
-    expect(writingReadingSectionLabel(1)).toBe('1 chapter');
-    expect(writingReadingSectionLabel(3)).toBe('3 chapters');
   });
 });
 

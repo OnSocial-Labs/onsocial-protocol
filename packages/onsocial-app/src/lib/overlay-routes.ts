@@ -1,7 +1,9 @@
 import {
+  APP_DROPS_PATH,
   APP_HOME_PATH,
   COLLECTIBLES_SEARCH_PARAM,
   MARKET_KIND_PARAM,
+  parseInAppDropLayerHref,
 } from '@/lib/app-routes';
 import {
   isProfileSearchQuery,
@@ -12,11 +14,13 @@ import {
   type DiscoverTab,
 } from '@/features/discover/discover-tabs';
 import {
+  essayReturnSearch,
   parsePortfolioEssayFromParam,
   PORTFOLIO_ESSAY_FROM_PARAM,
   PORTFOLIO_ESSAY_PARAM,
   withEssayReturnSearch,
 } from '@/lib/essay-return-href';
+import { parseSourcePostPath } from '@/features/scarces/drop-writing';
 
 export {
   essayReturnSearch,
@@ -351,6 +355,200 @@ function accountSegmentEquals(left: string, right: string): boolean {
   }
 }
 
+/** Collectibles index, vault, or the face drawer — not the bare profile. */
+export function collectiblesReturnHref(
+  pathname: string | null | undefined,
+  search?: string | URLSearchParams | null
+): string | null {
+  const bare = ((pathname ?? '').split('#')[0] ?? '').trim();
+  const queryAt = bare.indexOf('?');
+  const path = queryAt === -1 ? bare : bare.slice(0, queryAt);
+  const inline = queryAt === -1 ? '' : bare.slice(queryAt + 1);
+  if (!path) return null;
+  if (path === '/collectibles' || path.startsWith('/collectibles/')) {
+    return queryAt === -1 ? path : bare;
+  }
+  if (/^\/@[^/]+\/collectibles\/?$/.test(path)) {
+    return queryAt === -1 ? path : bare;
+  }
+  const params =
+    search instanceof URLSearchParams
+      ? search
+      : new URLSearchParams(
+          typeof search === 'string'
+            ? search.startsWith('?')
+              ? search.slice(1)
+              : search
+            : inline
+        );
+  if (params.get('tab') === 'collection' && /^\/@[^/]+\/?$/.test(path)) {
+    return `${path}?tab=collection`;
+  }
+  return null;
+}
+
+/** This author's face or Writing — the shelf's parent, not an outside opener. */
+export function isAuthorPortfolioPlace(
+  accountId: string,
+  href: string | null | undefined
+): boolean {
+  const path = ((href ?? '').split('#')[0] ?? '').split('?')[0] ?? '';
+  if (!path || !accountId.trim()) return false;
+  const face = portfolioPath(accountId);
+  if (path === face || path === `${face}/`) return true;
+  return isAccountWritingPlace(accountId, path);
+}
+
+/** Drops index — Writing leave prefers this over a drop opened from it. */
+export function dropsIndexReturnHref(
+  href: string | null | undefined
+): string | null {
+  const bare = ((href ?? '').split('#')[0] ?? '').trim();
+  const path = bare.split('?')[0] ?? '';
+  if (path === APP_DROPS_PATH || path.startsWith(`${APP_DROPS_PATH}/`)) {
+    return bare || APP_DROPS_PATH;
+  }
+  return null;
+}
+
+/** Collectibles or Drops — catalogs win over a drop in between. */
+export function writingCatalogOpenerHref(
+  href: string | null | undefined
+): string | null {
+  return collectiblesReturnHref(href) ?? dropsIndexReturnHref(href);
+}
+
+/**
+ * Outside place that opened Writing — Drop, Collectibles, feed, …
+ * Never an article, this shelf, or this face.
+ */
+export function writingOutsideOpenerHref(
+  href: string | null | undefined,
+  accountId: string
+): string | null {
+  const bare = ((href ?? '').split('#')[0] ?? '').trim();
+  if (!bare) return null;
+  const catalog = writingCatalogOpenerHref(bare);
+  if (catalog) return catalog;
+  if (parseWritingArticleHref(bare) || parseWritingArticlePathname(bare)) {
+    return null;
+  }
+  if (isAuthorPortfolioPlace(accountId, bare)) return null;
+  const path = bare.split('?')[0] ?? '';
+  if (!path || path === '/') return null;
+  return bare;
+}
+
+/**
+ * Place that opened Writing.
+ * Skip articles and the shelf. Prefer Collectibles / Drops over a drop
+ * opened from that catalog. The face stops the walk.
+ */
+export function writingShelfOpenerHref(
+  hrefs: readonly string[],
+  accountId: string
+): string | null {
+  let dropOpener: string | null = null;
+  for (let i = hrefs.length - 1; i >= 0; i--) {
+    const href = hrefs[i]?.split('#')[0]?.trim() ?? '';
+    if (!href) continue;
+    const catalog = writingCatalogOpenerHref(href);
+    if (catalog) return catalog;
+    const opener = writingOutsideOpenerHref(href, accountId);
+    if (opener) {
+      if (parseInAppDropLayerHref(opener)) {
+        dropOpener ??= opener;
+        continue;
+      }
+      return opener;
+    }
+    const path = href.split('?')[0] ?? '';
+    const face = portfolioPath(accountId);
+    if (path === face || path === `${face}/`) return null;
+  }
+  return dropOpener;
+}
+
+/** Shelf URL that still returns to the place that opened the article. */
+export function writingShelfHrefKeepingOpener(opts: {
+  accountId: string;
+  postId: string;
+  pathname: string;
+  search?: string | URLSearchParams | null;
+  openerHref?: string | null;
+}): string {
+  const shelf = writingFromArticleHref(
+    opts.accountId,
+    opts.postId,
+    opts.pathname,
+    opts.search
+  );
+  const preferred =
+    writingCatalogOpenerHref(opts.openerHref) ??
+    writingOutsideOpenerHref(opts.openerHref, opts.accountId) ??
+    writingCatalogOpenerHref(opts.pathname) ??
+    writingOutsideOpenerHref(opts.pathname, opts.accountId);
+  if (!preferred) {
+    return withEssayReturnSearch(writingPath(opts.accountId), opts.search);
+  }
+  const query = shelf.includes('?') ? shelf.slice(shelf.indexOf('?') + 1) : '';
+  const current = writingShelfBackHref(opts.accountId, query);
+  const face = portfolioPath(opts.accountId);
+  const currentCatalog = writingCatalogOpenerHref(current);
+  const preferredCatalog = writingCatalogOpenerHref(preferred);
+  // Keep a catalog already on the URL. Upgrade a drop to Collectibles / Drops.
+  if (current !== face && currentCatalog && !preferredCatalog) return shelf;
+  if (current !== face && !parseInAppDropLayerHref(current) && !preferredCatalog) {
+    return shelf;
+  }
+  if (current === preferred) return shelf;
+  const params = new URLSearchParams(essayReturnSearch(opts.search));
+  params.set(PORTFOLIO_ESSAY_FROM_PARAM, preferred);
+  return `${writingPath(opts.accountId)}?${params.toString()}`;
+}
+
+/**
+ * Solid Writing dock Back from the URL alone.
+ * Prefer {@link resolveWritingShelfLeaveHref} when the in-tab trail is known.
+ */
+export function writingShelfBackHref(
+  accountId: string,
+  search?: string | URLSearchParams | null
+): string {
+  const face = portfolioPath(accountId);
+  if (!search) return face;
+  const src =
+    typeof search === 'string'
+      ? new URLSearchParams(
+          search.startsWith('?') ? search.slice(1) : search
+        )
+      : search;
+  const from = parsePortfolioEssayFromParam(
+    src.get(PORTFOLIO_ESSAY_FROM_PARAM)
+  );
+  return writingOutsideOpenerHref(from, accountId) ?? face;
+}
+
+/**
+ * Writing dock leave — Collectibles / Drops win over a drop opened from them.
+ */
+export function resolveWritingShelfLeaveHref(
+  accountId: string,
+  search: string | URLSearchParams | null | undefined,
+  trail: readonly string[]
+): string {
+  const face = portfolioPath(accountId);
+  const marked = writingShelfBackHref(accountId, search);
+  const fromTrail = writingShelfOpenerHref(trail, accountId);
+  return (
+    writingCatalogOpenerHref(fromTrail) ??
+    writingCatalogOpenerHref(marked !== face ? marked : null) ??
+    fromTrail ??
+    (marked !== face ? marked : null) ??
+    face
+  );
+}
+
 /** The shelf itself, not an article on it. */
 export function isWritingShelfPath(
   accountId: string,
@@ -361,12 +559,28 @@ export function isWritingShelfPath(
   return path === shelf || path === `${shelf}/`;
 }
 
+/** `usePathname()` on `/@id/writing/{postId}` — not essay `from` query parsing. */
+export function parseWritingArticlePathname(
+  pathname: string | null | undefined
+): { accountId: string; postId: string } | null {
+  const path = (pathname ?? '').split('?')[0] ?? '';
+  const match = path.match(/^\/@([^/]+)\/writing\/([^/]+)\/?$/);
+  if (!match?.[1] || !match[2]) return null;
+  try {
+    const accountId = decodeURIComponent(match[1]).trim();
+    const postId = decodeURIComponent(match[2]).trim();
+    return accountId && postId ? { accountId, postId } : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Already on this author's Writing shelf or one of their articles. */
 export function isAccountWritingPlace(
   accountId: string,
   pathname: string | null | undefined
 ): boolean {
-  const article = parseWritingArticleHref(pathname);
+  const article = parseWritingArticlePathname(pathname);
   if (article) return accountSegmentEquals(article.accountId, accountId);
   const path = (pathname ?? '').split('?')[0] ?? '';
   return (
@@ -387,7 +601,47 @@ export function writingFromArticleHref(
   if (isAccountWritingPlace(accountId, pathname)) {
     return withEssayReturnSearch(writingPath(accountId), search);
   }
-  return writingFromEssayPath(accountId, postId, pathname);
+  const opener =
+    writingOutsideOpenerHref(
+      collectiblesReturnHref(pathname, search) ?? pathname,
+      accountId
+    ) ?? null;
+  return writingFromEssayPath(accountId, postId, opener);
+}
+
+/** Reader byline → author Writing shelf (listed post, folio, or shelf alone). */
+export function authorWritingShelfHref(opts: {
+  authorId?: string | null;
+  sourcePostPath?: string | null;
+  pathname?: string | null;
+  search?: string | URLSearchParams | null;
+  /** In-tab opener — Collectibles under a drop wins over the drop. */
+  openerHref?: string | null;
+}): string | null {
+  const coords = parseSourcePostPath(opts.sourcePostPath ?? '');
+  const author = (opts.authorId?.trim() || coords?.author || '').trim();
+  if (!author) return null;
+  if (coords) {
+    return writingShelfHrefKeepingOpener({
+      accountId: coords.author,
+      postId: coords.postId,
+      pathname: opts.pathname ?? '',
+      search: opts.search,
+      openerHref: opts.openerHref,
+    });
+  }
+  const shelf = writingPath(author);
+  const opener =
+    writingCatalogOpenerHref(opts.openerHref) ??
+    writingOutsideOpenerHref(opts.openerHref, author) ??
+    writingOutsideOpenerHref(
+      collectiblesReturnHref(opts.pathname, opts.search) ?? opts.pathname,
+      author
+    );
+  if (!opener) return shelf;
+  const params = new URLSearchParams();
+  params.set(PORTFOLIO_ESSAY_FROM_PARAM, opener);
+  return `${shelf}?${params.toString()}`;
 }
 
 /** One article on the Writing shelf. */

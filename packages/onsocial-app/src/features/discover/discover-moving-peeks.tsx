@@ -17,10 +17,7 @@ import type { DiscoverScarcePeek } from '@/features/discover/discover-scarce-pee
 import { communityMonogram } from '@/components/community-cards/community-monogram';
 import { placeFallbackCoverStyle } from '@/components/community-cards/community-cover';
 import { seedCollectionViewFromPeek } from '@/features/scarces/collection-page-view';
-import {
-  dropOverlayLinkHandlers,
-  useDropOverlayOpen,
-} from '@/features/scarces/drop-overlay-open';
+import { DropAppearLink } from '@/features/scarces/drop-place-open';
 import { appPath, collectionPath } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
 import type { DiscoverTrendingHub } from '@/lib/discover-trending-server';
@@ -286,7 +283,6 @@ export function MovingCoverPeekSection({
   seeAll?: { href?: string; onClick?: () => void } | null;
   rows: DiscoverScarcePeek[] | null;
 }) {
-  const openDrop = useDropOverlayOpen();
   const resolvedSeeAll = seeAll ?? (seeAllHref ? { href: seeAllHref } : null);
   if (rows === null) {
     return (
@@ -316,13 +312,12 @@ export function MovingCoverPeekSection({
               creatorId: scarce.creatorId,
               kind: scarce.kind,
             });
-          const dropHandlers = dropOverlayLinkHandlers(href, openDrop, initial);
           return (
             <li key={`${heading}-${scarce.collectionId}`}>
-              <Link
+              <DropAppearLink
                 href={href}
+                initial={initial}
                 className="discover-cover-peek"
-                {...dropHandlers}
               >
                 <MovingCoverThumb
                   src={scarce.coverUrl}
@@ -335,7 +330,7 @@ export function MovingCoverPeekSection({
                     <span className="discover-cover-peek-meta">{meta}</span>
                   ) : null}
                 </span>
-              </Link>
+              </DropAppearLink>
             </li>
           );
         })}

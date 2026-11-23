@@ -13,6 +13,7 @@ import {
 } from '@/components/launcher-home';
 import type { AppView } from '@/features/scarces/apps-data';
 import { collectionCurrentRowToView } from '@/features/scarces/collections-data';
+import { seedCollectionViewFromPeek } from '@/features/scarces/collection-page-view';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { formatPostTimestamp } from '@/lib/post-display';
 import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
@@ -34,6 +35,7 @@ export type HubDropPeek = {
   creatorId: string;
   collectionId: string;
   title: string;
+  mediaUrl: string | null;
   createdAtMs: number;
   href: string;
 };
@@ -154,6 +156,7 @@ export function HubsLatestDropsPanel({
               creatorId,
               collectionId: view.collectionId,
               title: (view.title || view.collectionId).trim().slice(0, 120),
+              mediaUrl: view.mediaUrl ?? null,
               createdAtMs: view.createdAtMs || 0,
               href: collectionPath(view.collectionId),
             } satisfies HubDropPeek;
@@ -264,6 +267,12 @@ export function HubsLatestDropsPanel({
                 : undefined
             }
             excerpt={peek.title}
+            dropInitial={seedCollectionViewFromPeek({
+              collectionId: peek.collectionId,
+              title: peek.title,
+              coverUrl: peek.mediaUrl,
+              creatorId: peek.creatorId,
+            })}
             showDivider={index > 0}
           />
         );

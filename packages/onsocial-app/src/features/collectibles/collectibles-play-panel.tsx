@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { InformationCircleIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsHeaderBack } from '@/components/app/os-header-back';
 import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { useCatalogDockBack } from '@/hooks/use-catalog-dock-back';
 import { useImmersiveTitleHandoff } from '@/hooks/use-immersive-title-handoff';
@@ -34,10 +35,12 @@ import {
 } from '@/features/market/market-listings';
 import { CollectiblesPlaySkeleton } from '@/features/collectibles/collectibles-play-skeleton';
 import { scarceRowPartyLead } from '@/lib/scarce-row-kind';
+import { useDropPlaceOpen } from '@/features/scarces/drop-place-open';
 import { OsRowAction } from '@/lib/os-row-action';
 import { socialTimeProps } from '@/lib/post-display';
 import {
   collectionCreatorNameLine,
+  collectionCreatorFaceSeed,
   fetchCollectionCreatorFace,
   type CollectionCreatorFace,
 } from '@/features/scarces/collection-creator-face';
@@ -147,6 +150,7 @@ export function CollectiblesPlayPanel({
   initialCreator?: CollectionCreatorFace | null;
 } = {}) {
   const searchParams = useSearchParams();
+  const openDrop = useDropPlaceOpen();
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const collectionId =
     searchParams.get(COLLECTIBLES_PLAY_PARAM)?.trim() ||
@@ -434,14 +438,15 @@ export function CollectiblesPlayPanel({
   );
 
   const vaultBackHref = collectiblesPlayBackHref(viewerAccountId);
-  const onDockBack = useCatalogDockBack(vaultBackHref);
+  const onHeaderBack = useCatalogDockBack(vaultBackHref);
 
   return (
     <OsAppScreen
       title={screenTitle}
-      dockBack
-      onDockBack={onDockBack}
       backFallbackHref={vaultBackHref}
+      leading={
+        <OsHeaderBack fallbackHref={vaultBackHref} onBack={onHeaderBack} />
+      }
       immersiveHeader={immersive}
       glassChrome={!immersive}
       scrollRootRef={scrollRootRef}
@@ -451,7 +456,17 @@ export function CollectiblesPlayPanel({
             className={`collectibles-play-drop-action${
               dropIsLive ? ' is-live' : ''
             }`}
-            href={dropHref}
+            onClick={() => {
+              if (!collectionId) return;
+              openDrop({
+                href: dropHref,
+                initial: view,
+                initialCreator: collectionCreatorFaceSeed({
+                  displayName: creatorDisplayName,
+                  avatarUrl: creatorAvatarUrl,
+                }),
+              });
+            }}
           >
             {dropIsLive ? (
               <span className="collectibles-play-drop-live" aria-hidden />

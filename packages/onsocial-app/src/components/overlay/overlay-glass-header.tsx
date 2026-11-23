@@ -1,5 +1,6 @@
 'use client';
 
+import { useLayoutEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { SheetCloseButton } from '@onsocial/ui';
 import {
@@ -141,15 +142,21 @@ function OverlayHeaderFallback({
 /** Portal mount + route-derived header until panel chrome registers. */
 export function OverlayGlassHeader({ panelKey }: { panelKey: string | null }) {
   const setHeaderPortal = useOverlayHeaderPortalTarget();
+  const portalRef = useRef<HTMLDivElement>(null);
   const hint = resolveOverlayPanelChrome(panelKey);
   const chrome = useOverlayChrome();
   const close = useOverlayDismiss();
   const showFallback = hint != null && chrome == null;
   const flushHeader = chrome?.hideHeader ?? Boolean(hint?.hideTitle);
 
+  useLayoutEffect(() => {
+    setHeaderPortal(portalRef.current);
+    return () => setHeaderPortal(null);
+  }, [setHeaderPortal]);
+
   return (
     <div
-      ref={setHeaderPortal}
+      ref={portalRef}
       className={
         flushHeader
           ? 'overlay-header-portal overlay-header-portal--flush'
