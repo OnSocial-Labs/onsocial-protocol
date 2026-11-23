@@ -5,37 +5,26 @@ import { describe, expect, it } from 'vitest';
 
 const appSrc = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-const sellHubSites = [
-  'features/collectibles/collectibles-holding-row-menu.tsx',
-  'features/scarces/hub-publish-requests-sheet.tsx',
-] as const;
-
 describe('sell / hub publish polish', () => {
-  it('uses size="sm" on Manage and Approve', () => {
-    for (const file of sellHubSites) {
-      const source = readFileSync(join(appSrc, file), 'utf8');
-      expect(source).toContain('size="sm"');
-      expect(source).toContain('OsSheetActions');
-    }
+  it('uses size="sm" on hub Approve', () => {
+    const source = readFileSync(
+      join(appSrc, 'features/scarces/hub-publish-requests-sheet.tsx'),
+      'utf8'
+    );
+    expect(source).toContain('size="sm"');
+    expect(source).toContain('OsSheetActions');
   });
 
-  it('wires play Manage to collectibles-play-sell-action, not market-listing-action', () => {
+  it('opens holding Manage from the post-card ⋮, not a Sell pill', () => {
     const menu = readFileSync(
       join(appSrc, 'features/collectibles/collectibles-holding-row-menu.tsx'),
       'utf8'
     );
-    expect(menu).toContain('className="collectibles-play-sell-action"');
-    expect(menu).not.toContain('className="market-listing-action"');
-  });
-
-  it('keeps Sell/Manage green as app surface ink, not a missing brand tone', () => {
-    const css = readFileSync(join(appSrc, 'app/globals.css'), 'utf8');
-    expect(css).toContain('collectibles-play-sell-action');
-    expect(css).toContain('protocol-green');
-    expect(css).not.toContain('tone="brand"');
-    expect(css).not.toContain(
-      'Sell / Manage green now comes from OsSheetAction tone="brand"'
-    );
+    expect(menu).toContain('post-card-menu-trigger');
+    expect(menu).toContain('DotsVerticalIcon');
+    expect(menu).not.toContain('collectibles-play-sell-action');
+    expect(menu).not.toContain('OsSheetActions');
+    expect(menu).not.toContain('trigger=');
   });
 
   it('asks to publish from the hero plus, beside the gear', () => {

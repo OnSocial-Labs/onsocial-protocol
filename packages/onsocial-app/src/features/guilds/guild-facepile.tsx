@@ -1,7 +1,10 @@
 'use client';
 
 import { AccountAvatar } from '@/components/profile/account-avatar';
-import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
+import {
+  arePostAuthorProfilesResolved,
+  type PostAuthorProfile,
+} from '@/hooks/use-post-author-profiles';
 
 /** Default overlapped avatar slots — keep in sync with `.guild-facepile-avatars--slots`. */
 export const GUILD_FACEPILE_SLOTS = 3;
@@ -93,24 +96,36 @@ export function GuildFacepile({
         >
           {loading
             ? Array.from({ length: renderSlots }, (_, i) => (
-                <span
-                  key={i}
-                  className="standing-row-shimmer guild-facepile-avatar-shimmer"
-                />
-              ))
-            : ids.map((memberId) => (
                 <AccountAvatar
-                  key={memberId}
-                  accountId={memberId}
-                  kind={profiles[memberId]?.kind}
-                  src={profiles[memberId]?.avatarUrl ?? null}
-                  fallbackInitial={
-                    profiles[memberId]?.displayName ?? memberId
-                  }
+                  key={i}
                   size="sm"
+                  shellLoading
                   className="guild-facepile-avatar"
                 />
-              ))}
+              ))
+            : ids.map((memberId) => {
+                const profile = profiles[memberId];
+                const src = profile?.avatarUrl ?? null;
+                const resolved = arePostAuthorProfilesResolved([memberId]);
+                // Cool grey shell until resolve — never letter-flash a known photo.
+                const shellLoading = !src && !resolved;
+                return (
+                  <AccountAvatar
+                    key={memberId}
+                    accountId={memberId}
+                    kind={profile?.kind}
+                    src={src}
+                    fallbackInitial={
+                      resolved
+                        ? (profile?.displayName ?? memberId)
+                        : undefined
+                    }
+                    shellLoading={shellLoading}
+                    size="sm"
+                    className="guild-facepile-avatar"
+                  />
+                );
+              })}
         </span>
       ) : null}
       {showCount ? (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
@@ -15,23 +15,27 @@ import {
 } from '@onsocial/ui';
 import {
   auctionExpiresAtMs,
+  collectionIdFromTokenId,
   formatMarketVerbStamp,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
 import { marketAuctionClockLabel } from '@/features/scarces/scarce-auction';
 import { socialTimeProps } from '@/lib/post-display';
 import { CollectiblesHoldingRowMenu } from '@/features/collectibles/collectibles-holding-row-menu';
+import { heldEditionMark } from '@/features/collectibles/held-editions';
 import { OwnedShowPassSheet } from '@/features/scarces/owned-show-pass-sheet';
+import { prefetchShowPass } from '@/features/scarces/show-pass-ahead';
 import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
 import { seedCollectionViewFromOwnedPass } from '@/features/market/market-drop-open';
 import { collectionCreatorFaceSeed } from '@/features/scarces/collection-creator-face';
 import { DropPlaceLink } from '@/features/scarces/drop-place-open';
-import { collectionPath, parseInAppDropLayerHref } from '@/lib/app-routes';
+import { collectionPath } from '@/lib/app-routes';
 import {
   holdingsActionLabel,
   holdingsHrefForOwned,
+  holdingsPlayHref,
 } from '@/lib/portfolio-holdings';
 import { OsRowAction } from '@/lib/os-row-action';
 import { scarceRowPartyLead } from '@/lib/scarce-row-kind';
@@ -144,6 +148,7 @@ export function MarketOwnedRow({
     typeof nowMs === 'number' ? ownedListingClock(item, nowMs) : null;
   const statusBit = ownedListingStatusBit(item, clock?.label ?? null);
   const showPrice = Boolean(listed && item.listedPriceNear);
+  const seatMark = heldEditionMark(item.tokenId);
   const offersLabel = offerCount > 1 ? 'Offers' : 'Offer';
   const offersAriaLabel = highestOfferNear?.trim()
     ? offerCount > 1
@@ -166,13 +171,36 @@ export function MarketOwnedRow({
   const [passMounted, setPassMounted] = useState(false);
   const authorId = ownedAuthorAccountId(item);
   const showThumb = Boolean(item.mediaUrl) && brokenMediaUrl !== item.mediaUrl;
-  const passCollectionId = item.collectionId?.trim() || '';
+  // Token fallback — missing collectionId must not fall through to ?pass=1.
+  const passCollectionId =
+    item.collectionId?.trim() ||
+    collectionIdFromTokenId(item.tokenId) ||
+    '';
   const opensPass =
     isPassMediumKind(item.mediumKind) && Boolean(passCollectionId);
+  useEffect(() => {
+    if (!opensPass || !passCollectionId) return;
+    void prefetchShowPass({
+      collectionId: passCollectionId,
+      tokenId: item.tokenId,
+      seedTitle: item.title,
+      seedCover: item.mediaUrl,
+    });
+  }, [
+    item.mediaUrl,
+    item.title,
+    item.tokenId,
+    opensPass,
+    passCollectionId,
+  ]);
+  // Browse the drop — never ?pass=1 or the Collectibles player.
   const dropHref = passCollectionId ? collectionPath(passCollectionId) : null;
-  const opensDropPage =
-    Boolean(dropHref) &&
-    (opensPass || parseInAppDropLayerHref(useHref) != null);
+  const opensDropPage = Boolean(dropHref);
+  const playHref = holdingsPlayHref({
+    tokenId: item.tokenId,
+    collectionId: passCollectionId || item.collectionId,
+    mediumKind: item.mediumKind,
+  });
   const dropInitial = opensDropPage
     ? seedCollectionViewFromOwnedPass(item)
     : null;
@@ -288,8 +316,12 @@ export function MarketOwnedRow({
               />
             ) : null}
             <p className="market-listing-meta market-listing-meta--price">
+              {seatMark ? (
+                <span className="market-listing-own">{seatMark}</span>
+              ) : null}
               {showPrice ? (
                 <span className="market-listing-price">
+                  {seatMark ? ' · ' : ''}
                   {auction ? 'Reserve · ' : ''}
                   {dollarStickerLabel(item.listedUsdE6) ??
                     `${formatPriceNear(item.listedPriceNear!)} NEAR`}
@@ -297,13 +329,13 @@ export function MarketOwnedRow({
               ) : null}
               {statusBit ? (
                 <span className="market-listing-own">
-                  {showPrice ? ' · ' : ''}
+                  {seatMark || showPrice ? ' · ' : ''}
                   {statusBit}
                 </span>
               ) : null}
               {showOffers ? (
                 <span className="market-listing-own">
-                  {showPrice || statusBit ? ' · ' : ''}
+                  {seatMark || showPrice || statusBit ? ' · ' : ''}
                   {offerCount === 1
                     ? `Offer ${formatPriceNear(highestOfferNear!)} NEAR`
                     : `${offerCount} offers · top ${formatPriceNear(highestOfferNear!)} NEAR`}
@@ -311,13 +343,25 @@ export function MarketOwnedRow({
               ) : null}
             </p>
           </div>
-          {opensPass || showOffers || needsSettle || showPostCompose ? (
+          {opensPass ||
+          playHref ||
+          showOffers ||
+          needsSettle ||
+          showPostCompose ? (
             <div className="market-listing-action-col drops-discovery-action-col">
               {opensPass ? (
                 <OsRowAction
                   className="collectibles-holding-action"
                   aria-label={`${useAction} ${item.title}`}
                   onClick={openPass}
+                >
+                  {useAction}
+                </OsRowAction>
+              ) : playHref ? (
+                <OsRowAction
+                  href={playHref}
+                  className="collectibles-holding-action"
+                  aria-label={`${useAction} ${item.title}`}
                 >
                   {useAction}
                 </OsRowAction>

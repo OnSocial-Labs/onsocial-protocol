@@ -201,7 +201,7 @@ export const OS_LEAVE_MAP = [
     dockBack: true,
     parent: APP_DROPS_PATH,
     verdict: 'matches',
-    note: 'Cold leave is Drops. A holder’s cold leave is the vault. In this tab, dock Back returns to the screen that opened the drop. Launcher lights Drops. In-app Discover Just sold opens as an appear page sheet over the current place.',
+    note: 'Cold leave is Drops. A holder’s cold leave is the vault. In this tab, dock Back returns to the screen that opened the drop. Launcher lights Drops. Discover Just sold soft-navs to the same full drop place as Market and Drops.',
   },
   {
     id: 'drop-loading',

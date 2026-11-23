@@ -6,6 +6,17 @@ import { describe, expect, it } from 'vitest';
 const here = dirname(fileURLToPath(import.meta.url));
 
 describe('DiscoveryPartyStack lead', () => {
+  it('shell-loads the avatar until the face is known (Market / Drops align)', () => {
+    const source = readFileSync(
+      join(here, 'discovery-party-stack.tsx'),
+      'utf8'
+    );
+    expect(source).toContain('shellLoading={!src && !faceResolved}');
+    expect(source).toContain('avatarUrl === undefined');
+    expect(source).toContain('usePostAuthorProfiles');
+    expect(source).toContain('arePostAuthorProfilesResolved');
+  });
+
   it('puts the verb above the name in the quiet repost voice', () => {
     const source = readFileSync(
       join(here, 'discovery-party-stack.tsx'),

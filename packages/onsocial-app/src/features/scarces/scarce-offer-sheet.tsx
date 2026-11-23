@@ -21,6 +21,7 @@ export interface ScarceOfferListing {
   mediaUrl?: string | null;
   ownerId: string;
   ownerName?: string | null;
+  mediumKind?: string | null;
   askNear?: string;
   existingAmountNear?: string;
 }
@@ -120,6 +121,7 @@ export function ScarceOfferSheet({
             mediaUrl: listing.mediaUrl,
             ownerId: listing.ownerId,
             ownerName: listing.ownerName,
+            mediumKind: listing.mediumKind,
             askNear: listing.askNear,
             existingAmountNear: listing.existingAmountNear,
           }}

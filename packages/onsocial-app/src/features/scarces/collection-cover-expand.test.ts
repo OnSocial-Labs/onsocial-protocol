@@ -44,11 +44,19 @@ describe('drop cover expand wiring', () => {
     expect(reader).not.toContain('onViewCover');
   });
 
-  it('opens listed-article Read in the folio reader when the drop is an overlay', () => {
+  it('opens listed-article Read in the folio reader on the drop', () => {
     expect(panel).toContain('WritingReadSheet');
     expect(panel).toContain('hydrateWritingManifest(view)');
     expect(panel).toContain('setWritingReadOpen(true)');
+    expect(panel).toContain('prefetchDropRead');
+    expect(panel).not.toContain('router.push(listedArticleHref)');
     expect(panel).not.toContain('openPostThread({ href: listedArticleHref })');
+  });
+
+  it('fills the writing overlay with the article footer from the source essay', () => {
+    expect(reader).toContain('ArticleReadFooter');
+    expect(reader).toContain('prefetchDropRead');
+    expect(reader).toContain('peekDropRead');
   });
 
   it('opens the book in the article reader, still portaled to the OS card', () => {

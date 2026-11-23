@@ -490,7 +490,7 @@ test.describe('collection drop page', () => {
     await expect(
       pass.getByRole('button', { name: 'Live pass code copied' })
     ).toBeVisible();
-    await expect(pass.getByText('Copied', { exact: true })).toBeVisible();
+    await expect(pass.getByText('Copied', { exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
       payload
     );

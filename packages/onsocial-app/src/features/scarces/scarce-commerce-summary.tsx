@@ -14,7 +14,7 @@ export function ScarceCommerceSummary({
   price,
 }: {
   title: string;
-  /** `#3` under the title. Omitted when this sheet is the drop, not one copy. */
+  /** `Pass #3` / `Edition #3` under the title. Omitted when this sheet is the drop. */
   mark?: string | null;
   story?: ReactNode;
   parties?: ReactNode;

@@ -27,6 +27,8 @@ export interface ScarceBuyListing {
   /** NEP-177 description — full post text when minted from a post. */
   description?: string;
   mediaUrl?: string | null;
+  /** Medium taxonomy — names Pass / Coupon / Edition on the buy line. */
+  mediumKind?: string | null;
   creatorId: string;
   /**
    * Original mint creator when this is a resale and they differ from

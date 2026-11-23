@@ -15,8 +15,8 @@ export function ScarceClipShareButton({
   mediumKind = 'audio',
   /** Drop page uses dock Post — hide the on-page Post control. */
   showFeedPost = true,
-  /** Listen row matches the Drop: Share, then Post. */
-  postAfterShare = false,
+  /** Share icon, then Post — same order as listen / Drop commerce. */
+  postAfterShare = true,
 }: {
   title: string;
   className?: string;

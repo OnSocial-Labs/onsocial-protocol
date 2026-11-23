@@ -1,15 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-data';
-import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
 import { passStaffVoice } from '@/features/scarces/ticket-pass-payload';
+import {
+  peekShowPassSchedule,
+  prefetchShowPass,
+  type ShowPassScheduleAhead,
+} from '@/features/scarces/show-pass-ahead';
 import { TicketShowPassSheet } from '@/features/scarces/ticket-show-pass-sheet';
+
+type ScheduleState = ShowPassScheduleAhead & { key: string };
 
 /**
  * Show pass over the page that opened it (Collectibles, Market).
- * Closing returns to that page. Event time and place fill in when the
- * drop record arrives; the sheet does not wait on that fetch.
+ * Closing returns to that page. Prefetch while the holding is on screen;
+ * open paints schedule from that cache — the sheet does not wait on it.
  */
 export function OwnedShowPassSheet({
   open,
@@ -27,38 +32,32 @@ export function OwnedShowPassSheet({
   tokenId: string;
 }) {
   const id = collectionId.trim();
-  const [schedule, setSchedule] = useState<{
-    key: string;
-    title: string;
-    cover: string | null;
-    eventEndsAtMs: number | null;
-    when: string | null;
-    place: string | null;
-    kind: string | null;
-  } | null>(null);
+  const peeked = peekShowPassSchedule(id);
+  const [fetched, setFetched] = useState<ScheduleState | null>(null);
+  const facts =
+    fetched?.key === id
+      ? fetched
+      : peeked
+        ? { key: id, ...peeked }
+        : null;
 
   useEffect(() => {
-    if (!open || !id) return;
+    if (!id || !tokenId.trim()) return;
     let cancelled = false;
-    void fetchCollectionPreferIndexer(id).then((view) => {
-      if (cancelled || !view) return;
-      const facts = ticketEventScheduleFacts(view, Date.now());
-      setSchedule({
-        key: id,
-        title: view.title.trim() || title,
-        cover: view.mediaUrl,
-        eventEndsAtMs: view.eventEndsAtMs,
-        when: facts.when,
-        place: facts.place,
-        kind: view.kind,
-      });
+    void prefetchShowPass({
+      collectionId: id,
+      tokenId,
+      seedTitle: title,
+      seedCover: cover,
+      revalidateStatus: open,
+    }).then((ahead) => {
+      if (cancelled || !ahead.schedule) return;
+      setFetched({ key: id, ...ahead.schedule });
     });
     return () => {
       cancelled = true;
     };
-  }, [id, open, title]);
-
-  const facts = schedule?.key === id ? schedule : null;
+  }, [cover, id, open, title, tokenId]);
 
   return (
     <TicketShowPassSheet

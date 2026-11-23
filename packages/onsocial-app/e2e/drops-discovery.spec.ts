@@ -103,7 +103,7 @@ test.describe('drops discovery', () => {
     await expectTabSelected(page, 'Drop sort', 'Live');
   });
 
-  test('cover opens the medium and title still opens the drop', async ({
+  test('row opens the drop place — thumb is not a listen/read hit', async ({
     page,
   }) => {
     await setE2eGraphDrops(page, 'covers');
@@ -121,12 +121,15 @@ test.describe('drops discovery', () => {
       true
     );
 
-    const listen = page.getByRole('button', { name: 'Listen to Night Drive' });
-    const read = page.getByRole('button', { name: 'Read Chapter One' });
-    const view = page.getByRole('button', { name: 'View Quiet Print' });
-    await expect(listen).toBeVisible();
-    await expect(read).toBeVisible();
-    await expect(view).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Listen to Night Drive' })
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Read Chapter One' })
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'View Quiet Print' })
+    ).toHaveCount(0);
     await expect(
       page.getByRole('link', { name: 'Open Night Drive' })
     ).toHaveAttribute('href', '/collection/night-drive');
@@ -136,41 +139,6 @@ test.describe('drops discovery', () => {
     await expect(
       page.getByRole('link', { name: 'Collect Chapter One' })
     ).toHaveCount(0);
-
-    await listen.click();
-    await expect(
-      page.getByRole('button', { name: 'Back from listen' })
-    ).toBeVisible();
-    await expect(page).toHaveURL(/\/drops(?:\?|$)/);
-    await page.getByRole('button', { name: 'Back from listen' }).click();
-    await expect(listen).toBeVisible();
-
-    await read.click();
-    await expect(
-      page.getByRole('button', { name: 'Back from article' })
-    ).toBeVisible();
-    await expect(page).toHaveURL(/\/drops(?:\?|$)/);
-    const shareBook = page.getByRole('button', { name: 'Share this book' });
-    await expect(shareBook).toBeVisible();
-    await page
-      .context()
-      .grantPermissions(['clipboard-read', 'clipboard-write']);
-    await shareBook.click();
-    await expect
-      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
-      .toContain('/collection/chapter-one');
-    expect(
-      await page.evaluate(() => navigator.clipboard.readText())
-    ).not.toContain('t=');
-    await page.getByRole('button', { name: 'Back from article' }).click();
-    await expect(read).toBeVisible();
-
-    await view.click();
-    const art = page.getByRole('dialog', { name: 'Quiet Print' });
-    await expect(art).toBeVisible();
-    await expect(page).toHaveURL(/\/drops(?:\?|$)/);
-    await art.getByRole('button', { name: 'Back' }).click();
-    await expect(view).toBeVisible();
 
     await page.getByRole('link', { name: 'Open Chapter One' }).click();
     await expect(page).toHaveURL(/\/collection\/chapter-one(?:\?|$)/);

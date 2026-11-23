@@ -6,7 +6,10 @@ import {
   type StandingIdentityShowHandle,
 } from '@onsocial/ui';
 import type { ProfileKind } from '@onsocial/sdk';
-import { peekPostAuthorKind } from '@/hooks/use-post-author-profiles';
+import {
+  arePostAuthorProfilesResolved,
+  peekPostAuthorKind,
+} from '@/hooks/use-post-author-profiles';
 import { accountAvatarShape } from '@/lib/account-avatar-shape';
 
 export type { StandingIdentityShowHandle };
@@ -16,11 +19,16 @@ type AppStandingIdentityProps = ComponentProps<typeof UiStandingIdentity> & {
   isDao?: boolean;
 };
 
-/** Standing row identity — applies person / org / dao avatar geometry. */
+/**
+ * Standing row identity — person / org / dao geometry.
+ * Unknown profiles use the cool grey avatar shell (never a letter flash).
+ */
 export function StandingIdentity({
   kind,
   isDao,
   shape,
+  shellLoading,
+  avatarUrl,
   ...props
 }: AppStandingIdentityProps) {
   const resolved =
@@ -30,5 +38,16 @@ export function StandingIdentity({
       kind ?? peekPostAuthorKind(props.accountId),
       isDao
     );
-  return <UiStandingIdentity {...props} shape={resolved} />;
+  const src = avatarUrl?.trim() || null;
+  const autoShell =
+    shellLoading ??
+    (!src && !arePostAuthorProfilesResolved([props.accountId]));
+  return (
+    <UiStandingIdentity
+      {...props}
+      avatarUrl={avatarUrl}
+      shape={resolved}
+      shellLoading={autoShell}
+    />
+  );
 }

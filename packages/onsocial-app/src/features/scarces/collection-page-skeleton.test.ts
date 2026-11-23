@@ -22,7 +22,8 @@ describe('CollectionPageSkeleton', () => {
     expect(html).not.toContain('collection-edition-line');
     expect(html).toContain('collection-skeleton-activity-list');
     expect(html).toContain('collection-use-actions');
-    expect(html).toContain('collection-use-actions-chassis');
+    expect(html).toContain('collection-use-actions-lead-ghost');
+    expect(html).toContain('collection-use-actions-trail-chassis');
     expect(html).not.toContain('collection-skeleton-track-list');
   });
 
@@ -39,7 +40,7 @@ describe('CollectionPageSkeleton', () => {
     expect(html).toContain('is-immersive');
     expect(html).toContain('collection-progress');
     expect(html).not.toContain('collection-skeleton-activity-list');
-    expect(html).not.toContain('has-fans-seat');
+    expect(html).toContain('has-fans-seat');
   });
 
   it('reserves love-row fans on non-audio cold shell', () => {
@@ -47,5 +48,8 @@ describe('CollectionPageSkeleton', () => {
     expect(html).toContain('has-fans-seat');
     expect(html).toContain('collection-drop-fans');
     expect(html).toContain('drops-discovery-fans-facepile');
+    expect(html).toContain('profile-avatar');
+    expect(html).toContain('is-shell-loading');
+    expect(html).not.toContain('guild-facepile-avatar-shimmer');
   });
 });

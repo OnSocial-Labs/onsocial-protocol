@@ -1,3 +1,4 @@
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import { COLLECTION_PAGE_SKELETON_CLASS } from '@/lib/os-chrome-page';
 
 /**
@@ -37,8 +38,10 @@ export function CollectionPageSkeleton({
           <div className="collection-title-row">
             <div className="collectibles-play-title-block">
               <span className="standing-row-shimmer collection-skeleton-title" />
+            </div>
+            <div className="drops-discovery-head-trail">
               {hasEdition ? (
-                <span className="standing-row-shimmer collection-skeleton-line-sm collection-edition-line" />
+                <span className="standing-row-shimmer collection-skeleton-line-sm collection-edition-trail" />
               ) : null}
             </div>
           </div>
@@ -50,43 +53,57 @@ export function CollectionPageSkeleton({
               <span className="standing-row-shimmer collection-skeleton-line-sm drops-discovery-sub" />
             </span>
           </div>
-          <div className="collection-about-seat" aria-hidden>
+          <div className="os-late-fill collection-about-seat" aria-hidden>
             <span className="standing-row-shimmer collection-about-teaser-line" />
           </div>
-          <div
-            className={`collection-commerce-actions${
-              isAudio ? '' : ' has-fans-seat'
-            }`}
-          >
-            {isAudio ? null : (
-              <span className="collection-drop-fans" aria-hidden>
-                <span className="drops-discovery-deal-fans">
-                  <span className="guild-facepile guild-facepile--stable drops-discovery-fans-facepile">
+          <div className="collection-commerce-actions has-fans-seat">
+            <span className="collection-drop-fans" aria-hidden>
+              <span className="drops-discovery-deal-fans">
+                <span className="guild-facepile guild-facepile--stable drops-discovery-fans-facepile">
+                  <span
+                    className="guild-facepile-avatars guild-facepile-avatars--slots"
+                    style={{ ['--guild-facepile-slot-count' as string]: '3' }}
+                  >
+                    <AccountAvatar
+                      size="sm"
+                      shellLoading
+                      className="guild-facepile-avatar"
+                    />
+                    <AccountAvatar
+                      size="sm"
+                      shellLoading
+                      className="guild-facepile-avatar"
+                    />
+                    <AccountAvatar
+                      size="sm"
+                      shellLoading
+                      className="guild-facepile-avatar"
+                    />
+                  </span>
+                  <span className="guild-facepile-count guild-facepile-count--slot">
                     <span
-                      className="guild-facepile-avatars guild-facepile-avatars--slots"
-                      style={{ ['--guild-facepile-slot-count' as string]: '3' }}
-                    >
-                      <span className="standing-row-shimmer guild-facepile-avatar-shimmer" />
-                      <span className="standing-row-shimmer guild-facepile-avatar-shimmer" />
-                      <span className="standing-row-shimmer guild-facepile-avatar-shimmer" />
-                    </span>
-                    <span className="guild-facepile-count guild-facepile-count--slot">
-                      <span
-                        className="standing-row-shimmer guild-facepile-count-shimmer"
-                        aria-hidden
-                      />
-                    </span>
+                      className="standing-row-shimmer guild-facepile-count-shimmer"
+                      aria-hidden
+                    />
                   </span>
                 </span>
               </span>
-            )}
+            </span>
             <div className="collection-commerce-action-icons">
+              {isAudio ? null : (
+                <span className="standing-row-shimmer collection-skeleton-icon" />
+              )}
               <span className="standing-row-shimmer collection-skeleton-icon" />
               <span className="standing-row-shimmer collection-skeleton-icon" />
             </div>
           </div>
           <div className="collection-use-actions" aria-hidden>
-            <span className="collection-use-actions-chassis" />
+            <div className="collection-reading-row">
+              <span className="collection-use-actions-lead-ghost">
+                <span className="os-row-action">Open Collectibles</span>
+              </span>
+              <span className="collection-use-actions-trail-chassis" />
+            </div>
           </div>
           <div className="collection-product-row">
             <span className="standing-row-shimmer collection-skeleton-product-line" />

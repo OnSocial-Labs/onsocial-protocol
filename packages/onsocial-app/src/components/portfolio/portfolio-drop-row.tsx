@@ -118,9 +118,7 @@ export function PortfolioDropRow({
         initial={dropInitial}
         initialCreator={dropCreator}
         className="market-listing-row-open"
-        aria-label={
-          drop.hasPlayable ? `Listen to ${drop.title}` : `Open ${drop.title}`
-        }
+        aria-label={`Open ${drop.title}`}
       />
       <div className={thumbClass} aria-hidden>
         {drop.mediaUrl ? (
@@ -128,9 +126,6 @@ export function PortfolioDropRow({
         ) : (
           <span className="market-listing-thumb-fallback" aria-hidden />
         )}
-        {drop.hasPlayable ? (
-          <span className="market-listing-thumb-play" aria-hidden />
-        ) : null}
       </div>
       <div className="drops-discovery-body">
         <div className="drops-discovery-top">

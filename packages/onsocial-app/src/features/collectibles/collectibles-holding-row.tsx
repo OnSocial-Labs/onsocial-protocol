@@ -1,13 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { formatMarketVerbStamp } from '@/features/market/market-listings';
+import {
+  collectionIdFromTokenId,
+  formatMarketVerbStamp,
+} from '@/features/market/market-listings';
 import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-data';
 import { OwnedShowPassSheet } from '@/features/scarces/owned-show-pass-sheet';
+import { prefetchShowPass } from '@/features/scarces/show-pass-ahead';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
 import {
   appendEach,
@@ -19,6 +23,7 @@ import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
 import { socialTimeProps } from '@/lib/post-display';
 import {
   heldEditionDestination,
+  holdingsPlayHref,
   type PortfolioHoldingPeek,
 } from '@/lib/portfolio-holdings';
 import { collectionCreatorFaceSeed } from '@/features/scarces/collection-creator-face';
@@ -27,7 +32,7 @@ import {
   useDropPlaceOpen,
 } from '@/features/scarces/drop-place-open';
 import { seedCollectionViewFromPeek } from '@/features/scarces/collection-page-view';
-import { collectionPath, parseInAppDropLayerHref } from '@/lib/app-routes';
+import { collectionPath } from '@/lib/app-routes';
 import { OsRowAction } from '@/lib/os-row-action';
 import { scarceRowPartyLead } from '@/lib/scarce-row-kind';
 
@@ -87,18 +92,22 @@ export function collectiblesFoldedSale(editions: readonly HoldingSalePeek[]): {
 }
 
 /**
- * Collapsed count and sale state. Kind lives on the party lead when the maker
- * face is shown; pass `omitKind` then so the fact line does not repeat it.
+ * Collapsed count, seat, and sale state on one meta line — never a second
+ * title row. Kind lives on the party lead when the maker face is shown;
+ * pass `omitKind` then so the fact line does not repeat it.
  */
 export function collectiblesHoldingFact(
-  item: Pick<PortfolioHoldingPeek, 'kindLabel'> & HoldingSalePeek,
+  item: Pick<PortfolioHoldingPeek, 'kindLabel' | 'tokenId'> & HoldingSalePeek,
   editionCount = 1,
   editions?: readonly HoldingSalePeek[],
   opts?: { omitKind?: boolean }
 ): string {
   const kind = opts?.omitKind ? '' : item.kindLabel.trim();
-  const count = quantityMark(editionCount) ?? '';
-  const parts = [kind, count];
+  const seatOrCount =
+    heldEditionRowMark(item.tokenId, editionCount) ??
+    quantityMark(editionCount) ??
+    '';
+  const parts = [kind, seatOrCount];
   if (editionCount > 1 && editions && editions.length > 1) {
     const folded = collectiblesFoldedSale(editions);
     if (folded.listedCount === 0) return parts.filter(Boolean).join(' · ');
@@ -149,12 +158,36 @@ export function CollectiblesHoldingRow({
   );
   const openDrop = useDropPlaceOpen();
   const showThumb = Boolean(item.mediaUrl) && brokenMediaUrl !== item.mediaUrl;
-  const collectionId = item.collectionId?.trim() || '';
+  // Token fallback — missing collectionId must not fall through to ?pass=1.
+  const collectionId =
+    item.collectionId?.trim() ||
+    collectionIdFromTokenId(item.tokenId) ||
+    '';
   const opensPass = isPassMediumKind(item.mediumKind) && Boolean(collectionId);
+  // Warm schedule + status so Show pass opens without late Expired / title.
+  useEffect(() => {
+    if (!opensPass || !collectionId) return;
+    void prefetchShowPass({
+      collectionId,
+      tokenId: item.tokenId,
+      seedTitle: item.title,
+      seedCover: item.mediaUrl,
+    });
+  }, [
+    collectionId,
+    item.mediaUrl,
+    item.title,
+    item.tokenId,
+    opensPass,
+  ]);
+  // Browse the drop — never ?pass=1 or the Collectibles player.
   const dropHref = collectionId ? collectionPath(collectionId) : null;
-  const opensDropPage =
-    Boolean(dropHref) &&
-    (opensPass || parseInAppDropLayerHref(item.href) != null);
+  const opensDropPage = Boolean(dropHref);
+  const playHref = holdingsPlayHref({
+    tokenId: item.tokenId,
+    collectionId,
+    mediumKind: item.mediumKind,
+  });
   const dropInitial =
     opensDropPage && collectionId
       ? seedCollectionViewFromPeek({
@@ -189,7 +222,6 @@ export function CollectiblesHoldingRow({
     mediumKind: item.mediumKind,
     audioFormat: item.audioFormat ?? null,
   });
-  const seatMark = heldEditionRowMark(item.tokenId, editionCount);
   const rowHref = opensDropPage ? dropHref : item.href;
 
   return (
@@ -236,12 +268,7 @@ export function CollectiblesHoldingRow({
       <div className="drops-discovery-body">
         <div className="drops-discovery-top">
           <div className="market-listing-head drops-discovery-head">
-            <div className="collectibles-holding-title-block">
-              <p className="market-listing-title">{item.title}</p>
-              {seatMark ? (
-                <p className="collectibles-holding-edition">{seatMark}</p>
-              ) : null}
-            </div>
+            <p className="market-listing-title">{item.title}</p>
           </div>
           <div className="market-listing-action-col drops-discovery-action-col collectibles-holding-action-col">
             <div className="drops-discovery-head-trail">
@@ -314,6 +341,14 @@ export function CollectiblesHoldingRow({
                       /* shelf byline still uses row creator / path */
                     });
                 }}
+              >
+                {item.actionLabel}
+              </OsRowAction>
+            ) : playHref ? (
+              <OsRowAction
+                href={playHref}
+                className="collectibles-holding-action"
+                aria-label={`${item.actionLabel} ${item.title}`}
               >
                 {item.actionLabel}
               </OsRowAction>

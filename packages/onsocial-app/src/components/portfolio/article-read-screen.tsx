@@ -226,7 +226,8 @@ function ArticleReadBody(
   );
 }
 
-function ArticleReadFooter({
+/** Writing / drop reader footer — commerce + like / save / reply / share. */
+export function ArticleReadFooter({
   post,
   commerce,
   onReply,

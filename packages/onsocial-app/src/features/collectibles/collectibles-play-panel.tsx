@@ -26,6 +26,7 @@ import {
 } from '@/features/scarces/collections-data';
 import { heldEditionMark } from '@/features/collectibles/held-editions';
 import { HeldEditionsSheet } from '@/features/collectibles/held-editions-sheet';
+import { peekOwnedTokenForCollection } from '@/features/scarces/collection-page-view';
 import {
   fetchOwnedScarceByTokenId,
   fetchOwnedScarceForCollection,
@@ -161,7 +162,6 @@ export function CollectiblesPlayPanel({
     searchParams.get(COLLECTIBLES_PLAY_TOKEN_PARAM)?.trim() ||
     initialTokenId?.trim() ||
     '';
-  const editionMark = tokenIdParam ? heldEditionMark(tokenIdParam) : null;
   const hasSsrLoad =
     Boolean(collectionId) &&
     initialCollectionId?.trim() === collectionId &&
@@ -372,6 +372,15 @@ export function CollectiblesPlayPanel({
     Boolean(view?.creatorId) && isConnected && !isSelf;
   const ownedItem =
     ownershipKey && ownedByKey?.key === ownershipKey ? ownedByKey.item : null;
+  /** Query `?t=` wins; held token fills the same reserved seat (never inserts a line). */
+  const faceEditionToken =
+    tokenIdParam ||
+    ownedItem?.tokenId?.trim() ||
+    peekOwnedTokenForCollection(viewerAccountId, collectionId)?.trim() ||
+    '';
+  const editionMark = faceEditionToken
+    ? heldEditionMark(faceEditionToken)
+    : null;
   /** Prefer live drop tracks so Sell keeps the same persist session as Play. */
   const sellItem = useMemo(() => {
     if (!ownedItem) return null;
@@ -388,7 +397,7 @@ export function CollectiblesPlayPanel({
     };
   }, [ownedItem, view]);
   const isListed = ownedItem != null && ownedItem.listingKind != null;
-  /** Ownership fetch in flight — reserve the Manage seat so the title does not shove. */
+  /** Ownership fetch in flight — reserve the ⋮ seat so the title does not shove. */
   const ownershipPending =
     Boolean(ownershipKey) &&
     isConnected &&
@@ -447,6 +456,8 @@ export function CollectiblesPlayPanel({
       leading={
         <OsHeaderBack fallbackHref={vaultBackHref} onBack={onHeaderBack} />
       }
+      // Header chevron only — same leave as Read / listen; no dock back.
+      dockBack={false}
       immersiveHeader={immersive}
       glassChrome={!immersive}
       scrollRootRef={scrollRootRef}
@@ -510,7 +521,7 @@ export function CollectiblesPlayPanel({
                 key={playables[0]!.url}
                 clip={playables[0]!}
                 tracks={playables}
-                poster={editionCoverUrl(view, tokenIdParam)}
+                poster={editionCoverUrl(view, faceEditionToken || null)}
                 layout="cover"
                 persist={{
                   collectionId: view.collectionId,
@@ -547,62 +558,67 @@ export function CollectiblesPlayPanel({
                 <h1 className="collectibles-play-title" ref={heroTitleRef}>
                   {view.title}
                 </h1>
+              </div>
+              <div className="drops-discovery-head-trail">
                 {editionMark ? (
-                  <p className="collectibles-play-edition">{editionMark}</p>
+                  <span className="collection-edition-trail">{editionMark}</span>
+                ) : null}
+                {sellItem || isListed || ownershipPending ? (
+                  <div
+                    className={`collection-product-manage${
+                      ownershipPending && !sellItem && !isListed
+                        ? ' is-ownership-pending'
+                        : ''
+                    }`}
+                  >
+                    {sellItem ? (
+                      <CollectiblesHoldingRowMenu
+                        item={
+                          view?.burnable === true
+                            ? { ...sellItem, burnable: true }
+                            : view?.burnable === false
+                              ? { ...sellItem, burnable: false }
+                              : sellItem
+                        }
+                        onList={() => {
+                          setActionItem(null);
+                          setSellOpen(true);
+                        }}
+                        onTransfer={() => {
+                          if (playTransferOpen(copiesForPlay) === 'picker') {
+                            setEditionPickerOpen(true);
+                            return;
+                          }
+                          setActionItem(null);
+                          setTransferOpen(true);
+                        }}
+                        onDelisted={() => {
+                          if (
+                            !ownershipKey ||
+                            !viewerAccountId ||
+                            !collectionId
+                          )
+                            return;
+                          void (async () => {
+                            const next = tokenIdParam
+                              ? await fetchOwnedScarceByTokenId(
+                                  viewerAccountId,
+                                  tokenIdParam
+                                )
+                              : await fetchOwnedScarceForCollection(
+                                  viewerAccountId,
+                                  collectionId
+                                );
+                            setOwnedByKey({ key: ownershipKey, item: next });
+                          })();
+                        }}
+                      />
+                    ) : isListed ? (
+                      <span className="collectibles-play-listed">Listed</span>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
-              {sellItem || isListed || ownershipPending ? (
-                <div
-                  className={`collection-product-manage${
-                    ownershipPending && !sellItem && !isListed
-                      ? ' is-ownership-pending'
-                      : ''
-                  }`}
-                >
-                  {sellItem ? (
-                    <CollectiblesHoldingRowMenu
-                      item={
-                        view?.burnable === true
-                          ? { ...sellItem, burnable: true }
-                          : view?.burnable === false
-                            ? { ...sellItem, burnable: false }
-                            : sellItem
-                      }
-                      trigger="label"
-                      onList={() => {
-                        setActionItem(null);
-                        setSellOpen(true);
-                      }}
-                      onTransfer={() => {
-                        if (playTransferOpen(copiesForPlay) === 'picker') {
-                          setEditionPickerOpen(true);
-                          return;
-                        }
-                        setActionItem(null);
-                        setTransferOpen(true);
-                      }}
-                      onDelisted={() => {
-                        if (!ownershipKey || !viewerAccountId || !collectionId)
-                          return;
-                        void (async () => {
-                          const next = tokenIdParam
-                            ? await fetchOwnedScarceByTokenId(
-                                viewerAccountId,
-                                tokenIdParam
-                              )
-                            : await fetchOwnedScarceForCollection(
-                                viewerAccountId,
-                                collectionId
-                              );
-                          setOwnedByKey({ key: ownershipKey, item: next });
-                        })();
-                      }}
-                    />
-                  ) : isListed ? (
-                    <span className="collectibles-play-listed">Listed</span>
-                  ) : null}
-                </div>
-              ) : null}
             </div>
 
             {offlinePlayback ? null : (

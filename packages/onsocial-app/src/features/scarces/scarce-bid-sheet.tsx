@@ -21,6 +21,8 @@ export interface ScarceBidListing {
   /** NEP-177 description — full post text when minted from a post. */
   description?: string;
   mediaUrl?: string | null;
+  /** Medium taxonomy — names Pass / Coupon / Edition on the bid line. */
+  mediumKind?: string | null;
   sellerId: string;
   sellerName?: string | null;
   artistId?: string;

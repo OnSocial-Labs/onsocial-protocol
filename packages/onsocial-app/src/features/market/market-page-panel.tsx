@@ -46,6 +46,7 @@ import { OsEmptyAction } from '@/lib/os-empty-action';
 import { OsLoadMore } from '@/lib/os-load-more';
 import { OsRowAction } from '@/lib/os-row-action';
 import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
+import { marketBrowseColdPending } from '@/features/market/market-browse-settle';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { partitionMarketListingsLiveFirst } from '@/features/market/market-listing-rank';
 import { MarketListingRow } from '@/features/market/market-listing-row';
@@ -74,7 +75,6 @@ import {
   fetchMarketSales,
   fetchOwnedScarcesPage,
   excludeOwnedNativeListings,
-  mergeOwnedYoursItems,
   ownedListedItemsFromViewerListings,
   invalidateLiveListingsCache,
   isPrimaryThoughtListing,
@@ -1332,13 +1332,12 @@ export function MarketPagePanel({
         ? 'error'
         : 'ready';
   const listings = listingsState.items;
-  const owned = useMemo(
-    () =>
-      mergeOwnedYoursItems(
-        ownedState.items,
-        ownedListedItemsFromViewerListings(listings, viewerAccountId)
-      ),
-    [listings, ownedState.items, viewerAccountId]
+  // Yours paints the vault first page only — never drip catalog-listed rows
+  // in first (that was the couple-then-rest jump).
+  const owned = ownedState.items;
+  const catalogListedOwned = useMemo(
+    () => ownedListedItemsFromViewerListings(listings, viewerAccountId),
+    [listings, viewerAccountId]
   );
   const ownedAuthorIds = useMemo(
     () =>
@@ -1353,7 +1352,13 @@ export function MarketPagePanel({
   );
   const ownedAuthorProfiles = usePostAuthorProfiles(ownedAuthorIds);
   const salesRows = sales ?? [];
-  const ownedTokenIdSet = new Set(owned.map((item) => item.tokenId));
+  // Hide own live listings from browse while the vault seat is still loading
+  // so they do not flash Manage in the catalog above an empty Yours skeleton.
+  const ownedTokenIdSet = useMemo(() => {
+    const ids = new Set(owned.map((item) => item.tokenId));
+    for (const row of catalogListedOwned) ids.add(row.tokenId);
+    return ids;
+  }, [owned, catalogListedOwned]);
   // Default All = drops + secondary. Primary thought post-mints live under Thoughts.
   const browseListings = excludeOwnedNativeListings(
     mediumFilter === 'all'
@@ -1405,7 +1410,13 @@ export function MarketPagePanel({
     setOfferLiveReady(false);
     void (async () => {
       const mine = await fetchMyOpenTokenOffers(viewerAccountId);
-      if (cancelled || mine == null) return;
+      if (cancelled) return;
+      if (mine == null) {
+        setMyOffers([]);
+        setOfferLiveTokenIds(new Set());
+        setOfferLiveReady(true);
+        return;
+      }
       setMyOffers(mine);
       const live = await fetchLiveListingTokenIds(
         mine.map((offer) => offer.tokenId)
@@ -1582,6 +1593,7 @@ export function MarketPagePanel({
           mediaUrl: item.mediaUrl,
           sellerId: item.creatorId,
           priceNear: item.priceNear,
+          ...(item.mediumKind ? { mediumKind: item.mediumKind } : {}),
           ...(item.artistId?.trim() ? { artistId: item.artistId.trim() } : {}),
           ...(item.sourcePostPath
             ? { sourcePostPath: item.sourcePostPath }
@@ -1605,6 +1617,7 @@ export function MarketPagePanel({
           ...(item.description ? { description: item.description } : {}),
           mediaUrl: item.mediaUrl,
           creatorId: item.creatorId,
+          ...(item.mediumKind ? { mediumKind: item.mediumKind } : {}),
           ...(listingCollectionId ? { collectionId: listingCollectionId } : {}),
           ...(item.artistId?.trim() ? { artistId: item.artistId.trim() } : {}),
           ...(item.cardBg ? { cardBg: item.cardBg } : {}),
@@ -1631,6 +1644,7 @@ export function MarketPagePanel({
         ...(item.description ? { description: item.description } : {}),
         mediaUrl: item.mediaUrl,
         creatorId: item.creatorId,
+        ...(item.mediumKind ? { mediumKind: item.mediumKind } : {}),
         ...(listingCollectionId ? { collectionId: listingCollectionId } : {}),
         ...(item.artistId?.trim() ? { artistId: item.artistId.trim() } : {}),
         ...(item.cardBg ? { cardBg: item.cardBg } : {}),
@@ -1665,6 +1679,7 @@ export function MarketPagePanel({
         title: drop.title,
         mediaUrl: drop.mediaUrl,
         creatorId: creatorFilter,
+        ...(drop.mediumKind ? { mediumKind: drop.mediumKind } : {}),
         ...(drop.totalSupply > 0 ? { copies: drop.totalSupply } : {}),
         ...(drop.remaining >= 0 ? { remaining: drop.remaining } : {}),
         alreadyOwnsEdition: alreadyOwns,
@@ -1951,7 +1966,19 @@ export function MarketPagePanel({
   }, [visibleSales]);
   const saleProfiles = usePostAuthorProfiles(salePartyIds);
   const saleFacesReady = arePostAuthorProfilesResolved(salePartyIds);
-
+  const salesSettled = sales !== null;
+  const ownedSettled =
+    !walletLoading && (!viewerAccountId || ownedState.loaded);
+  const browseColdPending = marketBrowseColdPending({
+    listingsReady,
+    salesSettled,
+    ownedSettled,
+  });
+  // Rows already on screen stay painted — never flip back to a full-page
+  // skeleton when params/refresh briefly unset `listingsReady`.
+  const hasPaintedRows = listings.length > 0;
+  // Cold empty only: hold one skeleton until browse + Yours + sales settle.
+  // Once any listing row exists, keep it and reserve section seats below.
   const shouldShowListSkeleton = creatorFilter
     ? creatorShopShell === 'skeleton'
     : listingsState.items.length === 0 &&
@@ -1960,11 +1987,7 @@ export function MarketPagePanel({
       (status === 'loading' ||
         !listingsReady ||
         catalogRefreshing ||
-        (!creatorFilter &&
-          !appFilter &&
-          browseListings.length === 0 &&
-          (walletLoading || (Boolean(viewerAccountId) && !ownedState.loaded))));
-  const hasPaintedRows = listings.length > 0;
+        browseColdPending);
   const loadingPresentation = loadingMore
     ? resolveAppLoadingPresentation('appending', { hasPaintedRows })
     : shouldShowListSkeleton
@@ -1978,16 +2001,16 @@ export function MarketPagePanel({
   const errorPresentation = listingsError
     ? resolveAppLoadingPresentation('error', { hasPaintedRows })
     : null;
-  // Yours stays independent (vault must not wait on browse/sales). When the
-  // empty-listings hint is still undecided, reserve its line box so it cannot
-  // shove Yours/sales after they paint.
+  // Soft-nav with painted browse: reserve Yours / sales seats so they cannot
+  // shove the list after the cold skeleton already left.
   const showOwnedLoadingSeat =
     Boolean(viewerAccountId) &&
     !ownedState.loaded &&
     owned.length === 0 &&
     !searching &&
     !creatorFilter &&
-    !appFilter;
+    !appFilter &&
+    !showListSkeleton;
   const showOwnedSection =
     Boolean(viewerAccountId) &&
     owned.length > 0 &&
@@ -2004,6 +2027,13 @@ export function MarketPagePanel({
     !appFilter;
   const showSalesSection =
     salesRows.length > 0 && !searching && !creatorFilter && !appFilter;
+  const reserveSalesSeat =
+    !showListSkeleton &&
+    !showSalesSection &&
+    !searching &&
+    !creatorFilter &&
+    !appFilter &&
+    !salesSettled;
   const showNoActiveListingsHint =
     status === 'ready' &&
     listingsReady &&
@@ -2042,8 +2072,10 @@ export function MarketPagePanel({
   const showMarketListBody =
     discoveryFilteredListings.length > 0 ||
     showOwnedSection ||
+    showOwnedLoadingSeat ||
     showMyOffersSection ||
     showSalesSection ||
+    reserveSalesSeat ||
     loadMoreFailed ||
     (clientDiscoveryFilterActive &&
       listingsState.hasMore &&
@@ -2113,6 +2145,7 @@ export function MarketPagePanel({
         title: meta.title,
         mediaUrl: meta.mediaUrl,
         ownerId,
+        ...(listing?.mediumKind ? { mediumKind: listing.mediumKind } : {}),
         existingAmountNear: offer.amountNear,
         ...(listing?.priceNear ? { askNear: listing.priceNear } : {}),
       });
@@ -2470,53 +2503,59 @@ export function MarketPagePanel({
                 </OsRowAction>
               ) : null}
             </div>
-            <div ref={ownedListRef} className="market-listing-list" role="list">
-              {ownedWindow.windowed && ownedWindow.topSpacer > 0 ? (
-                <div
-                  style={{ height: ownedWindow.topSpacer }}
-                  aria-hidden="true"
-                  data-feed-window-spacer="top"
-                />
-              ) : null}
-              {owned.slice(ownedWindow.start, ownedWindow.end).map((item) => {
-                const offerSummary = offerByToken.get(item.tokenId);
-                const authorId = ownedAuthorAccountId(item);
-                const author = authorId
-                  ? ownedAuthorProfiles[authorId]
-                  : undefined;
-                return (
+            {showOwnedLoadingSeat ? (
+              <MarketListSkeleton rows={2} />
+            ) : (
+              <div ref={ownedListRef} className="market-listing-list" role="list">
+                {ownedWindow.windowed && ownedWindow.topSpacer > 0 ? (
                   <div
-                    key={item.tokenId}
-                    ref={ownedWindow.registerRow(item.tokenId)}
-                    data-catalog-key={item.tokenId}
-                  >
-                    <MarketOwnedRow
-                      item={item}
-                      nowMs={nowMs}
-                      authorDisplayName={author?.displayName}
-                      authorAvatarUrl={author?.avatarUrl}
-                      highestOfferNear={offerSummary?.highestAmountNear ?? null}
-                      offerCount={offerSummary?.offerCount ?? 0}
-                      settlePending={settleTokenId === item.tokenId}
-                      onSell={setSellItem}
-                      onTransfer={setTransferItem}
-                      onChanged={handleListed}
-                      onOffers={setOffersItem}
-                      onSettle={(row) => {
-                        void handleSettleOwned(row);
-                      }}
-                    />
-                  </div>
-                );
-              })}
-              {ownedWindow.windowed && ownedWindow.bottomSpacer > 0 ? (
-                <div
-                  style={{ height: ownedWindow.bottomSpacer }}
-                  aria-hidden="true"
-                  data-feed-window-spacer="bottom"
-                />
-              ) : null}
-            </div>
+                    style={{ height: ownedWindow.topSpacer }}
+                    aria-hidden="true"
+                    data-feed-window-spacer="top"
+                  />
+                ) : null}
+                {owned.slice(ownedWindow.start, ownedWindow.end).map((item) => {
+                  const offerSummary = offerByToken.get(item.tokenId);
+                  const authorId = ownedAuthorAccountId(item);
+                  const author = authorId
+                    ? ownedAuthorProfiles[authorId]
+                    : undefined;
+                  return (
+                    <div
+                      key={item.tokenId}
+                      ref={ownedWindow.registerRow(item.tokenId)}
+                      data-catalog-key={item.tokenId}
+                    >
+                      <MarketOwnedRow
+                        item={item}
+                        nowMs={nowMs}
+                        authorDisplayName={author?.displayName}
+                        authorAvatarUrl={author?.avatarUrl}
+                        highestOfferNear={
+                          offerSummary?.highestAmountNear ?? null
+                        }
+                        offerCount={offerSummary?.offerCount ?? 0}
+                        settlePending={settleTokenId === item.tokenId}
+                        onSell={setSellItem}
+                        onTransfer={setTransferItem}
+                        onChanged={handleListed}
+                        onOffers={setOffersItem}
+                        onSettle={(row) => {
+                          void handleSettleOwned(row);
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+                {ownedWindow.windowed && ownedWindow.bottomSpacer > 0 ? (
+                  <div
+                    style={{ height: ownedWindow.bottomSpacer }}
+                    aria-hidden="true"
+                    data-feed-window-spacer="bottom"
+                  />
+                ) : null}
+              </div>
+            )}
             {ownedLoadingMore ? (
               <div className="list-append-pending">
                 <PulsingDots size="sm" label="Loading more" />
@@ -2570,12 +2609,20 @@ export function MarketPagePanel({
           </section>
         ) : null}
 
-        {showSalesSection ? (
-          <section className="market-section" aria-labelledby="market-sales">
+        {showSalesSection || reserveSalesSeat ? (
+          <section
+            className="market-section"
+            aria-labelledby="market-sales"
+            aria-busy={
+              reserveSalesSeat || (showSalesSection && !saleFacesReady)
+                ? true
+                : undefined
+            }
+          >
             <h2 id="market-sales" className="market-section-title">
               Recent sales
             </h2>
-            {saleFacesReady ? (
+            {showSalesSection && saleFacesReady ? (
               <ul className="market-sales-list">
                 {visibleSales.map((sale, index) => {
                   const partyId = salePartyAccountId(sale);
@@ -2592,16 +2639,22 @@ export function MarketPagePanel({
               </ul>
             ) : (
               <MarketListSkeleton
-                rows={Math.min(visibleSales.length, 8)}
+                rows={
+                  showSalesSection
+                    ? Math.min(visibleSales.length, 8)
+                    : 3
+                }
                 variant="drops"
               />
             )}
-            {hiddenSalesCount > 0 ? (
+            {showSalesSection && hiddenSalesCount > 0 ? (
               <OsLoadMore onClick={() => setSalesExpanded(true)}>
                 Show {hiddenSalesCount} more
               </OsLoadMore>
             ) : null}
-            {salesExpanded && salesRows.length > RECENT_SALES_PREVIEW ? (
+            {showSalesSection &&
+            salesExpanded &&
+            salesRows.length > RECENT_SALES_PREVIEW ? (
               <OsLoadMore onClick={() => setSalesExpanded(false)}>
                 Show less
               </OsLoadMore>
@@ -2707,6 +2760,9 @@ export function MarketPagePanel({
                   title: listing.title,
                   mediaUrl: listing.mediaUrl,
                   ownerId: listing.creatorId,
+                  ...(listing.mediumKind
+                    ? { mediumKind: listing.mediumKind }
+                    : {}),
                   askNear: listing.priceNear,
                   ...(detail?.amountNear
                     ? { existingAmountNear: detail.amountNear }

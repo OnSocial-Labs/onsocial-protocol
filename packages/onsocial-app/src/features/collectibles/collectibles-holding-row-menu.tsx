@@ -8,8 +8,6 @@ import {
   EditPenIcon,
   FireIcon,
   OsActionDrawerConfirm,
-  OsSheetAction,
-  OsSheetActions,
   replaceSheet,
   ShopIcon,
   TagIcon,
@@ -110,8 +108,6 @@ interface CollectiblesHoldingRowMenuProps {
   onList: () => void;
   onTransfer?: () => void;
   onDelisted?: () => void;
-  /** Text Manage control. Vault rows keep the dots trigger. */
-  trigger?: 'icon' | 'label';
   /** Hide when this menu is already open on Market. */
   showOpenInMarket?: boolean;
 }
@@ -122,7 +118,6 @@ export function CollectiblesHoldingRowMenu({
   onList,
   onTransfer,
   onDelisted,
-  trigger = 'icon',
   showOpenInMarket = true,
 }: CollectiblesHoldingRowMenuProps) {
   const { getSigningWallet } = useAppWallet();
@@ -486,41 +481,20 @@ export function CollectiblesHoldingRowMenu({
         open ? ' is-open' : ''
       }`}
     >
-      {trigger === 'label' ? (
-        <OsSheetActions
-          layout="row-compact"
-          tone="frosted-primary"
-          size="sm"
-          borderless
-          className="collectibles-play-sell-action"
-        >
-          <OsSheetAction
-            type="button"
-            variant="primary"
-            ready
-            aria-haspopup="dialog"
-            aria-expanded={open}
-            onClick={() => setOpen(true)}
-          >
-            Manage
-          </OsSheetAction>
-        </OsSheetActions>
-      ) : (
-        <button
-          type="button"
-          className={`post-card-menu-trigger${open ? ' is-open' : ''}`}
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            setOpen(true);
-          }}
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          aria-label={`Manage ${title}`}
-        >
-          <DotsVerticalIcon className="post-card-menu-icon" aria-hidden />
-        </button>
-      )}
+      <button
+        type="button"
+        className={`post-card-menu-trigger${open ? ' is-open' : ''}`}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setOpen(true);
+        }}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={`Manage ${title}`}
+      >
+        <DotsVerticalIcon className="post-card-menu-icon" aria-hidden />
+      </button>
 
       <ActionDrawer
         open={open}

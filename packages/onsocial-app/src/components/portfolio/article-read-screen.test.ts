@@ -37,6 +37,10 @@ describe('article reader core', () => {
     expect(feed).toContain('engagement');
     expect(feed).toContain('commerce');
   });
+
+  it('exports ArticleReadFooter for the drop writing overlay', () => {
+    expect(screen).toContain('export function ArticleReadFooter');
+  });
 });
 
 describe('writing list to article', () => {

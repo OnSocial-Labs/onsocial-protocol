@@ -5,6 +5,7 @@ import { HeldEditionList } from '@/features/collectibles/held-editions-sheet';
 import {
   heldEditionFactRows,
   heldCopySuccessLine,
+  heldEditionDrawerLine,
   heldEditionLabel,
   heldEditionListedState,
   heldEditionMark,
@@ -47,6 +48,16 @@ describe('held editions', () => {
     expect(heldEditionLabel('s:post')).toBe('Edition');
     expect(heldEditionLabel('night-drive:4')).not.toContain('night-drive');
     expect(heldEditionLabel('gate:2', 'ticket')).not.toContain('gate');
+  });
+
+  it('names a commerce drawer seat only when the seat is known', () => {
+    expect(heldEditionDrawerLine('gate:2', 'ticket')).toBe('Pass #2');
+    expect(heldEditionDrawerLine('gate:2', 'membership')).toBe('Pass #2');
+    expect(heldEditionDrawerLine('save:3', 'coupon')).toBe('Coupon #3');
+    expect(heldEditionDrawerLine('night-drive:4', 'audio')).toBe('Edition #4');
+    expect(heldEditionDrawerLine('night-drive:4')).toBe('Edition #4');
+    expect(heldEditionDrawerLine('s:post', 'ticket')).toBeNull();
+    expect(heldEditionDrawerLine('s:post')).toBeNull();
   });
 
   it('names the seat on a success line only when that copy is known', () => {

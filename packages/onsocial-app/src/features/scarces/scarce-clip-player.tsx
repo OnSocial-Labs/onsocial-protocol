@@ -152,6 +152,11 @@ interface ScarceClipPlayerProps {
   /** Save-to-device / offline download chrome. Drop page leaves this to play. */
   showDownloads?: boolean;
   /**
+   * Album fans facepile in player chrome. Drop face keeps fans in the
+   * commerce seat — pass false so the track list does not duplicate them.
+   */
+  showAlbumFans?: boolean;
+  /**
    * Open full-screen listen immediately and hide the compact cover shell
    * (post-origin enlarge). Closing listen calls `onListenClose`.
    */
@@ -243,6 +248,7 @@ export function ScarceClipPlayer({
   showFeedPost = true,
   showShare = true,
   showDownloads = true,
+  showAlbumFans = true,
   immersiveListen = false,
   feedEnlarge = false,
   faceOpen = true,
@@ -591,7 +597,7 @@ export function ScarceClipPlayer({
   });
   const facepileIds = loves.fanIds.slice(0, 5);
   const facepileProfiles = usePostAuthorProfiles(facepileIds);
-  const showFansFacepile = loves.fanCount > 0;
+  const showFansFacepile = showAlbumFans && loves.fanCount > 0;
   const fansFacepile = showFansFacepile ? (
     <GuildFacepile
       memberIds={facepileIds}

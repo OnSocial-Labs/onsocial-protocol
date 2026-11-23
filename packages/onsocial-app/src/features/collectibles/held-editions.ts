@@ -28,14 +28,14 @@ export function heldEditionNoun(mediumKind?: string | null): string {
   return 'Edition';
 }
 
-/** `#41` — the seat, under a title that is already on screen. */
+/** `#41` — the seat on the fact / meta line. */
 export function heldEditionMark(tokenId: string): string | null {
   const seat = editionSeatFromTokenId(tokenId);
   return seat != null ? `#${seat}` : null;
 }
 
 /**
- * Hash under a collectibles title. Several copies of one drop stay a count,
+ * Seat on a single-copy row’s fact line. Several copies stay a count (`×3`),
  * so the row does not pretend one seat is the holding.
  */
 export function heldEditionRowMark(
@@ -54,6 +54,18 @@ export function heldEditionLabel(
   const noun = heldEditionNoun(mediumKind);
   const mark = heldEditionMark(tokenId);
   return mark ? `${noun} ${mark}` : noun;
+}
+
+/**
+ * Named seat under a commerce title (Buy / Sell / Transfer / Offer / Bid).
+ * Null when there is no seat — never a bare noun without a number.
+ */
+export function heldEditionDrawerLine(
+  tokenId: string,
+  mediumKind?: string | null
+): string | null {
+  if (!heldEditionMark(tokenId)) return null;
+  return heldEditionLabel(tokenId, mediumKind);
 }
 
 /**

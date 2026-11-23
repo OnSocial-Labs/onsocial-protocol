@@ -22,7 +22,10 @@ import { usePathname } from 'next/navigation';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { AccountPlaceLink } from '@/components/portfolio/account-place-link';
 import { PortfolioWritingCover } from '@/components/portfolio/portfolio-writing-cover';
-import { ARTICLE_READ_CLASS } from '@/components/portfolio/article-read-screen';
+import {
+  ARTICLE_READ_CLASS,
+  ArticleReadFooter,
+} from '@/components/portfolio/article-read-screen';
 import { ArticleReadProgress } from '@/components/portfolio/article-read-progress';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -36,11 +39,16 @@ import {
 } from '@/features/scarces/collections-data';
 import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
 import {
+  peekDropRead,
+  prefetchDropRead,
+} from '@/features/scarces/drop-read-ahead';
+import {
   isWritingPdfMime,
   writingReaderKindLabel,
   type ScarceReadableMedia,
   type WritingReleaseFormat,
 } from '@/features/scarces/drop-writing';
+import type { PostRow } from '@onsocial/sdk';
 import { useOsInAppHrefs } from '@/components/providers/os-face-leave-provider';
 import {
   authorWritingShelfHref,
@@ -468,6 +476,10 @@ export function WritingReadSheet({
   /** Writing is public. A caller passes false only to show `lockedHint`. */
   canRead?: boolean;
   lockedHint?: string;
+  /**
+   * Feed passes post chrome. Drop / Collectibles omit it — we fill the same
+   * ArticleReadFooter once the source essay is known.
+   */
   footer?: ReactNode;
   /** Feed reply drawer. A Drop or profile reader leaves these unset. */
   threadOpen?: boolean;
@@ -499,6 +511,9 @@ export function WritingReadSheet({
   const [hydratedSourcePostPath, setHydratedSourcePostPath] = useState<
     string | null
   >(null);
+  const [essay, setEssay] = useState<PostRow | null>(
+    () => peekDropRead(collectionId)?.essay ?? null
+  );
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -511,6 +526,7 @@ export function WritingReadSheet({
       setHydratedPublishedAt(null);
       setHydratedCreatorId(null);
       setHydratedSourcePostPath(null);
+      setEssay(peekDropRead(collectionId)?.essay ?? null);
     }
   }
 
@@ -522,6 +538,37 @@ export function WritingReadSheet({
   const bookPdf = bookPdfProp ?? hydratedBookPdf;
   const writingFormat = writingFormatProp ?? hydratedWritingFormat;
   const textAlign = textAlignProp ?? hydratedTextAlign;
+
+  useEffect(() => {
+    if (!open || footer != null) return;
+    const path = shelfSourcePostPath?.trim() || null;
+    if (!path) return;
+    const peeked = peekDropRead(collectionId)?.essay ?? null;
+    if (peeked) {
+      setEssay(peeked);
+      return;
+    }
+    let cancelled = false;
+    void prefetchDropRead({
+      collectionId,
+      meta: {
+        writingFormat: writingFormat ?? null,
+        sourcePostPath: path,
+      },
+    }).then((ahead) => {
+      if (cancelled || !ahead.essay) return;
+      setEssay(ahead.essay);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    open,
+    footer,
+    collectionId,
+    shelfSourcePostPath,
+    writingFormat,
+  ]);
 
   useEffect(() => {
     if (!open) return;
@@ -587,7 +634,11 @@ export function WritingReadSheet({
     (publishedAt && publishedAt > 0 ? publishedAt : null) ??
     hydratedPublishedAt;
   const connectLocked = !canRead && !isConnected;
-  const showPostFooter = Boolean(footer) && !connectLocked;
+  const articleFooter =
+    footer == null && essay && !connectLocked ? (
+      <ArticleReadFooter post={essay} />
+    ) : null;
+  const postFooter = footer != null && !connectLocked ? footer : articleFooter;
   const connectFooter = connectLocked ? (
     <OsSheetFooter>
       <OsSheetActions layout="stack" tone="frosted-primary" borderless>
@@ -605,7 +656,7 @@ export function WritingReadSheet({
       </OsSheetActions>
     </OsSheetFooter>
   ) : null;
-  const resolvedFooter = connectFooter ?? (showPostFooter ? footer : null);
+  const resolvedFooter = connectFooter ?? postFooter;
   const showWakeFooter = Boolean(resolvedFooter) && wakeFooter && !writePinned;
   const requestClose = useCallback(() => {
     if (threadOpen) {

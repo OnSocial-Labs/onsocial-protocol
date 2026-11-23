@@ -198,8 +198,27 @@ export function toPortfolioHoldingPeek(
 }
 
 /**
- * Where an owned scarce should open.
- * - Drop editions → Collectibles player / collection page
+ * Focused Collectibles player for audio / video — Play / Watch action only.
+ * Thumb and row browse use {@link holdingsHrefForOwned} (the drop).
+ */
+export function holdingsPlayHref(item: {
+  tokenId: string;
+  collectionId?: string | null;
+  mediumKind?: string | null;
+}): string | null {
+  const collectionId =
+    item.collectionId?.trim() || collectionIdFromTokenId(item.tokenId);
+  const medium = (item.mediumKind ?? '').trim().toLowerCase();
+  if (!collectionId) return null;
+  if (isAudioMediumKind(medium) || medium === 'video') {
+    return collectiblesPlayPath(collectionId, { tokenId: item.tokenId });
+  }
+  return null;
+}
+
+/**
+ * Where an owned scarce should open from the thumb / row.
+ * - Drop editions → collection page (Play / Read / Show pass stay on actions)
  * - Post scarces (`s:…`) → source post thread (same as Market listings)
  * - Never `/market` (same-page dead click that remounts and kills bg audio)
  */
@@ -214,10 +233,6 @@ export function holdingsHrefForOwned(item: {
   const collectionId =
     item.collectionId?.trim() || collectionIdFromTokenId(item.tokenId);
   const medium = (item.mediumKind ?? '').trim().toLowerCase();
-  // Audio / video holdings open the focused Collectibles player.
-  if (collectionId && (isAudioMediumKind(medium) || medium === 'video')) {
-    return collectiblesPlayPath(collectionId, { tokenId: item.tokenId });
-  }
   // Tickets / memberships / coupons: shareable drop deep link.
   // Collectibles and Market open the pass overlay on the current page.
   if (
@@ -238,12 +253,14 @@ export function holdingsHrefForOwned(item: {
 }
 
 /**
- * Open one edition. Play and pass links already name the token.
+ * Open one edition. Play / Watch name the player; pass links name the token.
  * Other drops use `?t=` so the page can show that edition's image.
  */
 export function heldEditionHref(
   item: Parameters<typeof holdingsHrefForOwned>[0]
 ): string | null {
+  const play = holdingsPlayHref(item);
+  if (play) return play;
   const href = holdingsHrefForOwned(item);
   if (!href) return null;
   if (/[?&]t=/.test(href)) return href;
@@ -296,11 +313,12 @@ export type HeldEditionDestination =
   | { type: 'pass' }
   | { type: 'article'; href: string }
   | { type: 'reader' }
+  | { type: 'play'; href: string }
   | { type: 'href'; href: string | null };
 
 /**
  * What one chosen copy should do. Passes stay on the page.
- * Read opens the reader. Play, Watch, and Open follow the copy's link.
+ * Read opens the reader. Play / Watch open the player. Open follows the drop.
  */
 export function heldEditionDestination(
   item: Parameters<typeof holdingsHrefForOwned>[0]
@@ -320,6 +338,8 @@ export function heldEditionDestination(
   ) {
     return { type: 'reader' };
   }
+  const play = holdingsPlayHref(item);
+  if (play) return { type: 'play', href: play };
   return { type: 'href', href: heldEditionHref(item) };
 }
 

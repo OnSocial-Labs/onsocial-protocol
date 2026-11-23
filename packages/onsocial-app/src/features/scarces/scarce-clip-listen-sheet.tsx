@@ -357,7 +357,6 @@ export function ScarceClipListenSheet({
                   collectionId={shareCollectionId}
                   mediaUrl={shareMediaUrl}
                   mediumKind="audio"
-                  postAfterShare
                 />
               ) : null}
             </div>

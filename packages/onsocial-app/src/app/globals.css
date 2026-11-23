@@ -2599,87 +2599,6 @@ button.post-media-tile {
 }
 
 /*
- * Play title Sell / Drop Manage — hug width; size="sm" owns height/padding.
- * Green commerce ink stays app-surface only (not a UI brand tone).
- */
-.collectibles-play-sell-action.os-sheet-actions--row-compact {
-  flex-shrink: 0;
-  width: auto;
-  min-width: 0;
-  gap: 0;
-  align-items: center;
-}
-
-.collectibles-play-sell-action.os-sheet-actions--row-compact .os-sheet-action,
-.collectibles-play-sell-action.os-sheet-actions--row-compact
-  .os-sheet-action--primary {
-  flex: 0 0 auto;
-  width: auto;
-  min-width: 0;
-  border-radius: 9999px;
-  box-shadow: none;
-}
-
-.collectibles-play-sell-action.os-sheet-actions--borderless
-  .os-sheet-action__shell {
-  width: auto;
-}
-
-.collectibles-play-sell-action
-  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
-.collectibles-play-sell-action
-  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover {
-  border-color: rgb(var(--fg-rgb) / 0.12);
-  background: rgb(var(--fg-rgb) / 0.07);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  box-shadow: none;
-  color: var(--protocol-green-ink, var(--protocol-green));
-}
-
-.collectibles-play-sell-action
-  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover {
-  border-color: rgb(var(--fg-rgb) / 0.16);
-  background: rgb(var(--fg-rgb) / 0.1);
-  color: var(
-    --protocol-green-ink,
-    var(--protocol-green-hover, var(--protocol-green))
-  );
-}
-
-/*
- * Drop page Manage — same Sell family, but height-locked to bookmark / share
- * (1.35rem) so owner ↔ viewer wallet switches don’t jump the product line.
- */
-.collection-product-manage
-  .collectibles-play-sell-action.os-sheet-actions--row-compact
-  .os-sheet-action,
-.collection-product-manage
-  .collectibles-play-sell-action.os-sheet-actions--row-compact
-  .os-sheet-action--primary {
-  box-sizing: border-box;
-  height: 1.35rem;
-  min-height: 1.35rem;
-  padding: 0 0.62rem;
-  font-size: var(--os-control-label-sm-size, var(--os-stamp-size, 0.75rem));
-  line-height: 1;
-}
-
-.collection-product-manage
-  .collectibles-play-sell-action.os-sheet-actions--borderless
-  .os-sheet-action__shell {
-  height: 100%;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.collection-product-manage .os-sheet-action__label {
-  line-height: 1;
-}
-
-/*
  * Drop page Aa / thought card — unlayered so it beats immersive bleed.
  * Inset object under immersive nav (same title handoff as album player).
  */
@@ -27144,7 +27063,7 @@ a.os-surface-row,
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 0.4rem;
+    gap: 0.55rem;
     margin: 0.15rem 0 0;
   }
 
@@ -27846,14 +27765,14 @@ a.os-surface-row,
   .scarce-clip-share-cluster {
     display: inline-flex;
     align-items: center;
-    gap: 0.2rem;
+    gap: 0.55rem;
   }
 
   .scarce-clip-post-feed-label {
     font-size: var(--os-stamp-size, 0.75rem);
     font-weight: 600;
     line-height: 1;
-    padding: 0 0.15rem;
+    padding: 0;
   }
 
   .scarce-clip-listen-share.media-download-control {
@@ -28442,13 +28361,23 @@ a.os-surface-row,
     line-height: 1.25;
   }
 
-  .collectibles-play-edition,
   .collection-edition-line {
     margin: 0.2rem 0 0;
     font-size: var(--os-identity-meta-size, 0.875rem);
     font-weight: 600;
     font-variant-numeric: normal;
     color: rgb(var(--fg-rgb) / 0.62);
+  }
+
+  /* #N in the title trail — same row as the clock, never a line under the title. */
+  .collection-edition-trail {
+    margin: 0;
+    font-size: var(--os-stamp-size, 0.75rem);
+    font-weight: 600;
+    font-variant-numeric: normal;
+    line-height: 1;
+    color: rgb(var(--fg-rgb) / 0.62);
+    white-space: nowrap;
   }
 
   .collectibles-play-creator {
@@ -28728,20 +28657,6 @@ a.os-surface-row,
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
-  }
-
-  .collectibles-holding-title-block {
-    min-width: 0;
-    flex: 1;
-  }
-
-  .collectibles-holding-edition {
-    margin: 0.08rem 0 0;
-    font-size: var(--os-stamp-size, 0.75rem);
-    font-weight: 600;
-    font-variant-numeric: normal;
-    letter-spacing: 0.01em;
-    color: rgb(var(--fg-rgb) / 0.62);
   }
 
   .collectibles-holding-row .market-listing-meta {
@@ -29449,11 +29364,19 @@ a.os-surface-row,
     gap: 0.75rem;
   }
 
-  .collection-meta-series {
+  /* Latched series keeps this seat; fill never grows the face under CTAs. */
+  .collection-meta-series-seat {
     display: block;
     max-width: calc(100% - 1.75rem);
+    min-height: calc(var(--os-stamp-size, 0.75rem) * 1.3);
     margin-top: 0.12rem;
     margin-left: calc(1.35rem + 0.4rem);
+  }
+
+  .collection-meta-series {
+    display: block;
+    max-width: 100%;
+    margin: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -29898,9 +29821,10 @@ a.os-surface-row,
     height: 1.35rem;
   }
 
-  /* Play title — hold Manage width while ownership resolves (same seat as endorse CTA). */
+  /* Play title — hold ⋮ hit while ownership resolves. */
   .collectibles-play-title-row .collection-product-manage.is-ownership-pending {
-    min-width: 5.25rem;
+    min-width: var(--os-menu-hit-size, 1.35rem);
+    min-height: var(--os-menu-hit-size, 1.35rem);
   }
 
   .drop-cancel-field {
@@ -30106,15 +30030,40 @@ a.os-surface-row,
     min-height: 2rem;
   }
 
+  .collection-use-actions-trail-chassis {
+    display: block;
+    visibility: hidden;
+    min-width: 3.25rem;
+    min-height: 2rem;
+  }
+
+  /* Same footprint as Open Collectibles so Read / Play never slide when wallet lands. */
+  .collection-use-actions-lead-ghost {
+    display: inline-flex;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  /* Show pass / Read / Play ghost while hold is unknown — same box as the real trail. */
+  .collection-use-actions-trail-ghost {
+    display: inline-flex;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .collection-use-actions-lead-fill {
+      animation: glass-sheet-appear var(--os-motion-appear, 280ms)
+        var(--os-motion-ease-standard, ease) both;
+    }
+  }
+
+  /* Final holder row height from frame 1 — no is-use-first min-height flip. */
   .collection-reading-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    min-height: 1.45rem;
-  }
-
-  .collection-page.is-use-first .collection-reading-row {
     min-height: 2rem;
   }
 
@@ -30958,7 +30907,8 @@ a.os-surface-row,
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: safe center;
+    /* Top-anchor — vertical center reflows the whole pass as seats fill. */
+    justify-content: flex-start;
     width: 100%;
     min-height: 100%;
     height: auto;
@@ -30995,6 +30945,15 @@ a.os-surface-row,
     margin: 0.35rem 0 0;
   }
 
+  .ticket-show-pass-mark-seat {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 4.5rem;
+    height: 4.5rem;
+  }
+
   .ticket-show-pass-mark-btn {
     margin: 0;
     padding: 0;
@@ -31024,6 +30983,7 @@ a.os-surface-row,
   .ticket-show-pass-when {
     margin: 0.2rem 0 0;
     max-width: 100%;
+    min-height: calc(var(--os-stamp-size, 0.75rem) * 1.3);
     flex-shrink: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -31033,6 +30993,11 @@ a.os-surface-row,
     font-weight: 500;
     line-height: 1.3;
     color: rgb(var(--fg-rgb) / 0.62);
+  }
+
+  .ticket-show-pass-when.is-reserved {
+    visibility: hidden;
+    pointer-events: none;
   }
 
   .ticket-show-pass-name {
@@ -31087,6 +31052,20 @@ a.os-surface-row,
     box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
   }
 
+  /* Live code — same tap-to-enlarge path as the pass mark cover. */
+  button.ticket-show-pass-qr--zoom {
+    padding: 0;
+    border: 0;
+    font: inherit;
+    color: inherit;
+    cursor: zoom-in;
+  }
+
+  button.ticket-show-pass-qr--zoom:focus-visible {
+    outline: 2px solid var(--signal-reputation, var(--protocol-green));
+    outline-offset: 3px;
+  }
+
   .ticket-show-pass-qr-code {
     width: 100%;
     height: 100%;
@@ -31095,6 +31074,30 @@ a.os-surface-row,
   }
 
   .ticket-show-pass-qr svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Door scan — fill the DropArtOverlay square with the white plate. */
+  .ticket-show-pass-qr-zoom {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    background: #fff;
+    border-radius: 0.75rem;
+    overflow: hidden;
+  }
+
+  .ticket-show-pass-qr-zoom-code {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .ticket-show-pass-qr-zoom svg {
     display: block;
     width: 100%;
     height: 100%;
@@ -31109,6 +31112,18 @@ a.os-surface-row,
     line-height: 1.35;
     /* Sits on the white QR plate, not the mood wash. */
     color: rgb(17 17 17 / 0.62);
+  }
+
+  /* Non-owner / no code — one line, no white barcode plate. */
+  .ticket-show-pass-qr-note {
+    margin: var(--pass-gap-qr, 0.9rem) 0;
+    max-width: 100%;
+    flex-shrink: 0;
+    text-align: center;
+    font-size: var(--os-stamp-size, 0.75rem);
+    font-weight: 500;
+    line-height: 1.35;
+    color: rgb(var(--fg-rgb) / 0.55);
   }
 
   .ticket-show-pass-footer {
@@ -31162,6 +31177,7 @@ a.os-surface-row,
   .ticket-show-pass-holder-name {
     margin: 0;
     max-width: 100%;
+    min-height: calc(var(--os-identity-name-size, 0.9375rem) * 1.25);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -31175,6 +31191,7 @@ a.os-surface-row,
   .ticket-show-pass-holder-account {
     margin: 0;
     max-width: 100%;
+    min-height: calc(var(--os-identity-meta-size, 0.875rem) * 1.2);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -31184,13 +31201,10 @@ a.os-surface-row,
     color: var(--os-identity-handle);
   }
 
-  /* Account is the sole identity line — keep it readable for the door. */
-  .ticket-show-pass-identity-copy:not(:has(.ticket-show-pass-holder-name))
-    .ticket-show-pass-holder-account {
-    font-size: var(--os-identity-name-size, 0.9375rem);
-    font-weight: 650;
-    letter-spacing: -0.015em;
-    color: rgb(var(--fg-rgb) / 0.9);
+  .ticket-show-pass-holder-name.is-reserved,
+  .ticket-show-pass-holder-account.is-reserved {
+    visibility: hidden;
+    pointer-events: none;
   }
 
   .ticket-show-pass-divider {
@@ -31252,11 +31266,23 @@ a.os-surface-row,
     line-height: 1.3;
   }
 
-  .ticket-show-pass-code-icon {
+  .ticket-show-pass-code-copy {
+    position: relative;
+    display: inline-grid;
     flex-shrink: 0;
+    align-items: center;
+    justify-items: center;
+  }
+
+  .ticket-show-pass-code-icon {
+    grid-area: 1 / 1;
     width: 0.85rem;
     height: 0.85rem;
     opacity: 0.85;
+  }
+
+  .ticket-show-pass-code-tick {
+    visibility: hidden;
   }
 
   .ticket-show-pass-code:hover,
@@ -31265,8 +31291,52 @@ a.os-surface-row,
     outline: none;
   }
 
-  .ticket-show-pass-code.is-copied {
-    color: var(--protocol-green, rgb(var(--fg-rgb) / 0.72));
+  .ticket-show-pass-code.is-copied .ticket-show-pass-code-tick {
+    visibility: visible;
+  }
+
+  .ticket-show-pass-code.is-copied
+    .ticket-show-pass-code-icon:not(.ticket-show-pass-code-tick) {
+    visibility: hidden;
+  }
+
+  .ticket-show-pass-code.is-reserved {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .ticket-show-pass-share {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 0.15rem;
+    border: 0;
+    border-radius: 0.35rem;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.78);
+    cursor: pointer;
+  }
+
+  .ticket-show-pass-share:hover,
+  .ticket-show-pass-share:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.95);
+    outline: none;
+  }
+
+  .ticket-show-pass-share:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .ticket-show-pass-share.is-reserved {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .ticket-show-pass-share-icon {
+    width: 1.05rem;
+    height: 1.05rem;
   }
 
   @media (min-width: 640px) {
@@ -37775,12 +37845,6 @@ a.os-surface-row,
     pointer-events: auto;
   }
 
-  /* The cover is the row child that the stretched link would otherwise swallow. */
-  .drops-discovery-row.market-listing-row:has(.market-listing-row-open)
-    > button.drops-discovery-thumb {
-    pointer-events: auto;
-  }
-
   .market-listing-row:hover,
   .market-listing-row:focus-within,
   .market-sale-row:hover,
@@ -37864,29 +37928,6 @@ a.os-surface-row,
     height: 100%;
     object-fit: cover;
     display: block;
-  }
-
-  .market-listing-thumb-play {
-    position: absolute;
-    right: 0.2rem;
-    bottom: 0.2rem;
-    width: 0.95rem;
-    height: 0.95rem;
-    border-radius: 999px;
-    background: rgb(0 0 0 / 0.62);
-  }
-
-  .market-listing-thumb-play::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    margin: auto;
-    width: 0;
-    height: 0;
-    border-style: solid;
-    border-width: 0.22rem 0 0.22rem 0.36rem;
-    border-color: transparent transparent transparent #fff;
-    transform: translateX(0.05rem);
   }
 
   .market-listing-thumb-fallback {
@@ -47338,6 +47379,16 @@ button.messages-bubble-quote:focus-visible {
   opacity: 1;
 }
 
+/*
+ * Same green tick as wallet copy. Dual class beats unlayered
+ * `.mage-stroke-icon { color: rgb(from currentColor …) }` which would
+ * otherwise paint the check with the muted parent ink.
+ */
+.mage-stroke-icon.ticket-show-pass-code-tick {
+  color: var(--protocol-green-ink, var(--protocol-green));
+  opacity: 1;
+}
+
 .os-choice-swatch--icon > .os-choice-swatch-mage,
 .os-choice-swatch--icon > .mage-stroke-icon {
   color: rgb(var(--fg-rgb));
@@ -47429,14 +47480,26 @@ button.messages-bubble-quote:focus-visible {
   opacity: 0.55;
 }
 
-.ticket-show-pass-code > .ticket-show-pass-code-icon {
+.ticket-show-pass-code .ticket-show-pass-code-icon:not(.ticket-show-pass-code-tick) {
   color: rgb(var(--fg-rgb));
   opacity: 0.48;
 }
 
-.ticket-show-pass-code:hover > .ticket-show-pass-code-icon,
-.ticket-show-pass-code:focus-visible > .ticket-show-pass-code-icon {
+.ticket-show-pass-code:hover
+  .ticket-show-pass-code-icon:not(.ticket-show-pass-code-tick),
+.ticket-show-pass-code:focus-visible
+  .ticket-show-pass-code-icon:not(.ticket-show-pass-code-tick) {
   opacity: 0.72;
+}
+
+.ticket-show-pass-share > .ticket-show-pass-share-icon {
+  color: rgb(var(--fg-rgb));
+  opacity: 0.78;
+}
+
+.ticket-show-pass-share:hover > .ticket-show-pass-share-icon,
+.ticket-show-pass-share:focus-visible > .ticket-show-pass-share-icon {
+  opacity: 0.95;
 }
 
 /*

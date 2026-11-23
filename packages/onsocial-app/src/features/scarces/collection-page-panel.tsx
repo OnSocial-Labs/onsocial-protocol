@@ -28,6 +28,7 @@ import {
   ipfsImgSrcSet,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsLateFill } from '@/components/app/os-late-fill';
 import {
   APP_COLUMN_HERO_SIZES,
   SCARCE_HERO_WIDTHS,
@@ -46,8 +47,6 @@ import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { useCollectiblesNowPlayingOptional } from '@/contexts/collectibles-now-playing-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { useSheetMounted } from '@/hooks/use-sheet-mounted';
-import { warmProfileListAccounts } from '@/lib/load-profile-list-accounts';
 import { CollectionAllowlistManager } from '@/features/scarces/collection-allowlist-manager';
 import {
   CollectionAboutSheet,
@@ -81,6 +80,7 @@ import {
   collectionUseFirst,
   collectionViewNeedsCatalogSoftFill,
   collectionFaceTitle,
+  collectionMediumBodyPending,
   collectionSoftFillPeek,
   editionTokenForCollection,
   mergeCatalogSoftFillIntoSeed,
@@ -93,6 +93,7 @@ import {
 import {
   CollectionActivitySkeleton,
   CollectionPageSkeleton,
+  CollectionTracksSkeleton,
 } from '@/features/scarces/collection-page-skeleton';
 import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
 import { CollectionFactsSheet } from '@/features/scarces/collection-facts-sheet';
@@ -135,6 +136,8 @@ import {
   canPauseDrop,
   canResumeDrop,
 } from '@/features/scarces/drop-owner-actions';
+import { prefetchDropRead } from '@/features/scarces/drop-read-ahead';
+import { prefetchShowPass } from '@/features/scarces/show-pass-ahead';
 import { listedArticleReaderHref } from '@/features/scarces/drop-writing';
 import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
@@ -153,6 +156,7 @@ import { CollectionDoorLogSheet } from '@/features/scarces/collection-door-log-s
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
 import { useScarceDropLoves } from '@/hooks/use-scarce-drop-loves';
+import { useScarceTrackLoves } from '@/hooks/use-scarce-track-loves';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
   APP_DROPS_PATH,
@@ -271,6 +275,31 @@ function EditionQueryToken({
   return null;
 }
 
+/**
+ * Lead seat for Open Collectibles — same width logged out or in.
+ * Empty keeps the ghost; wallet fill swaps in place (Read / Play stay put).
+ */
+function CollectionOpenCollectiblesLead({ href }: { href: string | null }) {
+  const [startedEmpty] = useState(() => !href);
+  if (href) {
+    return (
+      <OsRowAction
+        href={href}
+        className={
+          startedEmpty ? 'collection-use-actions-lead-fill' : undefined
+        }
+      >
+        Open Collectibles
+      </OsRowAction>
+    );
+  }
+  return (
+    <span className="collection-use-actions-lead-ghost" aria-hidden>
+      <OsRowAction onClick={() => {}}>Open Collectibles</OsRowAction>
+    </span>
+  );
+}
+
 const clientMountedSubscribe = () => () => {};
 const getClientMountedSnapshot = () => true;
 const getServerMountedSnapshot = () => false;
@@ -346,23 +375,37 @@ export function CollectionPagePanel({
     return null;
   });
   const view = liveView ?? initial ?? null;
-  const coverSrc = view ? editionCoverUrl(view, editionToken) : null;
-  const coverSrcSet = ipfsImgSrcSet(coverSrc, SCARCE_HERO_WIDTHS);
-  const editionLine = editionToken ? (heldEditionMark(editionToken) ?? '') : '';
-  /** Album / multi-clip drops love per track. The drop fan row stays for everything else. */
-  const showDropLove = !collectionCoverIsAudio({
+  /** Album loves per track; writing/art love the drop. Fans seat is always the same. */
+  const isAudioDrop = collectionCoverIsAudio({
     kind: view?.kind,
     playablesLength: view?.playables.length ?? 0,
   });
+  const showDropLoveHeart = !isAudioDrop;
   const dropLoves = useScarceDropLoves({
-    creatorId: showDropLove ? (view?.creatorId ?? null) : null,
-    collectionId: showDropLove ? collectionId : null,
+    creatorId: showDropLoveHeart ? (view?.creatorId ?? null) : null,
+    collectionId: showDropLoveHeart ? collectionId : null,
   });
+  const albumTrackLoves = useScarceTrackLoves({
+    creatorId: isAudioDrop ? (view?.creatorId ?? null) : null,
+    collectionId: isAudioDrop ? collectionId : null,
+    tracks: isAudioDrop ? (view?.playables ?? []) : [],
+  });
+  const faceFans = isAudioDrop
+    ? {
+        fanIds: albumTrackLoves.fanIds,
+        fanCount: albumTrackLoves.fanCount,
+        fansLoading: albumTrackLoves.fansLoading,
+      }
+    : {
+        fanIds: dropLoves.fanIds,
+        fanCount: dropLoves.fanCount,
+        fansLoading: dropLoves.fansLoading,
+      };
   useEffect(() => {
     const creatorId = view?.creatorId?.trim();
-    if (!showDropLove || !creatorId || !collectionId) return;
+    if (!creatorId || !collectionId) return;
     warmDropFanIds(creatorId, collectionId);
-  }, [showDropLove, view?.creatorId, collectionId]);
+  }, [view?.creatorId, collectionId]);
   const [clientSettled, setClientSettled] = useState(
     () =>
       initial != null ||
@@ -387,6 +430,14 @@ export function CollectionPagePanel({
   const [ownedPassTokenId, setOwnedPassTokenId] = useState<string | null>(() =>
     peekOwnedTokenForCollection(viewerAccountId, collectionId)
   );
+  /** Query `?t=` wins; held token fills the same reserved seat (never inserts a line). */
+  const faceEditionToken =
+    editionToken || (ownedPassTokenId ? ownedPassTokenId.trim() : '');
+  const editionLine = faceEditionToken
+    ? (heldEditionMark(faceEditionToken) ?? '')
+    : '';
+  const coverSrc = view ? editionCoverUrl(view, faceEditionToken || null) : null;
+  const coverSrcSet = ipfsImgSrcSet(coverSrc, SCARCE_HERO_WIDTHS);
   const [mintOpen, setMintOpen] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -515,6 +566,43 @@ export function CollectionPagePanel({
     view?.bookPdf,
   ]);
 
+  // Warm source essay so Read opens with the article footer already known.
+  useEffect(() => {
+    if (!view?.sourcePostPath?.trim()) return;
+    void prefetchDropRead({
+      collectionId,
+      meta: {
+        writingFormat: view.writingFormat ?? null,
+        sourcePostPath: view.sourcePostPath,
+      },
+    });
+  }, [collectionId, view?.sourcePostPath, view?.writingFormat]);
+
+  // Warm Show pass status while the holder is on the drop.
+  useEffect(() => {
+    const tokenId = ownedPassTokenId?.trim();
+    if (
+      !tokenId ||
+      !isPassMediumKind(view?.kind) ||
+      holdsEdition !== true
+    ) {
+      return;
+    }
+    void prefetchShowPass({
+      collectionId,
+      tokenId,
+      seedTitle: view?.title,
+      seedCover: view?.mediaUrl,
+    });
+  }, [
+    collectionId,
+    holdsEdition,
+    ownedPassTokenId,
+    view?.kind,
+    view?.mediaUrl,
+    view?.title,
+  ]);
+
   useEffect(() => {
     // Solid route SSR activity stays; soft-nav loading / thin peeks refetch.
     if (
@@ -623,21 +711,18 @@ export function CollectionPagePanel({
     consumedCollectionReadLinks.add(collectionId);
     params.delete(COLLECTION_READ_QUERY);
     replaceBrowserQueryUrl(window.location.pathname, params);
-    const href = listedArticleReaderHref({
-      writingFormat: view?.writingFormat,
-      sourcePostPath: view?.sourcePostPath,
-    });
     const openFolioReader = () => {
       queueMicrotask(() => {
         setWritingReadOpen(true);
       });
     };
-    if (href && !embedded) {
-      router.push(href);
-      return;
-    }
-    if (href && embedded && view) {
+    if (view) {
+      const listedHref = listedArticleReaderHref({
+        writingFormat: view.writingFormat,
+        sourcePostPath: view.sourcePostPath,
+      });
       const needsBody =
+        Boolean(listedHref) &&
         (view.readables.length ?? 0) === 0 &&
         !view.bookPdf &&
         Boolean(view.sourcePostPath?.trim());
@@ -652,8 +737,6 @@ export function CollectionPagePanel({
     openFolioReader();
   }, [
     collectionId,
-    embedded,
-    router,
     view,
     view?.kind,
     view?.readables.length,
@@ -662,7 +745,7 @@ export function CollectionPagePanel({
     view?.writingFormat,
   ]);
 
-  // Collectibles "Show pass" deep-links with ?pass=1&t=… → open pass once token is known.
+  // Share deep-link ?pass=1&t=… → open pass in this turn (no event-face flash).
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!isPassMediumKind(view?.kind)) return;
@@ -671,10 +754,10 @@ export function CollectionPagePanel({
     const fromQuery = params.get(COLLECTION_PASS_TOKEN_PARAM)?.trim() || null;
     const tokenId = fromQuery || ownedPassTokenId;
     if (!tokenId) return;
-    queueMicrotask(() => {
-      setShowPassTokenId(tokenId);
-      setShowPassOpen(true);
-    });
+    /* eslint-disable react-hooks/set-state-in-effect -- one-shot ?pass=1 deep link into Show pass */
+    setShowPassTokenId(tokenId);
+    setShowPassOpen(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [collectionId, ownedPassTokenId, view?.kind]);
 
   // Legacy ?door=1 / ?redeem=1 → staff Admit or Redeem page.
@@ -874,10 +957,10 @@ export function CollectionPagePanel({
   const [heldMintListing, setHeldMintListing] =
     useState<typeof mintListing>(null);
 
-  const openMintSheet = useCallback(() => {
+  const openMintSheet = () => {
     setHeldMintListing(mintListing);
     setMintOpen(true);
-  }, [mintListing]);
+  };
   const openOwnerPost = useCallback(() => {
     if (!view) return;
     requestDropCompose({
@@ -994,8 +1077,6 @@ export function CollectionPagePanel({
     return rows.map((row) => row.actor?.trim() || '').filter(Boolean);
   }, [activitySheetOpen, mintPreview, sheetActivity]);
   const activityProfiles = usePostAuthorProfiles(activityAccountIds);
-  /** Seeded place / appear already has jacket + optional creator face. */
-  const seededOpen = initial != null || seededCreatorFace != null;
   /**
    * Soft-fill face from the open seed only (latched via `initial`). Cache-only
    * opens use live view fields as they land — no mid-session soft-fill flip.
@@ -1005,9 +1086,9 @@ export function CollectionPagePanel({
   const creatorByName = creatorDisplayName?.trim() || null;
   const creatorFacePending =
     Boolean(creatorId) && creatorResolvedKey !== creatorId;
-  /** Avatar shell only when we have no face yet — never blank a seeded jacket. */
+  /** Cool grey shell until face fetch lands — never letter-flash a known photo. */
   const creatorShellLoading =
-    creatorFacePending && !creatorAvatarUrl && !seededOpen;
+    Boolean(creatorId) && !creatorAvatarUrl && creatorFacePending;
   /** Local-part name on frame 1; profile name soft-replaces in the same line. */
   const creatorNameLine = creatorId
     ? collectionCreatorNameLine(creatorId, creatorByName)
@@ -1017,13 +1098,13 @@ export function CollectionPagePanel({
     audioFormat: view?.audioFormat ?? null,
     writingFormat: view?.writingFormat ?? null,
   });
-  const requestActivityClose = useCallback(() => {
+  const requestActivityClose = () => {
     setActivityClosing(true);
-  }, []);
-  const handleActivityClosed = useCallback(() => {
+  };
+  const handleActivityClosed = () => {
     setActivityClosing(false);
     setActivityOpen(false);
-  }, []);
+  };
 
   /** Parent passed a seed (place SSR / soft-nav loading / appear) — no skeleton. */
   const seededHotOpen = initial != null;
@@ -1124,7 +1205,9 @@ export function CollectionPagePanel({
   const playables = view.playables;
   const hasPlayables = playables.length > 0;
   const holderPlayHref = hasPlayables
-    ? collectiblesPlayPath(view.collectionId)
+    ? collectiblesPlayPath(view.collectionId, {
+        tokenId: faceEditionToken || null,
+      })
     : null;
   const ownership = resolveCollectionOwnership({
     isOwner,
@@ -1167,15 +1250,9 @@ export function CollectionPagePanel({
     const openFolioReader = () => {
       queueMicrotask(() => setWritingReadOpen(true));
     };
-    // Cold / share links land on the portfolio writing reader page.
-    if (listedArticleHref && !embedded) {
-      router.push(listedArticleHref);
-      return;
-    }
-    // Appear-over / place: folio reader (WritingReadSheet), not the post thread.
+    // Same WritingReadSheet as Book/Issue — stay on the drop, no article route hop.
     const listedNeedsBody =
       Boolean(listedArticleHref) &&
-      embedded &&
       readables.length === 0 &&
       !view.bookPdf &&
       Boolean(view.sourcePostPath?.trim());
@@ -1197,6 +1274,12 @@ export function CollectionPagePanel({
   const showInlineTracks = collectionShowInlineTracks({
     hasPlayables,
   });
+  const catalogFacePending = collectionViewNeedsCatalogSoftFill(view);
+  const mediumBodyPending = collectionMediumBodyPending({
+    softFillPeek: softFillPeek && catalogFacePending,
+    isAudio,
+    hasPlayables,
+  });
   const dropBackHref = collectionDropBackHref({
     useFirst,
     viewerAccountId,
@@ -1210,11 +1293,13 @@ export function CollectionPagePanel({
     setShowPassTokenId(tokenId);
     setShowPassOpen(true);
   };
-  // Soft-fill list seeds: only paint face fields the seed already had (same as
-  // Drops with a full row view). Catalog may still fill About / Activity later.
+  // Soft-fill: keep a seeded story line; empty seed may take catalog copy later
+  // (OsLateFill appears that one line — actions stay put).
+  const seedDescription = initial?.description?.trim() ?? '';
+  const liveDescription = view.description?.trim() ?? '';
   const description = softFillPeek
-    ? (initial?.description?.trim() ?? '')
-    : (view.description?.trim() ?? '');
+    ? seedDescription || liveDescription
+    : liveDescription;
   const faceSeriesId = softFillPeek
     ? (initial?.seriesId ?? null)
     : view.seriesId;
@@ -1356,12 +1441,17 @@ export function CollectionPagePanel({
                   <h1 className="collection-title" ref={heroTitleRef}>
                     {faceTitle}
                   </h1>
-                ) : null}
-                {editionLine ? (
-                  <p className="collection-edition-line">{editionLine}</p>
+                ) : softFillPeek && catalogFacePending ? (
+                  <span
+                    className="standing-row-shimmer collection-skeleton-title"
+                    aria-hidden
+                  />
                 ) : null}
               </div>
               <div className="drops-discovery-head-trail">
+                {editionLine ? (
+                  <span className="collection-edition-trail">{editionLine}</span>
+                ) : null}
                 {dateOnFace ? (
                   <time
                     className="market-listing-meta-right collection-meta-time"
@@ -1413,16 +1503,20 @@ export function CollectionPagePanel({
                 </span>
               </span>
             </Link>
-            {chrome.series && faceSeriesId && faceSeriesTitle ? (
-              <Link
-                href={seriesPagePath(view.creatorId, faceSeriesId)}
-                scroll={false}
-                className="collection-meta-series"
-              >
-                {faceSeriesTitle}
-              </Link>
+            {chrome.series ? (
+              <div className="collection-meta-series-seat">
+                {faceSeriesId && faceSeriesTitle ? (
+                  <Link
+                    href={seriesPagePath(view.creatorId, faceSeriesId)}
+                    scroll={false}
+                    className="collection-meta-series"
+                  >
+                    {faceSeriesTitle}
+                  </Link>
+                ) : null}
+              </div>
             ) : null}
-            <div className="collection-about-seat">
+            <OsLateFill className="collection-about-seat">
               {description || aboutHasMore ? (
                 <CollectionAboutTeaser
                   text={description}
@@ -1430,24 +1524,20 @@ export function CollectionPagePanel({
                   onReadMore={() => setAboutOpen(true)}
                 />
               ) : null}
-            </div>
-            <div
-              className={`collection-commerce-actions${
-                showDropLove ? ' has-fans-seat' : ''
-              }`}
-            >
-              {showDropLove && view ? (
+            </OsLateFill>
+            <div className="collection-commerce-actions has-fans-seat">
+              {view ? (
                 <DropFaceFans
                   creatorId={view.creatorId}
                   collectionId={collectionId}
                   title={faceTitle || view.title || 'Drop'}
-                  fanIds={dropLoves.fanIds}
-                  fanCount={dropLoves.fanCount}
-                  countsLoading={dropLoves.fansLoading}
+                  fanIds={faceFans.fanIds}
+                  fanCount={faceFans.fanCount}
+                  countsLoading={faceFans.fansLoading}
                 />
               ) : null}
               <div className="collection-commerce-action-icons">
-                {showDropLove ? (
+                {showDropLoveHeart ? (
                   <button
                     type="button"
                     className={`collection-commerce-love os-confirm-icon${
@@ -1524,130 +1614,81 @@ export function CollectionPagePanel({
               </div>
             </div>
             <div className="collection-use-actions">
-              {useFirst ? (
-                <>
-                  {canShowPass && vaultHref ? (
-                    <div className="collection-reading-row">
-                      <OsRowAction href={vaultHref}>
-                        Open Collectibles
-                      </OsRowAction>
-                      <OsRowAction
-                        className="collectibles-holding-action"
-                        onClick={openOwnedPass}
-                      >
-                        {passActionLabel}
-                      </OsRowAction>
-                    </div>
-                  ) : canShowPass ? (
-                    <OsRowAction
-                      className="collectibles-holding-action"
-                      onClick={openOwnedPass}
-                    >
-                      {passActionLabel}
-                    </OsRowAction>
-                  ) : null}
-                  {opensWritingReader && vaultHref && !canShowPass ? (
-                    <div className="collection-reading-row">
-                      <OsRowAction href={vaultHref}>
-                        Open Collectibles
-                      </OsRowAction>
-                      <OsRowAction
-                        className="collectibles-holding-action"
-                        onClick={openWritingRead}
-                      >
-                        Read
-                      </OsRowAction>
-                    </div>
-                  ) : opensWritingReader && !canShowPass ? (
-                    <OsRowAction
-                      className="collectibles-holding-action"
-                      onClick={openWritingRead}
-                    >
-                      Read
-                    </OsRowAction>
-                  ) : null}
-                  {hasPlayables &&
-                  listenOnPlayPage &&
-                  holderPlayHref &&
-                  vaultHref &&
-                  !canShowPass &&
-                  !opensWritingReader ? (
-                    <div className="collection-reading-row">
-                      <OsRowAction href={vaultHref}>
-                        Open Collectibles
-                      </OsRowAction>
-                      <OsRowAction
-                        className="collectibles-holding-action"
-                        href={holderPlayHref}
-                      >
-                        Play
-                      </OsRowAction>
-                    </div>
-                  ) : hasPlayables &&
-                    listenOnPlayPage &&
-                    holderPlayHref &&
-                    canShowPass ? (
-                    <div className="collection-reading-row">
-                      <OsRowAction
-                        className="collectibles-holding-action"
-                        href={holderPlayHref}
-                      >
-                        Play
-                      </OsRowAction>
-                    </div>
-                  ) : !canShowPass && !opensWritingReader && vaultHref ? (
-                    <OsRowAction href={vaultHref}>
-                      Open Collectibles
-                    </OsRowAction>
-                  ) : null}
-                </>
-              ) : opensWritingReader ? (
-                vaultHref ? (
-                  <div className="collection-reading-row">
-                    <OsRowAction href={vaultHref}>
-                      Open Collectibles
-                    </OsRowAction>
-                    <OsRowAction
-                      className="collectibles-holding-action"
-                      onClick={openWritingRead}
-                    >
-                      Read
-                    </OsRowAction>
-                  </div>
-                ) : (
+              {(() => {
+                // Industry CLS: same reading-row chassis as the skeleton from
+                // frame 1. Lead + trail seats fill in place — never solo
+                // Collectibles, never morph when hold/wallet lands.
+                const trail = canShowPass ? (
+                  <OsRowAction
+                    className="collectibles-holding-action"
+                    onClick={openOwnedPass}
+                  >
+                    {passActionLabel}
+                  </OsRowAction>
+                ) : opensWritingReader ? (
                   <OsRowAction
                     className="collectibles-holding-action"
                     onClick={openWritingRead}
                   >
                     Read
                   </OsRowAction>
-                )
-              ) : hasPlayables ? (
-                vaultHref ? (
-                  <div className="collection-reading-row">
-                    <OsRowAction href={vaultHref}>
-                      Open Collectibles
-                    </OsRowAction>
-                    <OsRowAction
-                      className="collectibles-holding-action"
-                      onClick={() => setCoverListenOpen(true)}
-                    >
-                      Play
-                    </OsRowAction>
-                  </div>
-                ) : (
+                ) : hasPlayables &&
+                  useFirst &&
+                  listenOnPlayPage &&
+                  holderPlayHref ? (
+                  <OsRowAction
+                    className="collectibles-holding-action"
+                    href={holderPlayHref}
+                  >
+                    Play
+                  </OsRowAction>
+                ) : hasPlayables && !useFirst ? (
                   <OsRowAction
                     className="collectibles-holding-action"
                     onClick={() => setCoverListenOpen(true)}
                   >
                     Play
                   </OsRowAction>
-                )
-              ) : vaultHref ? (
-                <OsRowAction href={vaultHref}>Open Collectibles</OsRowAction>
-              ) : (
-                <span className="collection-use-actions-chassis" aria-hidden />
-              )}
+                ) : isPassKind && holdsEdition !== false ? (
+                  <span
+                    className="collection-use-actions-trail-ghost"
+                    aria-hidden
+                  >
+                    <OsRowAction onClick={() => {}}>
+                      {passActionLabel}
+                    </OsRowAction>
+                  </span>
+                ) : (
+                  <span
+                    className="collection-use-actions-trail-chassis"
+                    aria-hidden
+                  />
+                );
+                const holderPlayBesidePass =
+                  canShowPass &&
+                  hasPlayables &&
+                  listenOnPlayPage &&
+                  holderPlayHref ? (
+                    <div className="collection-reading-row">
+                      <CollectionOpenCollectiblesLead href={null} />
+                      <OsRowAction
+                        className="collectibles-holding-action"
+                        href={holderPlayHref}
+                      >
+                        Play
+                      </OsRowAction>
+                    </div>
+                  ) : null;
+                return (
+                  <>
+                    <div className="collection-reading-row">
+                      <CollectionOpenCollectiblesLead href={vaultHref} />
+                      {trail}
+                    </div>
+                    {holderPlayBesidePass}
+                  </>
+                );
+              })()}
             </div>
             {isTicketKind ? (
               <div className="collection-event-lines">
@@ -1820,6 +1861,7 @@ export function CollectionPagePanel({
                 showFeedPost={false}
                 showShare={false}
                 showDownloads={false}
+                showAlbumFans={false}
                 persist={{
                   collectionId: view.collectionId,
                   title: view.title,
@@ -1841,6 +1883,10 @@ export function CollectionPagePanel({
                 }
               />
             </section>
+          </div>
+        ) : mediumBodyPending ? (
+          <div className="collection-tracks-seat">
+            <CollectionTracksSkeleton />
           </div>
         ) : null}
 

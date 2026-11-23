@@ -3,26 +3,27 @@ import { collectiblesHoldingFact } from '@/features/collectibles/collectibles-ho
 
 const ticket = {
   kindLabel: 'Ticket',
+  tokenId: 'gate:4',
   listedPriceNear: null,
   listingKind: null,
 };
 
 describe('collectiblesHoldingFact', () => {
-  it('names only the kind when one copy is held', () => {
-    expect(collectiblesHoldingFact(ticket, 1)).toBe('Ticket');
+  it('puts the seat on the fact line for one copy', () => {
+    expect(collectiblesHoldingFact(ticket, 1)).toBe('Ticket · #4');
   });
 
   it('collapses several editions into a count', () => {
     expect(collectiblesHoldingFact(ticket, 3)).toBe('Ticket · ×3');
   });
 
-  it('replaces a single copy with the list price', () => {
+  it('keeps the seat beside a list price', () => {
     expect(
       collectiblesHoldingFact(
         { ...ticket, listedPriceNear: '0.1', listingKind: 'fixed' },
         1
       )
-    ).toBe('Ticket · 0.1 NEAR');
+    ).toBe('Ticket · #4 · 0.1 NEAR');
   });
 
   it('keeps the folded count beside a list price', () => {
@@ -40,7 +41,7 @@ describe('collectiblesHoldingFact', () => {
         { ...ticket, listedPriceNear: '1', listingKind: 'auction' },
         1
       )
-    ).toBe('Ticket · Reserve · 1 NEAR');
+    ).toBe('Ticket · #4 · Reserve · 1 NEAR');
   });
 
   it('shows the dollar sticker instead of a zero NEAR ask', () => {
@@ -54,7 +55,7 @@ describe('collectiblesHoldingFact', () => {
         },
         1
       )
-    ).toBe('Ticket · $1');
+    ).toBe('Ticket · #4 · $1');
   });
 
   it('stays quiet when the ask is zero and no sticker arrived', () => {
@@ -63,7 +64,16 @@ describe('collectiblesHoldingFact', () => {
         { ...ticket, listedPriceNear: '0', listingKind: 'fixed' },
         1
       )
-    ).toBe('Ticket');
+    ).toBe('Ticket · #4');
+  });
+
+  it('omits the seat when the token has no edition seat', () => {
+    expect(
+      collectiblesHoldingFact(
+        { ...ticket, tokenId: 's:post-1', kindLabel: 'Thought' },
+        1
+      )
+    ).toBe('Thought');
   });
 
   it('says each only when every folded copy is listed at one ask', () => {
@@ -119,7 +129,7 @@ describe('collectiblesHoldingFact', () => {
         undefined,
         { omitKind: true }
       )
-    ).toBe('0.1 NEAR');
+    ).toBe('#4 · 0.1 NEAR');
     expect(
       collectiblesHoldingFact(ticket, 2, undefined, { omitKind: true })
     ).toBe('×2');

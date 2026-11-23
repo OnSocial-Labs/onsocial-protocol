@@ -74,7 +74,7 @@ describe('toPortfolioHoldingPeek', () => {
     expect(peek.kindLabel).toBe('Writing');
   });
 
-  it('routes audio holdings to the Collectibles player', () => {
+  it('routes audio holdings to the drop; Play stays on the player link', () => {
     const peek = toPortfolioHoldingPeek({
       tokenId: 'album:1',
       title: 'Night Drive',
@@ -83,8 +83,15 @@ describe('toPortfolioHoldingPeek', () => {
       mediumKind: 'audio',
       listingKind: null,
     });
-    expect(peek.href).toBe('/collectibles/play?c=album&t=album%3A1');
+    expect(peek.href).toBe('/collection/album');
     expect(peek.actionLabel).toBe('Play');
+    expect(
+      heldEditionHref({
+        tokenId: 'album:1',
+        collectionId: 'album',
+        mediumKind: 'audio',
+      })
+    ).toBe('/collectibles/play?c=album&t=album%3A1');
   });
 
   it('infers post scarces as Thought from token id', () => {
@@ -290,7 +297,7 @@ describe('toPortfolioHoldingPeek', () => {
         mediumKind: 'audio',
       })
     ).toEqual({
-      type: 'href',
+      type: 'play',
       href: '/collectibles/play?c=night-drive&t=night-drive%3A2',
     });
   });
