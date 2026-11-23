@@ -68,6 +68,7 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
       'features/market/market-loading-screen.tsx',
       'features/market/market-page-panel.tsx',
       'features/market/market-list-skeleton.tsx',
+      'app/(app)/market/loading.tsx',
     ],
   },
   {
