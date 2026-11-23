@@ -1274,7 +1274,6 @@ export function CollectionPagePanel({
     };
     setFaceChrome(chrome);
   }
-  const seriesLink = chrome.series && seriesOnFace;
   const dateOnFace = chrome.date && Boolean(createdRel);
   // Activity section always seated — pending skeleton, rows, or empty copy.
   // Never mount then unmount (CLS on soft-nav empty fetch).
@@ -1414,7 +1413,7 @@ export function CollectionPagePanel({
                 </span>
               </span>
             </Link>
-            {seriesLink ? (
+            {chrome.series && faceSeriesId && faceSeriesTitle ? (
               <Link
                 href={seriesPagePath(view.creatorId, faceSeriesId)}
                 scroll={false}
