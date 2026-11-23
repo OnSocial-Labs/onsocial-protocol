@@ -2,7 +2,11 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { feedPanelHopHref, isWritingShelfHref } from './account-place-link';
+import {
+  feedPanelHopHref,
+  isWritingShelfHref,
+  shouldSolidAssignWritingShelf,
+} from './account-place-link';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(here, 'account-place-link.tsx'), 'utf8');
@@ -43,11 +47,35 @@ describe('feed panel hop', () => {
 });
 
 describe('Writing place navigation', () => {
-  it('full-loads a Writing shelf and leaves profile faces on Link', () => {
+  it('recognizes Writing shelf and article hrefs', () => {
     expect(isWritingShelfHref('/@alice.testnet/writing')).toBe(true);
     expect(isWritingShelfHref('/@alice.testnet/writing/42')).toBe(true);
     expect(isWritingShelfHref('/@alice.testnet')).toBe(false);
-    expect(source).toContain('isWritingShelfHref(target)');
+  });
+
+  it('hard-assigns Writing only from Collectibles or Drops', () => {
+    expect(
+      shouldSolidAssignWritingShelf('/@alice.testnet/writing', '/collectibles')
+    ).toBe(true);
+    expect(
+      shouldSolidAssignWritingShelf('/@alice.testnet/writing', '/drops')
+    ).toBe(true);
+    expect(
+      shouldSolidAssignWritingShelf(
+        '/@alice.testnet/writing?from=%2Fcollectibles',
+        '/home'
+      )
+    ).toBe(true);
+    expect(
+      shouldSolidAssignWritingShelf('/@alice.testnet/writing', '/home')
+    ).toBe(false);
+    expect(
+      shouldSolidAssignWritingShelf(
+        '/@alice.testnet/writing?from=%2Fhome',
+        '/home'
+      )
+    ).toBe(false);
+    expect(source).toContain('shouldSolidAssignWritingShelf');
     expect(source).toContain('window.location.assign(target)');
     expect(source).toContain('endPortfolioShelfHop');
   });

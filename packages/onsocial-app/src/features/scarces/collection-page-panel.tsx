@@ -1093,7 +1093,10 @@ export function CollectionPagePanel({
   });
   const useFirst = collectionUseFirst(ownership);
   const listenOnPlayPage = Boolean(holderPlayHref) && ownership === 'holder';
-  const holderActionsPending = ownership === 'unknown' && hasPlayables;
+  // Seeded overlay already paints the drop face — never shimmer use-pills then
+  // swap (reads as the page still loading). Ownership soft-fills quietly.
+  const holderActionsPending =
+    ownership === 'unknown' && hasPlayables && !seededOverlayOpen;
   const sourceHref = postHrefFromSourcePath(view.sourcePostPath);
   const isAudio =
     hasPlayables || view.kind === 'audio' || view.kind === 'music';

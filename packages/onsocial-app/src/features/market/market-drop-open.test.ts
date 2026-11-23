@@ -13,12 +13,18 @@ describe('market drop open seeds', () => {
       creatorId: 'seller.near',
       artistId: 'alice.near',
       mediumKind: 'writing',
+      priceNear: '2',
+      copies: 10,
+      remaining: 4,
     });
     expect(view?.collectionId).toBe('cats-1');
     expect(view?.title).toBe('The Secret Life of Cats');
     expect(view?.mediaUrl).toBe('https://cdn.example/cover.jpg');
     expect(view?.creatorId).toBe('alice.near');
     expect(view?.kind).toBe('writing');
+    expect(view?.totalSupply).toBe(10);
+    expect(view?.remaining).toBe(4);
+    expect(view?.priceNear).toBe('2');
     expect(view?.createdAtMs).toBe(0);
   });
 

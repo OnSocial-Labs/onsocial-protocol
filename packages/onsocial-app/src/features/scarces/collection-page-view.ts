@@ -310,3 +310,114 @@ export function seedCollectionViewFromPeek(input: {
     audioFormat: input.audioFormat ?? null,
   });
 }
+
+type StoreDropSeed = {
+  collectionId: string;
+  title: string;
+  mediaUrl?: string | null;
+  priceNear?: string | null;
+  usdE6?: string | null;
+  remaining: number;
+  totalSupply: number;
+  status: 'upcoming' | 'live' | 'sold_out' | 'ended' | 'paused' | 'cancelled';
+  mediumKind?: string | null;
+  audioFormat?: CollectionView['audioFormat'];
+  writingFormat?: CollectionView['writingFormat'];
+  createdAtMs?: number | null;
+};
+
+/**
+ * Feed scarce CTA → overlay seed from the embed already on the card.
+ * Jacket + known commerce on frame 1; catalog soft-fills the rest.
+ */
+export function seedCollectionViewFromPostScarceEmbed(
+  embed: {
+    collectionId?: string | null;
+    mediaUrl?: string | null;
+    mediumKind?: string | null;
+    creatorId?: string | null;
+    appId?: string | null;
+    priceNear?: string | null;
+    usdE6?: string | null;
+    copies?: number | null;
+    remaining?: number | null;
+    status?: string | null;
+    latest?: { collectionId?: string | null; appId?: string | null } | null;
+  },
+  opts?: { title?: string | null }
+): CollectionView | null {
+  const collectionId =
+    embed.collectionId?.trim() || embed.latest?.collectionId?.trim() || '';
+  if (!collectionId) return null;
+  const totalSupply =
+    embed.copies != null && embed.copies > 0 ? embed.copies : 0;
+  const remaining =
+    embed.remaining != null && embed.remaining >= 0
+      ? embed.remaining
+      : totalSupply;
+  const soldOut =
+    embed.status === 'sold' ||
+    embed.status === 'minted' ||
+    (totalSupply > 0 && remaining === 0);
+  return seedCollectionViewFromStoreDrop(
+    {
+      collectionId,
+      title: opts?.title?.trim() || collectionId,
+      mediaUrl: embed.mediaUrl,
+      priceNear: embed.priceNear,
+      usdE6: embed.usdE6,
+      remaining,
+      totalSupply,
+      status: soldOut ? 'sold_out' : 'live',
+      mediumKind: embed.mediumKind,
+    },
+    embed.creatorId
+  );
+}
+
+/**
+ * Creator shop / portfolio store row → overlay seed.
+ * Paints jacket + deal status/supply/price on frame 1 so soft-fill does not
+ * pop those fields after open. `createdAtMs` stays 0 so catalog still soft-fills.
+ */
+export function seedCollectionViewFromStoreDrop(
+  drop: StoreDropSeed,
+  creatorId?: string | null
+): CollectionView | null {
+  const base = seedCollectionViewFromPeek({
+    collectionId: drop.collectionId,
+    title: drop.title,
+    coverUrl: drop.mediaUrl,
+    creatorId: creatorId ?? null,
+    kind: drop.mediumKind ?? null,
+    audioFormat: drop.audioFormat ?? null,
+  });
+  if (!base) return null;
+
+  const totalSupply = drop.totalSupply > 0 ? drop.totalSupply : 0;
+  const remaining = Math.max(0, drop.remaining);
+  const minted =
+    totalSupply > 0 ? Math.max(0, totalSupply - remaining) : 0;
+  const now = Date.now();
+  const priceNear = drop.priceNear?.trim() || null;
+  const priced = Boolean(priceNear && priceNear !== '0');
+
+  return {
+    ...base,
+    priceNear,
+    priceYocto: priced ? '1' : '0',
+    ...(drop.usdE6?.trim() ? { usdE6: drop.usdE6.trim() } : {}),
+    totalSupply,
+    remaining,
+    minted,
+    soldOut:
+      drop.status === 'sold_out' || (totalSupply > 0 && remaining === 0),
+    paused: drop.status === 'paused',
+    cancelled: drop.status === 'cancelled',
+    startTimeMs: drop.status === 'upcoming' ? now + 60_000 : null,
+    endTimeMs: drop.status === 'ended' ? now - 60_000 : null,
+    writingFormat: drop.writingFormat ?? null,
+    // Keep soft-fill on for event/about; list already owned the deal line.
+    createdAtMs: 0,
+  };
+}

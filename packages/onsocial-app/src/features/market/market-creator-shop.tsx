@@ -17,10 +17,12 @@ import type { ProfileStoreDrop } from '@/lib/profile-store-types';
 
 /** One creator-shop bucket list, windowed per bucket. */
 function MarketCreatorDropGroupList({
+  creatorId,
   drops,
   onMintDrop,
   showStatus,
 }: {
+  creatorId: string;
   drops: readonly ProfileStoreDrop[];
   onMintDrop: (drop: ProfileStoreDrop) => void;
   showStatus: boolean;
@@ -52,6 +54,7 @@ function MarketCreatorDropGroupList({
         >
           <MarketCreatorDropRow
             drop={drop}
+            creatorId={creatorId}
             onMint={onMintDrop}
             showStatus={showStatus}
           />
@@ -143,6 +146,7 @@ export function MarketCreatorShop({
                 <p className="collection-section-label">{group.label}</p>
               ) : null}
               <MarketCreatorDropGroupList
+                creatorId={creatorId}
                 drops={group.drops}
                 onMintDrop={onMintDrop}
                 showStatus={!showGroupLabels}

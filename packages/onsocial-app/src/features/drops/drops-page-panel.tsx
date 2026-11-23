@@ -13,7 +13,6 @@ import {
   CATALOG_PLACE_MEMORY_TTL_MS,
   mergeCatalogHead,
 } from '@/lib/catalog-place-memory';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { PulsingDots } from '@onsocial/ui';
 import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
@@ -51,8 +50,7 @@ import {
   type UpcomingBucket,
 } from '@/features/drops/drops-data';
 import {
-  dropOverlayLinkHandlers,
-  useDropOverlayOpen,
+  DropOverlayLink,
 } from '@/features/scarces/drop-overlay-open';
 import { seedCollectionViewFromPeek } from '@/features/scarces/collection-page-view';
 import {
@@ -305,7 +303,6 @@ function DropRow({
         ? 'Drop'
         : null;
   const href = collectionPath(item.collectionId);
-  const openDrop = useDropOverlayOpen();
   const dropInitial =
     item.view ??
     seedCollectionViewFromPeek({
@@ -315,7 +312,6 @@ function DropRow({
       creatorId: item.creatorId,
       kind: item.mediumKind,
     });
-  const dropHandlers = dropOverlayLinkHandlers(href, openDrop, dropInitial);
   const coverAction = dropsListCoverAction(item);
   const thumbClass = `market-listing-thumb drops-discovery-thumb${
     item.mediaUrl ? ' has-media' : ''
@@ -339,12 +335,11 @@ function DropRow({
 
   return (
     <div className="market-listing-row drops-discovery-row" role="listitem">
-      <Link
+      <DropOverlayLink
         href={href}
-        scroll={false}
+        initial={dropInitial}
         className="market-listing-row-open"
         aria-label={`Open ${item.title}`}
-        {...dropHandlers}
       />
       {coverAction && onOpenCover ? (
         <button

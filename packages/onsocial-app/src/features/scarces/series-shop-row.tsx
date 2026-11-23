@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
 import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import {
@@ -9,7 +8,7 @@ import {
   type CollectionView,
 } from '@/features/scarces/collections-data';
 import {
-  dropOverlayLinkHandlers,
+  DropOverlayLink,
   useDropOverlayOpen,
 } from '@/features/scarces/drop-overlay-open';
 import {
@@ -51,7 +50,6 @@ export function SeriesShopRow({
   const action = seriesShopActionLabel(status);
   const href = collectionPath(view.collectionId);
   const openDrop = useDropOverlayOpen();
-  const dropHandlers = dropOverlayLinkHandlers(href, openDrop, view);
   const creatorLabel = showCreator ? shopRowCreatorLabel(view.creatorId) : '';
   const price =
     dollarStickerLabel(view.usdE6) ??
@@ -75,35 +73,33 @@ export function SeriesShopRow({
 
   return (
     <div className="market-listing-row series-shop-row" role="listitem">
-      <Link
+      <DropOverlayLink
         href={href}
-        scroll={false}
-        className="collectibles-holding-row-main"
-        title={
-          action === 'Collect' ? `Collect ${view.title}` : view.title
+        initial={view}
+        className="market-listing-row-open"
+        aria-label={
+          action === 'Collect' ? `Open ${view.title}` : `Open drop for ${view.title}`
         }
-        {...dropHandlers}
+      />
+      <div
+        className={`market-listing-thumb${showThumb ? ' has-media' : ''}`}
+        aria-hidden
       >
-        <div
-          className={`market-listing-thumb${showThumb ? ' has-media' : ''}`}
-          aria-hidden
-        >
-          {showThumb ? (
-            <CatalogThumbImage
-              src={view.mediaUrl!}
-              onError={() => setBrokenMediaUrl(view.mediaUrl ?? null)}
-            />
-          ) : (
-            <span className="market-listing-thumb-fallback" />
-          )}
+        {showThumb ? (
+          <CatalogThumbImage
+            src={view.mediaUrl!}
+            onError={() => setBrokenMediaUrl(view.mediaUrl ?? null)}
+          />
+        ) : (
+          <span className="market-listing-thumb-fallback" />
+        )}
+      </div>
+      <div className="market-listing-copy">
+        <div className="market-listing-head">
+          <p className="market-listing-title">{view.title}</p>
         </div>
-        <div className="market-listing-copy">
-          <div className="market-listing-head">
-            <p className="market-listing-title">{view.title}</p>
-          </div>
-          <p className="market-listing-meta">{metaBits.join(' · ')}</p>
-        </div>
-      </Link>
+        <p className="market-listing-meta">{metaBits.join(' · ')}</p>
+      </div>
       <div
         className={`market-listing-action-col collectibles-holding-action-col${
           !clock && action !== 'Collect' ? ' is-empty' : ''
@@ -119,9 +115,9 @@ export function SeriesShopRow({
         ) : null}
         {action === 'Collect' ? (
           <OsRowAction
-            href={href}
             className="collectibles-holding-action"
             aria-label={`Collect ${view.title}`}
+            onClick={() => openDrop({ href, initial: view })}
           >
             Collect
           </OsRowAction>

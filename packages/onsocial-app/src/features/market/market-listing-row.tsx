@@ -25,10 +25,7 @@ import {
   marketPostLayerLinkHandlers,
   useMarketPostLayer,
 } from '@/features/market/market-post-layer';
-import {
-  dropOverlayLinkHandlers,
-  useDropOverlayOpen,
-} from '@/features/scarces/drop-overlay-open';
+import { DropOverlayLink } from '@/features/scarces/drop-overlay-open';
 import { scarceRowPartyLead } from '@/lib/scarce-row-kind';
 
 interface MarketListingRowProps {
@@ -98,7 +95,6 @@ export function MarketListingRow({
   onCancel,
 }: MarketListingRowProps) {
   const openMarketPost = useMarketPostLayer();
-  const openDrop = useDropOverlayOpen();
   const rowKey = marketListingRowKey(item);
   const sellerId = item.creatorId;
   const postHref = item.postHref ?? postHrefFromSourcePath(item.sourcePostPath);
@@ -113,14 +109,12 @@ export function MarketListingRow({
     rowTarget?.kind === 'drop'
       ? seedCollectionViewFromMarketListing(item)
       : null;
-  const rowOpenHandlers =
+  const postOpenHandlers =
     rowTarget?.kind === 'post'
       ? marketPostLayerLinkHandlers(rowTarget.href, openMarketPost, () =>
           seedListedEmbed(item)
         )
-      : rowTarget?.kind === 'drop'
-        ? dropOverlayLinkHandlers(rowTarget.href, openDrop, dropInitial)
-        : null;
+      : null;
   const [confirmRowKey, setConfirmRowKey] = useState<string | null>(null);
   const confirmTimerRef = useRef<number | null>(null);
   const confirmingCancel =
@@ -204,21 +198,22 @@ export function MarketListingRow({
   ) : (
     <span className="market-listing-thumb-fallback" aria-hidden />
   );
-  const rowOpensPost = rowTarget?.kind === 'post';
-
   return (
     <div className="market-listing-row" role="listitem">
-      {rowTarget ? (
+      {rowTarget?.kind === 'drop' ? (
+        <DropOverlayLink
+          href={rowTarget.href}
+          initial={dropInitial}
+          className="market-listing-row-open"
+          aria-label={`Open drop for ${item.title}`}
+        />
+      ) : rowTarget?.kind === 'post' ? (
         <Link
           href={rowTarget.href}
           scroll={false}
           className="market-listing-row-open"
-          aria-label={
-            rowOpensPost
-              ? `Open post for ${item.title}`
-              : `Open drop for ${item.title}`
-          }
-          {...(rowOpenHandlers ?? {})}
+          aria-label={`Open post for ${item.title}`}
+          {...(postOpenHandlers ?? {})}
         />
       ) : null}
       {rowTarget ? (

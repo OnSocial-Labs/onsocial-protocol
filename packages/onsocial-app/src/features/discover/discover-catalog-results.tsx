@@ -20,7 +20,13 @@ import {
   type DiscoverCatalogResults,
 } from '@/features/discover/discover-catalog-search';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
-import { APP_EVENTS_PATH, dropsPath, collectionPath } from '@/lib/app-routes';
+import {
+  APP_EVENTS_PATH,
+  dropsPath,
+  collectionPath,
+  parseInAppDropLayerHref,
+} from '@/lib/app-routes';
+import { DropOverlayLink } from '@/features/scarces/drop-overlay-open';
 import { ArticleReadOverlay } from '@/components/portfolio/article-read-screen';
 import { DiscoverArticlesList } from '@/features/discover/discover-articles-list';
 import { isArticlePost } from '@/lib/article-post-payload';
@@ -105,15 +111,11 @@ function CatalogRow({
   coverUrl?: string | null;
   onOpen?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) {
-  return (
-    <Link
-      href={href}
-      scroll={false}
-      className={`market-listing-row discover-catalog-row${
-        face ? ' discover-catalog-row--face' : ''
-      }`}
-      onClick={onOpen}
-    >
+  const className = `market-listing-row discover-catalog-row${
+    face ? ' discover-catalog-row--face' : ''
+  }`;
+  const body = (
+    <>
       {face ? (
         <CatalogFace
           accountId={face.accountId}
@@ -127,6 +129,18 @@ function CatalogRow({
         <span className="market-listing-title">{title}</span>
         {meta ? <p className="drops-discovery-deal">{meta}</p> : null}
       </div>
+    </>
+  );
+  if (parseInAppDropLayerHref(href)) {
+    return (
+      <DropOverlayLink href={href} className={className} onClick={onOpen}>
+        {body}
+      </DropOverlayLink>
+    );
+  }
+  return (
+    <Link href={href} scroll={false} className={className} onClick={onOpen}>
+      {body}
     </Link>
   );
 }

@@ -21,6 +21,7 @@ import {
   heldEditionDestination,
   type PortfolioHoldingPeek,
 } from '@/lib/portfolio-holdings';
+import { DropOverlayLink } from '@/features/scarces/drop-overlay-open';
 import { collectionPath } from '@/lib/app-routes';
 import { OsRowAction } from '@/lib/os-row-action';
 import { scarceRowPartyLead } from '@/lib/scarce-row-kind';
@@ -179,12 +180,18 @@ export function CollectiblesHoldingRow({
           aria-label={`Choose an edition of ${item.title}`}
           onClick={onOpenEditions}
         />
+      ) : opensPass && dropHref ? (
+        <DropOverlayLink
+          href={dropHref}
+          className="market-listing-row-open"
+          aria-label={`Open drop for ${item.title}`}
+        />
       ) : rowHref ? (
         <Link
           href={rowHref}
           scroll={false}
           className="market-listing-row-open"
-          aria-label={opensPass ? `Open drop for ${item.title}` : item.title}
+          aria-label={item.title}
         />
       ) : null}
       <div

@@ -10,11 +10,14 @@ import {
   resolvePostDropCta,
 } from '@/features/scarces/post-drop-cta';
 import { scarceEmbedCommercePaintReady } from '@/features/scarces/scarce-embed-ledger';
+import { seedCollectionViewFromPostScarceEmbed } from '@/features/scarces/collection-page-view';
+import { DropOverlayLink } from '@/features/scarces/drop-overlay-open';
 import {
   appPath,
   collectionPath,
   marketAppPath,
   marketCreatorPath,
+  parseInAppDropLayerHref,
 } from '@/lib/app-routes';
 
 /** Commerce data + actions every PostScarceCta host wires the same way. */
@@ -24,6 +27,8 @@ export type PostScarceCtaActionProps = {
   isAuthor?: boolean;
   /** Author account — used for Market deep links. */
   authorAccountId?: string;
+  /** Catalog title when the embed already resolved one. */
+  dropTitle?: string | null;
   /** Author can list when status is none / minted (no active listing). */
   canList?: boolean;
   onList?: () => void;
@@ -212,37 +217,61 @@ function commerceLinks(
 
 function CommerceLinkRow({
   links,
+  dropInitial,
 }: {
   links: { href: string; label: string }[];
+  dropInitial?: ReturnType<typeof seedCollectionViewFromPostScarceEmbed>;
 }) {
   if (links.length === 0) return null;
   return (
     <div className="post-card-scarce-links">
-      {links.map((link) => (
-        <Link
-          key={`${link.label}:${link.href}`}
-          href={link.href}
-          className="post-card-scarce-link"
-          scroll={false}
-          onClick={(event) => event.stopPropagation()}
-        >
-          {link.label}
-        </Link>
-      ))}
+      {links.map((link) => {
+        const drop = parseInAppDropLayerHref(link.href);
+        if (drop) {
+          return (
+            <DropOverlayLink
+              key={`${link.label}:${link.href}`}
+              collectionId={drop.collectionId}
+              initial={dropInitial}
+              className="post-card-scarce-link"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {link.label}
+            </DropOverlayLink>
+          );
+        }
+        return (
+          <Link
+            key={`${link.label}:${link.href}`}
+            href={link.href}
+            className="post-card-scarce-link"
+            scroll={false}
+            onClick={(event) => event.stopPropagation()}
+          >
+            {link.label}
+          </Link>
+        );
+      })}
     </div>
   );
 }
 
-function DropPageLink({ collectionId }: { collectionId: string }) {
+function DropPageLink({
+  collectionId,
+  dropInitial,
+}: {
+  collectionId: string;
+  dropInitial?: ReturnType<typeof seedCollectionViewFromPostScarceEmbed>;
+}) {
   return (
-    <Link
-      href={collectionPath(collectionId)}
+    <DropOverlayLink
+      collectionId={collectionId}
+      initial={dropInitial}
       className="post-card-scarce-link"
-      scroll={false}
       onClick={(event) => event.stopPropagation()}
     >
       Drop
-    </Link>
+    </DropOverlayLink>
   );
 }
 
@@ -261,6 +290,7 @@ export const PostScarceCta = memo(function PostScarceCta({
   embed,
   isAuthor = false,
   authorAccountId,
+  dropTitle = null,
   canList = false,
   onList,
   canSell = false,
@@ -277,6 +307,9 @@ export const PostScarceCta = memo(function PostScarceCta({
   const edition = editionMeta(embed);
   const collectionId =
     embed.collectionId?.trim() || embed.latest?.collectionId?.trim() || '';
+  const dropInitial = seedCollectionViewFromPostScarceEmbed(embed, {
+    title: dropTitle,
+  });
   const primaryLive = primaryMintLive(embed);
   const isDropFamily =
     Boolean(collectionId) &&
@@ -337,7 +370,7 @@ export const PostScarceCta = memo(function PostScarceCta({
           <span className="post-card-scarce-buy-main">Sell</span>
         </button>
         {mediumSlot}
-        <CommerceLinkRow links={links} />
+        <CommerceLinkRow links={links} dropInitial={dropInitial} />
       </div>
     );
   }
@@ -358,7 +391,7 @@ export const PostScarceCta = memo(function PostScarceCta({
         </button>
         <span className="post-card-scarce-cta-main">Listed</span>
         {mediumSlot}
-        <CommerceLinkRow links={links} />
+        <CommerceLinkRow links={links} dropInitial={dropInitial} />
       </div>
     );
   }
@@ -368,7 +401,7 @@ export const PostScarceCta = memo(function PostScarceCta({
       <div className="post-card-scarce-cta post-card-scarce-cta--muted">
         <span className="post-card-scarce-cta-main">Listed</span>
         {mediumSlot}
-        <CommerceLinkRow links={links} />
+        <CommerceLinkRow links={links} dropInitial={dropInitial} />
       </div>
     );
   }
@@ -386,16 +419,24 @@ export const PostScarceCta = memo(function PostScarceCta({
           ) : null}
           <ResaleMeta embed={embed} />
           {mediumSlot}
-          <CommerceLinkRow links={links} />
+          <CommerceLinkRow links={links} dropInitial={dropInitial} />
         </div>
       );
     }
     if (dropCta.kind === 'open') {
       return (
         <div className="post-card-scarce-cta">
-          {collectionId ? <DropPageLink collectionId={collectionId} /> : null}
+          {collectionId ? (
+            <DropPageLink
+              collectionId={collectionId}
+              dropInitial={dropInitial}
+            />
+          ) : null}
           {mediumSlot}
-          <CommerceLinkRow links={linksBesideDropAction(links)} />
+          <CommerceLinkRow
+            links={linksBesideDropAction(links)}
+            dropInitial={dropInitial}
+          />
         </div>
       );
     }
@@ -417,7 +458,7 @@ export const PostScarceCta = memo(function PostScarceCta({
             <BuyMetaRow embed={embed} edition={edition} />
           </button>
           {mediumSlot}
-          <CommerceLinkRow links={links} />
+          <CommerceLinkRow links={links} dropInitial={dropInitial} />
         </div>
       );
     }
@@ -446,7 +487,7 @@ export const PostScarceCta = memo(function PostScarceCta({
           )}
         </button>
         {mediumSlot}
-        <CommerceLinkRow links={links} />
+        <CommerceLinkRow links={links} dropInitial={dropInitial} />
       </div>
     );
   }
@@ -456,7 +497,7 @@ export const PostScarceCta = memo(function PostScarceCta({
       <div className="post-card-scarce-cta post-card-scarce-cta--muted">
         <span className="post-card-scarce-cta-main">Owned</span>
         {mediumSlot}
-        <CommerceLinkRow links={links} />
+        <CommerceLinkRow links={links} dropInitial={dropInitial} />
         {isAuthor && canList && onList ? (
           <button
             type="button"
@@ -479,7 +520,7 @@ export const PostScarceCta = memo(function PostScarceCta({
       <div className="post-card-scarce-cta post-card-scarce-cta--sold">
         <span>Sold</span>
         {mediumSlot}
-        <CommerceLinkRow links={links} />
+        <CommerceLinkRow links={links} dropInitial={dropInitial} />
       </div>
     );
   }
@@ -494,7 +535,7 @@ export const PostScarceCta = memo(function PostScarceCta({
           </span>
           <ResaleMeta embed={embed} />
           {mediumSlot}
-          <CommerceLinkRow links={links} />
+          <CommerceLinkRow links={links} dropInitial={dropInitial} />
         </div>
       );
     }
@@ -506,7 +547,7 @@ export const PostScarceCta = memo(function PostScarceCta({
           </span>
           <ResaleMeta embed={embed} />
           {mediumSlot}
-          <CommerceLinkRow links={links} />
+          <CommerceLinkRow links={links} dropInitial={dropInitial} />
         </div>
       );
     }
@@ -527,7 +568,7 @@ export const PostScarceCta = memo(function PostScarceCta({
           <BuyMetaRow embed={embed} edition={edition} />
         </button>
         {mediumSlot}
-        <CommerceLinkRow links={links} />
+        <CommerceLinkRow links={links} dropInitial={dropInitial} />
       </div>
     );
   }
@@ -555,7 +596,7 @@ export const PostScarceCta = memo(function PostScarceCta({
         ) : null}
         <ResaleMeta embed={embed} />
         {mediumSlot}
-        <CommerceLinkRow links={links} />
+        <CommerceLinkRow links={links} dropInitial={dropInitial} />
       </div>
     );
   }
@@ -574,7 +615,7 @@ export const PostScarceCta = memo(function PostScarceCta({
         </span>
         <ResaleMeta embed={embed} />
         {mediumSlot}
-        <CommerceLinkRow links={links} />
+        <CommerceLinkRow links={links} dropInitial={dropInitial} />
       </div>
     );
   }
@@ -605,7 +646,7 @@ export const PostScarceCta = memo(function PostScarceCta({
         )}
       </button>
       {mediumSlot}
-      <CommerceLinkRow links={links} />
+      <CommerceLinkRow links={links} dropInitial={dropInitial} />
     </div>
   );
 });

@@ -61,6 +61,7 @@ import {
   groupEvents,
   type EventWindow,
 } from '@/features/events/events-catalog';
+import { DropOverlayLink } from '@/features/scarces/drop-overlay-open';
 import { eventHintLive } from '@/features/scarces/ticket-event-facts';
 import {
   collectionGuestRoster,
@@ -170,9 +171,8 @@ function EventRow({
 
   return (
     <div className="market-listing-row drops-discovery-row" role="listitem">
-      <Link
+      <DropOverlayLink
         href={href}
-        scroll={false}
         className="market-listing-row-open"
         aria-label={`Open ${item.title}`}
       />

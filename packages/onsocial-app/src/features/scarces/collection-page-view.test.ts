@@ -23,6 +23,8 @@ import {
   resolveCollectionOwnership,
   seedCollectionViewFromNowPlaying,
   seedCollectionViewFromPeek,
+  seedCollectionViewFromPostScarceEmbed,
+  seedCollectionViewFromStoreDrop,
 } from '@/features/scarces/collection-page-view';
 
 describe('collection page view', () => {
@@ -359,5 +361,49 @@ describe('collection page view', () => {
         remaining: 4,
       })
     ).toBe(false);
+  });
+
+  it('seeds store drops with deal status so commerce does not pop after open', () => {
+    const view = seedCollectionViewFromStoreDrop(
+      {
+        collectionId: 'miauu',
+        title: 'Miauu event',
+        mediaUrl: 'https://cdn.example/t.jpg',
+        priceNear: '0',
+        remaining: 0,
+        totalSupply: 10,
+        status: 'sold_out',
+        mediumKind: 'ticket',
+      },
+      'test05.onsocial.testnet'
+    );
+    expect(view?.creatorId).toBe('test05.onsocial.testnet');
+    expect(view?.soldOut).toBe(true);
+    expect(view?.totalSupply).toBe(10);
+    expect(view?.minted).toBe(10);
+    expect(view?.kind).toBe('ticket');
+    expect(collectionViewNeedsCatalogSoftFill(view)).toBe(true);
+  });
+
+  it('seeds feed Drop CTA from the scarce embed already on the card', () => {
+    const view = seedCollectionViewFromPostScarceEmbed(
+      {
+        collectionId: 'night-piece',
+        mediaUrl: 'https://cdn.example/cover.jpg',
+        mediumKind: 'writing',
+        creatorId: 'alice.testnet',
+        copies: 25,
+        remaining: 10,
+        priceNear: '1',
+        status: 'drop',
+      },
+      { title: 'Night piece' }
+    );
+    expect(view?.title).toBe('Night piece');
+    expect(view?.mediaUrl).toBe('https://cdn.example/cover.jpg');
+    expect(view?.kind).toBe('writing');
+    expect(view?.totalSupply).toBe(25);
+    expect(view?.remaining).toBe(10);
+    expect(view?.creatorId).toBe('alice.testnet');
   });
 });

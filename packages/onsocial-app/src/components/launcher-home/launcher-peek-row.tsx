@@ -9,6 +9,8 @@ import {
   isUnmodifiedPrimaryClick,
   usePostThreadLayer,
 } from '@/features/home/post-thread-layer';
+import { DropOverlayLink } from '@/features/scarces/drop-overlay-open';
+import { parseInAppDropLayerHref } from '@/lib/app-routes';
 import { isAppPostSheetHref } from '@/lib/post-routes';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import type { PostRelationContext } from '@/lib/post-relation';
@@ -181,6 +183,7 @@ export function LauncherSocialPeekRow({
   showDivider?: boolean;
 }) {
   const { openPostThread } = usePostThreadLayer();
+  const dropHref = parseInAppDropLayerHref(href) ? href : null;
   const { label } = standingIdentityLabel(accountId, profileName);
   const relationLead = launcherRelationLead({
     relation,
@@ -198,24 +201,32 @@ export function LauncherSocialPeekRow({
       {showDivider ? <Divider variant="item" /> : null}
       <div className="standing-row launcher-home-peek-row">
         <div className="standing-row-main">
-          <Link
-            href={href}
-            className="standing-row-hit"
-            scroll={false}
-            aria-label={ariaLabel}
-            onClick={(event: MouseEvent<HTMLAnchorElement>) => {
-              if (!isUnmodifiedPrimaryClick(event)) return;
-              if (!isAppPostSheetHref(href)) return;
-              event.preventDefault();
-              event.stopPropagation();
-              openPostThread({ href, root: overlayRoot });
-            }}
-            onNavigate={(event) => {
-              if (!isAppPostSheetHref(href)) return;
-              event.preventDefault();
-              openPostThread({ href, root: overlayRoot });
-            }}
-          />
+          {dropHref ? (
+            <DropOverlayLink
+              href={dropHref}
+              className="standing-row-hit"
+              aria-label={ariaLabel}
+            />
+          ) : (
+            <Link
+              href={href}
+              className="standing-row-hit"
+              scroll={false}
+              aria-label={ariaLabel}
+              onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+                if (!isUnmodifiedPrimaryClick(event)) return;
+                if (!isAppPostSheetHref(href)) return;
+                event.preventDefault();
+                event.stopPropagation();
+                openPostThread({ href, root: overlayRoot });
+              }}
+              onNavigate={(event) => {
+                if (!isAppPostSheetHref(href)) return;
+                event.preventDefault();
+                openPostThread({ href, root: overlayRoot });
+              }}
+            />
+          )}
           <StandingIdentity
             accountId={accountId}
             profileName={profileName}

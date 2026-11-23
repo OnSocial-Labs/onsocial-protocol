@@ -1,10 +1,13 @@
 import { collectionIdFromTokenId } from '@/features/market/market-listings';
-import { seedCollectionViewFromPeek } from '@/features/scarces/collection-page-view';
+import {
+  seedCollectionViewFromPeek,
+  seedCollectionViewFromStoreDrop,
+} from '@/features/scarces/collection-page-view';
 import type { CollectionView } from '@/features/scarces/collections-data';
 
 /**
- * Market listing → overlay seed. Same contract as Drops / Just sold peeks:
- * cover + title (+ creator/kind when known); catalog soft-fills the rest.
+ * Market listing → overlay seed. Jacket + known deal line on frame 1;
+ * catalog soft-fills the rest.
  */
 export function seedCollectionViewFromMarketListing(item: {
   collectionId?: string | null;
@@ -15,6 +18,10 @@ export function seedCollectionViewFromMarketListing(item: {
   artistId?: string | null;
   mediumKind?: string | null;
   audioFormat?: CollectionView['audioFormat'];
+  priceNear?: string | null;
+  usdE6?: string | null;
+  remaining?: number | null;
+  copies?: number | null;
 }): CollectionView | null {
   const collectionId =
     item.collectionId?.trim() ||
@@ -22,6 +29,28 @@ export function seedCollectionViewFromMarketListing(item: {
     '';
   if (!collectionId) return null;
   const creatorId = item.artistId?.trim() || item.creatorId?.trim() || null;
+  const totalSupply = item.copies != null && item.copies > 0 ? item.copies : 0;
+  const remaining =
+    item.remaining != null && item.remaining >= 0
+      ? item.remaining
+      : totalSupply;
+  if (totalSupply > 0 || item.priceNear?.trim() || item.usdE6?.trim()) {
+    return seedCollectionViewFromStoreDrop(
+      {
+        collectionId,
+        title: item.title,
+        mediaUrl: item.mediaUrl,
+        priceNear: item.priceNear,
+        usdE6: item.usdE6,
+        remaining,
+        totalSupply,
+        status: totalSupply > 0 && remaining === 0 ? 'sold_out' : 'live',
+        mediumKind: item.mediumKind,
+        audioFormat: item.audioFormat,
+      },
+      creatorId
+    );
+  }
   return seedCollectionViewFromPeek({
     collectionId,
     title: item.title,
@@ -38,13 +67,51 @@ export function seedCollectionViewFromMarketSale(sale: {
   title: string;
   mediaUrl?: string | null;
   creatorId?: string | null;
+  priceNear?: string | null;
+  usdE6?: string | null;
 }): CollectionView | null {
   const collectionId = collectionIdFromTokenId(sale.tokenId ?? '');
   if (!collectionId) return null;
+  if (sale.priceNear?.trim() || sale.usdE6?.trim()) {
+    return seedCollectionViewFromStoreDrop(
+      {
+        collectionId,
+        title: sale.title,
+        mediaUrl: sale.mediaUrl,
+        priceNear: sale.priceNear,
+        usdE6: sale.usdE6,
+        remaining: 0,
+        totalSupply: 0,
+        status: 'sold_out',
+      },
+      sale.creatorId
+    );
+  }
   return seedCollectionViewFromPeek({
     collectionId,
     title: sale.title,
     coverUrl: sale.mediaUrl,
     creatorId: sale.creatorId,
+  });
+}
+
+/** Owned pass row → overlay seed from the holding already on the row. */
+export function seedCollectionViewFromOwnedPass(item: {
+  collectionId?: string | null;
+  title: string;
+  mediaUrl?: string | null;
+  creatorId?: string | null;
+  mediumKind?: string | null;
+  audioFormat?: CollectionView['audioFormat'];
+}): CollectionView | null {
+  const collectionId = item.collectionId?.trim() || '';
+  if (!collectionId) return null;
+  return seedCollectionViewFromPeek({
+    collectionId,
+    title: item.title,
+    coverUrl: item.mediaUrl,
+    creatorId: item.creatorId,
+    kind: item.mediumKind ?? null,
+    audioFormat: item.audioFormat ?? null,
   });
 }

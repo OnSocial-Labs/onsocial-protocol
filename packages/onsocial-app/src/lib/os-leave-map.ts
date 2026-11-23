@@ -81,6 +81,7 @@ export const OS_LEAVE_MAP = [
     dockBack: true,
     parent: OS_INDEX_LEAVE_HREF,
     verdict: 'matches',
+    note: 'Global Market → Home. Creator shop (?creator=) cold parent is global Market; in-tab Back pops the opener.',
   },
   {
     id: 'drops-index',

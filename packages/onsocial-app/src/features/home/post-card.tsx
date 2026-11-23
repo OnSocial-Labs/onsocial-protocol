@@ -1296,11 +1296,13 @@ function PostCardImpl({
     ]
   );
 
+  const scarceDropTitle = collectionDropTitle ?? tokenDropTitle ?? null;
   const scarceCtaActions = useMemo<PostScarceCtaActionProps>(
     () => ({
       embed: scarceEmbed ?? EMPTY_SCARCE_EMBED,
       isAuthor: isSelf,
       authorAccountId: scarceEmbed?.creatorId?.trim() || post.accountId,
+      dropTitle: scarceDropTitle,
       canList: canListScarce,
       onList: openListScarce,
       canSell: canSellScarce,
@@ -1316,6 +1318,7 @@ function PostCardImpl({
       scarceEmbed,
       isSelf,
       post.accountId,
+      scarceDropTitle,
       canListScarce,
       openListScarce,
       canSellScarce,
@@ -1930,6 +1933,11 @@ function PostCardImpl({
                     collectionId={scarceEmbed?.collectionId?.trim() || ''}
                     accountId={viewerAccountId}
                     creatorId={scarceEmbed?.creatorId ?? post.accountId}
+                    sourcePostPath={
+                      collectionSourcePostPath ??
+                      dropPaint?.sourcePostPath ??
+                      null
+                    }
                     readables={dropReadables}
                     bookPdf={dropBookPdf}
                     writingFormat={dropWritingFormat}

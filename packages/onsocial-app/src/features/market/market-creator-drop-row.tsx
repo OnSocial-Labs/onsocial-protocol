@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
 import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import {
@@ -8,9 +7,8 @@ import {
   marketCreatorDropMintable,
 } from '@/features/market/market-creator-view';
 import {
-  dropOverlayLinkHandlers,
+  DropOverlayLink,
   seedCollectionViewFromStoreDrop,
-  useDropOverlayOpen,
 } from '@/features/scarces/drop-overlay-open';
 import { collectionPath } from '@/lib/app-routes';
 import { OsRowAction } from '@/lib/os-row-action';
@@ -19,10 +17,13 @@ import type { ProfileStoreDrop } from '@/lib/profile-store-types';
 /** Unlisted creator drop — Mint when live; otherwise the row opens the drop. */
 export function MarketCreatorDropRow({
   drop,
+  creatorId,
   onMint,
   showStatus = true,
 }: {
   drop: ProfileStoreDrop;
+  /** Shop owner — seeds the overlay face on frame 1. */
+  creatorId?: string | null;
   onMint?: (drop: ProfileStoreDrop) => void;
   showStatus?: boolean;
 }) {
@@ -30,12 +31,7 @@ export function MarketCreatorDropRow({
   const showThumb = Boolean(drop.mediaUrl) && brokenMediaUrl !== drop.mediaUrl;
   const mintable = Boolean(onMint) && marketCreatorDropMintable(drop);
   const href = collectionPath(drop.collectionId);
-  const openDrop = useDropOverlayOpen();
-  const dropHandlers = dropOverlayLinkHandlers(
-    href,
-    openDrop,
-    seedCollectionViewFromStoreDrop(drop)
-  );
+  const dropInitial = seedCollectionViewFromStoreDrop(drop, creatorId);
   const meta = marketCreatorDropMetaBits(drop, { includeStatus: showStatus });
 
   return (
@@ -44,35 +40,33 @@ export function MarketCreatorDropRow({
       role="listitem"
       data-market-creator-drop={drop.collectionId}
     >
-      <Link
+      <DropOverlayLink
         href={href}
-        scroll={false}
-        className="collectibles-holding-row-main"
-        title={mintable ? `Mint ${drop.title}` : drop.title}
-        {...dropHandlers}
+        initial={dropInitial}
+        className="market-listing-row-open"
+        aria-label={mintable ? `Open ${drop.title}` : `Open drop for ${drop.title}`}
+      />
+      <div
+        className={`market-listing-thumb${showThumb ? ' has-media' : ''}`}
+        aria-hidden
       >
-        <div
-          className={`market-listing-thumb${showThumb ? ' has-media' : ''}`}
-          aria-hidden
-        >
-          {showThumb ? (
-            <CatalogThumbImage
-              src={drop.mediaUrl!}
-              onError={() => setBrokenMediaUrl(drop.mediaUrl ?? null)}
-            />
-          ) : (
-            <span className="market-listing-thumb-fallback" />
-          )}
+        {showThumb ? (
+          <CatalogThumbImage
+            src={drop.mediaUrl!}
+            onError={() => setBrokenMediaUrl(drop.mediaUrl ?? null)}
+          />
+        ) : (
+          <span className="market-listing-thumb-fallback" />
+        )}
+      </div>
+      <div className="market-listing-copy">
+        <div className="market-listing-head">
+          <p className="market-listing-title">{drop.title}</p>
         </div>
-        <div className="market-listing-copy">
-          <div className="market-listing-head">
-            <p className="market-listing-title">{drop.title}</p>
-          </div>
-          {meta.length > 0 ? (
-            <p className="market-listing-meta">{meta.join(' · ')}</p>
-          ) : null}
-        </div>
-      </Link>
+        {meta.length > 0 ? (
+          <p className="market-listing-meta">{meta.join(' · ')}</p>
+        ) : null}
+      </div>
       <div
         className={`market-listing-action-col collectibles-holding-action-col${
           mintable ? '' : ' is-empty'

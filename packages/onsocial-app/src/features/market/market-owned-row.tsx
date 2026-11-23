@@ -25,6 +25,8 @@ import { OwnedShowPassSheet } from '@/features/scarces/owned-show-pass-sheet';
 import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
+import { seedCollectionViewFromOwnedPass } from '@/features/market/market-drop-open';
+import { DropOverlayLink } from '@/features/scarces/drop-overlay-open';
 import { collectionPath } from '@/lib/app-routes';
 import {
   holdingsActionLabel,
@@ -167,6 +169,9 @@ export function MarketOwnedRow({
   const opensPass =
     isPassMediumKind(item.mediumKind) && Boolean(passCollectionId);
   const dropHref = passCollectionId ? collectionPath(passCollectionId) : null;
+  const dropInitial = opensPass
+    ? seedCollectionViewFromOwnedPass(item)
+    : null;
   const openPass = () => {
     setPassMounted(true);
     setPassOpen(true);
@@ -199,9 +204,9 @@ export function MarketOwnedRow({
   return (
     <div className="market-listing-row" role="listitem">
       {opensPass && dropHref ? (
-        <Link
+        <DropOverlayLink
           href={dropHref}
-          scroll={false}
+          initial={dropInitial}
           className="market-listing-row-open"
           aria-label={`Open drop for ${item.title}`}
         />

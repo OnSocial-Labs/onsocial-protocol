@@ -24,6 +24,8 @@ import {
   MarketSearchHeading,
 } from '@/features/market/market-heading';
 import { MarketCreatorShop } from '@/features/market/market-creator-shop';
+import { useCatalogDockBack } from '@/hooks/use-catalog-dock-back';
+import { warmDropPanel } from '@/lib/thread-first-page';
 import {
   listedCollectionIdSet,
   marketCreatorBackHref,
@@ -463,6 +465,10 @@ export function MarketPagePanel({
     onBlur: onListingSearchBlur,
   } = useSearchDraft('', { debounceMs: SEARCH_DEBOUNCE_MS });
   const [salesExpanded, setSalesExpanded] = useState(false);
+  // Prefetch drop overlay chunk so Just sold / listing taps are not blank.
+  useEffect(() => {
+    warmDropPanel();
+  }, []);
   useEffect(() => {
     setQuery(seedQuery);
     setListingSort((current) =>
@@ -2114,6 +2120,11 @@ export function MarketPagePanel({
     [listings, titleForToken]
   );
 
+  const marketLeaveHref = shopMode
+    ? marketCreatorBackHref()
+    : APP_HOME_PATH;
+  const onDockBack = useCatalogDockBack(marketLeaveHref);
+
   return (
     <OsAppScreen
       title={
@@ -2129,7 +2140,8 @@ export function MarketPagePanel({
       scrollTuckPinned={sortMenuOpen}
       dockBack
       leading={null}
-      backFallbackHref={shopMode ? marketCreatorBackHref() : APP_HOME_PATH}
+      onDockBack={onDockBack}
+      backFallbackHref={marketLeaveHref}
       glassChrome
       scrollRootRef={scrollRootRef}
       heading={
