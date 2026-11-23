@@ -47,6 +47,7 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     routeFallback: 'shell-skeleton',
     implementationFiles: [
       'features/discover/discover-panel-content.tsx',
+      'features/discover/discover-loading-screen.tsx',
       'features/discover/discover-loading-skeleton.tsx',
       'features/discover/discover-sheet-opening.tsx',
       'app/(app)/discover/loading.tsx',

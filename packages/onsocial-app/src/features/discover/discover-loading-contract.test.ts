@@ -42,6 +42,21 @@ describe('discover loading contract', () => {
     expect(source).toContain('DiscoverPanelContent');
   });
 
+  it('route Suspense never blanks — same chrome skeleton as loading.tsx', () => {
+    const loading = readFileSync(
+      join(discoverSrc, '../../app/(app)/discover/loading.tsx'),
+      'utf8'
+    );
+    const page = readFileSync(
+      join(discoverSrc, '../../app/(app)/discover/page.tsx'),
+      'utf8'
+    );
+    expect(loading).toContain('DiscoverLoadingScreen');
+    expect(loading).not.toContain('fallback={null}');
+    expect(page).toContain('DiscoverLoadingScreen');
+    expect(page).not.toContain('fallback={null}');
+  });
+
   it('appends hubs/guilds/DAOs with footer dots, not mid-list skeletons', () => {
     for (const file of [
       'discover-hubs-panel.tsx',

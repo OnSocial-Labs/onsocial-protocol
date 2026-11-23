@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+import { DiscoverLoadingScreen } from '@/features/discover/discover-loading-screen';
 import { parseDiscoverTab } from '@/features/discover/discover-tabs';
 import { DiscoverPagePanel } from '@/features/discover/discover-page-panel';
 import type { GuildSummaryCardModel } from '@/features/guilds/guild-summary-card';
@@ -77,7 +78,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
   ]);
 
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<DiscoverLoadingScreen tab={tab} />}>
       <DiscoverPagePanel
         initialPage={initialPage}
         initialTrending={initialTrending}
