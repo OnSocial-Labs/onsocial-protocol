@@ -7,20 +7,22 @@ import {
   prefetchPortfolioHref,
 } from '@/components/portfolio/account-place-link';
 import { isPortfolioOverlayPath, portfolioPath } from '@/lib/overlay-routes';
-import { isPortfolioShelfHop } from '@/lib/portfolio-shelf-hop';
+import { getParkedShelfHopArticle } from '@/lib/shelf-hop-article-park';
 import { startWritingShelfWarm } from '@/lib/writing-shelf-warm';
 
 /**
  * Continue from a face `?shelf=` landing to the real shelf path.
- * Soft replace only when a Home shelf hop already painted Writing chrome.
- * A cold document landing must hard-nav — router.replace races the streaming
- * HTML and never reaches domcontentloaded (pill / shelf e2e hang).
+ *
+ * Soft — Home hop with a parked feed article under Writing (glass overlay).
+ * Hard — cold / catalog landings: same solid Writing page as a hard refresh.
+ * A cold soft replace races streaming HTML and never reaches domcontentloaded.
  */
 export function continuePortfolioShelfHref(input: {
   href: string;
-  shelfHopActive: boolean;
+  /** Feed article parked under Writing — soft overlay; else solid page. */
+  retainFeedArticle: boolean;
 }): 'soft' | 'hard' {
-  return input.shelfHopActive ? 'soft' : 'hard';
+  return input.retainFeedArticle ? 'soft' : 'hard';
 }
 
 /**
@@ -53,7 +55,7 @@ function PortfolioPanelContinueInner({ accountId }: { accountId: string }) {
     startWritingShelfWarm(accountId);
     const mode = continuePortfolioShelfHref({
       href,
-      shelfHopActive: isPortfolioShelfHop(),
+      retainFeedArticle: Boolean(getParkedShelfHopArticle()),
     });
     if (mode === 'hard') {
       window.location.replace(href);

@@ -44,6 +44,13 @@ describe('drop cover expand wiring', () => {
     expect(reader).not.toContain('onViewCover');
   });
 
+  it('opens listed-article Read in the folio reader when the drop is an overlay', () => {
+    expect(panel).toContain('WritingReadSheet');
+    expect(panel).toContain('hydrateWritingManifest(view)');
+    expect(panel).toContain('setWritingReadOpen(true)');
+    expect(panel).not.toContain('openPostThread({ href: listedArticleHref })');
+  });
+
   it('opens the book in the article reader, still portaled to the OS card', () => {
     expect(reader).toContain('OsSlideOverScreen');
     expect(reader).toContain('ARTICLE_READ_CLASS');
@@ -53,6 +60,14 @@ describe('drop cover expand wiring', () => {
     expect(reader).not.toContain('compactChrome');
     expect(reader).not.toContain('WritingReaderMenu');
     expect(reader).not.toMatch(/^\s*viewport\s*$/m);
+  });
+
+  it('sends the Writing byline through AccountPlaceLink like the article reader', () => {
+    expect(reader).toContain('AccountPlaceLink');
+    expect(reader).toContain('authorWritingShelfHref');
+    expect(reader).not.toContain('onWritingShelfNavigate');
+    expect(reader).not.toContain('pushPortfolioHref');
+    expect(reader).not.toContain('endPortfolioShelfHop');
   });
 
   it('locks the writing reader column to the screen body pad', () => {

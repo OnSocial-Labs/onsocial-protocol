@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
   type RefObject,
@@ -29,22 +30,41 @@ const OverlayChromeContext = createContext<OverlayChromeContextValue | null>(
   null
 );
 
+function overlayChromeEquals(
+  prev: OverlayChromeConfig | null,
+  next: OverlayChromeConfig
+): boolean {
+  if (!prev) return false;
+  return (
+    prev.ariaTitle === next.ariaTitle &&
+    prev.hideHeader === next.hideHeader &&
+    prev.scrollBodyRef === next.scrollBodyRef
+  );
+}
+
 export function OverlayChromeProvider({ children }: { children: ReactNode }) {
   const [chrome, setChrome] = useState<OverlayChromeConfig | null>(null);
   const [headerPortal, setHeaderPortalState] = useState<HTMLElement | null>(
     null
   );
+  const chromeRef = useRef<OverlayChromeConfig | null>(null);
+  const headerPortalNodeRef = useRef<HTMLElement | null>(null);
 
   const registerChrome = useCallback((config: OverlayChromeConfig) => {
+    if (overlayChromeEquals(chromeRef.current, config)) return;
+    chromeRef.current = config;
     setChrome(config);
   }, []);
 
   const clearChrome = useCallback(() => {
+    chromeRef.current = null;
     setChrome(null);
   }, []);
 
   const setHeaderPortal = useCallback((node: HTMLElement | null) => {
-    setHeaderPortalState((prev) => (prev === node ? prev : node));
+    if (headerPortalNodeRef.current === node) return;
+    headerPortalNodeRef.current = node;
+    setHeaderPortalState(node);
   }, []);
 
   const value = useMemo(
@@ -90,9 +110,11 @@ export function useOverlayHeaderPortal(): HTMLElement | null {
   return useContext(OverlayChromeContext)?.headerPortal ?? null;
 }
 
+const noopSetHeaderPortal = (_node: HTMLElement | null) => {};
+
 export function useOverlayHeaderPortalTarget(): (
   node: HTMLElement | null
 ) => void {
   const context = useContext(OverlayChromeContext);
-  return context?.setHeaderPortal ?? (() => {});
+  return context?.setHeaderPortal ?? noopSetHeaderPortal;
 }

@@ -1,14 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { formatMarketVerbStamp } from '@/features/market/market-listings';
 import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-data';
-import { listedArticleReaderHref } from '@/features/scarces/drop-writing';
 import { OwnedShowPassSheet } from '@/features/scarces/owned-show-pass-sheet';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
 import {
@@ -20,7 +18,7 @@ import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
 import { socialTimeProps } from '@/lib/post-display';
 import {
-  holdingsReadHref,
+  heldEditionDestination,
   type PortfolioHoldingPeek,
 } from '@/lib/portfolio-holdings';
 import { collectionPath } from '@/lib/app-routes';
@@ -128,7 +126,6 @@ export function CollectiblesHoldingRow({
   authorDisplayName = null,
   authorAvatarUrl = null,
 }: CollectiblesHoldingRowProps) {
-  const router = useRouter();
   const { accountId: viewerAccountId } = useAppWallet();
   const creatorId = item.creatorId?.trim() || null;
   const mintedRel =
@@ -140,17 +137,25 @@ export function CollectiblesHoldingRow({
   const [passMounted, setPassMounted] = useState(false);
   const [readOpen, setReadOpen] = useState(false);
   const [readMounted, setReadMounted] = useState(false);
-  const [readPending, setReadPending] = useState(false);
+  const [readCreatorId, setReadCreatorId] = useState<string | null>(null);
+  const [readSourcePostPath, setReadSourcePostPath] = useState<string | null>(
+    null
+  );
   const showThumb = Boolean(item.mediaUrl) && brokenMediaUrl !== item.mediaUrl;
   const collectionId = item.collectionId?.trim() || '';
   const opensPass = isPassMediumKind(item.mediumKind) && Boolean(collectionId);
   const dropHref = collectionId ? collectionPath(collectionId) : null;
-  const articleReadHref = holdingsReadHref({
+  const readDestination = heldEditionDestination({
+    tokenId: item.tokenId,
+    collectionId,
+    sourcePostPath: item.sourcePostPath ?? undefined,
     mediumKind: item.mediumKind,
-    sourcePostPath: item.sourcePostPath,
   });
-  const opensCollectedRead =
-    item.actionLabel === 'Read' && !articleReadHref && Boolean(collectionId);
+  /** Folio reader on the vault page — same as Just sold / drop overlay embedded Read. */
+  const opensInPlaceRead =
+    item.actionLabel === 'Read' &&
+    Boolean(collectionId) &&
+    (readDestination.type === 'reader' || readDestination.type === 'article');
   const showMaker = Boolean(creatorId) && !hideCreator;
   const fact = collectiblesHoldingFact(item, editionCount, item.editions, {
     omitKind: showMaker,
@@ -255,40 +260,26 @@ export function CollectiblesHoldingRow({
               >
                 {item.actionLabel}
               </OsRowAction>
-            ) : articleReadHref ? (
-              <OsRowAction
-                href={articleReadHref}
-                className="collectibles-holding-action"
-                aria-label={`${item.actionLabel} ${item.title}`}
-              >
-                {item.actionLabel}
-              </OsRowAction>
-            ) : opensCollectedRead ? (
+            ) : opensInPlaceRead ? (
               <OsRowAction
                 className="collectibles-holding-action"
                 aria-label={`${item.actionLabel} ${item.title}`}
                 onClick={() => {
-                  if (readPending || !collectionId) return;
-                  setReadPending(true);
+                  if (!collectionId) return;
+                  setReadCreatorId(creatorId);
+                  setReadSourcePostPath(item.sourcePostPath?.trim() || null);
+                  setReadMounted(true);
+                  setReadOpen(true);
                   void fetchCollectionPreferIndexer(collectionId)
                     .then((view) => {
-                      const href = listedArticleReaderHref({
-                        writingFormat: view?.writingFormat,
-                        sourcePostPath:
-                          view?.sourcePostPath ?? item.sourcePostPath,
-                      });
-                      if (href) {
-                        router.push(href);
-                        return;
-                      }
-                      setReadMounted(true);
-                      setReadOpen(true);
+                      const nextCreator = view?.creatorId?.trim() || null;
+                      const nextPath = view?.sourcePostPath?.trim() || null;
+                      if (nextCreator) setReadCreatorId(nextCreator);
+                      if (nextPath) setReadSourcePostPath(nextPath);
                     })
                     .catch(() => {
-                      setReadMounted(true);
-                      setReadOpen(true);
-                    })
-                    .finally(() => setReadPending(false));
+                      /* shelf byline still uses row creator / path */
+                    });
                 }}
               >
                 {item.actionLabel}
@@ -305,7 +296,7 @@ export function CollectiblesHoldingRow({
           </div>
         </div>
       </div>
-      {opensCollectedRead && readMounted ? (
+      {opensInPlaceRead && readMounted ? (
         <WritingReadSheet
           open={readOpen}
           onClose={() => setReadOpen(false)}
@@ -314,10 +305,11 @@ export function CollectiblesHoldingRow({
           collectionId={collectionId}
           tokenId={item.tokenId}
           accountId={viewerAccountId}
-          creatorId={creatorId}
+          creatorId={readCreatorId ?? creatorId}
           readables={[]}
           canRead
           lockedHint=""
+          sourcePostPath={readSourcePostPath ?? item.sourcePostPath}
           publishedAt={
             item.mintedAtMs != null && item.mintedAtMs > 0
               ? item.mintedAtMs

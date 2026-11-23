@@ -18,7 +18,9 @@ import {
   OsSheetFooter,
   ShareIcon,
 } from '@onsocial/ui';
+import { usePathname } from 'next/navigation';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { AccountPlaceLink } from '@/components/portfolio/account-place-link';
 import { PortfolioWritingCover } from '@/components/portfolio/portfolio-writing-cover';
 import { ARTICLE_READ_CLASS } from '@/components/portfolio/article-read-screen';
 import { ArticleReadProgress } from '@/components/portfolio/article-read-progress';
@@ -39,6 +41,11 @@ import {
   type ScarceReadableMedia,
   type WritingReleaseFormat,
 } from '@/features/scarces/drop-writing';
+import { useOsInAppHrefs } from '@/components/providers/os-face-leave-provider';
+import {
+  authorWritingShelfHref,
+  writingShelfOpenerHref,
+} from '@/lib/overlay-routes';
 import { usePostLayerOwnerZ } from '@/features/home/post-layer-owner-z';
 import { postLayerOverlayZ } from '@/lib/sheet-z';
 import { MediaFaceIdentity } from '@/components/profile/media-face-identity';
@@ -82,6 +89,7 @@ export function WritingReadDocument({
   lockedHint,
   hydrateSettled = true,
   onChromeTap,
+  sourcePostPath = null,
 }: {
   open?: boolean;
   title: string;
@@ -99,7 +107,10 @@ export function WritingReadDocument({
   lockedHint: string;
   hydrateSettled?: boolean;
   onChromeTap?: () => void;
+  sourcePostPath?: string | null;
 }) {
+  const pathname = usePathname();
+  const trail = useOsInAppHrefs();
   const { accountId: viewerAccountId } = useAppWallet();
   const [wasOpen, setWasOpen] = useState(open);
   const [coverOpen, setCoverOpen] = useState(false);
@@ -201,6 +212,17 @@ export function WritingReadDocument({
     writingFormat,
     chapterCount: readables.length,
   });
+  const writingShelfHref = useMemo(
+    () =>
+      authorWritingShelfHref({
+        authorId,
+        sourcePostPath,
+        pathname,
+        search: typeof window === 'undefined' ? '' : window.location.search,
+        openerHref: writingShelfOpenerHref(trail(), authorId || ''),
+      }),
+    [authorId, pathname, sourcePostPath, trail]
+  );
   const dateline = issuedAt ? formatWritingShelfTimestamp(issuedAt) : null;
   const datelineIso = issuedAt ? postTimestampIso(issuedAt) : undefined;
   const hasWriting = readables.length > 0 || bookPdf != null;
@@ -258,7 +280,19 @@ export function WritingReadDocument({
                 </time>
               ) : null}
               <p className="portfolio-writing-byline">
-                <span>{kindLabel}</span>
+                {writingShelfHref ? (
+                  <AccountPlaceLink
+                    href={writingShelfHref}
+                    shelfFace={{
+                      titleLabel: authorName,
+                      avatarUrl: authorProfile?.avatarUrl ?? null,
+                    }}
+                  >
+                    {kindLabel}
+                  </AccountPlaceLink>
+                ) : (
+                  <span>{kindLabel}</span>
+                )}
                 {readLabel ? (
                   <>
                     <span className="portfolio-writing-byline-sep" aria-hidden>
@@ -410,6 +444,7 @@ export function WritingReadSheet({
   threadOpen = false,
   onDismissThread,
   pane = null,
+  sourcePostPath = null,
 }: {
   open: boolean;
   onClose: () => void;
@@ -436,6 +471,7 @@ export function WritingReadSheet({
   threadOpen?: boolean;
   onDismissThread?: () => void;
   pane?: ReactNode;
+  sourcePostPath?: string | null;
 }) {
   const faceZ = postLayerOverlayZ(usePostLayerOwnerZ()).face;
   const { isConnected, connect, isLoading } = useAppWallet();
@@ -455,6 +491,12 @@ export function WritingReadSheet({
   const [hydratedPublishedAt, setHydratedPublishedAt] = useState<number | null>(
     null
   );
+  const [hydratedCreatorId, setHydratedCreatorId] = useState<string | null>(
+    null
+  );
+  const [hydratedSourcePostPath, setHydratedSourcePostPath] = useState<
+    string | null
+  >(null);
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -465,8 +507,13 @@ export function WritingReadSheet({
       setHydratedTextAlign(null);
       setHydrateSettled(false);
       setHydratedPublishedAt(null);
+      setHydratedCreatorId(null);
+      setHydratedSourcePostPath(null);
     }
   }
+
+  const shelfAuthorId = creatorId?.trim() || hydratedCreatorId || '';
+  const shelfSourcePostPath = sourcePostPath ?? hydratedSourcePostPath;
 
   const readables =
     readablesProp.length > 0 ? readablesProp : hydratedReadables;
@@ -495,6 +542,12 @@ export function WritingReadSheet({
         if (cancelled) return;
         const view = rows[0] ? collectionCurrentRowToView(rows[0]) : null;
         if (!view) return;
+        if (view.creatorId?.trim()) {
+          setHydratedCreatorId(view.creatorId.trim());
+        }
+        if (view.sourcePostPath?.trim()) {
+          setHydratedSourcePostPath(view.sourcePostPath.trim());
+        }
         const hydrated = await hydrateWritingManifest(view);
         if (cancelled) return;
         if (hydrated.readables.length > 0) {
@@ -600,7 +653,7 @@ export function WritingReadSheet({
           coverSvg={coverSvg}
           collectionId={collectionId}
           accountId={accountId}
-          creatorId={creatorId}
+          creatorId={shelfAuthorId || creatorId}
           readables={readables}
           bookPdf={bookPdf}
           writingFormat={writingFormat}
@@ -610,6 +663,7 @@ export function WritingReadSheet({
           lockedHint={lockedHint}
           hydrateSettled={hydrateSettled}
           onChromeTap={onChromeTap}
+          sourcePostPath={shelfSourcePostPath}
         />
       </div>
     </OsSlideOverScreen>

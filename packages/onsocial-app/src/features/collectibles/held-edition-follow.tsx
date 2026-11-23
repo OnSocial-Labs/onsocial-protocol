@@ -9,7 +9,6 @@ import {
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
 import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-data';
-import { listedArticleReaderHref } from '@/features/scarces/drop-writing';
 import { OwnedShowPassSheet } from '@/features/scarces/owned-show-pass-sheet';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
 import {
@@ -45,6 +44,10 @@ export function HeldEditionFollow({
   const { accountId } = useAppWallet();
   const [pass, setPass] = useState<OwnedScarceItem | null>(null);
   const [reader, setReader] = useState<OwnedScarceItem | null>(null);
+  const [readerCreatorId, setReaderCreatorId] = useState<string | null>(null);
+  const [readerSourcePostPath, setReaderSourcePostPath] = useState<
+    string | null
+  >(null);
 
   const followBrowse = (item: OwnedScarceItem) => {
     const href = heldEditionBrowseHref(item);
@@ -57,29 +60,25 @@ export function HeldEditionFollow({
       setPass(item);
       return;
     }
-    if (destination.type === 'article') {
-      router.push(destination.href);
-      return;
-    }
-    if (destination.type === 'reader') {
+    if (destination.type === 'article' || destination.type === 'reader') {
       const collectionId =
         item.collectionId?.trim() ||
         collectionIdFromTokenId(item.tokenId) ||
         '';
       if (!collectionId) return;
+      setReaderCreatorId(item.creatorId?.trim() || null);
+      setReaderSourcePostPath(item.sourcePostPath?.trim() || null);
+      setReader(item);
       void fetchCollectionPreferIndexer(collectionId)
         .then((view) => {
-          const href = listedArticleReaderHref({
-            writingFormat: view?.writingFormat,
-            sourcePostPath: view?.sourcePostPath ?? item.sourcePostPath,
-          });
-          if (href) {
-            router.push(href);
-            return;
-          }
-          setReader(item);
+          const nextCreator = view?.creatorId?.trim() || null;
+          const nextPath = view?.sourcePostPath?.trim() || null;
+          if (nextCreator) setReaderCreatorId(nextCreator);
+          if (nextPath) setReaderSourcePostPath(nextPath);
         })
-        .catch(() => setReader(item));
+        .catch(() => {
+          /* byline still uses edition creator / path */
+        });
       return;
     }
     if (destination.href) router.push(destination.href);
@@ -133,7 +132,8 @@ export function HeldEditionFollow({
           collectionId={readerId}
           tokenId={reader.tokenId}
           accountId={accountId}
-          creatorId={reader.creatorId}
+          creatorId={readerCreatorId ?? reader.creatorId}
+          sourcePostPath={readerSourcePostPath ?? reader.sourcePostPath}
           readables={[]}
           canRead
           lockedHint=""

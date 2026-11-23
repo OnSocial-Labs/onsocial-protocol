@@ -248,6 +248,15 @@ export const OS_LEAVE_MAP = [
     note: 'Cold leave is the viewer vault, or the OS hop when signed out. In this tab, dock Back returns to the screen that opened the player (drawer, vault, or drop).',
   },
   {
+    id: 'writing-shelf',
+    place: 'Writing',
+    route: '/@[accountId]/writing',
+    dockBack: true,
+    parent: '/@[accountId]',
+    verdict: 'matches',
+    note: 'Dock Back leaves Writing for Collectibles or Drops when that catalog opened the visit — never a drop under them, and never an article under the shelf. Opened from this face or a cold open returns to this face.',
+  },
+  {
     id: 'portfolio-face',
     place: 'Portfolio face',
     route: '/@[accountId]',

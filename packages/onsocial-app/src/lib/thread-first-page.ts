@@ -258,6 +258,14 @@ export function warmPostPanels(): void {
   void import('@/features/home/post-quotes-panel');
 }
 
+/**
+ * Drop overlay is its own chunk (dynamic, ssr: false). Warm it on Discover /
+ * Market so Just sold and list rows paint the seeded jacket on first tap.
+ */
+export function warmDropPanel(): void {
+  void import('@/features/scarces/collection-page-panel');
+}
+
 /** Start the direct-reply page and the thread panel chunk on the tap. */
 export function warmThreadOpen(
   rootPath: string,

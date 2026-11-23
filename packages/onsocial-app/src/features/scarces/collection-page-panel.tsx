@@ -584,15 +584,42 @@ export function CollectionPagePanel({
       writingFormat: view?.writingFormat,
       sourcePostPath: view?.sourcePostPath,
     });
-    if (href) {
+    const openFolioReader = () => {
+      queueMicrotask(() => {
+        setWritingReadOpen(true);
+      });
+    };
+    if (href && !embedded) {
       router.push(href);
       return;
     }
-    queueMicrotask(() => {
-      setWritingReadOpen(true);
-    });
+    if (href && embedded && view) {
+      const needsBody =
+        (view.readables.length ?? 0) === 0 &&
+        !view.bookPdf &&
+        Boolean(view.sourcePostPath?.trim());
+      if (needsBody) {
+        void hydrateWritingManifest(view).then((next) => {
+          setView((prev) => {
+            if (!prev || prev.collectionId !== next.collectionId) return prev;
+            if (prev.readables.length > 0 || prev.bookPdf) return prev;
+            return {
+              ...prev,
+              readables: next.readables,
+              bookPdf: next.bookPdf,
+              writingFormat: next.writingFormat ?? prev.writingFormat,
+              textAlign: next.textAlign ?? prev.textAlign,
+            };
+          });
+          openFolioReader();
+        });
+        return;
+      }
+    }
+    openFolioReader();
   }, [
     collectionId,
+    embedded,
     router,
     view,
     view?.kind,
@@ -1098,11 +1125,39 @@ export function CollectionPagePanel({
     sourcePostPath: view.sourcePostPath,
   });
   const openWritingRead = () => {
-    if (listedArticleHref) {
+    const openFolioReader = () => {
+      queueMicrotask(() => setWritingReadOpen(true));
+    };
+    // Cold / share links land on the portfolio writing reader page.
+    if (listedArticleHref && !embedded) {
       router.push(listedArticleHref);
       return;
     }
-    setWritingReadOpen(true);
+    // Overlay: folio reader (WritingReadSheet), not the post thread sheet.
+    const listedNeedsBody =
+      Boolean(listedArticleHref) &&
+      embedded &&
+      readables.length === 0 &&
+      !view.bookPdf &&
+      Boolean(view.sourcePostPath?.trim());
+    if (listedNeedsBody) {
+      void hydrateWritingManifest(view).then((next) => {
+        setView((prev) => {
+          if (!prev || prev.collectionId !== next.collectionId) return prev;
+          if (prev.readables.length > 0 || prev.bookPdf) return prev;
+          return {
+            ...prev,
+            readables: next.readables,
+            bookPdf: next.bookPdf,
+            writingFormat: next.writingFormat ?? prev.writingFormat,
+            textAlign: next.textAlign ?? prev.textAlign,
+          };
+        });
+        openFolioReader();
+      });
+      return;
+    }
+    openFolioReader();
   };
   /** Writing is public to read — edition is for collect / keep, not a soft DRM gate. */
   const canReadWriting = true;
@@ -1939,6 +1994,7 @@ export function CollectionPagePanel({
         publishedAt={view.createdAtMs > 0 ? view.createdAtMs : null}
         canRead={canReadWriting}
         lockedHint=""
+        sourcePostPath={view.sourcePostPath}
       />
 
       {coverListenOpen && playables[0] ? (

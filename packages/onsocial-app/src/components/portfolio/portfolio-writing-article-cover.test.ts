@@ -37,9 +37,12 @@ describe('article author stand', () => {
 
 describe('article place stack', () => {
   it('sends Writing and the author to the real pages with essay leave', () => {
-    expect(panel).toContain('writingFromArticleHref');
+    expect(panel).toContain('writingShelfHrefKeepingOpener');
     expect(panel).toContain('AccountPlaceLink');
     expect(panel).toContain('portfolioFromEssayPath');
+    expect(panel).not.toContain('parkShelfHopArticle');
+    expect(panel).not.toContain('pushPortfolioHref');
+    expect(panel).not.toContain('navigation=');
     expect(panel).not.toContain('openWriting');
     expect(panel).not.toContain('interceptWriting');
     expect(panel).not.toContain('openFace');

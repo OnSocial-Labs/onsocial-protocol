@@ -27,6 +27,7 @@ import {
   previewWritingCoverSvg,
 } from '@/components/portfolio/portfolio-writing-cover';
 import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
+import { useOsInAppHrefs } from '@/components/providers/os-face-leave-provider';
 import { AccountPlaceLink } from '@/components/portfolio/account-place-link';
 import { MediaFaceIdentity } from '@/components/profile/media-face-identity';
 import { MediaFaceStandButton } from '@/components/ui/media-face-stand-button';
@@ -44,7 +45,8 @@ import {
   isWritingShelfPath,
   portfolioFromEssayPath,
   writingArticlePath,
-  writingFromArticleHref,
+  writingShelfHrefKeepingOpener,
+  writingShelfOpenerHref,
 } from '@/lib/overlay-routes';
 import {
   formatWritingShelfTimestamp,
@@ -62,7 +64,6 @@ import {
   usePostEngagement,
 } from '@/hooks/use-post-engagement';
 import { WritingMoreByAuthor } from '@/components/portfolio/writing-more-by-author';
-import { parkShelfHopArticle } from '@/lib/shelf-hop-article-park';
 
 export type PortfolioWritingArticlePanelProps = {
   accountId: string;
@@ -367,18 +368,20 @@ export function PortfolioWritingArticlePanel({
   const authorName = displayName(post.accountId, titleLabel);
   const pathname = usePathname();
   const returnSearch = useEssayReturnSearch();
+  const trail = useOsInAppHrefs();
   const authorHref = portfolioFromEssayPath(
     post.accountId,
     post.postId,
     pathname
   );
-  const writingHref = writingFromArticleHref(
+  const writingHref = writingShelfHrefKeepingOpener({
     accountId,
-    post.postId,
-    pathname,
-    returnSearch
-  );
-  const shelfAlreadyOpen = isWritingShelfPath(accountId, pathname);
+    postId: post.postId,
+    pathname: pathname ?? '',
+    search: returnSearch,
+    openerHref: writingShelfOpenerHref(trail(), accountId),
+  });
+  const onShelf = isWritingShelfPath(accountId, pathname);
   const onWritingClick = (event: MouseEvent<HTMLAnchorElement>) => {
     if (
       event.metaKey ||
@@ -389,18 +392,9 @@ export function PortfolioWritingArticlePanel({
     ) {
       return;
     }
-    if (shelfAlreadyOpen) {
-      event.preventDefault();
-      onReturnToShelf?.();
-      return;
-    }
-    // Next soft-nav replaces layout children — park the open reader so the
-    // Writing hop can keep it mounted under the shelf.
-    parkShelfHopArticle({
-      post,
-      titleLabel,
-      avatarUrl: avatarUrl ?? null,
-    });
+    if (!onShelf) return;
+    event.preventDefault();
+    onReturnToShelf?.();
   };
   const { accountId: viewerAccountId } = useAppWallet();
   const [coverOpen, setCoverOpen] = useState(false);

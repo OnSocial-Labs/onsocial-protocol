@@ -15,7 +15,6 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ArticleReadOverlay } from '@/components/portfolio/article-read-screen';
-import { PortfolioEssayLeave } from '@/components/portfolio/portfolio-essay-leave';
 import { PortfolioPersonalComposer } from '@/components/portfolio/portfolio-personal-composer';
 import {
   WritingIdentityToolbar,
@@ -27,6 +26,7 @@ import {
 } from '@/components/portfolio/portfolio-writing-list';
 import { useOverlayDismiss } from '@/contexts/overlay-dismiss-context';
 import { useSearchDraft } from '@/hooks/use-search-draft';
+import { useWritingShelfDockBack } from '@/hooks/use-writing-shelf-dock-back';
 import {
   articleMatchesQuery,
   resolveWritingListQuery,
@@ -324,11 +324,9 @@ export function PortfolioWritingScreen({
   mood,
   ...panel
 }: PortfolioWritingPanelProps & { mood: ResolvedMood }) {
+  const onDockBack = useWritingShelfDockBack(panel.accountId);
   return (
-    <>
-      <PortfolioWritingShelf mood={mood} {...panel} />
-      <PortfolioEssayLeave accountId={panel.accountId} />
-    </>
+    <PortfolioWritingShelf mood={mood} onDockBack={onDockBack} {...panel} />
   );
 }
 
@@ -360,7 +358,6 @@ export function PortfolioWritingOverlay({
         onDockBack={dismiss}
         {...panel}
       />
-      <PortfolioEssayLeave accountId={panel.accountId} />
     </>
   );
 }

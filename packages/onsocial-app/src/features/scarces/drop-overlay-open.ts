@@ -39,13 +39,15 @@ export function dropOverlayLinkHandlers(
   return {
     onClick(event) {
       if (!isUnmodifiedPrimaryClick(event)) return;
-      if (!open({ href, initial })) return;
+      if (!parseInAppDropLayerHref(href)) return;
       event.preventDefault();
       event.stopPropagation();
+      open({ href, initial });
     },
     onNavigate(event) {
-      if (!open({ href, initial })) return;
+      if (!parseInAppDropLayerHref(href)) return;
       event.preventDefault();
+      open({ href, initial });
     },
   };
 }

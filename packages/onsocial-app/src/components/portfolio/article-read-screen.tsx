@@ -284,6 +284,15 @@ export function ArticleReadOverlay({
     open,
     scrollRootRef
   );
+  const parentReturnToShelf = panel.onReturnToShelf;
+  /** Shelf already under this reader — Writing dismisses onto that list. */
+  const onReturnToShelf = useCallback(() => {
+    if (parentReturnToShelf) {
+      parentReturnToShelf();
+      return;
+    }
+    onOpenChange(false);
+  }, [onOpenChange, parentReturnToShelf]);
   const articleTitle =
     parseArticleSnapshot(current.value)?.title?.trim() ||
     documentTitle?.trim() ||
@@ -368,6 +377,7 @@ export function ArticleReadOverlay({
         <ArticleReadBody
           {...panel}
           post={current}
+          onReturnToShelf={onReturnToShelf}
           coverHint={hintForArticle(
             current,
             panel.post,
@@ -410,6 +420,9 @@ export function ArticleReadPage(panel: PortfolioWritingArticlePanelProps) {
     event.preventDefault();
     router.back();
   };
+  const onReturnToShelf = useCallback(() => {
+    router.push(shelfHref);
+  }, [router, shelfHref]);
 
   return (
     <OsAppScreen
@@ -465,6 +478,7 @@ export function ArticleReadPage(panel: PortfolioWritingArticlePanelProps) {
       <ArticleReadBody
         {...panel}
         post={current}
+        onReturnToShelf={onReturnToShelf}
         coverHint={hintForArticle(
           current,
           panel.post,

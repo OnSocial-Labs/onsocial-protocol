@@ -10,8 +10,10 @@ import {
 } from '@/lib/overlay-routes';
 import {
   beginPortfolioShelfHop,
+  endPortfolioShelfHop,
   type PortfolioShelfHopFace,
 } from '@/lib/portfolio-shelf-hop';
+import { clearParkedShelfHopArticle } from '@/lib/shelf-hop-article-park';
 import { startWritingShelfWarm } from '@/lib/writing-shelf-warm';
 
 type AccountPlaceLinkProps = Omit<
@@ -35,8 +37,8 @@ export const PORTFOLIO_SHELF_PARAM = 'shelf';
 
 /**
  * From Home, `/@id/writing` is intercepted as `accountId=home` and the
- * recovery reloads the document, which throws away the mounted feed.
- * Land on the face first, then continue to the shelf from inside `/@id`.
+ * recovery reloads the document. Land on the face first, then continue to
+ * the shelf from inside `/@id` — only when a feed article is parked under.
  */
 export function feedPanelHopHref(
   pathname: string,
@@ -54,6 +56,12 @@ export function feedPanelHopHref(
   params.set(PORTFOLIO_SHELF_PARAM, match[2]);
   const face = path.slice(0, path.length - match[2].length);
   return `${face}?${params.toString()}`;
+}
+
+/** Author Writing shelf or article — not a profile face. */
+export function isWritingShelfHref(href: string): boolean {
+  const path = (href.split('#')[0] ?? href).split('?')[0] ?? '';
+  return /\/writing(?:\/|$)/.test(path);
 }
 
 function shelfHopFace(
@@ -80,20 +88,21 @@ export function AccountPlaceLink({
   const router = useRouter();
   const target = typeof href === 'string' ? href : href.toString();
   const hop = feedPanelHopHref(pathname, target);
+  const solidWriting = isWritingShelfHref(target);
   const faceLabel = shelfFace?.titleLabel ?? null;
   const faceAvatar = shelfFace?.avatarUrl ?? null;
 
   useEffect(() => {
-    if (!hop) return;
+    if (!hop || solidWriting) return;
     const face = shelfHopFace(hop, {
       titleLabel: faceLabel ?? '',
       avatarUrl: faceAvatar,
     });
     if (face) startWritingShelfWarm(face.accountId);
     prefetchPortfolioHref(router.prefetch as RouterPrefetch, hop);
-  }, [faceAvatar, faceLabel, hop, router]);
+  }, [faceAvatar, faceLabel, hop, router, solidWriting]);
 
-  const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
+  const handlePlaceClick = (event: MouseEvent<HTMLAnchorElement>) => {
     onClick?.(event);
     if (event.defaultPrevented || !hop) return;
     if (
@@ -109,19 +118,48 @@ export function AccountPlaceLink({
     const face = shelfHopFace(hop, shelfFace);
     if (face) startWritingShelfWarm(face.accountId);
     prefetchPortfolioHref(router.prefetch as RouterPrefetch, hop);
-    // Paint WritingShelfOpening before soft-nav swaps layout children.
     flushSync(() => {
       beginPortfolioShelfHop(face);
     });
     router.push(hop);
   };
 
+  const leaveToSolidShelf = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey ||
+      event.button !== 0
+    ) {
+      return;
+    }
+    onClick?.(event);
+    if (event.defaultPrevented) return;
+    event.preventDefault();
+    event.stopPropagation();
+    endPortfolioShelfHop();
+    clearParkedShelfHopArticle();
+    window.location.assign(target);
+  };
+
+  if (solidWriting) {
+    return (
+      <a
+        href={target}
+        onPointerDown={leaveToSolidShelf}
+        onClick={leaveToSolidShelf}
+        {...props}
+      />
+    );
+  }
+
   return (
     <Link
       href={href}
       scroll={false}
       prefetch={prefetch}
-      onClick={handleClick}
+      onClick={handlePlaceClick}
       {...props}
     />
   );

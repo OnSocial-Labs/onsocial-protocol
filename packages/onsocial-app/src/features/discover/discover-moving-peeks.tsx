@@ -321,6 +321,8 @@ export function MovingCoverPeekSection({
             <li key={`${heading}-${scarce.collectionId}`}>
               <Link
                 href={href}
+                scroll={false}
+                prefetch={false}
                 className="discover-cover-peek"
                 {...dropHandlers}
               >

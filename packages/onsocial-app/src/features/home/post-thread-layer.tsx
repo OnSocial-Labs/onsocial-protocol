@@ -91,6 +91,7 @@ import {
 import { warmGuildChannelTitles } from '@/lib/guild-channel-titles';
 import {
   threadContentPath,
+  warmDropPanel,
   warmPostPanels,
   warmThreadOpen,
 } from '@/lib/thread-first-page';
@@ -829,6 +830,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   // Prefetch thread chunks on mount so a cold first open is not download-bound.
   useEffect(() => {
     warmPostPanels();
+    warmDropPanel();
   }, []);
 
   useLayoutEffect(() => {
@@ -1321,13 +1323,20 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       setStack((prev) => [...prev, next]);
 
       if (typeof window === 'undefined') return true;
-      getPostLayerPopGuard().depth = 1;
-      const currentUrl = `${window.location.pathname}${window.location.search}`;
-      if (currentUrl === canonical) return true;
+      const syncCanonical = () => {
+        getPostLayerPopGuard().depth = 1;
+        const currentUrl = `${window.location.pathname}${window.location.search}`;
+        if (currentUrl === canonical) return;
+        if (isFirst) {
+          nativeHistoryPushState(withPostLayerHistoryState(), canonical);
+        } else {
+          nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
+        }
+      };
       if (isFirst) {
-        nativeHistoryPushState(withPostLayerHistoryState(), canonical);
+        queueMicrotask(syncCanonical);
       } else {
-        nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
+        syncCanonical();
       }
       return true;
     },
