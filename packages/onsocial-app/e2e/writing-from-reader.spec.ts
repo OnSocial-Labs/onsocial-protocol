@@ -2,9 +2,8 @@ import { expect, test, type Page } from '@playwright/test';
 import { dismissNextDevOverlay, gotoApp } from './helpers';
 
 /**
- * Feed reader → Writing. The sheet covers the open article on the tap.
- * The feed list does not get a turn in between, and the article stays
- * mounted underneath so back can return to it.
+ * Feed reader → Writing. The byline full-loads the solid shelf so Home
+ * does not intercept `/writing` and the face overlay never flashes.
  */
 
 type GraphBody = { query?: string };
@@ -77,7 +76,7 @@ async function stubGraph(page: Page) {
   });
 }
 
-test('writing covers the open article instead of the feed', async ({
+test('writing leaves the feed article for the solid shelf', async ({
   page,
 }) => {
   const pageErrors: string[] = [];
@@ -101,15 +100,11 @@ test('writing covers the open article instead of the feed', async ({
   await expect(reader).toBeVisible();
   await reader.getByRole('link', { name: 'Writing' }).click();
 
-  const shelf = page.getByRole('dialog', { name: 'Writing' });
-  await expect(shelf).toBeVisible({ timeout: 3_000 });
-  // Writing parks the feed under the shelf — session is covered so probes
-  // and autoplay pause while the list stays mounted for back.
-  await expect(page.locator('[data-feed-session="covered"]')).toHaveCount(1);
-  await expect(reader).toBeAttached();
+  await expect(page).toHaveURL(/\/@alice\.near\/writing/, { timeout: 15_000 });
+  await expect(page.getByRole('dialog', { name: 'Writing' })).toHaveCount(0);
   await expect(
-    shelf.locator('.portfolio-writing-pending, .portfolio-writing-list')
-  ).toBeVisible();
+    page.locator('.portfolio-writing-pending, .portfolio-writing-list')
+  ).toBeVisible({ timeout: 15_000 });
   const depthErrors = pageErrors.filter((message) =>
     /185|maximum update depth/i.test(message)
   );

@@ -38,13 +38,18 @@ function installShellStreamObserver(): void {
       state.dropCreateBusy,
       document.querySelectorAll('.drop-create-form[aria-busy="true"]').length
     );
+    // Peak only the committed shell — Flight keeps a twin under `[id^="S:"]`.
     state.summonDock = Math.max(
       state.summonDock,
-      document.querySelectorAll('.portfolio-summon-dock').length
+      document.querySelectorAll(
+        '.portfolio-summon-dock:not([id^="S:"] .portfolio-summon-dock)'
+      ).length
     );
     state.pageChevron = Math.max(
       state.pageChevron,
-      document.querySelectorAll('.portfolio-page-chevron').length
+      document.querySelectorAll(
+        '.portfolio-page-chevron:not([id^="S:"] .portfolio-page-chevron)'
+      ).length
     );
     state.portfolioPending = Math.max(
       state.portfolioPending,

@@ -420,9 +420,6 @@ export function ArticleReadPage(panel: PortfolioWritingArticlePanelProps) {
     event.preventDefault();
     router.back();
   };
-  const onReturnToShelf = useCallback(() => {
-    router.push(shelfHref);
-  }, [router, shelfHref]);
 
   return (
     <OsAppScreen
@@ -478,7 +475,8 @@ export function ArticleReadPage(panel: PortfolioWritingArticlePanelProps) {
       <ArticleReadBody
         {...panel}
         post={current}
-        onReturnToShelf={onReturnToShelf}
+        // Solid permalink — More expands in this reader (no shelf under it).
+        onReturnToShelf={undefined}
         coverHint={hintForArticle(
           current,
           panel.post,
