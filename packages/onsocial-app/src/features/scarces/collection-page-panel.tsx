@@ -433,7 +433,7 @@ export function CollectionPagePanel({
   const [isRedeemer, setIsRedeemer] = useState(false);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   /** Series and date stay as first painted. The story line keeps its own seat. */
-  const faceChromeRef = useRef<{
+  const [faceChrome, setFaceChrome] = useState<{
     id: string;
     series: boolean;
     date: boolean;
@@ -1265,18 +1265,17 @@ export function CollectionPagePanel({
       : formatMarketRelativeTime(view.createdAtMs);
   const faceTitle = collectionFaceTitle(view.title, view.collectionId);
   const seriesOnFace = Boolean(faceSeriesId && faceSeriesTitle);
-  if (
-    faceChromeRef.current == null ||
-    faceChromeRef.current.id !== view.collectionId
-  ) {
-    faceChromeRef.current = {
+  let chrome = faceChrome;
+  if (chrome == null || chrome.id !== view.collectionId) {
+    chrome = {
       id: view.collectionId,
       series: seriesOnFace,
       date: Boolean(createdRel),
     };
+    setFaceChrome(chrome);
   }
-  const seriesLink = faceChromeRef.current.series && seriesOnFace;
-  const dateOnFace = faceChromeRef.current.date && Boolean(createdRel);
+  const seriesLink = chrome.series && seriesOnFace;
+  const dateOnFace = chrome.date && Boolean(createdRel);
   // Activity section always seated — pending skeleton, rows, or empty copy.
   // Never mount then unmount (CLS on soft-nav empty fetch).
   const showActivityPending = !activityLoaded;

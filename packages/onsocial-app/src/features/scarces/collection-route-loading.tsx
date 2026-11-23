@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import { useParams } from 'next/navigation';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { CollectionPagePanel } from '@/features/scarces/collection-page-panel';
@@ -21,6 +21,24 @@ function collectionIdFromParams(params: { collectionId?: string | string[] }) {
   return typeof id === 'string' ? decodeURIComponent(id) : '';
 }
 
+const subscribeLocation = () => () => {};
+
+/** `?t=` on the live URL. Server snapshot stays empty so hydration matches. */
+function useDropEditionToken(collectionId: string): string {
+  return useSyncExternalStore(
+    subscribeLocation,
+    () => {
+      if (!collectionId) return '';
+      const query = new URLSearchParams(window.location.search);
+      return editionTokenForCollection(
+        collectionId,
+        query.get(COLLECTION_PASS_TOKEN_PARAM)
+      );
+    },
+    () => ''
+  );
+}
+
 /**
  * Route `loading.tsx` — hot soft-nav paints the real drop panel with the
  * remembered seed (same layout as settled; activity fetches while RSC lands).
@@ -29,17 +47,7 @@ function collectionIdFromParams(params: { collectionId?: string | string[] }) {
 export function CollectionPageLoadingScreen() {
   const params = useParams<{ collectionId?: string }>();
   const collectionId = collectionIdFromParams(params);
-  const [editionToken, setEditionToken] = useState('');
-  useLayoutEffect(() => {
-    if (!collectionId) return;
-    const query = new URLSearchParams(window.location.search);
-    setEditionToken(
-      editionTokenForCollection(
-        collectionId,
-        query.get(COLLECTION_PASS_TOKEN_PARAM)
-      )
-    );
-  }, [collectionId]);
+  const editionToken = useDropEditionToken(collectionId);
   const seed = collectionId ? readCollectionView(collectionId) : null;
   const creator = collectionId ? readCollectionCreatorFace(collectionId) : null;
   const onDockBack = useCatalogDockBack(APP_DROPS_PATH);
