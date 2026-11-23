@@ -50,49 +50,52 @@ export function DropRowFans({
   fanIds?: string[];
   fanCount: number;
 }) {
+  const rosterKey = `${creatorId}\0${collectionId}`;
   const peeked = peekDropFanIds(creatorId, collectionId);
-  const [roster, setRoster] = useState<string[]>(
-    () => fanIds ?? peeked ?? []
+  const propRoster = fanIds && fanIds.length > 0 ? fanIds : null;
+  const [loaded, setLoaded] = useState<{
+    key: string;
+    ids: string[];
+  } | null>(null);
+  const [fetchDoneKey, setFetchDoneKey] = useState<string | null>(
+    () => (propRoster || peeked != null || fanCount <= 0 ? rosterKey : null)
   );
-  const [rosterSettled, setRosterSettled] = useState(
-    () => (fanIds?.length ?? 0) > 0 || peeked != null || fanCount <= 0
-  );
+  const [seenKey, setSeenKey] = useState(rosterKey);
+  if (seenKey !== rosterKey) {
+    setSeenKey(rosterKey);
+    setLoaded(null);
+    setFetchDoneKey(
+      propRoster || peeked != null || fanCount <= 0 ? rosterKey : null
+    );
+  }
+
+  const loadedIds = loaded?.key === rosterKey ? loaded.ids : null;
+  const roster = propRoster ?? loadedIds ?? peeked ?? [];
+  const rosterSettled =
+    propRoster != null ||
+    peeked != null ||
+    fanCount <= 0 ||
+    roster.length > 0 ||
+    fetchDoneKey === rosterKey;
 
   useEffect(() => {
-    if (fanIds && fanIds.length > 0) {
-      setRoster(fanIds);
-      setRosterSettled(true);
-    }
-  }, [fanIds]);
-
-  useEffect(() => {
-    if (roster.length > 0 || fanCount <= 0) {
-      setRosterSettled(true);
-      return;
-    }
+    if (propRoster || fanCount <= 0 || peeked != null) return;
     let cancelled = false;
-    const cached = peekDropFanIds(creatorId, collectionId);
-    if (cached) {
-      setRoster(cached);
-      setRosterSettled(true);
-      return;
-    }
-    setRosterSettled(false);
     void loadDropFanIds(creatorId, collectionId)
       .then((ids) => {
         if (cancelled) return;
-        setRoster(ids);
-        setRosterSettled(true);
+        setLoaded({ key: rosterKey, ids });
+        setFetchDoneKey(rosterKey);
       })
       .catch(() => {
         if (cancelled) return;
-        setRoster([]);
-        setRosterSettled(true);
+        setLoaded({ key: rosterKey, ids: [] });
+        setFetchDoneKey(rosterKey);
       });
     return () => {
       cancelled = true;
     };
-  }, [creatorId, collectionId, fanCount, roster.length]);
+  }, [creatorId, collectionId, fanCount, peeked, propRoster, rosterKey]);
 
   const ids = roster.slice(0, 3);
   const profiles = usePostAuthorProfiles(ids);

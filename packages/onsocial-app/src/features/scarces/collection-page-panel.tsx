@@ -47,8 +47,6 @@ import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { useCollectiblesNowPlayingOptional } from '@/contexts/collectibles-now-playing-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { useSheetMounted } from '@/hooks/use-sheet-mounted';
-import { warmProfileListAccounts } from '@/lib/load-profile-list-accounts';
 import { CollectionAllowlistManager } from '@/features/scarces/collection-allowlist-manager';
 import {
   CollectionAboutSheet,
@@ -756,8 +754,10 @@ export function CollectionPagePanel({
     const fromQuery = params.get(COLLECTION_PASS_TOKEN_PARAM)?.trim() || null;
     const tokenId = fromQuery || ownedPassTokenId;
     if (!tokenId) return;
+    /* eslint-disable react-hooks/set-state-in-effect -- one-shot ?pass=1 deep link into Show pass */
     setShowPassTokenId(tokenId);
     setShowPassOpen(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [collectionId, ownedPassTokenId, view?.kind]);
 
   // Legacy ?door=1 / ?redeem=1 → staff Admit or Redeem page.
@@ -957,10 +957,10 @@ export function CollectionPagePanel({
   const [heldMintListing, setHeldMintListing] =
     useState<typeof mintListing>(null);
 
-  const openMintSheet = useCallback(() => {
+  const openMintSheet = () => {
     setHeldMintListing(mintListing);
     setMintOpen(true);
-  }, [mintListing]);
+  };
   const openOwnerPost = useCallback(() => {
     if (!view) return;
     requestDropCompose({
@@ -1098,13 +1098,13 @@ export function CollectionPagePanel({
     audioFormat: view?.audioFormat ?? null,
     writingFormat: view?.writingFormat ?? null,
   });
-  const requestActivityClose = useCallback(() => {
+  const requestActivityClose = () => {
     setActivityClosing(true);
-  }, []);
-  const handleActivityClosed = useCallback(() => {
+  };
+  const handleActivityClosed = () => {
     setActivityClosing(false);
     setActivityOpen(false);
-  }, []);
+  };
 
   /** Parent passed a seed (place SSR / soft-nav loading / appear) — no skeleton. */
   const seededHotOpen = initial != null;

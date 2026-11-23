@@ -32,18 +32,18 @@ export function OwnedShowPassSheet({
   tokenId: string;
 }) {
   const id = collectionId.trim();
-  const [schedule, setSchedule] = useState<ScheduleState | null>(() => {
-    const peeked = peekShowPassSchedule(id);
-    return peeked ? { key: id, ...peeked } : null;
-  });
+  const peeked = peekShowPassSchedule(id);
+  const [fetched, setFetched] = useState<ScheduleState | null>(null);
+  const facts =
+    fetched?.key === id
+      ? fetched
+      : peeked
+        ? { key: id, ...peeked }
+        : null;
 
   useEffect(() => {
     if (!id || !tokenId.trim()) return;
     let cancelled = false;
-    const peeked = peekShowPassSchedule(id);
-    if (peeked) {
-      setSchedule({ key: id, ...peeked });
-    }
     void prefetchShowPass({
       collectionId: id,
       tokenId,
@@ -52,14 +52,12 @@ export function OwnedShowPassSheet({
       revalidateStatus: open,
     }).then((ahead) => {
       if (cancelled || !ahead.schedule) return;
-      setSchedule({ key: id, ...ahead.schedule });
+      setFetched({ key: id, ...ahead.schedule });
     });
     return () => {
       cancelled = true;
     };
   }, [cover, id, open, title, tokenId]);
-
-  const facts = schedule?.key === id ? schedule : null;
 
   return (
     <TicketShowPassSheet
