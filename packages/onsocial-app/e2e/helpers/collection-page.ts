@@ -304,8 +304,8 @@ export async function stubCollectionPageGraph(
         body: JSON.stringify({
           data: {
             reactionsCurrent: [
-              { accountId: 'maya.near', path: `scarce/${collectionId}` },
-              { accountId: 'alex.near', path: `scarce/${collectionId}` },
+              { accountId: 'maya.near', path: `/scarce/${collectionId}` },
+              { accountId: 'alex.near', path: `/scarce/${collectionId}` },
             ],
           },
         }),

@@ -103,7 +103,7 @@ test('writing leaves the feed article for the solid shelf', async ({
   await expect(page).toHaveURL(/\/@alice\.near\/writing/, { timeout: 15_000 });
   await expect(page.getByRole('dialog', { name: 'Writing' })).toHaveCount(0);
   await expect(
-    page.locator('.portfolio-writing-pending, .portfolio-writing-list')
+    page.locator('.portfolio-writing--list')
   ).toBeVisible({ timeout: 15_000 });
   const depthErrors = pageErrors.filter((message) =>
     /185|maximum update depth/i.test(message)

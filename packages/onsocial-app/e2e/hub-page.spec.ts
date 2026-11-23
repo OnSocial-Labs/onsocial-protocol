@@ -27,7 +27,7 @@ test.describe('hub page', () => {
     ).toHaveCount(0);
 
     await expect(
-      page.getByRole('link', { name: 'Collect Night Drive' })
+      page.getByRole('button', { name: 'Collect Night Drive' })
     ).toBeVisible();
     // Ended drops open via the row itself — no separate Open CTA.
     await expect(
@@ -82,7 +82,7 @@ test.describe('hub page', () => {
       page.getByRole('heading', { name: HUB_E2E_TITLE }).first()
     ).toBeVisible();
     await expect(
-      page.getByRole('link', { name: 'Collect Night Drive' })
+      page.getByRole('button', { name: 'Collect Night Drive' })
     ).toBeVisible();
     await expect(
       page.locator('.series-shop-row').filter({ hasText: 'Quiet Print' })
@@ -102,7 +102,7 @@ test.describe('hub page', () => {
     });
     await expect(page.getByText('No drops in this hub yet.')).toHaveCount(0);
     await expect(
-      page.getByRole('link', { name: 'Collect Night Drive' })
+      page.getByRole('button', { name: 'Collect Night Drive' })
     ).toBeVisible({ timeout: 12_000 });
     await expect(page.locator('[data-hub-page-skeleton]')).toHaveCount(0);
     await expect(page.locator('.app-drop-card')).toHaveCount(0);
@@ -164,7 +164,7 @@ test.describe('hub page', () => {
       page.getByText('4 drops · 12 minted · 6 holders · 4.0 NEAR')
     ).toBeVisible();
     await expect(
-      page.getByRole('link', { name: 'Collect Night Drive' })
+      page.getByRole('button', { name: 'Collect Night Drive' })
     ).toBeVisible();
     await expect(
       page

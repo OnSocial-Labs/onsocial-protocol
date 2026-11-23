@@ -54,7 +54,9 @@ test.describe('discover shell', () => {
   test('Hubs is the hub directory', async ({ page }) => {
     await gotoApp(page, '/discover?tab=hubs');
     await expectTabSelected(page, 'Discover', 'Hubs');
-    await expect(page.getByText('Creator hubs')).toBeVisible();
+    await expect(
+      page.locator('#discover-panel-hubs').getByText('Creator hubs')
+    ).toBeVisible();
     await expect(
       page.getByRole('heading', { name: 'Most traded' })
     ).toHaveCount(0);
