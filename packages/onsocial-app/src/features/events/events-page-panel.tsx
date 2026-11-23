@@ -62,7 +62,9 @@ import {
   type EventWindow,
 } from '@/features/events/events-catalog';
 import { DropOverlayLink } from '@/features/scarces/drop-overlay-open';
+import { seedCollectionViewFromPeek } from '@/features/scarces/collection-page-view';
 import { eventHintLive } from '@/features/scarces/ticket-event-facts';
+import { warmDropPanel } from '@/lib/thread-first-page';
 import {
   collectionGuestRoster,
   eventGuestCountAria,
@@ -147,6 +149,13 @@ function EventRow({
   onOwnerManaged: (change: 'paused' | 'resumed' | 'deleted') => void;
 }) {
   const href = collectionPath(item.collectionId);
+  const dropInitial = seedCollectionViewFromPeek({
+    collectionId: item.collectionId,
+    title: item.title,
+    coverUrl: item.mediaUrl,
+    creatorId: item.creatorId,
+    kind: item.mediumKind,
+  });
   const when = eventRowWhen(item, nowMs);
   const whenAt = eventRowWhenAt(item, nowMs);
   const dealParts = [
@@ -173,6 +182,7 @@ function EventRow({
     <div className="market-listing-row drops-discovery-row" role="listitem">
       <DropOverlayLink
         href={href}
+        initial={dropInitial}
         className="market-listing-row-open"
         aria-label={`Open ${item.title}`}
       />
@@ -307,6 +317,10 @@ export function EventsPagePanel({
   /** URL `q` — grouped search hands the same words here. */
   initialQuery?: string;
 }) {
+  // Prefetch drop overlay chunk so the first event tap is not a blank wait.
+  useEffect(() => {
+    warmDropPanel();
+  }, []);
   const { accountId, isConnected } = useAppWallet();
   const { viewerSaved, isSavePending, toggleSave } = useScarceCollectionSaves(
     {}

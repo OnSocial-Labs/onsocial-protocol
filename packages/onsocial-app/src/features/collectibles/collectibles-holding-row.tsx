@@ -22,6 +22,7 @@ import {
   type PortfolioHoldingPeek,
 } from '@/lib/portfolio-holdings';
 import { DropOverlayLink } from '@/features/scarces/drop-overlay-open';
+import { seedCollectionViewFromPeek } from '@/features/scarces/collection-page-view';
 import { collectionPath } from '@/lib/app-routes';
 import { OsRowAction } from '@/lib/os-row-action';
 import { scarceRowPartyLead } from '@/lib/scarce-row-kind';
@@ -146,6 +147,17 @@ export function CollectiblesHoldingRow({
   const collectionId = item.collectionId?.trim() || '';
   const opensPass = isPassMediumKind(item.mediumKind) && Boolean(collectionId);
   const dropHref = collectionId ? collectionPath(collectionId) : null;
+  const dropInitial =
+    opensPass && collectionId
+      ? seedCollectionViewFromPeek({
+          collectionId,
+          title: item.title,
+          coverUrl: item.mediaUrl,
+          creatorId: item.creatorId,
+          kind: item.mediumKind,
+          audioFormat: item.audioFormat ?? null,
+        })
+      : null;
   const readDestination = heldEditionDestination({
     tokenId: item.tokenId,
     collectionId,
@@ -183,6 +195,7 @@ export function CollectiblesHoldingRow({
       ) : opensPass && dropHref ? (
         <DropOverlayLink
           href={dropHref}
+          initial={dropInitial}
           className="market-listing-row-open"
           aria-label={`Open drop for ${item.title}`}
         />

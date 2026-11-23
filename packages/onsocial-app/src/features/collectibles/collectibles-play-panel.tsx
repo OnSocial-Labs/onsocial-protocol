@@ -34,6 +34,7 @@ import {
 } from '@/features/market/market-listings';
 import { CollectiblesPlaySkeleton } from '@/features/collectibles/collectibles-play-skeleton';
 import { scarceRowPartyLead } from '@/lib/scarce-row-kind';
+import { useDropOverlayOpen } from '@/features/scarces/drop-overlay-open';
 import { OsRowAction } from '@/lib/os-row-action';
 import { socialTimeProps } from '@/lib/post-display';
 import {
@@ -147,6 +148,7 @@ export function CollectiblesPlayPanel({
   initialCreator?: CollectionCreatorFace | null;
 } = {}) {
   const searchParams = useSearchParams();
+  const openDrop = useDropOverlayOpen();
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const collectionId =
     searchParams.get(COLLECTIBLES_PLAY_PARAM)?.trim() ||
@@ -451,7 +453,13 @@ export function CollectiblesPlayPanel({
             className={`collectibles-play-drop-action${
               dropIsLive ? ' is-live' : ''
             }`}
-            href={dropHref}
+            onClick={() => {
+              if (!collectionId) return;
+              openDrop({
+                href: dropHref,
+                initial: view,
+              });
+            }}
           >
             {dropIsLive ? (
               <span className="collectibles-play-drop-live" aria-hidden />

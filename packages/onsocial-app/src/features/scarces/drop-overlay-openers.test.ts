@@ -44,8 +44,44 @@ describe('Drop overlay openers', () => {
     );
   });
 
-  it('warms the drop chunk on Market (listings + shop)', () => {
+  it('seeds Events, Discover catalog, Collectibles pass, and hub peeks', () => {
+    expect(src('features/events/events-page-panel.tsx')).toContain(
+      'seedCollectionViewFromPeek'
+    );
+    expect(src('features/discover/discover-catalog-results.tsx')).toContain(
+      'seedCollectionViewFromPeek'
+    );
+    expect(
+      src('features/collectibles/collectibles-holding-row.tsx')
+    ).toContain('seedCollectionViewFromPeek');
+    expect(src('features/scarces/hubs-latest-drops-panel.tsx')).toContain(
+      'seedCollectionViewFromPeek'
+    );
+  });
+
+  it('routes play View drop, notifications, create success, and facts through openDrop', () => {
+    expect(src('features/collectibles/collectibles-play-panel.tsx')).toContain(
+      'useDropOverlayOpen'
+    );
+    expect(src('features/notifications/notifications-panel.tsx')).toContain(
+      'useDropOverlayOpen'
+    );
+    expect(src('features/scarces/create-drop-panel.tsx')).toContain(
+      'useDropOverlayOpen'
+    );
+    expect(src('features/scarces/scarce-listing-facts-sheet.tsx')).toContain(
+      'DropOverlayLink'
+    );
+  });
+
+  it('warms the drop chunk on Market, Drops, and Events', () => {
     expect(src('features/market/market-page-panel.tsx')).toContain(
+      'warmDropPanel'
+    );
+    expect(src('features/drops/drops-page-panel.tsx')).toContain(
+      'warmDropPanel'
+    );
+    expect(src('features/events/events-page-panel.tsx')).toContain(
       'warmDropPanel'
     );
   });

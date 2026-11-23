@@ -10,6 +10,7 @@ import {
   usePostThreadLayer,
 } from '@/features/home/post-thread-layer';
 import { DropOverlayLink } from '@/features/scarces/drop-overlay-open';
+import type { CollectionView } from '@/features/scarces/collections-data';
 import { parseInAppDropLayerHref } from '@/lib/app-routes';
 import { isAppPostSheetHref } from '@/lib/post-routes';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
@@ -165,6 +166,7 @@ export function LauncherSocialPeekRow({
   repostAttribution,
   relationTargetProfileName,
   overlayRoot = null,
+  dropInitial = null,
   showDivider = false,
 }: {
   href: string;
@@ -180,6 +182,8 @@ export function LauncherSocialPeekRow({
   relationTargetProfileName?: string | null;
   /** Seed the overlay thread when this row is the post being opened. */
   overlayRoot?: PostRow | null;
+  /** Seed the drop overlay when this row opens a collection. */
+  dropInitial?: CollectionView | null;
   showDivider?: boolean;
 }) {
   const { openPostThread } = usePostThreadLayer();
@@ -204,6 +208,7 @@ export function LauncherSocialPeekRow({
           {dropHref ? (
             <DropOverlayLink
               href={dropHref}
+              initial={dropInitial}
               className="standing-row-hit"
               aria-label={ariaLabel}
             />

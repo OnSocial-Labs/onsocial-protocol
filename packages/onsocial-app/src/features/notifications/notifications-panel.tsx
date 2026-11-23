@@ -38,8 +38,14 @@ import {
   getCachedAppGatewayAuth,
 } from '@/lib/app-gateway-auth';
 import { getAppLenis } from '@/lib/app-lenis-registry';
-import { APP_HOME_PATH, messagesPath } from '@/lib/app-routes';
+import {
+  APP_HOME_PATH,
+  messagesPath,
+  parseInAppDropLayerHref,
+} from '@/lib/app-routes';
 import { accountIdsEqual } from '@/lib/account-match';
+import { useDropOverlayOpen } from '@/features/scarces/drop-overlay-open';
+import { seedCollectionViewFromPeek } from '@/features/scarces/collection-page-view';
 import {
   peekActivityInboxSession,
   readActivityInboxSession,
@@ -76,6 +82,7 @@ const PAGE_SIZE = 40;
  */
 export function NotificationsPanel() {
   const router = useRouter();
+  const openDrop = useDropOverlayOpen();
   const { openAccountSheet } = useAppAccountSheet();
   const {
     accountId,
@@ -534,9 +541,27 @@ export function NotificationsPanel() {
         openAccountSheet();
         return;
       }
-      router.push(notificationHref(item));
+      const href = notificationHref(item);
+      const drop = parseInAppDropLayerHref(href);
+      if (drop) {
+        const title =
+          typeof item.context?.collectionTitle === 'string'
+            ? item.context.collectionTitle
+            : typeof item.context?.title === 'string'
+              ? item.context.title
+              : null;
+        openDrop({
+          href,
+          initial: seedCollectionViewFromPeek({
+            collectionId: drop.collectionId,
+            title,
+          }),
+        });
+        return;
+      }
+      router.push(href);
     },
-    [accountId, openAccountSheet, router, withAuth]
+    [accountId, openAccountSheet, openDrop, router, withAuth]
   );
 
   const unreadCount = useMemo(

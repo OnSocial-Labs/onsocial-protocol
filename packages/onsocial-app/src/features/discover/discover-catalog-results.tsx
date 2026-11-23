@@ -27,6 +27,7 @@ import {
   parseInAppDropLayerHref,
 } from '@/lib/app-routes';
 import { DropOverlayLink } from '@/features/scarces/drop-overlay-open';
+import { seedCollectionViewFromPeek } from '@/features/scarces/collection-page-view';
 import { ArticleReadOverlay } from '@/components/portfolio/article-read-screen';
 import { DiscoverArticlesList } from '@/features/discover/discover-articles-list';
 import { isArticlePost } from '@/lib/article-post-payload';
@@ -114,6 +115,14 @@ function CatalogRow({
   const className = `market-listing-row discover-catalog-row${
     face ? ' discover-catalog-row--face' : ''
   }`;
+  const drop = parseInAppDropLayerHref(href);
+  const dropInitial = drop
+    ? seedCollectionViewFromPeek({
+        collectionId: drop.collectionId,
+        title,
+        coverUrl,
+      })
+    : null;
   const body = (
     <>
       {face ? (
@@ -131,9 +140,14 @@ function CatalogRow({
       </div>
     </>
   );
-  if (parseInAppDropLayerHref(href)) {
+  if (drop) {
     return (
-      <DropOverlayLink href={href} className={className} onClick={onOpen}>
+      <DropOverlayLink
+        href={href}
+        initial={dropInitial}
+        className={className}
+        onClick={onOpen}
+      >
         {body}
       </DropOverlayLink>
     );

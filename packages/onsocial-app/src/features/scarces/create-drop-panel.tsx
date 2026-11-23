@@ -11,6 +11,8 @@ import {
   type FormEvent,
 } from 'react';
 import { useRouter } from 'next/navigation';
+import { useDropOverlayOpen } from '@/features/scarces/drop-overlay-open';
+import { seedCollectionViewFromPeek } from '@/features/scarces/collection-page-view';
 import './drop-create-spacing.css';
 import {
   DiscardConfirmSheet,
@@ -302,6 +304,7 @@ export function CreateDropPanel({
   template?: string;
 } = {}) {
   const router = useRouter();
+  const openDrop = useDropOverlayOpen();
   const appId = app.trim();
   const seriesQuery = series.trim();
   const { accountId, isConnected, isLoading, connect, getSigningWallet } =
@@ -2455,7 +2458,14 @@ export function CreateDropPanel({
         setPinnedWriting(null);
         setPinnedLargeSet(null);
         setConfirmOpen(false);
-        router.push(collectionPath(collectionId));
+        openDrop({
+          href: collectionPath(collectionId),
+          initial: seedCollectionViewFromPeek({
+            collectionId,
+            title: title.trim(),
+            creatorId: accountId,
+          }),
+        });
       } catch (cause) {
         if (isWalletUserCancellation(cause)) {
           setConfirmPhase(hasMatchingPin ? 'ready' : 'review');
@@ -2492,6 +2502,7 @@ export function CreateDropPanel({
     facets,
     title,
     isLargeUpload,
+    openDrop,
     pinnedLargeSet,
     variationFiles,
     variationSource,

@@ -94,6 +94,7 @@ import {
   type DropsPageQuery,
 } from '@/lib/load-drops-page';
 import { scarceRowPartyLead } from '@/lib/scarce-row-kind';
+import { warmDropPanel } from '@/lib/thread-first-page';
 
 /** Debounce before search keystrokes hit the indexer (snappy, still typed). */
 const SEARCH_DEBOUNCE_MS = 200;
@@ -624,6 +625,10 @@ export function DropsPagePanel({
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [nowMs, setNowMs] = useState(() => initialNowMs ?? Date.now());
+
+  useEffect(() => {
+    warmDropPanel();
+  }, []);
 
   useEffect(() => {
     setNowMs(Date.now());
