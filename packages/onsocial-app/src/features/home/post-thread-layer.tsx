@@ -109,6 +109,12 @@ import {
   retabTopQuotes,
   walkBackOneStep,
 } from './post-thread-stack';
+import {
+  beginHistoryBack,
+  inFlightPopRepair,
+  repairClosingLayerHistory,
+  withoutClosingLayer,
+} from './post-thread-history';
 
 /*
  * Seeded feed opens already paint the root — never put a full-page skeleton
@@ -407,23 +413,6 @@ function seedEmbeddedThread(
   };
 }
 
-function withoutClosingLayer<T extends { id: string }>(
-  stack: readonly T[],
-  closingId: string | null
-): T[] {
-  if (!closingId) return stack as T[];
-  let removed = false;
-  const live: T[] = [];
-  for (const entry of stack) {
-    if (entry.id === closingId) {
-      removed = true;
-      continue;
-    }
-    live.push(entry);
-  }
-  return removed ? live : (stack as T[]);
-}
-
 function historyHasPostLayer(): boolean {
   if (typeof window === 'undefined') return false;
   const state = window.history.state;
@@ -462,10 +451,7 @@ function captureUnderlayScroll(): { el: HTMLElement; top: number } | null {
 }
 
 /** Put the underlay back where capture left it — native + Lenis together. */
-function restoreUnderlayScroll(saved: {
-  el: HTMLElement;
-  top: number;
-}): void {
+function restoreUnderlayScroll(saved: { el: HTMLElement; top: number }): void {
   if (!saved.el.isConnected) return;
   saved.el.scrollTop = saved.top;
   adoptAppLenisScroll(saved.el);
@@ -834,6 +820,8 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   const closingIdRef = useRef<string | null>(closingId);
   /** `history.back()` from a close whose popstate has not landed yet. */
   const closePopPendingRef = useRef(false);
+  /** Canonical of the layer that replaced a close, query included. */
+  const overlayCanonicalRef = useRef<string | null>(null);
   useLayoutEffect(() => {
     stackRef.current = stack;
     closingIdRef.current = closingId;
@@ -979,8 +967,12 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     }
     if (!beginCloseTop()) return;
     if (typeof window === 'undefined') return;
-    if (historyHasPostLayer()) {
-      closePopPendingRef.current = true;
+    const back = beginHistoryBack({
+      depth: getPostLayerPopGuard().depth,
+      historyHasLayer: historyHasPostLayer(),
+    });
+    if (back.back) {
+      closePopPendingRef.current = back.armPending;
       window.history.back();
       return;
     }
@@ -989,6 +981,23 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       underlayPathRef.current ?? '/home'
     );
   }, [beginCloseTop, syncOverlayUrl]);
+
+  const publishClosingHistory = useCallback((canonical: string) => {
+    if (typeof window === 'undefined') return;
+    overlayCanonicalRef.current = canonical;
+    const guard = getPostLayerPopGuard();
+    guard.depth = 1;
+    const action = repairClosingLayerHistory({
+      canonical,
+      currentUrl: `${window.location.pathname}${window.location.search}`,
+      historyHasLayer: historyHasPostLayer(),
+    });
+    if (action.op === 'push') {
+      nativeHistoryPushState(withPostLayerHistoryState(), action.href);
+    } else if (action.op === 'replace') {
+      nativeHistoryReplaceState(withPostLayerHistoryState(), action.href);
+    }
+  }, []);
 
   const openPostThread = useCallback(
     ({
@@ -1145,13 +1154,13 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         setStack(trail);
         // The film stays up under this reply. Back returns to it.
         if (typeof window === 'undefined') return true;
+        if (droppedClosing) {
+          publishClosingHistory(canonical);
+          return true;
+        }
         getPostLayerPopGuard().depth = 1;
         const currentUrl = `${window.location.pathname}${window.location.search}`;
-        // The close's Back already popped the overlay entry. Push a new one
-        // so the next Back returns to the feed instead of leaving the app.
-        if (droppedClosing && !historyHasPostLayer()) {
-          nativeHistoryPushState(withPostLayerHistoryState(), canonical);
-        } else if (currentUrl !== canonical) {
+        if (currentUrl !== canonical) {
           nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
         }
         return true;
@@ -1190,23 +1199,19 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       if (typeof window === 'undefined') return true;
       getPostLayerPopGuard().depth = 1;
       const currentUrl = `${window.location.pathname}${window.location.search}`;
-      if (!droppedClosing) {
-        if (currentUrl === canonical) return true;
-        if (isFirst) {
-          nativeHistoryPushState(withPostLayerHistoryState(), canonical);
-        } else {
-          nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
-        }
+      if (droppedClosing) {
+        publishClosingHistory(canonical);
         return true;
       }
-      if (!historyHasPostLayer()) {
+      if (currentUrl === canonical) return true;
+      if (isFirst) {
         nativeHistoryPushState(withPostLayerHistoryState(), canonical);
-      } else if (currentUrl !== canonical) {
+      } else {
         nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
       }
       return true;
     },
-    [pathname]
+    [pathname, publishClosingHistory]
   );
 
   const openPostQuotes = useCallback(
@@ -1245,10 +1250,15 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         tab
       );
 
-      const top = stackRef.current[stackRef.current.length - 1];
+      const liveStack = withoutClosingLayer(
+        stackRef.current,
+        closingIdRef.current
+      );
+      const droppedClosing = liveStack !== stackRef.current;
+      const top = liveStack[liveStack.length - 1];
       if (top && isSameReaderTarget(top, { kind: 'quotes', ...parsed })) {
         if (top.kind === 'quotes' && top.tab !== tab) {
-          const trail = retabTopQuotes(stackRef.current, tab);
+          const trail = retabTopQuotes(liveStack, tab);
           stackRef.current = trail;
           setStack(trail);
           if (typeof window !== 'undefined') {
@@ -1275,18 +1285,21 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
           root,
           rootEngagement,
         }),
-        zIndex:
-          stackRef.current[0]?.zIndex ?? nextStackedLayerZ(stackRef.current),
+        zIndex: liveStack[0]?.zIndex ?? nextStackedLayerZ(liveStack),
         openedAboveMediaFace: isOsMediaFaceOpen(),
       };
 
-      if (stackRef.current.length > 0) {
-        const trail = appendTrailEntry(stackRef.current, next);
+      if (liveStack.length > 0) {
+        const trail = appendTrailEntry(liveStack, next);
         closingIdRef.current = null;
         setClosingId(null);
         stackRef.current = trail;
         setStack(trail);
         if (typeof window === 'undefined') return true;
+        if (droppedClosing) {
+          publishClosingHistory(canonical);
+          return true;
+        }
         getPostLayerPopGuard().depth = 1;
         const currentUrl = `${window.location.pathname}${window.location.search}`;
         if (currentUrl !== canonical) {
@@ -1308,13 +1321,17 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       setStack([next]);
 
       if (typeof window === 'undefined') return true;
+      if (droppedClosing) {
+        publishClosingHistory(canonical);
+        return true;
+      }
       getPostLayerPopGuard().depth = 1;
       const currentUrl = `${window.location.pathname}${window.location.search}`;
       if (currentUrl === canonical) return true;
       nativeHistoryPushState(withPostLayerHistoryState(), canonical);
       return true;
     },
-    [pathname]
+    [pathname, publishClosingHistory]
   );
 
   const openDrop = useCallback(
@@ -1341,7 +1358,12 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         return true;
       }
 
-      const top = stackRef.current[stackRef.current.length - 1];
+      const liveStack = withoutClosingLayer(
+        stackRef.current,
+        closingIdRef.current
+      );
+      const droppedClosing = liveStack !== stackRef.current;
+      const top = liveStack[liveStack.length - 1];
       if (
         top?.kind === 'drop' &&
         collectionIdsEqual(top.collectionId, parsed.collectionId)
@@ -1350,41 +1372,12 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       }
 
       const seeded =
-        initial &&
-        collectionIdsEqual(initial.collectionId, parsed.collectionId)
+        initial && collectionIdsEqual(initial.collectionId, parsed.collectionId)
           ? initial
           : null;
       const seededCreator = seeded ? (initialCreator ?? null) : null;
 
-      if (stackRef.current.length > 0) {
-        const next: DropLayerTarget = {
-          id: `drop-layer-${++seqRef.current}`,
-          kind: 'drop',
-          collectionId: parsed.collectionId,
-          initial: seeded,
-          initialCreator: seededCreator,
-          initialEditionToken: editionTokenFromDropHref(
-            href,
-            parsed.collectionId
-          ),
-          zIndex: stackRef.current[0]?.zIndex ?? SHEET_Z.overlayHost,
-          openedAboveMediaFace: isOsMediaFaceOpen(),
-        };
-        const replacement = replaceStackWith(next);
-        closingIdRef.current = null;
-        setClosingId(null);
-        stackRef.current = replacement;
-        setStack(replacement);
-        if (typeof window === 'undefined') return true;
-        getPostLayerPopGuard().depth = 1;
-        const currentUrl = `${window.location.pathname}${window.location.search}`;
-        if (currentUrl !== canonical) {
-          nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
-        }
-        return true;
-      }
-
-      const next: DropLayerTarget = {
+      const nextDrop = (): DropLayerTarget => ({
         id: `drop-layer-${++seqRef.current}`,
         kind: 'drop',
         collectionId: parsed.collectionId,
@@ -1394,9 +1387,31 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
           href,
           parsed.collectionId
         ),
-        zIndex: nextStackedLayerZ(stackRef.current),
+        zIndex: liveStack[0]?.zIndex ?? nextStackedLayerZ(liveStack),
         openedAboveMediaFace: isOsMediaFaceOpen(),
-      };
+      });
+
+      if (liveStack.length > 0) {
+        const next = nextDrop();
+        const replacement = replaceStackWith(next);
+        closingIdRef.current = null;
+        setClosingId(null);
+        stackRef.current = replacement;
+        setStack(replacement);
+        if (typeof window === 'undefined') return true;
+        if (droppedClosing) {
+          publishClosingHistory(canonical);
+          return true;
+        }
+        getPostLayerPopGuard().depth = 1;
+        const currentUrl = `${window.location.pathname}${window.location.search}`;
+        if (currentUrl !== canonical) {
+          nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
+        }
+        return true;
+      }
+
+      const next = nextDrop();
       if (underlayPathRef.current == null) {
         underlayPathRef.current = pathname;
         setUnderlayPath(pathname);
@@ -1404,12 +1419,21 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
           underlayScrollRef.current = captureUnderlayScroll();
         }
       }
-      const isFirst = stackRef.current.length === 0;
+      const isFirst = !droppedClosing && stackRef.current.length === 0;
       closingIdRef.current = null;
       setClosingId(null);
-      setStack((prev) => [...prev, next]);
+      if (droppedClosing) {
+        stackRef.current = [next];
+        setStack([next]);
+      } else {
+        setStack((prev) => [...prev, next]);
+      }
 
       if (typeof window === 'undefined') return true;
+      if (droppedClosing) {
+        publishClosingHistory(canonical);
+        return true;
+      }
       const syncCanonical = () => {
         getPostLayerPopGuard().depth = 1;
         const currentUrl = `${window.location.pathname}${window.location.search}`;
@@ -1427,7 +1451,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       }
       return true;
     },
-    [pathname]
+    [pathname, publishClosingHistory]
   );
 
   useEffect(() => {
@@ -1437,19 +1461,18 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     guard.onPop = () => {
       const pendingClosePop = closePopPendingRef.current;
       closePopPendingRef.current = false;
-      // Back already started closing a layer, then a new post replaced it
+      // Back already started closing a layer, then a new one replaced it
       // before this pop landed. That pop belongs to the layer we dropped.
-      if (
-        pendingClosePop &&
-        closingIdRef.current == null &&
-        stackRef.current.length > 0
-      ) {
-        const replaced = stackRef.current[stackRef.current.length - 1];
-        if (replaced && !historyHasPostLayer()) {
-          nativeHistoryPushState(
-            withPostLayerHistoryState(),
-            placeLayerHref(replaced)
-          );
+      const repair = inFlightPopRepair({
+        pendingClosePop,
+        closingId: closingIdRef.current,
+        stackLength: stackRef.current.length,
+        historyHasLayer: historyHasPostLayer(),
+        canonical: overlayCanonicalRef.current,
+      });
+      if (repair.swallow) {
+        if (repair.pushHref) {
+          nativeHistoryPushState(withPostLayerHistoryState(), repair.pushHref);
         }
         guard.depth = 1;
         return;

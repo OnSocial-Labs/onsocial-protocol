@@ -106,15 +106,56 @@ const FEED = [
   ),
 ];
 
+function readGraph(route: Route): GraphBody {
+  const raw =
+    route.request().postData() ??
+    route.request().postDataBuffer()?.toString('utf8') ??
+    '';
+  if (!raw) return { query: route.request().url(), variables: {} };
+  try {
+    return JSON.parse(raw) as GraphBody;
+  } catch {
+    return { query: raw, variables: {} };
+  }
+}
+
 async function stubGraph(page: Page): Promise<void> {
   await page.route('**/api/onapi/graph/query', async (route: Route) => {
-    const body = JSON.parse(route.request().postData() ?? '{}') as GraphBody;
+    const body = readGraph(route);
     const query = body.query ?? '';
     const vars = body.variables ?? {};
 
+    if (!route.request().postData() && !route.request().postDataBuffer()) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            postsFeed: FEED,
+            postsCurrent: FEED,
+            threadReplies: [replyRow(NESTED)],
+            threadReplyCounts: [
+              { parentPath: NESTED.parentPath, replyCount: 1 },
+            ],
+            quoteCounts: [],
+            repostCounts: [],
+          },
+        }),
+      });
+      return;
+    }
+
     if (query.includes('threadReplies')) {
+      const parent = vars.parentPath ?? '';
       const replies =
-        vars.parentPath === NESTED.parentPath ? [replyRow(NESTED)] : [];
+        parent === NESTED.parentPath || parent.includes(ALPHA.postId)
+          ? [
+              replyRow({
+                ...NESTED,
+                parentPath: parent || NESTED.parentPath,
+              }),
+            ]
+          : [];
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -302,5 +343,29 @@ test.describe('phone feed scroll lock @webkit', () => {
     });
     await expect(feed).toContainText(BETA.text);
     expect(await inlineHidden(page)).toEqual([]);
+  });
+
+  test('back then quotes does not bring the closed post back', async ({
+    page,
+  }) => {
+    const feed = await openFeed(page);
+    await tapOpenPost(feed.locator('article').filter({ hasText: ALPHA.text }));
+    const sheet = page.locator('.post-thread-sheet-panel').last();
+    await expect(sheet).toContainText(ALPHA.text, { timeout: 15_000 });
+    const quotes = sheet.locator('.thread-view-quotes');
+    await expect(quotes).toBeAttached();
+
+    await page.getByRole('button', { name: 'Back' }).tap();
+    await quotes.dispatchEvent('click');
+
+    await expect(
+      page.locator('.os-app-screen-title', { hasText: 'Post reach' })
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('.post-thread-sheet-panel')).toHaveCount(1);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/home/);
+    await expect(page.locator('.post-thread-sheet-panel')).toHaveCount(0, {
+      timeout: 5_000,
+    });
   });
 });
