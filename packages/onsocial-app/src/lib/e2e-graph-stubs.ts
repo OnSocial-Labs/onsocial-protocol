@@ -55,6 +55,12 @@ export type E2eGraphCookieValue = {
   writing?: E2eGraphWriting;
   articles?: E2eGraphArticles;
   profile?: E2eGraphProfile;
+  /**
+   * Phone feed scroll-lock fixture. WebKit does not hand every graph POST to
+   * Playwright, so the reply page has to be answered here when it reaches
+   * the app (`E2E_GRAPH_STUBS=1`).
+   */
+  thread?: 'alpha';
 };
 
 const TWO_NEAR_YOCTO = '2000000000000000000000000';
@@ -137,6 +143,7 @@ export function parseE2eGraphCookie(
   if (articles === 'list' || articles === 'window') parsed.articles = articles;
   const profile = params.get('profile');
   if (profile === 'banner' || profile === 'links') parsed.profile = profile;
+  if (params.get('thread') === 'alpha') parsed.thread = 'alpha';
   return parsed;
 }
 
@@ -159,6 +166,7 @@ export function serializeE2eGraphCookie(opts: E2eGraphCookieValue): string {
   if (opts.writing) params.set('writing', opts.writing);
   if (opts.articles) params.set('articles', opts.articles);
   if (opts.profile) params.set('profile', opts.profile);
+  if (opts.thread) params.set('thread', opts.thread);
   return params.toString();
 }
 
@@ -1267,8 +1275,7 @@ function e2eArticlesWindowRows() {
  */
 function e2eArticlesWindowPage(variables: Record<string, unknown>) {
   const rows = e2eArticlesWindowRows();
-  const before =
-    typeof variables.before === 'number' ? variables.before : null;
+  const before = typeof variables.before === 'number' ? variables.before : null;
   if (before == null) return rows.slice(0, 25);
   return rows.filter((row) => row.blockHeight < before);
 }
@@ -1305,6 +1312,33 @@ export function resolveE2eGraphStub(opts: {
 }): { data: Record<string, unknown> } | null {
   const parsed = parseE2eGraphCookie(opts.cookieValue);
   const variables = opts.variables ?? {};
+
+  if (parsed.thread === 'alpha' && opts.query.includes('RepliesByPath')) {
+    const parentPath =
+      typeof variables.parentPath === 'string' && variables.parentPath
+        ? variables.parentPath
+        : 'alice.near/post/alpha-post';
+    return {
+      data: {
+        threadReplies: [
+          {
+            replyAuthor: 'cara.near',
+            replyId: 'nested-reply',
+            value: JSON.stringify({
+              v: 1,
+              text: 'Nested reply opened from alpha',
+            }),
+            blockHeight: 180,
+            blockTimestamp: 1_700_000_100,
+            groupId: '',
+            parentAuthor: parentPath.split('/')[0] || 'alice.near',
+            parentPath,
+            parentType: 'post',
+          },
+        ],
+      },
+    };
+  }
 
   if (parsed.articles === 'list' && opts.query.includes('articlesSearch')) {
     return { data: { articlesSearch: e2eDiscoverArticleRows() } };
@@ -1390,7 +1424,10 @@ export function resolveE2eGraphStub(opts: {
       },
     };
   }
-  if (parsed.articles === 'window' && opts.query.includes('IndexedPostsByRefs')) {
+  if (
+    parsed.articles === 'window' &&
+    opts.query.includes('IndexedPostsByRefs')
+  ) {
     return { data: { postsCurrent: [] } };
   }
   if (
@@ -1400,7 +1437,10 @@ export function resolveE2eGraphStub(opts: {
   ) {
     return { data: { reactionsCurrent: [], socialSpendEvents: [] } };
   }
-  if (parsed.articles === 'window' && opts.query.includes('PostReactionCounts')) {
+  if (
+    parsed.articles === 'window' &&
+    opts.query.includes('PostReactionCounts')
+  ) {
     return { data: { reactionCounts: [] } };
   }
   if (
@@ -1476,7 +1516,10 @@ export function resolveE2eGraphStub(opts: {
   if (parsed.profile === 'links' && opts.query.includes('query PageConfig(')) {
     return { data: { pagesCurrent: [] } };
   }
-  if (parsed.profile === 'links' && opts.query.includes('query ProfileLookup(')) {
+  if (
+    parsed.profile === 'links' &&
+    opts.query.includes('query ProfileLookup(')
+  ) {
     const id =
       typeof variables.id === 'string' && variables.id.trim()
         ? variables.id

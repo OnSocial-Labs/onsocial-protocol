@@ -1,4 +1,5 @@
 import { devices, expect, test, type Page, type Route } from '@playwright/test';
+import { E2E_GRAPH_COOKIE } from '../src/lib/e2e-graph-stubs';
 import { dismissNextDevOverlay, gotoApp } from './helpers';
 
 /**
@@ -232,6 +233,17 @@ async function stubGraph(page: Page): Promise<void> {
 }
 
 async function openFeed(page: Page) {
+  const port = process.env.E2E_PORT ?? '3099';
+  const host = process.env.E2E_HOST ?? 'localhost';
+  // WebKit lets the reply-page POST through Playwright's route. The app
+  // answers it from this cookie when E2E_GRAPH_STUBS=1.
+  await page.context().addCookies([
+    {
+      name: E2E_GRAPH_COOKIE,
+      value: 'thread=alpha',
+      url: `http://${host}:${port}`,
+    },
+  ]);
   await stubGraph(page);
   await gotoApp(page, '/home');
   await dismissNextDevOverlay(page);
@@ -290,19 +302,18 @@ async function inlineHidden(page: Page): Promise<string[]> {
 }
 
 test.describe('phone feed scroll lock @webkit', () => {
-  test('browser back from stacked sheets leaves the feed scrolling', async ({
+  test('browser back from stacked posts leaves the feed scrolling', async ({
     page,
   }) => {
     const feed = await openFeed(page);
     await tapOpenPost(feed.locator('article').filter({ hasText: ALPHA.text }));
     const sheet = page.locator('.post-thread-sheet-panel').last();
     await expect(sheet).toContainText(ALPHA.text, { timeout: 15_000 });
-    // WebKit's production build does not issue the reply-page query, so the
-    // second sheet is quotes. Both sheets still take the phone overflow lock.
-    await sheet.locator('.thread-view-quotes').dispatchEvent('click');
-    await expect(
-      page.locator('.os-app-screen-title', { hasText: 'Post reach' })
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(sheet).toContainText(NESTED.text, { timeout: 15_000 });
+
+    const nested = sheet.locator('.post-thread-item', { hasText: NESTED.text });
+    await nested.scrollIntoViewIfNeeded();
+    await tapOpenPost(nested);
     await expect(page.locator('.post-thread-sheet-panel')).toHaveCount(2, {
       timeout: 15_000,
     });
