@@ -275,7 +275,7 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     id: 'collection',
     route: '/collection/[collectionId]',
     family: 'immersive-detail',
-    cold: 'CollectionPageSkeleton (seeded soft-nav paints real panel)',
+    cold: 'CollectionPageSkeleton crossfades through OsRouteSettle (seeded soft-nav paints the real panel with no replay)',
     refreshing: 'Keep resolved collection shell',
     appending:
       'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',
@@ -300,9 +300,7 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     empty: 'Notifications empty state',
     error: 'Notifications error state',
     routeFallback: 'preserve-shell',
-    implementationFiles: [
-      'features/notifications/notifications-panel.tsx',
-    ],
+    implementationFiles: ['features/notifications/notifications-panel.tsx'],
   },
   {
     id: 'messages',

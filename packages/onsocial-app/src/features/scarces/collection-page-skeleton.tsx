@@ -1,6 +1,10 @@
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { COLLECTION_PAGE_SKELETON_CLASS } from '@/lib/os-chrome-page';
 
+/** Longest wallet hint. Reserves the in-flow seat so a wrap cannot cover the next row. */
+export const COLLECTION_MINT_HINT_SIZER =
+  'You’ve reached your limit for this drop.';
+
 /**
  * Drop page cold-load shell. Reserves geometry matching the settled face
  * (party + commerce meter + activity/tracks) so cold open does not grow
@@ -105,10 +109,16 @@ export function CollectionPageSkeleton({
               <span className="collection-use-actions-trail-chassis" />
             </div>
           </div>
+          {/* One line. The allowlist cap reserves a second line only after a wallet connects. */}
           <div className="collection-product-row">
             <span className="standing-row-shimmer collection-skeleton-product-line" />
           </div>
           <div className="collection-progress" />
+          <div className="collection-mint-hint-seat">
+            <p className="collection-mint-hint-sizer" aria-hidden>
+              {COLLECTION_MINT_HINT_SIZER}
+            </p>
+          </div>
         </header>
       </section>
 
@@ -126,7 +136,14 @@ export function CollectionPageSkeleton({
         <CollectionTracksSkeleton />
       ) : (
         <section className="collection-activity">
-          <span className="standing-row-shimmer collection-skeleton-section-label" />
+          <div
+            className="divider-detail h-px w-full shrink-0 border-0"
+            role="separator"
+            aria-hidden
+          />
+          <div className="collection-activity-head">
+            <span className="standing-row-shimmer collection-skeleton-section-label" />
+          </div>
           <div className="collection-activity-seat">
             <CollectionActivitySkeleton rows={3} />
           </div>
