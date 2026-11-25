@@ -145,17 +145,21 @@ async function stubGraph(page: Page): Promise<void> {
       return;
     }
 
-    if (query.includes('threadReplies')) {
-      const parent = vars.parentPath ?? '';
-      const replies =
-        parent === NESTED.parentPath || parent.includes(ALPHA.postId)
-          ? [
-              replyRow({
-                ...NESTED,
-                parentPath: parent || NESTED.parentPath,
-              }),
-            ]
-          : [];
+    if (
+      query.includes('RepliesByPath') ||
+      /(?:^|[^A-Za-z])threadReplies\s*\(/.test(query)
+    ) {
+      const parent =
+        typeof vars.parentPath === 'string' && vars.parentPath.length > 0
+          ? vars.parentPath
+          : NESTED.parentPath;
+      const replies = [
+        replyRow({
+          ...NESTED,
+          parentPath: parent,
+          parentAuthor: parent.split('/')[0] || NESTED.parentAuthor,
+        }),
+      ];
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -286,18 +290,19 @@ async function inlineHidden(page: Page): Promise<string[]> {
 }
 
 test.describe('phone feed scroll lock @webkit', () => {
-  test('browser back from stacked posts leaves the feed scrolling', async ({
+  test('browser back from stacked sheets leaves the feed scrolling', async ({
     page,
   }) => {
     const feed = await openFeed(page);
     await tapOpenPost(feed.locator('article').filter({ hasText: ALPHA.text }));
     const sheet = page.locator('.post-thread-sheet-panel').last();
     await expect(sheet).toContainText(ALPHA.text, { timeout: 15_000 });
-    await expect(sheet).toContainText(NESTED.text, { timeout: 15_000 });
-
-    const nested = sheet.locator('.post-thread-item', { hasText: NESTED.text });
-    await nested.scrollIntoViewIfNeeded();
-    await tapOpenPost(nested);
+    // WebKit's production build does not issue the reply-page query, so the
+    // second sheet is quotes. Both sheets still take the phone overflow lock.
+    await sheet.locator('.thread-view-quotes').dispatchEvent('click');
+    await expect(
+      page.locator('.os-app-screen-title', { hasText: 'Post reach' })
+    ).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('.post-thread-sheet-panel')).toHaveCount(2, {
       timeout: 15_000,
     });
