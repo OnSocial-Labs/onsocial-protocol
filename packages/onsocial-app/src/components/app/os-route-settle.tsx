@@ -13,6 +13,7 @@ import {
   readDocumentEntryPathname,
   readDocumentHasLeftEntry,
 } from '@/lib/intent-prefetch';
+import { readMotionAppearMs } from '@/lib/os-motion-appear';
 
 /**
  * Cover a client navigation, including a return to the document's first URL.
@@ -45,22 +46,6 @@ export function routeSettleHoldsCover(
 
 function prefersReducedMotion() {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
-
-/** `--os-motion-appear` (280ms fallback). Unmount follows the fade. */
-function routeSettleFadeMs() {
-  const raw = getComputedStyle(document.documentElement)
-    .getPropertyValue('--os-motion-appear')
-    .trim();
-  if (raw.endsWith('ms')) {
-    const ms = Number.parseFloat(raw);
-    if (Number.isFinite(ms) && ms > 0) return ms;
-  }
-  if (raw.endsWith('s')) {
-    const seconds = Number.parseFloat(raw);
-    if (Number.isFinite(seconds) && seconds > 0) return seconds * 1000;
-  }
-  return 280;
 }
 
 /**
@@ -108,9 +93,7 @@ export function OsRouteSettle({
     setAutoReady(true);
   }, [clientNav, managed]);
 
-  const settled = managed
-    ? Boolean(ready)
-    : !clientNav || autoReady;
+  const settled = managed ? Boolean(ready) : !clientNav || autoReady;
 
   useLayoutEffect(() => {
     if (!settled || cover === 'off') return;
@@ -122,7 +105,10 @@ export function OsRouteSettle({
     if (cover === 'hold') {
       setCover('leave');
     }
-    const timer = window.setTimeout(() => setCover('off'), routeSettleFadeMs());
+    const timer = window.setTimeout(
+      () => setCover('off'),
+      readMotionAppearMs()
+    );
     return () => window.clearTimeout(timer);
   }, [cover, settled]);
 

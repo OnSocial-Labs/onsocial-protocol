@@ -95,11 +95,12 @@ import {
 import {
   CollectionDropEnter,
   CollectionSeatSettle,
-  dropEnterMode,
   dropEnterShouldPlay,
+  readDropFirstPaint,
   useDropReducedMotion,
 } from '@/features/scarces/collection-page-enter';
 import {
+  COLLECTION_MINT_HINT_SIZER,
   CollectionActivitySkeleton,
   CollectionPageSkeleton,
   CollectionTracksSkeleton,
@@ -374,15 +375,18 @@ export function CollectionPagePanel({
     liveEditionToken?.id === collectionId
       ? liveEditionToken.token
       : editionTokenForCollection(collectionId, initialEditionToken);
-  const [liveView, setView] = useState<CollectionView | null>(() => {
-    if (initial) return initial;
-    const cached = readCollectionView(collectionId);
-    if (cached) return cached;
-    if (isNowPlayingThisDrop && nowPlaying?.session) {
-      return seedCollectionViewFromNowPlaying(nowPlaying.session);
-    }
-    return null;
-  });
+  const [liveView, setView] = useState<CollectionView | null>(() =>
+    readDropFirstPaint({
+      initial,
+      cached: readCollectionView(collectionId),
+      nowPlayingSeed:
+        isNowPlayingThisDrop && nowPlaying?.session
+          ? seedCollectionViewFromNowPlaying(nowPlaying.session)
+          : null,
+    })
+  );
+  /** Seed, view cache, or now-playing — first paint was already the drop. */
+  const [seededHotOpen] = useState(() => liveView != null);
   const view = liveView ?? initial ?? null;
   /** Album loves per track; writing/art love the drop. Fans seat is always the same. */
   const isAudioDrop = collectionCoverIsAudio({
@@ -1113,12 +1117,10 @@ export function CollectionPagePanel({
     setActivityOpen(false);
   };
 
-  /** Parent passed a seed (place SSR / soft-nav loading / appear) — no skeleton. */
-  const seededHotOpen = initial != null;
   const reducedMotion = useDropReducedMotion();
   const enterOn = dropEnterShouldPlay({
-    mode: dropEnterMode({ seededHotOpen, reducedMotion }),
-    played: seededHotOpen,
+    reducedMotion,
+    openedWithContent: seededHotOpen,
     ready: view != null,
   });
   const catalogShell = collectionCatalogShell({
@@ -1390,8 +1392,7 @@ export function CollectionPagePanel({
     activityLoaded && sheetActivity.length > mintPreview.length;
   const productStatus = schedule ?? collectionStatusLabel(status);
   const isTicketKind = mediumKind === 'ticket';
-  const capApplicable =
-    needsAllowlist && !isOwner && (walletLoading || isConnected);
+  const capApplicable = needsAllowlist && !isOwner && isConnected;
   const dropFace = (
     <div
       className={osChromePageClassName(
@@ -1840,6 +1841,9 @@ export function CollectionPagePanel({
               />
             </div>
             <div className="collection-mint-hint-seat">
+              <p className="collection-mint-hint-sizer" aria-hidden>
+                {COLLECTION_MINT_HINT_SIZER}
+              </p>
               <OsLateFill className="collection-mint-hint">
                 {personalMintHint && !isOwner ? personalMintHint : null}
               </OsLateFill>

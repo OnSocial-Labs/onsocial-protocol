@@ -4,9 +4,11 @@ import {
   useLayoutEffect,
   useState,
   useSyncExternalStore,
+  type AnimationEvent,
   type CSSProperties,
   type ReactNode,
 } from 'react';
+import { readMotionAppearMs } from '@/lib/os-motion-appear';
 
 /** Cover, title/meta, mint card, then activity/tracks. */
 export const DROP_ENTER_BLOCK_COUNT = 4;
@@ -14,24 +16,20 @@ export const DROP_ENTER_BLOCK_COUNT = 4;
 /** 60ms sits in the 50–80ms stagger window. */
 export const DROP_ENTER_DELAY_STEP_MS = 60;
 
-export const DROP_ENTER_RISE_PX = 8;
-
-const MOTION_APPEAR_FALLBACK_MS = 280;
-
-export type DropEnterMode = 'instant' | 'stagger';
-
 export type SeatPhase = 'hold' | 'leave' | 'off';
 
 /**
- * Seeded hot opens and reduced motion paint opaque.
- * A cold first paint staggers once.
+ * First paint already has a real drop: route seed, view cache, or the
+ * now-playing session. Same order as the panel's `useState` initializer.
  */
-export function dropEnterMode(opts: {
-  seededHotOpen: boolean;
-  reducedMotion: boolean;
-}): DropEnterMode {
-  if (opts.seededHotOpen || opts.reducedMotion) return 'instant';
-  return 'stagger';
+export function readDropFirstPaint<T>(opts: {
+  initial: T | null;
+  cached: T | null;
+  nowPlayingSeed: T | null;
+}): T | null {
+  if (opts.initial) return opts.initial;
+  if (opts.cached) return opts.cached;
+  return opts.nowPlayingSeed;
 }
 
 export function dropEnterDelayMs(
@@ -43,30 +41,25 @@ export function dropEnterDelayMs(
 }
 
 /**
- * Play the rise only for a cold, motion-ok paint that has not already
- * entered. `played` is the seeded/hot visit — refreshes and wallet
- * hydration are not inputs, so they cannot restart it.
+ * Rise only for a cold first paint. A seed, cache, or now-playing open
+ * (`openedWithContent`) and a rise that already played stay opaque.
+ * Refresh and wallet hydration are not inputs.
  */
 export function dropEnterShouldPlay(opts: {
-  mode: DropEnterMode;
-  played: boolean;
-  ready: boolean;
-}): boolean {
-  return opts.mode === 'stagger' && opts.ready && !opts.played;
-}
-
-export function dropEnterPlayback(opts: {
-  seededHotOpen: boolean;
   reducedMotion: boolean;
+  openedWithContent: boolean;
   ready: boolean;
-}): 'stagger' | 'instant' {
-  return dropEnterShouldPlay({
-    mode: dropEnterMode(opts),
-    played: opts.seededHotOpen,
-    ready: opts.ready,
-  })
-    ? 'stagger'
-    : 'instant';
+  played?: boolean;
+}): boolean {
+  if (
+    opts.reducedMotion ||
+    opts.openedWithContent ||
+    opts.played ||
+    !opts.ready
+  ) {
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -84,23 +77,6 @@ export function nextSeatPhase(opts: {
   }
   if (opts.pending) return 'hold';
   return opts.reducedMotion ? 'off' : 'leave';
-}
-
-/** `--os-motion-appear`, 280ms when the token is missing. */
-export function readMotionAppearMs(): number {
-  if (typeof window === 'undefined') return MOTION_APPEAR_FALLBACK_MS;
-  const raw = getComputedStyle(document.documentElement)
-    .getPropertyValue('--os-motion-appear')
-    .trim();
-  if (raw.endsWith('ms')) {
-    const ms = Number.parseFloat(raw);
-    if (Number.isFinite(ms) && ms > 0) return ms;
-  }
-  if (raw.endsWith('s')) {
-    const seconds = Number.parseFloat(raw);
-    if (Number.isFinite(seconds) && seconds > 0) return seconds * 1000;
-  }
-  return MOTION_APPEAR_FALLBACK_MS;
 }
 
 function subscribeReducedMotion(onChange: () => void) {
@@ -128,7 +104,18 @@ export function CollectionDropEnter({
   className?: string;
   children?: ReactNode;
 }) {
-  const style: CSSProperties | undefined = play
+  const [settled, setSettled] = useState(!play);
+  const playing = play && !settled;
+  useLayoutEffect(() => {
+    if (!playing) return;
+    const timer = window.setTimeout(
+      () => setSettled(true),
+      dropEnterDelayMs(index) + readMotionAppearMs()
+    );
+    return () => window.clearTimeout(timer);
+  }, [playing, index]);
+
+  const style: CSSProperties | undefined = playing
     ? ({
         ['--drop-enter-delay' as string]: `${dropEnterDelayMs(index)}ms`,
       } as CSSProperties)
@@ -136,7 +123,7 @@ export function CollectionDropEnter({
   const enterClass = [
     'collection-drop-enter',
     className ?? '',
-    play ? 'is-play' : '',
+    playing ? 'is-play' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -144,7 +131,12 @@ export function CollectionDropEnter({
     <div
       className={enterClass}
       style={style}
-      data-drop-enter={play ? 'stagger' : 'instant'}
+      data-drop-enter={playing ? 'stagger' : 'instant'}
+      data-drop-rose={play ? '' : undefined}
+      onAnimationEnd={(event: AnimationEvent<HTMLDivElement>) => {
+        if (event.target !== event.currentTarget) return;
+        setSettled(true);
+      }}
     >
       {children}
     </div>

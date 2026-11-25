@@ -238,6 +238,10 @@ describe('Drop place openers', () => {
     expect(panel).toContain('liveView ?? initial ?? null');
     expect(panel).toContain("catalogShell === 'skeleton' && !seededHotOpen");
     expect(panel).toContain('OsRouteSettle');
+    expect(panel).toContain('readDropFirstPaint');
+    expect(panel).toContain('useState(() => liveView != null)');
+    expect(panel).toContain('needsAllowlist && !isOwner && isConnected');
+    expect(panel).not.toContain('walletLoading || isConnected');
     expect(panel).toContain('seededHotOpen ? (');
   });
 

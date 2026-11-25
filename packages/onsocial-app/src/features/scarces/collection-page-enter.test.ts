@@ -1,79 +1,112 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { readMotionAppearMs } from '@/lib/os-motion-appear';
 import {
   CollectionDropEnter,
   CollectionSeatSettle,
   DROP_ENTER_BLOCK_COUNT,
   DROP_ENTER_DELAY_STEP_MS,
   dropEnterDelayMs,
-  dropEnterMode,
-  dropEnterPlayback,
   dropEnterShouldPlay,
   nextSeatPhase,
-  readMotionAppearMs,
+  readDropFirstPaint,
 } from '@/features/scarces/collection-page-enter';
 
 describe('drop enter playback', () => {
-  it('staggers a cold ready paint and keeps that answer across refresh and wallet ticks', () => {
-    const cold = {
-      seededHotOpen: false,
-      reducedMotion: false,
-      ready: true,
-    };
-    expect(dropEnterPlayback(cold)).toBe('stagger');
-    expect(dropEnterPlayback({ ...cold, ready: true })).toBe('stagger');
+  it('staggers a cold ready paint, then stays quiet once that rise has played', () => {
     expect(
       dropEnterShouldPlay({
-        mode: dropEnterMode(cold),
-        played: false,
+        reducedMotion: false,
+        openedWithContent: false,
         ready: true,
+        played: false,
       })
     ).toBe(true);
+    expect(
+      dropEnterShouldPlay({
+        reducedMotion: false,
+        openedWithContent: false,
+        ready: true,
+        played: true,
+      })
+    ).toBe(false);
   });
 
   it('does not play before the drop is ready', () => {
     expect(
-      dropEnterPlayback({
-        seededHotOpen: false,
+      dropEnterShouldPlay({
         reducedMotion: false,
+        openedWithContent: false,
         ready: false,
       })
-    ).toBe('instant');
+    ).toBe(false);
   });
 
-  it('paints a seeded or hot open instantly, including a second call', () => {
-    const seeded = {
-      seededHotOpen: true,
-      reducedMotion: false,
-      ready: true,
-    };
-    expect(dropEnterMode(seeded)).toBe('instant');
-    expect(dropEnterPlayback(seeded)).toBe('instant');
+  it('does not stagger a seed, a view cache, or a now-playing first paint', () => {
+    const seed = { id: 'seed' };
+    const cached = { id: 'cache' };
+    const playing = { id: 'now' };
+    expect(
+      readDropFirstPaint({
+        initial: seed,
+        cached: null,
+        nowPlayingSeed: null,
+      })
+    ).toBe(seed);
+    expect(
+      readDropFirstPaint({
+        initial: null,
+        cached,
+        nowPlayingSeed: playing,
+      })
+    ).toBe(cached);
+    expect(
+      readDropFirstPaint({
+        initial: null,
+        cached: null,
+        nowPlayingSeed: playing,
+      })
+    ).toBe(playing);
+    expect(
+      readDropFirstPaint({
+        initial: null,
+        cached: null,
+        nowPlayingSeed: null,
+      })
+    ).toBeNull();
+
     expect(
       dropEnterShouldPlay({
-        mode: 'stagger',
-        played: true,
+        reducedMotion: false,
+        openedWithContent:
+          readDropFirstPaint({
+            initial: null,
+            cached,
+            nowPlayingSeed: null,
+          }) != null,
+        ready: true,
+      })
+    ).toBe(false);
+    expect(
+      dropEnterShouldPlay({
+        reducedMotion: false,
+        openedWithContent:
+          readDropFirstPaint({
+            initial: null,
+            cached: null,
+            nowPlayingSeed: playing,
+          }) != null,
         ready: true,
       })
     ).toBe(false);
   });
 
   it('shows reduced motion instantly with no stagger', () => {
-    expect(dropEnterMode({ seededHotOpen: false, reducedMotion: true })).toBe(
-      'instant'
-    );
-    expect(
-      dropEnterPlayback({
-        seededHotOpen: false,
-        reducedMotion: true,
-        ready: true,
-      })
-    ).toBe('instant');
     expect(
       dropEnterShouldPlay({
-        mode: 'instant',
-        played: false,
+        reducedMotion: true,
+        openedWithContent: false,
         ready: true,
       })
     ).toBe(false);
@@ -96,6 +129,7 @@ describe('drop enter playback', () => {
     expect(html).toContain('collection-drop-enter');
     expect(html).toContain('is-play');
     expect(html).toContain('data-drop-enter="stagger"');
+    expect(html).toContain('data-drop-rose');
     expect(html).toContain('--drop-enter-delay:120ms');
   });
 
@@ -104,6 +138,7 @@ describe('drop enter playback', () => {
       createElement(CollectionDropEnter, { play: false, index: 0 }, 'Cover')
     );
     expect(html).toContain('data-drop-enter="instant"');
+    expect(html).not.toContain('data-drop-rose');
     expect(html).not.toContain('is-play');
     expect(html).not.toContain('--drop-enter-delay');
   });

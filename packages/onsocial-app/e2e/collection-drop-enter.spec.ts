@@ -79,9 +79,9 @@ test.describe('drop detail entrance @webkit', () => {
     await expect(
       collectionPageRoot(page).locator('.collection-title')
     ).toHaveText('Quiet Print', { timeout: 12_000 });
+    await expect(page.locator('[data-drop-rose]')).toHaveCount(4);
     await expect(skeleton).toHaveCount(0);
-    await expect(page.locator('[data-drop-enter="stagger"]')).toHaveCount(4);
-    await expect(page.locator('[data-drop-enter="instant"]')).toHaveCount(0);
+    await expect(page.locator('[data-drop-enter="stagger"]')).toHaveCount(0);
   });
 
   test('a late wallet line does not move the block below', async ({ page }) => {
@@ -93,8 +93,11 @@ test.describe('drop detail entrance @webkit', () => {
     await gotoApp(page, '/collection/quiet-print');
 
     const reading = collectionPageRoot(page).locator('.collection-reading');
+    const visibleHint = page.locator('.collection-mint-hint', {
+      hasText: LIMIT_HINT,
+    });
     await expect(reading).toBeVisible({ timeout: 12_000 });
-    await expect(page.getByText(LIMIT_HINT)).toHaveCount(0);
+    await expect(visibleHint).toHaveCount(0);
     await page.evaluate((hint) => {
       const read = () => {
         const node = document.querySelector(
@@ -126,7 +129,7 @@ test.describe('drop detail entrance @webkit', () => {
       requestAnimationFrame(tick);
     }, LIMIT_HINT);
 
-    await expect(page.getByText(LIMIT_HINT)).toBeVisible({ timeout: 8_000 });
+    await expect(visibleHint).toBeVisible({ timeout: 8_000 });
     const shift = await page.evaluate(() => {
       return (
         window as unknown as {
@@ -157,6 +160,7 @@ test.describe('drop detail entrance @webkit', () => {
     ).toHaveText('Chapter One', { timeout: 12_000 });
     await expect(collectionPageSkeleton(page)).toHaveCount(0);
     await expect(page.locator('[data-drop-enter="stagger"]')).toHaveCount(0);
+    await expect(page.locator('[data-drop-rose]')).toHaveCount(0);
     const enter = page.locator('[data-drop-enter="instant"]').first();
     await expect(enter).toBeVisible();
     const motion = await enter.evaluate((node) => {
@@ -175,6 +179,55 @@ test.describe('drop detail entrance @webkit', () => {
     ).toBe(true);
   });
 
+  test.describe('limit hint at 320', () => {
+    test.use({ viewport: { width: 320, height: 720 } });
+
+    test('does not cover the guest row or steal its tap', async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'no-preference' });
+      await seedE2eWallet(page);
+      await setE2eGraphDrop(page, 'default');
+      await stubCollectionPageGraph(page);
+      await stubLateWalletMint(page, 0);
+      await gotoApp(page, '/collection/quiet-print');
+
+      const hint = page.locator('.collection-mint-hint', {
+        hasText: LIMIT_HINT,
+      });
+      const row = collectionPageRoot(page).locator('.collection-reading');
+      const seeWho = row.getByRole('button', { name: 'See who' });
+      await expect(hint).toBeVisible({ timeout: 12_000 });
+      await seeWho.scrollIntoViewIfNeeded();
+      await expect(seeWho).toBeVisible();
+
+      const boxes = await Promise.all([hint.boundingBox(), row.boundingBox()]);
+      const hintBox = boxes[0];
+      const rowBox = boxes[1];
+      expect(hintBox).not.toBeNull();
+      expect(rowBox).not.toBeNull();
+      const overlaps = Boolean(
+        hintBox &&
+          rowBox &&
+          hintBox.x < rowBox.x + rowBox.width &&
+          hintBox.x + hintBox.width > rowBox.x &&
+          hintBox.y < rowBox.y + rowBox.height &&
+          hintBox.y + hintBox.height > rowBox.y
+      );
+      expect(overlaps).toBe(false);
+
+      const hitsGuest = await seeWho.evaluate((node) => {
+        const rect = node.getBoundingClientRect();
+        const hit = document.elementFromPoint(
+          rect.left + rect.width / 2,
+          rect.top + rect.height / 2
+        );
+        return Boolean(
+          hit && node.contains(hit) && !hit.closest('.collection-mint-hint')
+        );
+      });
+      expect(hitsGuest).toBe(true);
+    });
+  });
+
   test('a seeded hot open shows no skeleton', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await setE2eGraphDrop(page, 'default');
@@ -186,6 +239,7 @@ test.describe('drop detail entrance @webkit', () => {
       collectionPageRoot(page).locator('.collection-title')
     ).toHaveText('Night Drive');
     await expect(page.locator('[data-drop-enter="stagger"]')).toHaveCount(0);
+    await expect(page.locator('[data-drop-rose]')).toHaveCount(0);
     await expect(page.locator('[data-drop-enter="instant"]')).toHaveCount(4);
   });
 });

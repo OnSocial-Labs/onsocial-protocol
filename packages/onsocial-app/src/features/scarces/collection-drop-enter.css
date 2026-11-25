@@ -74,26 +74,33 @@
 }
 
 /*
- * Wallet hint may resolve to nothing. It sits in the section gap,
- * out of flow, so a late line and an empty result both leave the
- * block below where it was.
+ * Wallet hint shares a grid cell with an invisible sizer of the longest
+ * line. The seat is in flow at that height before the copy arrives, so a
+ * wrap cannot cover the guest row or steal its taps, and the row does not
+ * move when the text fades in.
  */
 .collection-mint-hint-seat {
-  position: relative;
-  height: 0;
+  display: grid;
 }
 
-.collection-mint-hint-seat .collection-mint-hint {
-  position: absolute;
-  top: 0.15rem;
-  right: 0;
-  left: 0;
-  line-height: 1.15;
+.collection-mint-hint-sizer,
+.collection-mint-hint-seat > .collection-mint-hint {
+  grid-area: 1 / 1;
+  margin: 0;
+  font-size: var(--os-stamp-size, 0.75rem);
+  line-height: 1.25;
+}
+
+.collection-mint-hint-sizer {
+  visibility: hidden;
+}
+
+.collection-mint-hint-seat > .collection-mint-hint {
   pointer-events: none;
 }
 
-.collection-mint-hint-seat .collection-mint-hint.is-ready,
-.collection-mint-hint-seat .collection-mint-hint.is-seeded {
+.collection-mint-hint-seat > .collection-mint-hint.is-ready,
+.collection-mint-hint-seat > .collection-mint-hint.is-seeded {
   pointer-events: auto;
 }
 

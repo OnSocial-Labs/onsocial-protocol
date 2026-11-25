@@ -36,12 +36,12 @@ Portfolio and wallet mood live in `app-portfolio-face.mdc`. These shells only:
 ## Motion
 
 - Content appear / route settle: `var(--os-motion-appear)` (280ms) + `var(--os-motion-ease-standard)`.
-- **One fade per paint.** Known/seeded content paints opaque immediately — never hold first paint at opacity 0 (feels late + flickers).
-- Cold skeleton → ready: `OsRouteSettle` / `HomeFeedReveal` only (cover fade). Do not add shell-wide or per-page appear on top.
-- Late seats: prefer reserved geometry + instant swap; `OsPageBodyAppear` only when a true late seat must fade without a prior skeleton.
+- **One fade per paint.** Known first paint (route seed, view cache, now-playing) paints opaque immediately — no skeleton and no rise.
+- Cold skeleton → ready: `OsRouteSettle` cover fade. The drop detail page also rises four blocks once under that cover (cover, title/meta, mint card, activity/tracks), then drops the rise class when the animation ends (timer fallback). Do not add a second page-wide body fade on top. Other pages do not add a per-block rise.
+- Late seats: prefer reserved geometry + instant swap; `OsPageBodyAppear` only when a true late seat must fade without a prior skeleton. A wallet line that can wrap reserves its final in-flow box up front.
 - Scale: micro 120, chip 160, chrome 220, dock 260, overlay 320, `ease-out` (glass-sheet), `ease-soft` (expand / collapse), `ease-slide`.
 - No raw durations or cubic-beziers. Opacity only on nodes containing the fixed dock.
-- `prefers-reduced-motion`: no appear animation (`OsRouteSettle` drops the cover immediately; appear keyframes live under `no-preference`).
+- `prefers-reduced-motion`: no appear animation (`OsRouteSettle` drops the cover immediately; the drop rise does not run; appear keyframes live under `no-preference`).
 
 ## Loading
 
