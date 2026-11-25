@@ -265,12 +265,21 @@ export function OsSlideOverScreen({
     root.inert = false;
   }, [mounted, overlay.top, parked, renderOpen, yielded]);
 
+  const onCloseRef = useRef(onClose);
+  const onClosedRef = useRef(onClosed);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+    onClosedRef.current = onClosed;
+  }, [onClose, onClosed]);
+  // Identity must stay stable. A parent that passes a fresh `onClose` /
+  // `onClosed` every render was clearing the exit timer before the layer
+  // could leave, so the screen stayed `is-closing` and kept the scroll lock.
   const finishExit = useCallback(() => {
     setClosing(false);
     setRenderOpen(false);
-    onClose();
-    onClosed?.();
-  }, [onClose, onClosed]);
+    onCloseRef.current();
+    onClosedRef.current?.();
+  }, []);
 
   const requestClose = useCallback(() => {
     if (closeDisabled || closing) return;
