@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { useParams } from 'next/navigation';
+import './collection-drop-enter.css';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { CollectionPagePanel } from '@/features/scarces/collection-page-panel';
 import { CollectionPageSkeleton } from '@/features/scarces/collection-page-skeleton';

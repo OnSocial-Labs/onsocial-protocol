@@ -27,8 +27,10 @@ import {
   IpfsImg,
   ipfsImgSrcSet,
 } from '@onsocial/ui';
+import './collection-drop-enter.css';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsLateFill } from '@/components/app/os-late-fill';
+import { OsRouteSettle } from '@/components/app/os-route-settle';
 import {
   APP_COLUMN_HERO_SIZES,
   SCARCE_HERO_WIDTHS,
@@ -90,6 +92,13 @@ import {
   resolveCollectionOwnership,
   seedCollectionViewFromNowPlaying,
 } from '@/features/scarces/collection-page-view';
+import {
+  CollectionDropEnter,
+  CollectionSeatSettle,
+  dropEnterMode,
+  dropEnterShouldPlay,
+  useDropReducedMotion,
+} from '@/features/scarces/collection-page-enter';
 import {
   CollectionActivitySkeleton,
   CollectionPageSkeleton,
@@ -436,7 +445,9 @@ export function CollectionPagePanel({
   const editionLine = faceEditionToken
     ? (heldEditionMark(faceEditionToken) ?? '')
     : '';
-  const coverSrc = view ? editionCoverUrl(view, faceEditionToken || null) : null;
+  const coverSrc = view
+    ? editionCoverUrl(view, faceEditionToken || null)
+    : null;
   const coverSrcSet = ipfsImgSrcSet(coverSrc, SCARCE_HERO_WIDTHS);
   const [mintOpen, setMintOpen] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
@@ -581,11 +592,7 @@ export function CollectionPagePanel({
   // Warm Show pass status while the holder is on the drop.
   useEffect(() => {
     const tokenId = ownedPassTokenId?.trim();
-    if (
-      !tokenId ||
-      !isPassMediumKind(view?.kind) ||
-      holdsEdition !== true
-    ) {
+    if (!tokenId || !isPassMediumKind(view?.kind) || holdsEdition !== true) {
       return;
     }
     void prefetchShowPass({
@@ -1108,6 +1115,12 @@ export function CollectionPagePanel({
 
   /** Parent passed a seed (place SSR / soft-nav loading / appear) — no skeleton. */
   const seededHotOpen = initial != null;
+  const reducedMotion = useDropReducedMotion();
+  const enterOn = dropEnterShouldPlay({
+    mode: dropEnterMode({ seededHotOpen, reducedMotion }),
+    played: seededHotOpen,
+    ready: view != null,
+  });
   const catalogShell = collectionCatalogShell({
     hasView: view != null,
     ssrMiss: initial == null,
@@ -1151,8 +1164,18 @@ export function CollectionPagePanel({
         backFallbackHref={catalogLeaveHref}
         leading={embedded ? collectionAppearBack(onClose) : undefined}
         immersiveHeader
+        scrollRootRef={scrollRootRef}
       >
-        <CollectionPageSkeleton />
+        <div className="collection-drop-settle">
+          <OsRouteSettle
+            ready={false}
+            skeleton={
+              <CollectionPageSkeleton hasEdition={Boolean(editionToken)} />
+            }
+          >
+            {null}
+          </OsRouteSettle>
+        </div>
       </OsAppScreen>
     );
   }
@@ -1367,44 +1390,19 @@ export function CollectionPagePanel({
     activityLoaded && sheetActivity.length > mintPreview.length;
   const productStatus = schedule ?? collectionStatusLabel(status);
   const isTicketKind = mediumKind === 'ticket';
-  return (
-    <OsAppScreen
-      title={faceTitle || 'Drop'}
-      embedded={embedded}
-      dockBack={!embedded}
-      onDockBack={embedded ? undefined : onDockBack}
-      backFallbackHref={dropBackHref}
-      leading={embedded ? collectionAppearBack(onClose) : undefined}
-      immersiveHeader={immersive}
-      scrollRootRef={scrollRootRef}
-      actions={
-        <>
-          <span className={`collection-header-status ${statusTone(status)}`}>
-            {collectionStatusLabel(status)}
-          </span>
-          <OsIconAction asChild ariaLabel="Shop this creator">
-            <Link href={marketCreatorPath(view.creatorId)} scroll={false}>
-              <ShopFillIcon aria-hidden className="glass-sheet-close-icon" />
-            </Link>
-          </OsIconAction>
-        </>
-      }
+  const capApplicable =
+    needsAllowlist && !isOwner && (walletLoading || isConnected);
+  const dropFace = (
+    <div
+      className={osChromePageClassName(
+        'collection-page',
+        useFirst && 'is-use-first'
+      )}
+      data-collection-use-first={useFirst ? '' : undefined}
+      data-collection-back={dropBackHref}
     >
-      <Suspense fallback={null}>
-        <EditionQueryToken
-          collectionId={collectionId}
-          onToken={rememberEditionToken}
-        />
-      </Suspense>
-      <div
-        className={osChromePageClassName(
-          'collection-page',
-          useFirst && 'is-use-first'
-        )}
-        data-collection-use-first={useFirst ? '' : undefined}
-        data-collection-back={dropBackHref}
-      >
-        <section className="collection-hero" aria-label="Drop cover">
+      <section className="collection-hero" aria-label="Drop cover">
+        <CollectionDropEnter play={enterOn} index={0}>
           <div
             className={`collection-cover${coverSrc ? ' has-media' : ''}${
               isSquareCover ? ' is-square' : ''
@@ -1433,8 +1431,10 @@ export function CollectionPagePanel({
               />
             ) : null}
           </div>
+        </CollectionDropEnter>
 
-          <header className="collection-head">
+        <header className="collection-head">
+          <CollectionDropEnter play={enterOn} index={1}>
             <div className="collection-title-row">
               <div className="collectibles-play-title-block">
                 {faceTitle ? (
@@ -1450,7 +1450,9 @@ export function CollectionPagePanel({
               </div>
               <div className="drops-discovery-head-trail">
                 {editionLine ? (
-                  <span className="collection-edition-trail">{editionLine}</span>
+                  <span className="collection-edition-trail">
+                    {editionLine}
+                  </span>
                 ) : null}
                 {dateOnFace ? (
                   <time
@@ -1525,6 +1527,8 @@ export function CollectionPagePanel({
                 />
               ) : null}
             </OsLateFill>
+          </CollectionDropEnter>
+          <CollectionDropEnter play={enterOn} index={2}>
             <div className="collection-commerce-actions has-fans-seat">
               {view ? (
                 <DropFaceFans
@@ -1745,7 +1749,11 @@ export function CollectionPagePanel({
             ) : null}
             {/* Always paint supply + progress — ownership/mint settle must not
                 collapse this chassis (CLS on soft-nav and cold hydrate). */}
-            <div className="collection-product-row">
+            <div
+              className={`collection-product-row${
+                capApplicable ? ' has-wallet-cap' : ''
+              }`}
+            >
               <div className="collection-product-line">
                 <span
                   className={`collection-product-status ${statusTone(status)}`}
@@ -1789,17 +1797,21 @@ export function CollectionPagePanel({
                     <span className="collection-product-price">Free</span>
                   </>
                 ) : null}
-                {personalAllowlistLeft != null ? (
-                  <>
-                    <span className="collection-meta-sep" aria-hidden>
-                      ·
-                    </span>
-                    <span className="collection-commerce-chips">
-                      {personalAllowlistLeft === 1
-                        ? '1 left for you'
-                        : `${personalAllowlistLeft} left for you`}
-                    </span>
-                  </>
+                {capApplicable ? (
+                  <OsLateFill className="collection-wallet-cap">
+                    {personalAllowlistLeft != null ? (
+                      <>
+                        <span className="collection-meta-sep" aria-hidden>
+                          ·
+                        </span>
+                        <span className="collection-commerce-chips">
+                          {personalAllowlistLeft === 1
+                            ? '1 left for you'
+                            : `${personalAllowlistLeft} left for you`}
+                        </span>
+                      </>
+                    ) : null}
+                  </OsLateFill>
                 ) : null}
                 {chipParts.length > 0 ? (
                   <>
@@ -1827,12 +1839,16 @@ export function CollectionPagePanel({
                 style={{ width: `${progressPct}%` }}
               />
             </div>
-            {personalMintHint && !isOwner ? (
-              <p className="collection-mint-hint">{personalMintHint}</p>
-            ) : null}
-          </header>
-        </section>
+            <div className="collection-mint-hint-seat">
+              <OsLateFill className="collection-mint-hint">
+                {personalMintHint && !isOwner ? personalMintHint : null}
+              </OsLateFill>
+            </div>
+          </CollectionDropEnter>
+        </header>
+      </section>
 
+      <CollectionDropEnter play={enterOn} index={3}>
         {view.isVariations ? (
           <VariationSetPeek
             collectionId={view.collectionId}
@@ -1843,50 +1859,53 @@ export function CollectionPagePanel({
           />
         ) : null}
 
-        {showInlineTracks ? (
+        {showInlineTracks || mediumBodyPending ? (
           <div className="collection-tracks-seat">
-            <section className="collection-tracks" aria-label="Tracks">
-              <p className="collection-section-label">
-                {playables.length === 1
-                  ? '1 track'
-                  : `${playables.length} tracks`}
-              </p>
-              <ScarceClipPlayer
-                key={`tracks-${playables[0]!.url}`}
-                clip={playables[0]!}
-                tracks={playables}
-                poster={coverSrc}
-                layout="tracks"
-                showTransport={false}
-                showFeedPost={false}
-                showShare={false}
-                showDownloads={false}
-                showAlbumFans={false}
-                persist={{
-                  collectionId: view.collectionId,
-                  title: view.title,
-                  creatorId: view.creatorId,
-                  seriesId: view.seriesId,
-                  seriesTitle: view.seriesTitle,
-                  audioFormat: view.audioFormat,
-                  facets: view.facets,
-                }}
-                creatorId={view.creatorId}
-                canKeepOffline={
-                  isOwner
-                    ? true
-                    : !viewerAccountId
-                      ? false
-                      : holdsEdition == null
-                        ? null
-                        : holdsEdition
-                }
-              />
-            </section>
-          </div>
-        ) : mediumBodyPending ? (
-          <div className="collection-tracks-seat">
-            <CollectionTracksSkeleton />
+            <CollectionSeatSettle
+              pending={!showInlineTracks && mediumBodyPending}
+              skeleton={<CollectionTracksSkeleton />}
+            >
+              {showInlineTracks && playables[0] ? (
+                <section className="collection-tracks" aria-label="Tracks">
+                  <p className="collection-section-label">
+                    {playables.length === 1
+                      ? '1 track'
+                      : `${playables.length} tracks`}
+                  </p>
+                  <ScarceClipPlayer
+                    key={`tracks-${playables[0]!.url}`}
+                    clip={playables[0]!}
+                    tracks={playables}
+                    poster={coverSrc}
+                    layout="tracks"
+                    showTransport={false}
+                    showFeedPost={false}
+                    showShare={false}
+                    showDownloads={false}
+                    showAlbumFans={false}
+                    persist={{
+                      collectionId: view.collectionId,
+                      title: view.title,
+                      creatorId: view.creatorId,
+                      seriesId: view.seriesId,
+                      seriesTitle: view.seriesTitle,
+                      audioFormat: view.audioFormat,
+                      facets: view.facets,
+                    }}
+                    creatorId={view.creatorId}
+                    canKeepOffline={
+                      isOwner
+                        ? true
+                        : !viewerAccountId
+                          ? false
+                          : holdsEdition == null
+                            ? null
+                            : holdsEdition
+                    }
+                  />
+                </section>
+              ) : null}
+            </CollectionSeatSettle>
           </div>
         ) : null}
 
@@ -1994,19 +2013,68 @@ export function CollectionPagePanel({
             ) : null}
           </div>
           <div className="collection-activity-seat">
-            {showActivityPending ? (
-              <CollectionActivitySkeleton rows={3} />
-            ) : mintPreview.length > 0 ? (
-              <CollectionActivityRows
-                rows={mintPreview}
-                profiles={activityProfiles}
-              />
-            ) : (
-              <p className="collection-activity-empty">No activity yet</p>
-            )}
+            <CollectionSeatSettle
+              pending={showActivityPending}
+              skeleton={<CollectionActivitySkeleton rows={3} />}
+            >
+              {mintPreview.length > 0 ? (
+                <CollectionActivityRows
+                  rows={mintPreview}
+                  profiles={activityProfiles}
+                />
+              ) : (
+                <p className="collection-activity-empty">No activity yet</p>
+              )}
+            </CollectionSeatSettle>
           </div>
         </section>
-      </div>
+      </CollectionDropEnter>
+    </div>
+  );
+
+  return (
+    <OsAppScreen
+      title={faceTitle || 'Drop'}
+      embedded={embedded}
+      dockBack={!embedded}
+      onDockBack={embedded ? undefined : onDockBack}
+      backFallbackHref={dropBackHref}
+      leading={embedded ? collectionAppearBack(onClose) : undefined}
+      immersiveHeader={immersive}
+      scrollRootRef={scrollRootRef}
+      actions={
+        <>
+          <span className={`collection-header-status ${statusTone(status)}`}>
+            {collectionStatusLabel(status)}
+          </span>
+          <OsIconAction asChild ariaLabel="Shop this creator">
+            <Link href={marketCreatorPath(view.creatorId)} scroll={false}>
+              <ShopFillIcon aria-hidden className="glass-sheet-close-icon" />
+            </Link>
+          </OsIconAction>
+        </>
+      }
+    >
+      {seededHotOpen ? (
+        dropFace
+      ) : (
+        <div className="collection-drop-settle">
+          <OsRouteSettle
+            ready
+            skeleton={
+              <CollectionPageSkeleton hasEdition={Boolean(editionToken)} />
+            }
+          >
+            {dropFace}
+          </OsRouteSettle>
+        </div>
+      )}
+      <Suspense fallback={null}>
+        <EditionQueryToken
+          collectionId={collectionId}
+          onToken={rememberEditionToken}
+        />
+      </Suspense>
 
       <OsHugSheet
         open={activitySheetOpen}

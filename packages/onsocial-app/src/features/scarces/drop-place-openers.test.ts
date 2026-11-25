@@ -20,7 +20,7 @@ describe('Drop place openers', () => {
     expect(open).toContain('export function warmDropPlaceOpen');
     expect(open).toContain('export function resolveDropOpenSeed');
     expect(open).toContain('readCollectionView');
-    expect(open).toContain("scroll: false");
+    expect(open).toContain('scroll: false');
     expect(open).toContain("kind: 'full'");
     expect(open).toContain('rememberCollectionView');
     expect(open).toMatch(/<a\b/);
@@ -157,9 +157,9 @@ describe('Drop place openers', () => {
     expect(src('features/discover/discover-catalog-results.tsx')).toContain(
       'seedCollectionViewFromPeek'
     );
-    expect(
-      src('features/collectibles/collectibles-holding-row.tsx')
-    ).toContain('seedCollectionViewFromPeek');
+    expect(src('features/collectibles/collectibles-holding-row.tsx')).toContain(
+      'seedCollectionViewFromPeek'
+    );
     expect(src('features/scarces/hubs-latest-drops-panel.tsx')).toContain(
       'seedCollectionViewFromPeek'
     );
@@ -236,9 +236,9 @@ describe('Drop place openers', () => {
     const panel = src('features/scarces/collection-page-panel.tsx');
     expect(panel).toContain('seededHotOpen');
     expect(panel).toContain('liveView ?? initial ?? null');
-    expect(panel).toContain(
-      "catalogShell === 'skeleton' && !seededHotOpen"
-    );
+    expect(panel).toContain("catalogShell === 'skeleton' && !seededHotOpen");
+    expect(panel).toContain('OsRouteSettle');
+    expect(panel).toContain('seededHotOpen ? (');
   });
 
   it('always paints supply + progress on the drop face (no use-first hide)', () => {
@@ -276,20 +276,16 @@ describe('Drop place openers', () => {
     expect(skeleton).toContain('collection-activity-seat');
   });
 
-  it('drop paints known content opaque — no shell/seat appear gate', () => {
+  it('seeded drop stays opaque; cold settle does not use a page-wide appear', () => {
     const panel = src('features/scarces/collection-page-panel.tsx');
     const screen = src('components/app/os-app-screen.tsx');
     expect(panel).not.toContain('CollectionPageReveal');
     expect(panel).not.toContain('OsPageBodyAppear');
     expect(panel).not.toContain('coldHandoff');
     expect(panel).not.toContain('bodyAppear');
+    expect(panel).toContain('dropEnterShouldPlay');
+    expect(panel).toContain('OsRouteSettle');
     expect(screen).not.toContain('bodyAppear');
     expect(screen).not.toContain('OsRouteSettle');
   });
 });
-
-
-
-
-
-

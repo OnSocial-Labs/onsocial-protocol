@@ -32,8 +32,10 @@ describe('collection page chassis (CLS contract)', () => {
     expect(panel).toContain('collection-tracks-seat');
     expect(panel).toContain('collectionMediumBodyPending');
     expect(panel).toContain('CollectionTracksSkeleton');
+    expect(panel).toContain('CollectionSeatSettle');
     expect(panel).not.toContain('OsPageBodyAppear');
     expect(panel).toContain('OsLateFill');
+    expect(panel).toContain('collection-mint-hint-seat');
     expect(panel).toContain('collection-about-seat');
 
     expect(skeleton).toContain('collection-product-row');

@@ -126,7 +126,14 @@ export function CollectionPageSkeleton({
         <CollectionTracksSkeleton />
       ) : (
         <section className="collection-activity">
-          <span className="standing-row-shimmer collection-skeleton-section-label" />
+          <div
+            className="divider-detail h-px w-full shrink-0 border-0"
+            role="separator"
+            aria-hidden
+          />
+          <div className="collection-activity-head">
+            <span className="standing-row-shimmer collection-skeleton-section-label" />
+          </div>
           <div className="collection-activity-seat">
             <CollectionActivitySkeleton rows={3} />
           </div>

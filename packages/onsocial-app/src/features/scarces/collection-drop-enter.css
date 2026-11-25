@@ -1,0 +1,112 @@
+/*
+ * Drop detail entrance. One class; each block sets --drop-enter-delay.
+ * glass-sheet-appear is opacity-only, so the rise lives here and still
+ * uses --os-motion-appear / --os-motion-ease-out.
+ */
+
+@keyframes collection-drop-enter-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.collection-drop-enter {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  width: 100%;
+}
+
+.collection-head > .collection-drop-enter {
+  gap: 0.25rem;
+}
+
+.collection-page > .collection-drop-enter {
+  gap: 0.85rem;
+}
+
+/* Route settle fades the whole body. This page rises block by block instead. */
+.collection-drop-settle > .os-route-settle > .os-page-body-appear.is-ready {
+  opacity: 1;
+  animation: none;
+}
+
+/*
+ * Hold the skeleton in flow until the page is ready. Once the body is
+ * ready, cover it — including the frame before `.is-done` — so the
+ * skeleton does not stack under the page and shove the dock.
+ */
+.collection-drop-settle .os-route-skeleton:not(.is-done) {
+  position: relative;
+  inset: auto;
+}
+
+.collection-drop-settle:has(.os-page-body-appear.is-ready) .os-route-skeleton {
+  position: absolute;
+  inset: 0;
+}
+
+.collection-seat-settle {
+  position: relative;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .collection-drop-enter.is-play {
+    animation: collection-drop-enter-rise var(--os-motion-appear, 280ms)
+      var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1)) both;
+    animation-delay: var(--drop-enter-delay, 0ms);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .collection-drop-enter,
+  .collection-drop-enter.is-play {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
+ * Wallet hint may resolve to nothing. It sits in the section gap,
+ * out of flow, so a late line and an empty result both leave the
+ * block below where it was.
+ */
+.collection-mint-hint-seat {
+  position: relative;
+  height: 0;
+}
+
+.collection-mint-hint-seat .collection-mint-hint {
+  position: absolute;
+  top: 0.15rem;
+  right: 0;
+  left: 0;
+  line-height: 1.15;
+  pointer-events: none;
+}
+
+.collection-mint-hint-seat .collection-mint-hint.is-ready,
+.collection-mint-hint-seat .collection-mint-hint.is-seeded {
+  pointer-events: auto;
+}
+
+/* Upcoming allowlist cap — second stamp line is reserved up front. */
+.collection-product-row.has-wallet-cap {
+  align-items: flex-start;
+  min-height: calc(2 * 1.25 * var(--os-stamp-size, 0.75rem) + 0.3rem);
+}
+
+.collection-product-line .collection-wallet-cap:empty {
+  display: none;
+}
+
+.collection-activity-head .collection-skeleton-section-label {
+  margin-bottom: 0;
+}
