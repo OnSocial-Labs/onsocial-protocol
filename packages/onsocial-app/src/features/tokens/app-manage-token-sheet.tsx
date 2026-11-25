@@ -18,7 +18,7 @@ import {
 } from '@onsocial/ui';
 import { AppThankTokenSheet } from '@/features/tokens/app-thank-token-sheet';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useAppWalletActions } from '@/contexts/app-wallet-context';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/app-config';
 import {
   FT_ICON_ACCEPT,
@@ -58,7 +58,7 @@ export function AppManageTokenSheet({
   onClose: () => void;
   onChanged?: () => void;
 }) {
-  const { getSigningWallet } = useAppWallet();
+  const { getSigningWallet } = useAppWalletActions();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);

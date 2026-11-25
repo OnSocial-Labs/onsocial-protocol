@@ -15,7 +15,7 @@ import {
   type ActionDrawerItem,
 } from '@/components/ui/action-drawer';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useAppWalletActions } from '@/contexts/app-wallet-context';
 import { executeHubRosterAction } from '@/features/scarces/execute-hub-roster-action';
 import {
   hubRosterActionConfirmCopy,
@@ -66,7 +66,7 @@ export function HubRosterRowMenu({
   onActionComplete,
   onRequestTransfer,
 }: HubRosterRowMenuProps) {
-  const { getSigningWallet } = useAppWallet();
+  const { getSigningWallet } = useAppWalletActions();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);

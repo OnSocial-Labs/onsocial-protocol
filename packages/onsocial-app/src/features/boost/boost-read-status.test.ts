@@ -35,6 +35,16 @@ vi.mock('@/contexts/app-wallet-context', () => ({
       },
     }),
   }),
+  useAppWalletActions: () => ({
+    getSigningWallet: async () => ({
+      accountId: 'alice.testnet',
+      wallet: {
+        signAndSendTransaction: async () => ({
+          transaction: { hash: 'a'.repeat(44) },
+        }),
+      },
+    }),
+  }),
 }));
 
 vi.mock('@/contexts/app-transaction-feedback-context', () => ({
