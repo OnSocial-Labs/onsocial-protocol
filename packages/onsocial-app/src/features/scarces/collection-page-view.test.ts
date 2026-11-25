@@ -26,6 +26,7 @@ import {
   peekHoldsCollection,
   peekHoldsCollectionForDropPage,
   peekOwnedTokenForCollection,
+  peekViewerAccountId,
   resolveCollectionOwnership,
   seedCollectionViewFromNowPlaying,
   seedCollectionViewFromPeek,
@@ -298,9 +299,15 @@ describe('collection page view', () => {
       },
     });
     window.localStorage.setItem(APP_WALLET_ACCOUNT_KEY, 'alice.near');
+    expect(peekViewerAccountId(null)).toBe('alice.near');
+    expect(peekViewerAccountId('bob.near')).toBe('bob.near');
     expect(peekHoldsCollectionForDropPage(null, 'night-drive')).toBe(true);
     expect(peekHoldsCollectionForDropPage(null, 'chapter-one')).toBe(false);
+    expect(peekOwnedTokenForCollection(null, 'night-drive')).toBe(
+      'night-drive:3'
+    );
     window.localStorage.removeItem(APP_WALLET_ACCOUNT_KEY);
+    expect(peekViewerAccountId(null)).toBe(null);
     vi.unstubAllGlobals();
     invalidateOwnedVaultCache('alice.near');
   });

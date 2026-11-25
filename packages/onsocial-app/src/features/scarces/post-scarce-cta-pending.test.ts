@@ -79,11 +79,14 @@ describe('PostScarceCtaPending', () => {
     expect(panel).toContain('collection-use-actions-lead-ghost');
     expect(panel).toContain('collection-use-actions-trail-ghost');
     expect(panel).toContain('collection-use-actions-trail-chassis');
+    expect(panel).toContain('peekViewerAccountId');
     expect(panel).toContain('vaultHref');
+    expect(panel).not.toContain('lead-fill');
+    expect(panel).not.toContain('startedEmpty');
     expect(panel).toContain('Open Collectibles');
     expect(panel).toContain('DropFaceFans');
     expect(panel).toContain('has-fans-seat');
-    expect(panel).toContain('countsLoading={faceFans.fansLoading}');
+    expect(panel).toContain('fanCount={faceFans.fanCount}');
     expect(panel).toContain('showAlbumFans={false}');
     expect(panel).toContain('has-fans-seat');
   });

@@ -20,6 +20,8 @@ describe('Drop place openers', () => {
     expect(open).toContain('export function warmDropPlaceOpen');
     expect(open).toContain('export function resolveDropOpenSeed');
     expect(open).toContain('readCollectionView');
+    expect(open).toContain('seedDropLoveFaceFromList');
+    expect(open).toContain('fanCount');
     expect(open).toContain('scroll: false');
     expect(open).toContain("kind: 'full'");
     expect(open).toContain('rememberCollectionView');
@@ -69,6 +71,9 @@ describe('Drop place openers', () => {
     expect(src('features/market/market-listing-row.tsx')).toContain(
       'DropPlaceLink'
     );
+    expect(src('features/market/market-listing-row.tsx')).toContain(
+      'fanCount={item.fanCount}'
+    );
     const drops = src('features/drops/drops-page-panel.tsx');
     expect(drops).toContain('DropPlaceLink');
     expect(drops).toContain('market-listing-row-open');
@@ -76,6 +81,16 @@ describe('Drop place openers', () => {
     expect(drops).not.toContain('onOpenCover');
     expect(drops).not.toContain('ScarceFeedMediumSheet');
     expect(drops).not.toContain('dropsListCoverAction');
+  });
+
+  it('seeds list fan face into place open when counts exist', () => {
+    expect(src('features/drops/drops-page-panel.tsx')).toContain('fanCount=');
+    expect(src('components/portfolio/portfolio-drop-row.tsx')).toContain(
+      'fanCount={fanCount}'
+    );
+    expect(src('components/portfolio/portfolio-drop-row.tsx')).toContain(
+      'fanIds={drop.fanIds}'
+    );
   });
 
   it('passes list creator face into the place seed like Drops', () => {
@@ -280,15 +295,26 @@ describe('Drop place openers', () => {
     expect(skeleton).toContain('collection-activity-seat');
   });
 
-  it('seeded drop stays opaque; cold settle does not use a page-wide appear', () => {
+  it('warm seeded drop uses one surface appear; cold settle keeps block rise', () => {
     const panel = src('features/scarces/collection-page-panel.tsx');
+    const open = src('features/scarces/drop-place-open.tsx');
     const screen = src('components/app/os-app-screen.tsx');
+    const enterCss = src('features/scarces/collection-drop-enter.css');
     expect(panel).not.toContain('CollectionPageReveal');
-    expect(panel).not.toContain('OsPageBodyAppear');
     expect(panel).not.toContain('coldHandoff');
     expect(panel).not.toContain('bodyAppear');
+    expect(panel).toContain('seededHotOpen ? (');
+    expect(panel).toContain('claimDropWarmSurfaceAppear');
+    expect(panel).toContain('warmSurfaceAppear');
+    expect(panel).toContain('<OsPageBodyAppear>{dropFace}</OsPageBodyAppear>');
+    expect(open).toContain('armDropWarmSurfaceAppear');
     expect(panel).toContain('dropEnterShouldPlay');
     expect(panel).toContain('OsRouteSettle');
+    // Cold path suppresses a second page-wide body fade under settle.
+    expect(enterCss).toContain(
+      '.collection-drop-settle > .os-route-settle > .os-page-body-appear.is-ready'
+    );
+    expect(enterCss).toContain('animation: none');
     expect(screen).not.toContain('bodyAppear');
     expect(screen).not.toContain('OsRouteSettle');
   });

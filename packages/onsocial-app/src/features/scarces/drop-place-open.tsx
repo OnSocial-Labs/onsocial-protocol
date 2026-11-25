@@ -21,6 +21,8 @@ import {
   collectionViewNeedsCatalogSoftFill,
   seedCollectionViewFromStoreDrop as seedStoreDropView,
 } from '@/features/scarces/collection-page-view';
+import { armDropWarmSurfaceAppear } from '@/features/scarces/collection-page-enter';
+import { seedDropLoveFaceFromList } from '@/hooks/use-scarce-drop-loves';
 import {
   collectionPath,
   parseInAppDropLayerHref,
@@ -69,9 +71,14 @@ export function warmDropPlaceOpen(opts: {
   collectionId: string;
   initial?: CollectionView | null;
   initialCreator?: CollectionCreatorFace | null;
+  /** List fan face — seeds love/fans so the drop face does not empty→fill. */
+  fanCount?: number | null;
+  fanIds?: string[] | null;
 }): CollectionView | null {
   const id = opts.collectionId.trim();
   if (!id) return null;
+  // One surface fade for this open — loading.tsx + page remount must not stack.
+  armDropWarmSurfaceAppear(id);
   const seed = resolveDropOpenSeed({
     collectionId: id,
     initial: opts.initial,
@@ -79,6 +86,18 @@ export function warmDropPlaceOpen(opts: {
   if (seed) rememberCollectionView(seed);
   if (opts.initialCreator) {
     rememberCollectionCreatorFace(id, opts.initialCreator);
+  }
+  const creatorId =
+    seed?.creatorId?.trim() ||
+    opts.initial?.creatorId?.trim() ||
+    '';
+  if (creatorId && opts.fanCount != null && opts.fanCount > 0) {
+    seedDropLoveFaceFromList({
+      creatorId,
+      collectionId: id,
+      fanCount: opts.fanCount,
+      fanIds: opts.fanIds,
+    });
   }
   return seed;
 }
@@ -88,6 +107,8 @@ export type DropPlaceOpenInput = {
   initial?: CollectionView | null;
   /** List/feed creator face when already painted — same as Drops. */
   initialCreator?: CollectionCreatorFace | null;
+  fanCount?: number | null;
+  fanIds?: string[] | null;
 };
 
 /** Soft-nav to the full drop place after seeding cache. */
@@ -101,6 +122,8 @@ export function navigateDropPlace(
     collectionId: parsed.collectionId,
     initial: input.initial,
     initialCreator: input.initialCreator,
+    fanCount: input.fanCount,
+    fanIds: input.fanIds,
   });
   prefetchDropPlace(router, input.href);
   router.push(input.href, { scroll: false });
@@ -136,6 +159,8 @@ type DropPlaceLinkProps = Omit<
   collectionId?: string;
   initial?: CollectionView | null;
   initialCreator?: CollectionCreatorFace | null;
+  fanCount?: number | null;
+  fanIds?: string[] | null;
   children?: ReactNode;
 };
 
@@ -148,6 +173,8 @@ export function DropPlaceLink({
   collectionId,
   initial = null,
   initialCreator = null,
+  fanCount = null,
+  fanIds = null,
   children,
   onClick,
   className,
@@ -168,7 +195,16 @@ export function DropPlaceLink({
       className={className}
       {...props}
       onPointerDown={() => {
-        if (collectionIdForWarm) warmCollectionView(collectionIdForWarm);
+        if (collectionIdForWarm) {
+          warmCollectionView(collectionIdForWarm);
+          warmDropPlaceOpen({
+            collectionId: collectionIdForWarm,
+            initial,
+            initialCreator,
+            fanCount,
+            fanIds,
+          });
+        }
         prefetchDropPlace(router as DropPlaceRouter, resolved);
       }}
       onClick={(event: MouseEvent<HTMLAnchorElement>) => {
@@ -182,6 +218,8 @@ export function DropPlaceLink({
           href: resolved,
           initial,
           initialCreator,
+          fanCount,
+          fanIds,
         });
       }}
     >

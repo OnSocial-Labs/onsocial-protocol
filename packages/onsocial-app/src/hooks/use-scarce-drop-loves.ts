@@ -37,7 +37,18 @@ const EMPTY: DropLoveState = {
 };
 
 /** Last-good love face — reopen / wallet hydrate must not flash empty→filled. */
+const DROP_LOVE_CACHE_MAX = 48;
 const dropLoveCache = new Map<string, DropLoveState>();
+
+function rememberDropLoveEntry(key: string, state: DropLoveState): void {
+  dropLoveCache.delete(key);
+  dropLoveCache.set(key, state);
+  while (dropLoveCache.size > DROP_LOVE_CACHE_MAX) {
+    const oldest = dropLoveCache.keys().next().value;
+    if (oldest == null) break;
+    dropLoveCache.delete(oldest);
+  }
+}
 
 function peekStoredWalletAccountId(): string | null {
   if (typeof window === 'undefined') return null;
@@ -60,16 +71,25 @@ function dropLoveCacheKey(
   return `${viewerId.toLowerCase()}\0${creatorId}\0${collectionId}`;
 }
 
+/** Fan face without a viewer — list seed / signed-out open. */
+function dropLoveFaceCacheKey(creatorId: string, collectionId: string): string {
+  return `\0${creatorId}\0${collectionId}`;
+}
+
 function peekDropLoveState(
   viewerId: string,
   creatorId: string,
   collectionId: string
 ): DropLoveState | null {
-  if (!viewerId || !creatorId || !collectionId) return null;
-  return (
-    dropLoveCache.get(
+  if (!creatorId || !collectionId) return null;
+  if (viewerId) {
+    const forViewer = dropLoveCache.get(
       dropLoveCacheKey(viewerId, creatorId, collectionId)
-    ) ?? null
+    );
+    if (forViewer) return forViewer;
+  }
+  return (
+    dropLoveCache.get(dropLoveFaceCacheKey(creatorId, collectionId)) ?? null
   );
 }
 
@@ -79,11 +99,49 @@ function rememberDropLoveState(
   collectionId: string,
   state: DropLoveState
 ): void {
-  if (!viewerId || !creatorId || !collectionId) return;
-  dropLoveCache.set(
-    dropLoveCacheKey(viewerId, creatorId, collectionId),
-    state
+  if (!creatorId || !collectionId) return;
+  rememberDropLoveEntry(dropLoveFaceCacheKey(creatorId, collectionId), state);
+  if (viewerId) {
+    rememberDropLoveEntry(
+      dropLoveCacheKey(viewerId, creatorId, collectionId),
+      state
+    );
+  }
+}
+
+/**
+ * Drops / market already painted a fan count — seed so the face does not
+ * empty→pending→filled on open.
+ */
+export function seedDropLoveFaceFromList(opts: {
+  creatorId?: string | null;
+  collectionId?: string | null;
+  fanCount: number;
+  fanIds?: string[] | null;
+  viewerId?: string | null;
+}): void {
+  const creatorId = opts.creatorId?.trim() || '';
+  const collectionId = opts.collectionId?.trim() || '';
+  const fanCount = Math.max(0, Math.floor(opts.fanCount));
+  if (!creatorId || !collectionId || fanCount <= 0) return;
+  const viewerId = dropLoveViewerId(opts.viewerId);
+  const existing = peekDropLoveState(viewerId, creatorId, collectionId);
+  if (
+    existing &&
+    (existing.fanIds.length > 0 || existing.fanCount >= fanCount)
+  ) {
+    return;
+  }
+  const fanIds = dedupeDropFanIds(
+    (opts.fanIds ?? existing?.fanIds ?? []).map((accountId) => ({ accountId })),
+    creatorId
   );
+  rememberDropLoveState(viewerId, creatorId, collectionId, {
+    loveCount: existing?.loveCount ?? 0,
+    viewerLoved: existing?.viewerLoved ?? false,
+    fanCount: Math.max(fanCount, existing?.fanCount ?? 0),
+    fanIds,
+  });
 }
 
 /** True when reaction path is drop-level love (not a track under the same id). */
@@ -131,7 +189,8 @@ export function useScarceDropLoves(opts: {
       creatorId,
       collectionId
     );
-    return !(cached && (cached.fanCount > 0 || cached.fanIds.length > 0));
+    // Unknown zero stays chassis — do not flash a loading seat then empty.
+    return Boolean(cached && cached.fanCount > 0 && cached.fanIds.length === 0);
   });
   const [pending, setPending] = useState(false);
   const [boundKey, setBoundKey] = useState(dropKey);
@@ -141,6 +200,17 @@ export function useScarceDropLoves(opts: {
   const apiLovedRef = useRef(false);
   const retryTimersRef = useRef<number[]>([]);
   const loadIdRef = useRef(0);
+  /** After first settle, soft reloads must not reopen the fans pending seat. */
+  const fansSettledRef = useRef(
+    Boolean(
+      active &&
+        peekDropLoveState(
+          dropLoveViewerId(accountId),
+          creatorId,
+          collectionId
+        )
+    )
+  );
 
   if (boundKey !== dropKey) {
     setBoundKey(dropKey);
@@ -152,9 +222,9 @@ export function useScarceDropLoves(opts: {
         )
       : null;
     setState(cached ?? EMPTY);
+    fansSettledRef.current = Boolean(cached);
     setFansLoading(
-      Boolean(dropKey) &&
-        !(cached && (cached.fanCount > 0 || cached.fanIds.length > 0))
+      Boolean(cached && cached.fanCount > 0 && cached.fanIds.length === 0)
     );
     ledgerRef.current = null;
     apiLovedRef.current = cached?.viewerLoved ?? false;
@@ -177,10 +247,11 @@ export function useScarceDropLoves(opts: {
       return;
     }
     const loadId = ++loadIdRef.current;
-    // First paint only — keep last-good fans through wallet settle and soft retries.
+    // First roster only — never reopen pending after a settled face (incl. zero).
     if (
-      stateRef.current.fanIds.length === 0 &&
-      stateRef.current.fanCount === 0
+      !fansSettledRef.current &&
+      stateRef.current.fanCount > 0 &&
+      stateRef.current.fanIds.length === 0
     ) {
       setFansLoading(true);
     }
@@ -316,6 +387,7 @@ export function useScarceDropLoves(opts: {
         nextState
       );
       if (ledgerRef.current == null) clearRetryTimers();
+      fansSettledRef.current = true;
       if (!needFanRoster || stateRef.current.fanIds.length > 0) {
         setFansLoading(false);
       }
@@ -378,10 +450,14 @@ export function useScarceDropLoves(opts: {
       } catch {
         if (loadId !== loadIdRef.current) return;
       } finally {
-        if (loadId === loadIdRef.current) setFansLoading(false);
+        if (loadId === loadIdRef.current) {
+          fansSettledRef.current = true;
+          setFansLoading(false);
+        }
       }
     } catch {
       if (loadId !== loadIdRef.current) return;
+      fansSettledRef.current = true;
       setFansLoading(false);
     }
   }, [

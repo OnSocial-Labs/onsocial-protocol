@@ -26,13 +26,27 @@ describe('transaction toast slot', () => {
     expect(css).not.toContain('.app-tx-toast-icon--pending');
   });
 
-  it('uses neutral dock frost tokens, not mood accent mix', () => {
-    expect(css).toContain('--os-dock-fill: rgb(var(--bg-rgb) / 0.72)');
-    expect(css).toContain('background: var(--os-dock-fill)');
-    expect(css).toContain('box-shadow: var(--os-dock-shadow), var(--os-dock-lip)');
-    expect(css).toContain('backdrop-filter: blur(20px) saturate(1.3)');
+  it('uses the same dock frost plate as .os-dock-pill (no transform/opacity on the host)', () => {
+    const host = css.slice(
+      css.indexOf('.app-tx-toast {'),
+      css.indexOf('@keyframes app-tx-toast-in')
+    );
+    expect(host).toContain('--os-dock-fill: rgb(var(--bg-rgb) / 0.72)');
+    expect(host).toContain('background: var(--os-dock-fill)');
+    expect(host).toContain('backdrop-filter: blur(20px) saturate(1.3)');
+    expect(host).toContain('box-shadow: var(--os-dock-shadow), var(--os-dock-lip)');
+    expect(host).not.toContain('animation:');
+    expect(css).toContain('justify-content: center');
     expect(css).not.toContain('mood-accent');
-    // -webkit- pair makes Lightning drop the blur (same rule as dock/footer).
+    // Transform / opacity-both on the frost host empties backdrop-filter.
+    expect(css).not.toContain('translateX(-50%)');
+    expect(css).not.toContain('translateY(6px)');
+    // Frost on the host — not a ::before under overflow:hidden.
+    expect(css).not.toContain('.app-tx-toast::before');
+    // -webkit- pair makes Lightning drop the blur (same rule as dock).
     expect(css).not.toContain('-webkit-backdrop-filter');
+    expect(css).toContain(
+      'animation: app-tx-toast-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both'
+    );
   });
 });

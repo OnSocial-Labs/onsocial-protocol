@@ -6,15 +6,18 @@ import { ScarceFansSheet } from '@/features/scarces/scarce-fans-sheet';
 import type { PassStaffVoice } from '@/features/scarces/ticket-pass-payload';
 import {
   eventGuestSheetCopy,
-  eventGuestSoldPrefix,
   eventGuestTallyLine,
+  eventGuestTallyWhileRosterLoads,
   guestRosterShouldLive,
   loadEventCheckInIds,
   loadEventHolderIds,
+  peekGuestTallyLine,
+  rememberGuestTallyLine,
   type EventGuestKind,
 } from '@/features/events/event-guests';
 import { LIVE_DROP_SUPPLY_MS } from '@/features/scarces/use-live-drop-supply';
 import { SHEET_Z } from '@/lib/sheet-z';
+
 
 function useGuestIds(
   collectionId: string,
@@ -196,7 +199,7 @@ export function CollectionEventGuests({
   );
   const holderWords = holders || voice === 'redeem';
   const copy = eventGuestSheetCopy(kind, { redeemed: holderWords });
-  const tally =
+  const fromRoster =
     roster.ids != null
       ? eventGuestTallyLine({
           kind,
@@ -205,34 +208,21 @@ export function CollectionEventGuests({
           redeemed: holderWords,
         })
       : null;
-  // First paint only for this drop. Sold can move without a holding shimmer.
-  const [lastGood, setLastGood] = useState<{
-    key: string;
-    tally: string;
-  } | null>(null);
-  const tallyKey = `${collectionId}\0${kind}`;
-  if (tally != null && (lastGood?.key !== tallyKey || lastGood.tally !== tally)) {
-    setLastGood({ key: tallyKey, tally });
-  }
+  useEffect(() => {
+    if (fromRoster == null) return;
+    rememberGuestTallyLine(collectionId, kind, fromRoster);
+  }, [collectionId, fromRoster, kind]);
+  // Resolved → last-good → sold only. Never shimmer or invent holding.
   const painted =
-    tally ?? (lastGood?.key === tallyKey ? lastGood.tally : null);
-  const rosterPending = painted == null && roster.ids == null && !roster.error;
+    fromRoster ??
+    peekGuestTallyLine(collectionId, kind) ??
+    eventGuestTallyWhileRosterLoads({ sold });
 
   return (
     <section className="collection-reading" aria-label={copy.label}>
       <div className="collection-reading-row">
         <p className="collection-section-label collection-guest-tally">
-          {rosterPending ? (
-            <>
-              <span>{eventGuestSoldPrefix(sold)} · </span>
-              <span
-                className="standing-row-shimmer collection-guest-tally-present"
-                aria-hidden
-              />
-            </>
-          ) : (
-            painted
-          )}
+          {painted}
         </p>
         <OsRowAction onClick={() => setOpen(true)}>See who</OsRowAction>
       </div>

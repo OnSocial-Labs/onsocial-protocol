@@ -242,7 +242,8 @@ export function DropFansButton({
 
 /**
  * Drop face commerce row — same fans control as Drops / market rows.
- * Pending uses DropRowFansPending so lines do not jump when counts land.
+ * Facepile pending only when count is known and ids are still landing.
+ * Unknown / zero keeps the chassis seat (no loading flash).
  */
 export function DropFaceFans({
   creatorId,
@@ -250,20 +251,15 @@ export function DropFaceFans({
   title,
   fanIds,
   fanCount,
-  countsLoading,
 }: {
   creatorId: string;
   collectionId: string;
   title: string;
   fanIds?: string[];
   fanCount: number;
-  countsLoading: boolean;
 }) {
   const hasRoster = (fanIds?.length ?? 0) > 0;
-  // First roster only. A refresh must not tear down the painted fans control.
-  const rosterPending =
-    (fanCount > 0 && !hasRoster) ||
-    (countsLoading && fanCount <= 0 && !hasRoster);
+  const rosterPending = fanCount > 0 && !hasRoster;
 
   if (rosterPending) {
     return (

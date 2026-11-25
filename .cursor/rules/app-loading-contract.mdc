@@ -18,8 +18,11 @@ up to date when adding or changing a page.
   paints the skeleton on the first frame (`cover` starts at `hold`). No delay
   before that paint. After settle, the cover fades off over `--os-motion-appear`
   (280ms fallback) and then unmounts; `prefers-reduced-motion` drops the
-  cover immediately. Seeded / known bodies paint opaque immediately — do not
-  gate them behind `OsPageBodyAppear` opacity 0 (late + flicker).
+  cover immediately. Soft-fill / reserved seats stay opaque (or swap in place)
+  — do not gate late data behind `OsPageBodyAppear` (flicker). Drop warm open
+  may use one surface `OsPageBodyAppear` with solid content inside (same idea
+  as post sheet appear with a seeded root); that is open motion, not a soft-fill
+  seat fade.
 - Refresh with painted data → keep rows and set `is-refreshing`.
 - Load more → silent happy path; late/in-flight = footer PulsingDots
   (OsLoadMore / sentinel). Never append cold skeleton rows mid-list.

@@ -30051,13 +30051,6 @@ a.os-surface-row,
     pointer-events: none;
   }
 
-  @media (prefers-reduced-motion: no-preference) {
-    .collection-use-actions-lead-fill {
-      animation: glass-sheet-appear var(--os-motion-appear, 280ms)
-        var(--os-motion-ease-standard, ease) both;
-    }
-  }
-
   /* Final holder row height from frame 1 — no is-use-first min-height flip. */
   .collection-reading-row {
     display: flex;
