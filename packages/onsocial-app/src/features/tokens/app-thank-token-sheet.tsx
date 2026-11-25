@@ -18,7 +18,7 @@ import {
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import {
-  useAppWallet,
+  useAppWalletActions,
   WalletConnectedReviewError,
 } from '@/contexts/app-wallet-context';
 import {
@@ -80,7 +80,7 @@ export function AppThankTokenSheet({
   panelStyle?: CSSProperties;
   onClose: () => void;
 }) {
-  const { getSigningWallet } = useAppWallet();
+  const { getSigningWallet } = useAppWalletActions();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
@@ -347,17 +347,16 @@ export function AppThankTokenSheet({
               return (
                 <OsSurfaceRow
                   key={stander.accountId}
-                  label={
-                    displayName(stander.accountId, stander.name)
-                  }
+                  label={displayName(stander.accountId, stander.name)}
                   description={stander.accountId}
                   leading={
                     <AccountAvatar
                       accountId={stander.accountId}
                       kind={stander.kind}
                       src={stander.avatarUrl}
-                      fallbackInitial={(
-                        displayName(stander.accountId, stander.name)
+                      fallbackInitial={displayName(
+                        stander.accountId,
+                        stander.name
                       ).slice(0, 1)}
                       size="sm"
                     />

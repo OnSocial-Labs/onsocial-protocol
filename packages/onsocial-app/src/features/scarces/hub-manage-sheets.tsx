@@ -30,7 +30,7 @@ import {
 } from '@/components/profile/profile-account-search-picks';
 import { NearAccountField } from '@/components/ui/near-account-field';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useAppWalletActions } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
   HUB_MAX_APPROVED_CREATORS,
@@ -121,7 +121,7 @@ function useObjectUrl(file: File | null): string | null {
 }
 
 function useHubManageWallet() {
-  const { getSigningWallet } = useAppWallet();
+  const { getSigningWallet } = useAppWalletActions();
   return useCallback(async () => {
     const { accountId, wallet } = await getSigningWallet();
     return createAppScarcesWalletClient(accountId, wallet);
@@ -246,8 +246,9 @@ export function HubLookSheet({
   const [logoRemoved, setLogoRemoved] = useState(false);
   const [bannerRemoved, setBannerRemoved] = useState(false);
   const [logoPan, setLogoPan] = useState<MediaFramePan>(MEDIA_FRAME_PAN_CENTER);
-  const [bannerPan, setBannerPan] =
-    useState<MediaFramePan>(MEDIA_FRAME_PAN_CENTER);
+  const [bannerPan, setBannerPan] = useState<MediaFramePan>(
+    MEDIA_FRAME_PAN_CENTER
+  );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

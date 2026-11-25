@@ -41,7 +41,7 @@ import { PortfolioFaceEditorHero } from '@/components/wallet/portfolio-face-edit
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
 import { ProfileAboutEditorSheet } from '@/components/wallet/profile-about-editor-sheet';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useAppWalletActions } from '@/contexts/app-wallet-context';
 import {
   buildDaoBrandingMetadata,
   resolveDaoEditBaseline,
@@ -148,7 +148,7 @@ export function DaoEditSheet({
   const titleId = useId();
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const crestInputRef = useRef<HTMLInputElement>(null);
-  const { getSigningWallet } = useAppWallet();
+  const { getSigningWallet } = useAppWalletActions();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const scrollFieldIntoView = useMobileFieldFocusScroll();
@@ -197,10 +197,12 @@ export function DaoEditSheet({
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [avatarRemoved, setAvatarRemoved] = useState(false);
   const [bannerRemoved, setBannerRemoved] = useState(false);
-  const [crestPan, setCrestPan] =
-    useState<MediaFramePan>(MEDIA_FRAME_PAN_CENTER);
-  const [coverPan, setCoverPan] =
-    useState<MediaFramePan>(MEDIA_FRAME_PAN_CENTER);
+  const [crestPan, setCrestPan] = useState<MediaFramePan>(
+    MEDIA_FRAME_PAN_CENTER
+  );
+  const [coverPan, setCoverPan] = useState<MediaFramePan>(
+    MEDIA_FRAME_PAN_CENTER
+  );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [proposeConfirmOpen, setProposeConfirmOpen] = useState(false);
@@ -257,8 +259,7 @@ export function DaoEditSheet({
           normalizeProfileLeadInput(baseline.lead) ||
         aboutAlign !== baseline.aboutAlign ||
         photos.some(
-          (photo) =>
-            Boolean(photo.file) || !isMediaFramePanCentered(photo.pan)
+          (photo) => Boolean(photo.file) || !isMediaFramePanCentered(photo.pan)
         ) ||
         !profileAboutPhotoRefsEqual(
           photos.map((photo) => photo.ref.trim()).filter(Boolean),
@@ -667,9 +668,7 @@ export function DaoEditSheet({
     </>
   );
 
-  const editTitle = isSocial
-    ? 'Publish OnSocial profile'
-    : 'Edit DAO profile';
+  const editTitle = isSocial ? 'Publish OnSocial profile' : 'Edit DAO profile';
 
   const footer = (
     <div

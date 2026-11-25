@@ -27,7 +27,7 @@ import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-li
 import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useAppWalletActions } from '@/contexts/app-wallet-context';
 import {
   collectionIdFromTokenId,
   type OwnedScarceItem,
@@ -355,7 +355,7 @@ export function PortfolioListingActionsSheet({
   initialFetchedAt = 0,
   onActionsChanged,
 }: PortfolioListingActionsSheetProps) {
-  const { getSigningWallet } = useAppWallet();
+  const { getSigningWallet } = useAppWalletActions();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [closing, setClosing] = useState(false);
   const [handedOff, setHandedOff] = useState(false);

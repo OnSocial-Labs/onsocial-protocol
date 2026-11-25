@@ -23,7 +23,7 @@ import {
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { DaoPageSlideOverScreen } from '@/features/protocol/dao-page-slide-over-screen';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useAppWalletActions } from '@/contexts/app-wallet-context';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import {
   BOOST_CLAIM_DUST_YOCTO,
@@ -104,7 +104,7 @@ export function DaoBoostSheet({
   onProposed?: (proposalId: number | null) => void;
 }) {
   const formId = useId();
-  const { getSigningWallet } = useAppWallet();
+  const { getSigningWallet } = useAppWalletActions();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const moodPreview = usePortfolioMoodPreviewOptional();
   const {

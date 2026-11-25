@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  useAppWallet,
+  useAppWalletActions,
   WalletConnectedReviewError,
 } from '@/contexts/app-wallet-context';
 import {
@@ -17,7 +17,7 @@ import { isWalletUserCancellation } from '@/lib/wallet-errors';
 export function useOsAppNavigate(pageAccountId?: string) {
   const router = useRouter();
   const pathname = usePathname();
-  const { getSigningWallet } = useAppWallet();
+  const { getSigningWallet } = useAppWalletActions();
   const [openingPage, setOpeningPage] = useState(false);
 
   const openPage = useCallback(async () => {

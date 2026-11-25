@@ -7,7 +7,7 @@ import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { standingIdentityLabel } from '@onsocial/ui';
 import { StandingIdentity } from '@/components/profile/standing-identity';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useAppWalletActions } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
   fetchPublishRequests,
@@ -60,7 +60,7 @@ export function HubPublishRequestsSheet({
     kind: ReviewKind;
   } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const { getSigningWallet } = useAppWallet();
+  const { getSigningWallet } = useAppWalletActions();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const sheetOpen = open && !closing;
 
@@ -75,7 +75,9 @@ export function HubPublishRequestsSheet({
     } catch (cause) {
       setRows([]);
       setLoadError(
-        cause instanceof Error ? cause.message : 'Could not load publish requests'
+        cause instanceof Error
+          ? cause.message
+          : 'Could not load publish requests'
       );
     }
   }, [appId]);
@@ -153,7 +155,15 @@ export function HubPublishRequestsSheet({
         setPendingAction(null);
       }
     },
-    [pendingAction, getSigningWallet, appId, trackTransaction, setTxResult, onChanged, refresh]
+    [
+      pendingAction,
+      getSigningWallet,
+      appId,
+      trackTransaction,
+      setTxResult,
+      onChanged,
+      refresh,
+    ]
   );
 
   const pending = useMemo(
@@ -265,7 +275,9 @@ function RequestList({
                 </StandingIdentity>
               </Link>
               <div className="standing-row-aside">
-                {when ? <span className="standing-row-time">{when}</span> : null}
+                {when ? (
+                  <span className="standing-row-time">{when}</span>
+                ) : null}
                 <OsSheetActions
                   layout="row-compact"
                   tone="frosted-primary"
