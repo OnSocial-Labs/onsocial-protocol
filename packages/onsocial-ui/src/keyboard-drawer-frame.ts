@@ -533,6 +533,44 @@ export function correctedKeyboardSeat(input: {
 
 export type KeyboardDrawerFrameMode = 'drawer' | 'page';
 
+type OutsideOverflowHold = {
+  count: number;
+  /** Inline overflow from before the first holder. */
+  original: string;
+};
+
+/**
+ * Stacked sheets share one lock per element. Each sheet used to save the
+ * inline value it saw and write that back on close, so the later sheet
+ * saved `hidden` and put it back after the earlier sheet restored the page.
+ * The first holder stores the original. Only the last release writes it back.
+ */
+const outsideOverflowHolds = new WeakMap<HTMLElement, OutsideOverflowHold>();
+
+export function acquireOutsideOverflowLock(node: HTMLElement): () => void {
+  const existing = outsideOverflowHolds.get(node);
+  if (existing) {
+    existing.count += 1;
+  } else {
+    outsideOverflowHolds.set(node, {
+      count: 1,
+      original: node.style.overflow,
+    });
+    node.style.overflow = 'hidden';
+  }
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    const hold = outsideOverflowHolds.get(node);
+    if (!hold) return;
+    hold.count -= 1;
+    if (hold.count > 0) return;
+    outsideOverflowHolds.delete(node);
+    node.style.overflow = hold.original;
+  };
+}
+
 /** Tracks the keyboard while `active` (the sheet is open). */
 export function useKeyboardDrawerFrame(
   active: boolean,
@@ -691,18 +729,20 @@ export function useKeyboardDrawerFrame(
     const root = rootRef?.current ?? null;
     // Freeze scrollers outside this sheet before a paste or url-field pan
     // can move them. Restoring scrollTop after paint is the bounce.
-    const locked: Array<{
+    // Overflow is ref-counted across sheets so any close order restores
+    // the value from before the first lock.
+    const held: Array<{
       node: HTMLElement;
-      overflow: string;
       top: number;
+      release: () => void;
     }> = [];
     const lock = (node: HTMLElement | null) => {
-      if (!node || locked.some((item) => item.node === node)) return;
+      if (!node || held.some((item) => item.node === node)) return;
       if (root && (node === root || root.contains(node))) return;
       const top = node.scrollTop;
-      locked.push({ node, overflow: node.style.overflow, top });
-      node.style.overflow = 'hidden';
+      const release = acquireOutsideOverflowLock(node);
       if (node.scrollTop !== top) node.scrollTop = top;
+      held.push({ node, top, release });
     };
     lock(document.documentElement);
     const outside = document.querySelectorAll<HTMLElement>(
@@ -712,8 +752,8 @@ export function useKeyboardDrawerFrame(
       lock(outside[index] ?? null);
     }
     return () => {
-      for (const item of locked) {
-        item.node.style.overflow = item.overflow;
+      for (const item of held) {
+        item.release();
         if (item.node.scrollTop !== item.top) item.node.scrollTop = item.top;
       }
     };

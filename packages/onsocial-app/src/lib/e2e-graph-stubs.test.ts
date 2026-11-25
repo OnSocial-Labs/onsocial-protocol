@@ -506,3 +506,23 @@ describe('resolveE2eGraphStub', () => {
     ).toBe(false);
   });
 });
+
+describe('thread=alpha reply stub', () => {
+  it('returns the nested alpha reply for RepliesByPath', () => {
+    const stub = resolveE2eGraphStub({
+      query:
+        'query RepliesByPath($parentPath: String!) { threadReplies(where: {parentPath: {_eq: $parentPath}}) { replyId } }',
+      variables: { parentPath: 'alice.near/post/alpha-post' },
+      cookieValue: 'thread=alpha',
+    });
+    const rows = stub?.data.threadReplies as Array<{ value: string }>;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.value).toContain('Nested reply opened from alpha');
+    expect(
+      resolveE2eGraphStub({
+        query: 'query RepliesByPath { threadReplies { replyId } }',
+        cookieValue: '',
+      })
+    ).toBeNull();
+  });
+});
