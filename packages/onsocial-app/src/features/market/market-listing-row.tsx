@@ -216,6 +216,7 @@ export function MarketListingRow({
           href={rowTarget.href}
           initial={dropInitial}
           initialCreator={dropCreator}
+          fanCount={item.fanCount}
           className="market-listing-row-open"
           aria-label={`Open drop for ${item.title}`}
         />

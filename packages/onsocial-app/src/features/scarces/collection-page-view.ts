@@ -201,6 +201,18 @@ function peekStoredWalletAccountId(): string | null {
 }
 
 /**
+ * Live wallet id when present, else last persisted session account.
+ * Same cold seed as hold / #edition — Open Collectibles must not wait on hydrate.
+ */
+export function peekViewerAccountId(
+  accountId?: string | null
+): string | null {
+  const live = accountId?.trim();
+  if (live) return live;
+  return peekStoredWalletAccountId()?.trim() || null;
+}
+
+/**
  * First-paint hold seed. Live account when present, else persisted wallet id
  * so refresh doesn’t treat a holder as a visitor for one frame.
  */
@@ -216,14 +228,20 @@ export function peekOwnedTokenForCollection(
   accountId: string | null | undefined,
   collectionId: string
 ): string | null {
-  const owner = accountId?.trim();
   const id = collectionId.trim();
-  if (!owner || !id) return null;
-  const page = peekOwnedVaultPage(owner);
-  if (!page) return null;
-  return (
-    page.items.find((item) => itemCollectionId(item) === id)?.tokenId ?? null
+  if (!id) return null;
+  // Same cold-wallet seed as hold: live account, else persisted wallet id.
+  const owners = [accountId?.trim(), peekStoredWalletAccountId()].filter(
+    (value): value is string => Boolean(value?.trim())
   );
+  for (const owner of owners) {
+    const page = peekOwnedVaultPage(owner);
+    const tokenId =
+      page?.items.find((item) => itemCollectionId(item) === id)?.tokenId?.trim() ||
+      null;
+    if (tokenId) return tokenId;
+  }
+  return null;
 }
 
 /** Shared placeholder — cover/title/tracks paint; commerce soft-fills. */

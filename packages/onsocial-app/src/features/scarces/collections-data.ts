@@ -1490,18 +1490,6 @@ export async function fetchAllowlistAllocation(
 }
 
 /**
- * True when `accountId` currently owns at least one edition of this drop.
- * Prefers indexer `scarcesTokenOwners`; falls back to full RPC ownership scan.
- */
-export async function fetchOwnsCollectionEdition(
-  collectionId: string,
-  accountId: string
-): Promise<boolean> {
-  const tokenId = await fetchOwnedCollectionTokenId(collectionId, accountId);
-  return Boolean(tokenId);
-}
-
-/**
  * First owned edition token id for this drop, or null.
  * Prefers indexer `scarcesTokenOwners`; falls back to RPC ownership scan.
  */

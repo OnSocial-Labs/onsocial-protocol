@@ -117,6 +117,8 @@ export function PortfolioDropRow({
         href={href}
         initial={dropInitial}
         initialCreator={dropCreator}
+        fanCount={fanCount}
+        fanIds={drop.fanIds}
         className="market-listing-row-open"
         aria-label={`Open ${drop.title}`}
       />

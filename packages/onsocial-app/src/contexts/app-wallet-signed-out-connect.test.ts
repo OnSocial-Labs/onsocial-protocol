@@ -890,6 +890,51 @@ describe('signed-out wallet picker', () => {
     expect(signCallCount()).toBe(0);
   });
 
+  it('opens session AddKey when create signs in but the picker closes as cancel', async () => {
+    await mount(createElement(Probe));
+    await waitForInit();
+    const created = makeWallet('fresh.near');
+    let signedInAfterCreate = false;
+    harness.getConnectedWallet.mockImplementation(async () => {
+      if (!signedInAfterCreate) throw new Error('no wallet');
+      return {
+        wallet: created,
+        accounts: [{ accountId: 'fresh.near' }],
+      };
+    });
+    vi.spyOn(appSocialSession, 'restoreAppSocialSession').mockResolvedValue(
+      null
+    );
+    const picker = deferred<ReturnType<typeof makeWallet>>();
+    harness.connect.mockImplementation(() => picker.promise);
+
+    const connectSettled = apiRef.current!.connect().then(
+      () => 'ok' as const,
+      (error: unknown) => error
+    );
+    await expect
+      .poll(() => harness.connect.mock.calls.length, {
+        interval: 15,
+        timeout: 2000,
+      })
+      .toBe(1);
+
+    // Create finished in the wallet; dismiss leaves connect() cancelled.
+    signedInAfterCreate = true;
+    await act(async () => {
+      picker.reject(new Error('user cancelled'));
+      await connectSettled;
+    });
+    await expect(connectSettled).resolves.toBe('ok');
+    expect(sessionSpy?.mock.calls.map((call) => call[0])).toEqual([
+      'fresh.near',
+    ]);
+    expect(accountSnapshot()).toEqual({
+      account: 'fresh.near',
+      stored: 'fresh.near',
+    });
+  });
+
   it('releases a hung picker so the next request can open one', async () => {
     await mount(createElement(Probe));
     await waitForInit();

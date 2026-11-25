@@ -727,6 +727,37 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
   );
   connectForAcceptedAccountRef.current = connectForAcceptedAccount;
 
+  /**
+   * Create-wallet / hung picker: sign-in may land while connect() rejects as
+   * cancel or timeout. Quiet restore alone would leave them connected with no
+   * session key — continue AddKey for that account when the wallet is signed in.
+   */
+  const finishSessionAfterSignedInConnect = useCallback(async (): Promise<boolean> => {
+    const connector = connectorRef.current;
+    if (!connector) return false;
+    try {
+      const { wallet: connectedWallet, accounts } =
+        await connector.getConnectedWallet();
+      const nextAccountId = pickRestoredAccountId(
+        accounts,
+        readStoredWalletAccountId()
+      );
+      if (!connectedWallet || !nextAccountId) return false;
+      acceptedWalletRef.current = connectedWallet;
+      setWallet(connectedWallet);
+      setAccountId(nextAccountId);
+      writeStoredWalletAccountId(nextAccountId);
+      if (await restoreAppSocialSession(nextAccountId)) {
+        finishSessionFeedback(true);
+        return true;
+      }
+      await ensureSocialSession(nextAccountId);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [ensureSocialSession, finishSessionFeedback]);
+
   const connect = useCallback(async () => {
     const connector = connectorRef.current;
     if (!connector) return;
@@ -793,9 +824,12 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
         await ensureSocialSession(nextAccountId);
       } catch (error) {
         if (error instanceof WalletPickerTimeoutError) {
-          setSessionFeedback(
-            sessionRecoverFeedback('error', txToastSession.timedOut)
-          );
+          const continued = await finishSessionAfterSignedInConnect();
+          if (!continued) {
+            setSessionFeedback(
+              sessionRecoverFeedback('error', txToastSession.timedOut)
+            );
+          }
           return;
         }
         if (error instanceof WalletConnectedReviewError) {
@@ -823,7 +857,11 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
         } else if (isWalletUserCancellation(error)) {
           clearSessionFeedback();
         }
-        if (isWalletUserCancellation(error)) return;
+        if (isWalletUserCancellation(error)) {
+          // Create approve + dismiss: wallet signed in, connect rejected — open AddKey.
+          await finishSessionAfterSignedInConnect();
+          return;
+        }
         throw error;
       } finally {
         if (bundled) setIsBootstrappingSession(false);
@@ -838,6 +876,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     resolvedAccountId,
     clearSessionFeedback,
     ensureSocialSession,
+    finishSessionAfterSignedInConnect,
     finishSessionFeedback,
     openPicker,
     sessionRecoverFeedback,

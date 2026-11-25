@@ -334,6 +334,8 @@ function DropRow({
         href={href}
         initial={dropInitial}
         initialCreator={dropCreator}
+        fanCount={fanCount}
+        fanIds={item.fanIds}
         className="market-listing-row-open"
         aria-label={`Open ${item.title}`}
       />

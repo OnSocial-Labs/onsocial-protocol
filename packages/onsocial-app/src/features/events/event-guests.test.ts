@@ -12,6 +12,9 @@ import {
   collectionGuestRoster,
   eventGuestSoldPrefix,
   eventGuestTallyLine,
+  eventGuestTallyWhileRosterLoads,
+  peekGuestTallyLine,
+  rememberGuestTallyLine,
   passGuestKind,
   loadHeldCollectionIdsFrom,
   resolveEventGuestCount,
@@ -190,6 +193,18 @@ describe('event guest counts', () => {
   it('formats sold prefix for pending tally paint', () => {
     expect(eventGuestSoldPrefix(5)).toBe('5 sold');
     expect(eventGuestSoldPrefix(1)).toBe('1 sold');
+  });
+
+  it('keeps sold only while the holder roster loads', () => {
+    expect(eventGuestTallyWhileRosterLoads({ sold: 9 })).toBe('9 sold');
+    expect(eventGuestTallyWhileRosterLoads({ sold: 128 })).toBe('128 sold');
+  });
+
+  it('remembers a resolved guest tally across remounts', () => {
+    rememberGuestTallyLine('night.near', 'going', '9 sold · 4 holding');
+    expect(peekGuestTallyLine('night.near', 'going')).toBe(
+      '9 sold · 4 holding'
+    );
   });
 
   it('pairs sold with who is in, quietly', () => {

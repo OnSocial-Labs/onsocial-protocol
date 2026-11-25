@@ -38,6 +38,41 @@ const EMPTY: LoveState = {
   fanIds: [],
 };
 
+/** Album fan face — reopen must not flash empty→pending→filled. */
+const ALBUM_FAN_CACHE_MAX = 48;
+const albumFanCache = new Map<
+  string,
+  { fanCount: number; fanIds: string[] }
+>();
+
+function albumFanCacheKey(creatorId: string, collectionId: string): string {
+  return `${creatorId}\0${collectionId}`;
+}
+
+function peekAlbumFanFace(
+  creatorId: string,
+  collectionId: string
+): { fanCount: number; fanIds: string[] } | null {
+  if (!creatorId || !collectionId) return null;
+  return albumFanCache.get(albumFanCacheKey(creatorId, collectionId)) ?? null;
+}
+
+function rememberAlbumFanFace(
+  creatorId: string,
+  collectionId: string,
+  face: { fanCount: number; fanIds: string[] }
+): void {
+  if (!creatorId || !collectionId) return;
+  const key = albumFanCacheKey(creatorId, collectionId);
+  albumFanCache.delete(key);
+  albumFanCache.set(key, face);
+  while (albumFanCache.size > ALBUM_FAN_CACHE_MAX) {
+    const oldest = albumFanCache.keys().next().value;
+    if (oldest == null) break;
+    albumFanCache.delete(oldest);
+  }
+}
+
 export function useScarceTrackLoves(opts: {
   creatorId?: string | null;
   collectionId?: string | null;
@@ -48,14 +83,43 @@ export function useScarceTrackLoves(opts: {
   const { accountId, isConnected, connect } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { setTxResult } = useAppTransactionFeedback();
-  const [state, setState] = useState<LoveState>(EMPTY);
-  const [fansLoading, setFansLoading] = useState(false);
+  const albumKey = creatorId && collectionId ? `${creatorId}\0${collectionId}` : '';
+  const [state, setState] = useState<LoveState>(() => {
+    const cached = peekAlbumFanFace(creatorId, collectionId);
+    if (!cached) return EMPTY;
+    return {
+      ...EMPTY,
+      fanCount: cached.fanCount,
+      fanIds: cached.fanIds,
+    };
+  });
+  const [fansLoading, setFansLoading] = useState(() => {
+    const cached = peekAlbumFanFace(creatorId, collectionId);
+    return Boolean(cached && cached.fanCount > 0 && cached.fanIds.length === 0);
+  });
   const [pendingCids, setPendingCids] = useState<Set<string>>(() => new Set());
+  const [boundKey, setBoundKey] = useState(albumKey);
   const stateRef = useRef(state);
   stateRef.current = state;
   const ledgerRef = useRef<TrackLoveLedger>(new Map());
   const retryTimersRef = useRef<number[]>([]);
   const loadIdRef = useRef(0);
+  const fansSettledRef = useRef(Boolean(peekAlbumFanFace(creatorId, collectionId)));
+
+  if (boundKey !== albumKey) {
+    setBoundKey(albumKey);
+    const cached = peekAlbumFanFace(creatorId, collectionId);
+    setState(
+      cached
+        ? { ...EMPTY, fanCount: cached.fanCount, fanIds: cached.fanIds }
+        : EMPTY
+    );
+    fansSettledRef.current = Boolean(cached);
+    setFansLoading(
+      Boolean(cached && cached.fanCount > 0 && cached.fanIds.length === 0)
+    );
+    ledgerRef.current = new Map();
+  }
 
   const trackKey = opts.tracks
     .map((track) => trackCidFromPlayable(track))
@@ -75,7 +139,14 @@ export function useScarceTrackLoves(opts: {
       return;
     }
     const loadId = ++loadIdRef.current;
-    setFansLoading(true);
+    // First roster only — never reopen pending after a settled face (incl. zero).
+    if (
+      !fansSettledRef.current &&
+      stateRef.current.fanCount > 0 &&
+      stateRef.current.fanIds.length === 0
+    ) {
+      setFansLoading(true);
+    }
     const client = createReadOnlyOnSocialClient();
     const like = albumTrackLovePathLike(collectionId);
     try {
@@ -201,17 +272,23 @@ export function useScarceTrackLoves(opts: {
         fanCountUnavailable ||
         derived.hasLedgerOverride ||
         stateRef.current.fanIds.length > 0;
+      const fanIds = needFanRoster
+        ? applyLedgerFanIds(stateRef.current.fanIds)
+        : [];
       setState({
         counts: derived.counts,
         viewerLoved: derived.viewerLoved,
         fanCount: derived.fanCount,
-        fanIds: needFanRoster
-          ? applyLedgerFanIds(stateRef.current.fanIds)
-          : [],
+        fanIds,
+      });
+      rememberAlbumFanFace(creatorId, collectionId, {
+        fanCount: derived.fanCount,
+        fanIds,
       });
       if (!derived.hasLedgerOverride) clearRetryTimers();
+      fansSettledRef.current = true;
       // Facepile can resolve after loves; clear shimmer once ids exist or none needed.
-      if (!needFanRoster || stateRef.current.fanIds.length > 0) {
+      if (!needFanRoster || fanIds.length > 0) {
         setFansLoading(false);
       }
 
@@ -246,24 +323,37 @@ export function useScarceTrackLoves(opts: {
           fanAccountRows.data?.reactionsCurrent ?? [],
           creatorId
         );
-        setState((previous) => ({
-          ...previous,
-          fanCount: Math.max(
+        const nextFanIds = applyLedgerFanIds(apiFanIds);
+        setState((previous) => {
+          const fanCount = Math.max(
             previous.fanCount,
             derived.fanCount,
             countAlbumFans(apiFanIds, creatorId)
-          ),
-          fanIds: applyLedgerFanIds(apiFanIds),
-        }));
+          );
+          rememberAlbumFanFace(creatorId, collectionId, {
+            fanCount,
+            fanIds: nextFanIds,
+          });
+          return {
+            ...previous,
+            fanCount,
+            fanIds: nextFanIds,
+          };
+        });
       } catch {
         // Keep previous roster; loves already painted.
         if (loadId !== loadIdRef.current) return;
+      } finally {
+        if (loadId === loadIdRef.current) {
+          fansSettledRef.current = true;
+          setFansLoading(false);
+        }
       }
     } catch {
       // Preserve optimistic / last-good love state — never wipe hearts on miss.
       if (loadId !== loadIdRef.current) return;
-    } finally {
-      if (loadId === loadIdRef.current) setFansLoading(false);
+      fansSettledRef.current = true;
+      setFansLoading(false);
     }
   }, [accountId, clearRetryTimers, collectionId, creatorId, trackKey]);
 
@@ -299,25 +389,31 @@ export function useScarceTrackLoves(opts: {
       );
       recordTrackLove(ledgerRef.current, cid, nextLoved);
       setPendingCids((current) => new Set(current).add(cid));
+      const nextFanCount = nextFanCountAfterLoveToggle({
+        fanCount: previous.fanCount,
+        creatorId,
+        viewerId: accountId,
+        viewerLovedCids: previous.viewerLoved,
+        targetCid: cid,
+        nextLoved,
+      });
+      const nextFanIds = nextFanIdsAfterLoveToggle({
+        fanIds: previous.fanIds,
+        creatorId,
+        viewerId: accountId,
+        viewerLovedCids: previous.viewerLoved,
+        targetCid: cid,
+        nextLoved,
+      });
       setState({
         counts: { ...previous.counts, [cid]: nextCount },
         viewerLoved: nextLovedCids,
-        fanCount: nextFanCountAfterLoveToggle({
-          fanCount: previous.fanCount,
-          creatorId,
-          viewerId: accountId,
-          viewerLovedCids: previous.viewerLoved,
-          targetCid: cid,
-          nextLoved,
-        }),
-        fanIds: nextFanIdsAfterLoveToggle({
-          fanIds: previous.fanIds,
-          creatorId,
-          viewerId: accountId,
-          viewerLovedCids: previous.viewerLoved,
-          targetCid: cid,
-          nextLoved,
-        }),
+        fanCount: nextFanCount,
+        fanIds: nextFanIds,
+      });
+      rememberAlbumFanFace(creatorId, collectionId, {
+        fanCount: nextFanCount,
+        fanIds: nextFanIds,
       });
 
       try {

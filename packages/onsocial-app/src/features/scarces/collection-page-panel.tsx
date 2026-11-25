@@ -30,6 +30,7 @@ import {
 import './collection-drop-enter.css';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsLateFill } from '@/components/app/os-late-fill';
+import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsRouteSettle } from '@/components/app/os-route-settle';
 import {
   APP_COLUMN_HERO_SIZES,
@@ -89,12 +90,14 @@ import {
   peekHoldsCollection,
   peekHoldsCollectionForDropPage,
   peekOwnedTokenForCollection,
+  peekViewerAccountId,
   resolveCollectionOwnership,
   seedCollectionViewFromNowPlaying,
 } from '@/features/scarces/collection-page-view';
 import {
   CollectionDropEnter,
   CollectionSeatSettle,
+  claimDropWarmSurfaceAppear,
   dropEnterShouldPlay,
   readDropFirstPaint,
   useDropReducedMotion,
@@ -127,7 +130,6 @@ import {
   fetchCollectionPreferIndexer,
   readCollectionSupply,
   fetchOwnedCollectionTokenId,
-  fetchOwnsCollectionEdition,
   fetchWalletMintRemaining,
   hydrateWritingManifest,
   isCollectionMintable,
@@ -287,20 +289,12 @@ function EditionQueryToken({
 
 /**
  * Lead seat for Open Collectibles — same width logged out or in.
- * Empty keeps the ghost; wallet fill swaps in place (Read / Play stay put).
+ * Empty keeps the ghost; wallet fill swaps opaque in place (no seat fade).
  */
 function CollectionOpenCollectiblesLead({ href }: { href: string | null }) {
-  const [startedEmpty] = useState(() => !href);
   if (href) {
     return (
-      <OsRowAction
-        href={href}
-        className={
-          startedEmpty ? 'collection-use-actions-lead-fill' : undefined
-        }
-      >
-        Open Collectibles
-      </OsRowAction>
+      <OsRowAction href={href}>Open Collectibles</OsRowAction>
     );
   }
   return (
@@ -387,6 +381,10 @@ export function CollectionPagePanel({
   );
   /** Seed, view cache, or now-playing — first paint was already the drop. */
   const [seededHotOpen] = useState(() => liveView != null);
+  /** One surface fade per soft-nav open (loading.tsx must not replay on page). */
+  const [warmSurfaceAppear] = useState(
+    () => seededHotOpen && claimDropWarmSurfaceAppear(collectionId)
+  );
   const view = liveView ?? initial ?? null;
   /** Album loves per track; writing/art love the drop. Fans seat is always the same. */
   const isAudioDrop = collectionCoverIsAudio({
@@ -407,12 +405,10 @@ export function CollectionPagePanel({
     ? {
         fanIds: albumTrackLoves.fanIds,
         fanCount: albumTrackLoves.fanCount,
-        fansLoading: albumTrackLoves.fansLoading,
       }
     : {
         fanIds: dropLoves.fanIds,
         fanCount: dropLoves.fanCount,
-        fansLoading: dropLoves.fansLoading,
       };
   useEffect(() => {
     const creatorId = view?.creatorId?.trim();
@@ -651,7 +647,9 @@ export function CollectionPagePanel({
   ]);
 
   useEffect(() => {
+    // Wallet still hydrating — keep peeked #edition / hold; do not wipe.
     if (!viewerAccountId) {
+      if (walletLoading) return;
       queueMicrotask(() => {
         setWalletRemaining(null);
         setAllowlistRemaining(null);
@@ -674,35 +672,23 @@ export function CollectionPagePanel({
       });
     }
     let cancelled = false;
-    const passKind = isPassMediumKind(view?.kind);
+    // Always resolve a token id (not a boolean). Clearing to null only when
+    // the fetch says not held — the old non-pass `__owned__` path wiped #N.
     void Promise.all([
       fetchWalletMintRemaining(collectionId, viewerAccountId),
       fetchAllowlistRemaining(collectionId, viewerAccountId),
-      passKind
-        ? fetchOwnedCollectionTokenId(collectionId, viewerAccountId)
-        : fetchOwnsCollectionEdition(collectionId, viewerAccountId).then(
-            (owns) => (owns ? '__owned__' : null)
-          ),
+      fetchOwnedCollectionTokenId(collectionId, viewerAccountId),
     ]).then(([wallet, allowlist, ownedToken]) => {
       if (cancelled) return;
       setWalletRemaining(wallet);
       setAllowlistRemaining(allowlist);
-      if (passKind) {
-        const tokenId =
-          typeof ownedToken === 'string' && ownedToken !== '__owned__'
-            ? ownedToken
-            : null;
-        setOwnedPassTokenId(tokenId);
-        setHoldsEdition(Boolean(tokenId));
-        return;
-      }
-      setOwnedPassTokenId(null);
-      setHoldsEdition(ownedToken != null);
+      setOwnedPassTokenId(ownedToken);
+      setHoldsEdition(Boolean(ownedToken));
     });
     return () => {
       cancelled = true;
     };
-  }, [collectionId, viewerAccountId, refreshKey, view?.kind]);
+  }, [collectionId, viewerAccountId, refreshKey, walletLoading]);
 
   // Old Read links used ?read=1. Open once, then drop the flag so Back stays on the drop.
   useEffect(() => {
@@ -1309,8 +1295,9 @@ export function CollectionPagePanel({
     useFirst,
     viewerAccountId,
   });
-  const vaultHref = viewerAccountId
-    ? portfolioCollectiblesPath(viewerAccountId)
+  const vaultAccountId = peekViewerAccountId(viewerAccountId);
+  const vaultHref = vaultAccountId
+    ? portfolioCollectiblesPath(vaultAccountId)
     : null;
   const openOwnedPass = () => {
     const tokenId = ownedPassTokenId?.trim();
@@ -1538,7 +1525,6 @@ export function CollectionPagePanel({
                   title={faceTitle || view.title || 'Drop'}
                   fanIds={faceFans.fanIds}
                   fanCount={faceFans.fanCount}
-                  countsLoading={faceFans.fansLoading}
                 />
               ) : null}
               <div className="collection-commerce-action-icons">
@@ -2060,7 +2046,13 @@ export function CollectionPagePanel({
       }
     >
       {seededHotOpen ? (
-        dropFace
+        // Warm/cached: one surface fade (post-sheet appear). Remount after
+        // loading.tsx stays opaque — claimDropWarmSurfaceAppear. Soft-fill quiet.
+        warmSurfaceAppear ? (
+          <OsPageBodyAppear>{dropFace}</OsPageBodyAppear>
+        ) : (
+          dropFace
+        )
       ) : (
         <div className="collection-drop-settle">
           <OsRouteSettle

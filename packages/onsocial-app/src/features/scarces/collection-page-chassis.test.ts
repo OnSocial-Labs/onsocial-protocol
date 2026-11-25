@@ -25,6 +25,10 @@ describe('collection page chassis (CLS contract)', () => {
     expect(panel).toContain('collection-use-actions-trail-chassis');
     expect(panel).toContain('collection-use-actions-trail-ghost');
     expect(panel).toContain('collection-edition-trail');
+    // Hold settle keeps a token id — never the boolean `__owned__` wipe of #N.
+    expect(panel).toContain('fetchOwnedCollectionTokenId');
+    expect(panel).not.toContain("'__owned__'");
+    expect(panel).toContain('walletLoading');
     expect(panel).toContain('collection-meta-series-seat');
     expect(panel).toContain('collection-product-row');
     expect(panel).toContain('collection-progress');
@@ -33,7 +37,8 @@ describe('collection page chassis (CLS contract)', () => {
     expect(panel).toContain('collectionMediumBodyPending');
     expect(panel).toContain('CollectionTracksSkeleton');
     expect(panel).toContain('CollectionSeatSettle');
-    expect(panel).not.toContain('OsPageBodyAppear');
+    // Warm surface appear only — not a soft-fill seat fade.
+    expect(panel).toContain('<OsPageBodyAppear>{dropFace}</OsPageBodyAppear>');
     expect(panel).toContain('OsLateFill');
     expect(panel).toContain('collection-mint-hint-seat');
     expect(panel).toContain('collection-about-seat');
@@ -48,7 +53,9 @@ describe('collection page chassis (CLS contract)', () => {
     expect(skeleton).toContain('drops-discovery-party--lead');
     expect(panel).not.toContain('aria-label="Reading"');
 
-    expect(guests).toContain('eventGuestSoldPrefix');
-    expect(guests).toContain('collection-guest-tally-present');
+    expect(guests).toContain('eventGuestTallyWhileRosterLoads');
+    expect(guests).toContain('peekGuestTallyLine');
+    expect(guests).not.toContain('collection-guest-tally-present');
+    expect(skeleton).toContain('collection-guest-tally-present');
   });
 });

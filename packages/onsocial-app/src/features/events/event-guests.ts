@@ -157,6 +157,52 @@ export function eventGuestTallyLine(opts: {
   return `${eventGuestSoldPrefix(opts.sold)} · ${presentLabel}`;
 }
 
+/** Session last-good — reopen paints the last resolved line, then soft-updates. */
+const GUEST_TALLY_MAX = 48;
+const guestTallyLastGood = new Map<string, string>();
+
+export function guestTallyCacheKey(
+  collectionId: string,
+  kind: EventGuestKind
+): string {
+  return `${collectionId.trim()}\0${kind}`;
+}
+
+export function peekGuestTallyLine(
+  collectionId: string,
+  kind: EventGuestKind
+): string | null {
+  const id = collectionId.trim();
+  if (!id) return null;
+  return guestTallyLastGood.get(guestTallyCacheKey(id, kind)) ?? null;
+}
+
+export function rememberGuestTallyLine(
+  collectionId: string,
+  kind: EventGuestKind,
+  tally: string
+): void {
+  const id = collectionId.trim();
+  const line = tally.trim();
+  if (!id || !line) return;
+  const key = guestTallyCacheKey(id, kind);
+  guestTallyLastGood.delete(key);
+  guestTallyLastGood.set(key, line);
+  while (guestTallyLastGood.size > GUEST_TALLY_MAX) {
+    const oldest = guestTallyLastGood.keys().next().value;
+    if (oldest == null) break;
+    guestTallyLastGood.delete(oldest);
+  }
+}
+
+/**
+ * Cold tally before holders resolve: sold only. Do not invent holding from
+ * minted (unique holders can differ). Last-good covers reopen.
+ */
+export function eventGuestTallyWhileRosterLoads(opts: { sold: number }): string {
+  return eventGuestSoldPrefix(opts.sold);
+}
+
 export function eventGuestSheetCopy(
   kind: EventGuestKind,
   opts?: { redeemed?: boolean }
