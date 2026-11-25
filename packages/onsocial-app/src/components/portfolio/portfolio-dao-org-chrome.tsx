@@ -41,7 +41,7 @@ import { DaoProposeConfirmSheet } from '@/features/protocol/dao-propose-confirm-
 import { submitProtocolProposal } from '@/features/protocol/protocol-create';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import {
-  useAppWallet,
+  useAppWalletActions,
   WalletConnectedReviewError,
 } from '@/contexts/app-wallet-context';
 import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
@@ -92,7 +92,7 @@ function PortfolioDaoOrgChromeInner({
 }: PortfolioDaoOrgChromeProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { getSigningWallet } = useAppWallet();
+  const { getSigningWallet } = useAppWalletActions();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const {
     registerDaoStakeRequest,

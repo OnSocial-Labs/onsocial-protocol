@@ -25,7 +25,7 @@ import { useUserStorageBalance } from '@/hooks/use-user-storage-balance';
 import { useWalletNearBalance } from '@/hooks/use-wallet-near-balance';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import {
-  useAppWallet,
+  useAppWalletActions,
   WalletConnectedReviewError,
 } from '@/contexts/app-wallet-context';
 import { finalizeAmountInput } from '@/lib/amount-input';
@@ -235,7 +235,7 @@ export function AppStorageSheet({
   onClosed,
   onStorageChanged,
 }: AppStorageSheetProps) {
-  const { getSigningWallet } = useAppWallet();
+  const { getSigningWallet } = useAppWalletActions();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [closing, setClosing] = useState(false);
   const [localRefreshKey, setLocalRefreshKey] = useState(0);

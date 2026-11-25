@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -71,7 +72,7 @@ interface SigningWallet {
   accountId: string;
 }
 
-interface AppWalletContextType {
+interface AppWalletState {
   accountId: string | null;
   isConnected: boolean;
   isLoading: boolean;
@@ -79,6 +80,9 @@ interface AppWalletContextType {
   isBootstrappingSession: boolean;
   /** Session setup card. One toast, shared with transaction feedback. */
   sessionFeedback: TransactionFeedback | null;
+}
+
+interface AppWalletActions {
   clearSessionFeedback: () => void;
   connect: () => Promise<void>;
   /**
@@ -108,6 +112,32 @@ interface AppWalletContextType {
     options: NearConnector_ConnectOptions
   ) => Promise<unknown>;
 }
+
+type AppWalletContextType = AppWalletState & AppWalletActions;
+
+const defaultWalletState: AppWalletState = {
+  accountId: null,
+  isConnected: false,
+  isLoading: true,
+  hasSocialSession: false,
+  isBootstrappingSession: false,
+  sessionFeedback: null,
+};
+
+const defaultWalletActions: AppWalletActions = {
+  clearSessionFeedback: () => {},
+  connect: async () => {},
+  resumeSocialSession: async () => false,
+  clearSocialSessionLocal: () => {},
+  switchWallet: async () => {},
+  disconnect: async () => {},
+  getSigningWallet: async () => {
+    throw new Error('AppWalletProvider is not mounted');
+  },
+  connectWithOptions: async () => {
+    throw new Error('AppWalletProvider is not mounted');
+  },
+};
 
 function readStoredWalletAccountId(): string | null {
   try {
@@ -258,29 +288,23 @@ async function resolveBundledAppConnect(
   return { pendingSessionKey: plan.pendingSessionKey, options };
 }
 
-const AppWalletContext = createContext<AppWalletContextType>({
-  accountId: null,
-  isConnected: false,
-  isLoading: true,
-  hasSocialSession: false,
-  isBootstrappingSession: false,
-  sessionFeedback: null,
-  clearSessionFeedback: () => {},
-  connect: async () => {},
-  resumeSocialSession: async () => false,
-  clearSocialSessionLocal: () => {},
-  switchWallet: async () => {},
-  disconnect: async () => {},
-  getSigningWallet: async () => {
-    throw new Error('AppWalletProvider is not mounted');
-  },
-  connectWithOptions: async () => {
-    throw new Error('AppWalletProvider is not mounted');
-  },
-});
+const AppWalletStateContext = createContext<AppWalletState>(defaultWalletState);
+const AppWalletActionsContext =
+  createContext<AppWalletActions>(defaultWalletActions);
 
-export function useAppWallet() {
-  return useContext(AppWalletContext);
+export function useAppWalletState() {
+  return useContext(AppWalletStateContext);
+}
+
+/** Stable sign / connect actions. Does not re-render when wallet state changes. */
+export function useAppWalletActions() {
+  return useContext(AppWalletActionsContext);
+}
+
+export function useAppWallet(): AppWalletContextType {
+  const state = useAppWalletState();
+  const actions = useAppWalletActions();
+  return useMemo(() => ({ ...state, ...actions }), [actions, state]);
 }
 
 export function AppWalletProvider({ children }: { children: ReactNode }) {
@@ -295,6 +319,10 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
   );
   const resolvedAccountId =
     liveAccountId === undefined ? storedAccountId : liveAccountId;
+  // Actions read this at call time so their identity does not follow the
+  // account. A call snapshots the same value the old closure captured.
+  const resolvedAccountIdRef = useRef(resolvedAccountId);
+  resolvedAccountIdRef.current = resolvedAccountId;
   const [isLoading, setIsLoading] = useState(true);
   const [hasSocialSession, setHasSocialSession] = useState(false);
   const [isBootstrappingSession, setIsBootstrappingSession] = useState(false);
@@ -701,6 +729,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       options?: NearConnector_ConnectOptions,
       expectedAccountId?: string | null
     ): Promise<NearWalletBase> => {
+      const resolvedAccountId = resolvedAccountIdRef.current;
       const preferredAccountId =
         expectedAccountId ?? resolvedAccountId ?? readStoredWalletAccountId();
       const previousWallet = acceptedWalletRef.current;
@@ -723,7 +752,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       }
       return wallet;
     },
-    [openPicker, resolvedAccountId]
+    [openPicker]
   );
   connectForAcceptedAccountRef.current = connectForAcceptedAccount;
 
@@ -759,6 +788,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
   }, [ensureSocialSession, finishSessionFeedback]);
 
   const connect = useCallback(async () => {
+    const resolvedAccountId = resolvedAccountIdRef.current;
     const connector = connectorRef.current;
     if (!connector) return;
     if (connectPromiseRef.current) {
@@ -873,7 +903,6 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     connectPromiseRef.current = connectPromise;
     await connectPromise;
   }, [
-    resolvedAccountId,
     clearSessionFeedback,
     ensureSocialSession,
     finishSessionAfterSignedInConnect,
@@ -884,6 +913,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
   ]);
 
   const switchWallet = useCallback(async () => {
+    const resolvedAccountId = resolvedAccountIdRef.current;
     const connector = connectorRef.current;
     if (!connector) return;
     if (connectPromiseRef.current) {
@@ -933,9 +963,10 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
 
     connectPromiseRef.current = connectPromise;
     await connectPromise;
-  }, [clearSessionFeedback, resolvedAccountId, ensureSocialSession, openPicker]);
+  }, [clearSessionFeedback, ensureSocialSession, openPicker]);
 
   const disconnect = useCallback(async () => {
+    const resolvedAccountId = resolvedAccountIdRef.current;
     const connector = connectorRef.current;
     if (!connector) return;
     const previousAccountId = resolvedAccountId;
@@ -947,13 +978,14 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     writeStoredWalletAccountId(null);
     invalidateAppSocialSessionCache();
     clearAppGatewayAuth(previousAccountId);
-  }, [resolvedAccountId]);
+  }, []);
 
   const clearSocialSessionLocal = useCallback(() => {
+    const resolvedAccountId = resolvedAccountIdRef.current;
     setHasSocialSession(false);
     invalidateAppSocialSessionCache();
     clearAppGatewayAuth(resolvedAccountId);
-  }, [resolvedAccountId]);
+  }, []);
 
   const getSigningWallet = useCallback(
     async (opts?: { reviewAfterPicker?: boolean }): Promise<SigningWallet> => {
@@ -976,6 +1008,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       // A call that started during restore still throws, even if restore
       // finishes while this attempt is waiting.
       const initDone = walletInitDoneRef.current;
+      const resolvedAccountId = resolvedAccountIdRef.current;
       const preferredAccountId =
         resolvedAccountId ?? readStoredWalletAccountId();
 
@@ -1021,7 +1054,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       }
       return { wallet: connectedWallet, accountId: pickedAccountId };
     },
-    [resolvedAccountId, openPicker]
+    [openPicker]
   );
 
   const resumeSocialSession = useCallback(
@@ -1031,6 +1064,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     }): Promise<boolean> => {
       const renewIfExpired = options?.renewIfExpired !== false;
       const bootstrapIfMissing = options?.bootstrapIfMissing !== false;
+      const resolvedAccountId = resolvedAccountIdRef.current;
       const nextAccountId = resolvedAccountId ?? readStoredWalletAccountId();
       if (!nextAccountId) return false;
       try {
@@ -1096,12 +1130,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
 
       return ensureSocialSession(nextAccountId);
     },
-    [
-      connectForAcceptedAccount,
-      resolvedAccountId,
-      ensureSocialSession,
-      sessionRecoverFeedback,
-    ]
+    [connectForAcceptedAccount, ensureSocialSession, sessionRecoverFeedback]
   );
 
   const connectWithOptions = useCallback(
@@ -1119,26 +1148,52 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     void connect();
   };
 
+  const state = useMemo<AppWalletState>(
+    () => ({
+      accountId: resolvedAccountId,
+      isConnected: Boolean(resolvedAccountId),
+      isLoading,
+      hasSocialSession,
+      isBootstrappingSession,
+      sessionFeedback,
+    }),
+    [
+      hasSocialSession,
+      isBootstrappingSession,
+      isLoading,
+      resolvedAccountId,
+      sessionFeedback,
+    ]
+  );
+
+  const actions = useMemo<AppWalletActions>(
+    () => ({
+      clearSessionFeedback,
+      connect,
+      resumeSocialSession,
+      clearSocialSessionLocal,
+      switchWallet,
+      disconnect,
+      getSigningWallet,
+      connectWithOptions,
+    }),
+    [
+      clearSessionFeedback,
+      clearSocialSessionLocal,
+      connect,
+      connectWithOptions,
+      disconnect,
+      getSigningWallet,
+      resumeSocialSession,
+      switchWallet,
+    ]
+  );
+
   return (
-    <AppWalletContext.Provider
-      value={{
-        accountId: resolvedAccountId,
-        isConnected: Boolean(resolvedAccountId),
-        isLoading,
-        hasSocialSession,
-        isBootstrappingSession,
-        sessionFeedback,
-        clearSessionFeedback,
-        connect,
-        resumeSocialSession,
-        clearSocialSessionLocal,
-        switchWallet,
-        disconnect,
-        getSigningWallet,
-        connectWithOptions,
-      }}
-    >
-      {children}
-    </AppWalletContext.Provider>
+    <AppWalletStateContext.Provider value={state}>
+      <AppWalletActionsContext.Provider value={actions}>
+        {children}
+      </AppWalletActionsContext.Provider>
+    </AppWalletStateContext.Provider>
   );
 }

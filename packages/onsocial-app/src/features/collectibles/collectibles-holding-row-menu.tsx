@@ -20,7 +20,7 @@ import {
   type ActionDrawerItem,
 } from '@/components/ui/action-drawer';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useAppWalletActions } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
   collectionIdFromTokenId,
@@ -120,7 +120,7 @@ export function CollectiblesHoldingRowMenu({
   onDelisted,
   showOpenInMarket = true,
 }: CollectiblesHoldingRowMenuProps) {
-  const { getSigningWallet } = useAppWallet();
+  const { getSigningWallet } = useAppWalletActions();
   const openHeldEditions = useHeldEditionPicker();
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
   const [open, setOpen] = useState(false);
@@ -375,10 +375,7 @@ export function CollectiblesHoldingRowMenu({
             ? 'Send it on. This comes off sale.'
             : 'Send this scarce to another account',
         leading: (
-          <DirectionUpRightIcon
-            className="os-action-drawer-icon"
-            aria-hidden
-          />
+          <DirectionUpRightIcon className="os-action-drawer-icon" aria-hidden />
         ),
         onSelect: () => {
           replaceSheet();
