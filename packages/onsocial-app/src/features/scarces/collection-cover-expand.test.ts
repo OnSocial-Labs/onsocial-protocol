@@ -30,8 +30,9 @@ describe('drop cover expand wiring', () => {
     expect(panel).toContain('immersiveListen');
   });
 
-  it('yields the route SSR skeleton to loading.tsx', () => {
-    expect(panel).toContain('collectionRouteYieldsLoadingSkeleton');
+  it('owns cold skeleton in the panel (no drop route loading.tsx)', () => {
+    expect(panel).toContain('CollectionPageSkeleton');
+    expect(panel).not.toContain('collectionRouteYieldsLoadingSkeleton');
   });
 
   it('lets the reader jacket zoom art, not the drop cover', () => {

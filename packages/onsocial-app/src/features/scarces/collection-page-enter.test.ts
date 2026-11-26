@@ -7,26 +7,11 @@ import {
   CollectionSeatSettle,
   DROP_ENTER_BLOCK_COUNT,
   DROP_ENTER_DELAY_STEP_MS,
-  armDropWarmSurfaceAppear,
-  claimDropWarmSurfaceAppear,
   dropEnterDelayMs,
   dropEnterShouldPlay,
   nextSeatPhase,
   readDropFirstPaint,
-  resetDropWarmSurfaceAppear,
 } from '@/features/scarces/collection-page-enter';
-
-describe('drop warm surface appear', () => {
-  it('plays once per soft-nav open across loading → page remount', () => {
-    resetDropWarmSurfaceAppear();
-    armDropWarmSurfaceAppear('drop-a');
-    armDropWarmSurfaceAppear('drop-a'); // pointerdown + click
-    expect(claimDropWarmSurfaceAppear('drop-a')).toBe(true);
-    expect(claimDropWarmSurfaceAppear('drop-a')).toBe(false);
-    armDropWarmSurfaceAppear('drop-a'); // reopen
-    expect(claimDropWarmSurfaceAppear('drop-a')).toBe(true);
-  });
-});
 
 describe('drop enter playback', () => {
   it('staggers a cold ready paint, then stays quiet once that rise has played', () => {

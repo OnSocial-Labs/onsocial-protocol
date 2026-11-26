@@ -1,10 +1,19 @@
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
 import { CollectionPagePanel } from '@/features/scarces/collection-page-panel';
 import { COLLECTION_PASS_TOKEN_PARAM } from '@/lib/app-routes';
 import {
   fetchCollectionCached,
   loadCollectionPageData,
 } from '@/lib/load-collection-page';
+import {
+  APP_DROP_HOLD_HINT_COOKIE,
+  dropHoldHintForCollection,
+} from '@/lib/drop-hold-hint';
+import {
+  APP_WALLET_ACCOUNT_HINT_COOKIE,
+  walletAccountHintFromCookie,
+} from '@/lib/wallet-account-hint';
 
 type CollectionPageProps = {
   params: Promise<{ collectionId: string }>;
@@ -41,12 +50,23 @@ export default async function CollectionPage({
   const id = decodeURIComponent(collectionId);
   const query = await searchParams;
   const { view, creator, activity } = await loadCollectionPageData(id);
+  const jar = await cookies();
+  const hint = walletAccountHintFromCookie(
+    jar.get(APP_WALLET_ACCOUNT_HINT_COOKIE)?.value
+  );
+  const holdSeed = dropHoldHintForCollection(
+    jar.get(APP_DROP_HOLD_HINT_COOKIE)?.value,
+    hint,
+    id
+  );
   return (
     <CollectionPagePanel
       collectionId={id}
       initial={view}
       initialCreator={creator}
       initialActivity={activity}
+      initialViewerAccountId={hint}
+      initialHoldSeed={holdSeed}
       initialEditionToken={
         firstParam(query[COLLECTION_PASS_TOKEN_PARAM]) || null
       }

@@ -3,6 +3,10 @@ import {
   invalidateOwnedVaultCache,
   putOwnedVaultPage,
 } from '@/features/market/owned-vault-cache';
+import {
+  clearOwnedCollectionHold,
+  rememberOwnedCollectionHold,
+} from '@/features/scarces/owned-collection-hold-cache';
 import { APP_WALLET_ACCOUNT_KEY } from '@/lib/gate-return';
 import {
   collectionCatalogShell,
@@ -23,6 +27,7 @@ import {
   collectionMediumBodyPending,
   collectionSoftFillPeek,
   mergeCatalogSoftFillIntoSeed,
+  peekDropFaceHoldSeed,
   peekHoldsCollection,
   peekHoldsCollectionForDropPage,
   peekOwnedTokenForCollection,
@@ -204,13 +209,13 @@ describe('collection page view', () => {
     ).toBe('drop');
   });
 
-  it('lets route loading.tsx own the SSR skeleton; appear-over still paints', () => {
+  it('does not yield to a drop route loading.tsx (preserve previous soft-nav)', () => {
     expect(
       collectionRouteYieldsLoadingSkeleton({
         embedded: false,
         clientMounted: false,
       })
-    ).toBe(true);
+    ).toBe(false);
     expect(
       collectionRouteYieldsLoadingSkeleton({
         embedded: false,
@@ -249,6 +254,7 @@ describe('collection page view', () => {
 
   it('reads a held drop from the vault page cache', () => {
     invalidateOwnedVaultCache();
+    clearOwnedCollectionHold();
     putOwnedVaultPage('alice.near', {
       items: [
         {
@@ -267,11 +273,14 @@ describe('collection page view', () => {
       'night-drive:3'
     );
     expect(peekHoldsCollection('alice.near', 'chapter-one')).toBe(false);
+    // Vault page TTL wipe must not erase drop-face last-good hold.
     invalidateOwnedVaultCache('alice.near');
+    expect(peekHoldsCollection('alice.near', 'night-drive')).toBe(true);
+    clearOwnedCollectionHold('alice.near');
     expect(peekHoldsCollection('alice.near', 'night-drive')).toBe(false);
   });
 
-  it('seeds drop-page hold from the persisted wallet when React wallet is cold', () => {
+  it('imperative wallet peek seeds hold; render peeks need the React account id', () => {
     invalidateOwnedVaultCache();
     putOwnedVaultPage('alice.near', {
       items: [
@@ -299,17 +308,46 @@ describe('collection page view', () => {
       },
     });
     window.localStorage.setItem(APP_WALLET_ACCOUNT_KEY, 'alice.near');
+    // Imperative peek may read storage; render peeks take the React wallet id.
     expect(peekViewerAccountId(null)).toBe('alice.near');
     expect(peekViewerAccountId('bob.near')).toBe('bob.near');
-    expect(peekHoldsCollectionForDropPage(null, 'night-drive')).toBe(true);
-    expect(peekHoldsCollectionForDropPage(null, 'chapter-one')).toBe(false);
-    expect(peekOwnedTokenForCollection(null, 'night-drive')).toBe(
-      'night-drive:3'
-    );
+    expect(peekHoldsCollectionForDropPage(null, 'night-drive')).toBe(false);
+    expect(
+      peekHoldsCollectionForDropPage(peekViewerAccountId(null), 'night-drive')
+    ).toBe(true);
+    expect(
+      peekHoldsCollectionForDropPage(peekViewerAccountId(null), 'chapter-one')
+    ).toBe(false);
+    expect(peekOwnedTokenForCollection(null, 'night-drive')).toBe(null);
+    expect(
+      peekOwnedTokenForCollection(peekViewerAccountId(null), 'night-drive')
+    ).toBe('night-drive:3');
+    expect(peekDropFaceHoldSeed(null, 'night-drive')).toEqual({
+      holds: null,
+      tokenId: null,
+    });
+    expect(
+      peekDropFaceHoldSeed(peekViewerAccountId(null), 'night-drive')
+    ).toEqual({
+      holds: true,
+      tokenId: 'night-drive:3',
+    });
+    clearOwnedCollectionHold();
+    rememberOwnedCollectionHold('alice.near', 'solo-pass', 'solo-pass:1');
+    expect(peekDropFaceHoldSeed('alice.near', 'solo-pass')).toEqual({
+      holds: true,
+      tokenId: 'solo-pass:1',
+    });
+    rememberOwnedCollectionHold('alice.near', 'empty-pass', null);
+    expect(peekDropFaceHoldSeed('alice.near', 'empty-pass')).toEqual({
+      holds: false,
+      tokenId: null,
+    });
     window.localStorage.removeItem(APP_WALLET_ACCOUNT_KEY);
     expect(peekViewerAccountId(null)).toBe(null);
     vi.unstubAllGlobals();
     invalidateOwnedVaultCache('alice.near');
+    clearOwnedCollectionHold();
   });
 
   it('seeds drop view synchronously from a live now-playing session', () => {

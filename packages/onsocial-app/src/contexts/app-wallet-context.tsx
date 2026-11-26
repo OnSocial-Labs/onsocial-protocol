@@ -64,6 +64,8 @@ import {
 } from '@/lib/e2e-mock-signer';
 import { readE2eWalletAccountId } from '@/lib/e2e-wallet-account';
 import { APP_WALLET_ACCOUNT_KEY } from '@/lib/gate-return';
+import { clearDropHoldHintCookie } from '@/lib/drop-hold-hint';
+import { writeWalletAccountHintCookie } from '@/lib/wallet-account-hint';
 
 const WALLET_ACCOUNT_EVENT = 'onsocial:wallet-account';
 
@@ -166,6 +168,8 @@ function writeStoredWalletAccountId(accountId: string | null): void {
   } catch {
     // ignore
   }
+  writeWalletAccountHintCookie(accountId);
+  if (!accountId) clearDropHoldHintCookie();
   window.dispatchEvent(new Event(WALLET_ACCOUNT_EVENT));
 }
 
@@ -314,6 +318,10 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     readStoredWalletAccountId,
     () => null
   );
+  // Migrate localStorage-only sessions onto the SSR hint cookie.
+  useEffect(() => {
+    writeWalletAccountHintCookie(storedAccountId);
+  }, [storedAccountId]);
   const [liveAccountId, setAccountId] = useState<string | null | undefined>(
     undefined
   );
