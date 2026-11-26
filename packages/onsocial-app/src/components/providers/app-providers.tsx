@@ -31,6 +31,7 @@ import { PortfolioCustomizeProvider } from '@/contexts/portfolio-customize-conte
 import { ViewerProfileShellProvider } from '@/contexts/viewer-profile-shell-context';
 import { ViewerWalletMoodProvider } from '@/contexts/viewer-wallet-mood-context';
 import { DropComposeHost } from '@/features/scarces/drop-compose-host';
+import { DropPlaceInstantHost } from '@/features/scarces/drop-place-instant-host';
 import { useResetScarceEmbedOverrides } from '@/features/scarces/scarce-embed-account';
 import { ViewerMuteBlockHost } from '@/components/providers/viewer-mute-block-host';
 import { OsFaceLeaveProvider } from '@/components/providers/os-face-leave-provider';
@@ -116,6 +117,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                                                   >
                                                     <NetworkStandingHandoffHost />
                                                   </FeedSessionHost>
+                                                  <DropPlaceInstantHost />
                                                   <ViewerMuteBlockHost />
                                                   <DropComposeHost />
                                                   <Suspense fallback={null}>

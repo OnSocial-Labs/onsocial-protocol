@@ -25,7 +25,8 @@ represents real cold-load content.
 | Kind | Presentation |
 | ---- | ------------ |
 | Known SSR (portfolio face, create with server params, seeded home) | Stream the real shell — no route `loading.tsx`, no page Suspense full-shell twin |
-| True cold (catalog / collection / thread) | One leaf `loading.tsx` matching the destination |
+| True cold (catalog / thread) | One leaf `loading.tsx` matching the destination |
+| Drop place (`/collection/[id]`) | No route `loading.tsx`. A tap paints the seeded panel; hard refresh is the final page |
 | Parent + mixed children (`/drops` + `/drops/create`) | No parent full-page `loading.tsx`; index cold in-panel |
 
 Never stack page Suspense with the same full-page shell as `loading.tsx`. Prefer

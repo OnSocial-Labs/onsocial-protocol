@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import { cookies } from 'next/headers';
-import { CollectionPagePanel } from '@/features/scarces/collection-page-panel';
+import { cookies, headers } from 'next/headers';
+import { CollectionRouteSlot } from '@/features/scarces/drop-place-instant-host';
 import { COLLECTION_PASS_TOKEN_PARAM } from '@/lib/app-routes';
 import {
   fetchCollectionCached,
@@ -48,9 +48,14 @@ export default async function CollectionPage({
 }: CollectionPageProps) {
   const { collectionId } = await params;
   const id = decodeURIComponent(collectionId);
+  const jar = await cookies();
+  const headerList = await headers();
+  // `rsc` is stripped from userland headers(). `next-url` is the client
+  // navigation signal and stays visible. The slot still receives the full
+  // payload so a cached flight can paint on back/forward.
+  const yieldToHost = Boolean(headerList.get('next-url'));
   const query = await searchParams;
   const { view, creator, activity } = await loadCollectionPageData(id);
-  const jar = await cookies();
   const hint = walletAccountHintFromCookie(
     jar.get(APP_WALLET_ACCOUNT_HINT_COOKIE)?.value
   );
@@ -60,8 +65,9 @@ export default async function CollectionPage({
     id
   );
   return (
-    <CollectionPagePanel
+    <CollectionRouteSlot
       collectionId={id}
+      yieldToHost={yieldToHost}
       initial={view}
       initialCreator={creator}
       initialActivity={activity}

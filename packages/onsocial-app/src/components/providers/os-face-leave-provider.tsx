@@ -24,10 +24,7 @@ import {
   loadOsFaceLeaveState,
   persistOsFaceLeaveState,
 } from '@/lib/os-face-leave-store';
-import {
-  previousOsInAppHref,
-  reduceOsInAppTrail,
-} from '@/lib/os-in-app-trail';
+import { previousOsInAppHref, reduceOsInAppTrail } from '@/lib/os-in-app-trail';
 
 export type OsFaceLeaveContextValue = {
   leaveHref: string;
@@ -182,6 +179,23 @@ export function useOsInAppHrefs(): () => readonly string[] {
 export function useOsPreviousInAppHref(): () => string | null {
   const read = useContext(OsFaceLeaveContext)?.previousInAppHref;
   return useCallback(() => read?.() ?? null, [read]);
+}
+
+/**
+ * Record a screen the tap already painted, before Next's pathname catches up.
+ * Dock Back can pop it while the collection RSC is still in flight.
+ * A later note of the same href does not push a second trail entry.
+ */
+export function useArmOsInAppScreen(): (href: string) => void {
+  const trackHref = useContext(OsFaceLeaveContext)?.trackHref;
+  const noteArrival = useContext(OsFaceLeaveContext)?.noteArrival;
+  return useCallback(
+    (href: string) => {
+      trackHref?.(href);
+      noteArrival?.(href);
+    },
+    [noteArrival, trackHref]
+  );
 }
 
 /** Pop one in-tab screen. False on a cold open, so the caller uses the parent. */

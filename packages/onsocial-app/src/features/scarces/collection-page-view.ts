@@ -143,8 +143,9 @@ export function collectionCatalogShell(opts: {
 }
 
 /**
- * Drop place has no route `loading.tsx` — soft-nav keeps the previous screen
- * until the page mounts once. The panel always owns cold skeleton / miss.
+ * Drop place has no route `loading.tsx`. A tap paints the seeded panel from
+ * the instant host; the RSC must not swap in a second tree. The panel owns
+ * the cold skeleton when that tap had no seed.
  */
 export function collectionRouteYieldsLoadingSkeleton(_opts: {
   embedded: boolean;

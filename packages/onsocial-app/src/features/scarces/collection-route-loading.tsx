@@ -13,9 +13,9 @@ function collectionIdFromParams(params: { collectionId?: string | string[] }) {
 
 /**
  * Door / redeem route loading only.
- * Drop place soft-nav has no `loading.tsx` — previous screen stays until the
- * page mounts once (avoids loading→page remount flicker on Collectibles /
- * Show pass). Cold miss skeleton lives in the panel.
+ * Drop place has no `loading.tsx` — a tap paints the seeded drop, and that
+ * same screen stays when the route arrives. A loading skeleton here remounted
+ * Collectibles / Show pass. Cold miss stays in the panel.
  */
 export function CollectionChildLoadingScreen({
   title,

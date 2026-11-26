@@ -219,13 +219,27 @@ describe('Drop place openers', () => {
     );
   });
 
-  it('drop place has no route loading — one page mount after soft-nav', () => {
+  it('drop place has no route loading — the tap paints one panel', () => {
     const loading = src('features/scarces/collection-route-loading.tsx');
     expect(loading).not.toContain('CollectionPagePanel');
     expect(loading).not.toContain('CollectionPageSkeleton');
     expect(loading).not.toContain('readCollectionView');
     expect(loading).toContain('CollectionChildLoadingScreen');
     expect(loading).toContain('Door / redeem route loading only');
+    const open = src('features/scarces/drop-place-open.tsx');
+    expect(open).toContain('armDropPlaceInstant');
+    const host = src('features/scarces/drop-place-instant-host.tsx');
+    expect(host).toContain('<CollectionPagePanel');
+    expect(host).toContain('instantDropFirstPaint');
+    const page = src('app/(app)/collection/[collectionId]/page.tsx');
+    expect(page).toContain('CollectionRouteSlot');
+    expect(page).not.toContain("get('rsc')");
+    expect(page).not.toContain('return null');
+    const instant = src('features/scarces/drop-place-instant.ts');
+    expect(instant).toContain('instantHostOwns');
+    expect(instant).not.toContain('fromPathname');
+    expect(instant).not.toContain('rscHeader');
+    expect(instant).toContain('pushState');
   });
 
   it('full drop place owns dock Back; player uses header chevron', () => {

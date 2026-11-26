@@ -50,6 +50,7 @@ function paintToEmbed(
     ...(tokenId ? { tokenId } : {}),
     ...(paint?.mediumKind ? { mediumKind: paint.mediumKind } : {}),
     ...(paint?.mediaUrl ? { mediaUrl: paint.mediaUrl } : {}),
+    ...(paint?.priceNear ? { priceNear: paint.priceNear } : {}),
     events: [],
   };
 }
