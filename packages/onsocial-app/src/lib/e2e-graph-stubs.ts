@@ -61,6 +61,11 @@ export type E2eGraphCookieValue = {
    * the app (`E2E_GRAPH_STUBS=1`).
    */
   thread?: 'alpha';
+  /**
+   * Drop sheet fixture. Same WebKit gap: the feed post and Discover search
+   * are answered here when the browser never hands the POST to Playwright.
+   */
+  sheet?: 'drop';
 };
 
 const TWO_NEAR_YOCTO = '2000000000000000000000000';
@@ -144,6 +149,7 @@ export function parseE2eGraphCookie(
   const profile = params.get('profile');
   if (profile === 'banner' || profile === 'links') parsed.profile = profile;
   if (params.get('thread') === 'alpha') parsed.thread = 'alpha';
+  if (params.get('sheet') === 'drop') parsed.sheet = 'drop';
   return parsed;
 }
 
@@ -167,6 +173,7 @@ export function serializeE2eGraphCookie(opts: E2eGraphCookieValue): string {
   if (opts.articles) params.set('articles', opts.articles);
   if (opts.profile) params.set('profile', opts.profile);
   if (opts.thread) params.set('thread', opts.thread);
+  if (opts.sheet) params.set('sheet', opts.sheet);
   return params.toString();
 }
 
@@ -1305,6 +1312,80 @@ function e2eDiscoverArticlePost(postId: string) {
   };
 }
 
+export const E2E_DROP_SHEET_FEED_TEXT = 'Feed card that opens the drop sheet';
+
+function e2eFeedPost(postId: string, text: string, withDrop: boolean) {
+  const value: Record<string, unknown> = { v: 1, text };
+  if (withDrop) {
+    value.embeds = [
+      {
+        kind: 'collection',
+        chain: 'near',
+        contract: 'scarce.onsocial.testnet',
+        collectionId: 'night-drive',
+      },
+    ];
+    value.x = {
+      onsocial: {
+        drop: {
+          collectionId: 'night-drive',
+          title: 'Night Drive',
+          mediumKind: 'audio',
+        },
+      },
+    };
+  }
+  return {
+    accountId: 'alice.near',
+    postId,
+    value: JSON.stringify(value),
+    blockHeight: 200,
+    blockTimestamp: 1_700_000_000,
+    receiptId: `receipt-${postId}`,
+    parentPath: '',
+    parentAuthor: '',
+    parentType: '',
+    refPath: '',
+    refAuthor: '',
+    refType: '',
+    channel: '',
+    kind: 'post',
+    audiences: '',
+    groupId: '',
+    isGroupContent: false,
+    authorName: 'Alice',
+    authorAvatar: null,
+    groupName: null,
+    amplifyHeat: 1,
+  };
+}
+
+/** Home rows for the drop-sheet e2e. The first card links to Night Drive. */
+export function e2eDropSheetFeedPosts() {
+  return [
+    e2eFeedPost('drop-root', E2E_DROP_SHEET_FEED_TEXT, true),
+    ...Array.from({ length: 14 }, (_, index) =>
+      e2eFeedPost(
+        `pad-${index}`,
+        `Padding post ${index} so the feed can scroll`,
+        false
+      )
+    ),
+  ];
+}
+
+function e2eDiscoverNightDriveRow() {
+  return {
+    collectionId: 'night-drive',
+    title: 'Night Drive',
+    creatorId: 'alice.near',
+    mediumKind: 'audio',
+    kind: 'audio',
+    extraJson: null,
+    media: null,
+  };
+}
+
 export function resolveE2eGraphStub(opts: {
   query: string;
   variables?: Record<string, unknown>;
@@ -1312,6 +1393,34 @@ export function resolveE2eGraphStub(opts: {
 }): { data: Record<string, unknown> } | null {
   const parsed = parseE2eGraphCookie(opts.cookieValue);
   const variables = opts.variables ?? {};
+
+  if (parsed.sheet === 'drop') {
+    if (
+      (opts.query.includes('postsFeed') ||
+        opts.query.includes('postsCurrent')) &&
+      typeof variables.postId !== 'string'
+    ) {
+      const field = opts.query.includes('postsFeed')
+        ? 'postsFeed'
+        : 'postsCurrent';
+      return { data: { [field]: e2eDropSheetFeedPosts() } };
+    }
+    if (opts.query.includes('DiscoverDrops')) {
+      return {
+        data: {
+          scarcesCollectionsCurrent:
+            variables.medium === 'audio' ? [e2eDiscoverNightDriveRow()] : [],
+        },
+      };
+    }
+    if (opts.query.includes('scarcesCollectionsCurrent')) {
+      return {
+        data: {
+          scarcesCollectionsCurrent: [e2eDropCollectionRow('night-drive')],
+        },
+      };
+    }
+  }
 
   if (parsed.thread === 'alpha' && opts.query.includes('RepliesByPath')) {
     const parentPath =

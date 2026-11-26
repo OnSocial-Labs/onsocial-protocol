@@ -115,6 +115,11 @@ export async function setE2eGraphProfile(
   await setE2eGraphCookie(page, { profile });
 }
 
+/** Opt the drop-sheet feed and Discover search into the Night Drive fixture. */
+export async function setE2eGraphSheet(page: Page): Promise<void> {
+  await setE2eGraphCookie(page, { sheet: 'drop' });
+}
+
 /** Opt SSR into Writing shelf articles. */
 export async function setE2eGraphWriting(
   page: Page,

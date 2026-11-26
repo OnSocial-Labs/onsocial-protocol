@@ -126,6 +126,7 @@ describe('parseE2eGraphCookie', () => {
       writing: 'reader',
     });
     expect(parseE2eGraphCookie('articles=list')).toEqual({ articles: 'list' });
+    expect(parseE2eGraphCookie('sheet=drop')).toEqual({ sheet: 'drop' });
     expect(serializeE2eGraphCookie({ articles: 'list' })).toBe('articles=list');
     expect(isE2eWritingShelfCookie('catalog=empty')).toBe(false);
   });
@@ -313,6 +314,36 @@ describe('resolveE2eGraphStub', () => {
         cookieValue: 'market=live-first',
       })?.data.scarcesActiveListings
     ).toHaveLength(2);
+  });
+
+  it('answers the drop sheet feed and Discover search from the sheet cookie', () => {
+    const feed = resolveE2eGraphStub({
+      query: 'query PostsFeed { postsFeed { postId } }',
+      cookieValue: 'sheet=drop',
+    });
+    const posts = feed?.data.postsFeed as Array<{ postId: string }>;
+    expect(posts[0]?.postId).toBe('drop-root');
+    expect(
+      resolveE2eGraphStub({
+        query:
+          'query DiscoverDrops($medium: String!) { scarcesCollectionsCurrent { title } }',
+        variables: { medium: 'audio' },
+        cookieValue: 'sheet=drop',
+      })?.data.scarcesCollectionsCurrent
+    ).toEqual([
+      expect.objectContaining({
+        collectionId: 'night-drive',
+        title: 'Night Drive',
+      }),
+    ]);
+    expect(
+      resolveE2eGraphStub({
+        query:
+          'query DiscoverDrops($medium: String!) { scarcesCollectionsCurrent { title } }',
+        variables: { medium: 'writing' },
+        cookieValue: 'sheet=drop',
+      })?.data.scarcesCollectionsCurrent
+    ).toEqual([]);
   });
 
   it('returns Night Drive for ScarcesCollectionCurrent when opted in', () => {

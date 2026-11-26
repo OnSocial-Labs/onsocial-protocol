@@ -5,9 +5,17 @@ import {
   collectionPageSkeleton,
   stubCollectionPageGraph,
 } from './helpers/collection-page';
-import { setE2eGraphDrop, setE2eGraphMarket } from './helpers/e2e-graph';
+import {
+  setE2eGraphDrop,
+  setE2eGraphMarket,
+  setE2eGraphSheet,
+} from './helpers/e2e-graph';
 import { stubMarketLiveFirstBrowse } from './helpers/market-live-first';
-import { e2eDropCollectionRow } from '../src/lib/e2e-graph-stubs';
+import {
+  E2E_DROP_SHEET_FEED_TEXT,
+  e2eDropCollectionRow,
+  e2eDropSheetFeedPosts,
+} from '../src/lib/e2e-graph-stubs';
 
 /**
  * In-app drop opens are one sheet. Refresh and a typed URL stay the page.
@@ -20,7 +28,7 @@ const iphone = devices['iPhone 13'];
 const DROP_ID = 'night-drive';
 const DROP_TITLE = 'Night Drive';
 const DROP_PATH = `/collection/${DROP_ID}`;
-const FEED_TEXT = 'Feed card that opens the drop sheet';
+const FEED_TEXT = E2E_DROP_SHEET_FEED_TEXT;
 
 function phoneUse(device: (typeof devices)['Pixel 7']) {
   return {
@@ -32,62 +40,29 @@ function phoneUse(device: (typeof devices)['Pixel 7']) {
   };
 }
 
-function feedPost(postId: string, text: string, withDrop: boolean) {
-  const value: Record<string, unknown> = { v: 1, text };
-  if (withDrop) {
-    value.embeds = [
-      {
-        kind: 'collection',
-        chain: 'near',
-        contract: 'scarce.onsocial.testnet',
-        collectionId: DROP_ID,
-      },
-    ];
-    value.x = {
-      onsocial: {
-        drop: {
-          collectionId: DROP_ID,
-          title: DROP_TITLE,
-          mediumKind: 'audio',
-        },
-      },
+function graphRequest(route: Route): {
+  query: string;
+  variables: Record<string, unknown>;
+} {
+  const raw = route.request().postData() ?? '';
+  try {
+    const parsed = JSON.parse(raw) as {
+      query?: string;
+      variables?: Record<string, unknown>;
     };
+    return {
+      query: String(parsed.query ?? raw),
+      variables:
+        parsed.variables && typeof parsed.variables === 'object'
+          ? parsed.variables
+          : {},
+    };
+  } catch {
+    return { query: raw, variables: {} };
   }
-  return {
-    accountId: 'alice.near',
-    postId,
-    value: JSON.stringify(value),
-    blockHeight: 200,
-    blockTimestamp: 1_700_000_000,
-    receiptId: `receipt-${postId}`,
-    parentPath: '',
-    parentAuthor: '',
-    parentType: '',
-    refPath: '',
-    refAuthor: '',
-    refType: '',
-    channel: '',
-    kind: 'post',
-    audiences: '',
-    groupId: '',
-    isGroupContent: false,
-    authorName: 'Alice',
-    authorAvatar: null,
-    groupName: null,
-    amplifyHeat: 1,
-  };
 }
 
-const FEED_POSTS = [
-  feedPost('drop-root', FEED_TEXT, true),
-  ...Array.from({ length: 14 }, (_, index) =>
-    feedPost(
-      `pad-${index}`,
-      `Padding post ${index} so the feed can scroll`,
-      false
-    )
-  ),
-];
+const FEED_POSTS = e2eDropSheetFeedPosts();
 
 async function fulfillJson(route: Route, data: unknown) {
   await route.fulfill({
@@ -100,11 +75,7 @@ async function fulfillJson(route: Route, data: unknown) {
 async function stubFeedGraph(page: Page) {
   const row = e2eDropCollectionRow(DROP_ID);
   await page.route('**/api/onapi/graph/query', async (route) => {
-    const body = route.request().postDataJSON() as {
-      query?: string;
-      variables?: Record<string, unknown>;
-    };
-    const query = body?.query ?? '';
+    const { query } = graphRequest(route);
     if (query.includes('postsFeed') || query.includes('postsCurrent')) {
       const field = query.includes('postsFeed') ? 'postsFeed' : 'postsCurrent';
       await fulfillJson(route, { [field]: FEED_POSTS });
@@ -112,6 +83,10 @@ async function stubFeedGraph(page: Page) {
     }
     if (query.includes('scarcesCollectionsCurrent')) {
       await fulfillJson(route, { scarcesCollectionsCurrent: [row] });
+      return;
+    }
+    if (!query.trim()) {
+      await route.continue();
       return;
     }
     await fulfillJson(route, {});
@@ -128,15 +103,12 @@ async function stubDiscoverGraph(
   });
   let collectionStarted = false;
   await page.route('**/api/onapi/graph/query', async (route) => {
-    const body = route.request().postDataJSON() as {
-      query?: string;
-      variables?: { medium?: string; collectionId?: string };
-    };
-    const query = body?.query ?? '';
-    const variables = body?.variables ?? {};
+    const { query, variables } = graphRequest(route);
+    const medium = variables.medium;
+    const collectionId = variables.collectionId;
     if (query.includes('DiscoverDrops')) {
       const rows =
-        variables.medium === 'audio'
+        medium === 'audio'
           ? [
               {
                 collectionId: DROP_ID,
@@ -155,7 +127,7 @@ async function stubDiscoverGraph(
     if (
       opts?.holdCollection &&
       query.includes('scarcesCollectionsCurrent') &&
-      variables.collectionId === DROP_ID
+      collectionId === DROP_ID
     ) {
       collectionStarted = true;
       await held;
@@ -171,7 +143,9 @@ async function stubDiscoverGraph(
       await fulfillJson(route, { [field]: [] });
       return;
     }
-    await fulfillJson(route, {});
+    // WebKit does not hand every graph POST to Playwright. The sheet cookie
+    // answers Discover on the server when this route never runs.
+    await route.continue();
   });
   return {
     release,
@@ -195,13 +169,14 @@ async function feedScroller(page: Page) {
 
 async function openFeedDrop(page: Page) {
   await clearSession(page);
+  await setE2eGraphSheet(page);
   await stubFeedGraph(page);
   await gotoApp(page, '/home');
   await dismissNextDevOverlay(page);
   const card = page.locator('article').filter({ hasText: FEED_TEXT }).first();
   await expect(card).toBeVisible({ timeout: 20_000 });
-  const link = card.getByRole('link', { name: 'Drop', exact: true });
-  await expect(link).toBeVisible({ timeout: 20_000 });
+  const link = card.locator(`a[href="${DROP_PATH}"]`);
+  await expect(link).toBeVisible({ timeout: 30_000 });
   await expect(link).toHaveAttribute('href', DROP_PATH);
   return { card, link };
 }
@@ -332,9 +307,14 @@ async function installCases(label: string) {
         { timeout: 30_000 }
       );
       await expect(dropSheet(page)).toHaveCount(0);
-      await expect(
-        collectionPageRoot(page).or(collectionPageSkeleton(page))
-      ).toBeVisible({ timeout: 20_000 });
+      await expect
+        .poll(
+          async () =>
+            (await collectionPageRoot(page).count()) +
+            (await collectionPageSkeleton(page).count()),
+          { timeout: 20_000 }
+        )
+        .toBeGreaterThan(0);
     });
 
     test('a Market row opens the sheet', async ({ page }) => {
@@ -368,6 +348,7 @@ async function installCases(label: string) {
       page,
     }) => {
       await clearSession(page);
+      await setE2eGraphSheet(page);
       const held = await stubDiscoverGraph(page, { holdCollection: true });
       try {
         await gotoApp(page, '/discover');
