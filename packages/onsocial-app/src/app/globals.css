@@ -771,7 +771,8 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   padding-bottom: 0;
 }
 
-.glass-sheet-panel.post-thread-sheet-panel .post-thread-sheet-fill {
+.glass-sheet-panel.post-thread-sheet-panel .post-thread-sheet-fill,
+.glass-sheet-panel.drop-sheet-panel .drop-sheet-fill {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -15974,6 +15975,14 @@ a.os-surface-row,
   body:has(
       .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked)
         .post-thread-sheet-panel
+    ):not(:has([data-os-slide-over='true'][data-keep-dock='true']))
+    .portfolio-summon-dock {
+    z-index: var(--os-thread-dock-z, 51);
+  }
+
+  body:has(
+      .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked)
+        .drop-sheet-panel
     ):not(:has([data-os-slide-over='true'][data-keep-dock='true']))
     .portfolio-summon-dock {
     z-index: var(--os-thread-dock-z, 51);
@@ -42690,11 +42699,46 @@ body:has(
     .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked)
       .post-thread-sheet-panel
   ):has([data-os-slide-over='true'][data-keep-dock='true'])
+  .portfolio-summon-dock,
+body:has(
+    .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked)
+      .drop-sheet-panel
+  ):has([data-os-slide-over='true'][data-keep-dock='true'])
   .portfolio-summon-dock {
   z-index: var(--os-thread-dock-z, 95);
   opacity: 1;
   transform: translateX(-50%);
   pointer-events: none;
+}
+
+/*
+ * Drop sheet is an opaque page at overlayHost (50). The summon dock lives
+ * at 40, so without this lift Mint sits under the sheet. A scrolled feed
+ * also leaves the dock translated away — bring that same pill back.
+ * A later sheet that does not keep the dock (Mint, activity) still tucks it.
+ */
+body:has(
+    .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked)
+      .drop-sheet-panel
+  ):not(:has(.glass-sheet-root:not([data-keep-dock='true']))):not(
+    :has([data-os-slide-over='true']:not([data-keep-dock='true']))
+  )
+  .portfolio-summon-dock {
+  z-index: var(--os-thread-dock-z, 51);
+  opacity: 1;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+body:has(
+    .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked)
+      .drop-sheet-panel
+  ):not(:has(.glass-sheet-root:not([data-keep-dock='true']))):not(
+    :has([data-os-slide-over='true']:not([data-keep-dock='true']))
+  )
+  .portfolio-summon-dock
+  .portfolio-summon {
+  pointer-events: auto;
 }
 
 body:has(.feed-photo-slide--thread) .portfolio-summon-dock .portfolio-summon,

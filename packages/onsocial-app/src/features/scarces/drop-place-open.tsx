@@ -6,8 +6,11 @@ import {
   type MouseEvent,
   type ReactNode,
 } from 'react';
-import { useRouter } from 'next/navigation';
-import { isUnmodifiedPrimaryClick } from '@/features/home/post-thread-layer';
+import {
+  isUnmodifiedPrimaryClick,
+  usePostThreadLayer,
+} from '@/features/home/post-thread-layer';
+import { warmDropPanel } from '@/lib/thread-first-page';
 import type { CollectionCreatorFace } from '@/features/scarces/collection-creator-face';
 import { rememberCollectionCreatorFace } from '@/features/scarces/collection-creator-face-cache';
 import type { CollectionView } from '@/features/scarces/collections-data';
@@ -25,30 +28,14 @@ import { peekViewerAccountId } from '@/features/scarces/collection-page-view';
 import { fetchOwnedCollectionTokenId } from '@/features/scarces/collections-data';
 import { warmOwnedCollectionHold } from '@/features/scarces/owned-collection-hold-cache';
 import { seedDropLoveFaceFromList } from '@/hooks/use-scarce-drop-loves';
-import {
-  collectionPath,
-  parseInAppDropLayerHref,
-} from '@/lib/app-routes';
+import { collectionPath, parseInAppDropLayerHref } from '@/lib/app-routes';
 import type { ProfileStoreDrop } from '@/lib/profile-store-types';
-
-type DropPlaceRouter = {
-  push: (href: string, options?: { scroll?: boolean }) => void;
-  prefetch: (href: string, options?: { kind?: 'auto' | 'full' }) => void;
-};
 
 /** Warm catalog on press when cache is cold — open resolve prefers the read. */
 function warmCollectionView(collectionId: string): void {
   const id = collectionId.trim();
   if (!id || hasCollectionView(id)) return;
   void fetchCollectionPreferIndexer(id);
-}
-
-function prefetchDropPlace(router: DropPlaceRouter, href: string): void {
-  try {
-    router.prefetch(href, { kind: 'full' });
-  } catch {
-    /* prefetch is best-effort */
-  }
 }
 
 /**
@@ -68,7 +55,7 @@ export function resolveDropOpenSeed(opts: {
   return cached ?? initial;
 }
 
-/** Stash seed + creator so `/collection/…` loading paints frame 1 with dock. */
+/** Stash seed + creator so the sheet (and a hard load) paints frame 1. */
 export function warmDropPlaceOpen(opts: {
   collectionId: string;
   initial?: CollectionView | null;
@@ -88,9 +75,7 @@ export function warmDropPlaceOpen(opts: {
     rememberCollectionCreatorFace(id, opts.initialCreator);
   }
   const creatorId =
-    seed?.creatorId?.trim() ||
-    opts.initial?.creatorId?.trim() ||
-    '';
+    seed?.creatorId?.trim() || opts.initial?.creatorId?.trim() || '';
   if (creatorId && opts.fanCount != null && opts.fanCount > 0) {
     seedDropLoveFaceFromList({
       creatorId,
@@ -117,35 +102,45 @@ export type DropPlaceOpenInput = {
   fanIds?: string[] | null;
 };
 
-/** Soft-nav to the full drop place after seeding cache. */
+type DropSheetOpen = (input: {
+  href: string;
+  initial?: CollectionView | null;
+  initialCreator?: CollectionCreatorFace | null;
+}) => boolean;
+
+/**
+ * One in-app drop open: seed from the card, then the shared sheet.
+ * The full `/collection/…` page stays for refresh, share, and hard loads.
+ */
 export function navigateDropPlace(
-  router: DropPlaceRouter,
+  openDrop: DropSheetOpen,
   input: DropPlaceOpenInput
 ): boolean {
   const parsed = parseInAppDropLayerHref(input.href);
   if (!parsed) return false;
-  warmDropPlaceOpen({
+  const seed = warmDropPlaceOpen({
     collectionId: parsed.collectionId,
     initial: input.initial,
     initialCreator: input.initialCreator,
     fanCount: input.fanCount,
     fanIds: input.fanIds,
   });
-  prefetchDropPlace(router, input.href);
-  router.push(input.href, { scroll: false });
-  return true;
+  return openDrop({
+    href: input.href,
+    initial: seed ?? input.initial ?? null,
+    initialCreator: input.initialCreator ?? null,
+  });
 }
 
 /**
- * Soft-nav to the full drop place (dock Back + dock Mint).
- * Seeds the catalog cache first so route loading can paint hot.
+ * Open the shared drop sheet (dock Back + dock Mint) over the current page.
+ * Seeds the catalog cache first so the sheet paints from the card.
  */
 export function useDropPlaceOpen(): (input: DropPlaceOpenInput) => boolean {
-  const router = useRouter();
+  const { openDrop } = usePostThreadLayer();
   return useCallback(
-    (input: DropPlaceOpenInput) =>
-      navigateDropPlace(router as DropPlaceRouter, input),
-    [router]
+    (input: DropPlaceOpenInput) => navigateDropPlace(openDrop, input),
+    [openDrop]
   );
 }
 
@@ -171,8 +166,8 @@ type DropPlaceLinkProps = Omit<
 };
 
 /**
- * In-app Drop open — soft-nav to the full drop place with warm seed.
- * Native `<a>` so modified clicks keep href; primary click seeds then navigates.
+ * In-app Drop open — shared sheet over the current page.
+ * Native `<a>` so modified clicks keep href; primary click seeds then opens.
  */
 export function DropPlaceLink({
   href,
@@ -186,7 +181,7 @@ export function DropPlaceLink({
   className,
   ...props
 }: DropPlaceLinkProps) {
-  const router = useRouter();
+  const openPlace = useDropPlaceOpen();
   const resolved =
     href?.trim() ||
     (collectionId?.trim() ? collectionPath(collectionId.trim()) : '');
@@ -201,6 +196,7 @@ export function DropPlaceLink({
       className={className}
       {...props}
       onPointerDown={() => {
+        warmDropPanel();
         if (collectionIdForWarm) {
           warmCollectionView(collectionIdForWarm);
           warmDropPlaceOpen({
@@ -211,7 +207,6 @@ export function DropPlaceLink({
             fanIds,
           });
         }
-        prefetchDropPlace(router as DropPlaceRouter, resolved);
       }}
       onClick={(event: MouseEvent<HTMLAnchorElement>) => {
         onClick?.(event);
@@ -220,7 +215,7 @@ export function DropPlaceLink({
         if (!parseInAppDropLayerHref(resolved)) return;
         event.preventDefault();
         event.stopPropagation();
-        navigateDropPlace(router as DropPlaceRouter, {
+        openPlace({
           href: resolved,
           initial,
           initialCreator,

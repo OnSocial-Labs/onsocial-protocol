@@ -3,6 +3,7 @@ import {
   beginHistoryBack,
   inFlightPopRepair,
   repairClosingLayerHistory,
+  shouldRestoreClosedDrop,
   withoutClosingLayer,
 } from './post-thread-history';
 
@@ -93,5 +94,32 @@ describe('overlay history after a closing layer', () => {
       back: false,
       armPending: false,
     });
+  });
+
+  it('restores a closed drop when Forward returns to its permalink', () => {
+    expect(
+      shouldRestoreClosedDrop({
+        stackLength: 0,
+        historyFlagged: true,
+        locationHref: DROP,
+        savedCanonical: DROP,
+      })
+    ).toBe(true);
+    expect(
+      shouldRestoreClosedDrop({
+        stackLength: 1,
+        historyFlagged: true,
+        locationHref: DROP,
+        savedCanonical: DROP,
+      })
+    ).toBe(false);
+    expect(
+      shouldRestoreClosedDrop({
+        stackLength: 0,
+        historyFlagged: true,
+        locationHref: '/home',
+        savedCanonical: DROP,
+      })
+    ).toBe(false);
   });
 });

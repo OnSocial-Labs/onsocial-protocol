@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  claimDockBackTop,
+  popDockBackStack,
   resolveDockBackVisible,
   resolveDockConnectHintVisible,
+  topDockBack,
+  upsertDockBackStack,
+  type DockBackStackItem,
 } from '@/contexts/dock-chrome-context';
 
 describe('resolveDockBackVisible', () => {
@@ -21,6 +26,37 @@ describe('resolveDockBackVisible', () => {
         launcherOpen: true,
       })
     ).toBe(false);
+  });
+});
+
+describe('dock back stack', () => {
+  const page: DockBackStackItem = {
+    id: 'page',
+    entry: { fallbackHref: '/market', ariaLabel: 'Back' },
+  };
+  const sheet: DockBackStackItem = {
+    id: 'sheet',
+    entry: { fallbackHref: '/collection/night', ariaLabel: 'Back' },
+  };
+
+  it('shows the latest registration and restores the page on pop', () => {
+    const stacked = upsertDockBackStack([page], sheet);
+    expect(topDockBack(stacked)?.fallbackHref).toBe('/collection/night');
+    expect(topDockBack(popDockBackStack(stacked, 'sheet'))?.fallbackHref).toBe(
+      '/market'
+    );
+    const updated = upsertDockBackStack(stacked, {
+      ...page,
+      entry: { fallbackHref: '/market', ariaLabel: 'Leave' },
+    });
+    expect(topDockBack(updated)?.fallbackHref).toBe('/collection/night');
+    const claimed = claimDockBackTop(
+      [...updated, { id: 'page-2', entry: { fallbackHref: '/home' } }],
+      sheet
+    );
+    expect(topDockBack(claimed)?.fallbackHref).toBe('/collection/night');
+    expect(claimed.map((row) => row.id)).toEqual(['page', 'page-2', 'sheet']);
+    expect(topDockBack(popDockBackStack([page], 'page'))).toBeNull();
   });
 });
 

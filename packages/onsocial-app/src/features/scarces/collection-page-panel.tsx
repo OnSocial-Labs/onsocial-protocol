@@ -13,7 +13,6 @@ import {
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  ChevronLeftIcon,
   Divider,
   OsHugSheet,
   HeartFillIcon,
@@ -242,14 +241,6 @@ function scheduleLine(
   return null;
 }
 
-function collectionAppearBack(onClose?: () => void) {
-  return (
-    <OsIconAction ariaLabel="Back" onClick={() => onClose?.()}>
-      <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
-    </OsIconAction>
-  );
-}
-
 function mergeHydratedWriting(
   prev: CollectionView | null,
   next: CollectionView
@@ -341,6 +332,7 @@ export function CollectionPagePanel({
   initialEditionToken = null,
   embedded = false,
   onClose,
+  suspendDock = false,
 }: {
   collectionId: string;
   initial: CollectionView | null;
@@ -362,9 +354,17 @@ export function CollectionPagePanel({
   initialHoldSeed?: { holds: boolean; tokenId: string | null } | null;
   /** `?t=` from the drop page request, so the first paint is that edition. */
   initialEditionToken?: string | null;
-  /** Nested in an appear page sheet — sheet Back, not launcher leave. */
+  /**
+   * Nested in the shared drop sheet. Same face as the page, no second
+   * launcher — dock Back closes the sheet.
+   */
   embedded?: boolean;
   onClose?: () => void;
+  /**
+   * Sheet is parked under a profile / door hop. Release Back and Mint so
+   * the page underneath owns the one dock.
+   */
+  suspendDock?: boolean;
 }) {
   const {
     accountId: viewerAccountId,
@@ -473,14 +473,16 @@ export function CollectionPagePanel({
     return seed.holds;
   });
   /** Owned edition for Show pass when known. */
-  const [ownedPassTokenId, setOwnedPassTokenId] = useState<string | null>(() => {
-    if (initialHoldSeed) return initialHoldSeed.tokenId;
-    const seed = peekDropFaceHoldSeed(
-      viewerAccountId?.trim() || initialViewerAccountId?.trim() || null,
-      collectionId
-    );
-    return seed.tokenId;
-  });
+  const [ownedPassTokenId, setOwnedPassTokenId] = useState<string | null>(
+    () => {
+      if (initialHoldSeed) return initialHoldSeed.tokenId;
+      const seed = peekDropFaceHoldSeed(
+        viewerAccountId?.trim() || initialViewerAccountId?.trim() || null,
+        collectionId
+      );
+      return seed.tokenId;
+    }
+  );
   /** Query `?t=` wins; held token fills the same reserved seat (never inserts a line). */
   const faceEditionToken =
     editionToken || (ownedPassTokenId ? ownedPassTokenId.trim() : '');
@@ -728,9 +730,7 @@ export function CollectionPagePanel({
       setWalletRemaining(wallet);
       setAllowlistRemaining(allowlist);
       // Skip no-op updates — same token must not remount Show pass.
-      setOwnedPassTokenId((prev) =>
-        prev === ownedToken ? prev : ownedToken
-      );
+      setOwnedPassTokenId((prev) => (prev === ownedToken ? prev : ownedToken));
       setHoldsEdition((prev) => {
         const next = Boolean(ownedToken);
         return prev === next ? prev : next;
@@ -1019,13 +1019,15 @@ export function CollectionPagePanel({
     });
   }, [view]);
   useRegisterComposeAction(
-    isOwner
-      ? view
-        ? openOwnerPost
-        : null
-      : showMintCompose
-        ? openMintSheet
-        : null,
+    suspendDock
+      ? null
+      : isOwner
+        ? view
+          ? openOwnerPost
+          : null
+        : showMintCompose
+          ? openMintSheet
+          : null,
     isOwner ? 'announce' : 'mint'
   );
 
@@ -1166,7 +1168,10 @@ export function CollectionPagePanel({
     clientSettled,
   });
   const catalogLeaveHref = collectionDropBackHref({
-    useFirst: peekHoldsCollectionForDropPage(paintViewerAccountId, collectionId),
+    useFirst: peekHoldsCollectionForDropPage(
+      paintViewerAccountId,
+      collectionId
+    ),
     viewerAccountId: paintViewerAccountId,
   });
   const dockFallbackHref = view
@@ -1184,15 +1189,20 @@ export function CollectionPagePanel({
       })
     : catalogLeaveHref;
   const onDockBack = useCatalogDockBack(dockFallbackHref);
+  const dockBackOn = !suspendDock;
+  const dockBackHandler = dockBackOn
+    ? embedded
+      ? onClose
+      : onDockBack
+    : undefined;
   if (catalogShell === 'skeleton' && !seededHotOpen) {
     return (
       <OsAppScreen
         title="Drop"
         embedded={embedded}
-        dockBack={!embedded}
-        onDockBack={embedded ? undefined : onDockBack}
+        dockBack={dockBackOn}
+        onDockBack={dockBackHandler}
         backFallbackHref={catalogLeaveHref}
-        leading={embedded ? collectionAppearBack(onClose) : undefined}
         immersiveHeader
         scrollRootRef={scrollRootRef}
       >
@@ -1214,10 +1224,9 @@ export function CollectionPagePanel({
       <OsAppScreen
         title="Drop"
         embedded={embedded}
-        dockBack={!embedded}
-        onDockBack={embedded ? undefined : onDockBack}
+        dockBack={dockBackOn}
+        onDockBack={dockBackHandler}
         backFallbackHref={catalogLeaveHref}
-        leading={embedded ? collectionAppearBack(onClose) : undefined}
       >
         <div className={MARKET_PAGE_CLASS}>
           <div className="market-page-empty">
@@ -1662,35 +1671,35 @@ export function CollectionPagePanel({
                       onOpen={openOwnedPass}
                     />
                   ) : opensWritingReader ? (
-                  <OsRowAction
-                    className="collectibles-holding-action"
-                    onClick={openWritingRead}
-                  >
-                    Read
-                  </OsRowAction>
-                ) : hasPlayables &&
-                  useFirst &&
-                  listenOnPlayPage &&
-                  holderPlayHref ? (
-                  <OsRowAction
-                    className="collectibles-holding-action"
-                    href={holderPlayHref}
-                  >
-                    Play
-                  </OsRowAction>
-                ) : hasPlayables && !useFirst ? (
-                  <OsRowAction
-                    className="collectibles-holding-action"
-                    onClick={() => setCoverListenOpen(true)}
-                  >
-                    Play
-                  </OsRowAction>
-                ) : (
-                  <span
-                    className="collection-use-actions-trail-chassis"
-                    aria-hidden
-                  />
-                );
+                    <OsRowAction
+                      className="collectibles-holding-action"
+                      onClick={openWritingRead}
+                    >
+                      Read
+                    </OsRowAction>
+                  ) : hasPlayables &&
+                    useFirst &&
+                    listenOnPlayPage &&
+                    holderPlayHref ? (
+                    <OsRowAction
+                      className="collectibles-holding-action"
+                      href={holderPlayHref}
+                    >
+                      Play
+                    </OsRowAction>
+                  ) : hasPlayables && !useFirst ? (
+                    <OsRowAction
+                      className="collectibles-holding-action"
+                      onClick={() => setCoverListenOpen(true)}
+                    >
+                      Play
+                    </OsRowAction>
+                  ) : (
+                    <span
+                      className="collection-use-actions-trail-chassis"
+                      aria-hidden
+                    />
+                  );
                 // Reserve the pass+Play row while hold is unknown or held —
                 // never mount a second reading row after fetch (height flash).
                 const reservePassPlayRow =
@@ -1698,7 +1707,9 @@ export function CollectionPagePanel({
                   hasPlayables &&
                   Boolean(holderPlayHref) &&
                   holdsEdition !== false &&
-                  (canShowPass || ownership === 'holder' || ownership === 'unknown');
+                  (canShowPass ||
+                    ownership === 'holder' ||
+                    ownership === 'unknown');
                 const holderPlayBesidePass = reservePassPlayRow ? (
                   <div className="collection-reading-row">
                     <CollectionOpenCollectiblesLead href={null} />
@@ -2075,10 +2086,9 @@ export function CollectionPagePanel({
     <OsAppScreen
       title={faceTitle || 'Drop'}
       embedded={embedded}
-      dockBack={!embedded}
-      onDockBack={embedded ? undefined : onDockBack}
+      dockBack={dockBackOn}
+      onDockBack={dockBackHandler}
       backFallbackHref={dropBackHref}
-      leading={embedded ? collectionAppearBack(onClose) : undefined}
       immersiveHeader={immersive}
       scrollRootRef={scrollRootRef}
       actions={

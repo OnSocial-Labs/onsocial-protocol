@@ -4,7 +4,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useId,
   useLayoutEffect,
   useMemo,
@@ -224,8 +223,10 @@ export function useRegisterComposeAction(
   const enabled = action != null;
 
   /* Identity of `action` changes every render on some surfaces. Popping on
-     that change appends the pen back on top of an open reply dock. */
-  useEffect(() => {
+     that change appends the pen back on top of an open reply dock.
+     Layout, not a passive effect — a drop sheet must show Mint on the
+     same frame as the face, not one frame of the feed pen. */
+  useLayoutEffect(() => {
     if (!upsertCompose || !popCompose || !enabled) return;
     upsertCompose({
       id,

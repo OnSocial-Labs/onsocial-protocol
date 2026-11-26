@@ -34,6 +34,7 @@ import type { CollectionCreatorFace } from '@/features/scarces/collection-creato
 import { editionTokenForCollection } from '@/features/scarces/collection-page-view';
 import type { CollectionView } from '@/features/scarces/collections-data';
 import { scarceEmbedsForOpenRoot } from '@/features/scarces/scarce-embed-ledger';
+import { useClaimDropSheetDockBack } from '@/contexts/dock-chrome-context';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { accountIdsEqual } from '@/lib/account-match';
 import { portfolioSwipeOpensPage } from '@/lib/portfolio-feed-reveal';
@@ -102,7 +103,6 @@ import {
   appendTrailEntry,
   collapseTrailToTop,
   replyOpenedOverMediaFace,
-  isReaderLayerKind,
   isSameReaderTarget,
   revealTrailReader,
   replaceStackWith,
@@ -113,6 +113,7 @@ import {
   beginHistoryBack,
   inFlightPopRepair,
   repairClosingLayerHistory,
+  shouldRestoreClosedDrop,
   withoutClosingLayer,
 } from './post-thread-history';
 
@@ -161,6 +162,8 @@ const POST_LAYER_GUARD_KEY = '__onsocialPostLayerPopGuard';
 type PostLayerPopGuard = {
   depth: number;
   onPop: () => void;
+  /** Forward onto a closed drop. Return true when this pop was handled. */
+  onArrive?: (event: PopStateEvent) => boolean;
 };
 
 /** Capture listener before Next's bubble popstate (registered at import). */
@@ -175,10 +178,16 @@ function getPostLayerPopGuard(): PostLayerPopGuard {
     window.addEventListener(
       'popstate',
       (event) => {
-        if (guard!.depth <= 0) return;
-        event.stopImmediatePropagation();
-        event.stopPropagation();
-        guard!.onPop();
+        if (guard!.depth > 0) {
+          event.stopImmediatePropagation();
+          event.stopPropagation();
+          guard!.onPop();
+          return;
+        }
+        if (guard!.onArrive?.(event)) {
+          event.stopImmediatePropagation();
+          event.stopPropagation();
+        }
       },
       true
     );
@@ -452,9 +461,16 @@ function captureUnderlayScroll(): { el: HTMLElement; top: number } | null {
 
 /** Put the underlay back where capture left it — native + Lenis together. */
 function restoreUnderlayScroll(saved: { el: HTMLElement; top: number }): void {
-  if (!saved.el.isConnected) return;
-  saved.el.scrollTop = saved.top;
-  adoptAppLenisScroll(saved.el);
+  let frames = 0;
+  const apply = () => {
+    if (!saved.el.isConnected) return;
+    saved.el.scrollTop = saved.top;
+    adoptAppLenisScroll(saved.el);
+    if (Math.abs(saved.el.scrollTop - saved.top) > 2 && frames++ < 40) {
+      window.requestAnimationFrame(apply);
+    }
+  };
+  apply();
 }
 
 /** Cmd/ctrl/shift/alt or non-primary button — let the browser own the click. */
@@ -750,22 +766,44 @@ function PostThreadSheet({
 function DropLayerSheet({
   layer,
   open,
+  parked,
   onClose,
   onClosed,
+  onLeave,
   zIndex,
   moodId,
   moodStyle,
 }: {
   layer: DropLayerTarget;
   open: boolean;
+  /** Profile, door, or another route is the screen. Keep the drop mounted. */
+  parked: boolean;
   onClose: () => void;
   onClosed: () => void;
+  onLeave: (href: string) => void;
   zIndex: number;
   moodId?: string;
   moodStyle?: CSSProperties;
 }) {
   const titleId = useId();
   const renderedZ = resolveGlassSheetZIndex(zIndex, layer.openedAboveMediaFace);
+  const leaveFromDrop = (event: ReactMouseEvent) => {
+    if (!isUnmodifiedPrimaryClick(event)) return;
+    const node = event.target;
+    if (!(node instanceof Element)) return;
+    const anchor = node.closest('a');
+    if (!(anchor instanceof HTMLAnchorElement)) return;
+    if (anchor.target === '_blank') return;
+    const href = anchor.getAttribute('href');
+    if (!href || href.startsWith('#') || /^https?:/i.test(href)) return;
+    const path = href.split(/[?#]/)[0] ?? href;
+    if (!path.startsWith('/')) return;
+    // Another drop stays in this sheet. Everything else parks and navigates.
+    if (parseInAppDropLayerHref(path)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onLeave(href);
+  };
   return (
     <PostLayerOwnerZProvider value={renderedZ}>
       <OsPageSheet
@@ -778,24 +816,29 @@ function DropLayerSheet({
         ariaLabelledBy={titleId}
         backdropLabel="Back"
         keepDock
+        lockScroll={!parked}
         moodId={moodId}
         moodStyle={moodStyle}
         panelClassName="drop-sheet-panel"
         bodyClassName="drop-sheet-body"
+        rootClassName={parked ? 'post-thread-sheet-parked' : undefined}
         header={null}
       >
-        <span id={titleId} className="sr-only">
-          Drop
-        </span>
-        <CollectionPagePanel
-          key={layer.collectionId}
-          collectionId={layer.collectionId}
-          initial={layer.initial}
-          initialCreator={layer.initialCreator}
-          initialEditionToken={layer.initialEditionToken}
-          embedded
-          onClose={onClose}
-        />
+        <div className="drop-sheet-fill" onClickCapture={leaveFromDrop}>
+          <span id={titleId} className="sr-only">
+            Drop
+          </span>
+          <CollectionPagePanel
+            key={layer.collectionId}
+            collectionId={layer.collectionId}
+            initial={layer.initial}
+            initialCreator={layer.initialCreator}
+            initialEditionToken={layer.initialEditionToken}
+            embedded
+            suspendDock={parked}
+            onClose={onClose}
+          />
+        </div>
       </OsPageSheet>
     </PostLayerOwnerZProvider>
   );
@@ -822,6 +865,16 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   const closePopPendingRef = useRef(false);
   /** Canonical of the layer that replaced a close, query included. */
   const overlayCanonicalRef = useRef<string | null>(null);
+  /** Drop sheet closed by Back — Forward puts this sheet back, no new push. */
+  const pendingScrollRestoreRef = useRef<{
+    el: HTMLElement;
+    top: number;
+  } | null>(null);
+  const closedDropRef = useRef<{
+    layer: DropLayerTarget;
+    underlayPath: string;
+    canonical: string;
+  } | null>(null);
   useLayoutEffect(() => {
     stackRef.current = stack;
     closingIdRef.current = closingId;
@@ -926,11 +979,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     if (typeof document === 'undefined') return;
     const top = stack[stack.length - 1];
-    const live =
-      top != null &&
-      top.kind !== 'drop' &&
-      top.id !== closingId &&
-      !onProfileHop;
+    const live = top != null && top.id !== closingId && !onProfileHop;
     const rendered = live
       ? resolveGlassSheetZIndex(top.zIndex, top.openedAboveMediaFace)
       : null;
@@ -967,10 +1016,18 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     }
     if (!beginCloseTop()) return;
     if (typeof window === 'undefined') return;
+    const closing = stackRef.current[stackRef.current.length - 1];
     const back = beginHistoryBack({
       depth: getPostLayerPopGuard().depth,
       historyHasLayer: historyHasPostLayer(),
     });
+    if (back.back && closing?.kind === 'drop') {
+      closedDropRef.current = {
+        layer: closing,
+        underlayPath: underlayPathRef.current ?? '/home',
+        canonical: `${window.location.pathname}${window.location.search}`,
+      };
+    }
     if (back.back) {
       closePopPendingRef.current = back.armPending;
       window.history.back();
@@ -1375,7 +1432,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         initial && collectionIdsEqual(initial.collectionId, parsed.collectionId)
           ? initial
           : null;
-      const seededCreator = seeded ? (initialCreator ?? null) : null;
+      const seededCreator = initialCreator ?? null;
 
       const nextDrop = (): DropLayerTarget => ({
         id: `drop-layer-${++seqRef.current}`,
@@ -1458,6 +1515,37 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     if (typeof window === 'undefined') return;
     const guard = getPostLayerPopGuard();
     guard.depth = stack.length > 0 && !profileHop ? 1 : 0;
+    guard.onArrive = (event) => {
+      const state = event.state;
+      const flagged = Boolean(
+        state &&
+          typeof state === 'object' &&
+          (state as { [POST_LAYER_STATE_KEY]?: unknown })[POST_LAYER_STATE_KEY]
+      );
+      const saved = closedDropRef.current;
+      const locationHref = `${window.location.pathname}${window.location.search}`;
+      if (
+        !shouldRestoreClosedDrop({
+          stackLength: stackRef.current.length,
+          historyFlagged: flagged,
+          locationHref,
+          savedCanonical: saved?.canonical ?? null,
+        }) ||
+        !saved
+      ) {
+        return false;
+      }
+      closedDropRef.current = null;
+      underlayPathRef.current = saved.underlayPath;
+      setUnderlayPath(saved.underlayPath);
+      underlayScrollRef.current = captureUnderlayScroll();
+      closingIdRef.current = null;
+      setClosingId(null);
+      stackRef.current = [saved.layer];
+      setStack([saved.layer]);
+      guard.depth = 1;
+      return true;
+    };
     guard.onPop = () => {
       const pendingClosePop = closePopPendingRef.current;
       closePopPendingRef.current = false;
@@ -1501,7 +1589,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       setUnderlayPath(null);
       const saved = underlayScrollRef.current;
       underlayScrollRef.current = null;
-      if (saved) restoreUnderlayScroll(saved);
+      pendingScrollRestoreRef.current = saved;
     }
     if (typeof window !== 'undefined') {
       getPostLayerPopGuard().depth = next.length > 0 ? 1 : 0;
@@ -1533,7 +1621,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     if (profileHop || stack.length === 0 || pathname !== underlayPath) return;
     if (typeof window === 'undefined' || historyHasPostLayer()) return;
     const top = stack[stack.length - 1];
-    if (!top || !isReaderLayerKind(top.kind)) return;
+    if (!top) return;
     nativeHistoryPushState(withPostLayerHistoryState(), placeLayerHref(top));
     getPostLayerPopGuard().depth = 1;
   }, [pathname, profileHop, stack, underlayPath]);
@@ -1550,6 +1638,31 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
 
   const topPlace = stack[stack.length - 1] ?? null;
   const topOpen = topPlace != null && topPlace.id !== closingId;
+  const dropDockLive = topPlace?.kind === 'drop' && topOpen && !onProfileHop;
+  useClaimDropSheetDockBack(
+    dropDockLive,
+    dropDockLive
+      ? {
+          fallbackHref: underlayPath ?? '/home',
+          ariaLabel: 'Back',
+          onBack: closePostThread,
+        }
+      : null
+  );
+
+  // After the page's own scroll effects. A phone feed was resetting to 0
+  // in the same commit that closed the sheet.
+  useEffect(() => {
+    if (stack.length > 0) return;
+    const saved = pendingScrollRestoreRef.current;
+    if (!saved) return;
+    pendingScrollRestoreRef.current = null;
+    restoreUnderlayScroll(saved);
+    const frame = window.requestAnimationFrame(() => {
+      restoreUnderlayScroll(saved);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [stack.length]);
 
   return (
     <PostThreadLayerContext.Provider value={value}>
@@ -1558,9 +1671,11 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         <DropLayerSheet
           key="drop-reader"
           layer={topPlace}
+          parked={onProfileHop}
           open={topOpen}
           onClose={closePostThread}
           onClosed={() => handleSheetClosed(topPlace.id)}
+          onLeave={openProfileFromLayer}
           zIndex={topPlace.zIndex}
           moodId={viewerMood.moodId ?? undefined}
           moodStyle={viewerMood.style}

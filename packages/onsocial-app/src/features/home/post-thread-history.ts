@@ -70,6 +70,24 @@ export function inFlightPopRepair(input: {
  * Depth 0 returns before `onPop`, so a flag set here would stay true and
  * swallow a later Back.
  */
+/**
+ * Forward landed on a drop sheet this tab already closed.
+ * Re-open that sheet. Do not push another history entry.
+ */
+export function shouldRestoreClosedDrop(input: {
+  stackLength: number;
+  historyFlagged: boolean;
+  locationHref: string;
+  savedCanonical: string | null;
+}): boolean {
+  return (
+    input.stackLength === 0 &&
+    input.historyFlagged &&
+    input.savedCanonical != null &&
+    input.locationHref === input.savedCanonical
+  );
+}
+
 export function beginHistoryBack(input: {
   depth: number;
   historyHasLayer: boolean;

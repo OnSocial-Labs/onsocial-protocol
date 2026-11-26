@@ -10,9 +10,9 @@ function src(rel: string): string {
   return readFileSync(join(appSrc, rel), 'utf8');
 }
 
-/** Drop = place (dock); use surfaces = header chevron. */
+/** Every in-app drop tap opens one sheet. The page stays for hard loads. */
 describe('Drop place openers', () => {
-  it('soft-navs with warm seed — does not open the appear layer by default', () => {
+  it('opens the shared sheet with a warm seed — no soft-nav to /collection', () => {
     const open = src('features/scarces/drop-place-open.tsx');
     expect(open).toContain('export function DropPlaceLink');
     expect(open).toContain('export function useDropPlaceOpen');
@@ -22,13 +22,17 @@ describe('Drop place openers', () => {
     expect(open).toContain('readCollectionView');
     expect(open).toContain('seedDropLoveFaceFromList');
     expect(open).toContain('fanCount');
-    expect(open).toContain('scroll: false');
-    expect(open).toContain("kind: 'full'");
+    expect(open).toContain('openDrop({');
+    expect(open).toContain('usePostThreadLayer');
     expect(open).toContain('rememberCollectionView');
+    expect(open).toContain('warmDropPanel');
     expect(open).toMatch(/<a\b/);
     expect(open).not.toMatch(/from 'next\/link'/);
+    expect(open).not.toMatch(/router\.push/);
     expect(open).not.toContain('DropOverlayLink');
     expect(open).not.toContain('useDropOverlayOpen');
+    expect(open).not.toContain('DropAppearLink');
+    expect(open).not.toContain('useDropAppearOpen');
   });
 
   it('resolves solid list view, else remembered catalog, else thin seed', () => {
@@ -228,9 +232,18 @@ describe('Drop place openers', () => {
     expect(loading).toContain('Door / redeem route loading only');
   });
 
-  it('full drop place owns dock Back; player uses header chevron', () => {
+  it('drop sheet keeps dock Back and dock Mint; player uses header chevron', () => {
     const panel = src('features/scarces/collection-page-panel.tsx');
-    expect(panel).toContain('dockBack={!embedded}');
+    const layer = src('features/home/post-thread-layer.tsx');
+    expect(panel).toContain('dockBack={dockBackOn}');
+    expect(panel).toContain('embedded');
+    expect(panel).toContain('? onClose');
+    expect(panel).toContain('suspendDock');
+    expect(panel).not.toContain('collectionAppearBack');
+    expect(panel).not.toContain('ChevronLeftIcon');
+    expect(layer).toContain('panelClassName="drop-sheet-panel"');
+    expect(layer).toContain('suspendDock={parked}');
+    expect(layer).toContain('keepDock');
     expect(panel).toContain('useRegisterComposeAction');
     expect(panel).toContain("isOwner ? 'announce' : 'mint'");
     expect(panel).toContain('seededHotOpen');
