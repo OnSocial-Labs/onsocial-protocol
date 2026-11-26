@@ -20,8 +20,9 @@ up to date when adding or changing a page.
   (280ms fallback) and then unmounts; `prefers-reduced-motion` drops the
   cover immediately. Soft-fill / reserved seats stay opaque (or swap in place)
   — do not gate late data behind `OsPageBodyAppear` (flicker). Drop place has
-  no route `loading.tsx` so soft-nav keeps the previous screen until one page
-  mount (no loading→panel remount flicker on Collectibles / Show pass).
+  no route `loading.tsx`. A tap paints the seeded panel on that commit; the
+  route must not mount a second one (Collectibles / Show pass stay put).
+  Hard refresh still paints the final page once.
 - Refresh with painted data → keep rows and set `is-refreshing`.
 - Load more → silent happy path; late/in-flight = footer PulsingDots
   (OsLoadMore / sentinel). Never append cold skeleton rows mid-list.

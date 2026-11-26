@@ -1,6 +1,10 @@
 import type { Metadata } from 'next';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { CollectionPagePanel } from '@/features/scarces/collection-page-panel';
+import {
+  collectionRscDefersToInstantHost,
+  DROP_PLACE_INSTANT_COOKIE,
+} from '@/features/scarces/drop-place-instant';
 import { COLLECTION_PASS_TOKEN_PARAM } from '@/lib/app-routes';
 import {
   fetchCollectionCached,
@@ -48,9 +52,21 @@ export default async function CollectionPage({
 }: CollectionPageProps) {
   const { collectionId } = await params;
   const id = decodeURIComponent(collectionId);
+  const jar = await cookies();
+  const headerList = await headers();
+  // The tap already painted this panel. A second one here would remount it
+  // when the RSC lands. Document loads (hard refresh, shared link) skip this.
+  if (
+    collectionRscDefersToInstantHost({
+      rscHeader: headerList.get('rsc'),
+      cookie: jar.get(DROP_PLACE_INSTANT_COOKIE)?.value,
+      collectionId: id,
+    })
+  ) {
+    return null;
+  }
   const query = await searchParams;
   const { view, creator, activity } = await loadCollectionPageData(id);
-  const jar = await cookies();
   const hint = walletAccountHintFromCookie(
     jar.get(APP_WALLET_ACCOUNT_HINT_COOKIE)?.value
   );

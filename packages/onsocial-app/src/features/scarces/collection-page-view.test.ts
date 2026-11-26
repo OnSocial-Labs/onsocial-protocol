@@ -209,7 +209,7 @@ describe('collection page view', () => {
     ).toBe('drop');
   });
 
-  it('does not yield to a drop route loading.tsx (preserve previous soft-nav)', () => {
+  it('does not yield to a drop route loading.tsx (instant host owns the tap)', () => {
     expect(
       collectionRouteYieldsLoadingSkeleton({
         embedded: false,

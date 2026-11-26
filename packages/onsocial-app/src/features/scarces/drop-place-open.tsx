@@ -21,14 +21,12 @@ import {
   collectionViewNeedsCatalogSoftFill,
   seedCollectionViewFromStoreDrop as seedStoreDropView,
 } from '@/features/scarces/collection-page-view';
+import { armDropPlaceInstant } from '@/features/scarces/drop-place-instant';
 import { peekViewerAccountId } from '@/features/scarces/collection-page-view';
 import { fetchOwnedCollectionTokenId } from '@/features/scarces/collections-data';
 import { warmOwnedCollectionHold } from '@/features/scarces/owned-collection-hold-cache';
 import { seedDropLoveFaceFromList } from '@/hooks/use-scarce-drop-loves';
-import {
-  collectionPath,
-  parseInAppDropLayerHref,
-} from '@/lib/app-routes';
+import { collectionPath, parseInAppDropLayerHref } from '@/lib/app-routes';
 import type { ProfileStoreDrop } from '@/lib/profile-store-types';
 
 type DropPlaceRouter = {
@@ -68,7 +66,7 @@ export function resolveDropOpenSeed(opts: {
   return cached ?? initial;
 }
 
-/** Stash seed + creator so `/collection/…` loading paints frame 1 with dock. */
+/** Stash seed + creator so the tap can paint the drop before the RSC returns. */
 export function warmDropPlaceOpen(opts: {
   collectionId: string;
   initial?: CollectionView | null;
@@ -88,9 +86,7 @@ export function warmDropPlaceOpen(opts: {
     rememberCollectionCreatorFace(id, opts.initialCreator);
   }
   const creatorId =
-    seed?.creatorId?.trim() ||
-    opts.initial?.creatorId?.trim() ||
-    '';
+    seed?.creatorId?.trim() || opts.initial?.creatorId?.trim() || '';
   if (creatorId && opts.fanCount != null && opts.fanCount > 0) {
     seedDropLoveFaceFromList({
       creatorId,
@@ -117,7 +113,11 @@ export type DropPlaceOpenInput = {
   fanIds?: string[] | null;
 };
 
-/** Soft-nav to the full drop place after seeding cache. */
+/**
+ * Soft-nav to the full drop place after seeding cache.
+ * Arms the already-mounted drop panel first so the tap paints this turn.
+ * The collection RSC then fills that same panel instead of mounting another.
+ */
 export function navigateDropPlace(
   router: DropPlaceRouter,
   input: DropPlaceOpenInput
@@ -131,6 +131,10 @@ export function navigateDropPlace(
     fanCount: input.fanCount,
     fanIds: input.fanIds,
   });
+  armDropPlaceInstant({
+    href: input.href,
+    collectionId: parsed.collectionId,
+  });
   prefetchDropPlace(router, input.href);
   router.push(input.href, { scroll: false });
   return true;
@@ -138,7 +142,7 @@ export function navigateDropPlace(
 
 /**
  * Soft-nav to the full drop place (dock Back + dock Mint).
- * Seeds the catalog cache first so route loading can paint hot.
+ * Seeds the catalog cache first so the tap paints the drop immediately.
  */
 export function useDropPlaceOpen(): (input: DropPlaceOpenInput) => boolean {
   const router = useRouter();
@@ -211,7 +215,9 @@ export function DropPlaceLink({
             fanIds,
           });
         }
-        prefetchDropPlace(router as DropPlaceRouter, resolved);
+        // Prefetch waits for the click. A pointerdown prefetch would cache
+        // the full RSC before the instant cookie is set, and the tap would
+        // mount a second panel when that payload landed.
       }}
       onClick={(event: MouseEvent<HTMLAnchorElement>) => {
         onClick?.(event);

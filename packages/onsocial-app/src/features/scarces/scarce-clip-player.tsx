@@ -91,7 +91,9 @@ function paintedSlideZ(
   fallback: number
 ): number {
   const slide = node?.closest('[data-os-slide-over="true"]');
-  if (!(slide instanceof HTMLElement)) return fallback;
+  if (typeof HTMLElement === 'undefined' || !(slide instanceof HTMLElement)) {
+    return fallback;
+  }
   const z = Number(getComputedStyle(slide).zIndex);
   if (!Number.isFinite(z) || z <= 0) return fallback;
   return Math.max(fallback, z);
@@ -514,8 +516,7 @@ export function ScarceClipPlayer({
       Math.max(paintedFaceZ, paintedFaceZRef.current)
     );
     const steppedAside =
-      facesYielded &&
-      !mediaFaceCoveredBySheet({ held: true, faceZ, sheetZ });
+      facesYielded && !mediaFaceCoveredBySheet({ held: true, faceZ, sheetZ });
     const covered = mediaFaceCoveredBySheet({
       held: facesHeld,
       faceZ,

@@ -35,6 +35,7 @@ import {
   SCARCE_HERO_WIDTHS,
 } from '@/lib/hero-img-variants';
 import { RollingNumber } from '@/components/ui/rolling-number';
+import { clearDropPlaceInstant } from '@/features/scarces/drop-place-instant';
 import { useCatalogDockBack } from '@/hooks/use-catalog-dock-back';
 import { useImmersiveTitleHandoff } from '@/hooks/use-immersive-title-handoff';
 import {
@@ -414,6 +415,21 @@ export function CollectionPagePanel({
   );
   /** Seed, view cache, or now-playing — first paint was already the drop. */
   const [seededHotOpen] = useState(() => liveView != null);
+  /**
+   * Closed sheets are not the tap's first frame. A seeded open with no SSR
+   * activity (the instant host) paints cover / title / creator / fans first;
+   * the same screen mounts the sheets on the next commit.
+   */
+  const [overlayReady, setOverlayReady] = useState(
+    () => initialActivity !== undefined || liveView == null
+  );
+  useEffect(() => {
+    if (overlayReady) return;
+    const frame = requestAnimationFrame(() => {
+      setOverlayReady(true);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [overlayReady]);
   const view = liveView ?? initial ?? null;
   /** Album loves per track; writing/art love the drop. Fans seat is always the same. */
   const isAudioDrop = collectionCoverIsAudio({
@@ -473,14 +489,16 @@ export function CollectionPagePanel({
     return seed.holds;
   });
   /** Owned edition for Show pass when known. */
-  const [ownedPassTokenId, setOwnedPassTokenId] = useState<string | null>(() => {
-    if (initialHoldSeed) return initialHoldSeed.tokenId;
-    const seed = peekDropFaceHoldSeed(
-      viewerAccountId?.trim() || initialViewerAccountId?.trim() || null,
-      collectionId
-    );
-    return seed.tokenId;
-  });
+  const [ownedPassTokenId, setOwnedPassTokenId] = useState<string | null>(
+    () => {
+      if (initialHoldSeed) return initialHoldSeed.tokenId;
+      const seed = peekDropFaceHoldSeed(
+        viewerAccountId?.trim() || initialViewerAccountId?.trim() || null,
+        collectionId
+      );
+      return seed.tokenId;
+    }
+  );
   /** Query `?t=` wins; held token fills the same reserved seat (never inserts a line). */
   const faceEditionToken =
     editionToken || (ownedPassTokenId ? ownedPassTokenId.trim() : '');
@@ -728,9 +746,7 @@ export function CollectionPagePanel({
       setWalletRemaining(wallet);
       setAllowlistRemaining(allowlist);
       // Skip no-op updates — same token must not remount Show pass.
-      setOwnedPassTokenId((prev) =>
-        prev === ownedToken ? prev : ownedToken
-      );
+      setOwnedPassTokenId((prev) => (prev === ownedToken ? prev : ownedToken));
       setHoldsEdition((prev) => {
         const next = Boolean(ownedToken);
         return prev === next ? prev : next;
@@ -1166,7 +1182,10 @@ export function CollectionPagePanel({
     clientSettled,
   });
   const catalogLeaveHref = collectionDropBackHref({
-    useFirst: peekHoldsCollectionForDropPage(paintViewerAccountId, collectionId),
+    useFirst: peekHoldsCollectionForDropPage(
+      paintViewerAccountId,
+      collectionId
+    ),
     viewerAccountId: paintViewerAccountId,
   });
   const dockFallbackHref = view
@@ -1183,7 +1202,11 @@ export function CollectionPagePanel({
         viewerAccountId: paintViewerAccountId,
       })
     : catalogLeaveHref;
-  const onDockBack = useCatalogDockBack(dockFallbackHref);
+  const leaveDrop = useCatalogDockBack(dockFallbackHref);
+  const onDockBack = useCallback(() => {
+    clearDropPlaceInstant();
+    leaveDrop();
+  }, [leaveDrop]);
   if (catalogShell === 'skeleton' && !seededHotOpen) {
     return (
       <OsAppScreen
@@ -1572,502 +1595,517 @@ export function CollectionPagePanel({
                   fanCount={faceFans.fanCount}
                 />
               ) : null}
-              <div className="collection-commerce-action-icons">
-                {showDropLoveHeart ? (
+              {overlayReady ? (
+                <div className="collection-commerce-action-icons">
+                  {showDropLoveHeart ? (
+                    <button
+                      type="button"
+                      className={`collection-commerce-love os-confirm-icon${
+                        dropLoves.viewerLoved ? ' is-loved' : ''
+                      }${dropLoves.pending ? ' is-pending' : ''}`}
+                      aria-label={
+                        dropLoves.pending
+                          ? 'Confirming love'
+                          : dropLoves.viewerLoved
+                            ? 'Remove love from this drop'
+                            : 'Love this drop'
+                      }
+                      aria-pressed={dropLoves.viewerLoved}
+                      aria-busy={dropLoves.pending}
+                      disabled={dropLoves.pending}
+                      onClick={() => {
+                        void dropLoves.toggleLove();
+                      }}
+                    >
+                      {dropLoves.viewerLoved ? (
+                        <HeartFillIcon
+                          aria-hidden
+                          className="collection-commerce-love-icon"
+                        />
+                      ) : (
+                        <HeartIcon
+                          aria-hidden
+                          className="collection-commerce-love-icon"
+                        />
+                      )}
+                    </button>
+                  ) : null}
                   <button
                     type="button"
-                    className={`collection-commerce-love os-confirm-icon${
-                      dropLoves.viewerLoved ? ' is-loved' : ''
-                    }${dropLoves.pending ? ' is-pending' : ''}`}
+                    className={`collection-commerce-save os-confirm-icon${
+                      collectionSaved ? ' is-saved' : ''
+                    }${collectionSavePending ? ' is-pending' : ''}`}
                     aria-label={
-                      dropLoves.pending
-                        ? 'Confirming love'
-                        : dropLoves.viewerLoved
-                          ? 'Remove love from this drop'
-                          : 'Love this drop'
+                      collectionSaved
+                        ? 'Remove drop bookmark'
+                        : 'Bookmark this drop'
                     }
-                    aria-pressed={dropLoves.viewerLoved}
-                    aria-busy={dropLoves.pending}
-                    disabled={dropLoves.pending}
+                    aria-pressed={collectionSaved}
+                    disabled={collectionSavePending}
                     onClick={() => {
-                      void dropLoves.toggleLove();
+                      void collectionSaves.toggleSave(collectionId);
                     }}
                   >
-                    {dropLoves.viewerLoved ? (
-                      <HeartFillIcon
+                    {collectionSaved ? (
+                      <BookmarkFillIcon
                         aria-hidden
-                        className="collection-commerce-love-icon"
+                        className="collection-commerce-save-icon"
                       />
                     ) : (
-                      <HeartIcon
+                      <BookmarkIcon
                         aria-hidden
-                        className="collection-commerce-love-icon"
+                        className="collection-commerce-save-icon"
                       />
                     )}
                   </button>
-                ) : null}
-                <button
-                  type="button"
-                  className={`collection-commerce-save os-confirm-icon${
-                    collectionSaved ? ' is-saved' : ''
-                  }${collectionSavePending ? ' is-pending' : ''}`}
-                  aria-label={
-                    collectionSaved
-                      ? 'Remove drop bookmark'
-                      : 'Bookmark this drop'
-                  }
-                  aria-pressed={collectionSaved}
-                  disabled={collectionSavePending}
-                  onClick={() => {
-                    void collectionSaves.toggleSave(collectionId);
-                  }}
-                >
-                  {collectionSaved ? (
-                    <BookmarkFillIcon
+                  <button
+                    type="button"
+                    className="collection-commerce-share"
+                    aria-label={shareCopied ? 'Link copied' : 'Share drop link'}
+                    onClick={() => {
+                      void handleShare();
+                    }}
+                  >
+                    <ShareIcon
                       aria-hidden
-                      className="collection-commerce-save-icon"
+                      className="collection-commerce-share-icon"
                     />
-                  ) : (
-                    <BookmarkIcon
-                      aria-hidden
-                      className="collection-commerce-save-icon"
-                    />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className="collection-commerce-share"
-                  aria-label={shareCopied ? 'Link copied' : 'Share drop link'}
-                  onClick={() => {
-                    void handleShare();
-                  }}
-                >
-                  <ShareIcon
-                    aria-hidden
-                    className="collection-commerce-share-icon"
-                  />
-                </button>
-              </div>
+                  </button>
+                </div>
+              ) : null}
             </div>
-            <div className="collection-use-actions">
-              {(() => {
-                // Industry CLS: same reading-row chassis as the skeleton from
-                // frame 1. Lead + trail seats fill in place — never solo
-                // Collectibles, never morph when hold/wallet lands.
-                const trail =
-                  isPassKind && holdsEdition !== false ? (
-                    <CollectionShowPassTrail
-                      ready={canShowPass}
-                      label={passActionLabel}
-                      onOpen={openOwnedPass}
-                    />
-                  ) : opensWritingReader ? (
-                  <OsRowAction
-                    className="collectibles-holding-action"
-                    onClick={openWritingRead}
-                  >
-                    Read
-                  </OsRowAction>
-                ) : hasPlayables &&
-                  useFirst &&
-                  listenOnPlayPage &&
-                  holderPlayHref ? (
-                  <OsRowAction
-                    className="collectibles-holding-action"
-                    href={holderPlayHref}
-                  >
-                    Play
-                  </OsRowAction>
-                ) : hasPlayables && !useFirst ? (
-                  <OsRowAction
-                    className="collectibles-holding-action"
-                    onClick={() => setCoverListenOpen(true)}
-                  >
-                    Play
-                  </OsRowAction>
-                ) : (
-                  <span
-                    className="collection-use-actions-trail-chassis"
-                    aria-hidden
-                  />
-                );
-                // Reserve the pass+Play row while hold is unknown or held —
-                // never mount a second reading row after fetch (height flash).
-                const reservePassPlayRow =
-                  isPassKind &&
-                  hasPlayables &&
-                  Boolean(holderPlayHref) &&
-                  holdsEdition !== false &&
-                  (canShowPass || ownership === 'holder' || ownership === 'unknown');
-                const holderPlayBesidePass = reservePassPlayRow ? (
-                  <div className="collection-reading-row">
-                    <CollectionOpenCollectiblesLead href={null} />
-                    {canShowPass || ownership === 'holder' ? (
-                      <OsRowAction
-                        className="collectibles-holding-action"
-                        href={holderPlayHref!}
-                      >
-                        Play
-                      </OsRowAction>
-                    ) : (
-                      <span
-                        className="collection-use-actions-trail-ghost"
-                        aria-hidden
-                      >
-                        <OsRowAction onClick={() => {}}>Play</OsRowAction>
-                      </span>
-                    )}
+            {overlayReady ? (
+              <>
+                <div className="collection-use-actions">
+                  {(() => {
+                    // Industry CLS: same reading-row chassis as the skeleton from
+                    // frame 1. Lead + trail seats fill in place — never solo
+                    // Collectibles, never morph when hold/wallet lands.
+                    const trail =
+                      isPassKind && holdsEdition !== false ? (
+                        <CollectionShowPassTrail
+                          ready={canShowPass}
+                          label={passActionLabel}
+                          onOpen={openOwnedPass}
+                        />
+                      ) : opensWritingReader ? (
+                        <OsRowAction
+                          className="collectibles-holding-action"
+                          onClick={openWritingRead}
+                        >
+                          Read
+                        </OsRowAction>
+                      ) : hasPlayables &&
+                        useFirst &&
+                        listenOnPlayPage &&
+                        holderPlayHref ? (
+                        <OsRowAction
+                          className="collectibles-holding-action"
+                          href={holderPlayHref}
+                        >
+                          Play
+                        </OsRowAction>
+                      ) : hasPlayables && !useFirst ? (
+                        <OsRowAction
+                          className="collectibles-holding-action"
+                          onClick={() => setCoverListenOpen(true)}
+                        >
+                          Play
+                        </OsRowAction>
+                      ) : (
+                        <span
+                          className="collection-use-actions-trail-chassis"
+                          aria-hidden
+                        />
+                      );
+                    // Reserve the pass+Play row while hold is unknown or held —
+                    // never mount a second reading row after fetch (height flash).
+                    const reservePassPlayRow =
+                      isPassKind &&
+                      hasPlayables &&
+                      Boolean(holderPlayHref) &&
+                      holdsEdition !== false &&
+                      (canShowPass ||
+                        ownership === 'holder' ||
+                        ownership === 'unknown');
+                    const holderPlayBesidePass = reservePassPlayRow ? (
+                      <div className="collection-reading-row">
+                        <CollectionOpenCollectiblesLead href={null} />
+                        {canShowPass || ownership === 'holder' ? (
+                          <OsRowAction
+                            className="collectibles-holding-action"
+                            href={holderPlayHref!}
+                          >
+                            Play
+                          </OsRowAction>
+                        ) : (
+                          <span
+                            className="collection-use-actions-trail-ghost"
+                            aria-hidden
+                          >
+                            <OsRowAction onClick={() => {}}>Play</OsRowAction>
+                          </span>
+                        )}
+                      </div>
+                    ) : null;
+                    return (
+                      <>
+                        <div className="collection-reading-row">
+                          <CollectionOpenCollectiblesLead href={vaultHref} />
+                          {trail}
+                        </div>
+                        {holderPlayBesidePass}
+                      </>
+                    );
+                  })()}
+                </div>
+                {isTicketKind ? (
+                  <div className="collection-event-lines">
+                    <p
+                      className={`collection-product-line${
+                        aboutEvent.when || scheduleMoved ? '' : ' is-reserved'
+                      }`}
+                    >
+                      {aboutEvent.when ? <span>{aboutEvent.when}</span> : null}
+                      {scheduleMoved ? (
+                        <>
+                          {aboutEvent.when ? (
+                            <span className="collection-meta-sep" aria-hidden>
+                              ·
+                            </span>
+                          ) : null}
+                          <button
+                            type="button"
+                            className="collection-product-status is-idle collection-event-updated"
+                            onClick={() => setFactsOpen(true)}
+                          >
+                            {EVENT_SCHEDULE_UPDATED_LABEL}
+                          </button>
+                        </>
+                      ) : aboutEvent.when ? null : (
+                        <span aria-hidden>When</span>
+                      )}
+                    </p>
+                    <p
+                      className={`collection-product-line${
+                        aboutEvent.place ? '' : ' is-reserved'
+                      }`}
+                    >
+                      {aboutEvent.place ?? <span aria-hidden>Place</span>}
+                    </p>
+                    <p
+                      className={`collection-product-line${
+                        aboutEvent.next ? '' : ' is-reserved'
+                      }`}
+                    >
+                      {aboutEvent.next ? (
+                        eventHintLive(aboutEvent.next) ? (
+                          <span className="collection-product-status is-live">
+                            {aboutEvent.next}
+                          </span>
+                        ) : (
+                          aboutEvent.next
+                        )
+                      ) : (
+                        <span aria-hidden>Next</span>
+                      )}
+                    </p>
                   </div>
-                ) : null;
-                return (
-                  <>
-                    <div className="collection-reading-row">
-                      <CollectionOpenCollectiblesLead href={vaultHref} />
-                      {trail}
-                    </div>
-                    {holderPlayBesidePass}
-                  </>
-                );
-              })()}
-            </div>
-            {isTicketKind ? (
-              <div className="collection-event-lines">
-                <p
-                  className={`collection-product-line${
-                    aboutEvent.when || scheduleMoved ? '' : ' is-reserved'
+                ) : null}
+                {/* Always paint supply + progress — ownership/mint settle must not
+                collapse this chassis (CLS on soft-nav and cold hydrate). */}
+                <div
+                  className={`collection-product-row${
+                    capApplicable ? ' has-wallet-cap' : ''
                   }`}
                 >
-                  {aboutEvent.when ? <span>{aboutEvent.when}</span> : null}
-                  {scheduleMoved ? (
-                    <>
-                      {aboutEvent.when ? (
+                  <div className="collection-product-line">
+                    <span
+                      className={`collection-product-status ${statusTone(status)}`}
+                    >
+                      {productStatus}
+                    </span>
+                    <span className="collection-meta-sep" aria-hidden>
+                      ·
+                    </span>
+                    <span className="collection-commerce-supply">
+                      <span className="sr-only">
+                        {view.minted}/{view.totalSupply}
+                      </span>
+                      <span
+                        aria-hidden="true"
+                        className="collection-commerce-supply-figures"
+                      >
+                        <RollingNumber value={view.minted} />
+                        <span className="collection-commerce-supply-sep">
+                          /
+                        </span>
+                        <RollingNumber value={view.totalSupply} />
+                      </span>
+                    </span>
+                    {dollarStickerLabel(view.usdE6) ||
+                    (view.priceNear &&
+                      view.priceNear !== '0' &&
+                      view.priceYocto !== '0') ? (
+                      <>
                         <span className="collection-meta-sep" aria-hidden>
                           ·
                         </span>
-                      ) : null}
-                      <button
-                        type="button"
-                        className="collection-product-status is-idle collection-event-updated"
-                        onClick={() => setFactsOpen(true)}
-                      >
-                        {EVENT_SCHEDULE_UPDATED_LABEL}
-                      </button>
-                    </>
-                  ) : aboutEvent.when ? null : (
-                    <span aria-hidden>When</span>
-                  )}
-                </p>
-                <p
-                  className={`collection-product-line${
-                    aboutEvent.place ? '' : ' is-reserved'
-                  }`}
-                >
-                  {aboutEvent.place ?? <span aria-hidden>Place</span>}
-                </p>
-                <p
-                  className={`collection-product-line${
-                    aboutEvent.next ? '' : ' is-reserved'
-                  }`}
-                >
-                  {aboutEvent.next ? (
-                    eventHintLive(aboutEvent.next) ? (
-                      <span className="collection-product-status is-live">
-                        {aboutEvent.next}
-                      </span>
-                    ) : (
-                      aboutEvent.next
-                    )
-                  ) : (
-                    <span aria-hidden>Next</span>
-                  )}
-                </p>
-              </div>
-            ) : null}
-            {/* Always paint supply + progress — ownership/mint settle must not
-                collapse this chassis (CLS on soft-nav and cold hydrate). */}
-            <div
-              className={`collection-product-row${
-                capApplicable ? ' has-wallet-cap' : ''
-              }`}
-            >
-              <div className="collection-product-line">
-                <span
-                  className={`collection-product-status ${statusTone(status)}`}
-                >
-                  {productStatus}
-                </span>
-                <span className="collection-meta-sep" aria-hidden>
-                  ·
-                </span>
-                <span className="collection-commerce-supply">
-                  <span className="sr-only">
-                    {view.minted}/{view.totalSupply}
-                  </span>
-                  <span
-                    aria-hidden="true"
-                    className="collection-commerce-supply-figures"
-                  >
-                    <RollingNumber value={view.minted} />
-                    <span className="collection-commerce-supply-sep">/</span>
-                    <RollingNumber value={view.totalSupply} />
-                  </span>
-                </span>
-                {dollarStickerLabel(view.usdE6) ||
-                (view.priceNear &&
-                  view.priceNear !== '0' &&
-                  view.priceYocto !== '0') ? (
-                  <>
-                    <span className="collection-meta-sep" aria-hidden>
-                      ·
-                    </span>
-                    <span className="collection-product-price">
-                      {dollarStickerLabel(view.usdE6) ??
-                        `${view.priceNear} NEAR`}
-                    </span>
-                  </>
-                ) : view.kind === 'ticket' ? (
-                  <>
-                    <span className="collection-meta-sep" aria-hidden>
-                      ·
-                    </span>
-                    <span className="collection-product-price">Free</span>
-                  </>
-                ) : null}
-                {capApplicable ? (
-                  <OsLateFill className="collection-wallet-cap">
-                    {personalAllowlistLeft != null ? (
+                        <span className="collection-product-price">
+                          {dollarStickerLabel(view.usdE6) ??
+                            `${view.priceNear} NEAR`}
+                        </span>
+                      </>
+                    ) : view.kind === 'ticket' ? (
+                      <>
+                        <span className="collection-meta-sep" aria-hidden>
+                          ·
+                        </span>
+                        <span className="collection-product-price">Free</span>
+                      </>
+                    ) : null}
+                    {capApplicable ? (
+                      <OsLateFill className="collection-wallet-cap">
+                        {personalAllowlistLeft != null ? (
+                          <>
+                            <span className="collection-meta-sep" aria-hidden>
+                              ·
+                            </span>
+                            <span className="collection-commerce-chips">
+                              {personalAllowlistLeft === 1
+                                ? '1 left for you'
+                                : `${personalAllowlistLeft} left for you`}
+                            </span>
+                          </>
+                        ) : null}
+                      </OsLateFill>
+                    ) : null}
+                    {chipParts.length > 0 ? (
                       <>
                         <span className="collection-meta-sep" aria-hidden>
                           ·
                         </span>
                         <span className="collection-commerce-chips">
-                          {personalAllowlistLeft === 1
-                            ? '1 left for you'
-                            : `${personalAllowlistLeft} left for you`}
+                          {chipParts.join(' · ')}
                         </span>
                       </>
                     ) : null}
+                  </div>
+                </div>
+                <div
+                  className="collection-progress"
+                  role="progressbar"
+                  aria-valuenow={progressPct}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`${heldEditionPlural(view.kind)} minted`}
+                >
+                  <Divider
+                    variant="detail"
+                    className="collection-progress-rule"
+                  />
+                  <span
+                    className="collection-progress-fill"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
+                <div className="collection-mint-hint-seat">
+                  <p className="collection-mint-hint-sizer" aria-hidden>
+                    {COLLECTION_MINT_HINT_SIZER}
+                  </p>
+                  <OsLateFill className="collection-mint-hint">
+                    {personalMintHint && !isOwner ? personalMintHint : null}
                   </OsLateFill>
-                ) : null}
-                {chipParts.length > 0 ? (
-                  <>
-                    <span className="collection-meta-sep" aria-hidden>
-                      ·
-                    </span>
-                    <span className="collection-commerce-chips">
-                      {chipParts.join(' · ')}
-                    </span>
-                  </>
-                ) : null}
-              </div>
-            </div>
-            <div
-              className="collection-progress"
-              role="progressbar"
-              aria-valuenow={progressPct}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label={`${heldEditionPlural(view.kind)} minted`}
-            >
-              <Divider variant="detail" className="collection-progress-rule" />
-              <span
-                className="collection-progress-fill"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-            <div className="collection-mint-hint-seat">
-              <p className="collection-mint-hint-sizer" aria-hidden>
-                {COLLECTION_MINT_HINT_SIZER}
-              </p>
-              <OsLateFill className="collection-mint-hint">
-                {personalMintHint && !isOwner ? personalMintHint : null}
-              </OsLateFill>
-            </div>
+                </div>
+              </>
+            ) : null}
           </CollectionDropEnter>
         </header>
       </section>
 
-      <CollectionDropEnter play={enterOn} index={3}>
-        {view.isVariations ? (
-          <VariationSetPeek
-            collectionId={view.collectionId}
-            totalSupply={view.totalSupply}
-            samples={view.variationSamples ?? []}
-            randomAssignment={view.randomAssignment}
-            referenceTemplate={view.variationReferenceTemplate}
-          />
-        ) : null}
+      {overlayReady ? (
+        <CollectionDropEnter play={enterOn} index={3}>
+          {view.isVariations ? (
+            <VariationSetPeek
+              collectionId={view.collectionId}
+              totalSupply={view.totalSupply}
+              samples={view.variationSamples ?? []}
+              randomAssignment={view.randomAssignment}
+              referenceTemplate={view.variationReferenceTemplate}
+            />
+          ) : null}
 
-        {showInlineTracks || mediumBodyPending ? (
-          <div className="collection-tracks-seat">
-            <CollectionSeatSettle
-              pending={!showInlineTracks && mediumBodyPending}
-              skeleton={<CollectionTracksSkeleton />}
-            >
-              {showInlineTracks && playables[0] ? (
-                <section className="collection-tracks" aria-label="Tracks">
-                  <p className="collection-section-label">
-                    {playables.length === 1
-                      ? '1 track'
-                      : `${playables.length} tracks`}
-                  </p>
-                  <ScarceClipPlayer
-                    key={`tracks-${playables[0]!.url}`}
-                    clip={playables[0]!}
-                    tracks={playables}
-                    poster={coverSrc}
-                    layout="tracks"
-                    showTransport={false}
-                    showFeedPost={false}
-                    showShare={false}
-                    showDownloads={false}
-                    showAlbumFans={false}
-                    persist={{
-                      collectionId: view.collectionId,
-                      title: view.title,
-                      creatorId: view.creatorId,
-                      seriesId: view.seriesId,
-                      seriesTitle: view.seriesTitle,
-                      audioFormat: view.audioFormat,
-                      facets: view.facets,
-                    }}
-                    creatorId={view.creatorId}
-                    canKeepOffline={
-                      isOwner
-                        ? true
-                        : !viewerAccountId
-                          ? false
-                          : holdsEdition == null
-                            ? null
-                            : holdsEdition
-                    }
-                  />
-                </section>
-              ) : null}
-            </CollectionSeatSettle>
-          </div>
-        ) : null}
-
-        <CollectionEventGuests
-          collectionId={view.collectionId}
-          title={view.title}
-          sold={view.minted}
-          live={supplyLive}
-          {...collectionGuestRoster({
-            kind: view.kind,
-            window: eventWindowFor({ view }, nowMs),
-            accessEndsAtMs: view.accessEndsAtMs,
-            eventStartsAtMs: view.eventStartsAtMs,
-            eventEndsAtMs: view.eventEndsAtMs,
-            nowMs,
-          })}
-          voice={staffVoice}
-        />
-
-        {canDoor || (isOwner && status === 'upcoming') ? (
-          <section
-            className="collection-reading"
-            aria-label={isOwner ? 'Host tools' : 'Door'}
-          >
-            {canDoor ? (
-              <>
-                <div className="collection-reading-row">
-                  <p className="collection-section-label">
-                    {staffVoice === 'redeem' ? 'Counter' : 'Door'}
-                  </p>
-                  <OsRowAction
-                    href={
-                      staffVoice === 'redeem'
-                        ? collectionRedeemPath(view.collectionId)
-                        : collectionDoorPath(view.collectionId)
-                    }
-                  >
-                    {staffVoice === 'redeem' ? 'Redeem' : 'Admit'}
-                  </OsRowAction>
-                </div>
-                <div className="collection-reading-row">
-                  <p className="collection-section-label">
-                    {staffVoice === 'redeem' ? 'Redeem log' : 'Door log'}
-                  </p>
-                  <OsRowAction onClick={() => setDoorLogOpen(true)}>
-                    Scans
-                  </OsRowAction>
-                </div>
-              </>
-            ) : null}
-            {canDoor ? (
-              <CollectionDoorLogSheet
-                open={doorLogOpen}
-                onClose={() => setDoorLogOpen(false)}
-                collectionId={view.collectionId}
-                voice={staffVoice}
-              />
-            ) : null}
-            {isOwner && status === 'upcoming' ? (
-              <CollectionAllowlistManager
-                collectionId={view.collectionId}
-                creatorId={view.creatorId}
-                maxPerWallet={view.maxPerWallet}
-                hasList={view.hasAllowlist}
-                earlyAccessActive
-              />
-            ) : null}
-          </section>
-        ) : null}
-
-        {sourceHref ? (
-          <Link
-            href={sourceHref}
-            scroll={false}
-            className="collection-source-link"
-            onClick={(event: MouseEvent<HTMLAnchorElement>) => {
-              if (!isUnmodifiedPrimaryClick(event)) return;
-              if (!isAppPostSheetHref(sourceHref)) return;
-              event.preventDefault();
-              event.stopPropagation();
-              openPostThread({ href: sourceHref });
-            }}
-            onNavigate={(event) => {
-              if (!isAppPostSheetHref(sourceHref)) return;
-              event.preventDefault();
-              openPostThread({ href: sourceHref });
-            }}
-          >
-            View source post
-          </Link>
-        ) : null}
-
-        <section className="collection-activity" aria-label="Drop activity">
-          <Divider variant="detail" />
-          <div className="collection-activity-head">
-            <p className="collection-section-label">Activity</p>
-            {showActivitySeeAll ? (
-              <button
-                type="button"
-                className="collection-activity-more"
-                onClick={() => setActivityOpen(true)}
+          {showInlineTracks || mediumBodyPending ? (
+            <div className="collection-tracks-seat">
+              <CollectionSeatSettle
+                pending={!showInlineTracks && mediumBodyPending}
+                skeleton={<CollectionTracksSkeleton />}
               >
-                See all
-              </button>
-            ) : null}
-          </div>
-          <div className="collection-activity-seat">
-            <CollectionSeatSettle
-              pending={showActivityPending}
-              skeleton={<CollectionActivitySkeleton rows={3} />}
+                {showInlineTracks && playables[0] ? (
+                  <section className="collection-tracks" aria-label="Tracks">
+                    <p className="collection-section-label">
+                      {playables.length === 1
+                        ? '1 track'
+                        : `${playables.length} tracks`}
+                    </p>
+                    <ScarceClipPlayer
+                      key={`tracks-${playables[0]!.url}`}
+                      clip={playables[0]!}
+                      tracks={playables}
+                      poster={coverSrc}
+                      layout="tracks"
+                      showTransport={false}
+                      showFeedPost={false}
+                      showShare={false}
+                      showDownloads={false}
+                      showAlbumFans={false}
+                      persist={{
+                        collectionId: view.collectionId,
+                        title: view.title,
+                        creatorId: view.creatorId,
+                        seriesId: view.seriesId,
+                        seriesTitle: view.seriesTitle,
+                        audioFormat: view.audioFormat,
+                        facets: view.facets,
+                      }}
+                      creatorId={view.creatorId}
+                      canKeepOffline={
+                        isOwner
+                          ? true
+                          : !viewerAccountId
+                            ? false
+                            : holdsEdition == null
+                              ? null
+                              : holdsEdition
+                      }
+                    />
+                  </section>
+                ) : null}
+              </CollectionSeatSettle>
+            </div>
+          ) : null}
+
+          <CollectionEventGuests
+            collectionId={view.collectionId}
+            title={view.title}
+            sold={view.minted}
+            live={supplyLive}
+            {...collectionGuestRoster({
+              kind: view.kind,
+              window: eventWindowFor({ view }, nowMs),
+              accessEndsAtMs: view.accessEndsAtMs,
+              eventStartsAtMs: view.eventStartsAtMs,
+              eventEndsAtMs: view.eventEndsAtMs,
+              nowMs,
+            })}
+            voice={staffVoice}
+          />
+
+          {canDoor || (isOwner && status === 'upcoming') ? (
+            <section
+              className="collection-reading"
+              aria-label={isOwner ? 'Host tools' : 'Door'}
             >
-              {mintPreview.length > 0 ? (
-                <CollectionActivityRows
-                  rows={mintPreview}
-                  profiles={activityProfiles}
+              {canDoor ? (
+                <>
+                  <div className="collection-reading-row">
+                    <p className="collection-section-label">
+                      {staffVoice === 'redeem' ? 'Counter' : 'Door'}
+                    </p>
+                    <OsRowAction
+                      href={
+                        staffVoice === 'redeem'
+                          ? collectionRedeemPath(view.collectionId)
+                          : collectionDoorPath(view.collectionId)
+                      }
+                    >
+                      {staffVoice === 'redeem' ? 'Redeem' : 'Admit'}
+                    </OsRowAction>
+                  </div>
+                  <div className="collection-reading-row">
+                    <p className="collection-section-label">
+                      {staffVoice === 'redeem' ? 'Redeem log' : 'Door log'}
+                    </p>
+                    <OsRowAction onClick={() => setDoorLogOpen(true)}>
+                      Scans
+                    </OsRowAction>
+                  </div>
+                </>
+              ) : null}
+              {canDoor ? (
+                <CollectionDoorLogSheet
+                  open={doorLogOpen}
+                  onClose={() => setDoorLogOpen(false)}
+                  collectionId={view.collectionId}
+                  voice={staffVoice}
                 />
-              ) : (
-                <p className="collection-activity-empty">No activity yet</p>
-              )}
-            </CollectionSeatSettle>
-          </div>
-        </section>
-      </CollectionDropEnter>
+              ) : null}
+              {isOwner && status === 'upcoming' ? (
+                <CollectionAllowlistManager
+                  collectionId={view.collectionId}
+                  creatorId={view.creatorId}
+                  maxPerWallet={view.maxPerWallet}
+                  hasList={view.hasAllowlist}
+                  earlyAccessActive
+                />
+              ) : null}
+            </section>
+          ) : null}
+
+          {sourceHref ? (
+            <Link
+              href={sourceHref}
+              scroll={false}
+              className="collection-source-link"
+              onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+                if (!isUnmodifiedPrimaryClick(event)) return;
+                if (!isAppPostSheetHref(sourceHref)) return;
+                event.preventDefault();
+                event.stopPropagation();
+                openPostThread({ href: sourceHref });
+              }}
+              onNavigate={(event) => {
+                if (!isAppPostSheetHref(sourceHref)) return;
+                event.preventDefault();
+                openPostThread({ href: sourceHref });
+              }}
+            >
+              View source post
+            </Link>
+          ) : null}
+
+          <section className="collection-activity" aria-label="Drop activity">
+            <Divider variant="detail" />
+            <div className="collection-activity-head">
+              <p className="collection-section-label">Activity</p>
+              {showActivitySeeAll ? (
+                <button
+                  type="button"
+                  className="collection-activity-more"
+                  onClick={() => setActivityOpen(true)}
+                >
+                  See all
+                </button>
+              ) : null}
+            </div>
+            <div className="collection-activity-seat">
+              <CollectionSeatSettle
+                pending={showActivityPending}
+                skeleton={<CollectionActivitySkeleton rows={3} />}
+              >
+                {mintPreview.length > 0 ? (
+                  <CollectionActivityRows
+                    rows={mintPreview}
+                    profiles={activityProfiles}
+                  />
+                ) : (
+                  <p className="collection-activity-empty">No activity yet</p>
+                )}
+              </CollectionSeatSettle>
+            </div>
+          </section>
+        </CollectionDropEnter>
+      ) : null}
     </div>
   );
 
@@ -2081,6 +2119,7 @@ export function CollectionPagePanel({
       leading={embedded ? collectionAppearBack(onClose) : undefined}
       immersiveHeader={immersive}
       scrollRootRef={scrollRootRef}
+      launcher={embedded ? false : overlayReady}
       actions={
         <>
           <span className={`collection-header-status ${statusTone(status)}`}>
@@ -2095,8 +2134,8 @@ export function CollectionPagePanel({
       }
     >
       {seededHotOpen ? (
-        // Warm soft-nav: opaque. loading.tsx → page remount + surface fade
-        // made Open Collectibles / Show pass flicker; cold settle still rises.
+        // Warm open: opaque, one mount. A loading.tsx swap remounted
+        // Collectibles / Show pass. Cold settle still rises.
         dropFace
       ) : (
         <div className="collection-drop-settle">
@@ -2110,137 +2149,141 @@ export function CollectionPagePanel({
           </OsRouteSettle>
         </div>
       )}
-      <Suspense fallback={null}>
-        <EditionQueryToken
-          collectionId={collectionId}
-          onToken={rememberEditionToken}
-        />
-      </Suspense>
+      {overlayReady ? (
+        <>
+          <Suspense fallback={null}>
+            <EditionQueryToken
+              collectionId={collectionId}
+              onToken={rememberEditionToken}
+            />
+          </Suspense>
 
-      <OsHugSheet
-        open={activitySheetOpen}
-        onClose={requestActivityClose}
-        onClosed={handleActivityClosed}
-        label="Activity"
-        copy={view.title}
-        closeAriaLabel="Close activity"
-        backdropLabel="Close activity"
-        zIndex={SHEET_Z.list}
-        panelClassName="collection-activity-sheet-panel os-sheet-cap-standard"
-        bodyClassName="collection-activity-sheet-body"
-      >
-        {!activityLoaded ? (
-          <CollectionActivitySkeleton rows={6} />
-        ) : sheetActivity.length > 0 ? (
-          <CollectionActivityRows
-            rows={sheetActivity}
-            profiles={activityProfiles}
+          <OsHugSheet
+            open={activitySheetOpen}
+            onClose={requestActivityClose}
+            onClosed={handleActivityClosed}
+            label="Activity"
+            copy={view.title}
+            closeAriaLabel="Close activity"
+            backdropLabel="Close activity"
+            zIndex={SHEET_Z.list}
+            panelClassName="collection-activity-sheet-panel os-sheet-cap-standard"
+            bodyClassName="collection-activity-sheet-body"
+          >
+            {!activityLoaded ? (
+              <CollectionActivitySkeleton rows={6} />
+            ) : sheetActivity.length > 0 ? (
+              <CollectionActivityRows
+                rows={sheetActivity}
+                profiles={activityProfiles}
+              />
+            ) : (
+              <p className="collection-activity-empty">No mint activity yet.</p>
+            )}
+          </OsHugSheet>
+
+          <CollectionAboutSheet
+            open={aboutOpen}
+            onClose={() => setAboutOpen(false)}
+            view={view}
           />
-        ) : (
-          <p className="collection-activity-empty">No mint activity yet.</p>
-        )}
-      </OsHugSheet>
 
-      <CollectionAboutSheet
-        open={aboutOpen}
-        onClose={() => setAboutOpen(false)}
-        view={view}
-      />
+          <CollectionFactsSheet
+            open={factsOpen}
+            onClose={() => setFactsOpen(false)}
+            view={view}
+            nowMs={nowMs}
+          />
 
-      <CollectionFactsSheet
-        open={factsOpen}
-        onClose={() => setFactsOpen(false)}
-        view={view}
-        nowMs={nowMs}
-      />
+          <WritingReadSheet
+            open={writingReadOpen}
+            onClose={() => setWritingReadOpen(false)}
+            title={view.title}
+            cover={coverSrc}
+            collectionId={view.collectionId}
+            tokenId={editionToken}
+            accountId={viewerAccountId}
+            creatorId={view.creatorId}
+            readables={readables}
+            bookPdf={view.bookPdf}
+            writingFormat={view.writingFormat}
+            textAlign={view.textAlign ?? null}
+            publishedAt={view.createdAtMs > 0 ? view.createdAtMs : null}
+            sourcePostPath={view.sourcePostPath}
+          />
 
-      <WritingReadSheet
-        open={writingReadOpen}
-        onClose={() => setWritingReadOpen(false)}
-        title={view.title}
-        cover={coverSrc}
-        collectionId={view.collectionId}
-        tokenId={editionToken}
-        accountId={viewerAccountId}
-        creatorId={view.creatorId}
-        readables={readables}
-        bookPdf={view.bookPdf}
-        writingFormat={view.writingFormat}
-        textAlign={view.textAlign ?? null}
-        publishedAt={view.createdAtMs > 0 ? view.createdAtMs : null}
-        sourcePostPath={view.sourcePostPath}
-      />
+          {coverListenOpen && playables[0] ? (
+            <ScarceClipPlayer
+              key={`cover-listen-${playables[0].url}`}
+              clip={playables[0]}
+              tracks={playables}
+              poster={coverSrc}
+              layout="cover"
+              showTransport
+              showTracks={false}
+              immersiveListen
+              onListenClose={() => setCoverListenOpen(false)}
+              persist={{
+                collectionId: view.collectionId,
+                title: view.title,
+                creatorId: view.creatorId,
+                seriesId: view.seriesId,
+                seriesTitle: view.seriesTitle,
+                audioFormat: view.audioFormat,
+                facets: view.facets,
+              }}
+              creatorId={view.creatorId}
+              canKeepOffline={
+                isOwner
+                  ? true
+                  : !viewerAccountId
+                    ? false
+                    : holdsEdition == null
+                      ? null
+                      : holdsEdition
+              }
+            />
+          ) : null}
 
-      {coverListenOpen && playables[0] ? (
-        <ScarceClipPlayer
-          key={`cover-listen-${playables[0].url}`}
-          clip={playables[0]}
-          tracks={playables}
-          poster={coverSrc}
-          layout="cover"
-          showTransport
-          showTracks={false}
-          immersiveListen
-          onListenClose={() => setCoverListenOpen(false)}
-          persist={{
-            collectionId: view.collectionId,
-            title: view.title,
-            creatorId: view.creatorId,
-            seriesId: view.seriesId,
-            seriesTitle: view.seriesTitle,
-            audioFormat: view.audioFormat,
-            facets: view.facets,
-          }}
-          creatorId={view.creatorId}
-          canKeepOffline={
-            isOwner
-              ? true
-              : !viewerAccountId
-                ? false
-                : holdsEdition == null
-                  ? null
-                  : holdsEdition
-          }
-        />
-      ) : null}
+          {showPassTokenId ? (
+            <TicketShowPassSheet
+              open={showPassOpen}
+              onClose={() => setShowPassOpen(false)}
+              title={view.title}
+              cover={editionCoverUrl(view, showPassTokenId)}
+              collectionId={view.collectionId}
+              tokenId={showPassTokenId}
+              eventEndsAtMs={view.eventEndsAtMs}
+              whenLabel={aboutEvent.when}
+              placeLabel={aboutEvent.place}
+              voice={staffVoice}
+            />
+          ) : null}
 
-      {showPassTokenId ? (
-        <TicketShowPassSheet
-          open={showPassOpen}
-          onClose={() => setShowPassOpen(false)}
-          title={view.title}
-          cover={editionCoverUrl(view, showPassTokenId)}
-          collectionId={view.collectionId}
-          tokenId={showPassTokenId}
-          eventEndsAtMs={view.eventEndsAtMs}
-          whenLabel={aboutEvent.when}
-          placeLabel={aboutEvent.place}
-          voice={staffVoice}
-        />
-      ) : null}
+          <ScarceBuySheet
+            open={mintOpen}
+            listing={mintOpen ? heldMintListing : mintListing}
+            alreadyOwnsEdition={holdsEdition === true}
+            onOpenChange={setMintOpen}
+            onPurchased={handleMintPurchased}
+            zIndex={
+              coverListenOpen
+                ? postLayerOverlayZ(ownerZ).sheet
+                : ownerZ == null
+                  ? SCARCE_Z.sheet
+                  : Math.max(SCARCE_Z.sheet, ownerZ + 1)
+            }
+          />
 
-      <ScarceBuySheet
-        open={mintOpen}
-        listing={mintOpen ? heldMintListing : mintListing}
-        alreadyOwnsEdition={holdsEdition === true}
-        onOpenChange={setMintOpen}
-        onPurchased={handleMintPurchased}
-        zIndex={
-          coverListenOpen
-            ? postLayerOverlayZ(ownerZ).sheet
-            : ownerZ == null
-              ? SCARCE_Z.sheet
-              : Math.max(SCARCE_Z.sheet, ownerZ + 1)
-        }
-      />
-
-      {coverSrc && mediaOverlayOpen ? (
-        <DropArtOverlay
-          open={mediaOverlayOpen}
-          src={coverSrc}
-          label={view.title}
-          onClose={() => setMediaOverlayOpen(false)}
-        />
+          {coverSrc && mediaOverlayOpen ? (
+            <DropArtOverlay
+              open={mediaOverlayOpen}
+              src={coverSrc}
+              label={view.title}
+              onClose={() => setMediaOverlayOpen(false)}
+            />
+          ) : null}
+        </>
       ) : null}
     </OsAppScreen>
   );

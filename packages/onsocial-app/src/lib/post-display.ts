@@ -201,6 +201,8 @@ export interface DropPaintSnapshot {
   title?: string;
   mediaUrl?: string;
   mediumKind?: string;
+  /** Card ask, so the Drop link can paint before the catalog round trip. */
+  priceNear?: string;
   /** Original mint post path for See original. */
   sourcePostPath?: string;
 }
@@ -241,6 +243,10 @@ export function parseDropPaintSnapshot(
       typeof record.mediumKind === 'string' && record.mediumKind.trim()
         ? record.mediumKind.trim().toLowerCase()
         : undefined;
+    const priceNear =
+      typeof record.priceNear === 'string' && record.priceNear.trim()
+        ? record.priceNear.trim()
+        : undefined;
     const sourcePostPath =
       typeof record.sourcePostPath === 'string' && record.sourcePostPath.trim()
         ? record.sourcePostPath.trim()
@@ -251,6 +257,7 @@ export function parseDropPaintSnapshot(
       ...(title ? { title } : {}),
       ...(mediaUrl ? { mediaUrl } : {}),
       ...(mediumKind ? { mediumKind } : {}),
+      ...(priceNear ? { priceNear } : {}),
       ...(sourcePostPath ? { sourcePostPath } : {}),
     };
   } catch {
