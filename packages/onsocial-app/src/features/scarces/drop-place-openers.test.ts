@@ -236,6 +236,7 @@ describe('Drop place openers', () => {
     expect(layer).toContain('presentation="appear"');
     expect(layer).toContain('keepDock');
     expect(layer).toContain('useClaimDropSheetDockBack');
+    expect(layer).toContain('data-drop-layer-sheet');
     expect(layer).toContain('dropLayerOpenHistoryOp');
     expect(layer).toContain("op === 'push'");
     expect(layer).toContain('nativeHistoryPushState');

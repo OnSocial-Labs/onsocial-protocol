@@ -79,9 +79,11 @@ test.describe('drop detail entrance @webkit', () => {
     await expect(
       collectionPageRoot(page).locator('.collection-title')
     ).toHaveText('Quiet Print', { timeout: 12_000 });
-    await expect(page.locator('[data-drop-rose]')).toHaveCount(4);
+    // Sheet owns appear — face never stagger-rises under a cold load either.
+    await expect(page.locator('[data-drop-rose]')).toHaveCount(0);
     await expect(skeleton).toHaveCount(0);
     await expect(page.locator('[data-drop-enter="stagger"]')).toHaveCount(0);
+    await expect(page.locator('[data-drop-enter="instant"]')).toHaveCount(4);
   });
 
   test('a late wallet line does not move the block below', async ({ page }) => {

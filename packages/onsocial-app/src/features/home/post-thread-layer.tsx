@@ -810,7 +810,11 @@ function DropLayerSheet({
         rootClassName={parked ? 'post-thread-sheet-parked' : undefined}
         header={null}
       >
-        <div className="drop-sheet-fill" onClickCapture={leaveFromDrop}>
+        <div
+          className="drop-sheet-fill"
+          data-drop-layer-sheet=""
+          onClickCapture={leaveFromDrop}
+        >
           <span id={titleId} className="sr-only">
             Drop
           </span>

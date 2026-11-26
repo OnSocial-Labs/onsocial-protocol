@@ -18,6 +18,9 @@ import { APP_WALLET_ACCOUNT_HINT_COOKIE } from '../src/lib/wallet-account-hint';
 
 test.describe.configure({ mode: 'serial' });
 
+/** Docked appear sheet host (PR 859 DropLayerSheet). */
+const DROP_SHEET = '[data-drop-layer-sheet]';
+
 const COVER = `data:image/svg+xml,${encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#222"/></svg>'
 )}`;
@@ -144,7 +147,7 @@ async function scrollFeed(page: Page): Promise<number> {
 }
 
 async function tapDrop(page: Page): Promise<{ ms: number; path: string }> {
-  return page.evaluate(() => {
+  return page.evaluate((sheetSel) => {
     const link = document.querySelector(
       'a.post-card-scarce-link'
     ) as HTMLAnchorElement | null;
@@ -152,9 +155,7 @@ async function tapDrop(page: Page): Promise<{ ms: number; path: string }> {
     const start = performance.now();
     link.click();
     const mark = (title: Element | null) => {
-      const node = document.querySelector(
-        '[data-drop-place-instant] .os-app-screen'
-      );
+      const node = document.querySelector(`${sheetSel} .os-app-screen`);
       if (node instanceof HTMLElement) node.dataset.paintId = 'tap';
       return {
         ms: Math.round(performance.now() - start),
@@ -164,9 +165,7 @@ async function tapDrop(page: Page): Promise<{ ms: number; path: string }> {
           (title.textContent?.includes('Night Drive') ?? false),
       };
     };
-    const immediate = document.querySelector(
-      '[data-drop-place-instant] .collection-title'
-    );
+    const immediate = document.querySelector(`${sheetSel} .collection-title`);
     if (
       immediate instanceof HTMLElement &&
       immediate.textContent?.includes('Night Drive')
@@ -175,9 +174,7 @@ async function tapDrop(page: Page): Promise<{ ms: number; path: string }> {
     }
     return new Promise((resolve) => {
       const check = () => {
-        const title = document.querySelector(
-          '[data-drop-place-instant] .collection-title'
-        );
+        const title = document.querySelector(`${sheetSel} .collection-title`);
         const painted =
           title instanceof HTMLElement &&
           title.textContent?.includes('Night Drive');
@@ -189,7 +186,7 @@ async function tapDrop(page: Page): Promise<{ ms: number; path: string }> {
       };
       requestAnimationFrame(check);
     });
-  });
+  }, DROP_SHEET);
 }
 
 /**
@@ -209,14 +206,14 @@ function noteTap(testInfo: TestInfo, label: string, ms: number): void {
 }
 
 async function expectOneTitle(page: Page): Promise<void> {
-  await expect(page.locator('.collection-title')).toHaveCount(1);
+  await expect(page.locator(`${DROP_SHEET} .collection-title`)).toHaveCount(1);
 }
 
 async function expectSamePanelFills(page: Page): Promise<void> {
   const root = page.locator('[data-paint-id="tap"]');
   await expect(root).toBeVisible();
   await expect(
-    page.locator('[data-drop-place-instant] [data-collection-page-skeleton]')
+    page.locator(`${DROP_SHEET} [data-collection-page-skeleton]`)
   ).toHaveCount(0);
   await expect(root.locator('.collection-title')).toHaveText('Night Drive');
   await expect(root.locator('.collection-cover').first()).toBeVisible();
@@ -226,12 +223,12 @@ async function expectSamePanelFills(page: Page): Promise<void> {
   await expect(root).toHaveAttribute('data-paint-id', 'tap');
   await expectOneTitle(page);
   await expect(
-    page.locator('[data-drop-place-instant] [data-collection-page-skeleton]')
+    page.locator(`${DROP_SHEET} [data-collection-page-skeleton]`)
   ).toHaveCount(0);
 }
 
 async function expectCreatorHittable(page: Page): Promise<void> {
-  const link = page.locator('a.drops-discovery-party--lead');
+  const link = page.locator(`${DROP_SHEET} a.drops-discovery-party--lead`);
   await expect(link).toHaveCount(1);
   await expect(link).toBeVisible();
   const hit = await link.evaluate((el) => {
@@ -247,7 +244,7 @@ async function expectCreatorHittable(page: Page): Promise<void> {
 
 async function expectMintLocksVisibleScroller(page: Page): Promise<void> {
   const mint = page
-    .locator('[data-drop-place-instant]')
+    .locator(DROP_SHEET)
     .getByRole('button', { name: 'Mint', exact: true });
   await expect(mint).toBeVisible();
   const hit = await mint.evaluate((el) => {
@@ -262,8 +259,8 @@ async function expectMintLocksVisibleScroller(page: Page): Promise<void> {
   await mint.click();
   const locked = page.locator('[data-scroll-locked="true"]');
   await expect(locked).toHaveCount(1);
-  const ownsVisible = await page.evaluate(() => {
-    const title = document.querySelector('.collection-title');
+  const ownsVisible = await page.evaluate((sheetSel) => {
+    const title = document.querySelector(`${sheetSel} .collection-title`);
     const body = title
       ?.closest('.os-app-screen')
       ?.querySelector('.os-app-screen-body');
@@ -277,28 +274,33 @@ async function expectMintLocksVisibleScroller(page: Page): Promise<void> {
     });
     body.dispatchEvent(wheel);
     return !wheel.defaultPrevented ? false : body.scrollTop === before;
-  });
+  }, DROP_SHEET);
   expect(ownsVisible).toBe(true);
   await page.keyboard.press('Escape');
   await expect(locked).toHaveCount(0);
 }
 
-async function expectForwardRestoresOnePanel(page: Page): Promise<void> {
-  await page.goForward();
-  await expect(page).toHaveURL(/\/collection\/night-drive/);
+/**
+ * Home opens replace history, so browser Forward has nothing to restore.
+ * Re-tap proves the sheet opens again over the same feed scroll.
+ */
+async function expectReopenFromFeed(page: Page): Promise<void> {
+  const timing = await tapDrop(page);
+  expect(timing.ms).toBeGreaterThan(0);
+  expect(timing.ms).toBeLessThan(tapBudget());
+  expect(timing.path).toBe('/collection/night-drive');
   await expectOneTitle(page);
-  await expect(page.locator('.collection-product-price').first()).toBeVisible({
+  await expect(page.locator(`${DROP_SHEET} .collection-product-price`).first()).toBeVisible({
     timeout: 8_000,
   });
-  await expect(page.locator('.collection-title')).toHaveText('Night Drive');
+  await expect(page.locator(`${DROP_SHEET} .collection-title`)).toHaveText(
+    'Night Drive'
+  );
 }
 
 async function backToFeed(page: Page, scrollTop: number): Promise<void> {
-  await page
-    .locator('[data-drop-place-instant]')
-    .getByRole('button', { name: 'Back' })
-    .click();
-  await expect(page.locator('[data-drop-place-instant]')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(page.locator(DROP_SHEET)).toHaveCount(0);
   await expect(page).toHaveURL(/\/home/);
   const scroller = page.locator('[data-feed-session] .os-app-screen-body');
   await expect
@@ -336,7 +338,9 @@ async function runSeededTap(
   }
   await page.evaluate(() => {
     const win = window as Window & { __titlePeak?: number };
-    const count = () => document.querySelectorAll('.collection-title').length;
+    const count = () =>
+      document.querySelectorAll('[data-drop-layer-sheet] .collection-title')
+        .length;
     win.__titlePeak = count();
     const obs = new MutationObserver(() => {
       win.__titlePeak = Math.max(win.__titlePeak ?? 0, count());
@@ -361,7 +365,8 @@ async function runSeededTap(
   await expectMintLocksVisibleScroller(page);
   await backToFeed(page, scrollTop);
   await expect(page.locator('.collection-title')).toHaveCount(0);
-  await expectForwardRestoresOnePanel(page);
+  await expectReopenFromFeed(page);
+  await backToFeed(page, scrollTop);
   noteTap(testInfo, `${label}-uncached`, await expectUncachedFrame(page));
   await expectHardRefreshFinal(page);
 }
@@ -426,7 +431,7 @@ async function expectUncachedFrame(page: Page): Promise<number> {
       typeof (window as Window & { __osOpenUncachedDrop?: unknown })
         .__osOpenUncachedDrop === 'function'
   );
-  const timing = await page.evaluate(() => {
+  const timing = await page.evaluate((sheetSel) => {
     const start = performance.now();
     (
       window as Window & { __osOpenUncachedDrop?: (id: string) => void }
@@ -437,7 +442,7 @@ async function expectUncachedFrame(page: Page): Promise<number> {
       frame: boolean;
     }>((resolve) => {
       const check = () => {
-        const host = document.querySelector('[data-drop-place-instant]');
+        const host = document.querySelector(sheetSel);
         const frame = Boolean(host?.querySelector('.os-app-screen'));
         if (frame || performance.now() - start > 2500) {
           resolve({
@@ -451,19 +456,19 @@ async function expectUncachedFrame(page: Page): Promise<number> {
       };
       requestAnimationFrame(check);
     });
-  });
+  }, DROP_SHEET);
   expect(timing.ms).toBeGreaterThan(0);
   expect(timing.ms).toBeLessThan(tapBudget());
   expect(timing.path).toBe('/collection/uncached-drop');
   expect(timing.frame).toBe(true);
   await expect(
-    page.locator('[data-drop-place-instant] .collection-title')
+    page.locator(`${DROP_SHEET} .collection-title`)
   ).toHaveCount(0);
-  expect(await page.locator('.collection-title').count()).toBeLessThanOrEqual(1);
+  expect(await page.locator(`${DROP_SHEET} .collection-title`).count()).toBeLessThanOrEqual(1);
   await flight;
   await expect(page).toHaveURL(/\/collection\/uncached-drop/);
-  await expect(page.locator('[data-drop-place-instant]')).toHaveCount(1);
-  expect(await page.locator('.collection-title').count()).toBeLessThanOrEqual(1);
+  await expect(page.locator(DROP_SHEET)).toHaveCount(1);
+  expect(await page.locator(`${DROP_SHEET} .collection-title`).count()).toBeLessThanOrEqual(1);
   // The RSC can arrive before Next commits the push. A hard load during
   // that commit is what interrupted WebKit.
   await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
@@ -493,6 +498,7 @@ async function expectHardRefreshFinal(page: Page): Promise<void> {
     await page.waitForLoadState('domcontentloaded');
     await gotoApp(page, '/collection/night-drive');
   }
+  await expect(page.locator(DROP_SHEET)).toHaveCount(0);
   await expect(page.locator('[data-drop-place-instant]')).toHaveCount(0);
   await expect(collectionPageSkeleton(page)).toHaveCount(0);
   await expect(
