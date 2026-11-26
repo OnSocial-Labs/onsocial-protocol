@@ -588,28 +588,47 @@ export function CollectionPagePanel({
       return;
     }
     let cancelled = false;
+    const settleSoftFill = () => {
+      if (cancelled) return;
+      if (refreshKey === 0 && collectionViewNeedsCatalogSoftFill(initial)) {
+        setClientSettled(true);
+      }
+    };
+    const applyCatalog = (catalog: NonNullable<
+      Awaited<ReturnType<typeof fetchCollectionPreferIndexer>>
+    >) => {
+      setView((prev) => {
+        if (
+          prev &&
+          collectionViewNeedsCatalogSoftFill(prev) &&
+          prev.collectionId.trim() === catalog.collectionId.trim()
+        ) {
+          return mergeCatalogSoftFillIntoSeed(prev, catalog);
+        }
+        return catalog;
+      });
+    };
     void fetchCollectionPreferIndexer(collectionId)
       .then(async (next) => {
-        if (cancelled || !next) return;
-        const supply = await readCollectionSupply(collectionId);
         if (cancelled) return;
-        const catalog = supply ? applyDropSupply(next, supply) : next;
-        setView((prev) => {
-          if (
-            prev &&
-            collectionViewNeedsCatalogSoftFill(prev) &&
-            prev.collectionId.trim() === catalog.collectionId.trim()
-          ) {
-            return mergeCatalogSoftFillIntoSeed(prev, catalog);
-          }
-          return catalog;
-        });
-      })
-      .finally(() => {
-        if (cancelled) return;
-        if (refreshKey === 0 && collectionViewNeedsCatalogSoftFill(initial)) {
-          setClientSettled(true);
+        // Miss settles empty. A real catalog paints before optional supply
+        // so a hanging/failing supply RPC cannot strand SSR-miss on unavailable.
+        if (!next) {
+          settleSoftFill();
+          return;
         }
+        applyCatalog(next);
+        settleSoftFill();
+        try {
+          const supply = await readCollectionSupply(collectionId);
+          if (cancelled || !supply) return;
+          applyCatalog(applyDropSupply(next, supply));
+        } catch {
+          // Supply is optional — face already has the catalog.
+        }
+      })
+      .catch(() => {
+        settleSoftFill();
       });
     return () => {
       cancelled = true;
