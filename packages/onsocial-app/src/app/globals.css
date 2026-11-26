@@ -15852,6 +15852,17 @@ a.os-surface-row,
       bottom 280ms var(--os-motion-ease-slide, cubic-bezier(0.32, 0.72, 0, 1));
   }
 
+  /* The kept screen's dock stays mounted. Only the drop host's dock is the screen. */
+  body:has([data-drop-place-instant]) .portfolio-summon-dock {
+    display: none;
+  }
+
+  body:has([data-drop-place-instant])
+    [data-drop-place-instant]
+    .portfolio-summon-dock {
+    display: flex;
+  }
+
   /*
    * Soft keyboard — ride the keys with the lift the write dock publishes.
    * The gap under the pill is the same one Transfer keeps above the keys.

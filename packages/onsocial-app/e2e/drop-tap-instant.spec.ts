@@ -453,8 +453,12 @@ async function expectUncachedFrame(page: Page): Promise<number> {
   ).toHaveCount(0);
   expect(await page.locator('.collection-title').count()).toBeLessThanOrEqual(1);
   await flight;
+  await expect(page).toHaveURL(/\/collection\/uncached-drop/);
   await expect(page.locator('[data-drop-place-instant]')).toHaveCount(1);
   expect(await page.locator('.collection-title').count()).toBeLessThanOrEqual(1);
+  // The RSC can arrive before Next commits the push. A hard load during
+  // that commit is what interrupted WebKit.
+  await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
   return timing.ms;
 }
 
@@ -473,7 +477,14 @@ async function expectHardRefreshFinal(page: Page): Promise<void> {
     },
   ]);
   await setE2eGraphDrop(page, 'default');
-  await gotoApp(page, '/collection/night-drive');
+  try {
+    await gotoApp(page, '/collection/night-drive');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes('interrupted by another navigation')) throw error;
+    await page.waitForLoadState('domcontentloaded');
+    await gotoApp(page, '/collection/night-drive');
+  }
   await expect(page.locator('[data-drop-place-instant]')).toHaveCount(0);
   await expect(collectionPageSkeleton(page)).toHaveCount(0);
   await expect(
