@@ -219,13 +219,13 @@ describe('Drop place openers', () => {
     );
   });
 
-  it('route loading paints the real seeded drop panel — no stand-in shell', () => {
+  it('drop place has no route loading — one page mount after soft-nav', () => {
     const loading = src('features/scarces/collection-route-loading.tsx');
-    expect(loading).toContain('readCollectionView');
-    expect(loading).toContain('CollectionPagePanel');
-    expect(loading).not.toContain('CollectionPlaceHotShell');
-    expect(loading).toContain('dockBack');
-    expect(loading).toContain('CollectionPageSkeleton');
+    expect(loading).not.toContain('CollectionPagePanel');
+    expect(loading).not.toContain('CollectionPageSkeleton');
+    expect(loading).not.toContain('readCollectionView');
+    expect(loading).toContain('CollectionChildLoadingScreen');
+    expect(loading).toContain('Door / redeem route loading only');
   });
 
   it('full drop place owns dock Back; player uses header chevron', () => {
@@ -295,7 +295,7 @@ describe('Drop place openers', () => {
     expect(skeleton).toContain('collection-activity-seat');
   });
 
-  it('warm seeded drop uses one surface appear; cold settle keeps block rise', () => {
+  it('warm seeded drop stays opaque; cold settle keeps block rise', () => {
     const panel = src('features/scarces/collection-page-panel.tsx');
     const open = src('features/scarces/drop-place-open.tsx');
     const screen = src('components/app/os-app-screen.tsx');
@@ -304,10 +304,11 @@ describe('Drop place openers', () => {
     expect(panel).not.toContain('coldHandoff');
     expect(panel).not.toContain('bodyAppear');
     expect(panel).toContain('seededHotOpen ? (');
-    expect(panel).toContain('claimDropWarmSurfaceAppear');
-    expect(panel).toContain('warmSurfaceAppear');
-    expect(panel).toContain('<OsPageBodyAppear>{dropFace}</OsPageBodyAppear>');
-    expect(open).toContain('armDropWarmSurfaceAppear');
+    expect(panel).not.toContain('OsPageBodyAppear');
+    expect(panel).toContain('CollectionShowPassTrail');
+    expect(open).toContain('warmOwnedCollectionHold');
+    expect(panel).toContain('peekDropFaceHoldSeed');
+    expect(panel).toContain('reservePassPlayRow');
     expect(panel).toContain('dropEnterShouldPlay');
     expect(panel).toContain('OsRouteSettle');
     // Cold path suppresses a second page-wide body fade under settle.

@@ -37,8 +37,8 @@ describe('collection page chassis (CLS contract)', () => {
     expect(panel).toContain('collectionMediumBodyPending');
     expect(panel).toContain('CollectionTracksSkeleton');
     expect(panel).toContain('CollectionSeatSettle');
-    // Warm surface appear only — not a soft-fill seat fade.
-    expect(panel).toContain('<OsPageBodyAppear>{dropFace}</OsPageBodyAppear>');
+    expect(panel).not.toContain('OsPageBodyAppear');
+    expect(panel).toContain('CollectionShowPassTrail');
     expect(panel).toContain('OsLateFill');
     expect(panel).toContain('collection-mint-hint-seat');
     expect(panel).toContain('collection-about-seat');

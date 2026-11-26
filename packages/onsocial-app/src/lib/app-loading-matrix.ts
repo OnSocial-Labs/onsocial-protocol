@@ -275,13 +275,13 @@ export const APP_LOADING_MATRIX: readonly AppLoadingMatrixRow[] = [
     id: 'collection',
     route: '/collection/[collectionId]',
     family: 'immersive-detail',
-    cold: 'CollectionPageSkeleton crossfades through OsRouteSettle (seeded soft-nav paints the real panel with no replay)',
+    cold: 'No route loading.tsx — soft-nav keeps previous screen; panel owns CollectionPageSkeleton via OsRouteSettle',
     refreshing: 'Keep resolved collection shell',
     appending:
       'Footer PulsingDots (OsLoadMore / silent edge); cold skeletons only',
     empty: 'Collection state',
     error: 'Collection state with retry',
-    routeFallback: 'shell-skeleton',
+    routeFallback: 'preserve-shell',
     implementationFiles: [
       'features/scarces/collection-page-skeleton.tsx',
       'features/scarces/collection-page-panel.tsx',

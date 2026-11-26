@@ -80,10 +80,16 @@ describe('PostScarceCtaPending', () => {
     expect(panel).toContain('collection-use-actions-trail-ghost');
     expect(panel).toContain('collection-use-actions-trail-chassis');
     expect(panel).toContain('peekViewerAccountId');
+    expect(panel).toContain('peekDropFaceHoldSeed');
+    expect(panel).toContain('initialViewerAccountId');
+    expect(panel).toContain('initialHoldSeed');
+    expect(panel).toContain('paintViewerAccountId');
     expect(panel).toContain('vaultHref');
+    expect(panel).toContain('CollectionShowPassTrail');
     expect(panel).not.toContain('lead-fill');
     expect(panel).not.toContain('startedEmpty');
     expect(panel).toContain('Open Collectibles');
+    expect(panel).toContain('reservePassPlayRow');
     expect(panel).toContain('DropFaceFans');
     expect(panel).toContain('has-fans-seat');
     expect(panel).toContain('fanCount={faceFans.fanCount}');

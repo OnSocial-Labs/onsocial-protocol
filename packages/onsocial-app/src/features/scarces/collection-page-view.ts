@@ -5,6 +5,7 @@ import { APP_WALLET_ACCOUNT_KEY } from '@/lib/gate-return';
 import { portfolioCollectiblesPath } from '@/lib/overlay-routes';
 import type { CollectiblesNowPlayingSession } from '@/contexts/collectibles-now-playing-context';
 import type { CollectionView } from '@/features/scarces/collections-data';
+import { peekOwnedCollectionHold } from '@/features/scarces/owned-collection-hold-cache';
 
 /** `?t=` only when it names this drop. */
 export function editionTokenForCollection(
@@ -142,15 +143,14 @@ export function collectionCatalogShell(opts: {
 }
 
 /**
- * Route `loading.tsx` already paints cold skeleton or the seeded drop panel.
- * The panel must not SSR a second skeleton during that handoff. Appear-over /
- * post-hydrate miss still owns the skeleton (no loading.tsx there).
+ * Drop place has no route `loading.tsx` — soft-nav keeps the previous screen
+ * until the page mounts once. The panel always owns cold skeleton / miss.
  */
-export function collectionRouteYieldsLoadingSkeleton(opts: {
+export function collectionRouteYieldsLoadingSkeleton(_opts: {
   embedded: boolean;
   clientMounted: boolean;
 }): boolean {
-  return !opts.embedded && !opts.clientMounted;
+  return false;
 }
 
 /** Holders go back to the vault; visitors stay on Drops. */
@@ -186,6 +186,8 @@ export function peekHoldsCollection(
   const owner = accountId?.trim();
   const id = collectionId.trim();
   if (!owner || !id) return false;
+  const held = peekOwnedCollectionHold(owner, id);
+  if (held !== undefined) return held != null;
   const page = peekOwnedVaultPage(owner);
   if (!page) return false;
   return page.items.some((item) => itemCollectionId(item) === id);
@@ -202,7 +204,9 @@ function peekStoredWalletAccountId(): string | null {
 
 /**
  * Live wallet id when present, else last persisted session account.
- * Same cold seed as hold / #edition — Open Collectibles must not wait on hydrate.
+ * Imperative / effect only (warm open, wipe guards) — never during SSR
+ * render. Drop face paint uses `useAppWallet().accountId` plus the SSR
+ * hint cookie (`initialViewerAccountId`), not this peek.
  */
 export function peekViewerAccountId(
   accountId?: string | null
@@ -213,15 +217,15 @@ export function peekViewerAccountId(
 }
 
 /**
- * First-paint hold seed. Live account when present, else persisted wallet id
- * so refresh doesn’t treat a holder as a visitor for one frame.
+ * Hold seed for the drop page from the React wallet id only.
+ * Pass `useAppWallet().accountId` — that store already merges localStorage
+ * after hydrate. Do not localStorage-peek here (SSR HTML must match).
  */
 export function peekHoldsCollectionForDropPage(
   accountId: string | null | undefined,
   collectionId: string
 ): boolean {
-  if (peekHoldsCollection(accountId, collectionId)) return true;
-  return peekHoldsCollection(peekStoredWalletAccountId(), collectionId);
+  return peekHoldsCollection(accountId, collectionId);
 }
 
 export function peekOwnedTokenForCollection(
@@ -229,19 +233,43 @@ export function peekOwnedTokenForCollection(
   collectionId: string
 ): string | null {
   const id = collectionId.trim();
-  if (!id) return null;
-  // Same cold-wallet seed as hold: live account, else persisted wallet id.
-  const owners = [accountId?.trim(), peekStoredWalletAccountId()].filter(
-    (value): value is string => Boolean(value?.trim())
+  const owner = accountId?.trim();
+  if (!id || !owner) return null;
+  const held = peekOwnedCollectionHold(owner, id);
+  if (typeof held === 'string' && held) return held;
+  if (held === null) return null;
+  const page = peekOwnedVaultPage(owner);
+  return (
+    page?.items.find((item) => itemCollectionId(item) === id)?.tokenId?.trim() ||
+    null
   );
-  for (const owner of owners) {
-    const page = peekOwnedVaultPage(owner);
-    const tokenId =
-      page?.items.find((item) => itemCollectionId(item) === id)?.tokenId?.trim() ||
-      null;
-    if (tokenId) return tokenId;
+}
+
+/**
+ * First-paint hold for the drop face: last-good token cache, else vault peek.
+ * `null` hold with a settled miss stays unknown so visitors do not flash holder
+ * chrome; only a positive seed returns true. Account must be the React wallet
+ * id (hydration-safe) — warm opens pass `peekViewerAccountId()` imperatively.
+ */
+export function peekDropFaceHoldSeed(
+  accountId: string | null | undefined,
+  collectionId: string
+): { holds: boolean | null; tokenId: string | null } {
+  const id = collectionId.trim();
+  const owner = accountId?.trim();
+  if (!id || !owner) return { holds: null, tokenId: null };
+  const held = peekOwnedCollectionHold(owner, id);
+  if (typeof held === 'string' && held) {
+    return { holds: true, tokenId: held };
   }
-  return null;
+  // Settled miss — visitor chrome from frame 1 (no Show pass ghost→gone).
+  if (held === null) return { holds: false, tokenId: null };
+  const tokenId = peekOwnedTokenForCollection(owner, id);
+  if (tokenId) return { holds: true, tokenId };
+  if (peekHoldsCollection(owner, id)) {
+    return { holds: true, tokenId: null };
+  }
+  return { holds: null, tokenId: null };
 }
 
 /** Shared placeholder — cover/title/tracks paint; commerce soft-fills. */

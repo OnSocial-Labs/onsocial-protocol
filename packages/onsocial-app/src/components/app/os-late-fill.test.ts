@@ -32,9 +32,9 @@ describe('OsLateFill', () => {
     expect(seat.className).toContain('is-seeded');
   });
 
-  it('appears once when content fills an empty seat', () => {
+  it('swaps opaque into a reserved seat by default', () => {
     const { container, rerender } = render(
-      createElement(OsLateFill, { className: 'collection-about-seat' }, null)
+      createElement(OsLateFill, { className: 'collection-mint-hint' }, null)
     );
     let seat = container.firstElementChild as HTMLElement;
     expect(seat.className).not.toContain('is-seeded');
@@ -43,7 +43,32 @@ describe('OsLateFill', () => {
     rerender(
       createElement(
         OsLateFill,
-        { className: 'collection-about-seat' },
+        { className: 'collection-mint-hint' },
+        createElement('span', null, 'You’ve reached your limit for this drop.')
+      )
+    );
+    seat = container.firstElementChild as HTMLElement;
+    expect(seat.className).toContain('is-seeded');
+    expect(seat.className).not.toContain('is-ready');
+    expect(seat.textContent).toBe('You’ve reached your limit for this drop.');
+  });
+
+  it('appears once when fade is requested for a true late line', () => {
+    const { container, rerender } = render(
+      createElement(
+        OsLateFill,
+        { className: 'collection-about-seat', fade: true },
+        null
+      )
+    );
+    let seat = container.firstElementChild as HTMLElement;
+    expect(seat.className).not.toContain('is-seeded');
+    expect(seat.className).not.toContain('is-ready');
+
+    rerender(
+      createElement(
+        OsLateFill,
+        { className: 'collection-about-seat', fade: true },
         createElement('span', null, 'Late story')
       )
     );

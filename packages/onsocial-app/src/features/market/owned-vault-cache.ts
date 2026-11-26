@@ -1,5 +1,7 @@
 import type { OwnedScarcesPage } from '@/features/market/market-listings';
+import { collectionIdFromTokenId } from '@/features/market/market-listings';
 import type { CollectionCreatorFace } from '@/features/scarces/collection-creator-face';
+import { rememberOwnedCollectionHold } from '@/features/scarces/owned-collection-hold-cache';
 
 const TTL_MS = 30_000;
 
@@ -53,6 +55,17 @@ export function putOwnedVaultPage(
   const nextFaces =
     faces && Object.keys(faces).length > 0 ? faces : (prev?.faces ?? {});
   pageZeroByOwner.set(key, { at: Date.now(), page, faces: nextFaces });
+  // Drop face hold outlives the 30s vault page TTL.
+  for (const item of page.items) {
+    const collectionId =
+      item.collectionId?.trim() ||
+      collectionIdFromTokenId(item.tokenId) ||
+      '';
+    const tokenId = item.tokenId?.trim();
+    if (collectionId && tokenId) {
+      rememberOwnedCollectionHold(accountId, collectionId, tokenId);
+    }
+  }
 }
 
 export function invalidateOwnedVaultCache(accountId?: string): void {

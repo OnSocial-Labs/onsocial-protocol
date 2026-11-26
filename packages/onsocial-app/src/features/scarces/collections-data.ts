@@ -24,6 +24,7 @@ import {
   parseDropFacets,
 } from '@/features/scarces/drop-facets';
 import { rememberCollectionView } from '@/features/scarces/collection-view-cache';
+import { rememberOwnedCollectionHold } from '@/features/scarces/owned-collection-hold-cache';
 import {
   parseTicketEventFromCollectionMetadata,
   parseTicketEventFromExtra,
@@ -1492,6 +1493,7 @@ export async function fetchAllowlistAllocation(
 /**
  * First owned edition token id for this drop, or null.
  * Prefers indexer `scarcesTokenOwners`; falls back to RPC ownership scan.
+ * Remembers last-good so drop face Show pass / #edition do not pop after open.
  */
 export async function fetchOwnedCollectionTokenId(
   collectionId: string,
@@ -1500,6 +1502,11 @@ export async function fetchOwnedCollectionTokenId(
   const id = collectionId.trim();
   const account = accountId.trim();
   if (!id || !account) return null;
+
+  const remember = (tokenId: string | null) => {
+    rememberOwnedCollectionHold(account, id, tokenId);
+    return tokenId;
+  };
 
   try {
     const client = createAppOnSocialClient(account);
@@ -1523,7 +1530,7 @@ export async function fetchOwnedCollectionTokenId(
       variables: { ownerId: account, collectionId: id },
     });
     const tokenId = res.data?.scarcesTokenOwners?.[0]?.tokenId?.trim();
-    if (tokenId) return tokenId;
+    if (tokenId) return remember(tokenId);
   } catch {
     // Indexer lag / schema — fall through to RPC.
   }
@@ -1538,9 +1545,9 @@ export async function fetchOwnedCollectionTokenId(
     );
     total = Math.floor(Number(supply));
   } catch {
-    return null;
+    return remember(null);
   }
-  if (!Number.isFinite(total) || total <= 0) return null;
+  if (!Number.isFinite(total) || total <= 0) return remember(null);
 
   const pageSize = 50;
   for (let fromIndex = 0; fromIndex < total; fromIndex += pageSize) {
@@ -1558,11 +1565,11 @@ export async function fetchOwnedCollectionTokenId(
       if (!Array.isArray(tokens)) continue;
       for (const token of tokens) {
         const tokenId = token.token_id?.trim() ?? '';
-        if (tokenId.startsWith(prefix)) return tokenId;
+        if (tokenId.startsWith(prefix)) return remember(tokenId);
       }
     } catch {
-      return null;
+      return remember(null);
     }
   }
-  return null;
+  return remember(null);
 }

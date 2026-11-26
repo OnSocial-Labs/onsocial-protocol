@@ -21,7 +21,9 @@ import {
   collectionViewNeedsCatalogSoftFill,
   seedCollectionViewFromStoreDrop as seedStoreDropView,
 } from '@/features/scarces/collection-page-view';
-import { armDropWarmSurfaceAppear } from '@/features/scarces/collection-page-enter';
+import { peekViewerAccountId } from '@/features/scarces/collection-page-view';
+import { fetchOwnedCollectionTokenId } from '@/features/scarces/collections-data';
+import { warmOwnedCollectionHold } from '@/features/scarces/owned-collection-hold-cache';
 import { seedDropLoveFaceFromList } from '@/hooks/use-scarce-drop-loves';
 import {
   collectionPath,
@@ -77,8 +79,6 @@ export function warmDropPlaceOpen(opts: {
 }): CollectionView | null {
   const id = opts.collectionId.trim();
   if (!id) return null;
-  // One surface fade for this open — loading.tsx + page remount must not stack.
-  armDropWarmSurfaceAppear(id);
   const seed = resolveDropOpenSeed({
     collectionId: id,
     initial: opts.initial,
@@ -99,6 +99,12 @@ export function warmDropPlaceOpen(opts: {
       fanIds: opts.fanIds,
     });
   }
+  // Hold / Show pass / #edition — start before loading paints when possible.
+  warmOwnedCollectionHold(
+    peekViewerAccountId(),
+    id,
+    fetchOwnedCollectionTokenId
+  );
   return seed;
 }
 

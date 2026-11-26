@@ -42,10 +42,9 @@ export function dropEnterDelayMs(
 
 /**
  * Four-block rise only for a cold first paint. A seed, cache, or
- * now-playing open (`openedWithContent`) skips the rise — warm opens
- * use one surface `OsPageBodyAppear` fade instead (see panel). A rise
- * that already played stays opaque. Refresh and wallet hydration are
- * not inputs.
+ * now-playing open (`openedWithContent`) stays opaque — soft-nav remount
+ * must not fade Collectibles / Show pass. A rise that already played
+ * stays opaque. Refresh and wallet hydration are not inputs.
  */
 export function dropEnterShouldPlay(opts: {
   reducedMotion: boolean;
@@ -62,51 +61,6 @@ export function dropEnterShouldPlay(opts: {
     return false;
   }
   return true;
-}
-
-/**
- * Soft-nav `loading.tsx` and the settled page both mount the panel.
- * One surface fade per open — remount stays opaque. Pointerdown + click
- * both warm the same id without re-arming mid-flight.
- */
-let dropWarmSurfaceArmedId: string | null = null;
-let dropWarmSurfaceClaimed = false;
-
-/** Call from warm/soft-nav open so the next panel mount may fade once. */
-export function armDropWarmSurfaceAppear(collectionId: string): void {
-  const id = collectionId.trim();
-  if (!id) return;
-  // Same open already armed and not yet claimed (pointerdown then click).
-  if (dropWarmSurfaceArmedId === id && !dropWarmSurfaceClaimed) return;
-  dropWarmSurfaceArmedId = id;
-  dropWarmSurfaceClaimed = false;
-}
-
-/** True once per open; false when loading already played and the page remounts. */
-export function claimDropWarmSurfaceAppear(collectionId: string): boolean {
-  const id = collectionId.trim();
-  if (!id) return false;
-  if (dropWarmSurfaceArmedId === id) {
-    if (dropWarmSurfaceClaimed) return false;
-    dropWarmSurfaceClaimed = true;
-    return true;
-  }
-  // Hard load / no soft-nav arm — still one fade, then quiet on remount.
-  if (dropWarmSurfaceArmedId == null) {
-    dropWarmSurfaceArmedId = id;
-    dropWarmSurfaceClaimed = true;
-    return true;
-  }
-  // Armed for another drop — this mount is a new open.
-  dropWarmSurfaceArmedId = id;
-  dropWarmSurfaceClaimed = true;
-  return true;
-}
-
-/** Test helper. */
-export function resetDropWarmSurfaceAppear(): void {
-  dropWarmSurfaceArmedId = null;
-  dropWarmSurfaceClaimed = false;
 }
 
 /**

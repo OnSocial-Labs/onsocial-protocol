@@ -8,7 +8,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   type MouseEvent,
 } from 'react';
 import Link from 'next/link';
@@ -30,7 +29,6 @@ import {
 import './collection-drop-enter.css';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsLateFill } from '@/components/app/os-late-fill';
-import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsRouteSettle } from '@/components/app/os-route-settle';
 import {
   APP_COLUMN_HERO_SIZES,
@@ -78,7 +76,6 @@ import {
   collectionCoverSquare,
   collectionDropBackHref,
   collectionOpensWritingReader,
-  collectionRouteYieldsLoadingSkeleton,
   collectionShowInlineTracks,
   collectionUseFirst,
   collectionViewNeedsCatalogSoftFill,
@@ -87,6 +84,7 @@ import {
   collectionSoftFillPeek,
   editionTokenForCollection,
   mergeCatalogSoftFillIntoSeed,
+  peekDropFaceHoldSeed,
   peekHoldsCollection,
   peekHoldsCollectionForDropPage,
   peekOwnedTokenForCollection,
@@ -97,7 +95,6 @@ import {
 import {
   CollectionDropEnter,
   CollectionSeatSettle,
-  claimDropWarmSurfaceAppear,
   dropEnterShouldPlay,
   readDropFirstPaint,
   useDropReducedMotion,
@@ -289,24 +286,48 @@ function EditionQueryToken({
 
 /**
  * Lead seat for Open Collectibles — same width logged out or in.
- * Empty keeps the ghost; wallet fill swaps opaque in place (no seat fade).
+ * One wrapper; only visibility flips (no Link↔button remount flash).
  */
 function CollectionOpenCollectiblesLead({ href }: { href: string | null }) {
-  if (href) {
-    return (
-      <OsRowAction href={href}>Open Collectibles</OsRowAction>
-    );
-  }
   return (
-    <span className="collection-use-actions-lead-ghost" aria-hidden>
-      <OsRowAction onClick={() => {}}>Open Collectibles</OsRowAction>
+    <span
+      className={href ? undefined : 'collection-use-actions-lead-ghost'}
+      aria-hidden={href ? undefined : true}
+    >
+      {href ? (
+        <OsRowAction href={href}>Open Collectibles</OsRowAction>
+      ) : (
+        <OsRowAction onClick={() => {}}>Open Collectibles</OsRowAction>
+      )}
     </span>
   );
 }
 
-const clientMountedSubscribe = () => () => {};
-const getClientMountedSnapshot = () => true;
-const getServerMountedSnapshot = () => false;
+/** Show pass seat — same button tree; ghost only toggles visibility. */
+function CollectionShowPassTrail({
+  ready,
+  label,
+  onOpen,
+}: {
+  ready: boolean;
+  label: string;
+  onOpen: () => void;
+}) {
+  return (
+    <span
+      className={ready ? undefined : 'collection-use-actions-trail-ghost'}
+      aria-hidden={ready ? undefined : true}
+    >
+      <OsRowAction
+        className="collectibles-holding-action"
+        onClick={ready ? onOpen : () => {}}
+      >
+        {label}
+      </OsRowAction>
+    </span>
+  );
+}
+
 /** ?read=1 already opened the reader this visit — Back must not open it again. */
 const consumedCollectionReadLinks = new Set<string>();
 
@@ -315,6 +336,8 @@ export function CollectionPagePanel({
   initial,
   initialCreator = null,
   initialActivity,
+  initialViewerAccountId = null,
+  initialHoldSeed = null,
   initialEditionToken = null,
   embedded = false,
   onClose,
@@ -327,6 +350,16 @@ export function CollectionPagePanel({
    * it so activity can fetch + reserve rails instead of locking empty.
    */
   initialActivity?: CollectionActivityRow[];
+  /**
+   * SSR wallet hint cookie — Collectibles / hold frame 1 on hard refresh.
+   * Hint only; live `useAppWallet().accountId` wins when present.
+   */
+  initialViewerAccountId?: string | null;
+  /**
+   * SSR hold hint cookie — use-first / Show pass / #edition on hard refresh
+   * when the in-memory hold cache is empty.
+   */
+  initialHoldSeed?: { holds: boolean; tokenId: string | null } | null;
   /** `?t=` from the drop page request, so the first paint is that edition. */
   initialEditionToken?: string | null;
   /** Nested in an appear page sheet — sheet Back, not launcher leave. */
@@ -381,10 +414,6 @@ export function CollectionPagePanel({
   );
   /** Seed, view cache, or now-playing — first paint was already the drop. */
   const [seededHotOpen] = useState(() => liveView != null);
-  /** One surface fade per soft-nav open (loading.tsx must not replay on page). */
-  const [warmSurfaceAppear] = useState(
-    () => seededHotOpen && claimDropWarmSurfaceAppear(collectionId)
-  );
   const view = liveView ?? initial ?? null;
   /** Album loves per track; writing/art love the drop. Fans seat is always the same. */
   const isAudioDrop = collectionCoverIsAudio({
@@ -421,24 +450,37 @@ export function CollectionPagePanel({
       liveView != null ||
       (isNowPlayingThisDrop && Boolean(nowPlaying?.session))
   );
-  const clientMounted = useSyncExternalStore(
-    clientMountedSubscribe,
-    getClientMountedSnapshot,
-    getServerMountedSnapshot
-  );
   const [walletRemaining, setWalletRemaining] = useState<number | null>(null);
   /** null = not checked yet / N/A; number = remaining allowlist mints. */
   const [allowlistRemaining, setAllowlistRemaining] = useState<number | null>(
     null
   );
-  /** null = unchecked; true/false after ownership scan. Vault cache seeds hold. */
-  const [holdsEdition, setHoldsEdition] = useState<boolean | null>(() =>
-    peekHoldsCollectionForDropPage(viewerAccountId, collectionId) ? true : null
-  );
+  /**
+   * Live wallet when known; SSR hint only while wallet is still restoring
+   * (hard refresh HTML match). Once settled signed-out, drop the hint so
+   * Collectibles does not keep a disconnected account path.
+   */
+  const paintViewerAccountId =
+    viewerAccountId?.trim() ||
+    (walletLoading ? initialViewerAccountId?.trim() || null : null);
+  /** null = unchecked; true/false after seed or ownership scan. */
+  const [holdsEdition, setHoldsEdition] = useState<boolean | null>(() => {
+    if (initialHoldSeed) return initialHoldSeed.holds;
+    const seed = peekDropFaceHoldSeed(
+      viewerAccountId?.trim() || initialViewerAccountId?.trim() || null,
+      collectionId
+    );
+    return seed.holds;
+  });
   /** Owned edition for Show pass when known. */
-  const [ownedPassTokenId, setOwnedPassTokenId] = useState<string | null>(() =>
-    peekOwnedTokenForCollection(viewerAccountId, collectionId)
-  );
+  const [ownedPassTokenId, setOwnedPassTokenId] = useState<string | null>(() => {
+    if (initialHoldSeed) return initialHoldSeed.tokenId;
+    const seed = peekDropFaceHoldSeed(
+      viewerAccountId?.trim() || initialViewerAccountId?.trim() || null,
+      collectionId
+    );
+    return seed.tokenId;
+  });
   /** Query `?t=` wins; held token fills the same reserved seat (never inserts a line). */
   const faceEditionToken =
     editionToken || (ownedPassTokenId ? ownedPassTokenId.trim() : '');
@@ -650,6 +692,9 @@ export function CollectionPagePanel({
     // Wallet still hydrating — keep peeked #edition / hold; do not wipe.
     if (!viewerAccountId) {
       if (walletLoading) return;
+      // Restoring session: live id is briefly null while localStorage still
+      // has the account — wiping here flashes Show pass / Collectibles off.
+      if (peekViewerAccountId()) return;
       queueMicrotask(() => {
         setWalletRemaining(null);
         setAllowlistRemaining(null);
@@ -682,8 +727,14 @@ export function CollectionPagePanel({
       if (cancelled) return;
       setWalletRemaining(wallet);
       setAllowlistRemaining(allowlist);
-      setOwnedPassTokenId(ownedToken);
-      setHoldsEdition(Boolean(ownedToken));
+      // Skip no-op updates — same token must not remount Show pass.
+      setOwnedPassTokenId((prev) =>
+        prev === ownedToken ? prev : ownedToken
+      );
+      setHoldsEdition((prev) => {
+        const next = Boolean(ownedToken);
+        return prev === next ? prev : next;
+      });
     });
     return () => {
       cancelled = true;
@@ -1115,8 +1166,8 @@ export function CollectionPagePanel({
     clientSettled,
   });
   const catalogLeaveHref = collectionDropBackHref({
-    useFirst: peekHoldsCollectionForDropPage(viewerAccountId, collectionId),
-    viewerAccountId,
+    useFirst: peekHoldsCollectionForDropPage(paintViewerAccountId, collectionId),
+    viewerAccountId: paintViewerAccountId,
   });
   const dockFallbackHref = view
     ? collectionDropBackHref({
@@ -1125,24 +1176,15 @@ export function CollectionPagePanel({
             isOwner,
             holdsEdition,
             walletLoading,
-            viewerAccountId,
+            viewerAccountId: paintViewerAccountId,
             playSessionMatches: isNowPlayingThisDrop,
           })
         ),
-        viewerAccountId,
+        viewerAccountId: paintViewerAccountId,
       })
     : catalogLeaveHref;
   const onDockBack = useCatalogDockBack(dockFallbackHref);
   if (catalogShell === 'skeleton' && !seededHotOpen) {
-    if (
-      collectionRouteYieldsLoadingSkeleton({
-        embedded,
-        clientMounted,
-      })
-    ) {
-      // Route `loading.tsx` owns the first cold frame — avoid a twin shell.
-      return null;
-    }
     return (
       <OsAppScreen
         title="Drop"
@@ -1224,15 +1266,17 @@ export function CollectionPagePanel({
     isOwner,
     holdsEdition,
     walletLoading,
-    viewerAccountId,
+    viewerAccountId: paintViewerAccountId,
     playSessionMatches: isNowPlayingThisDrop,
   });
   const useFirst = collectionUseFirst(ownership);
   const listenOnPlayPage = Boolean(holderPlayHref) && ownership === 'holder';
   const sourceHref = postHrefFromSourcePath(view.sourcePostPath);
-  const mediumKind = (view.kind ?? '').trim().toLowerCase();
+  // Soft-fill may land `kind` after open — keep pass seat from the list seed.
+  const faceKind = view.kind ?? initial?.kind ?? null;
+  const mediumKind = (faceKind ?? '').trim().toLowerCase();
   const isAudio = collectionCoverIsAudio({
-    kind: view.kind,
+    kind: faceKind,
     playablesLength: playables.length,
   });
   const isPassKind = isPassMediumKind(mediumKind);
@@ -1293,11 +1337,12 @@ export function CollectionPagePanel({
   });
   const dropBackHref = collectionDropBackHref({
     useFirst,
-    viewerAccountId,
+    viewerAccountId: paintViewerAccountId,
   });
-  const vaultAccountId = peekViewerAccountId(viewerAccountId);
-  const vaultHref = vaultAccountId
-    ? portfolioCollectiblesPath(vaultAccountId)
+  // Live wallet, else SSR hint cookie — same on server HTML and hydrate.
+  // Never localStorage-peek during render (Link↔button remount flash).
+  const vaultHref = paintViewerAccountId
+    ? portfolioCollectiblesPath(paintViewerAccountId)
     : null;
   const openOwnedPass = () => {
     const tokenId = ownedPassTokenId?.trim();
@@ -1506,7 +1551,7 @@ export function CollectionPagePanel({
                 ) : null}
               </div>
             ) : null}
-            <OsLateFill className="collection-about-seat">
+            <OsLateFill className="collection-about-seat" fade>
               {description || aboutHasMore ? (
                 <CollectionAboutTeaser
                   text={description}
@@ -1609,14 +1654,14 @@ export function CollectionPagePanel({
                 // Industry CLS: same reading-row chassis as the skeleton from
                 // frame 1. Lead + trail seats fill in place — never solo
                 // Collectibles, never morph when hold/wallet lands.
-                const trail = canShowPass ? (
-                  <OsRowAction
-                    className="collectibles-holding-action"
-                    onClick={openOwnedPass}
-                  >
-                    {passActionLabel}
-                  </OsRowAction>
-                ) : opensWritingReader ? (
+                const trail =
+                  isPassKind && holdsEdition !== false ? (
+                    <CollectionShowPassTrail
+                      ready={canShowPass}
+                      label={passActionLabel}
+                      onOpen={openOwnedPass}
+                    />
+                  ) : opensWritingReader ? (
                   <OsRowAction
                     className="collectibles-holding-action"
                     onClick={openWritingRead}
@@ -1640,36 +1685,40 @@ export function CollectionPagePanel({
                   >
                     Play
                   </OsRowAction>
-                ) : isPassKind && holdsEdition !== false ? (
-                  <span
-                    className="collection-use-actions-trail-ghost"
-                    aria-hidden
-                  >
-                    <OsRowAction onClick={() => {}}>
-                      {passActionLabel}
-                    </OsRowAction>
-                  </span>
                 ) : (
                   <span
                     className="collection-use-actions-trail-chassis"
                     aria-hidden
                   />
                 );
-                const holderPlayBesidePass =
-                  canShowPass &&
+                // Reserve the pass+Play row while hold is unknown or held —
+                // never mount a second reading row after fetch (height flash).
+                const reservePassPlayRow =
+                  isPassKind &&
                   hasPlayables &&
-                  listenOnPlayPage &&
-                  holderPlayHref ? (
-                    <div className="collection-reading-row">
-                      <CollectionOpenCollectiblesLead href={null} />
+                  Boolean(holderPlayHref) &&
+                  holdsEdition !== false &&
+                  (canShowPass || ownership === 'holder' || ownership === 'unknown');
+                const holderPlayBesidePass = reservePassPlayRow ? (
+                  <div className="collection-reading-row">
+                    <CollectionOpenCollectiblesLead href={null} />
+                    {canShowPass || ownership === 'holder' ? (
                       <OsRowAction
                         className="collectibles-holding-action"
-                        href={holderPlayHref}
+                        href={holderPlayHref!}
                       >
                         Play
                       </OsRowAction>
-                    </div>
-                  ) : null;
+                    ) : (
+                      <span
+                        className="collection-use-actions-trail-ghost"
+                        aria-hidden
+                      >
+                        <OsRowAction onClick={() => {}}>Play</OsRowAction>
+                      </span>
+                    )}
+                  </div>
+                ) : null;
                 return (
                   <>
                     <div className="collection-reading-row">
@@ -2046,13 +2095,9 @@ export function CollectionPagePanel({
       }
     >
       {seededHotOpen ? (
-        // Warm/cached: one surface fade (post-sheet appear). Remount after
-        // loading.tsx stays opaque — claimDropWarmSurfaceAppear. Soft-fill quiet.
-        warmSurfaceAppear ? (
-          <OsPageBodyAppear>{dropFace}</OsPageBodyAppear>
-        ) : (
-          dropFace
-        )
+        // Warm soft-nav: opaque. loading.tsx → page remount + surface fade
+        // made Open Collectibles / Show pass flicker; cold settle still rises.
+        dropFace
       ) : (
         <div className="collection-drop-settle">
           <OsRouteSettle

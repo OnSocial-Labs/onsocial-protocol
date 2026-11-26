@@ -1,19 +1,8 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
 import { useParams } from 'next/navigation';
-import './collection-drop-enter.css';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { CollectionPagePanel } from '@/features/scarces/collection-page-panel';
-import { CollectionPageSkeleton } from '@/features/scarces/collection-page-skeleton';
-import { readCollectionCreatorFace } from '@/features/scarces/collection-creator-face-cache';
-import { readCollectionView } from '@/features/scarces/collection-view-cache';
-import {
-  collectionChildLeaveHref,
-  editionTokenForCollection,
-} from '@/features/scarces/collection-page-view';
-import { useCatalogDockBack } from '@/hooks/use-catalog-dock-back';
-import { APP_DROPS_PATH, COLLECTION_PASS_TOKEN_PARAM } from '@/lib/app-routes';
+import { collectionChildLeaveHref } from '@/features/scarces/collection-page-view';
 import { DOOR_PAGE_CLASS } from '@/lib/os-chrome-page';
 
 function collectionIdFromParams(params: { collectionId?: string | string[] }) {
@@ -22,61 +11,12 @@ function collectionIdFromParams(params: { collectionId?: string | string[] }) {
   return typeof id === 'string' ? decodeURIComponent(id) : '';
 }
 
-const subscribeLocation = () => () => {};
-
-/** `?t=` on the live URL. Server snapshot stays empty so hydration matches. */
-function useDropEditionToken(collectionId: string): string {
-  return useSyncExternalStore(
-    subscribeLocation,
-    () => {
-      if (!collectionId) return '';
-      const query = new URLSearchParams(window.location.search);
-      return editionTokenForCollection(
-        collectionId,
-        query.get(COLLECTION_PASS_TOKEN_PARAM)
-      );
-    },
-    () => ''
-  );
-}
-
 /**
- * Route `loading.tsx` — hot soft-nav paints the real drop panel with the
- * remembered seed (same layout as settled; activity fetches while RSC lands).
- * Cold leave is Drops until the panel knows the holder.
+ * Door / redeem route loading only.
+ * Drop place soft-nav has no `loading.tsx` — previous screen stays until the
+ * page mounts once (avoids loading→page remount flicker on Collectibles /
+ * Show pass). Cold miss skeleton lives in the panel.
  */
-export function CollectionPageLoadingScreen() {
-  const params = useParams<{ collectionId?: string }>();
-  const collectionId = collectionIdFromParams(params);
-  const editionToken = useDropEditionToken(collectionId);
-  const seed = collectionId ? readCollectionView(collectionId) : null;
-  const creator = collectionId ? readCollectionCreatorFace(collectionId) : null;
-  const onDockBack = useCatalogDockBack(APP_DROPS_PATH);
-
-  if (seed && collectionId) {
-    return (
-      <CollectionPagePanel
-        collectionId={collectionId}
-        initial={seed}
-        initialCreator={creator}
-        initialEditionToken={editionToken || null}
-      />
-    );
-  }
-
-  return (
-    <OsAppScreen
-      title="Drop"
-      dockBack
-      onDockBack={onDockBack}
-      backFallbackHref={APP_DROPS_PATH}
-      immersiveHeader
-    >
-      <CollectionPageSkeleton hasEdition={Boolean(editionToken)} />
-    </OsAppScreen>
-  );
-}
-
 export function CollectionChildLoadingScreen({
   title,
   copy,
