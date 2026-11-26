@@ -1,5 +1,5 @@
 ---
-description: Industry-standard implementation — one layout, stable first paint, tokens, no leftovers
+description: Industry-standard implementation — confirm the cause, one layout, stable first paint, tokens, tests, no leftovers
 alwaysApply: true
 ---
 
@@ -16,12 +16,19 @@ Read the rule and the component that already own the surface. Ship that pattern.
 - **Dismiss stays reachable.** Covering a surface keeps a labeled close and the drag handle. Do not trap the page.
 - **Same-change cleanup.** Delete what this change orphaned: unused exports, duplicate markup, CSS for a class nothing renders, helpers with no callers.
 - **Locked decisions.** When the user changes a product rule, update that rule in the same change.
+- **Root cause first.** Reproduce the failure or trace it in code before changing anything. No speculative fixes. If the cause cannot be confirmed, add instrumentation instead of guessing.
+- **Performance.** No needless rerenders, memory leaks, or main-thread work that can freeze the UI. Weigh that cost before building.
+- **Deprecated and unused.** In the code you touch, replace deprecated APIs and outdated patterns, and remove unused dependencies this change leaves behind.
+- **State what's unverified.** The PR description lists remaining risks and unchecked assumptions.
+- **Tests move with the behavior.** When a change alters user-visible behavior, update or add the matching Playwright spec and unit tests in the same PR. Never delete or weaken a test to make CI pass. Playwright is not run locally; CI owns that run. See [cloud-quality-gates.mdc](cloud-quality-gates.mdc) and [pre-push-checks.mdc](pre-push-checks.mdc).
 
 ## Do not
 
 - Mount a stand-in page and restyle it until the real page arrives.
 - Leave the rejected approach in the tree because the new path works.
 - Wait to be asked to clean leftovers.
+- Ship a fix you have not reproduced or traced.
+- Delete or weaken a test to make CI pass.
 
 ```tsx
 // Rejected: a second card tree, then a padding rule only that tree uses.
@@ -33,8 +40,12 @@ Read the rule and the component that already own the surface. Ship that pattern.
 
 ```css
 /* Rejected: loses to the 720px drawer cap, so the sheet never grows. */
-.glass-sheet-panel.page-drawer-panel { height: 95dvh; }
+.glass-sheet-panel.page-drawer-panel {
+  height: 95dvh;
+}
 
 /* Wins: same weight as the cap, later in the app sheet. */
-.glass-sheet-root .glass-sheet-panel.page-drawer-panel { height: 100%; }
+.glass-sheet-root .glass-sheet-panel.page-drawer-panel {
+  height: 100%;
+}
 ```
