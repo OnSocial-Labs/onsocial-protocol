@@ -124,16 +124,6 @@ async function installFeed(page: Page): Promise<void> {
   });
 }
 
-async function delayCollectionRsc(page: Page, ms: number): Promise<void> {
-  await page.route('**/collection/**', async (route) => {
-    const rsc = route.request().headers()['rsc'];
-    if (rsc === '1') {
-      await new Promise((resolve) => setTimeout(resolve, ms));
-    }
-    await route.continue();
-  });
-}
-
 async function scrollFeed(page: Page): Promise<number> {
   const scroller = page.locator('[data-feed-session] .os-app-screen-body');
   await expect(scroller).toBeVisible();
@@ -288,9 +278,11 @@ async function expectReopenFromFeed(page: Page): Promise<void> {
   const timing = await tapDrop(page);
   expect(timing.ms).toBeGreaterThan(0);
   expect(timing.ms).toBeLessThan(tapBudget());
-  expect(timing.path).toBe('/collection/night-drive');
+  await expect(page).toHaveURL(/\/collection\/night-drive/);
   await expectOneTitle(page);
-  await expect(page.locator(`${DROP_SHEET} .collection-product-price`).first()).toBeVisible({
+  await expect(
+    page.locator(`${DROP_SHEET} .collection-product-price`).first()
+  ).toBeVisible({
     timeout: 8_000,
   });
   await expect(page.locator(`${DROP_SHEET} .collection-title`)).toHaveText(
@@ -320,14 +312,8 @@ async function runSeededTap(
   opts?: { throttle?: boolean }
 ): Promise<void> {
   await installFeed(page);
-  await delayCollectionRsc(page, 2_000);
   await setE2eGraphDrop(page, 'default');
-  const rscDone = page.waitForResponse(
-    (response) =>
-      response.url().includes('/collection/night-drive') &&
-      response.request().headers()['rsc'] === '1',
-    { timeout: 20_000 }
-  );
+  // Sheet open uses native history — no Next soft-nav / RSC flight for the tap.
   await gotoApp(page, '/home');
   const link = page.locator('a.post-card-scarce-link', { hasText: 'Drop' });
   await expect(link).toBeVisible({ timeout: 15_000 });
@@ -351,11 +337,10 @@ async function runSeededTap(
   noteTap(testInfo, label, timing.ms);
   expect(timing.ms).toBeGreaterThan(0);
   expect(timing.ms).toBeLessThan(tapBudget());
-  expect(timing.path).toBe('/collection/night-drive');
+  await expect(page).toHaveURL(/\/collection\/night-drive/);
   await expectOneTitle(page);
   await expectSamePanelFills(page);
   await expectCreatorHittable(page);
-  await rscDone;
   await expect(page.locator('[data-paint-id="tap"]')).toHaveCount(1);
   await expectOneTitle(page);
   const titlePeak = await page.evaluate(
@@ -420,12 +405,6 @@ test.describe('drop tap paints immediately @webkit', () => {
 });
 
 async function expectUncachedFrame(page: Page): Promise<number> {
-  const flight = page.waitForResponse(
-    (response) =>
-      response.url().includes('/collection/uncached-drop') &&
-      response.request().headers()['rsc'] === '1',
-    { timeout: 15_000 }
-  );
   await page.waitForFunction(
     () =>
       typeof (window as Window & { __osOpenUncachedDrop?: unknown })
@@ -459,19 +438,13 @@ async function expectUncachedFrame(page: Page): Promise<number> {
   }, DROP_SHEET);
   expect(timing.ms).toBeGreaterThan(0);
   expect(timing.ms).toBeLessThan(tapBudget());
-  expect(timing.path).toBe('/collection/uncached-drop');
   expect(timing.frame).toBe(true);
-  await expect(
-    page.locator(`${DROP_SHEET} .collection-title`)
-  ).toHaveCount(0);
-  expect(await page.locator(`${DROP_SHEET} .collection-title`).count()).toBeLessThanOrEqual(1);
-  await flight;
   await expect(page).toHaveURL(/\/collection\/uncached-drop/);
   await expect(page.locator(DROP_SHEET)).toHaveCount(1);
-  expect(await page.locator(`${DROP_SHEET} .collection-title`).count()).toBeLessThanOrEqual(1);
-  // The RSC can arrive before Next commits the push. A hard load during
-  // that commit is what interrupted WebKit.
-  await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
+  // Cold sheet frame can paint before the title soft-fills from the graph.
+  expect(
+    await page.locator(`${DROP_SHEET} .collection-title`).count()
+  ).toBeLessThanOrEqual(1);
   return timing.ms;
 }
 
