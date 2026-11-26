@@ -236,6 +236,10 @@ describe('Drop place openers', () => {
     expect(layer).toContain('presentation="appear"');
     expect(layer).toContain('keepDock');
     expect(layer).toContain('useClaimDropSheetDockBack');
+    expect(layer).toContain('dropLayerOpenHistoryOp');
+    expect(layer).toContain("op === 'push'");
+    expect(layer).toContain('nativeHistoryPushState');
+    expect(layer).toContain('nativeHistoryReplaceState');
     const page = src('app/(app)/collection/[collectionId]/page.tsx');
     expect(page).toContain('CollectionRouteSlot');
     expect(page).toContain('if (yieldToHost)');

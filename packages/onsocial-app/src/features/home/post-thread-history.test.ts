@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   beginHistoryBack,
+  dropLayerOpenHistoryOp,
   inFlightPopRepair,
   repairClosingLayerHistory,
   withoutClosingLayer,
@@ -8,6 +9,21 @@ import {
 
 const QUOTES = '/alice.near/post/1/quotes?tab=reposts';
 const DROP = '/collection/night-roads?t=7';
+
+describe('drop layer open history op', () => {
+  it('replaces on home root so open/close does not stack', () => {
+    expect(dropLayerOpenHistoryOp('/home')).toBe('replace');
+    expect(dropLayerOpenHistoryOp('/home?place=lisbon')).toBe('replace');
+    expect(dropLayerOpenHistoryOp('/')).toBe('replace');
+  });
+
+  it('pushes when a real page sits under the sheet', () => {
+    expect(dropLayerOpenHistoryOp('/market')).toBe('push');
+    expect(dropLayerOpenHistoryOp('/discover')).toBe('push');
+    expect(dropLayerOpenHistoryOp('/drops')).toBe('push');
+    expect(dropLayerOpenHistoryOp('/@alice.near')).toBe('push');
+  });
+});
 
 describe('overlay history after a closing layer', () => {
   it('pushes a fresh entry when Back has already popped the overlay', () => {

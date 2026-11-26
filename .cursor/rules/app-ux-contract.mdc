@@ -33,6 +33,12 @@ Portfolio and wallet mood live in `app-portfolio-face.mdc`. These shells only:
 - Compose and slide-over wash stays inside the app column on phone. Desktop gutters stay OS `--bg` (no outside mood glow). A slide-over clears card radius so host glow cannot bleed. The portfolio hairline ban is in `app-portfolio-face.mdc`.
 - `guild-composer-sheet` may still pass viewer mood explicitly. Most routes inherit `OsAppScreen`.
 
+## Stacked overlays and Back
+
+When a drawer (or any nested overlay) sits on top of a sheet or another overlay, Back closes the **topmost** surface first. The sheet or page underneath stays until that top surface is gone. Drawers take navigation priority over the sheet they cover; the same rule applies to any future stacked overlay (drawer over sheet, sheet over sheet, modal over drawer). Do not wire dock Back, header Back, or browser Back so the underlay dismisses while a drawer above it is still open.
+
+Drop sheet history: first open over a real underlay page **pushes** (browser Back and dock Back both dismiss). First open from home **replaces** so root open/close does not stack. Native history only — App Router push would remount and kill the feed underlay.
+
 ## Motion
 
 - Content appear / route settle: `var(--os-motion-appear)` (280ms) + `var(--os-motion-ease-standard)`.

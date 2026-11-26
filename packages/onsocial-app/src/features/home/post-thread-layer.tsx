@@ -112,6 +112,7 @@ import {
 } from './post-thread-stack';
 import {
   beginHistoryBack,
+  dropLayerOpenHistoryOp,
   inFlightPopRepair,
   repairClosingLayerHistory,
   withoutClosingLayer,
@@ -996,14 +997,15 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     if (!beginCloseTop()) return;
     if (typeof window === 'undefined') return;
     const closing = current[current.length - 1];
-    // Drop opens with replace — close with one replace back to the underlay
-    // so open/close cycles do not stack history entries.
-    if (closing?.kind === 'drop') {
+    const underlay = underlayPathRef.current ?? '/home';
+    // Drop from home replaced the root — replace back (no stacked entry).
+    // Drop over a real page pushed — history.back restores that page.
+    if (
+      closing?.kind === 'drop' &&
+      dropLayerOpenHistoryOp(underlay) === 'replace'
+    ) {
       getPostLayerPopGuard().depth = 0;
-      nativeHistoryReplaceState(
-        withoutPostLayerHistoryState(),
-        underlayPathRef.current ?? '/home'
-      );
+      nativeHistoryReplaceState(withoutPostLayerHistoryState(), underlay);
       return;
     }
     const back = beginHistoryBack({
@@ -1015,10 +1017,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       window.history.back();
       return;
     }
-    nativeHistoryReplaceState(
-      withoutPostLayerHistoryState(),
-      underlayPathRef.current ?? '/home'
-    );
+    nativeHistoryReplaceState(withoutPostLayerHistoryState(), underlay);
   }, [beginCloseTop, syncOverlayUrl]);
 
   const publishClosingHistory = useCallback((canonical: string) => {
@@ -1473,12 +1472,21 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         publishClosingHistory(canonical);
         return true;
       }
-      // Always replace — open/close cycles must not stack duplicate entries.
+      // First open: push over a real underlay page so browser Back dismisses;
+      // replace on home so root open/close does not stack. Later swaps replace.
       const syncCanonical = () => {
         getPostLayerPopGuard().depth = 1;
         const currentUrl = `${window.location.pathname}${window.location.search}`;
         if (currentUrl === canonical) return;
-        nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
+        const underlay = underlayPathRef.current ?? pathname;
+        const op = isFirst
+          ? dropLayerOpenHistoryOp(underlay)
+          : 'replace';
+        if (op === 'push') {
+          nativeHistoryPushState(withPostLayerHistoryState(), canonical);
+        } else {
+          nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
+        }
       };
       if (isFirst) {
         queueMicrotask(syncCanonical);
