@@ -137,54 +137,26 @@ async function scrollFeed(page: Page): Promise<number> {
 }
 
 async function tapDrop(page: Page): Promise<{ ms: number; path: string }> {
-  return page.evaluate((sheetSel) => {
-    const link = document.querySelector(
-      'a.post-card-scarce-link'
-    ) as HTMLAnchorElement | null;
-    if (!link) return { ms: -1, path: location.pathname };
-    const start = performance.now();
-    // Mirror a real press: pointerdown warms the seed before click opens.
-    link.dispatchEvent(
-      new PointerEvent('pointerdown', {
-        bubbles: true,
-        cancelable: true,
-        pointerType: 'touch',
-      })
-    );
-    link.click();
-    const mark = (title: Element | null) => {
-      const node = document.querySelector(`${sheetSel} .os-app-screen`);
-      if (node instanceof HTMLElement) node.dataset.paintId = 'tap';
-      return {
-        ms: Math.round(performance.now() - start),
-        path: location.pathname,
-        painted:
-          title instanceof HTMLElement &&
-          (title.textContent?.includes('Night Drive') ?? false),
-      };
-    };
-    const immediate = document.querySelector(`${sheetSel} .collection-title`);
-    if (
-      immediate instanceof HTMLElement &&
-      immediate.textContent?.includes('Night Drive')
-    ) {
-      return mark(immediate);
-    }
-    return new Promise((resolve) => {
-      const check = () => {
-        const title = document.querySelector(`${sheetSel} .collection-title`);
-        const painted =
-          title instanceof HTMLElement &&
-          title.textContent?.includes('Night Drive');
-        if (painted || performance.now() - start > 2500) {
-          resolve(mark(title));
-          return;
-        }
-        requestAnimationFrame(check);
-      };
-      requestAnimationFrame(check);
-    });
+  const link = page.locator('a.post-card-scarce-link').first();
+  await expect(link).toBeVisible();
+  const start = await page.evaluate(() => performance.now());
+  // Full pointer sequence so DropPlaceLink pointerdown warms the seed.
+  await link.click();
+  const title = page.locator(`${DROP_SHEET} .collection-title`).filter({
+    hasText: 'Night Drive',
+  });
+  await title.waitFor({ state: 'attached', timeout: 2_500 });
+  const ms = Math.round(
+    (await page.evaluate(() => performance.now())) - start
+  );
+  await page.evaluate((sheetSel) => {
+    const node = document.querySelector(`${sheetSel} .os-app-screen`);
+    if (node instanceof HTMLElement) node.dataset.paintId = 'tap';
   }, DROP_SHEET);
+  return {
+    ms,
+    path: new URL(page.url()).pathname,
+  };
 }
 
 /**
@@ -256,11 +228,12 @@ async function expectMintLocksVisibleScroller(page: Page): Promise<void> {
   await mint.click();
   const mintDialog = page.getByRole('dialog', { name: 'Mint' });
   await expect(mintDialog).toBeVisible({ timeout: 8_000 });
-  const locked = page.locator('[data-scroll-locked="true"]');
-  await expect(locked).toHaveCount(1);
+  await expect(page.locator('[data-scroll-locked="true"]')).toHaveCount(1);
   await page.keyboard.press('Escape');
   await expect(mintDialog).toHaveCount(0);
-  await expect(locked).toHaveCount(0);
+  // DropLayerSheet keeps lockScroll while open — lock stays after mint closes.
+  await expect(page.locator(DROP_SHEET)).toHaveCount(1);
+  await expect(page.locator('[data-scroll-locked="true"]')).toHaveCount(1);
 }
 
 /**
