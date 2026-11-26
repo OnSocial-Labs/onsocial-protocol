@@ -1,5 +1,5 @@
 ---
-description: Industry-standard implementation — confirm the cause, one layout, stable first paint, tokens, no leftovers
+description: Industry-standard implementation — confirm the cause, one layout, stable first paint, tokens, tests, no leftovers
 alwaysApply: true
 ---
 
@@ -20,6 +20,7 @@ Read the rule and the component that already own the surface. Ship that pattern.
 - **Performance.** No needless rerenders, memory leaks, or main-thread work that can freeze the UI. Weigh that cost before building.
 - **Deprecated and unused.** In the code you touch, replace deprecated APIs and outdated patterns, and remove unused dependencies this change leaves behind.
 - **State what's unverified.** The PR description lists remaining risks and unchecked assumptions.
+- **Tests move with the behavior.** When a change alters user-visible behavior, update or add the matching Playwright spec and unit tests in the same PR. Never delete or weaken a test to make CI pass. Playwright is not run locally; CI owns that run. See [cloud-quality-gates.mdc](cloud-quality-gates.mdc) and [pre-push-checks.mdc](pre-push-checks.mdc).
 
 ## Do not
 
@@ -27,6 +28,7 @@ Read the rule and the component that already own the surface. Ship that pattern.
 - Leave the rejected approach in the tree because the new path works.
 - Wait to be asked to clean leftovers.
 - Ship a fix you have not reproduced or traced.
+- Delete or weaken a test to make CI pass.
 
 ```tsx
 // Rejected: a second card tree, then a padding rule only that tree uses.
