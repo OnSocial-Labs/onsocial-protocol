@@ -4,18 +4,10 @@ import type { CollectionView } from '@/features/scarces/collections-data';
 import { readCollectionView } from '@/features/scarces/collection-view-cache';
 import { editionTokenForCollection } from '@/features/scarces/collection-page-view';
 
-/**
- * Set on the tap, before `router.push`, so the collection RSC can return
- * without rendering a second panel. Document loads ignore it.
- */
-export const DROP_PLACE_INSTANT_COOKIE = 'os_drop_instant';
-
 export type DropPlaceInstant = {
   collectionId: string;
   /** `/collection/id` — the pathname Next should commit. */
   pathname: string;
-  /** Pathname still showing when the tap armed (Next has not committed). */
-  fromPathname: string;
   editionToken: string | null;
   /** Next's pathname has caught up. Leaving that path clears the paint. */
   committed: boolean;
@@ -66,41 +58,11 @@ function editionFromHref(href: string, collectionId: string): string | null {
   return edition || null;
 }
 
-export function dropPlaceInstantCookieMatches(
-  raw: string | null | undefined,
-  collectionId: string
-): boolean {
-  if (raw == null || raw === '') return false;
-  let value = raw;
-  try {
-    value = decodeURIComponent(raw);
-  } catch {
-    // keep raw
-  }
-  return value.trim() === collectionId.trim();
-}
-
-/**
- * Client navigations that already painted the drop must not render a second
- * panel when the RSC arrives. Hard refresh is a document request (no `rsc`).
- */
-export function collectionRscDefersToInstantHost(opts: {
-  rscHeader: string | null;
-  cookie: string | null | undefined;
-  collectionId: string;
-}): boolean {
-  if (opts.rscHeader !== '1') return false;
-  return dropPlaceInstantCookieMatches(opts.cookie, opts.collectionId);
-}
-
-function writeDropPlaceInstantCookie(collectionId: string): void {
-  if (typeof document === 'undefined') return;
-  document.cookie = `${DROP_PLACE_INSTANT_COOKIE}=${encodeURIComponent(collectionId)}; Path=/; Max-Age=30; SameSite=Lax`;
-}
-
-export function clearDropPlaceInstantCookie(): void {
-  if (typeof document === 'undefined') return;
-  document.cookie = `${DROP_PLACE_INSTANT_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
+/** True while the already-mounted host is painting this drop. */
+export function instantHostOwns(collectionId: string): boolean {
+  const id = collectionId.trim();
+  if (!id || !snapshot) return false;
+  return snapshot.collectionId === id;
 }
 
 function paintDropPlaceUrl(href: string): void {
@@ -139,14 +101,10 @@ export function armDropPlaceInstant(input: {
   const collectionId = input.collectionId.trim();
   const href = input.href.trim();
   if (!collectionId || !href) return null;
-  const fromPathname =
-    typeof window !== 'undefined' ? window.location.pathname : '';
   paintDropPlaceUrl(href);
-  writeDropPlaceInstantCookie(collectionId);
   current = {
     collectionId,
     pathname: pathnameOf(href),
-    fromPathname,
     editionToken: editionFromHref(href, collectionId),
     committed: false,
   };
@@ -162,6 +120,5 @@ export function commitDropPlaceInstant(): void {
 
 export function clearDropPlaceInstant(): void {
   current = null;
-  clearDropPlaceInstantCookie();
   emit();
 }

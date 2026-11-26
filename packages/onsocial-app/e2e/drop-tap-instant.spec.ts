@@ -200,6 +200,10 @@ function noteTap(testInfo: TestInfo, label: string, ms: number): void {
   console.log(`tap-to-paint ${label}: ${ms}ms`);
 }
 
+async function expectOneTitle(page: Page): Promise<void> {
+  await expect(page.locator('.collection-title')).toHaveCount(1);
+}
+
 async function expectSamePanelFills(page: Page): Promise<void> {
   const root = page.locator('[data-paint-id="tap"]');
   await expect(root).toBeVisible();
@@ -212,9 +216,73 @@ async function expectSamePanelFills(page: Page): Promise<void> {
     timeout: 8_000,
   });
   await expect(root).toHaveAttribute('data-paint-id', 'tap');
+  await expectOneTitle(page);
   await expect(
     page.locator('[data-drop-place-instant] [data-collection-page-skeleton]')
   ).toHaveCount(0);
+}
+
+async function expectCreatorHittable(page: Page): Promise<void> {
+  const link = page.locator('a.drops-discovery-party--lead');
+  await expect(link).toHaveCount(1);
+  await expect(link).toBeVisible();
+  const hit = await link.evaluate((el) => {
+    const rect = el.getBoundingClientRect();
+    const top = document.elementFromPoint(
+      rect.left + Math.min(rect.width / 2, 24),
+      rect.top + Math.min(rect.height / 2, 12)
+    );
+    return top === el || el.contains(top);
+  });
+  expect(hit).toBe(true);
+}
+
+async function expectMintLocksVisibleScroller(page: Page): Promise<void> {
+  const mint = page
+    .locator('[data-drop-place-instant]')
+    .getByRole('button', { name: 'Mint', exact: true });
+  await expect(mint).toBeVisible();
+  const hit = await mint.evaluate((el) => {
+    const rect = el.getBoundingClientRect();
+    const top = document.elementFromPoint(
+      rect.left + rect.width / 2,
+      rect.top + rect.height / 2
+    );
+    return top === el || el.contains(top);
+  });
+  expect(hit).toBe(true);
+  await mint.click();
+  const locked = page.locator('[data-scroll-locked="true"]');
+  await expect(locked).toHaveCount(1);
+  const ownsVisible = await page.evaluate(() => {
+    const title = document.querySelector('.collection-title');
+    const body = title
+      ?.closest('.os-app-screen')
+      ?.querySelector('.os-app-screen-body');
+    const lockedBody = document.querySelector('[data-scroll-locked="true"]');
+    if (!(body instanceof HTMLElement) || lockedBody !== body) return false;
+    const before = body.scrollTop;
+    const wheel = new WheelEvent('wheel', {
+      deltaY: 600,
+      bubbles: true,
+      cancelable: true,
+    });
+    body.dispatchEvent(wheel);
+    return !wheel.defaultPrevented ? false : body.scrollTop === before;
+  });
+  expect(ownsVisible).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(locked).toHaveCount(0);
+}
+
+async function expectForwardRestoresOnePanel(page: Page): Promise<void> {
+  await page.goForward();
+  await expect(page).toHaveURL(/\/collection\/night-drive/);
+  await expectOneTitle(page);
+  await expect(page.locator('.collection-product-price').first()).toBeVisible({
+    timeout: 8_000,
+  });
+  await expect(page.locator('.collection-title')).toHaveText('Night Drive');
 }
 
 async function backToFeed(page: Page, scrollTop: number): Promise<void> {
@@ -258,19 +326,35 @@ async function runSeededTap(
     const client = await page.context().newCDPSession(page);
     await client.send('Emulation.setCPUThrottlingRate', { rate: 4 });
   }
+  await page.evaluate(() => {
+    const win = window as Window & { __titlePeak?: number };
+    const count = () => document.querySelectorAll('.collection-title').length;
+    win.__titlePeak = count();
+    const obs = new MutationObserver(() => {
+      win.__titlePeak = Math.max(win.__titlePeak ?? 0, count());
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+  });
   const timing = await tapDrop(page);
   noteTap(testInfo, label, timing.ms);
   expect(timing.ms).toBeGreaterThan(0);
   expect(timing.ms).toBeLessThan(150);
   expect(timing.path).toBe('/collection/night-drive');
+  await expectOneTitle(page);
   await expectSamePanelFills(page);
+  await expectCreatorHittable(page);
   await rscDone;
   await expect(page.locator('[data-paint-id="tap"]')).toHaveCount(1);
-  await expect(
-    page.locator('[data-drop-place-instant] [data-collection-page-skeleton]')
-  ).toHaveCount(0);
+  await expectOneTitle(page);
+  const titlePeak = await page.evaluate(
+    () => (window as Window & { __titlePeak?: number }).__titlePeak ?? 0
+  );
+  expect(titlePeak).toBe(1);
+  await expectMintLocksVisibleScroller(page);
   await backToFeed(page, scrollTop);
-  await expectUncachedFrame(page);
+  await expect(page.locator('.collection-title')).toHaveCount(0);
+  await expectForwardRestoresOnePanel(page);
+  noteTap(testInfo, `${label}-uncached`, await expectUncachedFrame(page));
   await expectHardRefreshFinal(page);
 }
 
@@ -322,8 +406,13 @@ test.describe('drop tap paints immediately @webkit', () => {
   });
 });
 
-async function expectUncachedFrame(page: Page): Promise<void> {
-  await page.goto('/home');
+async function expectUncachedFrame(page: Page): Promise<number> {
+  const flight = page.waitForResponse(
+    (response) =>
+      response.url().includes('/collection/uncached-drop') &&
+      response.request().headers()['rsc'] === '1',
+    { timeout: 15_000 }
+  );
   await page.waitForFunction(
     () =>
       typeof (window as Window & { __osOpenUncachedDrop?: unknown })
@@ -334,31 +423,39 @@ async function expectUncachedFrame(page: Page): Promise<void> {
     (
       window as Window & { __osOpenUncachedDrop?: (id: string) => void }
     ).__osOpenUncachedDrop?.('uncached-drop');
-    return new Promise<{ ms: number; path: string; skeleton: boolean }>(
-      (resolve) => {
-        const check = () => {
-          const host = document.querySelector('[data-drop-place-instant]');
-          const skeleton = Boolean(
-            host?.querySelector('[data-collection-page-skeleton]')
-          );
-          if ((host && skeleton) || performance.now() - start > 2500) {
-            resolve({
-              ms: Math.round(performance.now() - start),
-              path: location.pathname,
-              skeleton,
-            });
-            return;
-          }
-          requestAnimationFrame(check);
-        };
+    return new Promise<{
+      ms: number;
+      path: string;
+      frame: boolean;
+    }>((resolve) => {
+      const check = () => {
+        const host = document.querySelector('[data-drop-place-instant]');
+        const frame = Boolean(host?.querySelector('.os-app-screen'));
+        if (frame || performance.now() - start > 2500) {
+          resolve({
+            ms: Math.round(performance.now() - start),
+            path: location.pathname,
+            frame,
+          });
+          return;
+        }
         requestAnimationFrame(check);
-      }
-    );
+      };
+      requestAnimationFrame(check);
+    });
   });
   expect(timing.ms).toBeGreaterThan(0);
   expect(timing.ms).toBeLessThan(150);
   expect(timing.path).toBe('/collection/uncached-drop');
-  expect(timing.skeleton).toBe(true);
+  expect(timing.frame).toBe(true);
+  await expect(
+    page.locator('[data-drop-place-instant] .collection-title')
+  ).toHaveCount(0);
+  expect(await page.locator('.collection-title').count()).toBeLessThanOrEqual(1);
+  await flight;
+  await expect(page.locator('[data-drop-place-instant]')).toHaveCount(1);
+  expect(await page.locator('.collection-title').count()).toBeLessThanOrEqual(1);
+  return timing.ms;
 }
 
 async function expectHardRefreshFinal(page: Page): Promise<void> {

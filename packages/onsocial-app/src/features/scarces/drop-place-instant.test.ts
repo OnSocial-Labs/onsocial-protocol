@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { rememberCollectionCreatorFace } from '@/features/scarces/collection-creator-face-cache';
 import { clearCollectionCreatorFaceCache } from '@/features/scarces/collection-creator-face-cache';
@@ -7,10 +8,9 @@ import { rememberCollectionView } from '@/features/scarces/collection-view-cache
 import {
   armDropPlaceInstant,
   clearDropPlaceInstant,
-  collectionRscDefersToInstantHost,
-  DROP_PLACE_INSTANT_COOKIE,
   getDropPlaceInstant,
   instantDropFirstPaint,
+  instantHostOwns,
 } from '@/features/scarces/drop-place-instant';
 import { navigateDropPlace } from '@/features/scarces/drop-place-open';
 
@@ -49,8 +49,6 @@ describe('drop place instant first paint', () => {
         },
       },
     });
-    vi.stubGlobal('document', { cookie: '' });
-
     const armed = armDropPlaceInstant({
       href: '/collection/night-drive',
       collectionId: 'night-drive',
@@ -58,14 +56,14 @@ describe('drop place instant first paint', () => {
     const paint = instantDropFirstPaint('night-drive');
 
     expect(armed?.pathname).toBe('/collection/night-drive');
-    expect(armed?.fromPathname).toBe('/home');
     expect(armed?.committed).toBe(false);
     expect(getDropPlaceInstant()).toBe(armed);
+    expect(instantHostOwns('night-drive')).toBe(true);
+    expect(instantHostOwns('other')).toBe(false);
     expect(paint.view?.title).toBe('Night Drive');
     expect(paint.view?.mediaUrl).toBe('ipfs://cover');
     expect(paint.creator?.displayName).toBe('Ada');
     expect(pushed).toEqual(['/collection/night-drive']);
-    expect(document.cookie).toContain(DROP_PLACE_INSTANT_COOKIE);
   });
 
   it('has no seed view when the tap did not warm one', () => {
@@ -74,28 +72,29 @@ describe('drop place instant first paint', () => {
     expect(paint.creator).toBeNull();
   });
 
-  it('defers only the armed client RSC, not a hard refresh', () => {
-    expect(
-      collectionRscDefersToInstantHost({
-        rscHeader: '1',
-        cookie: encodeURIComponent('night-drive'),
-        collectionId: 'night-drive',
-      })
-    ).toBe(true);
-    expect(
-      collectionRscDefersToInstantHost({
-        rscHeader: null,
-        cookie: 'night-drive',
-        collectionId: 'night-drive',
-      })
-    ).toBe(false);
-    expect(
-      collectionRscDefersToInstantHost({
-        rscHeader: '1',
-        cookie: 'other-drop',
-        collectionId: 'night-drive',
-      })
-    ).toBe(false);
+  it('the route slot paints only when the host is not already showing that drop', () => {
+    const slot = readFileSync(
+      new URL('./drop-place-instant-host.tsx', import.meta.url),
+      'utf8'
+    );
+    const page = readFileSync(
+      new URL(
+        '../../app/(app)/collection/[collectionId]/page.tsx',
+        import.meta.url
+      ),
+      'utf8'
+    );
+    expect(slot).toContain('instantHostOwns');
+    expect(slot).toContain('if (armed) return null');
+    expect(slot).toContain('<CollectionPagePanel');
+    expect(page).toContain('CollectionRouteSlot');
+    expect(page).toContain('yieldToHost');
+    expect(page).toContain("headerList.get('next-url')");
+    expect(page).not.toContain("get('rsc')");
+    expect(page).not.toContain('return null');
+    expect(page.indexOf('loadCollectionPageData')).toBeLessThan(
+      page.indexOf('<CollectionRouteSlot')
+    );
   });
 
   it('navigateDropPlace arms the seed before router.push', () => {
@@ -118,8 +117,6 @@ describe('drop place instant first paint', () => {
         },
       },
     });
-    vi.stubGlobal('document', { cookie: '' });
-
     const pushed: string[] = [];
     const ok = navigateDropPlace(
       {

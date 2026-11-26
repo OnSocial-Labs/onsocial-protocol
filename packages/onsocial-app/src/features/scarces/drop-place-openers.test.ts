@@ -232,13 +232,13 @@ describe('Drop place openers', () => {
     expect(host).toContain('<CollectionPagePanel');
     expect(host).toContain('instantDropFirstPaint');
     const page = src('app/(app)/collection/[collectionId]/page.tsx');
-    expect(page).toContain('collectionRscDefersToInstantHost');
-    expect(page).toContain('return null');
+    expect(page).toContain('CollectionRouteSlot');
+    expect(page).not.toContain("get('rsc')");
+    expect(page).not.toContain('return null');
     const instant = src('features/scarces/drop-place-instant.ts');
-    const deferAt = page.indexOf('collectionRscDefersToInstantHost');
-    const loadAt = page.indexOf('loadCollectionPageData');
-    expect(deferAt).toBeGreaterThan(-1);
-    expect(loadAt).toBeGreaterThan(deferAt);
+    expect(instant).toContain('instantHostOwns');
+    expect(instant).not.toContain('fromPathname');
+    expect(instant).not.toContain('rscHeader');
     expect(instant).toContain('pushState');
   });
 

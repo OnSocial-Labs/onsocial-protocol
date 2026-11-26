@@ -13,6 +13,10 @@ export type ScrollLockContainerFinder = () => HTMLElement | null;
  * Override with {@link configureScrollLockContainerFinder} when needed.
  */
 let findScrollContainer: ScrollLockContainerFinder = () => {
+  const instant = document.querySelector<HTMLElement>(
+    '[data-drop-place-instant] .os-app-screen-body'
+  );
+  if (instant) return instant;
   const bodies = document.querySelectorAll<HTMLElement>('.os-app-screen-body');
   for (let i = 0; i < bodies.length; i += 1) {
     const body = bodies[i];

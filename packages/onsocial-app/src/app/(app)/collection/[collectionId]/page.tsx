@@ -1,10 +1,6 @@
 import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
-import { CollectionPagePanel } from '@/features/scarces/collection-page-panel';
-import {
-  collectionRscDefersToInstantHost,
-  DROP_PLACE_INSTANT_COOKIE,
-} from '@/features/scarces/drop-place-instant';
+import { CollectionRouteSlot } from '@/features/scarces/drop-place-instant-host';
 import { COLLECTION_PASS_TOKEN_PARAM } from '@/lib/app-routes';
 import {
   fetchCollectionCached,
@@ -54,17 +50,10 @@ export default async function CollectionPage({
   const id = decodeURIComponent(collectionId);
   const jar = await cookies();
   const headerList = await headers();
-  // The tap already painted this panel. A second one here would remount it
-  // when the RSC lands. Document loads (hard refresh, shared link) skip this.
-  if (
-    collectionRscDefersToInstantHost({
-      rscHeader: headerList.get('rsc'),
-      cookie: jar.get(DROP_PLACE_INSTANT_COOKIE)?.value,
-      collectionId: id,
-    })
-  ) {
-    return null;
-  }
+  // `rsc` is stripped from userland headers(). `next-url` is the client
+  // navigation signal and stays visible. The slot still receives the full
+  // payload so a cached flight can paint on back/forward.
+  const yieldToHost = Boolean(headerList.get('next-url'));
   const query = await searchParams;
   const { view, creator, activity } = await loadCollectionPageData(id);
   const hint = walletAccountHintFromCookie(
@@ -76,8 +65,9 @@ export default async function CollectionPage({
     id
   );
   return (
-    <CollectionPagePanel
+    <CollectionRouteSlot
       collectionId={id}
+      yieldToHost={yieldToHost}
       initial={view}
       initialCreator={creator}
       initialActivity={activity}

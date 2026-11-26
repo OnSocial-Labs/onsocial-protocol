@@ -2119,7 +2119,6 @@ export function CollectionPagePanel({
       leading={embedded ? collectionAppearBack(onClose) : undefined}
       immersiveHeader={immersive}
       scrollRootRef={scrollRootRef}
-      launcher={embedded ? false : overlayReady}
       actions={
         <>
           <span className={`collection-header-status ${statusTone(status)}`}>
