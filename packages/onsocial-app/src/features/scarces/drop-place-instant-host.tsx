@@ -8,7 +8,7 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useArmOsInAppScreen } from '@/components/providers/os-face-leave-provider';
 import { CollectionPagePanel } from '@/features/scarces/collection-page-panel';
 import type { CollectionCreatorFace } from '@/features/scarces/collection-creator-face';
@@ -23,7 +23,7 @@ import {
   instantHostOwns,
   subscribeDropPlaceInstant,
 } from '@/features/scarces/drop-place-instant';
-import { navigateDropPlace } from '@/features/scarces/drop-place-open';
+import { useDropPlaceOpen } from '@/features/scarces/drop-place-open';
 import { collectionPath } from '@/lib/app-routes';
 import { SHEET_Z } from '@/lib/sheet-z';
 
@@ -100,7 +100,7 @@ export function DropPlaceInstantHost() {
     getDropPlaceInstantServer
   );
   const pathname = usePathname();
-  const router = useRouter();
+  const openDropPlace = useDropPlaceOpen();
   const armInApp = useArmOsInAppScreen();
   const notedPath = useRef<string | null>(null);
 
@@ -109,16 +109,14 @@ export function DropPlaceInstantHost() {
     const open = (collectionId: string) => {
       const id = collectionId.trim();
       if (!id) return;
-      navigateDropPlace(router as Parameters<typeof navigateDropPlace>[0], {
-        href: collectionPath(id),
-      });
+      openDropPlace({ href: collectionPath(id) });
     };
     (window as E2EWindow).__osOpenUncachedDrop = open;
     return () => {
       const e2e = window as E2EWindow;
       if (e2e.__osOpenUncachedDrop === open) delete e2e.__osOpenUncachedDrop;
     };
-  }, [router]);
+  }, [openDropPlace]);
 
   useLayoutEffect(() => {
     if (!instant) {

@@ -50,12 +50,10 @@ export default async function CollectionPage({
   const id = decodeURIComponent(collectionId);
   const jar = await cookies();
   const headerList = await headers();
-  // `rsc` is stripped from userland headers(). `next-url` is the client
-  // navigation signal and stays visible. The slot still receives the full
-  // payload so a cached flight can paint on back/forward.
+  // Soft-nav / sheet-owned opens: `next-url` is present. Skip the full page
+  // data await — the sheet already painted from cache; metadata still runs.
   const yieldToHost = Boolean(headerList.get('next-url'));
   const query = await searchParams;
-  const { view, creator, activity } = await loadCollectionPageData(id);
   const hint = walletAccountHintFromCookie(
     jar.get(APP_WALLET_ACCOUNT_HINT_COOKIE)?.value
   );
@@ -64,10 +62,26 @@ export default async function CollectionPage({
     hint,
     id
   );
+  if (yieldToHost) {
+    return (
+      <CollectionRouteSlot
+        collectionId={id}
+        yieldToHost
+        initial={null}
+        initialCreator={null}
+        initialViewerAccountId={hint}
+        initialHoldSeed={holdSeed}
+        initialEditionToken={
+          firstParam(query[COLLECTION_PASS_TOKEN_PARAM]) || null
+        }
+      />
+    );
+  }
+  const { view, creator, activity } = await loadCollectionPageData(id);
   return (
     <CollectionRouteSlot
       collectionId={id}
-      yieldToHost={yieldToHost}
+      yieldToHost={false}
       initial={view}
       initialCreator={creator}
       initialActivity={activity}

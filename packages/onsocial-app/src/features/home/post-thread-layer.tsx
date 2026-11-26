@@ -27,6 +27,7 @@ import {
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsRouteSettle } from '@/components/app/os-route-settle';
+import { useClaimDropSheetDockBack } from '@/contexts/dock-chrome-context';
 import { PostQuotesTrackHostProvider } from '@/features/home/post-quotes-track-host';
 import { PostQuotesPageSkeleton } from '@/features/home/post-quotes-skeleton';
 import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
@@ -750,22 +751,44 @@ function PostThreadSheet({
 function DropLayerSheet({
   layer,
   open,
+  parked,
   onClose,
   onClosed,
+  onLeave,
   zIndex,
   moodId,
   moodStyle,
 }: {
   layer: DropLayerTarget;
   open: boolean;
+  /** Profile, door, or another route is the screen. Keep the drop mounted. */
+  parked: boolean;
   onClose: () => void;
   onClosed: () => void;
+  onLeave: (href: string) => void;
   zIndex: number;
   moodId?: string;
   moodStyle?: CSSProperties;
 }) {
   const titleId = useId();
   const renderedZ = resolveGlassSheetZIndex(zIndex, layer.openedAboveMediaFace);
+  const leaveFromDrop = (event: ReactMouseEvent) => {
+    if (!isUnmodifiedPrimaryClick(event)) return;
+    const node = event.target;
+    if (!(node instanceof Element)) return;
+    const anchor = node.closest('a');
+    if (!(anchor instanceof HTMLAnchorElement)) return;
+    if (anchor.target === '_blank') return;
+    const href = anchor.getAttribute('href');
+    if (!href || href.startsWith('#') || /^https?:/i.test(href)) return;
+    const path = href.split(/[?#]/)[0] ?? href;
+    if (!path.startsWith('/')) return;
+    // Another drop stays in this sheet. Everything else parks and navigates.
+    if (parseInAppDropLayerHref(path)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onLeave(href);
+  };
   return (
     <PostLayerOwnerZProvider value={renderedZ}>
       <OsPageSheet
@@ -778,24 +801,29 @@ function DropLayerSheet({
         ariaLabelledBy={titleId}
         backdropLabel="Back"
         keepDock
+        lockScroll={!parked}
         moodId={moodId}
         moodStyle={moodStyle}
         panelClassName="drop-sheet-panel"
         bodyClassName="drop-sheet-body"
+        rootClassName={parked ? 'post-thread-sheet-parked' : undefined}
         header={null}
       >
-        <span id={titleId} className="sr-only">
-          Drop
-        </span>
-        <CollectionPagePanel
-          key={layer.collectionId}
-          collectionId={layer.collectionId}
-          initial={layer.initial}
-          initialCreator={layer.initialCreator}
-          initialEditionToken={layer.initialEditionToken}
-          embedded
-          onClose={onClose}
-        />
+        <div className="drop-sheet-fill" onClickCapture={leaveFromDrop}>
+          <span id={titleId} className="sr-only">
+            Drop
+          </span>
+          <CollectionPagePanel
+            key={layer.collectionId}
+            collectionId={layer.collectionId}
+            initial={layer.initial}
+            initialCreator={layer.initialCreator}
+            initialEditionToken={layer.initialEditionToken}
+            embedded
+            suspendDock={parked}
+            onClose={onClose}
+          />
+        </div>
       </OsPageSheet>
     </PostLayerOwnerZProvider>
   );
@@ -967,6 +995,17 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     }
     if (!beginCloseTop()) return;
     if (typeof window === 'undefined') return;
+    const closing = current[current.length - 1];
+    // Drop opens with replace — close with one replace back to the underlay
+    // so open/close cycles do not stack history entries.
+    if (closing?.kind === 'drop') {
+      getPostLayerPopGuard().depth = 0;
+      nativeHistoryReplaceState(
+        withoutPostLayerHistoryState(),
+        underlayPathRef.current ?? '/home'
+      );
+      return;
+    }
     const back = beginHistoryBack({
       depth: getPostLayerPopGuard().depth,
       historyHasLayer: historyHasPostLayer(),
@@ -1434,15 +1473,12 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         publishClosingHistory(canonical);
         return true;
       }
+      // Always replace — open/close cycles must not stack duplicate entries.
       const syncCanonical = () => {
         getPostLayerPopGuard().depth = 1;
         const currentUrl = `${window.location.pathname}${window.location.search}`;
         if (currentUrl === canonical) return;
-        if (isFirst) {
-          nativeHistoryPushState(withPostLayerHistoryState(), canonical);
-        } else {
-          nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
-        }
+        nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
       };
       if (isFirst) {
         queueMicrotask(syncCanonical);
@@ -1550,6 +1586,17 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
 
   const topPlace = stack[stack.length - 1] ?? null;
   const topOpen = topPlace != null && topPlace.id !== closingId;
+  const dropDockLive = topPlace?.kind === 'drop' && topOpen && !onProfileHop;
+  useClaimDropSheetDockBack(
+    dropDockLive,
+    dropDockLive
+      ? {
+          fallbackHref: underlayPath ?? '/home',
+          ariaLabel: 'Back',
+          onBack: closePostThread,
+        }
+      : null
+  );
 
   return (
     <PostThreadLayerContext.Provider value={value}>
@@ -1558,9 +1605,11 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         <DropLayerSheet
           key="drop-reader"
           layer={topPlace}
+          parked={onProfileHop}
           open={topOpen}
           onClose={closePostThread}
           onClosed={() => handleSheetClosed(topPlace.id)}
+          onLeave={openProfileFromLayer}
           zIndex={topPlace.zIndex}
           moodId={viewerMood.moodId ?? undefined}
           moodStyle={viewerMood.style}

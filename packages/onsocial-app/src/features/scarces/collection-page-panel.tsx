@@ -13,7 +13,6 @@ import {
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  ChevronLeftIcon,
   Divider,
   OsHugSheet,
   HeartFillIcon,
@@ -96,9 +95,7 @@ import {
 import {
   CollectionDropEnter,
   CollectionSeatSettle,
-  dropEnterShouldPlay,
   readDropFirstPaint,
-  useDropReducedMotion,
 } from '@/features/scarces/collection-page-enter';
 import {
   COLLECTION_MINT_HINT_SIZER,
@@ -243,14 +240,6 @@ function scheduleLine(
   return null;
 }
 
-function collectionAppearBack(onClose?: () => void) {
-  return (
-    <OsIconAction ariaLabel="Back" onClick={() => onClose?.()}>
-      <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
-    </OsIconAction>
-  );
-}
-
 function mergeHydratedWriting(
   prev: CollectionView | null,
   next: CollectionView
@@ -342,6 +331,7 @@ export function CollectionPagePanel({
   initialEditionToken = null,
   embedded = false,
   onClose,
+  suspendDock = false,
 }: {
   collectionId: string;
   initial: CollectionView | null;
@@ -363,9 +353,11 @@ export function CollectionPagePanel({
   initialHoldSeed?: { holds: boolean; tokenId: string | null } | null;
   /** `?t=` from the drop page request, so the first paint is that edition. */
   initialEditionToken?: string | null;
-  /** Nested in an appear page sheet — sheet Back, not launcher leave. */
+  /** Nested in an appear page sheet — dock Back closes the sheet. */
   embedded?: boolean;
   onClose?: () => void;
+  /** Parked under another route — hide dock Back / Mint until restored. */
+  suspendDock?: boolean;
 }) {
   const {
     accountId: viewerAccountId,
@@ -416,6 +408,21 @@ export function CollectionPagePanel({
   /** Seed, view cache, or now-playing — first paint was already the drop. */
   const [seededHotOpen] = useState(() => liveView != null);
   /**
+   * Soft-fill (catalog, activity, creator, holds, writing, supply) waits until
+   * after the first paint so the sheet appear owns the open frame.
+   */
+  const [softFillArmed, setSoftFillArmed] = useState(false);
+  useEffect(() => {
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => setSoftFillArmed(true));
+    });
+    return () => {
+      cancelAnimationFrame(outer);
+      cancelAnimationFrame(inner);
+    };
+  }, []);
+  /**
    * Closed sheets are not the tap's first frame. A seeded open with no SSR
    * activity (the instant host) paints cover / title / creator / fans first;
    * the same screen mounts the sheets on the next commit.
@@ -456,10 +463,11 @@ export function CollectionPagePanel({
         fanCount: dropLoves.fanCount,
       };
   useEffect(() => {
+    if (!softFillArmed) return;
     const creatorId = view?.creatorId?.trim();
     if (!creatorId || !collectionId) return;
     warmDropFanIds(creatorId, collectionId);
-  }, [view?.creatorId, collectionId]);
+  }, [softFillArmed, view?.creatorId, collectionId]);
   const [clientSettled, setClientSettled] = useState(
     () =>
       initial != null ||
@@ -571,6 +579,7 @@ export function CollectionPagePanel({
 
   // Soft-fill catalog after paint; solid SSR shells skip the first keyed refetch.
   useEffect(() => {
+    if (!softFillArmed) return;
     if (
       refreshKey === 0 &&
       initial != null &&
@@ -605,10 +614,11 @@ export function CollectionPagePanel({
     return () => {
       cancelled = true;
     };
-  }, [collectionId, initial, refreshKey]);
+  }, [collectionId, initial, refreshKey, softFillArmed]);
 
   // SSR shell often skips client catalog refresh — still hydrate writing chapters.
   useEffect(() => {
+    if (!softFillArmed) return;
     if (!view) return;
     if (view.readables.length > 0 || view.bookPdf) return;
     const kind = (view.kind ?? '').trim().toLowerCase();
@@ -629,6 +639,7 @@ export function CollectionPagePanel({
       cancelled = true;
     };
   }, [
+    softFillArmed,
     view?.collectionId,
     view?.kind,
     view?.writingManifestCid,
@@ -639,6 +650,7 @@ export function CollectionPagePanel({
 
   // Warm source essay so Read opens with the article footer already known.
   useEffect(() => {
+    if (!softFillArmed) return;
     if (!view?.sourcePostPath?.trim()) return;
     void prefetchDropRead({
       collectionId,
@@ -647,10 +659,11 @@ export function CollectionPagePanel({
         sourcePostPath: view.sourcePostPath,
       },
     });
-  }, [collectionId, view?.sourcePostPath, view?.writingFormat]);
+  }, [softFillArmed, collectionId, view?.sourcePostPath, view?.writingFormat]);
 
   // Warm Show pass status while the holder is on the drop.
   useEffect(() => {
+    if (!softFillArmed) return;
     const tokenId = ownedPassTokenId?.trim();
     if (!tokenId || !isPassMediumKind(view?.kind) || holdsEdition !== true) {
       return;
@@ -662,6 +675,7 @@ export function CollectionPagePanel({
       seedCover: view?.mediaUrl,
     });
   }, [
+    softFillArmed,
     collectionId,
     holdsEdition,
     ownedPassTokenId,
@@ -671,6 +685,7 @@ export function CollectionPagePanel({
   ]);
 
   useEffect(() => {
+    if (!softFillArmed) return;
     // Solid route SSR activity stays; soft-nav loading / thin peeks refetch.
     if (
       refreshKey === 0 &&
@@ -699,6 +714,7 @@ export function CollectionPagePanel({
       cancelled = true;
     };
   }, [
+    softFillArmed,
     activityFromRoute,
     activityRequestKey,
     collectionId,
@@ -707,6 +723,7 @@ export function CollectionPagePanel({
   ]);
 
   useEffect(() => {
+    if (!softFillArmed) return;
     // Wallet still hydrating — keep peeked #edition / hold; do not wipe.
     if (!viewerAccountId) {
       if (walletLoading) return;
@@ -755,7 +772,7 @@ export function CollectionPagePanel({
     return () => {
       cancelled = true;
     };
-  }, [collectionId, viewerAccountId, refreshKey, walletLoading]);
+  }, [softFillArmed, collectionId, viewerAccountId, refreshKey, walletLoading]);
 
   // Old Read links used ?read=1. Open once, then drop the flag so Back stays on the drop.
   useEffect(() => {
@@ -856,6 +873,7 @@ export function CollectionPagePanel({
   }, [collectionId, viewerAccountId, view?.kind, refreshKey]);
 
   useEffect(() => {
+    if (!softFillArmed) return;
     const creatorId = view?.creatorId?.trim();
     if (!creatorId) return;
     if (creatorResolvedKey === creatorId) return;
@@ -871,7 +889,7 @@ export function CollectionPagePanel({
     return () => {
       cancelled = true;
     };
-  }, [view?.creatorId, creatorResolvedKey]);
+  }, [softFillArmed, view?.creatorId, creatorResolvedKey]);
 
   const status = view ? deriveCollectionStatus(view, nowMs) : 'ended';
   // Before Opens, minting is allowlist-gated on-chain whenever the drop is timed.
@@ -897,10 +915,12 @@ export function CollectionPagePanel({
     return () => window.clearInterval(id);
   }, [hasClock]);
 
-  const supplyLive = view != null && dropSupplyShouldPoll(view, nowMs);
+  const supplyLive =
+    softFillArmed && view != null && dropSupplyShouldPoll(view, nowMs);
   useLiveDropSupply(collectionId, supplyLive, setView);
 
   useEffect(() => {
+    if (!softFillArmed) return;
     if (!supplyLive) return;
     const id = collectionId.trim();
     if (!id) return;
@@ -948,7 +968,7 @@ export function CollectionPagePanel({
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [collectionId, supplyLive]);
+  }, [softFillArmed, collectionId, supplyLive]);
 
   const handoffKey = collectionCoverImmersive({
     hasMedia: hasImmersiveCover,
@@ -1035,13 +1055,15 @@ export function CollectionPagePanel({
     });
   }, [view]);
   useRegisterComposeAction(
-    isOwner
-      ? view
-        ? openOwnerPost
-        : null
-      : showMintCompose
-        ? openMintSheet
-        : null,
+    suspendDock
+      ? null
+      : isOwner
+        ? view
+          ? openOwnerPost
+          : null
+        : showMintCompose
+          ? openMintSheet
+          : null,
     isOwner ? 'announce' : 'mint'
   );
 
@@ -1170,12 +1192,9 @@ export function CollectionPagePanel({
     setActivityOpen(false);
   };
 
-  const reducedMotion = useDropReducedMotion();
-  const enterOn = dropEnterShouldPlay({
-    reducedMotion,
-    openedWithContent: seededHotOpen,
-    ready: view != null,
-  });
+  // Sheet shell owns appear (OsPageSheet presentation). Never stagger-rise
+  // the face under that fade — warm and cold alike stay opaque on open.
+  const enterOn = false;
   const catalogShell = collectionCatalogShell({
     hasView: view != null,
     ssrMiss: initial == null,
@@ -1207,15 +1226,20 @@ export function CollectionPagePanel({
     clearDropPlaceInstant();
     leaveDrop();
   }, [leaveDrop]);
+  const dockBackOn = !suspendDock;
+  const dockBackHandler = dockBackOn
+    ? embedded
+      ? onClose
+      : onDockBack
+    : undefined;
   if (catalogShell === 'skeleton' && !seededHotOpen) {
     return (
       <OsAppScreen
         title="Drop"
         embedded={embedded}
-        dockBack={!embedded}
-        onDockBack={embedded ? undefined : onDockBack}
+        dockBack={dockBackOn}
+        onDockBack={dockBackHandler}
         backFallbackHref={catalogLeaveHref}
-        leading={embedded ? collectionAppearBack(onClose) : undefined}
         immersiveHeader
         scrollRootRef={scrollRootRef}
       >
@@ -1237,10 +1261,9 @@ export function CollectionPagePanel({
       <OsAppScreen
         title="Drop"
         embedded={embedded}
-        dockBack={!embedded}
-        onDockBack={embedded ? undefined : onDockBack}
+        dockBack={dockBackOn}
+        onDockBack={dockBackHandler}
         backFallbackHref={catalogLeaveHref}
-        leading={embedded ? collectionAppearBack(onClose) : undefined}
       >
         <div className={MARKET_PAGE_CLASS}>
           <div className="market-page-empty">
@@ -2113,10 +2136,9 @@ export function CollectionPagePanel({
     <OsAppScreen
       title={faceTitle || 'Drop'}
       embedded={embedded}
-      dockBack={!embedded}
-      onDockBack={embedded ? undefined : onDockBack}
+      dockBack={dockBackOn}
+      onDockBack={dockBackHandler}
       backFallbackHref={dropBackHref}
-      leading={embedded ? collectionAppearBack(onClose) : undefined}
       immersiveHeader={immersive}
       scrollRootRef={scrollRootRef}
       actions={

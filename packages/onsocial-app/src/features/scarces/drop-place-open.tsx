@@ -6,8 +6,11 @@ import {
   type MouseEvent,
   type ReactNode,
 } from 'react';
-import { useRouter } from 'next/navigation';
-import { isUnmodifiedPrimaryClick } from '@/features/home/post-thread-layer';
+import {
+  isUnmodifiedPrimaryClick,
+  usePostThreadLayer,
+} from '@/features/home/post-thread-layer';
+import { warmDropPanel } from '@/lib/thread-first-page';
 import type { CollectionCreatorFace } from '@/features/scarces/collection-creator-face';
 import { rememberCollectionCreatorFace } from '@/features/scarces/collection-creator-face-cache';
 import type { CollectionView } from '@/features/scarces/collections-data';
@@ -21,7 +24,6 @@ import {
   collectionViewNeedsCatalogSoftFill,
   seedCollectionViewFromStoreDrop as seedStoreDropView,
 } from '@/features/scarces/collection-page-view';
-import { armDropPlaceInstant } from '@/features/scarces/drop-place-instant';
 import { peekViewerAccountId } from '@/features/scarces/collection-page-view';
 import { fetchOwnedCollectionTokenId } from '@/features/scarces/collections-data';
 import { warmOwnedCollectionHold } from '@/features/scarces/owned-collection-hold-cache';
@@ -29,24 +31,11 @@ import { seedDropLoveFaceFromList } from '@/hooks/use-scarce-drop-loves';
 import { collectionPath, parseInAppDropLayerHref } from '@/lib/app-routes';
 import type { ProfileStoreDrop } from '@/lib/profile-store-types';
 
-type DropPlaceRouter = {
-  push: (href: string, options?: { scroll?: boolean }) => void;
-  prefetch: (href: string, options?: { kind?: 'auto' | 'full' }) => void;
-};
-
 /** Warm catalog on press when cache is cold — open resolve prefers the read. */
 function warmCollectionView(collectionId: string): void {
   const id = collectionId.trim();
   if (!id || hasCollectionView(id)) return;
   void fetchCollectionPreferIndexer(id);
-}
-
-function prefetchDropPlace(router: DropPlaceRouter, href: string): void {
-  try {
-    router.prefetch(href, { kind: 'full' });
-  } catch {
-    /* prefetch is best-effort */
-  }
 }
 
 /**
@@ -66,7 +55,7 @@ export function resolveDropOpenSeed(opts: {
   return cached ?? initial;
 }
 
-/** Stash seed + creator so the tap can paint the drop before the RSC returns. */
+/** Stash seed + creator so the sheet (and a hard load) paints frame 1. */
 export function warmDropPlaceOpen(opts: {
   collectionId: string;
   initial?: CollectionView | null;
@@ -113,43 +102,45 @@ export type DropPlaceOpenInput = {
   fanIds?: string[] | null;
 };
 
+type DropSheetOpen = (input: {
+  href: string;
+  initial?: CollectionView | null;
+  initialCreator?: CollectionCreatorFace | null;
+}) => boolean;
+
 /**
- * Soft-nav to the full drop place after seeding cache.
- * Arms the already-mounted drop panel first so the tap paints this turn.
- * The collection RSC then fills that same panel instead of mounting another.
+ * One in-app drop open: seed from the card, then the shared sheet.
+ * The full `/collection/…` page stays for refresh, share, and hard loads.
  */
 export function navigateDropPlace(
-  router: DropPlaceRouter,
+  openDrop: DropSheetOpen,
   input: DropPlaceOpenInput
 ): boolean {
   const parsed = parseInAppDropLayerHref(input.href);
   if (!parsed) return false;
-  warmDropPlaceOpen({
+  const seed = warmDropPlaceOpen({
     collectionId: parsed.collectionId,
     initial: input.initial,
     initialCreator: input.initialCreator,
     fanCount: input.fanCount,
     fanIds: input.fanIds,
   });
-  armDropPlaceInstant({
+  return openDrop({
     href: input.href,
-    collectionId: parsed.collectionId,
+    initial: seed ?? input.initial ?? null,
+    initialCreator: input.initialCreator ?? null,
   });
-  prefetchDropPlace(router, input.href);
-  router.push(input.href, { scroll: false });
-  return true;
 }
 
 /**
- * Soft-nav to the full drop place (dock Back + dock Mint).
- * Seeds the catalog cache first so the tap paints the drop immediately.
+ * Open the shared drop sheet (dock Back + dock Mint) over the current page.
+ * Seeds the catalog cache first so the sheet paints from the card.
  */
 export function useDropPlaceOpen(): (input: DropPlaceOpenInput) => boolean {
-  const router = useRouter();
+  const { openDrop } = usePostThreadLayer();
   return useCallback(
-    (input: DropPlaceOpenInput) =>
-      navigateDropPlace(router as DropPlaceRouter, input),
-    [router]
+    (input: DropPlaceOpenInput) => navigateDropPlace(openDrop, input),
+    [openDrop]
   );
 }
 
@@ -175,8 +166,8 @@ type DropPlaceLinkProps = Omit<
 };
 
 /**
- * In-app Drop open — soft-nav to the full drop place with warm seed.
- * Native `<a>` so modified clicks keep href; primary click seeds then navigates.
+ * In-app Drop open — shared sheet over the current page.
+ * Native `<a>` so modified clicks keep href; primary click seeds then opens.
  */
 export function DropPlaceLink({
   href,
@@ -190,7 +181,7 @@ export function DropPlaceLink({
   className,
   ...props
 }: DropPlaceLinkProps) {
-  const router = useRouter();
+  const openPlace = useDropPlaceOpen();
   const resolved =
     href?.trim() ||
     (collectionId?.trim() ? collectionPath(collectionId.trim()) : '');
@@ -205,6 +196,7 @@ export function DropPlaceLink({
       className={className}
       {...props}
       onPointerDown={() => {
+        warmDropPanel();
         if (collectionIdForWarm) {
           warmCollectionView(collectionIdForWarm);
           warmDropPlaceOpen({
@@ -215,9 +207,6 @@ export function DropPlaceLink({
             fanIds,
           });
         }
-        // Prefetch waits for the click. A pointerdown prefetch would cache
-        // the full RSC before the instant cookie is set, and the tap would
-        // mount a second panel when that payload landed.
       }}
       onClick={(event: MouseEvent<HTMLAnchorElement>) => {
         onClick?.(event);
@@ -226,7 +215,7 @@ export function DropPlaceLink({
         if (!parseInAppDropLayerHref(resolved)) return;
         event.preventDefault();
         event.stopPropagation();
-        navigateDropPlace(router as DropPlaceRouter, {
+        openPlace({
           href: resolved,
           initial,
           initialCreator,
