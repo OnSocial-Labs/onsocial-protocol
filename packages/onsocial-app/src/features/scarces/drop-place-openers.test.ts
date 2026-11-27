@@ -327,12 +327,15 @@ describe('Drop place openers', () => {
     expect(src('contexts/dock-chrome-context.tsx')).toContain(
       'requestDockReveal'
     );
-    // Open reveals a scroll-hidden pill once; scroll-hide still folds after.
-    const launcher = src('components/os/summon-launcher.tsx');
-    expect(launcher).toContain('dockRevealRequest');
-    expect(launcher).toContain('dockRevealEpoch');
-    expect(launcher).toContain(
-      'dockRevealRequest + dockRevealEpoch'
+    // Open reveals a scroll-hidden pill once via epoch (register / claim).
+    expect(src('contexts/dock-chrome-context.tsx')).toContain(
+      'requestDockReveal?.()'
+    );
+    expect(src('components/os/summon-launcher.tsx')).toContain(
+      'dockRevealEpoch'
+    );
+    expect(src('components/portfolio/portfolio-summon-dock.tsx')).toContain(
+      'dockRevealEpoch'
     );
     expect(src('hooks/use-dock-auto-hide.ts')).toContain('revealRequest');
     const page = src('app/(app)/collection/[collectionId]/page.tsx');

@@ -2,7 +2,6 @@
 
 import {
   useEffect,
-  useLayoutEffect,
   useState,
   useCallback,
   useMemo,
@@ -277,23 +276,13 @@ export function SummonLauncher({
   const write = compose?.type === 'write' ? compose.entry : null;
   const immersiveChromeQuiet = useImmersiveChromeQuiet();
   const writing = Boolean(write) || writePinned;
-  // Sheet/page Back: reveal once if the underlay had scroll-hidden the pill.
-  // Do not pin — fold on scroll like every other page. Soft drop also bumps
-  // dockRevealEpoch when Back was already set from the reply drawer.
-  const hadDockBackRef = useRef(false);
-  const [dockRevealRequest, setDockRevealRequest] = useState(0);
-  useLayoutEffect(() => {
-    const has = Boolean(dockBack);
-    if (has && !hadDockBackRef.current) {
-      setDockRevealRequest((n) => n + 1);
-    }
-    hadDockBackRef.current = has;
-  }, [dockBack]);
+  // Sheet/page Back reveals via dockRevealEpoch (register / soft-drop claim).
+  // Do not pin — fold on scroll like every other page.
   const autoHide = useDockAutoHide(
     open || writing,
     null,
     0,
-    dockRevealRequest + dockRevealEpoch
+    dockRevealEpoch
   );
   const dockHidden = !open && (immersiveChromeQuiet || (autoHide && !writing));
   const showDockBack = resolveDockBackVisible({

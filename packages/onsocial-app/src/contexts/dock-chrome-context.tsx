@@ -198,8 +198,10 @@ export function useRegisterDockBack(entry: DockBackRegistration | null) {
   const context = useContext(DockChromeContext);
   const upsertDockBack = context?.upsertDockBack;
   const popDockBack = context?.popDockBack;
+  const requestDockReveal = context?.requestDockReveal;
   const id = useId();
   const entryRef = useRef(entry);
+  const hadEntryRef = useRef(false);
   const key = entry
     ? [
         entry.fallbackHref,
@@ -216,6 +218,7 @@ export function useRegisterDockBack(entry: DockBackRegistration | null) {
     if (!upsertDockBack || !popDockBack) return;
     const current = entryRef.current;
     if (!current) {
+      hadEntryRef.current = false;
       popDockBack(id);
       return;
     }
@@ -233,7 +236,12 @@ export function useRegisterDockBack(entry: DockBackRegistration | null) {
           : undefined,
       },
     });
-  }, [id, key, popDockBack, upsertDockBack]);
+    // Reveal a scroll-hidden pill once when Back appears (dock listens to epoch).
+    if (!hadEntryRef.current) {
+      hadEntryRef.current = true;
+      requestDockReveal?.();
+    }
+  }, [id, key, popDockBack, requestDockReveal, upsertDockBack]);
 
   useLayoutEffect(() => {
     return () => popDockBack?.(id);
