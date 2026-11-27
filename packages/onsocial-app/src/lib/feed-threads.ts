@@ -73,6 +73,34 @@ export const FEED_THREAD_MAX_UNCOLLAPSED = 3;
 /** Latest posts kept visible below the fold when a chain collapses. */
 export const FEED_THREAD_TAIL_VISIBLE = 2;
 
+/**
+ * Direct replies already painted under the OP in a feed block. Seed the sheet
+ * open with these so that face does not soft-fill after appear (reads as the
+ * list flashing under the sheet). Only parent→OP edges — deeper self-chain
+ * lines still soft-fill so the tree shape stays correct.
+ */
+export function feedVisibleThreadSeedReplies(
+  block: readonly PostRow[],
+  options?: { standingPeek?: PostRow | null }
+): PostRow[] {
+  const root = block[0];
+  if (!root) return [];
+  const rootPath = postContentPath(root).trim();
+  if (!rootPath) return [];
+  const collapsed = block.length > FEED_THREAD_MAX_UNCOLLAPSED;
+  const visible = collapsed
+    ? block.slice(-FEED_THREAD_TAIL_VISIBLE)
+    : block.slice(1);
+  const peek = options?.standingPeek ?? null;
+  const candidates =
+    peek && !visible.some((post) => postKey(post) === postKey(peek))
+      ? [...visible, peek]
+      : visible;
+  return candidates.filter(
+    (post) => (post.parentPath?.trim() ?? '') === rootPath
+  );
+}
+
 export type CoalescedFeedBlock = {
   /** Author's own connected chain — collapse uses first + last two of this only. */
   posts: PostRow[];

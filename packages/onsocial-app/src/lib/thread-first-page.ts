@@ -247,43 +247,62 @@ export function startThreadFirstPage(
   return promise;
 }
 
+/** Personal / guild post sheet chunks (dynamic, ssr: false). */
+export function ensurePostPanelChunk(
+  surface: 'personal' | 'guild' = 'personal'
+): Promise<unknown> {
+  if (surface === 'guild') {
+    return import('@/features/guilds/live-guild-post-panel');
+  }
+  return import('@/features/home/live-personal-post-panel');
+}
+
 /**
- * The post sheet is its own chunk. Load it while a feed is on screen so a
- * tap paints the row already in hand instead of waiting on the download.
- * Replies stay a skeleton until that tap.
+ * Prefetch post + quotes sheets while a feed is on screen so a tap paints the
+ * seeded OP instead of waiting on the download. Does not join the feed
+ * bundle — idle / mount callers only. Returns the imports so open can await.
  */
-export function warmPostPanels(): void {
-  void import('@/features/home/live-personal-post-panel');
-  void import('@/features/guilds/live-guild-post-panel');
-  void import('@/features/home/post-quotes-panel');
+export function warmPostPanels(): Promise<unknown> {
+  return Promise.all([
+    ensurePostPanelChunk('personal'),
+    ensurePostPanelChunk('guild'),
+    import('@/features/home/post-quotes-panel'),
+  ]);
 }
 
 /**
  * Drop place panel is its own chunk (dynamic, ssr: false). Warm it on Discover /
- * Market so Just sold and list rows paint the seeded jacket on first tap.
+ * Market / layer mount so Just sold and list rows paint the seeded jacket on
+ * first tap. Returns the import so open can await a cold chunk (no blank sheet).
  */
-export function warmDropPanel(): void {
-  void import('@/features/scarces/collection-page-panel');
+export function warmDropPanel(): Promise<unknown> {
+  return import('@/features/scarces/collection-page-panel');
+}
+
+/**
+ * Start post + drop sheet downloads as soon as a feed has rows (or the layer
+ * mounts). Open still awaits — when this won the race, await is a microtask
+ * and the sheet appears with the seeded row. Idle-only warm delayed first tap.
+ */
+export function warmFeedOpenChunks(): void {
+  void warmPostPanels();
+  void warmDropPanel();
 }
 
 /** Start the direct-reply page and the thread panel chunk on the tap. */
 export function warmThreadOpen(
   rootPath: string,
   surface: 'personal' | 'guild' = 'personal'
-): void {
+): Promise<unknown> {
   const path = rootPath.trim();
-  if (!path) return;
+  if (!path) return Promise.resolve();
   void startThreadFirstPage(path);
-  if (surface === 'guild') {
-    void import('@/features/guilds/live-guild-post-panel');
-    return;
-  }
-  void import('@/features/home/live-personal-post-panel');
+  return ensurePostPanelChunk(surface);
 }
 
 /** Prefetch the quotes panel chunk on View quotes intent. */
-export function warmQuotesOpen(): void {
-  void import('@/features/home/post-quotes-panel');
+export function warmQuotesOpen(): Promise<unknown> {
+  return import('@/features/home/post-quotes-panel');
 }
 
 /**

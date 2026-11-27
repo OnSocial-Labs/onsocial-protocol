@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
-import { CollectionRouteSlot } from '@/features/scarces/drop-place-instant-host';
+import { CollectionRouteSlot } from '@/features/scarces/collection-route-slot';
 import { COLLECTION_PASS_TOKEN_PARAM } from '@/lib/app-routes';
 import {
   fetchCollectionCached,
@@ -50,9 +50,12 @@ export default async function CollectionPage({
   const id = decodeURIComponent(collectionId);
   const jar = await cookies();
   const headerList = await headers();
-  // Soft-nav / sheet-owned opens: `next-url` is present. Skip the full page
-  // data await — the sheet already painted from cache; metadata still runs.
-  const yieldToHost = Boolean(headerList.get('next-url'));
+  // Soft open is DropLayerSheet + native history. A Next soft flight still
+  // hits this route for metadata — do not mount a second panel or await
+  // full page data under the sheet.
+  if (headerList.get('next-url')) {
+    return null;
+  }
   const query = await searchParams;
   const hint = walletAccountHintFromCookie(
     jar.get(APP_WALLET_ACCOUNT_HINT_COOKIE)?.value
@@ -62,26 +65,10 @@ export default async function CollectionPage({
     hint,
     id
   );
-  if (yieldToHost) {
-    return (
-      <CollectionRouteSlot
-        collectionId={id}
-        yieldToHost
-        initial={null}
-        initialCreator={null}
-        initialViewerAccountId={hint}
-        initialHoldSeed={holdSeed}
-        initialEditionToken={
-          firstParam(query[COLLECTION_PASS_TOKEN_PARAM]) || null
-        }
-      />
-    );
-  }
   const { view, creator, activity } = await loadCollectionPageData(id);
   return (
     <CollectionRouteSlot
       collectionId={id}
-      yieldToHost={false}
       initial={view}
       initialCreator={creator}
       initialActivity={activity}

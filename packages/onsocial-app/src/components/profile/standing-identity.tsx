@@ -1,18 +1,20 @@
 'use client';
 
 import type { ComponentProps } from 'react';
+import { useSyncExternalStore } from 'react';
 import {
   StandingIdentity as UiStandingIdentity,
   type StandingIdentityShowHandle,
 } from '@onsocial/ui';
 import type { ProfileKind } from '@onsocial/sdk';
-import {
-  arePostAuthorProfilesResolved,
-  peekPostAuthorKind,
-} from '@/hooks/use-post-author-profiles';
+import { peekPostAuthorKind } from '@/hooks/use-post-author-profiles';
 import { accountAvatarShape } from '@/lib/account-avatar-shape';
 
 export type { StandingIdentityShowHandle };
+
+const clientMountedSubscribe = () => () => {};
+const getClientMountedSnapshot = () => true;
+const getServerMountedSnapshot = () => false;
 
 type AppStandingIdentityProps = ComponentProps<typeof UiStandingIdentity> & {
   kind?: ProfileKind | null;
@@ -21,33 +23,37 @@ type AppStandingIdentityProps = ComponentProps<typeof UiStandingIdentity> & {
 
 /**
  * Standing row identity — person / org / dao geometry.
- * Unknown profiles use the cool grey avatar shell (never a letter flash).
+ * Letter until `avatarUrl` lands (opaque soft-replace). Do not derive
+ * `shellLoading` from the client profile cache — that mismatches SSR HTML
+ * (letter vs shimmer) and remounts the activity row. Pass `shellLoading`
+ * explicitly when a seat is pending with the same value on server + client.
  */
 export function StandingIdentity({
   kind,
   isDao,
   shape,
-  shellLoading,
+  shellLoading = false,
   avatarUrl,
   ...props
 }: AppStandingIdentityProps) {
+  const clientMounted = useSyncExternalStore(
+    clientMountedSubscribe,
+    getClientMountedSnapshot,
+    getServerMountedSnapshot
+  );
   const resolved =
     shape ??
     accountAvatarShape(
       props.accountId,
-      kind ?? peekPostAuthorKind(props.accountId),
+      kind ?? (clientMounted ? peekPostAuthorKind(props.accountId) : undefined),
       isDao
     );
-  const src = avatarUrl?.trim() || null;
-  const autoShell =
-    shellLoading ??
-    (!src && !arePostAuthorProfilesResolved([props.accountId]));
   return (
     <UiStandingIdentity
       {...props}
       avatarUrl={avatarUrl}
       shape={resolved}
-      shellLoading={autoShell}
+      shellLoading={shellLoading}
     />
   );
 }

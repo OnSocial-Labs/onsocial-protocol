@@ -75,6 +75,9 @@ interface DockChromeContextValue {
   upsertDockBack: (item: DockBackStackItem) => void;
   claimDockBack: (item: DockBackStackItem) => void;
   popDockBack: (id: string) => void;
+  /** Bumped when a sheet needs the scroll-hidden pill visible once. */
+  dockRevealEpoch: number;
+  requestDockReveal: () => void;
   dockAction: DockActionRegistration | null;
   setDockAction: (entry: DockActionRegistration | null) => void;
   headerOwnsConnect: boolean;
@@ -115,6 +118,7 @@ export function DockChromeProvider({ children }: { children: ReactNode }) {
   );
   const [headerOwnsConnect, setHeaderOwnsConnect] = useState(false);
   const [immersiveChromeQuiet, setImmersiveChromeQuiet] = useState(false);
+  const [dockRevealEpoch, setDockRevealEpoch] = useState(0);
   const dockBack = topDockBack(dockBackStack);
   const upsertDockBack = useCallback((item: DockBackStackItem) => {
     setDockBackStack((current) => upsertDockBackStack(current, item));
@@ -131,12 +135,17 @@ export function DockChromeProvider({ children }: { children: ReactNode }) {
       return claimDockBackTop(current, item);
     });
   }, []);
+  const requestDockReveal = useCallback(() => {
+    setDockRevealEpoch((n) => n + 1);
+  }, []);
   const value = useMemo(
     () => ({
       dockBack,
       upsertDockBack,
       claimDockBack,
       popDockBack,
+      dockRevealEpoch,
+      requestDockReveal,
       dockAction,
       setDockAction,
       headerOwnsConnect,
@@ -147,10 +156,12 @@ export function DockChromeProvider({ children }: { children: ReactNode }) {
     [
       dockAction,
       dockBack,
+      dockRevealEpoch,
       headerOwnsConnect,
       immersiveChromeQuiet,
       claimDockBack,
       popDockBack,
+      requestDockReveal,
       upsertDockBack,
     ]
   );
@@ -163,6 +174,11 @@ export function DockChromeProvider({ children }: { children: ReactNode }) {
 
 export function useDockBack(): DockBackRegistration | null {
   return useContext(DockChromeContext)?.dockBack ?? null;
+}
+
+/** Summon auto-hide listens — soft drop re-reveals even when Back was already set. */
+export function useDockRevealEpoch(): number {
+  return useContext(DockChromeContext)?.dockRevealEpoch ?? 0;
 }
 
 export function useDockAction(): DockActionRegistration | null {
@@ -237,7 +253,9 @@ export function useClaimDropSheetDockBack(
   const context = useContext(DockChromeContext);
   const claimDockBack = context?.claimDockBack;
   const popDockBack = context?.popDockBack;
+  const requestDockReveal = context?.requestDockReveal;
   const entryRef = useRef(entry);
+  const wasActiveRef = useRef(false);
 
   useLayoutEffect(() => {
     entryRef.current = entry;
@@ -247,6 +265,7 @@ export function useClaimDropSheetDockBack(
     if (!claimDockBack || !popDockBack) return;
     const current = entryRef.current;
     if (!active || !current) {
+      wasActiveRef.current = false;
       popDockBack(DROP_SHEET_DOCK_ID);
       return;
     }
@@ -260,7 +279,19 @@ export function useClaimDropSheetDockBack(
         },
       },
     });
+    // Reply drawer already had Back — false→true on dockBack never fires.
+    // Soft drop from nested replies still needs one reveal of a tucked pill.
+    if (!wasActiveRef.current) {
+      wasActiveRef.current = true;
+      requestDockReveal?.();
+    }
   });
+
+  // Unmount only — claim-effect cleanup must not pop while still active.
+  useLayoutEffect(() => {
+    if (!popDockBack) return;
+    return () => popDockBack(DROP_SHEET_DOCK_ID);
+  }, [popDockBack]);
 }
 
 /**

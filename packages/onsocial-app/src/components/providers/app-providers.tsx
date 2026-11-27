@@ -31,7 +31,6 @@ import { PortfolioCustomizeProvider } from '@/contexts/portfolio-customize-conte
 import { ViewerProfileShellProvider } from '@/contexts/viewer-profile-shell-context';
 import { ViewerWalletMoodProvider } from '@/contexts/viewer-wallet-mood-context';
 import { DropComposeHost } from '@/features/scarces/drop-compose-host';
-import { DropPlaceInstantHost } from '@/features/scarces/drop-place-instant-host';
 import { useResetScarceEmbedOverrides } from '@/features/scarces/scarce-embed-account';
 import { ViewerMuteBlockHost } from '@/components/providers/viewer-mute-block-host';
 import { OsFaceLeaveProvider } from '@/components/providers/os-face-leave-provider';
@@ -107,8 +106,14 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                                   <OsGlassSheetPortalBridge>
                                     <BoostSheetProvider>
                                       <RallySheetProvider>
-                                        <PostThreadLayerProvider>
-                                          <CollectiblesNowPlayingProvider>
+                                        {/* Now-playing must wrap the post/drop
+                                            layer: DropLayerSheet mounts as a
+                                            sibling of `children`, so nesting
+                                            the host inside left the sheet
+                                            without context → local <audio>
+                                            that died when the drop closed. */}
+                                        <CollectiblesNowPlayingProvider>
+                                          <PostThreadLayerProvider>
                                             <DmUnreadHost>
                                               <NotificationsHost>
                                                 <WebPushProvider>
@@ -117,7 +122,6 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                                                   >
                                                     <NetworkStandingHandoffHost />
                                                   </FeedSessionHost>
-                                                  <DropPlaceInstantHost />
                                                   <ViewerMuteBlockHost />
                                                   <DropComposeHost />
                                                   <Suspense fallback={null}>
@@ -129,8 +133,8 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                                                 </WebPushProvider>
                                               </NotificationsHost>
                                             </DmUnreadHost>
-                                          </CollectiblesNowPlayingProvider>
-                                        </PostThreadLayerProvider>
+                                          </PostThreadLayerProvider>
+                                        </CollectiblesNowPlayingProvider>
                                       </RallySheetProvider>
                                     </BoostSheetProvider>
                                   </OsGlassSheetPortalBridge>

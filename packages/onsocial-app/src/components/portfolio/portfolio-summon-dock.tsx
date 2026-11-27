@@ -20,6 +20,7 @@ import {
 import {
   resolveDockBackVisible,
   useDockBack,
+  useDockRevealEpoch,
   useImmersiveChromeQuiet,
   type DockBackRegistration,
 } from '@/contexts/dock-chrome-context';
@@ -117,13 +118,28 @@ export function PortfolioSummonDock({
   }, [pageDrawerOpen]);
 
   const scrollRoot = pageDrawerOpen ? scrollNode : null;
+  // Sheet Back: reveal once if the face had scroll-hidden the pill. Still
+  // folds on scroll after that (same as app pages). Face leave alone must
+  // not pin — that would kill hide on every portfolio visit.
+  const hadRegisteredBackRef = useRef(false);
+  const [dockRevealRequest, setDockRevealRequest] = useState(0);
+  const dockRevealEpoch = useDockRevealEpoch();
+  useEffect(() => {
+    const has = Boolean(registeredDockBack);
+    if (has && !hadRegisteredBackRef.current) {
+      setDockRevealRequest((n) => n + 1);
+    }
+    hadRegisteredBackRef.current = has;
+  }, [registeredDockBack]);
   const autoHide = useDockAutoHide(
     previewPinned ||
       openPinned ||
       writePinned ||
       Boolean(write) ||
       (pageDrawerOpen && !scrollNode),
-    scrollRoot
+    scrollRoot,
+    0,
+    dockRevealRequest + dockRevealEpoch
   );
   const scrollHidden =
     !osOpen && (immersiveChromeQuiet || (autoHide && !write));

@@ -178,7 +178,7 @@ import {
   FEED_CATCH_UP_SCROLLING_CLASS,
   scrollFeedToNewest,
 } from '@/lib/feed-scroll-to-newest';
-import { warmPostPanels } from '@/lib/thread-first-page';
+import { warmFeedOpenChunks } from '@/lib/thread-first-page';
 import {
   reconcileFeedRows,
   selectFeedReconcileTargets,
@@ -710,14 +710,14 @@ export function HomePagePanel({
   }, []);
 
   /**
-   * Warm personal + guild + quotes chunks as soon as the feed has rows so a
-   * cold first tap paints the seeded OP instead of waiting on the download.
+   * Warm post + drop sheets as soon as rows exist so the first tap usually
+   * hits a cached chunk. Open still awaits (safety; no blank sheet).
    */
   const threadWarmRef = useRef(false);
   useEffect(() => {
     if (threadWarmRef.current || posts.length === 0) return;
     threadWarmRef.current = true;
-    warmPostPanels();
+    warmFeedOpenChunks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [posts.length > 0]);
 

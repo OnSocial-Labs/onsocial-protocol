@@ -57,6 +57,7 @@ import {
 import { downloadIpfsMedia } from '@/lib/media-download';
 import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
 import { useWriteDockPinned } from '@/contexts/compose-launcher-context';
+import { useOsDropSheetOpen } from '@/hooks/use-os-drop-sheet-open';
 import {
   ClipProgressTrack,
   paintClipProgress,
@@ -219,6 +220,7 @@ export function FeedPhotoEnlargeScreen({
   const faceOwnerId = useId();
   const faceZ = postLayerOverlayZ(usePostLayerOwnerZ()).face;
   const writePinned = useWriteDockPinned();
+  const dropSheetOpen = useOsDropSheetOpen();
   const [paintedFaceZ, setPaintedFaceZ] = useState(faceZ);
   if (faceZ > paintedFaceZ) setPaintedFaceZ(faceZ);
   const onFacePaintedZ = useCallback((z: number) => {
@@ -1439,8 +1441,8 @@ export function FeedPhotoEnlargeScreen({
     toggleCinema,
   ]);
 
-  /* The film hides the reply launcher. Reply opens the drawer, which shows it. */
-  useRegisterImmersiveChromeQuiet(open && !threadOpen);
+  /* Film tucks the pill; Reply or soft Drop keeps it (Drop owns Mint/Back). */
+  useRegisterImmersiveChromeQuiet(open && !threadOpen && !dropSheetOpen);
 
   const showCaptionPeek =
     !cinema &&
@@ -1600,7 +1602,7 @@ export function FeedPhotoEnlargeScreen({
         transport={onFilm ? null : videoTransport}
         stageLayout="fixed"
         chromeQuiet={chromeQuiet}
-        keepDock={threadOpen || writePinned}
+        keepDock={threadOpen || writePinned || dropSheetOpen}
         className={slideClass}
         contentClassName="feed-photo-slide-body"
         bodyStyle={

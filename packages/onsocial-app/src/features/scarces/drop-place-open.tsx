@@ -109,8 +109,10 @@ type DropSheetOpen = (input: {
 }) => boolean;
 
 /**
- * One in-app drop open: seed from the card, then the shared sheet.
- * The full `/collection/…` page stays for refresh, share, and hard loads.
+ * One in-app drop open: seed from the card, await the panel chunk, then the
+ * shared sheet. Avoids a blank sheet after hard refresh when the dynamic
+ * import has not finished. The full `/collection/…` page stays for refresh,
+ * share, and hard loads.
  */
 export function navigateDropPlace(
   openDrop: DropSheetOpen,
@@ -125,11 +127,16 @@ export function navigateDropPlace(
     fanCount: input.fanCount,
     fanIds: input.fanIds,
   });
-  return openDrop({
+  const payload = {
     href: input.href,
     initial: seed ?? input.initial ?? null,
     initialCreator: input.initialCreator ?? null,
+  };
+  // pointerDown already started warm — cached modules resolve in a microtask.
+  void warmDropPanel().then(() => {
+    openDrop(payload);
   });
+  return true;
 }
 
 /**

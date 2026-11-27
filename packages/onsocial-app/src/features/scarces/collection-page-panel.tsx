@@ -34,7 +34,6 @@ import {
   SCARCE_HERO_WIDTHS,
 } from '@/lib/hero-img-variants';
 import { RollingNumber } from '@/components/ui/rolling-number';
-import { clearDropPlaceInstant } from '@/features/scarces/drop-place-instant';
 import { useCatalogDockBack } from '@/hooks/use-catalog-dock-back';
 import { useImmersiveTitleHandoff } from '@/hooks/use-immersive-title-handoff';
 import {
@@ -44,7 +43,10 @@ import {
 import { usePostLayerOwnerZ } from '@/features/home/post-layer-owner-z';
 import { postLayerOverlayZ } from '@/lib/sheet-z';
 import { AccountAvatar } from '@/components/profile/account-avatar';
-import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
+import {
+  useClaimDropSheetCompose,
+  useRegisterComposeAction,
+} from '@/contexts/compose-launcher-context';
 import { useCollectiblesNowPlayingOptional } from '@/contexts/collectibles-now-playing-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -423,9 +425,9 @@ export function CollectionPagePanel({
     };
   }, []);
   /**
-   * Closed sheets are not the tap's first frame. A seeded open with no SSR
-   * activity (the instant host) paints cover / title / creator / fans first;
-   * the same screen mounts the sheets on the next commit.
+   * Nested sheets (Activity / About / Facts / Read / Listen) wait one frame on
+   * a seeded open so the face paints first. Face chrome is never gated — that
+   * deferred mount shoved every line down when it landed.
    */
   const [overlayReady, setOverlayReady] = useState(
     () => initialActivity !== undefined || liveView == null
@@ -1073,7 +1075,7 @@ export function CollectionPagePanel({
       ...(view.kind ? { mediumKind: view.kind } : {}),
     });
   }, [view]);
-  useRegisterComposeAction(
+  const dropComposeAction =
     suspendDock
       ? null
       : isOwner
@@ -1082,8 +1084,19 @@ export function CollectionPagePanel({
           : null
         : showMintCompose
           ? openMintSheet
-          : null,
-    isOwner ? 'announce' : 'mint'
+          : null;
+  const dropComposeKind = isOwner ? 'announce' : 'mint';
+  // Hard route registers. Soft sheet claims so underlay pen / reply write
+  // cannot sit on Mint/Back — blank when this drop has no trailing action.
+  useRegisterComposeAction(
+    embedded ? null : dropComposeAction,
+    dropComposeKind
+  );
+  useClaimDropSheetCompose(
+    embedded && !suspendDock,
+    dropComposeAction
+      ? { action: dropComposeAction, kind: dropComposeKind }
+      : null
   );
 
   const handleShare = useCallback(async () => {
@@ -1241,15 +1254,11 @@ export function CollectionPagePanel({
       })
     : catalogLeaveHref;
   const leaveDrop = useCatalogDockBack(dockFallbackHref);
-  const onDockBack = useCallback(() => {
-    clearDropPlaceInstant();
-    leaveDrop();
-  }, [leaveDrop]);
   const dockBackOn = !suspendDock;
   const dockBackHandler = dockBackOn
     ? embedded
       ? onClose
-      : onDockBack
+      : leaveDrop
     : undefined;
   if (catalogShell === 'skeleton' && !seededHotOpen) {
     return (
@@ -1535,16 +1544,21 @@ export function CollectionPagePanel({
           <CollectionDropEnter play={enterOn} index={1}>
             <div className="collection-title-row">
               <div className="collectibles-play-title-block">
-                {faceTitle ? (
-                  <h1 className="collection-title" ref={heroTitleRef}>
-                    {faceTitle}
-                  </h1>
-                ) : softFillPeek && catalogFacePending ? (
-                  <span
-                    className="standing-row-shimmer collection-skeleton-title"
-                    aria-hidden
-                  />
-                ) : null}
+                <h1
+                  className="collection-title"
+                  ref={faceTitle ? heroTitleRef : undefined}
+                >
+                  {faceTitle ? (
+                    faceTitle
+                  ) : softFillPeek && catalogFacePending ? (
+                    <span
+                      className="standing-row-shimmer collection-title-shimmer"
+                      aria-hidden
+                    />
+                  ) : (
+                    '\u00a0'
+                  )}
+                </h1>
               </div>
               <div className="drops-discovery-head-trail">
                 {editionLine ? (
@@ -1616,7 +1630,7 @@ export function CollectionPagePanel({
                 ) : null}
               </div>
             ) : null}
-            <OsLateFill className="collection-about-seat" fade>
+            <OsLateFill className="collection-about-seat">
               {description || aboutHasMore ? (
                 <CollectionAboutTeaser
                   text={description}
@@ -1637,87 +1651,83 @@ export function CollectionPagePanel({
                   fanCount={faceFans.fanCount}
                 />
               ) : null}
-              {overlayReady ? (
-                <div className="collection-commerce-action-icons">
-                  {showDropLoveHeart ? (
-                    <button
-                      type="button"
-                      className={`collection-commerce-love os-confirm-icon${
-                        dropLoves.viewerLoved ? ' is-loved' : ''
-                      }${dropLoves.pending ? ' is-pending' : ''}`}
-                      aria-label={
-                        dropLoves.pending
-                          ? 'Confirming love'
-                          : dropLoves.viewerLoved
-                            ? 'Remove love from this drop'
-                            : 'Love this drop'
-                      }
-                      aria-pressed={dropLoves.viewerLoved}
-                      aria-busy={dropLoves.pending}
-                      disabled={dropLoves.pending}
-                      onClick={() => {
-                        void dropLoves.toggleLove();
-                      }}
-                    >
-                      {dropLoves.viewerLoved ? (
-                        <HeartFillIcon
-                          aria-hidden
-                          className="collection-commerce-love-icon"
-                        />
-                      ) : (
-                        <HeartIcon
-                          aria-hidden
-                          className="collection-commerce-love-icon"
-                        />
-                      )}
-                    </button>
-                  ) : null}
+              <div className="collection-commerce-action-icons">
+                {showDropLoveHeart ? (
                   <button
                     type="button"
-                    className={`collection-commerce-save os-confirm-icon${
-                      collectionSaved ? ' is-saved' : ''
-                    }${collectionSavePending ? ' is-pending' : ''}`}
+                    className={`collection-commerce-love os-confirm-icon${
+                      dropLoves.viewerLoved ? ' is-loved' : ''
+                    }${dropLoves.pending ? ' is-pending' : ''}`}
                     aria-label={
-                      collectionSaved
-                        ? 'Remove drop bookmark'
-                        : 'Bookmark this drop'
+                      dropLoves.pending
+                        ? 'Confirming love'
+                        : dropLoves.viewerLoved
+                          ? 'Remove love from this drop'
+                          : 'Love this drop'
                     }
-                    aria-pressed={collectionSaved}
-                    disabled={collectionSavePending}
+                    aria-pressed={dropLoves.viewerLoved}
+                    aria-busy={dropLoves.pending}
+                    disabled={dropLoves.pending}
                     onClick={() => {
-                      void collectionSaves.toggleSave(collectionId);
+                      void dropLoves.toggleLove();
                     }}
                   >
-                    {collectionSaved ? (
-                      <BookmarkFillIcon
+                    {dropLoves.viewerLoved ? (
+                      <HeartFillIcon
                         aria-hidden
-                        className="collection-commerce-save-icon"
+                        className="collection-commerce-love-icon"
                       />
                     ) : (
-                      <BookmarkIcon
+                      <HeartIcon
                         aria-hidden
-                        className="collection-commerce-save-icon"
+                        className="collection-commerce-love-icon"
                       />
                     )}
                   </button>
-                  <button
-                    type="button"
-                    className="collection-commerce-share"
-                    aria-label={shareCopied ? 'Link copied' : 'Share drop link'}
-                    onClick={() => {
-                      void handleShare();
-                    }}
-                  >
-                    <ShareIcon
+                ) : null}
+                <button
+                  type="button"
+                  className={`collection-commerce-save os-confirm-icon${
+                    collectionSaved ? ' is-saved' : ''
+                  }${collectionSavePending ? ' is-pending' : ''}`}
+                  aria-label={
+                    collectionSaved
+                      ? 'Remove drop bookmark'
+                      : 'Bookmark this drop'
+                  }
+                  aria-pressed={collectionSaved}
+                  disabled={collectionSavePending}
+                  onClick={() => {
+                    void collectionSaves.toggleSave(collectionId);
+                  }}
+                >
+                  {collectionSaved ? (
+                    <BookmarkFillIcon
                       aria-hidden
-                      className="collection-commerce-share-icon"
+                      className="collection-commerce-save-icon"
                     />
-                  </button>
-                </div>
-              ) : null}
+                  ) : (
+                    <BookmarkIcon
+                      aria-hidden
+                      className="collection-commerce-save-icon"
+                    />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="collection-commerce-share"
+                  aria-label={shareCopied ? 'Link copied' : 'Share drop link'}
+                  onClick={() => {
+                    void handleShare();
+                  }}
+                >
+                  <ShareIcon
+                    aria-hidden
+                    className="collection-commerce-share-icon"
+                  />
+                </button>
+              </div>
             </div>
-            {overlayReady ? (
-              <>
                 <div className="collection-use-actions">
                   {(() => {
                     // Industry CLS: same reading-row chassis as the skeleton from
@@ -1959,14 +1969,11 @@ export function CollectionPagePanel({
                     {personalMintHint && !isOwner ? personalMintHint : null}
                   </OsLateFill>
                 </div>
-              </>
-            ) : null}
           </CollectionDropEnter>
         </header>
       </section>
 
-      {overlayReady ? (
-        <CollectionDropEnter play={enterOn} index={3}>
+      <CollectionDropEnter play={enterOn} index={3}>
           {view.isVariations ? (
             <VariationSetPeek
               collectionId={view.collectionId}
@@ -2146,8 +2153,7 @@ export function CollectionPagePanel({
               </CollectionSeatSettle>
             </div>
           </section>
-        </CollectionDropEnter>
-      ) : null}
+      </CollectionDropEnter>
     </div>
   );
 

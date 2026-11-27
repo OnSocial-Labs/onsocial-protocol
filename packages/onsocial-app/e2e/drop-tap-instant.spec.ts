@@ -466,7 +466,6 @@ async function expectHardRefreshFinal(page: Page): Promise<void> {
     await gotoApp(page, '/collection/night-drive');
   }
   await expect(page.locator(DROP_SHEET)).toHaveCount(0);
-  await expect(page.locator('[data-drop-place-instant]')).toHaveCount(0);
   await expect(collectionPageSkeleton(page)).toHaveCount(0);
   await expect(
     collectionPageRoot(page).locator('.collection-title')

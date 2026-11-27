@@ -23,6 +23,7 @@ import {
 } from '@onsocial/ui';
 import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
 import { useWriteDockPinned } from '@/contexts/compose-launcher-context';
+import { useOsDropSheetOpen } from '@/hooks/use-os-drop-sheet-open';
 import { ClipProgressTrack } from '@/features/home/feed-media-progress';
 import { FeedMediaThreadSheet } from '@/features/home/feed-media-thread-sheet';
 import {
@@ -126,6 +127,7 @@ export function FeedAudioEnlarge({
 }) {
   const faceZ = postLayerOverlayZ(usePostLayerOwnerZ()).face;
   const writePinned = useWriteDockPinned();
+  const dropSheetOpen = useOsDropSheetOpen();
   const [chromeVisible, setChromeVisible] = useState(true);
   const [captionExpanded, setCaptionExpanded] = useState(false);
   const [captionHasMore, setCaptionHasMore] = useState(false);
@@ -375,7 +377,7 @@ export function FeedAudioEnlarge({
       transport={threadActive ? null : transportNode}
       stageLayout="fixed"
       chromeQuiet={quiet}
-      keepDock={threadActive || writePinned}
+      keepDock={threadActive || writePinned || dropSheetOpen}
       className={slideClass}
       contentClassName="feed-photo-slide-body"
       bodyStyle={

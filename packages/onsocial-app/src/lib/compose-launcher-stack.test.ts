@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  claimComposeStackTop,
   popComposeStack,
   topComposeStack,
   upsertComposeStack,
@@ -47,5 +48,17 @@ describe('compose launcher stack', () => {
 
   it('returns null for an empty stack', () => {
     expect(topComposeStack([])).toBeNull();
+  });
+
+  it('claims an id above underlay pens and reply write', () => {
+    const stack = claimComposeStackTop(
+      [
+        { id: 'home', type: 'action' },
+        { id: 'reply', type: 'write' },
+      ],
+      { id: 'drop', type: 'blank' }
+    );
+    expect(stack.map((row) => row.id)).toEqual(['home', 'reply', 'drop']);
+    expect(topComposeStack(stack)?.id).toBe('drop');
   });
 });

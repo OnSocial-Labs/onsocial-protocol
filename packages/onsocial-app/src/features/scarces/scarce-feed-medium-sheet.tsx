@@ -14,6 +14,7 @@ import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
 import { SCARCE_HERO_WIDTHS, SQUARE_ART_SIZES } from '@/lib/hero-img-variants';
 import { useWriteDockPinned } from '@/contexts/compose-launcher-context';
 import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
+import { useOsDropSheetOpen } from '@/hooks/use-os-drop-sheet-open';
 import {
   FeedFaceThreadPane,
   FeedMediaThreadSheet,
@@ -49,6 +50,12 @@ export { resolveScarceFeedMediumMode };
 function inlineSvgMarkup(svg: string): string {
   return svg.replace(/^<\?xml[^>]*>\s*/i, '');
 }
+
+/** Seat for listen open before playables land — same face, no Loading remount. */
+const PENDING_FEED_AUDIO_CLIP: ScarcePlayableMedia = {
+  url: '',
+  mime: 'audio/mpeg',
+};
 
 /**
  * Feed / Drops cover tap → shared media-face enlarge.
@@ -129,6 +136,7 @@ export function ScarceFeedMediumSheet({
   const faceZ = postLayerOverlayZ(usePostLayerOwnerZ()).face;
   const [wasOpen, setWasOpen] = useState(open);
   const writePinned = useWriteDockPinned();
+  const dropSheetOpen = useOsDropSheetOpen();
   const [hydratedPlayables, setHydratedPlayables] = useState<
     ScarcePlayableMedia[]
   >([]);
@@ -149,13 +157,19 @@ export function ScarceFeedMediumSheet({
     readablesProp.length > 0 ? readablesProp : hydratedReadables;
   const writingFormat = writingFormatProp ?? hydratedWritingFormat;
   const bookPdf = bookPdfProp ?? hydratedBookPdf;
-  const clip = playables[0] ?? null;
+  const resolvedClip = playables[0] ?? null;
+  const hasPlayableUrl = Boolean(resolvedClip?.url?.trim());
+  /** Listen always mounts the real face — never a Loading shell that remounts. */
+  const clip =
+    resolvedClip ??
+    (mode === 'audio' && open ? PENDING_FEED_AUDIO_CLIP : null);
   const playbackSessionId = scarcePlaybackSessionId({ collectionId, tokenId });
-  /** Audio with a playable uses the real listen enlarge. */
-  const immersiveAudio = mode === 'audio' && clip != null && open;
+  const immersiveAudio = mode === 'audio' && open && clip != null;
   /** Writing uses the dedicated read screen. */
   const immersiveWriting = mode === 'writing' && open;
-  const isOverlay = mode === 'viewer' || (mode === 'audio' && !clip);
+  const isOverlay = mode === 'viewer';
+  const audioUnavailable =
+    mode === 'audio' && open && hydrateSettled && !hasPlayableUrl;
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -251,7 +265,10 @@ export function ScarceFeedMediumSheet({
     Boolean(open && isOverlay && threadOpen),
     threadBand
   );
-  useRegisterImmersiveChromeQuiet(open && isOverlay && !threadOpen);
+  // Soft Drop owns Mint/Back — do not tuck the pill under a quiet face.
+  useRegisterImmersiveChromeQuiet(
+    open && isOverlay && !threadOpen && !dropSheetOpen
+  );
 
   /* Ignore the pointer that opened the drawer — footer unmounts and the
    * leftover pointerup lands on the art, which would close it instantly. */
@@ -317,7 +334,7 @@ export function ScarceFeedMediumSheet({
     return (
       <ScarceClipPlayer
         clip={clip}
-        tracks={playables}
+        tracks={hasPlayableUrl ? playables : []}
         poster={rasterCover}
         layout="cover"
         creatorId={creatorId}
@@ -327,11 +344,13 @@ export function ScarceFeedMediumSheet({
         feedEnlarge={feedEnlarge}
         faceOpen={open}
         peekIdentity={peekIdentity}
-        caption={caption}
-        captionDate={captionDate}
+        caption={
+          audioUnavailable ? 'Audio unavailable for this Drop.' : caption
+        }
+        captionDate={audioUnavailable ? null : captionDate}
         enlargeTrailing={trailing}
         listenFooter={postChrome}
-        listenKeepDock={writePinned || threadOpen}
+        listenKeepDock={writePinned || threadOpen || dropSheetOpen}
         threadOpen={threadOpen}
         onDismissThread={dismissThread}
         threadAuthor={threadAuthor}
@@ -406,7 +425,7 @@ export function ScarceFeedMediumSheet({
         zIndex={faceZ}
         footer={threadActive ? null : postChrome}
         stageLayout="fixed"
-        keepDock={writePinned || threadActive}
+        keepDock={writePinned || threadActive || dropSheetOpen}
         className={slideClass}
         contentClassName="scarce-thought-slide-body"
         bodyStyle={
@@ -421,13 +440,6 @@ export function ScarceFeedMediumSheet({
         { }
         <div className="scarce-thought-body" onClick={handleArtTap}>
           <div className="scarce-thought-stage">{coverArt}</div>
-          {mode === 'audio' ? (
-            <p className="scarce-feed-medium-empty">
-              {hydrateSettled
-                ? 'Audio unavailable for this Drop.'
-                : 'Loading audio…'}
-            </p>
-          ) : null}
         </div>
         {threadActive && threadAuthor && threadPostId ? (
           <div className="feed-photo-thread-host">

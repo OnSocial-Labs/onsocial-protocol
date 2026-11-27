@@ -440,53 +440,94 @@ export function ScarceClipPlayer({
 
   // Same open as video. This post plays on its own element and pauses the
   // launcher, even when the post is the same album. Closing stops only this post.
+  // Deps stay `[feedEnlarge]` only (see 5b21567 / fb218d6) — tying start to
+  // URL readiness re-ran cleanup (pause + dock stop) when the reply drawer
+  // re-rendered playables and killed resume-after-reply.
+  // Cold shared-drop posts mount with PENDING (empty URL); `tryStart` must
+  // read the live playlist/clip via refs when the URL effect retries — a
+  // closed-over empty clip never started autoplay.
+  const feedOpenHasUrl = Boolean(
+    (playlist[activeIndex] ?? clip)?.url?.trim()
+  );
+  const feedOpenPlaylistRef = useRef(playlist);
+  feedOpenPlaylistRef.current = playlist;
+  const feedOpenClipRef = useRef(clip);
+  feedOpenClipRef.current = clip;
+  const feedOpenIndexRef = useRef(activeIndex);
+  feedOpenIndexRef.current = activeIndex;
+  const feedOpenTryStartRef = useRef<(() => void) | null>(null);
   useLayoutEffect(() => {
-    if (!feedEnlarge) return;
-    const track = playlist[activeIndex] ?? clip;
-    if (!track?.url) return;
-    const audio = mediaRef.current;
-    if (!audio || mediaElementIsDockHost(audio)) return;
-    if (!dockSrcMatchesTrack(audio, track)) {
-      audio.src = track.url;
-      audio.load();
+    if (!feedEnlarge) {
+      feedOpenTryStartRef.current = null;
+      return;
     }
-    audio.muted = false;
-    audio.volume = 1;
     let cancelled = false;
-    // A fresh post starts at 0. A sibling a reply already paused continues.
-    const held = heldSiblingPlayhead(audio);
-    const intent = feedCoverOpenIntent(held);
-    const place = () => {
-      if (cancelled || intent !== 'explicit') return;
-      const next = heldSiblingPlayhead(audio);
-      // Metadata can land after a rewind. Only a copy still at 0 takes the clock.
-      if (!shouldPlaceSiblingPlayhead(audio.currentTime, next)) return;
-      try {
-        audio.currentTime = next;
-      } catch {
-        // Metadata can land after this.
+    let started = false;
+    let removeLoadedMeta: (() => void) | null = null;
+    const tryStart = () => {
+      if (cancelled || started) return;
+      const track =
+        feedOpenPlaylistRef.current[feedOpenIndexRef.current] ??
+        feedOpenClipRef.current;
+      if (!track?.url?.trim()) return;
+      const audio = mediaRef.current;
+      if (!audio || mediaElementIsDockHost(audio)) return;
+      started = true;
+      if (!dockSrcMatchesTrack(audio, track)) {
+        audio.src = track.url;
+        audio.load();
       }
+      setLocalSrc(track.url);
+      audio.muted = false;
+      audio.volume = 1;
+      // A fresh post starts at 0. A sibling a reply already paused continues.
+      const held = heldSiblingPlayhead(audio);
+      const intent = feedCoverOpenIntent(held);
+      const place = () => {
+        if (cancelled || intent !== 'explicit') return;
+        const next = heldSiblingPlayhead(audio);
+        // Metadata can land after a rewind. Only a copy still at 0 takes the clock.
+        if (!shouldPlaceSiblingPlayhead(audio.currentTime, next)) return;
+        try {
+          audio.currentTime = next;
+        } catch {
+          // Metadata can land after this.
+        }
+      };
+      place();
+      if (intent === 'explicit') {
+        audio.addEventListener('loadedmetadata', place);
+        removeLoadedMeta = () =>
+          audio.removeEventListener('loadedmetadata', place);
+      }
+      void startJoinedMedia(audio, intent)
+        .then(() => {
+          if (!cancelled) setPlaying(true);
+        })
+        .catch(() => {
+          if (!cancelled) setPlaying(false);
+        });
     };
-    place();
-    if (intent === 'explicit') {
-      audio.addEventListener('loadedmetadata', place);
-    }
-    void startJoinedMedia(audio, intent)
-      .then(() => {
-        if (!cancelled) setPlaying(true);
-      })
-      .catch(() => {
-        if (!cancelled) setPlaying(false);
-      });
+    feedOpenTryStartRef.current = tryStart;
+    tryStart();
     return () => {
       cancelled = true;
-      audio.removeEventListener('loadedmetadata', place);
-      notifyDockBorrow(audio, 'stop');
-      audio.pause();
+      feedOpenTryStartRef.current = null;
+      removeLoadedMeta?.();
+      const audio = mediaRef.current;
+      if (audio && !mediaElementIsDockHost(audio)) {
+        notifyDockBorrow(audio, 'stop');
+        audio.pause();
+      }
     };
-    // Open once. Track changes go through selectTrack.
+    // Open once. Track changes go through selectTrack. Cold URL uses the ref.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- feed open only
   }, [feedEnlarge]);
+
+  useLayoutEffect(() => {
+    if (!feedEnlarge || !feedOpenHasUrl) return;
+    feedOpenTryStartRef.current?.();
+  }, [feedEnlarge, feedOpenHasUrl]);
 
   // A reply is a normal pause, so the launcher starts.
   // Back onto this post plays on from the same place. The reply drawer can stay open.
@@ -662,10 +703,17 @@ export function ScarceClipPlayer({
   }, [playlistKey]);
 
   useEffect(() => {
-    if (persistMode || feedEnlarge) return;
+    if (persistMode) return;
     let cancelled = false;
     const network = active.url;
+    // Feed enlarge must update src when a cold open later gets a URL —
+    // otherwise the controlled <audio src={localSrc}> stays empty.
     setLocalSrc(network);
+    if (feedEnlarge) {
+      return () => {
+        cancelled = true;
+      };
+    }
     void resolvePlayableSrc(
       {
         url: active.url,
@@ -1162,8 +1210,12 @@ export function ScarceClipPlayer({
     <FeedAudioEnlarge
       open={faceOpen}
       onBeforeClose={() => {
-        // Pause in the click. The face animates out afterwards, and that
-        // later unmount is too late for the launcher to start again.
+        // Chevron Back with the reply drawer open only dismisses the drawer
+        // (FeedAudioEnlarge onClose). Pausing here stopped play without
+        // resumeAfterReply — audio stayed dead on the face after Back.
+        if (threadOpen && !listenOpen) return true;
+        // Leaving the face: pause in the click so the launcher can reclaim
+        // before the exit slide unmounts the element.
         const audio = mediaRef.current;
         if (audio && !mediaElementIsDockHost(audio) && !audio.paused) {
           notifyDockBorrow(audio, 'stop');
@@ -1235,8 +1287,9 @@ export function ScarceClipPlayer({
             <audio
               ref={(node) => {
                 mediaRef.current = node;
+                if (node) feedOpenTryStartRef.current?.();
               }}
-              src={localSrc}
+              src={localSrc.trim() ? localSrc : undefined}
               {...audioMediaProps}
             />
           )
@@ -1297,8 +1350,10 @@ export function ScarceClipPlayer({
                   <audio
                     ref={(node) => {
                       mediaRef.current = node;
+                      // Cold shared-drop: URL can land before this node exists.
+                      if (node) feedOpenTryStartRef.current?.();
                     }}
-                    src={localSrc}
+                    src={localSrc.trim() ? localSrc : undefined}
                     {...audioMediaProps}
                   />
                 )}

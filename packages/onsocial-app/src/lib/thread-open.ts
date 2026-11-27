@@ -11,7 +11,8 @@ export type ThreadLoadState = 'loading' | 'ready' | 'missing' | 'error';
  *
  * Permalink / SSR opens still wait for the first reply page so OP + directs
  * paint together. A feed-row open already showed the OP on the list — lift
- * with that seed and let directs soft-fill (same as nested graft after paint).
+ * with that seed. Directs that were coalesced under the OP on the list must
+ * be seeded too (`feedVisibleThreadSeedReplies`); only unseen directs soft-fill.
  */
 export function threadCoverReady(input: {
   loadState: ThreadLoadState;

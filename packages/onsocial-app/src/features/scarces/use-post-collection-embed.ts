@@ -189,6 +189,14 @@ export function usePostCollectionEmbed(
           };
 
           if (!cancelled) {
+            // Listen opens from mediumKind before writing hydrate — paint
+            // playables from the catalog row first so the face is not empty.
+            if (view?.playables?.length) {
+              setPlayables(view.playables);
+              setDropTitle(
+                view.title?.trim() || paint?.title || null
+              );
+            }
             const hydrated = view ? await hydrateWritingManifest(view) : null;
             if (cancelled) return;
             // Same as Drops `item.view` — Drop open peeks this for an instant face.

@@ -27,6 +27,7 @@ import { useFeedThreadBand } from '@/features/home/use-feed-thread-band';
 import { ClipProgressTrack } from '@/features/home/feed-media-progress';
 import { ScarceClipShareButton } from '@/features/scarces/scarce-clip-share-button';
 import { usePostLayerOwnerZ } from '@/features/home/post-layer-owner-z';
+import { useOsDropSheetOpen } from '@/hooks/use-os-drop-sheet-open';
 import { postLayerOverlayZ } from '@/lib/sheet-z';
 
 /**
@@ -120,6 +121,7 @@ export function ScarceClipListenSheet({
   threadRoot?: PostRow | null;
 }) {
   const faceZ = postLayerOverlayZ(usePostLayerOwnerZ()).face;
+  const dropSheetOpen = useOsDropSheetOpen();
   const lyricsId = useId();
   const showLove = Boolean(onToggleLove);
   const showShare = Boolean(shareTitle?.trim());
@@ -157,7 +159,7 @@ export function ScarceClipListenSheet({
       title={screenTitle}
       closeAriaLabel="Back from listen"
       zIndex={faceZ}
-      keepDock={keepDock || threadActive}
+      keepDock={keepDock || threadActive || dropSheetOpen}
       screenHeader
       footer={threadActive ? null : footer}
       stageLayout={threadActive ? 'fixed' : 'scroll'}

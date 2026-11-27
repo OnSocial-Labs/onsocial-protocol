@@ -110,12 +110,15 @@ function resolveScrollRoot(input: ScrollRootInput): Element | null {
  * - Pass `pinned` while commit chrome is up so save/refresh scroll cannot tuck
  *   the dock away.
  * - Bump `hideRequest` to force a hide (e.g. after a section jump).
+ * - Bump `revealRequest` to show once (e.g. drop/post sheet open) without
+ *   pinning — scroll-hide still folds after that, same as other pages.
  * - Short / non-scrollable surfaces never stay hidden (no scroll room to reveal).
  */
 export function useDockAutoHide(
   pinned = false,
   scrollRoot: ScrollRootInput = null,
-  hideRequest = 0
+  hideRequest = 0,
+  revealRequest = 0
 ): boolean {
   const [hidden, setHidden] = useState(false);
   const cooldownUntilRef = useRef(0);
@@ -144,6 +147,12 @@ export function useDockAutoHide(
       });
     }
   }, [hideRequest, pinned, boundElement]);
+
+  useEffect(() => {
+    if (revealRequest > 0) {
+      queueMicrotask(() => setHidden(false));
+    }
+  }, [revealRequest]);
 
   useEffect(() => {
     if (pinned || !boundElement) {
