@@ -21,6 +21,7 @@ import {
   resolveDockBackVisible,
   useDockBack,
   useDockRevealEpoch,
+  useDockScrollRoot,
   useImmersiveChromeQuiet,
   type DockBackRegistration,
 } from '@/contexts/dock-chrome-context';
@@ -117,9 +118,11 @@ export function PortfolioSummonDock({
     };
   }, [pageDrawerOpen]);
 
-  const scrollRoot = pageDrawerOpen ? scrollNode : null;
+  const registeredScrollRoot = useDockScrollRoot();
+  const scrollRoot = pageDrawerOpen ? scrollNode : registeredScrollRoot;
   // Sheet Back reveals via dockRevealEpoch (useRegisterDockBack / claim).
   // Face leave alone must not pin — that would kill hide on every visit.
+  // A page drawer keeps its own scroller. Otherwise the top screen does.
   const dockRevealEpoch = useDockRevealEpoch();
   const autoHide = useDockAutoHide(
     previewPinned ||
@@ -129,7 +132,8 @@ export function PortfolioSummonDock({
       (pageDrawerOpen && !scrollNode),
     scrollRoot,
     0,
-    dockRevealEpoch
+    dockRevealEpoch,
+    pageDrawerOpen ? 'element' : 'subtree'
   );
   const scrollHidden =
     !osOpen && (immersiveChromeQuiet || (autoHide && !write));

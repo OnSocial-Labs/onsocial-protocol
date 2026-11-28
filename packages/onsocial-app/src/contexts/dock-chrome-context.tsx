@@ -70,6 +70,62 @@ export function topDockBack(
   return stack.length > 0 ? (stack[stack.length - 1]?.entry ?? null) : null;
 }
 
+/** The scroller the summon dock folds with. Top of the stack is the screen on top. */
+export type DockScrollRootItem = {
+  id: string;
+  element: Element;
+  /** Sheet or slide-over. A page remount stays underneath these. */
+  overlay: boolean;
+};
+
+/**
+ * An overlay claims the top. A page inserts under any overlay so a remount
+ * (desktop Market under a drop) cannot steal the scroller.
+ */
+export function claimDockScrollRootStack(
+  stack: readonly DockScrollRootItem[],
+  item: DockScrollRootItem
+): DockScrollRootItem[] {
+  const without = stack.filter((row) => row.id !== item.id);
+  if (item.overlay) return [...without, item];
+  const firstOverlay = without.findIndex((row) => row.overlay);
+  if (firstOverlay === -1) return [...without, item];
+  return [
+    ...without.slice(0, firstOverlay),
+    item,
+    ...without.slice(firstOverlay),
+  ];
+}
+
+/** Update the element without moving this screen above a later overlay. */
+export function replaceDockScrollRootStack(
+  stack: readonly DockScrollRootItem[],
+  item: DockScrollRootItem
+): DockScrollRootItem[] {
+  const index = stack.findIndex((row) => row.id === item.id);
+  if (index === -1) return claimDockScrollRootStack(stack, item);
+  const current = stack[index];
+  if (current?.element === item.element && current.overlay === item.overlay) {
+    return stack as DockScrollRootItem[];
+  }
+  const next = stack.slice();
+  next[index] = item;
+  return next;
+}
+
+export function popDockScrollRootStack(
+  stack: readonly DockScrollRootItem[],
+  id: string
+): DockScrollRootItem[] {
+  return stack.filter((row) => row.id !== id);
+}
+
+export function topDockScrollRoot(
+  stack: readonly DockScrollRootItem[]
+): Element | null {
+  return stack.length > 0 ? (stack[stack.length - 1]?.element ?? null) : null;
+}
+
 interface DockChromeContextValue {
   dockBack: DockBackRegistration | null;
   upsertDockBack: (item: DockBackStackItem) => void;
@@ -85,6 +141,11 @@ interface DockChromeContextValue {
   /** Immersive reader / listen tucked chrome — dock follows. */
   immersiveChromeQuiet: boolean;
   setImmersiveChromeQuiet: (quiet: boolean) => void;
+  /** Top screen scroller. Null until a screen registers its body. */
+  dockScrollRoot: Element | null;
+  claimDockScrollRoot: (item: DockScrollRootItem) => void;
+  replaceDockScrollRoot: (item: DockScrollRootItem) => void;
+  popDockScrollRoot: (id: string) => void;
 }
 
 const DockChromeContext = createContext<DockChromeContextValue | null>(null);
@@ -119,7 +180,11 @@ export function DockChromeProvider({ children }: { children: ReactNode }) {
   const [headerOwnsConnect, setHeaderOwnsConnect] = useState(false);
   const [immersiveChromeQuiet, setImmersiveChromeQuiet] = useState(false);
   const [dockRevealEpoch, setDockRevealEpoch] = useState(0);
+  const [dockScrollStack, setDockScrollStack] = useState<DockScrollRootItem[]>(
+    []
+  );
   const dockBack = topDockBack(dockBackStack);
+  const dockScrollRoot = topDockScrollRoot(dockScrollStack);
   const upsertDockBack = useCallback((item: DockBackStackItem) => {
     setDockBackStack((current) => upsertDockBackStack(current, item));
   }, []);
@@ -138,6 +203,18 @@ export function DockChromeProvider({ children }: { children: ReactNode }) {
   const requestDockReveal = useCallback(() => {
     setDockRevealEpoch((n) => n + 1);
   }, []);
+  const claimDockScrollRoot = useCallback((item: DockScrollRootItem) => {
+    setDockScrollStack((current) => claimDockScrollRootStack(current, item));
+  }, []);
+  const replaceDockScrollRoot = useCallback((item: DockScrollRootItem) => {
+    setDockScrollStack((current) => replaceDockScrollRootStack(current, item));
+  }, []);
+  const popDockScrollRoot = useCallback((id: string) => {
+    setDockScrollStack((current) => {
+      if (!current.some((row) => row.id === id)) return current;
+      return popDockScrollRootStack(current, id);
+    });
+  }, []);
   const value = useMemo(
     () => ({
       dockBack,
@@ -152,15 +229,23 @@ export function DockChromeProvider({ children }: { children: ReactNode }) {
       setHeaderOwnsConnect,
       immersiveChromeQuiet,
       setImmersiveChromeQuiet,
+      dockScrollRoot,
+      claimDockScrollRoot,
+      replaceDockScrollRoot,
+      popDockScrollRoot,
     }),
     [
       dockAction,
       dockBack,
       dockRevealEpoch,
+      dockScrollRoot,
       headerOwnsConnect,
       immersiveChromeQuiet,
       claimDockBack,
+      claimDockScrollRoot,
       popDockBack,
+      popDockScrollRoot,
+      replaceDockScrollRoot,
       requestDockReveal,
       upsertDockBack,
     ]
@@ -191,6 +276,70 @@ export function useHeaderOwnsConnect(): boolean {
 
 export function useImmersiveChromeQuiet(): boolean {
   return useContext(DockChromeContext)?.immersiveChromeQuiet ?? false;
+}
+
+/** Top screen's scroller. Null until a screen registers its body. */
+export function useDockScrollRoot(): Element | null {
+  return useContext(DockChromeContext)?.dockScrollRoot ?? null;
+}
+
+const DockScrollHoldContext = createContext(false);
+
+/**
+ * A parked place sheet stays mounted. Hold its screens so the page
+ * underneath owns dock auto-hide until the sheet is on screen again.
+ */
+export function DockScrollHoldProvider({
+  held,
+  children,
+}: {
+  held: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <DockScrollHoldContext.Provider value={held}>
+      {children}
+    </DockScrollHoldContext.Provider>
+  );
+}
+
+/**
+ * Register this screen's scroller. The first active pass claims the top
+ * (overlays) or a slot under overlays (pages). Later passes only update
+ * the element, so a re-render cannot outrank a screen that opened after.
+ */
+export function useRegisterDockScrollRoot(
+  element: Element | null,
+  overlay: boolean
+) {
+  const held = useContext(DockScrollHoldContext);
+  const context = useContext(DockChromeContext);
+  const claim = context?.claimDockScrollRoot;
+  const replace = context?.replaceDockScrollRoot;
+  const pop = context?.popDockScrollRoot;
+  const id = useId();
+  const wasActiveRef = useRef(false);
+  const live = held ? null : element;
+
+  useLayoutEffect(() => {
+    if (!claim || !replace || !pop) return;
+    if (!live) {
+      wasActiveRef.current = false;
+      pop(id);
+      return;
+    }
+    const item = { id, element: live, overlay };
+    if (!wasActiveRef.current) {
+      wasActiveRef.current = true;
+      claim(item);
+      return;
+    }
+    replace(item);
+  }, [claim, id, live, overlay, pop, replace]);
+
+  useLayoutEffect(() => {
+    return () => pop?.(id);
+  }, [id, pop]);
 }
 
 /** Register contextual back on the summon dock (pops this id on unmount). */

@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment jsdom
+ */
 import { describe, expect, it } from 'vitest';
 import {
   DOCK_HIDE_DELTA_PX,
@@ -6,8 +9,10 @@ import {
   DOCK_TOGGLE_COOLDOWN_MS,
   DOCK_TOP_REVEAL_PX,
   canDockAutoHide,
+  dockHiddenForScrollRoot,
   dockToggleCooling,
   nextDockAutoHidden,
+  scrollBelongsToDockRoot,
   scrollRoomOf,
 } from './use-dock-auto-hide';
 
@@ -113,5 +118,31 @@ describe('dock auto-hide scroll room', () => {
         cooldownUntil,
       })
     ).toBe(false);
+  });
+});
+
+describe('dock auto-hide follows the top screen', () => {
+  it('ignores a covered scroller and counts one inside the top screen', () => {
+    document.body.innerHTML =
+      '<div id="feed"><div id="feed-scroll"></div></div><div id="read"><div id="read-scroll"></div></div>';
+    const feedScroll = document.getElementById('feed-scroll')!;
+    const read = document.getElementById('read')!;
+    const readScroll = document.getElementById('read-scroll')!;
+    expect(scrollBelongsToDockRoot(read, readScroll, 'subtree')).toBe(true);
+    expect(scrollBelongsToDockRoot(read, feedScroll, 'subtree')).toBe(false);
+    expect(scrollBelongsToDockRoot(read, readScroll, 'element')).toBe(false);
+    expect(scrollBelongsToDockRoot(read, read, 'element')).toBe(true);
+  });
+
+  it('shows the dock when the top scroller changes', () => {
+    expect(dockHiddenForScrollRoot({ hidden: true, rootChanged: true })).toBe(
+      false
+    );
+    expect(dockHiddenForScrollRoot({ hidden: true, rootChanged: false })).toBe(
+      true
+    );
+    expect(dockHiddenForScrollRoot({ hidden: false, rootChanged: false })).toBe(
+      false
+    );
   });
 });

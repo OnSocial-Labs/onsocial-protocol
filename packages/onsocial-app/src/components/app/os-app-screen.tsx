@@ -7,6 +7,7 @@ import { AppShellLauncher } from '@/components/os/summon-launcher';
 import { useRegisterOsPortalHost } from '@/contexts/os-portal-host-context';
 import {
   useRegisterDockBack,
+  useRegisterDockScrollRoot,
   useRegisterHeaderOwnsConnect,
 } from '@/contexts/dock-chrome-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
@@ -164,6 +165,7 @@ export function OsAppScreen({
   const glassMode = glassChrome && !immersiveHeader;
   const headerRef = useRef<HTMLElement | null>(null);
   const bodyRef = useRef<HTMLElement | null>(null);
+  const [dockScrollEl, setDockScrollEl] = useState<HTMLElement | null>(null);
   const fallbackScrollRef = useRef<HTMLElement | null>(null);
   const tuckScrollRef = scrollRootRef ?? fallbackScrollRef;
   const searchTucked = useDockAutoHide(
@@ -193,6 +195,7 @@ export function OsAppScreen({
   );
   useRegisterDockBack(dockBackEntry);
   useRegisterHeaderOwnsConnect(headerOwnsConnect);
+  useRegisterDockScrollRoot(dockScrollEl, embedded);
   const navBackInDock = dockBack && leading === undefined;
   const headerBack = Boolean(leading != null && !dockBack);
   const showNavRow =
@@ -205,6 +208,7 @@ export function OsAppScreen({
     bodyRef.current = node;
     fallbackScrollRef.current = node;
     if (scrollRootRef) scrollRootRef.current = node;
+    setDockScrollEl((current) => (current === node ? current : node));
   };
 
   useOsScreenChromeHeightSync({ enabled: glassMode, headerRef });
@@ -319,7 +323,11 @@ export function OsAppScreen({
           <div className="os-app-screen-footer">{footer}</div>
         ) : null}
       </div>
-      {embedded ? null : dock != null ? dock : launcher ? <AppShellLauncher /> : null}
+      {embedded ? null : dock != null ? (
+        dock
+      ) : launcher ? (
+        <AppShellLauncher />
+      ) : null}
     </div>
   );
 

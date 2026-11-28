@@ -34,6 +34,7 @@ import {
   useScrollLock,
   useSheetStackEntry,
 } from '@onsocial/ui';
+import { useRegisterDockScrollRoot } from '@/contexts/dock-chrome-context';
 import { useOsPortalHost } from '@/contexts/os-portal-host-context';
 import { probeOsCardHost, resolveOsOverlayPortal } from '@/lib/os-card-host';
 import { onCloseThisMediaFace } from '@/lib/media-face-session';
@@ -187,6 +188,7 @@ export function OsSlideOverScreen({
   useSheetStackEntry(open, 'page');
   const headerRef = useRef<HTMLElement | null>(null);
   const bodyRef = useRef<HTMLElement | null>(null);
+  const [dockScrollEl, setDockScrollEl] = useState<HTMLElement | null>(null);
   const slideRootRef = useRef<HTMLDivElement>(null);
   const [closing, setClosing] = useState(false);
   const [entered, setEntered] = useState(false);
@@ -340,9 +342,13 @@ export function OsSlideOverScreen({
       if (scrollRootRef) {
         scrollRootRef.current = node;
       }
+      setDockScrollEl((current) => (current === node ? current : node));
     },
     [scrollRootRef]
   );
+  const slideScrollActive =
+    renderOpen && !closing && !yielded && !parked && overlay.top;
+  useRegisterDockScrollRoot(slideScrollActive ? dockScrollEl : null, true);
 
   if (!mounted || !renderOpen) return null;
 

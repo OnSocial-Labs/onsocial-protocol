@@ -47,6 +47,36 @@ export function isDockFlick(delta: number): boolean {
   return delta < -DOCK_SHOW_DELTA_PX || delta > DOCK_HIDE_DELTA_PX;
 }
 
+/** `element` listens to that node. `subtree` also listens to scrollers inside it. */
+export type DockScrollListen = 'element' | 'subtree';
+
+/**
+ * True when this scroll belongs to the top screen. A covered screen's
+ * scroller must not tuck the dock.
+ */
+export function scrollBelongsToDockRoot(
+  root: Element,
+  target: EventTarget | null,
+  listen: DockScrollListen
+): boolean {
+  const el = scrollElementOf(target);
+  if (!el) return false;
+  if (el === root) return true;
+  return listen === 'subtree' && root.contains(el);
+}
+
+/**
+ * Opening or closing the top screen shows the dock. The tuck belongs to
+ * the screen that is on top now, not the one that just left.
+ */
+export function dockHiddenForScrollRoot(args: {
+  hidden: boolean;
+  rootChanged: boolean;
+}): boolean {
+  if (args.rootChanged) return false;
+  return args.hidden;
+}
+
 /**
  * Settle cooldown blocks tiny follow-up deltas. A real flick still toggles,
  * so scrolling back up reveals the chrome without waiting out the timer.
@@ -105,8 +135,11 @@ function resolveScrollRoot(input: ScrollRootInput): Element | null {
  * Dock auto-hide: hide on scroll down, reveal on scroll up or near the top.
  *
  * - Default: window capture so nested scrollers (`.os-app-screen-body`) count.
- * - Pass `scrollRoot` Element or RefObject to scope to a scroller (page drawer /
- *   Discover overlay body). Refs are re-read on each scroll so late attach works.
+ * - Pass `scrollRoot` Element or RefObject to scope to the top screen. Refs are
+ *   re-read on each scroll so late attach works. `subtree` also counts scrollers
+ *   inside that screen; `element` counts only the node itself.
+ * - Changing `scrollRoot` shows the dock once. The new screen's scroll decides
+ *   the next tuck, so closing Read does not leave the pill hidden.
  * - Pass `pinned` while commit chrome is up so save/refresh scroll cannot tuck
  *   the dock away.
  * - Bump `hideRequest` to force a hide (e.g. after a section jump).
@@ -118,16 +151,26 @@ export function useDockAutoHide(
   pinned = false,
   scrollRoot: ScrollRootInput = null,
   hideRequest = 0,
-  revealRequest = 0
+  revealRequest = 0,
+  listen: DockScrollListen = 'element'
 ): boolean {
   const [hidden, setHidden] = useState(false);
   const cooldownUntilRef = useRef(0);
   const usesRef = isScrollRootRef(scrollRoot);
   const boundElement = usesRef ? null : scrollRoot;
+  const [trackedRoot, setTrackedRoot] = useState<Element | null>(boundElement);
 
   // Clear scroll-hide when commit chrome pins the dock (render-time adjust).
   if (pinned && hidden) {
     setHidden(false);
+  }
+
+  // A new top screen shows the dock. Its own scroll can tuck it again.
+  if (boundElement !== trackedRoot) {
+    setTrackedRoot(boundElement);
+    if (dockHiddenForScrollRoot({ hidden, rootChanged: true }) !== hidden) {
+      setHidden(false);
+    }
   }
 
   useEffect(() => {
@@ -159,7 +202,10 @@ export function useDockAutoHide(
       return;
     }
 
-    let lastTop = boundElement.scrollTop;
+    const lastTops = new WeakMap<EventTarget, number>();
+    if (listen === 'element') {
+      lastTops.set(boundElement, boundElement.scrollTop);
+    }
 
     const applyHidden = (next: boolean) => {
       const now = performance.now();
@@ -178,12 +224,15 @@ export function useDockAutoHide(
     };
 
     const onScroll = (event: Event) => {
-      if (event.target !== boundElement) return;
-      const top = boundElement.scrollTop;
-      const last = lastTop;
-      lastTop = top;
+      if (!scrollBelongsToDockRoot(boundElement, event.target, listen)) return;
+      const el = scrollElementOf(event.target);
+      if (!el) return;
+      const top = el.scrollTop;
+      const last = lastTops.get(el);
+      lastTops.set(el, top);
+      if (last === undefined) return;
       const delta = top - last;
-      const room = scrollRoomOf(boundElement);
+      const room = scrollRoomOf(el);
       if (
         !canDockAutoHide(room) ||
         top <= DOCK_TOP_REVEAL_PX ||
@@ -211,7 +260,7 @@ export function useDockAutoHide(
       boundElement.removeEventListener('scroll', onScroll, { capture: true });
       ro?.disconnect();
     };
-  }, [pinned, boundElement]);
+  }, [pinned, boundElement, listen]);
 
   useEffect(() => {
     if (pinned || boundElement) {

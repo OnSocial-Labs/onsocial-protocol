@@ -4,6 +4,7 @@ import {
   dismissNextDevOverlay,
   e2ePortfolioAccountId,
   gotoApp,
+  settledNode,
   waitForPortfolioClientReady,
 } from './helpers';
 
@@ -81,6 +82,39 @@ test.describe('article reader back', () => {
     );
     await expect(page.getByRole('link', { name: 'Night drive' })).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`${writingPath}/?$`));
+  });
+
+  test('shows the dock again after the reader closes', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await setE2eGraphWriting(page, 'shelf');
+    await gotoApp(page, writingPath);
+    await waitForPortfolioClientReady(page);
+    await dismissNextDevOverlay(page);
+
+    await page.getByRole('link', { name: 'Night drive' }).click();
+    const night = page.getByRole('dialog', { name: 'Night drive' });
+    await expect(night).toBeVisible();
+    const dock = settledNode(page, '.portfolio-summon-dock');
+    await expect(dock).not.toHaveClass(/is-scroll-hidden/);
+
+    await night.locator('main.os-app-screen-body').evaluate((node) => {
+      if (!(node instanceof HTMLElement)) return;
+      const filler = document.createElement('div');
+      filler.style.height = '2000px';
+      filler.style.flexShrink = '0';
+      node.appendChild(filler);
+      const fire = (top: number) => {
+        node.scrollTop = top;
+        node.dispatchEvent(new Event('scroll'));
+      };
+      fire(80);
+      fire(240);
+    });
+    await expect(dock).toHaveClass(/is-scroll-hidden/);
+
+    await page.getByRole('button', { name: 'Back from article' }).click();
+    await expect(night).toHaveCount(0);
+    await expect(dock).not.toHaveClass(/is-scroll-hidden/);
   });
 
   test('keeps the essay place and reveals more in the reader', async ({
