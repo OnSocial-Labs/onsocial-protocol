@@ -70,6 +70,21 @@ describe('paintOverlayStack', () => {
     ]);
     expect(painted[1]?.z).toBeGreaterThan(painted[0]?.z ?? 0);
   });
+
+  it('does not let a covered face without keepDock pull a soft drop above the dock', () => {
+    // Face lost keepDock when the reply drawer closed under the drop; only the
+    // top modal may clear --os-thread-dock-z.
+    const painted = paintOverlayStack(
+      [
+        { id: 1, floor: 80, keepDock: false },
+        { id: 2, floor: 170, keepDock: true },
+      ],
+      172
+    );
+    expect(painted[0]?.z).toBe(80);
+    expect(painted[1]?.z).toBe(170);
+    expect(painted[1]?.z).toBeLessThan(172);
+  });
 });
 
 describe('overlay stack store', () => {

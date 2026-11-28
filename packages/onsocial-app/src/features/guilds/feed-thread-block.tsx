@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import type { WriteDockSubmit } from '@/contexts/compose-launcher-context';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
@@ -15,6 +16,7 @@ import type { ThreadSheetContext } from '@/lib/guild-thread-card-context';
 import {
   FEED_THREAD_MAX_UNCOLLAPSED,
   FEED_THREAD_TAIL_VISIBLE,
+  feedVisibleThreadSeedReplies,
 } from '@/lib/feed-threads';
 import { postThreadPath } from '@/lib/post-routes';
 
@@ -109,6 +111,10 @@ export function FeedThreadBlock({
   standingPeek,
   standingHidden,
 }: FeedThreadBlockProps) {
+  const rootSeedReplies = useMemo(() => {
+    const seeded = feedVisibleThreadSeedReplies(block, { standingPeek });
+    return seeded.length > 0 ? seeded : null;
+  }, [block, standingPeek]);
   const collapsed = block.length > FEED_THREAD_MAX_UNCOLLAPSED;
   const foldLabel = collapsed
     ? resolveThreadFoldLabel(
@@ -209,6 +215,7 @@ export function FeedThreadBlock({
           onQuote={onQuote}
           onRepost={onRepost}
           onUndoRepost={onUndoRepost}
+          openThreadSeedReplies={first ? rootSeedReplies : null}
         />
       </div>
     );

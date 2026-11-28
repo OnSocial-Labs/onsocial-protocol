@@ -29,6 +29,7 @@ import {
 } from '@/components/portfolio/portfolio-writing-article-panel';
 import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
 import { useWriteDockPinned } from '@/contexts/compose-launcher-context';
+import { useOsDropSheetOpen } from '@/hooks/use-os-drop-sheet-open';
 import { PostCardMenu } from '@/features/home/post-card-menu';
 import { usePostLayerOwnerZ } from '@/features/home/post-layer-owner-z';
 import { postThreadPath } from '@/lib/post-routes';
@@ -299,6 +300,7 @@ export function ArticleReadOverlay({
     documentTitle?.trim() ||
     'Article';
   const writePinned = useWriteDockPinned();
+  const dropSheetOpen = useOsDropSheetOpen();
   const { chromeQuiet, progress, wakeFooter, onChromeTap } =
     useArticleReadChrome(scrollRootRef, open, writePinned);
   const quiet = chromeQuiet && !writePinned;
@@ -353,7 +355,7 @@ export function ArticleReadOverlay({
         />
       }
       zIndex={faceZ}
-      keepDock={writePinned || threadOpen}
+      keepDock={writePinned || threadOpen || dropSheetOpen}
       scrollRootRef={scrollRootRef}
       className={`${ARTICLE_READ_CLASS}${quiet ? ' is-chrome-quiet' : ''}${
         showWakeFooter ? ' is-wake-footer' : ''

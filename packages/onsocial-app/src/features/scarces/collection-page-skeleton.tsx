@@ -41,7 +41,9 @@ export function CollectionPageSkeleton({
         <header className="collection-head">
           <div className="collection-title-row">
             <div className="collectibles-play-title-block">
-              <span className="standing-row-shimmer collection-skeleton-title" />
+              <h1 className="collection-title" aria-hidden>
+                <span className="standing-row-shimmer collection-title-shimmer" />
+              </h1>
             </div>
             <div className="drops-discovery-head-trail">
               {hasEdition ? (

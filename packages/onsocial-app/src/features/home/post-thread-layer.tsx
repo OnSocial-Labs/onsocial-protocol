@@ -27,13 +27,16 @@ import {
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsRouteSettle } from '@/components/app/os-route-settle';
+import { useClaimDropSheetDockBack } from '@/contexts/dock-chrome-context';
 import { PostQuotesTrackHostProvider } from '@/features/home/post-quotes-track-host';
 import { PostQuotesPageSkeleton } from '@/features/home/post-quotes-skeleton';
 import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
 import type { CollectionCreatorFace } from '@/features/scarces/collection-creator-face';
+import { DropLayerPanelPending } from '@/features/scarces/drop-layer-panel-pending';
 import { editionTokenForCollection } from '@/features/scarces/collection-page-view';
 import type { CollectionView } from '@/features/scarces/collections-data';
 import { scarceEmbedsForOpenRoot } from '@/features/scarces/scarce-embed-ledger';
+import { directRepliesToTree } from '@/lib/thread-first-page';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { accountIdsEqual } from '@/lib/account-match';
 import { portfolioSwipeOpensPage } from '@/lib/portfolio-feed-reveal';
@@ -83,6 +86,7 @@ import {
   isOsMediaFaceOpen,
   nextPostLayerZIndex,
   postLayerOverlayZ,
+  setOsDropSheetOpen,
   SHEET_Z,
 } from '@/lib/sheet-z';
 import { PostLayerOwnerZProvider } from '@/features/home/post-layer-owner-z';
@@ -93,9 +97,11 @@ import {
 } from '@/hooks/use-guild-display-names';
 import { warmGuildChannelTitles } from '@/lib/guild-channel-titles';
 import {
+  ensurePostPanelChunk,
   threadContentPath,
   warmDropPanel,
-  warmPostPanels,
+  warmFeedOpenChunks,
+  warmQuotesOpen,
   warmThreadOpen,
 } from '@/lib/thread-first-page';
 import {
@@ -111,6 +117,7 @@ import {
 } from './post-thread-stack';
 import {
   beginHistoryBack,
+  dropLayerOpenHistoryOp,
   inFlightPopRepair,
   repairClosingLayerHistory,
   withoutClosingLayer,
@@ -118,9 +125,11 @@ import {
 
 /*
  * Seeded feed opens already paint the root — never put a full-page skeleton
- * in `dynamic` `loading`. Cold opens keep the OsRouteSettle cover; chunk
- * suspend uses null (same as feed-media-thread-sheet) so a warm open does
- * not flash empty thread chrome.
+ * in `dynamic` `loading` for post/quotes. Cold opens keep the OsRouteSettle
+ * cover; chunk suspend uses null so a warm open does not flash empty thread
+ * chrome. Soft Drop is different: the sheet starts empty until the panel
+ * chunk lands — DropLayerPanelPending is the same cold jacket, module-pending
+ * only (navigateDropPlace awaits warm first for the common tap path).
  */
 const LivePersonalPostPanel = dynamic(
   () =>
@@ -135,7 +144,10 @@ const CollectionPagePanel = dynamic(
     import('@/features/scarces/collection-page-panel').then(
       (mod) => mod.CollectionPagePanel
     ),
-  { ssr: false }
+  {
+    ssr: false,
+    loading: () => <DropLayerPanelPending />,
+  }
 );
 
 const LiveGuildPostPanel = dynamic(
@@ -231,6 +243,11 @@ type PostThreadLayerTarget = {
    * never flashes zeros while the thread's own engagement fetch is in flight.
    */
   rootEngagement?: PostEngagement | null;
+  /**
+   * Direct replies already painted under this OP in the feed block. Seeded
+   * into the sheet so the chain does not soft-fill after appear.
+   */
+  seedReplies?: PostRow[] | null;
   zIndex: number;
   /** Glass lifts this sheet when a media face was already open. */
   openedAboveMediaFace: boolean;
@@ -294,6 +311,8 @@ type PostThreadLayerValue = {
     root?: PostRow | null;
     context?: ThreadSheetContext | null;
     rootEngagement?: PostEngagement | null;
+    /** Feed-block replies already under the OP — first sheet paint includes them. */
+    seedReplies?: PostRow[] | null;
     /**
      * This post sits above the one on screen (an ancestor). Show it again
      * like a feed open. Do not push another sheet on top of the reply.
@@ -382,13 +401,15 @@ function placeLayerHref(layer: PlaceLayerTarget): string {
 
 function seedGuildThread(
   root: PostRow,
-  rootEngagement?: PostEngagement | null
+  rootEngagement?: PostEngagement | null,
+  seedReplies?: PostRow[] | null
 ): GuildPostPageData {
+  const replies = seedReplies?.length ? seedReplies : [];
   return {
     root,
-    replies: [],
+    replies,
     quotes: [],
-    replyTree: [],
+    replyTree: directRepliesToTree(replies),
     hasMoreReplies: false,
     guildName: guildNameForThreadSeed(root),
     memberDriven: false,
@@ -400,13 +421,15 @@ function seedGuildThread(
 
 function seedEmbeddedThread(
   root: PostRow,
-  rootEngagement?: PostEngagement | null
+  rootEngagement?: PostEngagement | null,
+  seedReplies?: PostRow[] | null
 ): PersonalPostPageData {
+  const replies = seedReplies?.length ? seedReplies : [];
   return {
     root,
-    replies: [],
+    replies,
     quotes: [],
-    replyTree: [],
+    replyTree: directRepliesToTree(replies),
     hasMoreReplies: false,
     engagement: rootEngagement ? { [postKey(root)]: rootEngagement } : {},
     scarceEmbeds: scarceEmbedsForOpenRoot(root),
@@ -530,7 +553,11 @@ function PostThreadSheet({
   const initial = useMemo(
     () =>
       layer.kind === 'post' && layer.root
-        ? seedEmbeddedThread(layer.root, layer.rootEngagement)
+        ? seedEmbeddedThread(
+            layer.root,
+            layer.rootEngagement,
+            layer.seedReplies
+          )
         : null,
     [layer]
   );
@@ -714,7 +741,11 @@ function PostThreadSheet({
                       postId={layer.postId}
                       initial={
                         layer.root
-                          ? seedGuildThread(layer.root, layer.rootEngagement)
+                          ? seedGuildThread(
+                              layer.root,
+                              layer.rootEngagement,
+                              layer.seedReplies
+                            )
                           : null
                       }
                       embedded
@@ -750,22 +781,44 @@ function PostThreadSheet({
 function DropLayerSheet({
   layer,
   open,
+  parked,
   onClose,
   onClosed,
+  onLeave,
   zIndex,
   moodId,
   moodStyle,
 }: {
   layer: DropLayerTarget;
   open: boolean;
+  /** Profile, door, or another route is the screen. Keep the drop mounted. */
+  parked: boolean;
   onClose: () => void;
   onClosed: () => void;
+  onLeave: (href: string) => void;
   zIndex: number;
   moodId?: string;
   moodStyle?: CSSProperties;
 }) {
   const titleId = useId();
   const renderedZ = resolveGlassSheetZIndex(zIndex, layer.openedAboveMediaFace);
+  const leaveFromDrop = (event: ReactMouseEvent) => {
+    if (!isUnmodifiedPrimaryClick(event)) return;
+    const node = event.target;
+    if (!(node instanceof Element)) return;
+    const anchor = node.closest('a');
+    if (!(anchor instanceof HTMLAnchorElement)) return;
+    if (anchor.target === '_blank') return;
+    const href = anchor.getAttribute('href');
+    if (!href || href.startsWith('#') || /^https?:/i.test(href)) return;
+    const path = href.split(/[?#]/)[0] ?? href;
+    if (!path.startsWith('/')) return;
+    // Another drop stays in this sheet. Everything else parks and navigates.
+    if (parseInAppDropLayerHref(path)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onLeave(href);
+  };
   return (
     <PostLayerOwnerZProvider value={renderedZ}>
       <OsPageSheet
@@ -778,24 +831,33 @@ function DropLayerSheet({
         ariaLabelledBy={titleId}
         backdropLabel="Back"
         keepDock
+        lockScroll={!parked}
         moodId={moodId}
         moodStyle={moodStyle}
         panelClassName="drop-sheet-panel"
         bodyClassName="drop-sheet-body"
+        rootClassName={parked ? 'post-thread-sheet-parked' : undefined}
         header={null}
       >
-        <span id={titleId} className="sr-only">
-          Drop
-        </span>
-        <CollectionPagePanel
-          key={layer.collectionId}
-          collectionId={layer.collectionId}
-          initial={layer.initial}
-          initialCreator={layer.initialCreator}
-          initialEditionToken={layer.initialEditionToken}
-          embedded
-          onClose={onClose}
-        />
+        <div
+          className="drop-sheet-fill"
+          data-drop-layer-sheet=""
+          onClickCapture={leaveFromDrop}
+        >
+          <span id={titleId} className="sr-only">
+            Drop
+          </span>
+          <CollectionPagePanel
+            key={layer.collectionId}
+            collectionId={layer.collectionId}
+            initial={layer.initial}
+            initialCreator={layer.initialCreator}
+            initialEditionToken={layer.initialEditionToken}
+            embedded
+            suspendDock={parked || !open}
+            onClose={onClose}
+          />
+        </div>
       </OsPageSheet>
     </PostLayerOwnerZProvider>
   );
@@ -862,10 +924,9 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   const mediaFaceCovered =
     stack.some((entry) => entry.id !== closingId) && isOsMediaFaceOpen();
 
-  // Prefetch thread chunks on mount so a cold first open is not download-bound.
+  // Eager prefetch — first tap should hit a cached chunk; open still awaits.
   useEffect(() => {
-    warmPostPanels();
-    warmDropPanel();
+    warmFeedOpenChunks();
   }, []);
 
   useLayoutEffect(() => {
@@ -919,22 +980,28 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /*
-   * Reply dock for the live sheet. A normal post stays under the constant
-   * dock band (51). A sheet lifted over a media face publishes a dock above
-   * that sheet and above a cover opened from it.
+   * Reply / Mint dock for the live sheet. A normal post stays under the
+   * constant dock band (51). Soft drop always publishes above its rendered
+   * sheet — nested reply opens and face-lifted paints (~170) used to leave
+   * Mint under the panel when dock stayed null / CSS fallback was late.
+   * Re-sample the live face for drops — the open-time flag can miss a face
+   * that is still mounted under the sheet.
    */
   useLayoutEffect(() => {
     if (typeof document === 'undefined') return;
     const top = stack[stack.length - 1];
-    const live =
-      top != null &&
-      top.kind !== 'drop' &&
-      top.id !== closingId &&
-      !onProfileHop;
-    const rendered = live
-      ? resolveGlassSheetZIndex(top.zIndex, top.openedAboveMediaFace)
-      : null;
-    const dock = postLayerOverlayZ(rendered).dock;
+    const live = top != null && top.id !== closingId && !onProfileHop;
+    const aboveFace =
+      Boolean(top?.openedAboveMediaFace) ||
+      (top?.kind === 'drop' && isOsMediaFaceOpen());
+    const rendered =
+      live && top
+        ? resolveGlassSheetZIndex(top.zIndex, aboveFace)
+        : null;
+    let dock = postLayerOverlayZ(rendered).dock;
+    if (live && top?.kind === 'drop' && rendered != null) {
+      dock = Math.max(dock ?? SHEET_Z.launcher, rendered + 1);
+    }
     if (dock != null) {
       document.body.style.setProperty('--os-thread-dock-z', String(dock));
     } else {
@@ -967,6 +1034,18 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     }
     if (!beginCloseTop()) return;
     if (typeof window === 'undefined') return;
+    const closing = current[current.length - 1];
+    const underlay = underlayPathRef.current ?? '/home';
+    // Drop from home replaced the root — replace back (no stacked entry).
+    // Drop over a real page pushed — history.back restores that page.
+    if (
+      closing?.kind === 'drop' &&
+      dropLayerOpenHistoryOp(underlay) === 'replace'
+    ) {
+      getPostLayerPopGuard().depth = 0;
+      nativeHistoryReplaceState(withoutPostLayerHistoryState(), underlay);
+      return;
+    }
     const back = beginHistoryBack({
       depth: getPostLayerPopGuard().depth,
       historyHasLayer: historyHasPostLayer(),
@@ -976,10 +1055,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       window.history.back();
       return;
     }
-    nativeHistoryReplaceState(
-      withoutPostLayerHistoryState(),
-      underlayPathRef.current ?? '/home'
-    );
+    nativeHistoryReplaceState(withoutPostLayerHistoryState(), underlay);
   }, [beginCloseTop, syncOverlayUrl]);
 
   const publishClosingHistory = useCallback((canonical: string) => {
@@ -1005,12 +1081,14 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       root = null,
       context = null,
       rootEngagement = null,
+      seedReplies = null,
       returnToPost = false,
     }: {
       href: string;
       root?: PostRow | null;
       context?: ThreadSheetContext | null;
       rootEngagement?: PostEngagement | null;
+      seedReplies?: PostRow[] | null;
       returnToPost?: boolean;
     }) => {
       const personal = parseInAppPostLayerHref(href);
@@ -1031,8 +1109,9 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       if (!parsed) return false;
       if (root) {
         // Feed already painted this face — keep it for the sheet's first frame.
-        seedPostAuthorProfilesFromFeed([root], { notify: true });
-        seedGuildDisplayNamesFromFeed([root], { notify: true });
+        const faces = seedReplies?.length ? [root, ...seedReplies] : [root];
+        seedPostAuthorProfilesFromFeed(faces, { notify: true });
+        seedGuildDisplayNamesFromFeed(faces, { notify: true });
       }
       warmThreadOpen(
         threadContentPath(parsed),
@@ -1044,6 +1123,9 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         : canonicalizeGuildPostLayerHref(href);
       if (!canonical) return false;
 
+      // Await the panel chunk so a cold hard-refresh tap never mounts a blank sheet.
+      void ensurePostPanelChunk(parsed.groupId ? 'guild' : 'personal').then(
+        () => {
       const personalPage = parseInAppPostLayerHref(pathname);
       const guildPage = personalPage ? null : parseGuildPostLayerHref(pathname);
       const currentPage = personalPage
@@ -1102,6 +1184,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
           context,
           root,
           rootEngagement,
+          seedReplies,
           zIndex: nextPostLayerZIndex(null, false),
           openedAboveMediaFace: false,
         };
@@ -1144,6 +1227,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
           context,
           root,
           rootEngagement,
+          seedReplies,
           zIndex: placed.zIndex,
           openedAboveMediaFace: placed.openedAboveMediaFace,
         };
@@ -1175,6 +1259,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         context,
         root,
         rootEngagement,
+        seedReplies,
         zIndex: nextStackedLayerZ(liveStack),
         openedAboveMediaFace: isOsMediaFaceOpen(),
       };
@@ -1209,6 +1294,9 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       } else {
         nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
       }
+      return true;
+        }
+      );
       return true;
     },
     [pathname, publishClosingHistory]
@@ -1271,6 +1359,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         return true;
       }
 
+      void warmQuotesOpen().then(() => {
       const next: QuotesLayerTarget = {
         id: `quotes-layer-${++seqRef.current}`,
         kind: 'quotes',
@@ -1329,6 +1418,8 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       const currentUrl = `${window.location.pathname}${window.location.search}`;
       if (currentUrl === canonical) return true;
       nativeHistoryPushState(withPostLayerHistoryState(), canonical);
+      return true;
+      });
       return true;
     },
     [pathname, publishClosingHistory]
@@ -1434,11 +1525,17 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         publishClosingHistory(canonical);
         return true;
       }
+      // First open: push over a real underlay page so browser Back dismisses;
+      // replace on home so root open/close does not stack. Later swaps replace.
       const syncCanonical = () => {
         getPostLayerPopGuard().depth = 1;
         const currentUrl = `${window.location.pathname}${window.location.search}`;
         if (currentUrl === canonical) return;
-        if (isFirst) {
+        const underlay = underlayPathRef.current ?? pathname;
+        const op = isFirst
+          ? dropLayerOpenHistoryOp(underlay)
+          : 'replace';
+        if (op === 'push') {
           nativeHistoryPushState(withPostLayerHistoryState(), canonical);
         } else {
           nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
@@ -1453,6 +1550,24 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     },
     [pathname, publishClosingHistory]
   );
+
+  // E2E: open a cold drop sheet without a list seed (was InstantHost).
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_E2E_WALLET !== '1') return;
+    type E2EWindow = Window & {
+      __osOpenUncachedDrop?: (collectionId: string) => void;
+    };
+    const open = (collectionId: string) => {
+      const id = collectionId.trim();
+      if (!id) return;
+      openDrop({ href: collectionPath(id) });
+    };
+    (window as E2EWindow).__osOpenUncachedDrop = open;
+    return () => {
+      const e2e = window as E2EWindow;
+      if (e2e.__osOpenUncachedDrop === open) delete e2e.__osOpenUncachedDrop;
+    };
+  }, [openDrop]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1550,6 +1665,21 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
 
   const topPlace = stack[stack.length - 1] ?? null;
   const topOpen = topPlace != null && topPlace.id !== closingId;
+  const dropDockLive = topPlace?.kind === 'drop' && topOpen && !onProfileHop;
+  useLayoutEffect(() => {
+    setOsDropSheetOpen(dropDockLive);
+    return () => setOsDropSheetOpen(false);
+  }, [dropDockLive]);
+  useClaimDropSheetDockBack(
+    dropDockLive,
+    dropDockLive
+      ? {
+          fallbackHref: underlayPath ?? '/home',
+          ariaLabel: 'Back',
+          onBack: closePostThread,
+        }
+      : null
+  );
 
   return (
     <PostThreadLayerContext.Provider value={value}>
@@ -1558,9 +1688,11 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         <DropLayerSheet
           key="drop-reader"
           layer={topPlace}
+          parked={onProfileHop}
           open={topOpen}
           onClose={closePostThread}
           onClosed={() => handleSheetClosed(topPlace.id)}
+          onLeave={openProfileFromLayer}
           zIndex={topPlace.zIndex}
           moodId={viewerMood.moodId ?? undefined}
           moodStyle={viewerMood.style}

@@ -55,6 +55,7 @@ import {
   resolveDockBackVisible,
   useDockAction,
   useDockBack,
+  useDockRevealEpoch,
   useImmersiveChromeQuiet,
 } from '@/contexts/dock-chrome-context';
 import { OsWriteDock } from '@/components/os/os-write-dock';
@@ -268,13 +269,21 @@ export function SummonLauncher({
 
   const compose = useComposeLauncher();
   const dockBack = useDockBack();
+  const dockRevealEpoch = useDockRevealEpoch();
   const dockAction = useDockAction();
   const writePinned = useWriteDockPinned();
   const writeMorph = useWriteDockMorph();
   const write = compose?.type === 'write' ? compose.entry : null;
   const immersiveChromeQuiet = useImmersiveChromeQuiet();
   const writing = Boolean(write) || writePinned;
-  const autoHide = useDockAutoHide(open || writing);
+  // Sheet/page Back reveals via dockRevealEpoch (register / soft-drop claim).
+  // Do not pin — fold on scroll like every other page.
+  const autoHide = useDockAutoHide(
+    open || writing,
+    null,
+    0,
+    dockRevealEpoch
+  );
   const dockHidden = !open && (immersiveChromeQuiet || (autoHide && !writing));
   const showDockBack = resolveDockBackVisible({
     dockBack,

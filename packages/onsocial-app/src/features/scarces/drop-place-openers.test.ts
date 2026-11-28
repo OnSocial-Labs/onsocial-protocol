@@ -12,7 +12,7 @@ function src(rel: string): string {
 
 /** Drop = place (dock); use surfaces = header chevron. */
 describe('Drop place openers', () => {
-  it('soft-navs with warm seed — does not open the appear layer by default', () => {
+  it('opens the shared drop sheet with warm seed (PR 859 DropLayerSheet)', () => {
     const open = src('features/scarces/drop-place-open.tsx');
     expect(open).toContain('export function DropPlaceLink');
     expect(open).toContain('export function useDropPlaceOpen');
@@ -22,11 +22,13 @@ describe('Drop place openers', () => {
     expect(open).toContain('readCollectionView');
     expect(open).toContain('seedDropLoveFaceFromList');
     expect(open).toContain('fanCount');
-    expect(open).toContain('scroll: false');
-    expect(open).toContain("kind: 'full'");
+    expect(open).toContain('usePostThreadLayer');
+    expect(open).toContain('openDrop');
     expect(open).toContain('rememberCollectionView');
     expect(open).toMatch(/<a\b/);
     expect(open).not.toMatch(/from 'next\/link'/);
+    expect(open).not.toContain('armDropPlaceInstant');
+    expect(open).not.toContain('router.push');
     expect(open).not.toContain('DropOverlayLink');
     expect(open).not.toContain('useDropOverlayOpen');
   });
@@ -219,7 +221,7 @@ describe('Drop place openers', () => {
     );
   });
 
-  it('drop place has no route loading — the tap paints one panel', () => {
+  it('drop place has no route loading — the sheet owns the open', () => {
     const loading = src('features/scarces/collection-route-loading.tsx');
     expect(loading).not.toContain('CollectionPagePanel');
     expect(loading).not.toContain('CollectionPageSkeleton');
@@ -227,28 +229,138 @@ describe('Drop place openers', () => {
     expect(loading).toContain('CollectionChildLoadingScreen');
     expect(loading).toContain('Door / redeem route loading only');
     const open = src('features/scarces/drop-place-open.tsx');
-    expect(open).toContain('armDropPlaceInstant');
-    const host = src('features/scarces/drop-place-instant-host.tsx');
-    expect(host).toContain('<CollectionPagePanel');
-    expect(host).toContain('instantDropFirstPaint');
+    expect(open).toContain('openDrop');
+    expect(open).not.toContain('armDropPlaceInstant');
+    const layer = src('features/home/post-thread-layer.tsx');
+    expect(layer).toContain('DropLayerSheet');
+    expect(layer).toContain('presentation="appear"');
+    expect(layer).toContain('keepDock');
+    expect(layer).toContain('useClaimDropSheetDockBack');
+    expect(layer).toContain('data-drop-layer-sheet');
+    // Drop above a keep-dock media face (reply drawer) must publish dock z —
+    // posts already did; excluding `kind === 'drop'` left Mint under the sheet.
+    expect(layer).not.toContain("top.kind !== 'drop'");
+    expect(layer).toContain('--os-thread-dock-z');
+    expect(layer).toContain('dropLayerOpenHistoryOp');
+    expect(layer).toContain("op === 'push'");
+    expect(layer).toContain('nativeHistoryPushState');
+    expect(layer).toContain('nativeHistoryReplaceState');
+    // DropLayerSheet is a sibling of `children` under PostThreadLayer — the
+    // now-playing host must wrap that layer or soft-open audio dies on close.
+    const providers = src('components/providers/app-providers.tsx');
+    const nowPlayingAt = providers.indexOf('<CollectiblesNowPlayingProvider>');
+    const postLayerAt = providers.indexOf('<PostThreadLayerProvider>');
+    expect(nowPlayingAt).toBeGreaterThanOrEqual(0);
+    expect(postLayerAt).toBeGreaterThan(nowPlayingAt);
+    const css = src('app/globals.css');
+    // Scroll chain + dock hit target. Root keepDock pad zeroed so short
+    // drops do not grow an empty footer; scrollport keeps dock clearance.
+    expect(css).toContain(
+      'glass-sheet-panel.drop-sheet-panel\n  .os-app-screen--embedded'
+    );
+    expect(css).toContain(
+      ".glass-sheet-root[data-keep-dock='true']:has(.drop-sheet-panel)"
+    );
+    expect(css).toMatch(
+      /drop-sheet-panel[\s\S]{0,200}?portfolio-summon-dock[\s\S]{0,80}?portfolio-summon/
+    );
+    // Soft drop restores dock without requiring a keep-dock media-face :has
+    // (CTA from the reply drawer). Fallback clears a face-lifted sheet (~170).
+    expect(css).toContain('--os-thread-dock-z, 171');
+    // Restore must match tuck (`.os-app-screen >`) or Read→Drop hides Mint.
+    expect(css).toMatch(
+      /drop-sheet-panel\s*\)\s*\.os-app-screen\s*>\s*\.portfolio-summon-dock/
+    );
+    expect(css).toMatch(
+      /drop-sheet-panel\s*\)\s*\.portfolio-os-layer\s*>\s*\.portfolio-summon-dock/
+    );
+    // Writing / article Read faces keep dock while soft drop is up.
+    expect(
+      src('features/scarces/scarce-writing-read-sheet.tsx')
+    ).toContain('writePinned || threadOpen || dropSheetOpen');
+    expect(
+      src('components/portfolio/article-read-screen.tsx')
+    ).toContain('writePinned || threadOpen || dropSheetOpen');
+    // Medium / photo faces: quiet off while soft Drop owns the pill.
+    expect(src('features/scarces/scarce-feed-medium-sheet.tsx')).toContain(
+      '!threadOpen && !dropSheetOpen'
+    );
+    expect(src('features/home/feed-photo-enlarge-screen.tsx')).toContain(
+      '!threadOpen && !dropSheetOpen'
+    );
+    expect(layer).toContain("top?.kind === 'drop' && isOsMediaFaceOpen()");
+    expect(layer).toContain(
+      'Math.max(dock ?? SHEET_Z.launcher, rendered + 1)'
+    );
+    expect(layer).toContain('setOsDropSheetOpen');
+    // Covered media faces must not clear dock via aboveDock (overlay stack).
+    expect(src('../../onsocial-ui/src/overlay-stack.ts')).toContain(
+      'index === last && !entry.keepDock'
+    );
+    // Soft drop claims compose (Mint or blank) so underlay pen / reply write
+    // cannot sit on the pill. Nested reply → drop also re-reveals the pill.
+    const panel = src('features/scarces/collection-page-panel.tsx');
+    expect(panel).toContain('useClaimDropSheetCompose');
+    expect(panel).toContain('embedded && !suspendDock');
+    // Close/unmount must pop Mint or stars stay on the feed dock.
+    // Pop only in a dedicated unmount effect — not claim-effect cleanup
+    // (that looped setState: pop → claim → pop).
+    expect(src('contexts/compose-launcher-context.tsx')).toContain(
+      "return () => popCompose(DROP_SHEET_COMPOSE_ID)"
+    );
+    expect(src('contexts/compose-launcher-context.tsx')).toContain(
+      'if (!current.some((row) => row.id === id)) return current'
+    );
+    expect(src('contexts/compose-launcher-context.tsx')).toContain(
+      "type: 'blank'"
+    );
+    // Cold chunk: await warm before open; pending jacket only while module loads.
+    expect(open).toContain('warmDropPanel().then');
+    expect(layer).toContain('ensurePostPanelChunk');
+    expect(layer).toContain('warmFeedOpenChunks');
+    expect(layer).not.toContain('warmFeedOpenChunksIdle');
+    expect(layer).toContain('DropLayerPanelPending');
+    expect(layer).toContain('suspendDock={parked || !open}');
+    expect(src('features/scarces/drop-layer-panel-pending.tsx')).toContain(
+      'useClaimDropSheetCompose(true, null)'
+    );
+    expect(src('contexts/dock-chrome-context.tsx')).toContain(
+      'requestDockReveal'
+    );
+    // Open reveals a scroll-hidden pill once via epoch (register / claim).
+    expect(src('contexts/dock-chrome-context.tsx')).toContain(
+      'requestDockReveal?.()'
+    );
+    expect(src('components/os/summon-launcher.tsx')).toContain(
+      'dockRevealEpoch'
+    );
+    expect(src('components/portfolio/portfolio-summon-dock.tsx')).toContain(
+      'dockRevealEpoch'
+    );
+    expect(src('hooks/use-dock-auto-hide.ts')).toContain('revealRequest');
     const page = src('app/(app)/collection/[collectionId]/page.tsx');
     expect(page).toContain('CollectionRouteSlot');
+    expect(page).toContain("headerList.get('next-url')");
+    expect(page).toContain('return null');
+    expect(page).not.toContain('yieldToHost');
+    expect(page).not.toContain('DropPlaceInstantHost');
     expect(page).not.toContain("get('rsc')");
-    expect(page).not.toContain('return null');
-    const instant = src('features/scarces/drop-place-instant.ts');
-    expect(instant).toContain('instantHostOwns');
-    expect(instant).not.toContain('fromPathname');
-    expect(instant).not.toContain('rscHeader');
-    expect(instant).toContain('pushState');
+    expect(src('components/providers/app-providers.tsx')).not.toContain(
+      'DropPlaceInstantHost'
+    );
+    expect(layer).toContain('__osOpenUncachedDrop');
   });
 
-  it('full drop place owns dock Back; player uses header chevron', () => {
+  it('docked drop sheet owns dock Back; player uses header chevron', () => {
     const panel = src('features/scarces/collection-page-panel.tsx');
-    expect(panel).toContain('dockBack={!embedded}');
+    expect(panel).toContain('dockBack={dockBackOn}');
     expect(panel).toContain('useRegisterComposeAction');
+    expect(panel).toContain('useClaimDropSheetCompose');
     expect(panel).toContain("isOwner ? 'announce' : 'mint'");
     expect(panel).toContain('seededHotOpen');
     expect(panel).toContain('readCollectionView');
+    expect(panel).toContain('suspendDock');
+    expect(panel).toContain('softFillArmed');
 
     const play = src('features/collectibles/collectibles-play-panel.tsx');
     expect(play).toContain('OsHeaderBack');
@@ -294,7 +406,15 @@ describe('Drop place openers', () => {
     expect(panel).toContain('collectionMediumBodyPending');
     expect(panel).toContain('CollectionTracksSkeleton');
     expect(panel).toContain('catalogFacePending');
-    expect(panel).toContain('collection-skeleton-title');
+    expect(panel).toContain('collection-title-shimmer');
+    expect(panel).toContain('className="collection-title"');
+    expect(panel).not.toContain('collection-about-seat" fade');
+    // Face chrome is never gated — only nested sheets wait on overlayReady.
+    expect(panel).toContain('{overlayReady ? (');
+    expect(panel).toContain('<CollectionAboutSheet');
+    expect(panel.indexOf('collection-use-actions')).toBeLessThan(
+      panel.indexOf('{overlayReady ? (')
+    );
     expect(panel).toContain('isTicketKind');
     expect(panel).toContain('productStatus');
     expect(panel).not.toContain('showCollectiblesEarly');
@@ -309,11 +429,11 @@ describe('Drop place openers', () => {
     expect(skeleton).toContain('collection-activity-seat');
   });
 
-  it('warm seeded drop stays opaque; cold settle keeps block rise', () => {
+  it('sheet owns appear — face never stagger-rises under the open', () => {
     const panel = src('features/scarces/collection-page-panel.tsx');
     const open = src('features/scarces/drop-place-open.tsx');
+    const layer = src('features/home/post-thread-layer.tsx');
     const screen = src('components/app/os-app-screen.tsx');
-    const enterCss = src('features/scarces/collection-drop-enter.css');
     expect(panel).not.toContain('CollectionPageReveal');
     expect(panel).not.toContain('coldHandoff');
     expect(panel).not.toContain('bodyAppear');
@@ -323,13 +443,10 @@ describe('Drop place openers', () => {
     expect(open).toContain('warmOwnedCollectionHold');
     expect(panel).toContain('peekDropFaceHoldSeed');
     expect(panel).toContain('reservePassPlayRow');
-    expect(panel).toContain('dropEnterShouldPlay');
+    expect(panel).toContain('const enterOn = false');
+    expect(panel).not.toContain('dropEnterShouldPlay');
     expect(panel).toContain('OsRouteSettle');
-    // Cold path suppresses a second page-wide body fade under settle.
-    expect(enterCss).toContain(
-      '.collection-drop-settle > .os-route-settle > .os-page-body-appear.is-ready'
-    );
-    expect(enterCss).toContain('animation: none');
+    expect(layer).toContain('presentation="appear"');
     expect(screen).not.toContain('bodyAppear');
     expect(screen).not.toContain('OsRouteSettle');
   });

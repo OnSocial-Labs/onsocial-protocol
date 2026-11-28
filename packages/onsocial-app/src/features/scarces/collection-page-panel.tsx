@@ -13,7 +13,6 @@ import {
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  ChevronLeftIcon,
   Divider,
   OsHugSheet,
   HeartFillIcon,
@@ -35,7 +34,6 @@ import {
   SCARCE_HERO_WIDTHS,
 } from '@/lib/hero-img-variants';
 import { RollingNumber } from '@/components/ui/rolling-number';
-import { clearDropPlaceInstant } from '@/features/scarces/drop-place-instant';
 import { useCatalogDockBack } from '@/hooks/use-catalog-dock-back';
 import { useImmersiveTitleHandoff } from '@/hooks/use-immersive-title-handoff';
 import {
@@ -45,7 +43,10 @@ import {
 import { usePostLayerOwnerZ } from '@/features/home/post-layer-owner-z';
 import { postLayerOverlayZ } from '@/lib/sheet-z';
 import { AccountAvatar } from '@/components/profile/account-avatar';
-import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
+import {
+  useClaimDropSheetCompose,
+  useRegisterComposeAction,
+} from '@/contexts/compose-launcher-context';
 import { useCollectiblesNowPlayingOptional } from '@/contexts/collectibles-now-playing-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -96,9 +97,7 @@ import {
 import {
   CollectionDropEnter,
   CollectionSeatSettle,
-  dropEnterShouldPlay,
   readDropFirstPaint,
-  useDropReducedMotion,
 } from '@/features/scarces/collection-page-enter';
 import {
   COLLECTION_MINT_HINT_SIZER,
@@ -243,14 +242,6 @@ function scheduleLine(
   return null;
 }
 
-function collectionAppearBack(onClose?: () => void) {
-  return (
-    <OsIconAction ariaLabel="Back" onClick={() => onClose?.()}>
-      <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
-    </OsIconAction>
-  );
-}
-
 function mergeHydratedWriting(
   prev: CollectionView | null,
   next: CollectionView
@@ -342,6 +333,7 @@ export function CollectionPagePanel({
   initialEditionToken = null,
   embedded = false,
   onClose,
+  suspendDock = false,
 }: {
   collectionId: string;
   initial: CollectionView | null;
@@ -363,9 +355,11 @@ export function CollectionPagePanel({
   initialHoldSeed?: { holds: boolean; tokenId: string | null } | null;
   /** `?t=` from the drop page request, so the first paint is that edition. */
   initialEditionToken?: string | null;
-  /** Nested in an appear page sheet — sheet Back, not launcher leave. */
+  /** Nested in an appear page sheet — dock Back closes the sheet. */
   embedded?: boolean;
   onClose?: () => void;
+  /** Parked under another route — hide dock Back / Mint until restored. */
+  suspendDock?: boolean;
 }) {
   const {
     accountId: viewerAccountId,
@@ -416,9 +410,24 @@ export function CollectionPagePanel({
   /** Seed, view cache, or now-playing — first paint was already the drop. */
   const [seededHotOpen] = useState(() => liveView != null);
   /**
-   * Closed sheets are not the tap's first frame. A seeded open with no SSR
-   * activity (the instant host) paints cover / title / creator / fans first;
-   * the same screen mounts the sheets on the next commit.
+   * Soft-fill (catalog, activity, creator, holds, writing, supply) waits until
+   * after the first paint so the sheet appear owns the open frame.
+   */
+  const [softFillArmed, setSoftFillArmed] = useState(false);
+  useEffect(() => {
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => setSoftFillArmed(true));
+    });
+    return () => {
+      cancelAnimationFrame(outer);
+      cancelAnimationFrame(inner);
+    };
+  }, []);
+  /**
+   * Nested sheets (Activity / About / Facts / Read / Listen) wait one frame on
+   * a seeded open so the face paints first. Face chrome is never gated — that
+   * deferred mount shoved every line down when it landed.
    */
   const [overlayReady, setOverlayReady] = useState(
     () => initialActivity !== undefined || liveView == null
@@ -456,10 +465,11 @@ export function CollectionPagePanel({
         fanCount: dropLoves.fanCount,
       };
   useEffect(() => {
+    if (!softFillArmed) return;
     const creatorId = view?.creatorId?.trim();
     if (!creatorId || !collectionId) return;
     warmDropFanIds(creatorId, collectionId);
-  }, [view?.creatorId, collectionId]);
+  }, [softFillArmed, view?.creatorId, collectionId]);
   const [clientSettled, setClientSettled] = useState(
     () =>
       initial != null ||
@@ -571,6 +581,7 @@ export function CollectionPagePanel({
 
   // Soft-fill catalog after paint; solid SSR shells skip the first keyed refetch.
   useEffect(() => {
+    if (!softFillArmed) return;
     if (
       refreshKey === 0 &&
       initial != null &&
@@ -579,36 +590,56 @@ export function CollectionPagePanel({
       return;
     }
     let cancelled = false;
+    const settleSoftFill = () => {
+      if (cancelled) return;
+      if (refreshKey === 0 && collectionViewNeedsCatalogSoftFill(initial)) {
+        setClientSettled(true);
+      }
+    };
+    const applyCatalog = (catalog: NonNullable<
+      Awaited<ReturnType<typeof fetchCollectionPreferIndexer>>
+    >) => {
+      setView((prev) => {
+        if (
+          prev &&
+          collectionViewNeedsCatalogSoftFill(prev) &&
+          prev.collectionId.trim() === catalog.collectionId.trim()
+        ) {
+          return mergeCatalogSoftFillIntoSeed(prev, catalog);
+        }
+        return catalog;
+      });
+    };
     void fetchCollectionPreferIndexer(collectionId)
       .then(async (next) => {
-        if (cancelled || !next) return;
-        const supply = await readCollectionSupply(collectionId);
         if (cancelled) return;
-        const catalog = supply ? applyDropSupply(next, supply) : next;
-        setView((prev) => {
-          if (
-            prev &&
-            collectionViewNeedsCatalogSoftFill(prev) &&
-            prev.collectionId.trim() === catalog.collectionId.trim()
-          ) {
-            return mergeCatalogSoftFillIntoSeed(prev, catalog);
-          }
-          return catalog;
-        });
-      })
-      .finally(() => {
-        if (cancelled) return;
-        if (refreshKey === 0 && collectionViewNeedsCatalogSoftFill(initial)) {
-          setClientSettled(true);
+        // Miss settles empty. A real catalog paints before optional supply
+        // so a hanging/failing supply RPC cannot strand SSR-miss on unavailable.
+        if (!next) {
+          settleSoftFill();
+          return;
         }
+        applyCatalog(next);
+        settleSoftFill();
+        try {
+          const supply = await readCollectionSupply(collectionId);
+          if (cancelled || !supply) return;
+          applyCatalog(applyDropSupply(next, supply));
+        } catch {
+          // Supply is optional — face already has the catalog.
+        }
+      })
+      .catch(() => {
+        settleSoftFill();
       });
     return () => {
       cancelled = true;
     };
-  }, [collectionId, initial, refreshKey]);
+  }, [collectionId, initial, refreshKey, softFillArmed]);
 
   // SSR shell often skips client catalog refresh — still hydrate writing chapters.
   useEffect(() => {
+    if (!softFillArmed) return;
     if (!view) return;
     if (view.readables.length > 0 || view.bookPdf) return;
     const kind = (view.kind ?? '').trim().toLowerCase();
@@ -629,6 +660,7 @@ export function CollectionPagePanel({
       cancelled = true;
     };
   }, [
+    softFillArmed,
     view?.collectionId,
     view?.kind,
     view?.writingManifestCid,
@@ -639,6 +671,7 @@ export function CollectionPagePanel({
 
   // Warm source essay so Read opens with the article footer already known.
   useEffect(() => {
+    if (!softFillArmed) return;
     if (!view?.sourcePostPath?.trim()) return;
     void prefetchDropRead({
       collectionId,
@@ -647,10 +680,11 @@ export function CollectionPagePanel({
         sourcePostPath: view.sourcePostPath,
       },
     });
-  }, [collectionId, view?.sourcePostPath, view?.writingFormat]);
+  }, [softFillArmed, collectionId, view?.sourcePostPath, view?.writingFormat]);
 
   // Warm Show pass status while the holder is on the drop.
   useEffect(() => {
+    if (!softFillArmed) return;
     const tokenId = ownedPassTokenId?.trim();
     if (!tokenId || !isPassMediumKind(view?.kind) || holdsEdition !== true) {
       return;
@@ -662,6 +696,7 @@ export function CollectionPagePanel({
       seedCover: view?.mediaUrl,
     });
   }, [
+    softFillArmed,
     collectionId,
     holdsEdition,
     ownedPassTokenId,
@@ -671,6 +706,7 @@ export function CollectionPagePanel({
   ]);
 
   useEffect(() => {
+    if (!softFillArmed) return;
     // Solid route SSR activity stays; soft-nav loading / thin peeks refetch.
     if (
       refreshKey === 0 &&
@@ -699,6 +735,7 @@ export function CollectionPagePanel({
       cancelled = true;
     };
   }, [
+    softFillArmed,
     activityFromRoute,
     activityRequestKey,
     collectionId,
@@ -707,6 +744,7 @@ export function CollectionPagePanel({
   ]);
 
   useEffect(() => {
+    if (!softFillArmed) return;
     // Wallet still hydrating — keep peeked #edition / hold; do not wipe.
     if (!viewerAccountId) {
       if (walletLoading) return;
@@ -755,7 +793,7 @@ export function CollectionPagePanel({
     return () => {
       cancelled = true;
     };
-  }, [collectionId, viewerAccountId, refreshKey, walletLoading]);
+  }, [softFillArmed, collectionId, viewerAccountId, refreshKey, walletLoading]);
 
   // Old Read links used ?read=1. Open once, then drop the flag so Back stays on the drop.
   useEffect(() => {
@@ -856,6 +894,7 @@ export function CollectionPagePanel({
   }, [collectionId, viewerAccountId, view?.kind, refreshKey]);
 
   useEffect(() => {
+    if (!softFillArmed) return;
     const creatorId = view?.creatorId?.trim();
     if (!creatorId) return;
     if (creatorResolvedKey === creatorId) return;
@@ -871,7 +910,7 @@ export function CollectionPagePanel({
     return () => {
       cancelled = true;
     };
-  }, [view?.creatorId, creatorResolvedKey]);
+  }, [softFillArmed, view?.creatorId, creatorResolvedKey]);
 
   const status = view ? deriveCollectionStatus(view, nowMs) : 'ended';
   // Before Opens, minting is allowlist-gated on-chain whenever the drop is timed.
@@ -897,10 +936,12 @@ export function CollectionPagePanel({
     return () => window.clearInterval(id);
   }, [hasClock]);
 
-  const supplyLive = view != null && dropSupplyShouldPoll(view, nowMs);
+  const supplyLive =
+    softFillArmed && view != null && dropSupplyShouldPoll(view, nowMs);
   useLiveDropSupply(collectionId, supplyLive, setView);
 
   useEffect(() => {
+    if (!softFillArmed) return;
     if (!supplyLive) return;
     const id = collectionId.trim();
     if (!id) return;
@@ -948,7 +989,7 @@ export function CollectionPagePanel({
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [collectionId, supplyLive]);
+  }, [softFillArmed, collectionId, supplyLive]);
 
   const handoffKey = collectionCoverImmersive({
     hasMedia: hasImmersiveCover,
@@ -1034,15 +1075,28 @@ export function CollectionPagePanel({
       ...(view.kind ? { mediumKind: view.kind } : {}),
     });
   }, [view]);
+  const dropComposeAction =
+    suspendDock
+      ? null
+      : isOwner
+        ? view
+          ? openOwnerPost
+          : null
+        : showMintCompose
+          ? openMintSheet
+          : null;
+  const dropComposeKind = isOwner ? 'announce' : 'mint';
+  // Hard route registers. Soft sheet claims so underlay pen / reply write
+  // cannot sit on Mint/Back — blank when this drop has no trailing action.
   useRegisterComposeAction(
-    isOwner
-      ? view
-        ? openOwnerPost
-        : null
-      : showMintCompose
-        ? openMintSheet
-        : null,
-    isOwner ? 'announce' : 'mint'
+    embedded ? null : dropComposeAction,
+    dropComposeKind
+  );
+  useClaimDropSheetCompose(
+    embedded && !suspendDock,
+    dropComposeAction
+      ? { action: dropComposeAction, kind: dropComposeKind }
+      : null
   );
 
   const handleShare = useCallback(async () => {
@@ -1170,12 +1224,9 @@ export function CollectionPagePanel({
     setActivityOpen(false);
   };
 
-  const reducedMotion = useDropReducedMotion();
-  const enterOn = dropEnterShouldPlay({
-    reducedMotion,
-    openedWithContent: seededHotOpen,
-    ready: view != null,
-  });
+  // Sheet shell owns appear (OsPageSheet presentation). Never stagger-rise
+  // the face under that fade — warm and cold alike stay opaque on open.
+  const enterOn = false;
   const catalogShell = collectionCatalogShell({
     hasView: view != null,
     ssrMiss: initial == null,
@@ -1203,19 +1254,20 @@ export function CollectionPagePanel({
       })
     : catalogLeaveHref;
   const leaveDrop = useCatalogDockBack(dockFallbackHref);
-  const onDockBack = useCallback(() => {
-    clearDropPlaceInstant();
-    leaveDrop();
-  }, [leaveDrop]);
+  const dockBackOn = !suspendDock;
+  const dockBackHandler = dockBackOn
+    ? embedded
+      ? onClose
+      : leaveDrop
+    : undefined;
   if (catalogShell === 'skeleton' && !seededHotOpen) {
     return (
       <OsAppScreen
         title="Drop"
         embedded={embedded}
-        dockBack={!embedded}
-        onDockBack={embedded ? undefined : onDockBack}
+        dockBack={dockBackOn}
+        onDockBack={dockBackHandler}
         backFallbackHref={catalogLeaveHref}
-        leading={embedded ? collectionAppearBack(onClose) : undefined}
         immersiveHeader
         scrollRootRef={scrollRootRef}
       >
@@ -1237,10 +1289,9 @@ export function CollectionPagePanel({
       <OsAppScreen
         title="Drop"
         embedded={embedded}
-        dockBack={!embedded}
-        onDockBack={embedded ? undefined : onDockBack}
+        dockBack={dockBackOn}
+        onDockBack={dockBackHandler}
         backFallbackHref={catalogLeaveHref}
-        leading={embedded ? collectionAppearBack(onClose) : undefined}
       >
         <div className={MARKET_PAGE_CLASS}>
           <div className="market-page-empty">
@@ -1493,16 +1544,21 @@ export function CollectionPagePanel({
           <CollectionDropEnter play={enterOn} index={1}>
             <div className="collection-title-row">
               <div className="collectibles-play-title-block">
-                {faceTitle ? (
-                  <h1 className="collection-title" ref={heroTitleRef}>
-                    {faceTitle}
-                  </h1>
-                ) : softFillPeek && catalogFacePending ? (
-                  <span
-                    className="standing-row-shimmer collection-skeleton-title"
-                    aria-hidden
-                  />
-                ) : null}
+                <h1
+                  className="collection-title"
+                  ref={faceTitle ? heroTitleRef : undefined}
+                >
+                  {faceTitle ? (
+                    faceTitle
+                  ) : softFillPeek && catalogFacePending ? (
+                    <span
+                      className="standing-row-shimmer collection-title-shimmer"
+                      aria-hidden
+                    />
+                  ) : (
+                    '\u00a0'
+                  )}
+                </h1>
               </div>
               <div className="drops-discovery-head-trail">
                 {editionLine ? (
@@ -1574,7 +1630,7 @@ export function CollectionPagePanel({
                 ) : null}
               </div>
             ) : null}
-            <OsLateFill className="collection-about-seat" fade>
+            <OsLateFill className="collection-about-seat">
               {description || aboutHasMore ? (
                 <CollectionAboutTeaser
                   text={description}
@@ -1595,87 +1651,83 @@ export function CollectionPagePanel({
                   fanCount={faceFans.fanCount}
                 />
               ) : null}
-              {overlayReady ? (
-                <div className="collection-commerce-action-icons">
-                  {showDropLoveHeart ? (
-                    <button
-                      type="button"
-                      className={`collection-commerce-love os-confirm-icon${
-                        dropLoves.viewerLoved ? ' is-loved' : ''
-                      }${dropLoves.pending ? ' is-pending' : ''}`}
-                      aria-label={
-                        dropLoves.pending
-                          ? 'Confirming love'
-                          : dropLoves.viewerLoved
-                            ? 'Remove love from this drop'
-                            : 'Love this drop'
-                      }
-                      aria-pressed={dropLoves.viewerLoved}
-                      aria-busy={dropLoves.pending}
-                      disabled={dropLoves.pending}
-                      onClick={() => {
-                        void dropLoves.toggleLove();
-                      }}
-                    >
-                      {dropLoves.viewerLoved ? (
-                        <HeartFillIcon
-                          aria-hidden
-                          className="collection-commerce-love-icon"
-                        />
-                      ) : (
-                        <HeartIcon
-                          aria-hidden
-                          className="collection-commerce-love-icon"
-                        />
-                      )}
-                    </button>
-                  ) : null}
+              <div className="collection-commerce-action-icons">
+                {showDropLoveHeart ? (
                   <button
                     type="button"
-                    className={`collection-commerce-save os-confirm-icon${
-                      collectionSaved ? ' is-saved' : ''
-                    }${collectionSavePending ? ' is-pending' : ''}`}
+                    className={`collection-commerce-love os-confirm-icon${
+                      dropLoves.viewerLoved ? ' is-loved' : ''
+                    }${dropLoves.pending ? ' is-pending' : ''}`}
                     aria-label={
-                      collectionSaved
-                        ? 'Remove drop bookmark'
-                        : 'Bookmark this drop'
+                      dropLoves.pending
+                        ? 'Confirming love'
+                        : dropLoves.viewerLoved
+                          ? 'Remove love from this drop'
+                          : 'Love this drop'
                     }
-                    aria-pressed={collectionSaved}
-                    disabled={collectionSavePending}
+                    aria-pressed={dropLoves.viewerLoved}
+                    aria-busy={dropLoves.pending}
+                    disabled={dropLoves.pending}
                     onClick={() => {
-                      void collectionSaves.toggleSave(collectionId);
+                      void dropLoves.toggleLove();
                     }}
                   >
-                    {collectionSaved ? (
-                      <BookmarkFillIcon
+                    {dropLoves.viewerLoved ? (
+                      <HeartFillIcon
                         aria-hidden
-                        className="collection-commerce-save-icon"
+                        className="collection-commerce-love-icon"
                       />
                     ) : (
-                      <BookmarkIcon
+                      <HeartIcon
                         aria-hidden
-                        className="collection-commerce-save-icon"
+                        className="collection-commerce-love-icon"
                       />
                     )}
                   </button>
-                  <button
-                    type="button"
-                    className="collection-commerce-share"
-                    aria-label={shareCopied ? 'Link copied' : 'Share drop link'}
-                    onClick={() => {
-                      void handleShare();
-                    }}
-                  >
-                    <ShareIcon
+                ) : null}
+                <button
+                  type="button"
+                  className={`collection-commerce-save os-confirm-icon${
+                    collectionSaved ? ' is-saved' : ''
+                  }${collectionSavePending ? ' is-pending' : ''}`}
+                  aria-label={
+                    collectionSaved
+                      ? 'Remove drop bookmark'
+                      : 'Bookmark this drop'
+                  }
+                  aria-pressed={collectionSaved}
+                  disabled={collectionSavePending}
+                  onClick={() => {
+                    void collectionSaves.toggleSave(collectionId);
+                  }}
+                >
+                  {collectionSaved ? (
+                    <BookmarkFillIcon
                       aria-hidden
-                      className="collection-commerce-share-icon"
+                      className="collection-commerce-save-icon"
                     />
-                  </button>
-                </div>
-              ) : null}
+                  ) : (
+                    <BookmarkIcon
+                      aria-hidden
+                      className="collection-commerce-save-icon"
+                    />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="collection-commerce-share"
+                  aria-label={shareCopied ? 'Link copied' : 'Share drop link'}
+                  onClick={() => {
+                    void handleShare();
+                  }}
+                >
+                  <ShareIcon
+                    aria-hidden
+                    className="collection-commerce-share-icon"
+                  />
+                </button>
+              </div>
             </div>
-            {overlayReady ? (
-              <>
                 <div className="collection-use-actions">
                   {(() => {
                     // Industry CLS: same reading-row chassis as the skeleton from
@@ -1917,14 +1969,11 @@ export function CollectionPagePanel({
                     {personalMintHint && !isOwner ? personalMintHint : null}
                   </OsLateFill>
                 </div>
-              </>
-            ) : null}
           </CollectionDropEnter>
         </header>
       </section>
 
-      {overlayReady ? (
-        <CollectionDropEnter play={enterOn} index={3}>
+      <CollectionDropEnter play={enterOn} index={3}>
           {view.isVariations ? (
             <VariationSetPeek
               collectionId={view.collectionId}
@@ -2104,8 +2153,7 @@ export function CollectionPagePanel({
               </CollectionSeatSettle>
             </div>
           </section>
-        </CollectionDropEnter>
-      ) : null}
+      </CollectionDropEnter>
     </div>
   );
 
@@ -2113,10 +2161,9 @@ export function CollectionPagePanel({
     <OsAppScreen
       title={faceTitle || 'Drop'}
       embedded={embedded}
-      dockBack={!embedded}
-      onDockBack={embedded ? undefined : onDockBack}
+      dockBack={dockBackOn}
+      onDockBack={dockBackHandler}
       backFallbackHref={dropBackHref}
-      leading={embedded ? collectionAppearBack(onClose) : undefined}
       immersiveHeader={immersive}
       scrollRootRef={scrollRootRef}
       actions={

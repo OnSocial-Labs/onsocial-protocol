@@ -76,12 +76,15 @@ test.describe('drop detail entrance @webkit', () => {
 
     const skeleton = collectionPageSkeleton(page);
     await expect(skeleton).toBeVisible({ timeout: 8_000 });
+    // Soft-fill arms after first paint; catalog stub is delayed — wait past both.
     await expect(
       collectionPageRoot(page).locator('.collection-title')
-    ).toHaveText('Quiet Print', { timeout: 12_000 });
-    await expect(page.locator('[data-drop-rose]')).toHaveCount(4);
+    ).toHaveText('Quiet Print', { timeout: 20_000 });
+    // Sheet owns appear — face never stagger-rises under a cold load either.
+    await expect(page.locator('[data-drop-rose]')).toHaveCount(0);
     await expect(skeleton).toHaveCount(0);
     await expect(page.locator('[data-drop-enter="stagger"]')).toHaveCount(0);
+    await expect(page.locator('[data-drop-enter="instant"]')).toHaveCount(4);
   });
 
   test('a late wallet line does not move the block below', async ({ page }) => {
@@ -195,7 +198,7 @@ test.describe('drop detail entrance @webkit', () => {
       });
       const row = collectionPageRoot(page).locator('.collection-reading');
       const seeWho = row.getByRole('button', { name: 'See who' });
-      await expect(hint).toBeVisible({ timeout: 12_000 });
+      await expect(hint).toBeVisible({ timeout: 20_000 });
       await seeWho.scrollIntoViewIfNeeded();
       await expect(seeWho).toBeVisible();
 

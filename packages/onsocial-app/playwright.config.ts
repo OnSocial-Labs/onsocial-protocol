@@ -18,6 +18,8 @@ export default defineConfig({
     : 'list',
   use: {
     baseURL,
+    // Keep page.route stubs ahead of the PWA SW (WebKit otherwise hits real BFF 401).
+    serviceWorkers: 'block',
     trace: 'on-first-retry',
     video: process.env.E2E_VIDEO === '1' ? 'on' : undefined,
   },

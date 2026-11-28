@@ -33,10 +33,16 @@ Portfolio and wallet mood live in `app-portfolio-face.mdc`. These shells only:
 - Compose and slide-over wash stays inside the app column on phone. Desktop gutters stay OS `--bg` (no outside mood glow). A slide-over clears card radius so host glow cannot bleed. The portfolio hairline ban is in `app-portfolio-face.mdc`.
 - `guild-composer-sheet` may still pass viewer mood explicitly. Most routes inherit `OsAppScreen`.
 
+## Stacked overlays and Back
+
+When a drawer (or any nested overlay) sits on top of a sheet or another overlay, Back closes the **topmost** surface first. The sheet or page underneath stays until that top surface is gone. Drawers take navigation priority over the sheet they cover; the same rule applies to any future stacked overlay (drawer over sheet, sheet over sheet, modal over drawer). Do not wire dock Back, header Back, or browser Back so the underlay dismisses while a drawer above it is still open.
+
+Drop sheet history: first open over a real underlay page **pushes** (browser Back and dock Back both dismiss). First open from home **replaces** so root open/close does not stack. Native history only — App Router push would remount and kill the feed underlay.
+
 ## Motion
 
 - Content appear / route settle: `var(--os-motion-appear)` (280ms) + `var(--os-motion-ease-standard)`.
-- **Warm drop place is opaque, one mount.** A tap paints that panel from the seeded card on the click (no drop `loading.tsx`, so the route does not swap in a second mount). Seed / view cache / now-playing paint solid with no skeleton and no surface fade — Collectibles / Show pass must not remount. The RSC soft-fills that same panel. Cold miss: panel `OsRouteSettle` + four-block rise once under the cover, then drop the rise class when the animation ends (timer fallback). Under cold settle, suppress a second page-wide body fade (rise owns entrance). Other pages do not add a per-block rise. Post sheets still use `presentation="appear"`.
+- **Warm drop open is opaque, one mount.** Soft tap opens `DropLayerSheet` (`presentation="appear"`, dock Back + Mint) over the underlay — native history only, same stack as posts. Seed / view cache / now-playing paint solid with no skeleton and no surface fade — Collectibles / Show pass must not remount. Soft-fill updates that same embedded panel after first paint. Cold miss: panel `OsRouteSettle` + four-block rise once under the cover, then drop the rise class when the animation ends (timer fallback). Under cold settle, suppress a second page-wide body fade (rise owns entrance). Hard refresh / share keep the real `/collection/[id]` route (SSR). No InstantHost dual paint. Other pages do not add a per-block rise.
 - Late seats: prefer reserved geometry + instant swap; never fade soft-fill into a reserved seat. `OsPageBodyAppear` for a true late seat only when there was no prior skeleton. A wallet line that can wrap reserves its final in-flow box up front.
 - Scale: micro 120, chip 160, chrome 220, dock 260, overlay 320, `ease-out` (glass-sheet), `ease-soft` (expand / collapse), `ease-slide`.
 - No raw durations or cubic-beziers. Opacity only on nodes containing the fixed dock.

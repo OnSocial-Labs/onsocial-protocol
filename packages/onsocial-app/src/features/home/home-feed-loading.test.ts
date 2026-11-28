@@ -48,7 +48,8 @@ describe('home feed loading contract', () => {
     expect(source).toContain('scheduleMemoryTrim');
     // Lenis scroll events are untrusted — trim must still schedule.
     expect(source).not.toContain('if (!event.isTrusted) return');
-    expect(source).toContain('warmPostPanels');
+    expect(source).toContain('warmFeedOpenChunks');
+    expect(source).not.toContain('warmFeedOpenChunksIdle');
     expect(source).toContain('quotedForPosts');
     expect(source).toContain('recordForPosts');
     expect(source).toContain("[data-feed-session=\"covered\"]");

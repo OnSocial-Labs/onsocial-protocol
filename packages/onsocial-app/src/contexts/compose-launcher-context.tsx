@@ -13,6 +13,7 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  claimComposeStackTop,
   popComposeStack,
   topComposeStack,
   upsertComposeStack,
@@ -65,7 +66,9 @@ export interface WriteDockRegistration {
 
 type ComposeStackItem =
   | { id: string; type: 'action'; entry: ComposeLauncherEntry }
-  | { id: string; type: 'write'; entry: WriteDockRegistration };
+  | { id: string; type: 'write'; entry: WriteDockRegistration }
+  /** Soft drop with no Mint — covers underlay pen / reply write without a glyph. */
+  | { id: string; type: 'blank' };
 
 export type ComposeLauncherSurface =
   | { type: 'action'; entry: ComposeLauncherEntry }
@@ -80,6 +83,7 @@ interface ComposeLauncherContextValue {
   /** True once the write dock has draft text or media — drives back-under-avatar morph. */
   writeDockHasDraft: boolean;
   upsertCompose: (item: ComposeStackItem) => void;
+  claimCompose: (item: ComposeStackItem) => void;
   popCompose: (id: string) => void;
   focusWriteDock: () => void;
   registerWriteFocus: (fn: () => void) => () => void;
@@ -104,8 +108,33 @@ export function ComposeLauncherProvider({ children }: { children: ReactNode }) {
     setStack((current) => upsertComposeStack(current, item));
   }, []);
 
+  const claimCompose = useCallback((item: ComposeStackItem) => {
+    setStack((current) => {
+      const last = current.length - 1;
+      const top = current[last];
+      if (top?.id === item.id) {
+        if (item.type === 'blank' && top.type === 'blank') return current;
+        if (
+          item.type === 'action' &&
+          top.type === 'action' &&
+          top.entry.kind === item.entry.kind
+        ) {
+          // Stable wrapper — callers hold the latest action in a ref.
+          return current;
+        }
+        const next = current.slice();
+        next[last] = item;
+        return next;
+      }
+      return claimComposeStackTop(current, item);
+    });
+  }, []);
+
   const popCompose = useCallback((id: string) => {
-    setStack((current) => popComposeStack(current, id));
+    setStack((current) => {
+      if (!current.some((row) => row.id === id)) return current;
+      return popComposeStack(current, id);
+    });
   }, []);
 
   const registerWriteFocus = useCallback((fn: () => void) => {
@@ -129,7 +158,7 @@ export function ComposeLauncherProvider({ children }: { children: ReactNode }) {
 
   const surface = useMemo<ComposeLauncherSurface | null>(() => {
     const top = topComposeStack(stack);
-    if (!top) return null;
+    if (!top || top.type === 'blank') return null;
     return top.type === 'write'
       ? { type: 'write', entry: top.entry }
       : { type: 'action', entry: top.entry };
@@ -144,6 +173,7 @@ export function ComposeLauncherProvider({ children }: { children: ReactNode }) {
       writeDockMorph: writing ? writeDockMorph : 'idle',
       writeDockHasDraft: writing && writeDockHasDraft,
       upsertCompose,
+      claimCompose,
       popCompose,
       focusWriteDock,
       registerWriteFocus,
@@ -152,6 +182,7 @@ export function ComposeLauncherProvider({ children }: { children: ReactNode }) {
       setWriteDockHasDraft,
     }),
     [
+      claimCompose,
       focusWriteDock,
       popCompose,
       registerWriteFocus,
@@ -239,6 +270,56 @@ export function useRegisterComposeAction(
     });
     return () => popCompose(id);
   }, [enabled, id, kind, popCompose, upsertCompose]);
+}
+
+const DROP_SHEET_COMPOSE_ID = 'drop-sheet-compose';
+
+/**
+ * Soft drop sheet owns the trailing dock slot. Mint/announce when provided;
+ * otherwise a blank cover so the underlay pen / reply write cannot show.
+ */
+export function useClaimDropSheetCompose(
+  active: boolean,
+  entry: ComposeLauncherEntry | null
+) {
+  const context = useContext(ComposeLauncherContext);
+  const claimCompose = context?.claimCompose;
+  const popCompose = context?.popCompose;
+  const entryRef = useRef(entry);
+
+  useLayoutEffect(() => {
+    entryRef.current = entry;
+  }, [entry]);
+
+  useLayoutEffect(() => {
+    if (!claimCompose || !popCompose) return;
+    if (!active) {
+      popCompose(DROP_SHEET_COMPOSE_ID);
+      return;
+    }
+    const current = entryRef.current;
+    if (!current) {
+      claimCompose({ id: DROP_SHEET_COMPOSE_ID, type: 'blank' });
+      return;
+    }
+    claimCompose({
+      id: DROP_SHEET_COMPOSE_ID,
+      type: 'action',
+      entry: {
+        kind: current.kind,
+        action: () => {
+          entryRef.current?.action();
+        },
+      },
+    });
+  });
+
+  // Unmount only — never pop in the claim effect cleanup while still active
+  // (that setState looped: pop → claim → pop).
+  useLayoutEffect(() => {
+    if (!popCompose) return;
+    return () => popCompose(DROP_SHEET_COMPOSE_ID);
+  }, [popCompose]);
 }
 
 /** Morph the dock action into the compact write bar. */

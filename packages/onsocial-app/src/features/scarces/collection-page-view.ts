@@ -143,9 +143,8 @@ export function collectionCatalogShell(opts: {
 }
 
 /**
- * Drop place has no route `loading.tsx`. A tap paints the seeded panel from
- * the instant host; the RSC must not swap in a second tree. The panel owns
- * the cold skeleton when that tap had no seed.
+ * Drop place has no route `loading.tsx`. Soft tap paints via DropLayerSheet;
+ * hard refresh paints this route. Never yield a second loading tree.
  */
 export function collectionRouteYieldsLoadingSkeleton(_opts: {
   embedded: boolean;

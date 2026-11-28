@@ -118,6 +118,20 @@ describe('post thread harden contracts', () => {
     expect(layer).toContain('restoreUnderlayScroll');
   });
 
+  it('feed thread opens seed visible coalesced replies into the sheet', () => {
+    const layer = readFileSync(join(here, 'post-thread-layer.tsx'), 'utf8');
+    const card = readFileSync(join(here, 'post-card.tsx'), 'utf8');
+    const block = readFileSync(
+      join(here, '../guilds/feed-thread-block.tsx'),
+      'utf8'
+    );
+    expect(layer).toContain('directRepliesToTree(replies)');
+    expect(layer).toContain('seedReplies');
+    expect(card).toContain('seedReplies: openThreadSeedReplies');
+    expect(block).toContain('feedVisibleThreadSeedReplies');
+    expect(block).toContain('openThreadSeedReplies={first ? rootSeedReplies : null}');
+  });
+
   it('media-face thread sheet routes guild roots to LiveGuildPostPanel', () => {
     const sheet = readFileSync(
       join(here, 'feed-media-thread-sheet.tsx'),

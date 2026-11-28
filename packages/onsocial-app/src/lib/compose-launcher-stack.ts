@@ -21,6 +21,14 @@ export function upsertComposeStack<T extends { id: string; type?: string }>(
   return [...stack, item];
 }
 
+/** Move this id to the top so underlay pens / reply write cannot cover it. */
+export function claimComposeStackTop<T extends { id: string }>(
+  stack: readonly T[],
+  item: T
+): T[] {
+  return [...stack.filter((row) => row.id !== item.id), item];
+}
+
 export function popComposeStack<T extends { id: string }>(
   stack: T[],
   id: string

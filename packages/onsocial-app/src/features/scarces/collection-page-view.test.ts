@@ -209,7 +209,7 @@ describe('collection page view', () => {
     ).toBe('drop');
   });
 
-  it('does not yield to a drop route loading.tsx (instant host owns the tap)', () => {
+  it('does not yield to a drop route loading.tsx (sheet / hard route own paint)', () => {
     expect(
       collectionRouteYieldsLoadingSkeleton({
         embedded: false,

@@ -30,6 +30,7 @@ import { ArticleReadProgress } from '@/components/portfolio/article-read-progres
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
+import { useOsDropSheetOpen } from '@/hooks/use-os-drop-sheet-open';
 import { useWriteDockPinned } from '@/contexts/compose-launcher-context';
 import { useArticleReadChrome } from '@/hooks/use-article-read-chrome';
 import { CollectionWritingReader } from '@/features/scarces/collection-writing-reader';
@@ -621,11 +622,13 @@ export function WritingReadSheet({
   }, [open, collectionId, readablesProp.length, bookPdfProp?.cid]);
 
   const writePinned = useWriteDockPinned();
+  const dropSheetOpen = useOsDropSheetOpen();
   const { chromeQuiet, progress, wakeFooter, onChromeTap } =
     useArticleReadChrome(scrollRootRef, open, writePinned);
   const quiet = chromeQuiet && !writePinned;
 
-  useRegisterImmersiveChromeQuiet(open && quiet);
+  // Soft drop owns Mint/Back — do not tuck the pill under a quiet Read face.
+  useRegisterImmersiveChromeQuiet(open && quiet && !dropSheetOpen);
 
   const dialogName =
     visibleWorkTitle(title) || readables[0]?.title?.trim() || 'Writing';
@@ -686,7 +689,7 @@ export function WritingReadSheet({
         ) : null
       }
       zIndex={faceZ}
-      keepDock={writePinned || threadOpen}
+      keepDock={writePinned || threadOpen || dropSheetOpen}
       scrollRootRef={scrollRootRef}
       className={`${ARTICLE_READ_CLASS}${quiet ? ' is-chrome-quiet' : ''}${
         showWakeFooter ? ' is-wake-footer' : ''

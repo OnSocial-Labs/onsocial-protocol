@@ -20,6 +20,7 @@ import {
 import {
   resolveDockBackVisible,
   useDockBack,
+  useDockRevealEpoch,
   useImmersiveChromeQuiet,
   type DockBackRegistration,
 } from '@/contexts/dock-chrome-context';
@@ -117,13 +118,18 @@ export function PortfolioSummonDock({
   }, [pageDrawerOpen]);
 
   const scrollRoot = pageDrawerOpen ? scrollNode : null;
+  // Sheet Back reveals via dockRevealEpoch (useRegisterDockBack / claim).
+  // Face leave alone must not pin — that would kill hide on every visit.
+  const dockRevealEpoch = useDockRevealEpoch();
   const autoHide = useDockAutoHide(
     previewPinned ||
       openPinned ||
       writePinned ||
       Boolean(write) ||
       (pageDrawerOpen && !scrollNode),
-    scrollRoot
+    scrollRoot,
+    0,
+    dockRevealEpoch
   );
   const scrollHidden =
     !osOpen && (immersiveChromeQuiet || (autoHide && !write));

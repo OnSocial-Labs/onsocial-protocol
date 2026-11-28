@@ -16,6 +16,11 @@ import {
  * strictly above that and above a lifted reply dock. A keep-dock layer keeps
  * its floor when that floor already matches the open top, so a post trail
  * stays under the dock at 51 instead of covering it.
+ *
+ * Dock clearance lifts only the top non-keepDock modal. A covered media face
+ * that dropped keepDock (reply closed under a soft drop) must not jump above
+ * `--os-thread-dock-z` and then pull the keep-dock drop up with it — that
+ * buried Mint/Back under the sheet.
  */
 export type OverlayStackEntry = {
   id: number;
@@ -38,7 +43,9 @@ export function paintOverlayStack(
   return entries.map((entry, index) => {
     const aboveOpen = cursor > 0 && !entry.keepDock ? cursor + 1 : cursor;
     const aboveDock =
-      !entry.keepDock && dockClearance > 0 ? dockClearance + 1 : 0;
+      index === last && !entry.keepDock && dockClearance > 0
+        ? dockClearance + 1
+        : 0;
     const z = Math.max(entry.floor, aboveOpen, aboveDock);
     cursor = z;
     return { id: entry.id, z, top: index === last };

@@ -1,3 +1,5 @@
+import { APP_HOME_PATH } from '@/lib/app-routes';
+
 /**
  * History for a layer opened while another is still closing.
  * The Back may already have popped the overlay entry, or that pop may still
@@ -19,6 +21,22 @@ export function withoutClosingLayer<T extends { id: string }>(
     live.push(entry);
   }
   return removed ? live : (stack as T[]);
+}
+
+/**
+ * First drop open over a real underlay page → history push so browser Back
+ * and dock Back both dismiss the sheet. Open from home (app root) → replace;
+ * there is no underlay entry worth returning to, so open/close must not stack.
+ * Uses native history only — App Router push would remount and kill the feed.
+ */
+export function dropLayerOpenHistoryOp(
+  underlayPath: string
+): 'push' | 'replace' {
+  const path = underlayPath.split(/[?#]/)[0] ?? '';
+  if (path === APP_HOME_PATH || path === '' || path === '/') {
+    return 'replace';
+  }
+  return 'push';
 }
 
 export type OverlayHistoryOp = 'push' | 'replace' | 'none';

@@ -763,7 +763,21 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   .os-app-screen--embedded
   > .os-app-screen-column
   > .os-app-screen-body {
+  flex: 1 1 auto;
+  min-height: 0;
   padding-bottom: 0;
+  scrollbar-width: none;
+}
+
+/* Drop: scroll chain only. Dock clearance stays on the scrollport (same as
+   the hard collection route). Root keepDock pad is zeroed below — stacking
+   it here painted an empty footer under short drops. */
+.glass-sheet-panel.drop-sheet-panel
+  .os-app-screen--embedded
+  > .os-app-screen-column
+  > .os-app-screen-body {
+  flex: 1 1 auto;
+  min-height: 0;
   scrollbar-width: none;
 }
 
@@ -771,7 +785,8 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   padding-bottom: 0;
 }
 
-.glass-sheet-panel.post-thread-sheet-panel .post-thread-sheet-fill {
+.glass-sheet-panel.post-thread-sheet-panel .post-thread-sheet-fill,
+.glass-sheet-panel.drop-sheet-panel .drop-sheet-fill {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -9820,6 +9835,12 @@ a.os-surface-row,
     ):not(:has([data-os-slide-over='true'][data-keep-dock='true']))
     .portfolio-summon-dock
     .portfolio-summon,
+  body:has(
+      .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked)
+        .drop-sheet-panel
+    ):not(:has([data-os-slide-over='true'][data-keep-dock='true']))
+    .portfolio-summon-dock
+    .portfolio-summon,
   #standing-handoff-hold .standing-early-sheet,
   #standing-handoff-hold .standing-early-sheet * {
     pointer-events: auto;
@@ -15852,17 +15873,6 @@ a.os-surface-row,
       bottom 280ms var(--os-motion-ease-slide, cubic-bezier(0.32, 0.72, 0, 1));
   }
 
-  /* The kept screen's dock stays mounted. Only the drop host's dock is the screen. */
-  body:has([data-drop-place-instant]) .portfolio-summon-dock {
-    display: none;
-  }
-
-  body:has([data-drop-place-instant])
-    [data-drop-place-instant]
-    .portfolio-summon-dock {
-    display: flex;
-  }
-
   /*
    * Soft keyboard — ride the keys with the lift the write dock publishes.
    * The gap under the pill is the same one Transfer keeps above the keys.
@@ -15985,6 +15995,14 @@ a.os-surface-row,
   body:has(
       .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked)
         .post-thread-sheet-panel
+    ):not(:has([data-os-slide-over='true'][data-keep-dock='true']))
+    .portfolio-summon-dock {
+    z-index: var(--os-thread-dock-z, 51);
+  }
+
+  body:has(
+      .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked)
+        .drop-sheet-panel
     ):not(:has([data-os-slide-over='true'][data-keep-dock='true']))
     .portfolio-summon-dock {
     z-index: var(--os-thread-dock-z, 51);
@@ -29121,7 +29139,8 @@ a.os-surface-row,
   .collection-skeleton-title {
     display: block;
     width: min(100%, 16rem);
-    height: 1.35rem;
+    /* Match `.collection-title` one-line box (1.25rem × 1.2). */
+    height: calc(1.25rem * 1.2);
     border-radius: 9999px;
   }
 
@@ -29410,7 +29429,17 @@ a.os-surface-row,
     font-size: 1.25rem;
     font-weight: 700;
     line-height: 1.2;
+    min-height: calc(1.25rem * 1.2);
     color: var(--os-surface-emphasis);
+  }
+
+  /* Soft-fill bar inside the live title seat — same line box, opaque swap. */
+  .collection-title-shimmer {
+    display: block;
+    width: min(100%, 16rem);
+    height: 0.72em;
+    margin-top: 0.14em;
+    border-radius: 9999px;
   }
 
   .collection-title-row .guild-hero-facts-button {
@@ -42689,13 +42718,15 @@ body:has(.feed-face-thread) .portfolio-summon-dock {
   padding-bottom: 0;
 }
 
+/* Drop clears the pill in the scrollport (same as /collection). Root pad
+   was a second empty band under short collections. */
+.glass-sheet-root[data-keep-dock='true']:has(.drop-sheet-panel) {
+  padding-bottom: 0;
+}
+
 /*
- * Post layer opened above a keep-dock media face — the sheet resolves to 170
- * (overShell 90 + the glass media-face lift), past every constant dock band,
- * so the reply dock ended up under the sheet and reply taps only scrolled.
- * The layer host publishes --os-thread-dock-z above that sheet and above a
- * cover opened from it. The same unlayered restore undoes the dock tuck
- * (opacity 0), which z-index alone left in place.
+ * Post layer opened above a keep-dock media face — the sheet resolves to ~170
+ * (overShell 90 + media-face lift). Layer host publishes --os-thread-dock-z.
  */
 body:has(
     .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked)
@@ -42706,6 +42737,58 @@ body:has(
   opacity: 1;
   transform: translateX(-50%);
   pointer-events: none;
+}
+
+/*
+ * Soft drop — always restore Mint/Back above the sheet. Match tuck
+ * specificity (`.os-app-screen >` / `.portfolio-os-layer >`) so a covered
+ * Read/Listen face without keepDock cannot hide the pill. Fallback 171
+ * clears a face-lifted drop (~170). Beats feed-photo-slide--thread (95).
+ */
+body:has(
+    .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked)
+      .drop-sheet-panel
+  )
+  .portfolio-summon-dock,
+body:has(
+    .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked)
+      .drop-sheet-panel
+  )
+  .os-app-screen
+  > .portfolio-summon-dock,
+body:has(
+    .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked)
+      .drop-sheet-panel
+  )
+  .portfolio-os-layer
+  > .portfolio-summon-dock {
+  z-index: var(--os-thread-dock-z, 171);
+  opacity: 1;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+body:has(
+    .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked)
+      .drop-sheet-panel
+  )
+  .portfolio-summon-dock
+  .portfolio-summon,
+body:has(
+    .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked)
+      .drop-sheet-panel
+  )
+  .os-app-screen
+  > .portfolio-summon-dock
+  .portfolio-summon,
+body:has(
+    .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked)
+      .drop-sheet-panel
+  )
+  .portfolio-os-layer
+  > .portfolio-summon-dock
+  .portfolio-summon {
+  pointer-events: auto;
 }
 
 body:has(.feed-photo-slide--thread) .portfolio-summon-dock .portfolio-summon,

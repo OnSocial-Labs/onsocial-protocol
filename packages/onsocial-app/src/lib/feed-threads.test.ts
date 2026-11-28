@@ -5,6 +5,7 @@ import {
   assignStableFeedBlockKeys,
   coalesceFeedThreads,
   feedBlockTipKey,
+  feedVisibleThreadSeedReplies,
 } from './feed-threads';
 
 function post(overrides: Partial<PostRow> & Pick<PostRow, 'postId'>): PostRow {
@@ -379,5 +380,46 @@ describe('assignStableFeedBlockKeys', () => {
     });
     const second = assignStableFeedBlockKeys(withPeek, first.state);
     expect(second.keys).toEqual([postKey(parent)]);
+  });
+});
+
+describe('feedVisibleThreadSeedReplies', () => {
+  it('returns empty for a single-post block', () => {
+    expect(feedVisibleThreadSeedReplies([post({ postId: 'a' })])).toEqual([]);
+  });
+
+  it('seeds the self-reply chain under the OP', () => {
+    const root = post({ postId: 'root' });
+    const r1 = post({
+      postId: 'r1',
+      parentPath: parentPathFor('alice.near', 'root'),
+    });
+    expect(feedVisibleThreadSeedReplies([root, r1])).toEqual([r1]);
+  });
+
+  it('skips deeper self-chain lines that are not direct children of the OP', () => {
+    const root = post({ postId: 'root' });
+    const r1 = post({
+      postId: 'r1',
+      parentPath: parentPathFor('alice.near', 'root'),
+    });
+    const r2 = post({
+      postId: 'r2',
+      parentPath: parentPathFor('alice.near', 'r1'),
+    });
+    expect(feedVisibleThreadSeedReplies([root, r1, r2])).toEqual([r1]);
+  });
+
+  it('seeds a standing peek that replies to the OP', () => {
+    const root = post({ postId: 'root' });
+    const peek = post({
+      postId: 'peek',
+      accountId: 'bob.near',
+      parentPath: parentPathFor('alice.near', 'root'),
+      parentAuthor: 'alice.near',
+    });
+    expect(
+      feedVisibleThreadSeedReplies([root], { standingPeek: peek })
+    ).toEqual([peek]);
   });
 });

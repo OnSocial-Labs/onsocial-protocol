@@ -300,6 +300,11 @@ interface PostCardProps
    * video / audio, returns to that post. It does not stack another sheet.
    */
   returnToPost?: boolean;
+  /**
+   * Direct replies already painted under this OP in a feed thread block.
+   * Passed through on open so the sheet first frame matches the list.
+   */
+  openThreadSeedReplies?: PostRow[] | null;
 }
 
 export {
@@ -355,6 +360,7 @@ function PostCardImpl({
   rootRevisionLabel = null,
   preferActionHref = false,
   returnToPost = false,
+  openThreadSeedReplies = null,
   sheetContext = null,
 }: PostCardProps) {
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
@@ -377,10 +383,19 @@ function PostCardImpl({
         root: post,
         context: sheetContext,
         rootEngagement: engagement,
+        seedReplies: openThreadSeedReplies,
         returnToPost,
       });
     },
-    [detailLayout, engagement, openPostThread, post, returnToPost, sheetContext]
+    [
+      detailLayout,
+      engagement,
+      openPostThread,
+      openThreadSeedReplies,
+      post,
+      returnToPost,
+      sheetContext,
+    ]
   );
   const interceptOpenNavigate = useCallback(
     (event: { preventDefault(): void }, href: string) => {
@@ -392,10 +407,19 @@ function PostCardImpl({
         root: post,
         context: sheetContext,
         rootEngagement: engagement,
+        seedReplies: openThreadSeedReplies,
         returnToPost,
       });
     },
-    [detailLayout, engagement, openPostThread, post, returnToPost, sheetContext]
+    [
+      detailLayout,
+      engagement,
+      openPostThread,
+      openThreadSeedReplies,
+      post,
+      returnToPost,
+      sheetContext,
+    ]
   );
   const { safeMode } = useViewerSafeMode();
   const [amplifyOpen, setAmplifyOpen] = useState(false);

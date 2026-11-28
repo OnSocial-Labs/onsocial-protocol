@@ -112,3 +112,27 @@ export function isOsMediaFaceOpen(): boolean {
     document.querySelector('[data-os-slide-over="true"]:not(.is-closing)')
   );
 }
+
+/**
+ * Soft drop sheet is up — media faces keep `data-keep-dock` so the underlay
+ * face does not tuck Mint/Back (and does not restack above the dock band).
+ */
+let osDropSheetOpen = false;
+const osDropSheetListeners = new Set<() => void>();
+
+export function setOsDropSheetOpen(open: boolean): void {
+  if (osDropSheetOpen === open) return;
+  osDropSheetOpen = open;
+  for (const listener of osDropSheetListeners) listener();
+}
+
+export function osDropSheetOpenNow(): boolean {
+  return osDropSheetOpen;
+}
+
+export function subscribeOsDropSheetOpen(listener: () => void): () => void {
+  osDropSheetListeners.add(listener);
+  return () => {
+    osDropSheetListeners.delete(listener);
+  };
+}
