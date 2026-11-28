@@ -982,7 +982,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   const [profileHop, setProfileHop] = useState<string | null>(null);
   const [sawProfileHop, setSawProfileHop] = useState(false);
   /** Path a hop can Forward back to. Cleared once the stack is gone or a new layer opens. */
-  const forwardHopRef = useRef<string | null>(null);
+  const [forwardHop, setForwardHop] = useState<string | null>(null);
   const underlayPathRef = useRef<string | null>(null);
   const underlayScrollRef = useRef<{ el: HTMLElement; top: number } | null>(
     null
@@ -1003,7 +1003,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   // Next left the page we opened over — drop the overlay without an effect.
   // A profile opened from this post is the next screen, not a reason to drop it.
   // Forward to that same path parks again. A new layer does not.
-  const forwardPath = forwardHopRef.current;
+  const forwardPath = forwardHop;
   const restoringForward =
     profileHop == null &&
     forwardPath != null &&
@@ -1025,7 +1025,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     underlayPath != null &&
     pathname === underlayPath
   ) {
-    forwardHopRef.current = profileHop;
+    setForwardHop(profileHop);
     setSawProfileHop(false);
     setProfileHop(null);
   }
@@ -1037,7 +1037,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     !onProfileHop
   ) {
     if (sawProfileHop) setSawProfileHop(false);
-    forwardHopRef.current = null;
+    setForwardHop(null);
     setProfileHop(null);
     setStack([]);
     setClosingId(null);
@@ -1219,7 +1219,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       seedReplies?: PostRow[] | null;
       returnToPost?: boolean;
     }) => {
-      forwardHopRef.current = null;
+      setForwardHop(null);
       const personal = parseInAppPostLayerHref(href);
       const guild = personal ? null : parseGuildPostLayerHref(href);
       const parsed = personal
@@ -1423,7 +1423,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       root?: PostRow | null;
       rootEngagement?: PostEngagement | null;
     }) => {
-      forwardHopRef.current = null;
+      setForwardHop(null);
       const personal = parseInAppPostQuotesHref(href);
       const guild = personal ? null : parseGuildPostQuotesHref(href);
       const parsed = personal
@@ -1539,7 +1539,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       editionToken?: string | null;
       accountId?: string | null;
     }) => {
-      forwardHopRef.current = null;
+      setForwardHop(null);
       const collectionId = view.collectionId.trim();
       if (!collectionId) return false;
       const canonical = collectionPath(collectionId);
@@ -1618,7 +1618,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
 
   const openFeedRead = useCallback(
     (face: FeedReadFace) => {
-      forwardHopRef.current = null;
+      setForwardHop(null);
       const historyHref =
         typeof window === 'undefined'
           ? pathname
@@ -1714,7 +1714,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       initial?: CollectionView | null;
       initialCreator?: CollectionCreatorFace | null;
     }) => {
-      forwardHopRef.current = null;
+      setForwardHop(null);
       const parsed = parseInAppDropLayerHref(href);
       if (!parsed) return false;
       const canonical = canonicalizeDropLayerHref(href);
@@ -1891,7 +1891,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     stackRef.current = next;
     setStack(next);
     if (next.length === 0) {
-      forwardHopRef.current = null;
+      setForwardHop(null);
       setProfileHop(null);
       setSawProfileHop(false);
       underlayPathRef.current = null;
@@ -1938,7 +1938,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       // Relabeling the Read's own /home entry leaves a Back that does nothing.
       if (!writing) {
         ensurePostThreadParkedStyle();
-        forwardHopRef.current = null;
+        setForwardHop(null);
         setProfileHop(path);
       }
       const go = () => {
