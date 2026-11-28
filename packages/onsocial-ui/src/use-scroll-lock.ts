@@ -10,20 +10,25 @@ export type ScrollLockContainerFinder = () => HTMLElement | null;
 
 /**
  * Default: OnSocial app screen / portfolio / portal frame scrollers.
- * Override with {@link configureScrollLockContainerFinder} when needed.
+ * A covered feed column is the underlay to lock when the attribute lives on
+ * that body. Skip only bodies nested under a covered host (parent match).
  */
-let findScrollContainer: ScrollLockContainerFinder = () => {
+export function findDefaultScrollLockContainer(): HTMLElement | null {
   const bodies = document.querySelectorAll<HTMLElement>('.os-app-screen-body');
   for (let i = 0; i < bodies.length; i += 1) {
     const body = bodies[i];
     // Overlay pages own their scroller — lock the screen behind them, never the
-    // slide / glass. A covered feed column is the underlay to lock (attribute
-    // lives on this body), so do not skip `[data-feed-session="covered"]`.
+    // slide / glass.
     if (
       body.closest(
         '.os-slide-over, [data-os-slide-over="true"], .glass-sheet-root, .os-launcher-root'
       )
     ) {
+      continue;
+    }
+    // Covered underlay on this body is the lock target. Nested under a covered
+    // host (not this node) is an overlay scroller — skip it.
+    if (body.parentElement?.closest('[data-feed-session="covered"]')) {
       continue;
     }
     return body;
@@ -34,7 +39,10 @@ let findScrollContainer: ScrollLockContainerFinder = () => {
     document.querySelector<HTMLElement>('.portfolio-frame') ??
     document.querySelector<HTMLElement>('.frame')
   );
-};
+}
+
+let findScrollContainer: ScrollLockContainerFinder =
+  findDefaultScrollLockContainer;
 
 /** Replace the element lookup used by {@link useScrollLock}. */
 export function configureScrollLockContainerFinder(
@@ -43,7 +51,7 @@ export function configureScrollLockContainerFinder(
   findScrollContainer = finder;
 }
 
-function eventIsInsideOverlayScroller(event: Event): boolean {
+function eventIsInsideOverlayScroller(event: Event) {
   for (const node of event.composedPath()) {
     if (!(node instanceof Element)) continue;
     return Boolean(

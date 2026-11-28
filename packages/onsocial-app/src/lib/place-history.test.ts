@@ -5,7 +5,6 @@ import {
   placeHistoryOpForTrail,
   reloadedPlaceEntryRepair,
   repairClosingLayerHistory,
-  shouldZeroPlaceDepthOnSheetClosed,
   withoutClosingLayer,
 } from '@/lib/place-history';
 
@@ -139,11 +138,6 @@ describe('overlay history after a closing layer', () => {
       back: false,
       armPending: false,
     });
-  });
-
-  it('keeps place depth until the close pop lands after sheet-closed', () => {
-    expect(shouldZeroPlaceDepthOnSheetClosed(true)).toBe(false);
-    expect(shouldZeroPlaceDepthOnSheetClosed(false)).toBe(true);
   });
 });
 

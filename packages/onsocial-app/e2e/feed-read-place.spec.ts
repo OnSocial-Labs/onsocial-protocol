@@ -124,6 +124,8 @@ test.describe('feed read on the place stack', () => {
     await expect(page.locator('.home-feed-list')).toBeVisible();
   });
 
+  // Regression: header Back must stay on /home (not about:blank) after the
+  // exit slide's history.back. Fail-before: 237483a6e CI; pass-after: 83306aa62.
   test('header back and escape close the reader', async ({ page }) => {
     const reader = await openFeedRead(page);
     await page.getByRole('button', { name: 'Back from article' }).click();
@@ -385,15 +387,11 @@ function heldCollectionRow() {
 async function stubHeldDrop(page: Page) {
   let releaseCatalog = () => {};
   let releaseEssay = () => {};
-  let essayFulfilled = () => {};
   const catalogGate = new Promise<void>((resolve) => {
     releaseCatalog = resolve;
   });
   const essayGate = new Promise<void>((resolve) => {
     releaseEssay = resolve;
-  });
-  const essayDelivered = new Promise<void>((resolve) => {
-    essayFulfilled = resolve;
   });
   const drop = dropAnnounceRow();
   await page.route('**/api/onapi/data/get-one**', async (route) => {
@@ -438,7 +436,6 @@ async function stubHeldDrop(page: Page) {
           data: { postsCurrent: [sourceEssayRow()] },
         }),
       });
-      essayFulfilled();
       return;
     }
     if (query.includes('postsFeed') || query.includes('postsCurrent')) {
@@ -459,7 +456,6 @@ async function stubHeldDrop(page: Page) {
   return {
     releaseCatalog,
     releaseEssay,
-    essayDelivered,
   };
 }
 
@@ -491,7 +487,7 @@ test.describe('drop-backed feed read', () => {
   });
 
   test('a late essay does not reopen a closed reader', async ({ page }) => {
-    const { reader, releaseCatalog, releaseEssay, essayDelivered } =
+    const { reader, releaseCatalog, releaseEssay } =
       await openHeldDropRead(page);
     const essayRequested = page.waitForRequest((request) =>
       (request.postData() ?? '').includes('PersonalPost')
@@ -501,12 +497,26 @@ test.describe('drop-backed feed read', () => {
     await page.getByRole('button', { name: 'Back from article' }).click();
     await expect(reader).toHaveCount(0);
     await expect(page).toHaveURL(/\/home\/?$/);
+    const essayResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/onapi/graph/query') &&
+        (response.request().postData() ?? '').includes('PersonalPost')
+    );
     releaseEssay();
-    await essayDelivered;
-    // Playwright expects retry; avoid page.evaluate after close (nav can destroy
-    // the prior execution context mid-flush).
+    await essayResponse;
     await expect(page).toHaveURL(/\/home\/?$/);
     await expect(page.getByText('The late paragraph.')).toHaveCount(0);
     await expect(page.getByRole('dialog')).toHaveCount(0);
+    // Hold closed across a short settle so a late reopen would fail the poll.
+    await expect
+      .poll(
+        async () => ({
+          dialogs: await page.getByRole('dialog').count(),
+          late: await page.getByText('The late paragraph.').count(),
+          onHome: /\/home\/?$/.test(new URL(page.url()).pathname),
+        }),
+        { timeout: 800, intervals: [100, 200, 250] }
+      )
+      .toEqual({ dialogs: 0, late: 0, onHome: true });
   });
 });

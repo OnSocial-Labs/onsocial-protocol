@@ -37,6 +37,9 @@ describe('feed read place', () => {
     expect(layer).toContain('entry.feed');
     expect(layer).toContain('WritingReadSheet');
     expect(layer).toContain('openFeedRead');
+    expect(layer).toContain(
+      'if (profileHop || stack.length === 0 || pathname !== underlayPath) return;'
+    );
     expect(card).toContain('openFeedRead');
     expect(card).toContain('publishFeedReadBridge');
     expect(card).toContain('feedReadResumeDue');

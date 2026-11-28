@@ -1956,14 +1956,16 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   }, [pathname, stack.length]);
 
   useLayoutEffect(() => {
-    if (stack.length === 0 || pathname !== underlayPath) return;
+    // While a profile hop is in flight, do not re-push — a late essay must not
+    // mint an extra history entry under the parked reader.
+    if (profileHop || stack.length === 0 || pathname !== underlayPath) return;
     if (typeof window === 'undefined' || historyHasPlaceLayer()) return;
     let depth = 0;
     for (const entry of stack) {
       depth += 1;
       pushPlaceLayerAt(placeLayerHref(entry), depth);
     }
-  }, [pathname, stack, underlayPath]);
+  }, [pathname, profileHop, stack, underlayPath]);
 
   const value = useMemo(
     () => ({

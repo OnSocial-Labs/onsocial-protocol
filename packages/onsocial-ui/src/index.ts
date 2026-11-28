@@ -456,6 +456,7 @@ export {
 } from './discard-confirm.js';
 export {
   configureScrollLockContainerFinder,
+  findDefaultScrollLockContainer,
   useScrollLock,
   type ScrollLockContainerFinder,
 } from './use-scroll-lock.js';
