@@ -8,6 +8,77 @@
 const PLACE_LAYER_STATE_KEY = 'onsocialPostLayer';
 const PLACE_LAYER_DEPTH_KEY = 'onsocialPostLayerDepth';
 const PLACE_LAYER_GUARD_KEY = '__onsocialPostLayerPopGuard';
+const PLACE_READ_KEY = 'onsocialReadLayer';
+
+/** Identity of a Read history entry. Survives reload on that entry. */
+export type PlaceReadStamp = {
+  accountId?: string;
+  postId?: string;
+  collectionId?: string;
+};
+
+export function placeReadStamp(
+  read: PlaceReadStamp | null | undefined
+): PlaceReadStamp | null {
+  if (!read) return null;
+  const collectionId = read.collectionId?.trim() || '';
+  const accountId = read.accountId?.trim() || '';
+  const postId = read.postId?.trim() || '';
+  if (collectionId) return { collectionId };
+  if (accountId && postId) return { accountId, postId };
+  return null;
+}
+
+const PLACE_READ_SESSION_KEY = 'onsocial-place-read';
+
+/** Reload keeps this when the router replaces history.state. */
+export function rememberPlaceRead(href: string, read: PlaceReadStamp): void {
+  const stamp = placeReadStamp(read);
+  if (!stamp || typeof sessionStorage === 'undefined') return;
+  sessionStorage.setItem(
+    PLACE_READ_SESSION_KEY,
+    JSON.stringify({ href, stamp, length: window.history.length })
+  );
+}
+
+export function forgetPlaceRead(): void {
+  if (typeof sessionStorage === 'undefined') return;
+  sessionStorage.removeItem(PLACE_READ_SESSION_KEY);
+}
+
+/** The Read entry for this URL, when history.state no longer says so. */
+export function recallPlaceRead(): {
+  href: string;
+  stamp: PlaceReadStamp;
+} | null {
+  if (typeof sessionStorage === 'undefined') return null;
+  const raw = sessionStorage.getItem(PLACE_READ_SESSION_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as {
+      href?: string;
+      stamp?: PlaceReadStamp;
+      length?: number;
+    };
+    const href = `${window.location.pathname}${window.location.search}`;
+    const stamp = placeReadStamp(parsed.stamp);
+    if (!stamp || parsed.href !== href) {
+      sessionStorage.removeItem(PLACE_READ_SESSION_KEY);
+      return null;
+    }
+    if (
+      typeof parsed.length === 'number' &&
+      parsed.length !== window.history.length
+    ) {
+      sessionStorage.removeItem(PLACE_READ_SESSION_KEY);
+      return null;
+    }
+    return { href, stamp };
+  } catch {
+    sessionStorage.removeItem(PLACE_READ_SESSION_KEY);
+    return null;
+  }
+}
 
 /** A `history.go` that never pops must not leave Back and opens stuck. */
 export const PLACE_HISTORY_JUMP_TIMEOUT_MS = 1000;
@@ -117,12 +188,18 @@ export function readPlaceLayerDepth(): number {
   return typeof depth === 'number' && depth > 0 ? depth : 1;
 }
 
-export function withPlaceLayerHistoryState(depth: number): object {
+export function withPlaceLayerHistoryState(
+  depth: number,
+  read?: PlaceReadStamp | null
+): object {
   const prev = typeof window === 'undefined' ? null : window.history.state;
   const base =
     prev && typeof prev === 'object' && !Array.isArray(prev)
       ? { ...(prev as Record<string, unknown>) }
       : {};
+  const stamp = placeReadStamp(read);
+  if (stamp) base[PLACE_READ_KEY] = stamp;
+  else delete base[PLACE_READ_KEY];
   return {
     ...base,
     // Next popstate hard-reloads when __NA is missing. Overlay entries copy
@@ -131,6 +208,15 @@ export function withPlaceLayerHistoryState(depth: number): object {
     [PLACE_LAYER_STATE_KEY]: true,
     [PLACE_LAYER_DEPTH_KEY]: depth,
   };
+}
+
+/** Read identity on the current history entry, if this entry is one. */
+export function readPlaceReadStamp(): PlaceReadStamp | null {
+  if (!historyHasPlaceLayer()) return null;
+  const state = window.history.state as { [PLACE_READ_KEY]?: unknown };
+  const raw = state[PLACE_READ_KEY];
+  if (!raw || typeof raw !== 'object') return null;
+  return placeReadStamp(raw as PlaceReadStamp);
 }
 
 export function withoutPlaceLayerHistoryState(): object {
@@ -166,41 +252,81 @@ function deferPlaceWrite(run: () => void): boolean {
   return true;
 }
 
-export function pushPlaceLayer(href: string): void {
-  if (deferPlaceWrite(() => pushPlaceLayer(href))) return;
+/**
+ * Pop the Read entry we pushed. The next push waits until this pop lands
+ * so a reopen cannot be written onto an entry that is about to disappear.
+ */
+export function popPlaceLayerEntry(): void {
   const guard = getPlaceHistoryGuard();
-  const next = guard.depth + 1;
-  nativeHistoryPushState(withPlaceLayerHistoryState(next), href);
-  guard.depth = next;
+  if (guard.suppressPops > 0) {
+    guard.writesAfterJump.push(() => popPlaceLayerEntry());
+    return;
+  }
+  guard.suppressPops = 1;
+  armPlaceJumpTimer(guard);
+  window.history.back();
 }
 
-export function replacePlaceLayer(href: string): void {
-  if (deferPlaceWrite(() => replacePlaceLayer(href))) return;
+export function pushPlaceLayer(
+  href: string,
+  read?: PlaceReadStamp | null
+): void {
+  if (deferPlaceWrite(() => pushPlaceLayer(href, read))) return;
+  const guard = getPlaceHistoryGuard();
+  const next = guard.depth + 1;
+  nativeHistoryPushState(withPlaceLayerHistoryState(next, read), href);
+  guard.depth = next;
+  const stamp = placeReadStamp(read);
+  if (stamp) rememberPlaceRead(href, stamp);
+}
+
+export function replacePlaceLayer(
+  href: string,
+  read?: PlaceReadStamp | null
+): void {
+  if (deferPlaceWrite(() => replacePlaceLayer(href, read))) return;
   const guard = getPlaceHistoryGuard();
   if (guard.depth <= 0) {
-    pushPlaceLayer(href);
+    pushPlaceLayer(href, read);
     return;
   }
   const current = `${window.location.pathname}${window.location.search}`;
   if (current !== href || !historyHasPlaceLayer()) {
-    nativeHistoryReplaceState(withPlaceLayerHistoryState(guard.depth), href);
+    nativeHistoryReplaceState(
+      withPlaceLayerHistoryState(guard.depth, read),
+      href
+    );
+    const stamp = placeReadStamp(read);
+    if (stamp) rememberPlaceRead(href, stamp);
   }
 }
 
 /** Push an overlay entry at an exact depth. Waits out an in-flight jump. */
-export function pushPlaceLayerAt(href: string, depth: number): void {
-  if (deferPlaceWrite(() => pushPlaceLayerAt(href, depth))) return;
+export function pushPlaceLayerAt(
+  href: string,
+  depth: number,
+  read?: PlaceReadStamp | null
+): void {
+  if (deferPlaceWrite(() => pushPlaceLayerAt(href, depth, read))) return;
   const guard = getPlaceHistoryGuard();
-  nativeHistoryPushState(withPlaceLayerHistoryState(depth), href);
+  nativeHistoryPushState(withPlaceLayerHistoryState(depth, read), href);
   guard.depth = depth;
+  const stamp = placeReadStamp(read);
+  if (stamp) rememberPlaceRead(href, stamp);
 }
 
 /** Relabel the current overlay entry at an exact depth. Waits out an in-flight jump. */
-export function replacePlaceLayerAt(href: string, depth: number): void {
-  if (deferPlaceWrite(() => replacePlaceLayerAt(href, depth))) return;
+export function replacePlaceLayerAt(
+  href: string,
+  depth: number,
+  read?: PlaceReadStamp | null
+): void {
+  if (deferPlaceWrite(() => replacePlaceLayerAt(href, depth, read))) return;
   const guard = getPlaceHistoryGuard();
-  nativeHistoryReplaceState(withPlaceLayerHistoryState(depth), href);
+  nativeHistoryReplaceState(withPlaceLayerHistoryState(depth, read), href);
   guard.depth = depth;
+  const stamp = placeReadStamp(read);
+  if (stamp) rememberPlaceRead(href, stamp);
 }
 
 /** Remember overlay depth. Waits out an in-flight jump so a later go uses the landing depth. */
@@ -355,16 +481,20 @@ export function alignPlaceHistory(nextDepth: number, href: string): void {
  * Grandparent unmounted. History was [underlay, grandparent, parent].
  * Become [underlay, parent, top] so Back returns to the parked parent.
  */
-export function slidePlaceHistory(parentHref: string, topHref: string): void {
+export function slidePlaceHistory(
+  parentHref: string,
+  topHref: string,
+  read?: PlaceReadStamp | null
+): void {
   const guard = getPlaceHistoryGuard();
   if (guard.depth < 2) {
-    pushPlaceLayer(topHref);
+    pushPlaceLayer(topHref, read);
     return;
   }
   schedulePlaceHistoryGo(-1, () => {
     nativeHistoryReplaceState(withPlaceLayerHistoryState(1), parentHref);
     guard.depth = 1;
-    pushPlaceLayer(topHref);
+    pushPlaceLayer(topHref, read);
   });
 }
 
@@ -374,17 +504,18 @@ export function applyPlaceTrailHistory(input: {
   parentChanged: boolean;
   parentHref: string;
   topHref: string;
+  read?: PlaceReadStamp | null;
 }): void {
   const op = placeHistoryOpForTrail(input);
   if (op === 'push') {
-    pushPlaceLayer(input.topHref);
+    pushPlaceLayer(input.topHref, input.read);
     return;
   }
   if (op === 'slide') {
-    slidePlaceHistory(input.parentHref, input.topHref);
+    slidePlaceHistory(input.parentHref, input.topHref, input.read);
     return;
   }
-  replacePlaceLayer(input.topHref);
+  replacePlaceLayer(input.topHref, input.read);
 }
 
 /**

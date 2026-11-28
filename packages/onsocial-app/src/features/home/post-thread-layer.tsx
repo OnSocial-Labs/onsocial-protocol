@@ -118,9 +118,16 @@ import {
   getPlaceHistoryGuard,
   historyHasPlaceLayer,
   inFlightPopRepair,
+  forgetPlaceRead,
+  nativeHistoryReplaceState,
+  popPlaceLayerEntry,
   pushPlaceLayer,
   pushPlaceLayerAt,
   readPlaceLayerDepth,
+  readPlaceReadStamp,
+  recallPlaceRead,
+  withPlaceLayerHistoryState,
+  type PlaceReadStamp,
   repairClosingLayerHistory,
   replacePlaceLayer,
   replacePlaceLayerAt,
@@ -252,6 +259,10 @@ type ReadLayerTarget = {
   sourcePostPath: string | null;
   zIndex: number;
   openedAboveMediaFace: boolean;
+  /** Feed article. History stays on the feed URL. Drop Read leaves this empty. */
+  feedPost: { accountId: string; postId: string } | null;
+  /** History URL for a feed Read. Drop Read uses the collection path. */
+  historyHref: string | null;
 };
 
 type DropLayerTarget = {
@@ -321,6 +332,18 @@ type PostThreadLayerValue = {
     editionToken?: string | null;
     accountId?: string | null;
   }) => boolean;
+  /** Feed Read. One history entry; the URL stays on the feed. */
+  openPlace: (input: {
+    kind: 'read';
+    accountId: string;
+    postId: string;
+  }) => boolean;
+  /** Feed Read on top. `open` is false while the exit slide runs. */
+  feedRead: { accountId: string; postId: string; open: boolean } | null;
+  /** Header / Esc finished the feed Read exit. */
+  finishFeedRead: () => void;
+  /** Quote / repost leaves the feed Read and starts its exit. */
+  dismissFeedRead: () => void;
   closePostThread: () => void;
 };
 
@@ -331,6 +354,10 @@ const NOOP_LAYER: PostThreadLayerValue = {
   openPostQuotes: () => false,
   openDrop: () => false,
   openRead: () => false,
+  openPlace: () => false,
+  feedRead: null,
+  finishFeedRead: () => {},
+  dismissFeedRead: () => {},
   closePostThread: () => {},
 };
 
@@ -389,7 +416,8 @@ function commitFirstPlaceLayer(canonical: string): void {
 function commitTrailPlaceLayer(
   prev: readonly { id: string }[],
   next: readonly PlaceLayerTarget[],
-  canonical: string
+  canonical: string,
+  read?: PlaceReadStamp | null
 ): void {
   if (typeof window === 'undefined') return;
   const parent = next[0];
@@ -399,10 +427,14 @@ function commitTrailPlaceLayer(
     parentChanged: parent != null && parent.id !== prev[0]?.id,
     parentHref: parent ? placeLayerHref(parent) : canonical,
     topHref: canonical,
+    read,
   });
 }
 
 function placeLayerHref(layer: PlaceLayerTarget): string {
+  if (layer.kind === 'read' && layer.feedPost) {
+    return layer.historyHref || '/home';
+  }
   if (layer.kind === 'drop' || layer.kind === 'read') {
     return collectionPath(layer.collectionId);
   }
@@ -945,6 +977,9 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   const closingIdRef = useRef<string | null>(closingId);
   /** `history.back()` from a close whose popstate has not landed yet. */
   const closePopPendingRef = useRef(false);
+  /** This Read close started from popstate. Do not pop history again. */
+  const exitFromPopRef = useRef(false);
+  const restoredReadRef = useRef(false);
   /** Canonical of the layer that replaced a close, query included. */
   const overlayCanonicalRef = useRef<string | null>(null);
   useLayoutEffect(() => {
@@ -1093,7 +1128,13 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     const guard = typeof window === 'undefined' ? null : getPlaceHistoryGuard();
     // One history entry per screen. Back pops it; popstate walks one layer.
     if (current.length > 1 && top && isReaderLayerKind(top.kind)) {
+      if (top.kind === 'read' && exitFromPopRef.current) return true;
       if (guard && guard.depth > 1 && historyHasPlaceLayer()) {
+        // Own the pop so it does not start a second exit.
+        if (top.kind === 'read' && closingIdRef.current !== top.id) {
+          closingIdRef.current = top.id;
+          setClosingId(top.id);
+        }
         window.history.back();
         return true;
       }
@@ -1122,7 +1163,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   }, [beginCloseTop]);
 
   const publishClosingHistory = useCallback(
-    (canonical: string, depth: number) => {
+    (canonical: string, depth: number, read?: PlaceReadStamp | null) => {
       if (typeof window === 'undefined') return;
       overlayCanonicalRef.current = canonical;
       const nextDepth = Math.max(depth, 1);
@@ -1132,9 +1173,9 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         historyHasLayer: historyHasPlaceLayer(),
       });
       if (action.op === 'push') {
-        pushPlaceLayerAt(action.href, nextDepth);
+        pushPlaceLayerAt(action.href, nextDepth, read);
       } else if (action.op === 'replace') {
-        replacePlaceLayerAt(action.href, nextDepth);
+        replacePlaceLayerAt(action.href, nextDepth, read);
       } else {
         setPlaceLayerDepth(nextDepth);
       }
@@ -1487,11 +1528,13 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       const top = liveStack[liveStack.length - 1];
       if (
         top?.kind === 'read' &&
+        !top.feedPost &&
         collectionIdsEqual(top.collectionId, collectionId)
       ) {
         return true;
       }
 
+      const readStamp: PlaceReadStamp = { collectionId };
       const next: ReadLayerTarget = {
         id: `read-layer-${++seqRef.current}`,
         kind: 'read',
@@ -1509,6 +1552,8 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         sourcePostPath: view.sourcePostPath?.trim() || null,
         zIndex: nextStackedLayerZ(liveStack),
         openedAboveMediaFace: isOsMediaFaceOpen(),
+        feedPost: null,
+        historyHref: null,
       };
 
       if (liveStack.length > 0) {
@@ -1519,10 +1564,10 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         setStack(trail);
         if (typeof window === 'undefined') return true;
         if (droppedClosing) {
-          publishClosingHistory(canonical, trail.length);
+          publishClosingHistory(canonical, trail.length, readStamp);
           return true;
         }
-        commitTrailPlaceLayer(liveStack, trail, canonical);
+        commitTrailPlaceLayer(liveStack, trail, canonical, readStamp);
         return true;
       }
 
@@ -1539,12 +1584,103 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       setStack([next]);
       if (typeof window === 'undefined') return true;
       if (droppedClosing) {
-        publishClosingHistory(canonical, 1);
+        publishClosingHistory(canonical, 1, readStamp);
         return true;
       }
       // The collection route is already this URL. Still push, so Back closes
       // the reader instead of leaving the drop.
-      pushPlaceLayer(canonical);
+      pushPlaceLayer(canonical, readStamp);
+      return true;
+    },
+    [pathname, publishClosingHistory]
+  );
+
+  const openPlace = useCallback(
+    ({
+      kind,
+      accountId,
+      postId,
+    }: {
+      kind: 'read';
+      accountId: string;
+      postId: string;
+    }) => {
+      if (kind !== 'read') return false;
+      const author = accountId.trim();
+      const id = postId.trim();
+      if (!author || !id) return false;
+      const liveStack = withoutClosingLayer(
+        stackRef.current,
+        closingIdRef.current
+      );
+      const droppedClosing = liveStack !== stackRef.current;
+      const top = liveStack[liveStack.length - 1];
+      if (
+        top?.kind === 'read' &&
+        top.feedPost &&
+        accountIdsEqual(top.feedPost.accountId, author) &&
+        top.feedPost.postId === id &&
+        (typeof window === 'undefined' || readPlaceReadStamp())
+      ) {
+        return true;
+      }
+      const href =
+        typeof window === 'undefined'
+          ? '/home'
+          : `${window.location.pathname}${window.location.search}`;
+      const readStamp: PlaceReadStamp = { accountId: author, postId: id };
+      const next: ReadLayerTarget = {
+        id: `read-layer-${++seqRef.current}`,
+        kind: 'read',
+        collectionId: '',
+        title: '',
+        cover: null,
+        tokenId: null,
+        accountId: author,
+        creatorId: null,
+        readables: [],
+        bookPdf: null,
+        writingFormat: null,
+        textAlign: null,
+        publishedAt: null,
+        sourcePostPath: null,
+        zIndex: nextStackedLayerZ(liveStack),
+        openedAboveMediaFace: isOsMediaFaceOpen(),
+        feedPost: { accountId: author, postId: id },
+        historyHref: href,
+      };
+      if (liveStack.length > 0) {
+        const trail = appendTrailEntry(liveStack, next);
+        closingIdRef.current = null;
+        setClosingId(null);
+        stackRef.current = trail;
+        setStack(trail);
+        if (typeof window === 'undefined') return true;
+        if (droppedClosing) {
+          publishClosingHistory(href, trail.length, readStamp);
+          return true;
+        }
+        commitTrailPlaceLayer(liveStack, trail, href, readStamp);
+        return true;
+      }
+      if (underlayPathRef.current == null) {
+        underlayPathRef.current = pathname;
+        setUnderlayPath(pathname);
+        if (typeof window !== 'undefined') {
+          underlayScrollRef.current = captureUnderlayScroll();
+        }
+      }
+      closingIdRef.current = null;
+      setClosingId(null);
+      stackRef.current = [next];
+      setStack([next]);
+      if (typeof window === 'undefined') return true;
+      if (droppedClosing) {
+        publishClosingHistory(href, 1, readStamp);
+        return true;
+      }
+      // Same URL as the feed. The extra entry is what Back closes.
+      pushPlaceLayer(href, readStamp);
       return true;
     },
     [pathname, publishClosingHistory]
@@ -1709,6 +1845,15 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         return;
       }
       guard.depth = readPlaceLayerDepth();
+      if (top.kind === 'read' && closingIdRef.current === top.id) {
+        return;
+      }
+      // Browser Back starts the same exit as the header chevron.
+      if (top.kind === 'read') {
+        exitFromPopRef.current = true;
+        beginCloseTop();
+        return;
+      }
       // One Back, one screen. The parked parent stays.
       if (stackRef.current.length > 1 && isReaderLayerKind(top.kind)) {
         const walked = walkBackOneStep(stackRef.current);
@@ -1724,7 +1869,10 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
 
   const handleSheetClosed = useCallback((id: string) => {
     if (closingIdRef.current !== id) return;
+    const closing = stackRef.current.find((layer) => layer.id === id);
+    if (closing?.kind === 'read') forgetPlaceRead();
     closingIdRef.current = null;
+    exitFromPopRef.current = false;
     setClosingId(null);
     const next = stackRef.current.filter((layer) => layer.id !== id);
     stackRef.current = next;
@@ -1766,6 +1914,88 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     [pathname, router]
   );
 
+  const releaseFeedReadHistory = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    if (!readPlaceReadStamp() || !historyHasPlaceLayer()) return;
+    popPlaceLayerEntry();
+  }, []);
+
+  const finishFeedRead = useCallback(() => {
+    const top = stackRef.current[stackRef.current.length - 1];
+    if (!top || top.kind !== 'read' || !top.feedPost) return;
+    if (!exitFromPopRef.current) releaseFeedReadHistory();
+    if (closingIdRef.current !== top.id) {
+      closingIdRef.current = top.id;
+    }
+    handleSheetClosed(top.id);
+  }, [handleSheetClosed, releaseFeedReadHistory]);
+
+  const dismissFeedRead = useCallback(() => {
+    const top = stackRef.current[stackRef.current.length - 1];
+    if (!top || top.kind !== 'read' || !top.feedPost) return;
+    if (!beginCloseTop()) return;
+    if (!exitFromPopRef.current) releaseFeedReadHistory();
+  }, [beginCloseTop, releaseFeedReadHistory]);
+
+  useLayoutEffect(() => {
+    if (restoredReadRef.current) return;
+    restoredReadRef.current = true;
+    if (typeof window === 'undefined' || stackRef.current.length > 0) return;
+    let stamp = readPlaceReadStamp();
+    if (!stamp) {
+      const recalled = recallPlaceRead();
+      if (!recalled) return;
+      stamp = recalled.stamp;
+      nativeHistoryReplaceState(
+        withPlaceLayerHistoryState(Math.max(readPlaceLayerDepth(), 1), stamp),
+        recalled.href
+      );
+    }
+    const href = `${window.location.pathname}${window.location.search}`;
+    const base = {
+      id: `read-layer-${++seqRef.current}`,
+      kind: 'read' as const,
+      title: '',
+      cover: null,
+      tokenId: null,
+      creatorId: null,
+      readables: [],
+      bookPdf: null,
+      writingFormat: null,
+      textAlign: null,
+      publishedAt: null,
+      sourcePostPath: null,
+      zIndex: nextStackedLayerZ([]),
+      openedAboveMediaFace: false,
+    };
+    const next: ReadLayerTarget | null =
+      stamp.accountId && stamp.postId
+        ? {
+            ...base,
+            collectionId: '',
+            accountId: stamp.accountId,
+            feedPost: { accountId: stamp.accountId, postId: stamp.postId },
+            historyHref: href,
+          }
+        : stamp.collectionId
+          ? {
+              ...base,
+              collectionId: stamp.collectionId,
+              accountId: null,
+              feedPost: null,
+              historyHref: null,
+            }
+          : null;
+    if (!next) return;
+    getPlaceHistoryGuard().depth = readPlaceLayerDepth();
+    if (underlayPathRef.current == null) {
+      underlayPathRef.current = pathname;
+      setUnderlayPath(pathname);
+    }
+    stackRef.current = [next];
+    setStack([next]);
+  }, [pathname]);
+
   useLayoutEffect(() => {
     if (profileHop || stack.length === 0 || pathname !== underlayPath) return;
     if (typeof window === 'undefined' || historyHasPlaceLayer()) return;
@@ -1776,15 +2006,38 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     }
   }, [pathname, profileHop, stack, underlayPath]);
 
+  const topForFeed = stack[stack.length - 1] ?? null;
+  const feedRead =
+    topForFeed?.kind === 'read' && topForFeed.feedPost
+      ? {
+          accountId: topForFeed.feedPost.accountId,
+          postId: topForFeed.feedPost.postId,
+          open: topForFeed.id !== closingId,
+        }
+      : null;
   const value = useMemo(
     () => ({
       openPostThread,
       openPostQuotes,
       openDrop,
       openRead,
+      openPlace,
+      feedRead,
+      finishFeedRead,
+      dismissFeedRead,
       closePostThread,
     }),
-    [closePostThread, openDrop, openPostQuotes, openPostThread, openRead]
+    [
+      closePostThread,
+      dismissFeedRead,
+      feedRead,
+      finishFeedRead,
+      openDrop,
+      openPlace,
+      openPostQuotes,
+      openPostThread,
+      openRead,
+    ]
   );
 
   const topPlace = stack[stack.length - 1] ?? null;
@@ -1841,6 +2094,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
           );
         }
         if (entry.kind === 'read') {
+          if (entry.feedPost) return null;
           return (
             <ReadLayerScreen
               key={entry.id}

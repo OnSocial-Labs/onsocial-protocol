@@ -508,6 +508,15 @@ describe('native place push bypasses patched history', () => {
     };
     expect(state.onsocialPostLayer).toBe(true);
     expect(state.onsocialPostLayerDepth).toBe(1);
+    expect(state).not.toHaveProperty('onsocialReadLayer');
+    pushPlaceLayer('/home', { accountId: 'alice.near', postId: 'night' });
+    const stamped = protoPush.mock.calls[1]?.[0] as {
+      onsocialReadLayer?: { accountId?: string; postId?: string };
+    };
+    expect(stamped.onsocialReadLayer).toEqual({
+      accountId: 'alice.near',
+      postId: 'night',
+    });
     vi.unstubAllGlobals();
     vi.resetModules();
   });

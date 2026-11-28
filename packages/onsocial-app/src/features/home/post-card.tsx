@@ -366,7 +366,19 @@ function PostCardImpl({
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
-  const { openPostThread } = usePostThreadLayer();
+  const {
+    openPostThread,
+    openPlace,
+    feedRead,
+    finishFeedRead,
+    dismissFeedRead,
+  } = usePostThreadLayer();
+  const articleOpen = Boolean(
+    feedRead &&
+      feedRead.open &&
+      accountIdsEqual(feedRead.accountId, post.accountId) &&
+      feedRead.postId === post.postId
+  );
   const ownerZ = usePostLayerOwnerZ();
   const actionZ = postLayerOverlayZ(ownerZ).sheet;
   const resolvedMenuZ =
@@ -450,7 +462,6 @@ function PostCardImpl({
   const [photoZoomOrigin, setPhotoZoomOrigin] =
     useState<FeedPhotoZoomOrigin | null>(null);
   /** Mood / craft article — slide-over reader (stays on feed). */
-  const [articleOpen, setArticleOpen] = useState(false);
   // Overlays mount on open and drop after leave — idle cards keep zero trees.
   const amplifySheet = useSheetMounted(amplifyOpen);
   const listScarceSheet = useSheetMounted(listScarceOpen);
@@ -751,9 +762,13 @@ function PostCardImpl({
     if (consumeEssayReopen(post.accountId, post.postId)) {
       setFeedReadEssay(null);
       setFeedBookRead(false);
-      setArticleOpen(true);
+      openPlace({
+        kind: 'read',
+        accountId: post.accountId,
+        postId: post.postId,
+      });
     }
-  }, [article, post.accountId, post.postId]);
+  }, [article, openPlace, post.accountId, post.postId]);
   const articleHref = article
     ? writingArticlePath(post.accountId, post.postId)
     : null;
@@ -929,7 +944,7 @@ function PostCardImpl({
     setFeedReadEssay(next?.essay ?? null);
     setFeedBookRead(Boolean(next?.book));
     setFeedBookCoverSvg(next?.coverSvg ?? null);
-    setArticleOpen(true);
+    openPlace({ kind: 'read', accountId: post.accountId, postId: post.postId });
   };
   const applyDropReadRef = useRef<
     (
@@ -962,7 +977,7 @@ function PostCardImpl({
     setFeedReadPending(true);
     setFeedBookRead(false);
     setFeedReadEssay(null);
-    setArticleOpen(true);
+    openPlace({ kind: 'read', accountId: post.accountId, postId: post.postId });
     void (async () => {
       try {
         const essay = await fetchPersonalPost({
@@ -1032,7 +1047,7 @@ function PostCardImpl({
     setFeedReadEssay(null);
     setFeedBookRead(false);
     setFeedReadPending(true);
-    setArticleOpen(true);
+    openPlace({ kind: 'read', accountId: post.accountId, postId: post.postId });
 
     if (!collectionId) {
       finishDropReadRef.current(null, coverSvg, ticket);
@@ -1242,10 +1257,10 @@ function PostCardImpl({
       dropReadAwaitingMeta.current = false;
       setFeedReadPending(false);
       setDropReadPack(null);
-      setArticleOpen(false);
+      dismissFeedRead();
       onQuote?.(target);
     },
-    [onQuote]
+    [dismissFeedRead, onQuote]
   );
   const articleRepost = useCallback(
     (target: PostRow) => {
@@ -1253,10 +1268,10 @@ function PostCardImpl({
       dropReadAwaitingMeta.current = false;
       setFeedReadPending(false);
       setDropReadPack(null);
-      setArticleOpen(false);
+      dismissFeedRead();
       onRepost?.(target);
     },
-    [onRepost]
+    [dismissFeedRead, onRepost]
   );
   const articleUndoRepost = useCallback(
     (target: PostRow) => {
@@ -1264,10 +1279,10 @@ function PostCardImpl({
       dropReadAwaitingMeta.current = false;
       setFeedReadPending(false);
       setDropReadPack(null);
-      setArticleOpen(false);
+      dismissFeedRead();
       onUndoRepost?.(target);
     },
-    [onUndoRepost]
+    [dismissFeedRead, onUndoRepost]
   );
   const mediumQuote = useCallback(
     (target: PostRow) => {
@@ -1328,8 +1343,7 @@ function PostCardImpl({
     dropPaint?.title?.trim() ||
     null;
   // Same as Drops list: pass the painted author face when they are the creator.
-  const scarceDropCreatorId =
-    scarceEmbed?.creatorId?.trim() || post.accountId;
+  const scarceDropCreatorId = scarceEmbed?.creatorId?.trim() || post.accountId;
   const scarceDropCreator =
     authorProfile &&
     accountIdsEqual(scarceDropCreatorId, post.accountId) &&
@@ -1939,17 +1953,16 @@ function PostCardImpl({
         <FeedArticleReadScreen
           open={articleOpen}
           onOpenChange={(next) => {
-            setArticleOpen(next);
-            if (!next) {
-              dropReadTicket.current += 1;
-              dropReadAwaitingMeta.current = false;
-              setFeedReadPending(false);
-              setFeedReadEssay(null);
-              setFeedBookRead(false);
-              setFeedBookCoverSvg(null);
-              setDropReadPack(null);
-              setPhotoThreadOpen(false);
-            }
+            if (next) return;
+            finishFeedRead();
+            dropReadTicket.current += 1;
+            dropReadAwaitingMeta.current = false;
+            setFeedReadPending(false);
+            setFeedReadEssay(null);
+            setFeedBookRead(false);
+            setFeedBookCoverSvg(null);
+            setDropReadPack(null);
+            setPhotoThreadOpen(false);
           }}
           onClosed={articleScreen.onClosed}
           post={showDropEssay ? feedReadEssay! : post}

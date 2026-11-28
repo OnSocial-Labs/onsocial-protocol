@@ -46,6 +46,16 @@ const getClientMountedSnapshot = () => true;
 const getServerMountedSnapshot = () => false;
 const SLIDE_MS = 280;
 
+function slideExitMs(): number {
+  if (
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  ) {
+    return 0;
+  }
+  return SLIDE_MS;
+}
+
 const OsSlideOverCloseContext = createContext<(() => void) | null>(null);
 
 /** Same close as the slide × and Escape — use when the jacket owns the X. */
@@ -298,7 +308,7 @@ export function OsSlideOverScreen({
 
   useEffect(() => {
     if (!closing) return;
-    const timer = window.setTimeout(finishExit, SLIDE_MS);
+    const timer = window.setTimeout(finishExit, slideExitMs());
     return () => window.clearTimeout(timer);
   }, [closing, finishExit]);
 
@@ -309,16 +319,20 @@ export function OsSlideOverScreen({
   }, [layerOpen]);
 
   useEffect(() => {
-    if (!layerOpen || parked || yielded) return;
+    if (!layerOpen || parked || yielded || !overlay.top) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       if (event.defaultPrevented) return;
+      const root = slideRootRef.current;
+      if (!root || !root.isConnected) return;
       event.preventDefault();
+      event.stopPropagation();
       requestClose();
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [layerOpen, parked, requestClose, yielded]);
+    // Capture so a sheet under this Read cannot close it without the exit.
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [layerOpen, overlay.top, parked, requestClose, yielded]);
 
   useOsScreenChromeHeightSync({ enabled: renderOpen, headerRef });
 
