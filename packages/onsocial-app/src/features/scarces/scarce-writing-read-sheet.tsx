@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent,
   type ReactNode,
 } from 'react';
 import {
@@ -455,6 +456,8 @@ export function WritingReadSheet({
   onDismissThread,
   pane = null,
   sourcePostPath = null,
+  parked = false,
+  onClickCapture,
 }: {
   open: boolean;
   onClose: () => void;
@@ -487,6 +490,10 @@ export function WritingReadSheet({
   onDismissThread?: () => void;
   pane?: ReactNode;
   sourcePostPath?: string | null;
+  /** Place stack parked under a profile. Stay mounted, leave the screen. */
+  parked?: boolean;
+  /** Profile and other in-app links inside the page. */
+  onClickCapture?: (event: MouseEvent<HTMLElement>) => void;
 }) {
   const faceZ = postLayerOverlayZ(usePostLayerOwnerZ()).face;
   const { isConnected, connect, isLoading } = useAppWallet();
@@ -666,6 +673,7 @@ export function WritingReadSheet({
   return (
     <OsSlideOverScreen
       open={open}
+      yielded={parked}
       onClose={requestClose}
       onClosed={onClosed}
       title={dialogName}
@@ -695,7 +703,7 @@ export function WritingReadSheet({
       pane={pane}
     >
       <ArticleReadProgress progress={progress} />
-      <div className="feed-article-read">
+      <div className="feed-article-read" onClickCapture={onClickCapture}>
         <WritingReadDocument
           open={open}
           title={title}

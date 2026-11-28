@@ -806,21 +806,7 @@ function DropLayerSheet({
   const titleId = useId();
   const renderedZ = resolveGlassSheetZIndex(zIndex, layer.openedAboveMediaFace);
   const leaveFromDrop = (event: ReactMouseEvent) => {
-    if (!isUnmodifiedPrimaryClick(event)) return;
-    const node = event.target;
-    if (!(node instanceof Element)) return;
-    const anchor = node.closest('a');
-    if (!(anchor instanceof HTMLAnchorElement)) return;
-    if (anchor.target === '_blank') return;
-    const href = anchor.getAttribute('href');
-    if (!href || href.startsWith('#') || /^https?:/i.test(href)) return;
-    const path = href.split(/[?#]/)[0] ?? href;
-    if (!path.startsWith('/')) return;
-    // Another drop stays in this sheet. Everything else parks and navigates.
-    if (parseInAppDropLayerHref(path)) return;
-    event.preventDefault();
-    event.stopPropagation();
-    onLeave(href);
+    leavePlaceLayer(event, onLeave);
   };
   return (
     <PostLayerOwnerZProvider value={renderedZ}>
@@ -871,22 +857,32 @@ function DropLayerSheet({
 function ReadLayerScreen({
   layer,
   open,
+  parked,
   onClose,
   onClosed,
+  onLeave,
 }: {
   layer: ReadLayerTarget;
   open: boolean;
+  /** Profile is the screen. Keep Read mounted underneath it. */
+  parked: boolean;
   onClose: () => void;
   onClosed: () => void;
+  onLeave: (href: string) => void;
 }) {
   const renderedZ = resolveGlassSheetZIndex(
     layer.zIndex,
     layer.openedAboveMediaFace
   );
+  const leaveFromRead = (event: ReactMouseEvent) => {
+    leavePlaceLayer(event, onLeave);
+  };
   return (
     <PostLayerOwnerZProvider value={renderedZ}>
       <WritingReadSheet
         open={open}
+        parked={parked}
+        onClickCapture={leaveFromRead}
         onClose={onClose}
         onClosed={onClosed}
         title={layer.title}
@@ -904,6 +900,30 @@ function ReadLayerScreen({
       />
     </PostLayerOwnerZProvider>
   );
+}
+
+/**
+ * In-app link inside a drop or a Read opened from one.
+ * Another drop stays a drop open. A profile parks the stack and navigates.
+ */
+function leavePlaceLayer(
+  event: ReactMouseEvent,
+  onLeave: (href: string) => void
+): void {
+  if (!isUnmodifiedPrimaryClick(event)) return;
+  const node = event.target;
+  if (!(node instanceof Element)) return;
+  const anchor = node.closest('a');
+  if (!(anchor instanceof HTMLAnchorElement)) return;
+  if (anchor.target === '_blank') return;
+  const href = anchor.getAttribute('href');
+  if (!href || href.startsWith('#') || /^https?:/i.test(href)) return;
+  const path = href.split(/[?#]/)[0] ?? href;
+  if (!path.startsWith('/')) return;
+  if (parseInAppDropLayerHref(path)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  onLeave(href);
 }
 
 export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
@@ -1825,9 +1845,11 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
             <ReadLayerScreen
               key={entry.id}
               layer={entry}
+              parked={onProfileHop}
               open={entry.id !== closingId}
               onClose={closePostThread}
               onClosed={() => handleSheetClosed(entry.id)}
+              onLeave={openProfileFromLayer}
             />
           );
         }
