@@ -1,5 +1,18 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 34666fb..4e80c45 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -3195,7 +3195,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "sputnikdao2"
+-version = "2.3.1"
++version = "2.3.1-onsocial.1"
+ dependencies = [
+  "cargo-near-build",
+  "hex",
 diff --git a/sputnikdao2/Cargo.toml b/sputnikdao2/Cargo.toml
-index f4ff52f..cc80264 100644
+index f4ff52f..977f09e 100644
 --- a/sputnikdao2/Cargo.toml
 +++ b/sputnikdao2/Cargo.toml
 @@ -1,6 +1,6 @@
@@ -10,6 +23,15 @@ index f4ff52f..cc80264 100644
  authors = ["Sputnik Devs <near-daos@protonmail.com>"]
  edition = "2024"
  publish = false
+@@ -10,7 +10,7 @@ repository = "https://github.com/near-daos/sputnik-dao-contract"
+ crate-type = ["cdylib", "rlib"]
+ 
+ [dependencies]
+-near-sdk = { version = "5.24", features = ["global-contracts"] }
++near-sdk = { version = "5.24", features = ["global-contracts", "unit-testing"] }
+ near-contract-standards = "5.24"
+ hex = "0.4.3"
+ 
 diff --git a/sputnikdao2/src/proposals.rs b/sputnikdao2/src/proposals.rs
 index bced941..950ba3a 100644
 --- a/sputnikdao2/src/proposals.rs
@@ -75,3 +97,245 @@ index f07cdad..2d71e98 100644
  pub(crate) fn upgrade_remote(receiver_id: &AccountId, method_name: &str, hash: &CryptoHash) {
      let input = env::storage_read(hash).expect("ERR_NO_HASH");
      let promise_id = env::promise_batch_create(receiver_id);
+diff --git a/sputnikdao2/tests/test_upgrade.rs b/sputnikdao2/tests/test_upgrade.rs
+index b9b35e0..7af500a 100644
+--- a/sputnikdao2/tests/test_upgrade.rs
++++ b/sputnikdao2/tests/test_upgrade.rs
+@@ -3,7 +3,7 @@ use near_sdk::serde_json::json;
+ 
+ use near_api::AccountId;
+ use near_api::NearToken;
+-use sputnikdao2::{Action, Config, ProposalInput, ProposalKind, VersionedPolicy};
++use sputnikdao2::{Action, ProposalInput, ProposalKind};
+ 
+ use rand::Rng;
+ use walrus::ModuleConfig;
+@@ -26,88 +26,167 @@ pub fn add_data_segment(wasm: &[u8], size: usize) -> testresult::TestResult<Vec<
+     Ok(module.emit_wasm())
+ }
+ 
+-#[tokio::test]
+-async fn test_upgrade_using_factory() -> testresult::TestResult {
+-    let (ctx, factory) = setup_factory().await?;
+-    let root = ctx.root;
+-
+-    let config = Config {
+-        name: "testdao".to_string(),
+-        purpose: "to test".to_string(),
+-        metadata: Base64VecU8(vec![]),
+-    };
+-    let policy = VersionedPolicy::Default(vec![root.clone()]);
+-    let params = json!({ "config": config, "policy": policy }).to_string();
+-
+-    factory
++async fn store_dao_blob(
++    ctx: &TestContext,
++    dao: &near_api::Contract,
++) -> testresult::TestResult<Base58CryptoHash> {
++    Ok(dao
++        .call_function_raw("store_blob", dao_wasm_bytes().to_vec())
++        .transaction()
++        .deposit(NearToken::from_near(200))
++        .max_gas()
++        .with_signer(ctx.root.clone(), ctx.signer.clone())
++        .send_to(&ctx.sandbox_network)
++        .await?
++        .json()?)
++}
++
++async fn act_upgrade_self(
++    ctx: &TestContext,
++    dao: &near_api::Contract,
++    voter: &AccountId,
++    proposal_id: u64,
++    hash: Base58CryptoHash,
++) -> testresult::TestResult<near_api::types::transaction::result::ExecutionFinalResult> {
++    Ok(dao
+         .call_function(
+-            "create",
++            "act_proposal",
+             json!({
+-                "name": "testdao",
+-                "args": Base64VecU8(params.into())
++                "id": proposal_id,
++                "action": Action::VoteApprove,
++                "proposal": ProposalKind::UpgradeSelf { hash }
+             }),
+         )
+         .transaction()
+-        .deposit(NearToken::from_near(10))
+         .max_gas()
+-        .with_signer(root.clone(), ctx.signer.clone())
++        .with_signer(voter.clone(), ctx.signer.clone())
+         .send_to(&ctx.sandbox_network)
+-        .await?
+-        .into_result()?;
++        .await?)
++}
+ 
+-    let dao_account_id: AccountId = format!("testdao.{}", factory.0).parse()?;
+-    let dao_list: Vec<near_api::AccountId> = factory
+-        .call_function("get_dao_list", ())
+-        .read_only()
+-        .fetch_from(&ctx.sandbox_network)
+-        .await?
+-        .data;
+-    assert_eq!(dao_list, [dao_account_id.clone()]);
++/// OnSocial patch: UpgradeSelf deploys from this DAO's store_blob, not the factory.
++#[tokio::test]
++async fn test_upgrade_self_from_blob_succeeds() -> testresult::TestResult {
++    let (ctx, dao) = setup_dao().await?;
++    let hash = store_dao_blob(&ctx, &dao).await?;
++
++    let proposal_id: u64 = add_proposal(
++        &ctx,
++        &dao,
++        ProposalInput {
++            description: "upgrade self from local blob".to_string(),
++            kind: ProposalKind::UpgradeSelf { hash },
++        },
++    )
++    .await
++    .json()?;
++
++    let result = act_upgrade_self(&ctx, &dao, &ctx.root, proposal_id, hash).await?;
++    let result = result.into_result()?;
++    assert!(
++        result.failures().is_empty(),
++        "{:?}",
++        result.failures()
++    );
+ 
+-    let hash: Base58CryptoHash = factory
+-        .call_function("get_default_code_hash", ())
++    let version: String = dao
++        .call_function("version", ())
+         .read_only()
+         .fetch_from(&ctx.sandbox_network)
+         .await?
+         .data;
++    assert!(
++        version.starts_with("2.3.1"),
++        "unexpected version after UpgradeSelf: {version}"
++    );
+ 
+-    let proposal_kind = ProposalKind::UpgradeSelf { hash };
+-    let proposal_id: u64 = near_api::Contract(dao_account_id.clone())
+-        .call_function(
+-            "add_proposal",
+-            json!({ "proposal": {
+-                "description": "proposal to test",
+-                "kind": proposal_kind,
+-            }}),
+-        )
+-        .transaction()
+-        .deposit(NearToken::from_near(1))
+-        .with_signer(root.clone(), ctx.signer.clone())
+-        .send_to(&ctx.sandbox_network)
+-        .await?
+-        .json()?;
++    Ok(())
++}
+ 
+-    assert_eq!(0, proposal_id);
++#[tokio::test]
++async fn test_upgrade_self_wrong_hash_fails() -> testresult::TestResult {
++    let (ctx, dao) = setup_dao().await?;
++    let _stored = store_dao_blob(&ctx, &dao).await?;
++    let wrong: Base58CryptoHash = "HLBiX51txizmQzZJMrHMCq4u7iEEqNbaJppZ84yW7628"
++        .parse()
++        .expect("valid base58 hash");
+ 
+-    let act_proposal_result = near_api::Contract(dao_account_id.clone())
+-        .call_function(
+-            "act_proposal",
+-            json!({
+-                "id": 0,
+-                "action": Action::VoteApprove,
+-                "proposal": proposal_kind
+-            }),
+-        )
++    let proposal_id: u64 = add_proposal(
++        &ctx,
++        &dao,
++        ProposalInput {
++            description: "upgrade with missing hash".to_string(),
++            kind: ProposalKind::UpgradeSelf { hash: wrong },
++        },
++    )
++    .await
++    .json()?;
++
++    let result = act_upgrade_self(&ctx, &dao, &ctx.root, proposal_id, wrong).await?;
++    assert!(
++        format!("{:?}", result.failures()).contains("ERR_NO_HASH"),
++        "{:?}",
++        result.failures()
++    );
++
++    Ok(())
++}
++
++#[tokio::test]
++async fn test_upgrade_self_non_member_rejected() -> testresult::TestResult {
++    let (ctx, dao) = setup_dao().await?;
++    let alice = create_named_account(&ctx, "alice", 100).await?;
++    let hash = store_dao_blob(&ctx, &dao).await?;
++
++    let proposal_id: u64 = add_proposal(
++        &ctx,
++        &dao,
++        ProposalInput {
++            description: "upgrade self".to_string(),
++            kind: ProposalKind::UpgradeSelf { hash },
++        },
++    )
++    .await
++    .json()?;
++
++    let result = act_upgrade_self(&ctx, &dao, &alice, proposal_id, hash).await?;
++    assert!(
++        format!("{:?}", result.failures()).contains("ERR_PERMISSION_DENIED"),
++        "{:?}",
++        result.failures()
++    );
++
++    Ok(())
++}
++
++#[tokio::test]
++async fn test_upgrade_self_removed_blob_fails() -> testresult::TestResult {
++    let (ctx, dao) = setup_dao().await?;
++    let hash = store_dao_blob(&ctx, &dao).await?;
++
++    dao.call_function("remove_blob", json!({ "hash": hash }))
+         .transaction()
+-        .with_signer(root.clone(), ctx.signer)
++        .with_signer(ctx.root.clone(), ctx.signer.clone())
+         .send_to(&ctx.sandbox_network)
+         .await?
+         .into_result()?;
+-    assert_eq!(
+-        0,
+-        act_proposal_result.failures().len(),
++
++    let proposal_id: u64 = add_proposal(
++        &ctx,
++        &dao,
++        ProposalInput {
++            description: "upgrade after blob removed".to_string(),
++            kind: ProposalKind::UpgradeSelf { hash },
++        },
++    )
++    .await
++    .json()?;
++
++    let result = act_upgrade_self(&ctx, &dao, &ctx.root, proposal_id, hash).await?;
++    assert!(
++        format!("{:?}", result.failures()).contains("ERR_NO_HASH"),
+         "{:?}",
+-        act_proposal_result.failures()
++        result.failures()
+     );
+ 
+     Ok(())

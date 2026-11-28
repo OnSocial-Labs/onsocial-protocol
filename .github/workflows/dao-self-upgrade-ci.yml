@@ -1,0 +1,46 @@
+name: DAO self-upgrade CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deployment/governance-dao/patches/**'
+      - 'scripts/prepare_sputnik_dao_artifacts.sh'
+      - 'scripts/test_sputnik_dao_self_upgrade.sh'
+      - '.github/workflows/dao-self-upgrade-ci.yml'
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+    paths:
+      - 'deployment/governance-dao/patches/**'
+      - 'scripts/prepare_sputnik_dao_artifacts.sh'
+      - 'scripts/test_sputnik_dao_self_upgrade.sh'
+      - '.github/workflows/dao-self-upgrade-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+    name: UpgradeSelf blob-store tests
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.86
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install cargo-near CLI
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/latest/download/cargo-near-installer.sh | sh
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ runner.temp }}/onsocial-sputnik-dao-contract -> target
+
+      - name: Run self-upgrade workspaces tests
+        env:
+          SPUTNIK_WORK_DIR: ${{ runner.temp }}/onsocial-sputnik-dao-contract
+        run: bash scripts/test_sputnik_dao_self_upgrade.sh

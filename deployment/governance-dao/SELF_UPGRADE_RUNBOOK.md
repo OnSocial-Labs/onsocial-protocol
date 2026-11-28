@@ -15,13 +15,17 @@ SPUTNIK_FAST_BUILD=1 SPUTNIK_DAO_VERSION=2.3.1-onsocial.2 \
   SPUTNIK_OUTPUT_DIR=deployment/governance-dao/artifacts/proof \
   bash scripts/prepare_sputnik_dao_artifacts.sh
 
-# Reproducible docker build (preferred before mainnet)
+# Reproducible docker build (locked; preferred for the next ship)
 bash scripts/prepare_sputnik_dao_artifacts.sh
+
+# UpgradeSelf blob-store workspaces tests (also CI)
+bash scripts/test_sputnik_dao_self_upgrade.sh
 ```
 
-Patch source: [`patches/upgrade-self-blob.patch`](patches/upgrade-self-blob.patch)  
+Patch source: [`patches/upgrade-self-blob.patch`](patches/upgrade-self-blob.patch) (includes `Cargo.lock` + UpgradeSelf tests)  
 Base commit: `2b0f34a3860460f285307ec2ccf36345acbe05a2` (Sputnik 2.3.1)  
-Manifest: [`artifacts/manifest.txt`](artifacts/manifest.txt)
+Manifest: [`artifacts/manifest.txt`](artifacts/manifest.txt)  
+On-chain `.2` is fast-build `4feab122…`; locked rebuild is `bf6f951e…` (documented divergence).
 
 Primary patched version: `2.3.1-onsocial.1`  
 Proof upgrade version: `2.3.1-onsocial.2`

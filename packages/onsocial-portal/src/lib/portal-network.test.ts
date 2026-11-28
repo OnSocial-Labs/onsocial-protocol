@@ -51,10 +51,10 @@ describe('portal network choice', () => {
     expect(isPortalCapabilityLive('mainnet', 'token')).toBe(true);
     expect(isPortalCapabilityLive('mainnet', 'rewards')).toBe(true);
     expect(isPortalCapabilityLive('mainnet', 'treasury')).toBe(true);
+    expect(isPortalCapabilityLive('mainnet', 'governance')).toBe(true);
     expect(isPortalCapabilityLive('mainnet', 'swap')).toBe(true);
     expect(isPortalCapabilityLive('mainnet', 'core')).toBe(false);
     expect(isPortalCapabilityLive('mainnet', 'socialSpend')).toBe(false);
-    expect(isPortalCapabilityLive('mainnet', 'governance')).toBe(false);
     expect(isPortalCapabilityLive('testnet', 'core')).toBe(true);
     expect(isPortalCapabilityLive('testnet', 'swap')).toBe(false);
   });

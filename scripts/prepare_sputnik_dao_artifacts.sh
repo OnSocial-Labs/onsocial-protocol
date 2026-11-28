@@ -86,6 +86,21 @@ DAO_VERSION="$(
   ' "$WORK_DIR/sputnikdao2/Cargo.toml"
 )"
 
+# Keep workspace Cargo.lock aligned with sputnikdao2's package version so
+# cargo-near reproducible builds (--locked) succeed after the version bump.
+LOCK_DAO_VERSION="$(
+  awk '
+    $0 == "name = \"sputnikdao2\"" { getline; if ($1 == "version") { gsub(/"/, "", $3); print $3; exit } }
+  ' "$WORK_DIR/Cargo.lock"
+)"
+if [ "$LOCK_DAO_VERSION" != "$DAO_VERSION" ]; then
+  echo "Syncing Cargo.lock sputnikdao2 version: $LOCK_DAO_VERSION -> $DAO_VERSION"
+  (
+    cd "$WORK_DIR"
+    cargo update -p sputnikdao2
+  )
+fi
+
 if [ "$FAST_BUILD" = "1" ]; then
   echo "Building sputnikdao2 (fast / non-reproducible)"
   export CARGO_TARGET_DIR="$WORK_DIR/target"
@@ -110,8 +125,11 @@ if [ "$FAST_BUILD" = "1" ]; then
   FACTORY_COPIED=0
 else
   echo "Building reproducible Sputnik DAO artifacts"
+  # cargo-near docker builds copy artifacts back relative to the repo; a host
+  # CARGO_TARGET_DIR (e.g. sandbox cache) breaks the assumed result path.
   (
     cd "$WORK_DIR"
+    unset CARGO_TARGET_DIR
     ./build.sh
   )
 

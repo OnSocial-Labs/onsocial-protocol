@@ -1,19 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ACTIVE_BACKEND_URL } from '@/lib/portal-config';
+import { getRequestBackendUrl } from '@/lib/portal-network-request';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const GOVERNANCE_BACKEND_URL = process.env.BACKEND_URL ?? ACTIVE_BACKEND_URL;
 const FORWARDED_RESPONSE_HEADERS = ['content-type', 'cache-control'] as const;
 
-function buildTargetUrl(search: string): string {
-  const trimmedBase = GOVERNANCE_BACKEND_URL.replace(/\/$/, '');
-  return `${trimmedBase}/v1/governance/feed${search}`;
-}
-
 export async function GET(request: NextRequest) {
-  const targetUrl = buildTargetUrl(request.nextUrl.search || '?scope=all');
+  const trimmedBase = await getRequestBackendUrl();
+  const targetUrl = `${trimmedBase}/v1/governance/feed${request.nextUrl.search || '?scope=all'}`;
 
   try {
     const res = await fetch(targetUrl, { cache: 'no-store' });
@@ -35,14 +30,17 @@ export async function GET(request: NextRequest) {
     const message =
       error instanceof Error ? error.message : 'Unknown upstream error';
 
-    return NextResponse.json(
-      {
+    return new NextResponse(
+      JSON.stringify({
         success: false,
         error: 'Backend unreachable',
         upstream: targetUrl,
         detail: message,
-      },
-      { status: 502 }
+      }),
+      {
+        status: 502,
+        headers: { 'content-type': 'application/json' },
+      }
     );
   }
 }
