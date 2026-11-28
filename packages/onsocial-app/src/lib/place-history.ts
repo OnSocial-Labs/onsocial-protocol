@@ -524,3 +524,15 @@ export function beginHistoryBack(input: {
   }
   return { back: true, armPending: input.depth > 0 };
 }
+
+/**
+ * Header Back finishes the exit slide, then `history.back()`, then
+ * sheet-closed in the same turn. Zeroing depth before that popstate lands
+ * lets App Router see the pop and leave the underlay (about:blank in e2e).
+ * Keep depth until `onPop` when a close pop is still pending.
+ */
+export function shouldZeroPlaceDepthOnSheetClosed(
+  closePopPending: boolean
+): boolean {
+  return !closePopPending;
+}

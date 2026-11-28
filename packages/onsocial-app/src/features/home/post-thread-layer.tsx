@@ -132,6 +132,7 @@ import {
   replacePlaceLayer,
   replacePlaceLayerAt,
   setPlaceLayerDepth,
+  shouldZeroPlaceDepthOnSheetClosed,
   stepOverReloadedPlaceEntry,
   withoutClosingLayer,
 } from '@/lib/place-history';
@@ -1874,7 +1875,13 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       const saved = underlayScrollRef.current;
       underlayScrollRef.current = null;
       if (saved) restoreUnderlayScroll(saved);
-      if (typeof window !== 'undefined') getPlaceHistoryGuard().depth = 0;
+      // A pending close pop must still see depth > 0 so the guard swallows it.
+      if (
+        typeof window !== 'undefined' &&
+        shouldZeroPlaceDepthOnSheetClosed(closePopPendingRef.current)
+      ) {
+        getPlaceHistoryGuard().depth = 0;
+      }
     }
   }, []);
 
