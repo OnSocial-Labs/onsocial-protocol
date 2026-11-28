@@ -30413,14 +30413,6 @@ a.os-surface-row,
     margin: 0 0 0.85rem;
   }
 
-  .collection-writing-work-title {
-    margin: 0;
-    font-size: 1.25rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    line-height: 1.2;
-  }
-
   .collection-writing-byline {
     display: flex;
     align-items: center;
@@ -34539,6 +34531,16 @@ a.os-surface-row,
 
   .feed-article-slide .feed-article-read .portfolio-writing-article {
     width: min(100%, 40rem);
+  }
+
+  /* Masthead already sets the column. Body text uses that same edge. */
+  .feed-article-slide
+    .feed-article-read
+    .collection-writing.is-immersive
+    .collection-writing-body {
+    max-width: none;
+    margin-inline: 0;
+    padding-inline: 0;
   }
 
   .feed-article-slide .feed-article-read .portfolio-writing-byline,

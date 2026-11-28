@@ -22,7 +22,11 @@ import {
   type ScarceReadableMedia,
   type WritingReleaseFormat,
 } from '@/features/scarces/drop-writing';
-import { writingUntitledLabel } from '@/features/scarces/writing-read-voice';
+import {
+  readerChapterHeading,
+  stripLeadingRepeatedHeading,
+  writingUntitledLabel,
+} from '@/features/scarces/writing-read-voice';
 import { downloadIpfsMedia } from '@/lib/media-download';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import Link from 'next/link';
@@ -32,10 +36,6 @@ import { displayName } from '@/lib/profile-display';
 
 function readablesKey(readables: ScarceReadableMedia[]): string {
   return readables.map((entry) => entry.url).join('\0');
-}
-
-function titlesMatch(left: string, right: string): boolean {
-  return left.trim().toLowerCase() === right.trim().toLowerCase();
 }
 
 export type WritingReaderActions = {
@@ -89,7 +89,7 @@ export function CollectionWritingReader({
   /** Center tap — show or hide jacket / OS chrome. */
   onChromeTap?: () => void;
   seekProgressRef?: MutableRefObject<((ratio: number) => void) | null>;
-  /** Work title on the page — jacket is chrome only. */
+  /** Masthead already shows this. The same chapter name is not titled again. */
   workTitle?: string | null;
   creatorId?: string | null;
   creatorName?: string | null;
@@ -164,10 +164,7 @@ export function CollectionWritingReader({
     setTocOpen(false);
   }
 
-  const safeIndex = Math.min(
-    chapterIndex,
-    Math.max(0, readables.length - 1)
-  );
+  const safeIndex = Math.min(chapterIndex, Math.max(0, readables.length - 1));
   if (chapterIndex !== safeIndex && readables.length > 0) {
     setChapterIndex(safeIndex);
   }
@@ -178,11 +175,6 @@ export function CollectionWritingReader({
   const inlineText = canRead && chapter?.text != null ? chapter.text : null;
   const chapterUrl =
     canRead && inlineText == null ? (chapter?.url ?? null) : null;
-  const chapterLabel =
-    chapter?.title?.trim() ||
-    (readables.length > 0
-      ? `Chapter ${safeIndex + 1}`
-      : writingUntitledLabel());
   const body =
     !chapterIsPdf && inlineText != null
       ? inlineText
@@ -505,7 +497,8 @@ export function CollectionWritingReader({
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     const target = event.target as HTMLElement | null;
     if (target?.closest('a, button, input, textarea, [role="button"]')) return;
-    const width = bodyRef.current?.clientWidth || event.currentTarget.clientWidth;
+    const width =
+      bodyRef.current?.clientWidth || event.currentTarget.clientWidth;
     const zone =
       writingReaderTap({
         x: event.clientX - event.currentTarget.getBoundingClientRect().left,
@@ -572,8 +565,7 @@ export function CollectionWritingReader({
   const canDownloadChapter = Boolean(
     canRead &&
       chapter &&
-      (chapter.cid ||
-        (chapter.url && !chapter.url.startsWith('post:')))
+      (chapter.cid || (chapter.url && !chapter.url.startsWith('post:')))
   );
   const canDownloadBook = Boolean(canRead && bookPdf);
   const downloadChapter = async () => {
@@ -622,48 +614,49 @@ export function CollectionWritingReader({
     return () => onReaderActionsRef.current?.(null);
   }, []);
 
-  const namedChapter =
-    Boolean(chapter?.title?.trim()) &&
-    !titlesMatch(chapter?.title ?? '', workTitle ?? '');
-  const showChapterChip = isBook || Boolean(pdfPageLabel) || namedChapter;
+  const chapterHeading = readerChapterHeading({
+    chapterTitle: chapter?.title ?? '',
+    workTitle: workTitle ?? '',
+    isBook,
+    untitledBookLabel: readables.length > 0 ? `Chapter ${safeIndex + 1}` : '',
+  });
+  const showChapterChip =
+    isBook || Boolean(pdfPageLabel) || Boolean(chapterHeading);
   const creatorHref = creatorId?.trim()
     ? portfolioPath(creatorId.trim())
     : null;
-  const creatorLabel = creatorId
-    ? displayName(creatorId, creatorName)
-    : '';
+  const creatorLabel = creatorId ? displayName(creatorId, creatorName) : '';
   const workHead =
-    immersive && (workTitle?.trim() || creatorHref) ? (
+    immersive && creatorHref && creatorId ? (
       <div className="collection-writing-work">
-        {workTitle?.trim() ? (
-          <h1 className="collection-writing-work-title">{workTitle.trim()}</h1>
-        ) : null}
-        {creatorHref && creatorId ? (
-          <div className="collection-writing-byline">
-            <Link
-              href={creatorHref}
-              className="os-media-face-identity"
-              scroll={false}
-              prefetch={false}
-              aria-label={`View ${creatorLabel}'s profile`}
-            >
-              <AccountAvatar
-                accountId={creatorId}
-                src={creatorAvatarUrl}
-                fallbackInitial={creatorLabel}
-                size="lg"
-                className="post-card-avatar"
-              />
-              <span className="os-media-face-identity-copy">
-                <span className="os-media-face-identity-name-row">
-                  <span className="os-media-face-identity-name">{creatorLabel}</span>
-                  <ProtocolNameTrailing accountId={creatorId} />
+        <div className="collection-writing-byline">
+          <Link
+            href={creatorHref}
+            className="os-media-face-identity"
+            scroll={false}
+            prefetch={false}
+            aria-label={`View ${creatorLabel}'s profile`}
+          >
+            <AccountAvatar
+              accountId={creatorId}
+              src={creatorAvatarUrl}
+              fallbackInitial={creatorLabel}
+              size="lg"
+              className="post-card-avatar"
+            />
+            <span className="os-media-face-identity-copy">
+              <span className="os-media-face-identity-name-row">
+                <span className="os-media-face-identity-name">
+                  {creatorLabel}
                 </span>
-                <span className="os-media-face-identity-handle">@{creatorId}</span>
+                <ProtocolNameTrailing accountId={creatorId} />
               </span>
-            </Link>
-          </div>
-        ) : null}
+              <span className="os-media-face-identity-handle">
+                @{creatorId}
+              </span>
+            </span>
+          </Link>
+        </div>
       </div>
     ) : null;
 
@@ -749,7 +742,10 @@ export function CollectionWritingReader({
     if (!bookPdf) return null;
     if (immersive && !gestures) {
       return (
-        <section className="collection-writing is-immersive" aria-label="Reading">
+        <section
+          className="collection-writing is-immersive"
+          aria-label="Reading"
+        >
           {canRead ? (
             <div className="collection-writing-tools">{downloads}</div>
           ) : (
@@ -822,7 +818,7 @@ export function CollectionWritingReader({
                 </div>
               ) : (
                 <p className="collection-writing-article-label">
-                  {pdfPageLabel ?? chapterLabel}
+                  {pdfPageLabel ?? chapterHeading}
                 </p>
               )
             ) : null}
@@ -874,9 +870,9 @@ export function CollectionWritingReader({
               }
               onAnimationEnd={onTurnAnimationEnd}
             >
-              {isBook && chapter ? (
+              {isBook && chapterHeading ? (
                 <h3 className="collection-writing-chapter-title">
-                  {chapterLabel}
+                  {chapterHeading}
                 </h3>
               ) : null}
               {chapterIsPdf && chapterUrl ? (
@@ -910,7 +906,10 @@ export function CollectionWritingReader({
                     remarkPlugins={[remarkGfm]}
                     rehypePlugins={[rehypeSanitize]}
                   >
-                    {body}
+                    {stripLeadingRepeatedHeading(body, [
+                      workTitle ?? '',
+                      chapterHeading ?? '',
+                    ])}
                   </ReactMarkdown>
                 </div>
               ) : null}

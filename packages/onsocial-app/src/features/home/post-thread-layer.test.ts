@@ -16,12 +16,14 @@ import {
   isSameReaderTarget,
   revealTrailReader,
   PLACE_LAYER_KINDS,
+  dropTapRevealsOpenDrop,
   replaceStackWith,
   retabTopQuotes,
   walkBackOneStep,
   type DropStackEntry,
   type PostStackEntry,
   type QuotesStackEntry,
+  type ReadStackEntry,
 } from './post-thread-stack';
 
 const layerSrc = dirname(fileURLToPath(import.meta.url));
@@ -60,6 +62,11 @@ function quotesEntry(
 function dropEntry(collectionId: string): DropStackEntry {
   seq += 1;
   return { id: `drop-${seq}`, kind: 'drop', collectionId, zIndex: 100 };
+}
+
+function readEntry(collectionId: string): ReadStackEntry {
+  seq += 1;
+  return { id: `read-${seq}`, kind: 'read', collectionId, zIndex: 120 };
 }
 
 describe('thread trail stack', () => {
@@ -107,11 +114,16 @@ describe('thread trail stack', () => {
     expect(
       walkBackOneStep([postEntry('a.testnet', '1'), dropEntry('c1')])
     ).toBeNull();
+    const drop = dropEntry('chapter-one');
+    const read = readEntry('chapter-one');
+    expect(walkBackOneStep([drop, read])).toEqual([drop]);
+    expect(walkBackOneStep([read])).toBeNull();
   });
 
   it('a drop takes over the host instead of stacking over readers', () => {
     expect(isReaderLayerKind('post')).toBe(true);
     expect(isReaderLayerKind('quotes')).toBe(true);
+    expect(isReaderLayerKind('read')).toBe(true);
     expect(isReaderLayerKind('drop')).toBe(false);
 
     const drop = dropEntry('writers-chest');
@@ -219,8 +231,31 @@ describe('thread trail stack', () => {
 });
 
 describe('article place layer discipline', () => {
-  it('stacks only post readers, quotes, and drops', () => {
-    expect([...PLACE_LAYER_KINDS].sort()).toEqual(['drop', 'post', 'quotes']);
+  it('stacks post readers, quotes, drops, and Read', () => {
+    expect([...PLACE_LAYER_KINDS].sort()).toEqual([
+      'drop',
+      'post',
+      'quotes',
+      'read',
+    ]);
+  });
+
+  it('Drop from a reader that covers that drop closes the reader', () => {
+    const drop = dropEntry('chapter-one');
+    const read = readEntry('chapter-one');
+    expect(dropTapRevealsOpenDrop([drop, read], 'chapter-one')).toBe(true);
+    expect(dropTapRevealsOpenDrop([read], 'chapter-one')).toBe(true);
+    expect(
+      dropTapRevealsOpenDrop([readEntry('chapter-one')], 'chapter-one%20')
+    ).toBe(true);
+    expect(dropTapRevealsOpenDrop([drop, read], 'other-drop')).toBe(false);
+    expect(dropTapRevealsOpenDrop([drop], 'chapter-one')).toBe(false);
+    expect(
+      dropTapRevealsOpenDrop(
+        [dropEntry('other-drop'), readEntry('chapter-one')],
+        'chapter-one'
+      )
+    ).toBe(false);
   });
 
   it('opens a guest Writing permalink as a plain post layer', () => {

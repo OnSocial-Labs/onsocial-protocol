@@ -48,6 +48,7 @@ describe('drop cover expand wiring', () => {
   it('opens listed-article Read in the folio reader on the drop', () => {
     expect(panel).toContain('WritingReadSheet');
     expect(panel).toContain('hydrateWritingManifest(view)');
+    expect(panel).toContain('openRead({');
     expect(panel).toContain('setWritingReadOpen(true)');
     expect(panel).toContain('prefetchDropRead');
     expect(panel).not.toContain('router.push(listedArticleHref)');
@@ -65,6 +66,8 @@ describe('drop cover expand wiring', () => {
     expect(reader).toContain('ARTICLE_READ_CLASS');
     expect(reader).toContain('ArticleReadProgress');
     expect(reader).toContain('gestures={false}');
+    expect(reader).toContain('workTitle={workTitle || null}');
+    expect(reader).not.toContain('workTitle={null}');
     expect(reader).toContain('onChromeTap={onChromeTap}');
     expect(reader).not.toContain('compactChrome');
     expect(reader).not.toContain('WritingReaderMenu');
