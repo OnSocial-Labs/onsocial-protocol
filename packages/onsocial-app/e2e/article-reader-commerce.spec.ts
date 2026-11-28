@@ -4,6 +4,7 @@ import {
   dismissNextDevOverlay,
   e2ePortfolioAccountId,
   gotoApp,
+  settledNode,
 } from './helpers';
 
 const ACCOUNT = e2ePortfolioAccountId();
@@ -50,11 +51,25 @@ test.describe('article reader commerce', () => {
   test('Read opened from the drop stays on that drop', async ({ page }) => {
     const { drop, reader } = await openNightRead(page);
 
+    await expect(reader).not.toHaveAttribute('data-keep-dock', 'true');
+    const dock = settledNode(page, '.portfolio-summon-dock');
+    await expect
+      .poll(async () =>
+        dock.evaluate((el) => {
+          const style = getComputedStyle(el);
+          return style.opacity === '0' && style.pointerEvents === 'none';
+        })
+      )
+      .toBe(true);
+
     await page.goBack();
     await expect(reader).toHaveCount(0);
     await expect(drop).toBeVisible();
     await expect(drop.locator('.collection-title')).toHaveText('Night drive');
     await expect(page).toHaveURL(/\/collection\/night-essay\/?$/);
+    await expect
+      .poll(async () => dock.evaluate((el) => getComputedStyle(el).opacity))
+      .toBe('1');
 
     await page.goBack();
     await expect(drop).toHaveCount(0);
