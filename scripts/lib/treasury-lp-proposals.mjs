@@ -20,6 +20,25 @@ export const SOCIAL_DECIMALS = 18;
 export const WNEAR_DECIMALS = 24;
 export const USDC_DECIMALS = 6;
 
+/** NEAR protocol storage stake per byte (`10^19` yocto). */
+export const NEAR_STORAGE_BYTE_COST = 10_000_000_000_000_000_000n;
+/** Leave headroom after near_deposit / bond txs so the account stays liquid. */
+export const NEAR_SPEND_BUFFER_YOCTO = 50_000_000_000_000_000_000_000n; // 0.05 Ⓝ
+
+/**
+ * Spendable NEAR = amount − locked − storage stake (floored at 0).
+ * @param {{ amount?: string, locked?: string, storage_usage?: number }} account
+ */
+export function spendableNearYocto(account) {
+  if (!account) return 0n;
+  const total = BigInt(account.amount || '0');
+  const locked = BigInt(account.locked || '0');
+  const storage =
+    BigInt(account.storage_usage || 0) * NEAR_STORAGE_BYTE_COST;
+  const free = total - locked - storage;
+  return free > 0n ? free : 0n;
+}
+
 export const TREASURY_LP_POOLS = {
   6783: {
     poolId: 6783,

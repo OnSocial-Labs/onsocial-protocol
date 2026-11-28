@@ -38,8 +38,10 @@ CLI briefly treated SOCIAL as 24 decimals (1e6× too large). Intended `0.002` SO
 Treasury already has Ref storage, MFT registration, SOCIAL balance, and native NEAR. USDC wallet balance is ~0, so prove on **6783** first. Always run `check` first.
 
 ```bash
-# 1 Ⓝ leg — SOCIAL sized from live reserves (18-decimal safe)
-node scripts/treasury-lp-proposals.mjs check --pool 6783 --pair 1 --dao treasury.onsocial.near
+# 1 Ⓝ leg — SOCIAL sized from live reserves (18-decimal safe).
+# check uses free NEAR (amount − storage − buffer), and proposer's balance for bonds.
+node scripts/treasury-lp-proposals.mjs check --pool 6783 --pair 1 \
+  --dao treasury.onsocial.near --signer onsocial.near
 
 NETWORK=mainnet node scripts/treasury-lp-proposals.mjs add --step 1 \
   --dao treasury.onsocial.near --signer onsocial.near --pool 6783 --pair 1

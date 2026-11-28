@@ -24,6 +24,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {
+  NEAR_SPEND_BUFFER_YOCTO,
   RHEA_REF_CONTRACT,
   SOCIAL_DECIMALS,
   SOCIAL_TOKEN_ID,
@@ -32,6 +33,7 @@ import {
   WNEAR_TOKEN_ID,
   buildTreasuryAddLiquidityProposals,
   matchPairAmount,
+  spendableNearYocto,
 } from './lib/treasury-lp-proposals.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -47,10 +49,10 @@ function fail(message) {
 function usage(code = 0) {
   const out = code === 0 ? console.log : console.error;
   out(`Usage:
-  node scripts/treasury-lp-proposals.mjs check --pool 6783|6771 --social <human> --dao treasury.onsocial.near
+  node scripts/treasury-lp-proposals.mjs check --pool 6783|6771 --pair 1 --dao treasury.onsocial.near --signer onsocial.near
   node scripts/treasury-lp-proposals.mjs emit --pool 6783|6771 --social <human>
   node scripts/treasury-lp-proposals.mjs emit --pool 6783 --social-yocto <n> --pair-yocto <n>
-  node scripts/treasury-lp-proposals.mjs add --dao <dao> --signer <account> --pool 6783 --social <human>
+  node scripts/treasury-lp-proposals.mjs add --dao <dao> --signer <account> --pool 6783 --pair 1
 
 Options:
   --out-dir <dir>     default: deployment/governance-dao
@@ -59,6 +61,7 @@ Options:
   --fetch-pool        size pair side from live mainnet reserves
   --pair <human>      pair human amount (NEAR for 6783, USDC for 6771)
   --pair-yocto <n>
+  --signer <account>  council proposer (required for check bond cover)
   --step <1|2|3|all>  add only one proposal step (default all)
 `);
   process.exit(code);
@@ -321,16 +324,33 @@ async function runCheck(options, built) {
     finality: 'final',
     account_id: dao,
   });
-  const nativeNear = BigInt(account.amount);
+  const daoFreeNear = spendableNearYocto(account);
   requireOk(
     'treasury account exists',
     Boolean(account.code_hash),
-    `native_near=${nativeNear}`
+    `amount=${account.amount} free=${daoFreeNear} storage_usage=${account.storage_usage}`
   );
 
   const policy = await viewCall(dao, 'get_policy', {});
   const bond = BigInt(policy.proposal_bond || '0');
   requireOk('proposal_bond readable', bond > 0n, bond.toString());
+
+  if (!options.signer) {
+    fail('check requires --signer <council> to verify proposal-bond cover');
+  }
+  const signerAccount = await rpcQuery({
+    request_type: 'view_account',
+    finality: 'final',
+    account_id: options.signer,
+  });
+  const signerFreeNear = spendableNearYocto(signerAccount);
+  // Three add_proposal bonds (one per step); votes attach 0 deposit.
+  const bondNeed = bond * 3n + NEAR_SPEND_BUFFER_YOCTO;
+  requireOk(
+    'proposer free NEAR covers 3× proposal bonds',
+    signerFreeNear >= bondNeed,
+    `${options.signer} free=${signerFreeNear} need=${bondNeed}`
+  );
 
   const socialBal = BigInt(
     await viewCall(SOCIAL_TOKEN_ID, 'ft_balance_of', { account_id: dao })
@@ -342,13 +362,12 @@ async function runCheck(options, built) {
   );
 
   if (pool.pair === 'wnear' && options.wrapNear) {
-    // near_deposit + 3× proposal bonds + gas headroom
-    const need =
-      BigInt(built.pairAmountYocto) + bond * 3n + 250_000_000_000_000_000_000_000n;
+    // near_deposit spends free NEAR only — storage stake is not spendable.
+    const wrapNeed = BigInt(built.pairAmountYocto) + NEAR_SPEND_BUFFER_YOCTO;
     requireOk(
-      'native NEAR covers wrap + bonds',
-      nativeNear >= need,
-      `${nativeNear} >= ${need}`
+      'treasury free NEAR covers near_deposit',
+      daoFreeNear >= wrapNeed,
+      `free=${daoFreeNear} need=${wrapNeed} (pair+${NEAR_SPEND_BUFFER_YOCTO} buffer)`
     );
   } else if (pool.pair === 'usdc') {
     const usdcBal = BigInt(

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  NEAR_SPEND_BUFFER_YOCTO,
+  NEAR_STORAGE_BYTE_COST,
   RHEA_REF_CONTRACT,
   SOCIAL_DECIMALS,
   SOCIAL_TOKEN_ID,
@@ -10,6 +12,7 @@ import {
   buildTreasuryAddLiquidityProposals,
   encodeArgs,
   matchPairAmount,
+  spendableNearYocto,
 } from './treasury-lp-proposals.mjs';
 
 test('SOCIAL is 18 decimals, wNEAR is 24', () => {
@@ -18,6 +21,29 @@ test('SOCIAL is 18 decimals, wNEAR is 24', () => {
   // 0.002 SOCIAL at 18 decimals — treating as 24 would be 2000 SOCIAL.
   assert.equal(2n * 10n ** 15n, 2_000_000_000_000_000n);
   assert.equal(2n * 10n ** 21n, 2_000_000_000_000_000_000_000n);
+});
+
+test('spendableNearYocto subtracts storage stake and locked', () => {
+  // 2 Ⓝ total, 1 Ⓝ locked in storage bytes, 0 locked stake → 1 Ⓝ free
+  const storageUsage = Number(10n ** 24n / NEAR_STORAGE_BYTE_COST); // 1 Ⓝ of storage
+  assert.equal(
+    spendableNearYocto({
+      amount: '2000000000000000000000000',
+      locked: '0',
+      storage_usage: storageUsage,
+    }),
+    10n ** 24n
+  );
+  // Storage-only account looks rich on amount but has 0 free
+  assert.equal(
+    spendableNearYocto({
+      amount: String(BigInt(storageUsage) * NEAR_STORAGE_BYTE_COST),
+      locked: '0',
+      storage_usage: storageUsage,
+    }),
+    0n
+  );
+  assert.ok(NEAR_SPEND_BUFFER_YOCTO > 0n);
 });
 
 test('matchPairAmount follows pool ratio', () => {
