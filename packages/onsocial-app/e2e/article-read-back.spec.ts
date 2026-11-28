@@ -111,6 +111,32 @@ test.describe('article reader back', () => {
     ).toHaveCount(0);
   });
 
+  test('escape and byline Writing close onto the shelf', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await setE2eGraphWriting(page, 'shelf');
+    await gotoApp(page, writingPath);
+    await waitForPortfolioClientReady(page);
+    await dismissNextDevOverlay(page);
+
+    await page.getByRole('link', { name: 'Night drive' }).click();
+    const night = page.getByRole('dialog', { name: 'Night drive' });
+    await expect(night).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(night).toHaveCount(0);
+    await expect(page).toHaveURL(new RegExp(`${writingPath}/?$`));
+
+    await page.getByRole('link', { name: 'Night drive' }).click();
+    await expect(night).toBeVisible();
+    await night.getByRole('link', { name: 'Writing', exact: true }).click();
+    await expect(night).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Night drive' })).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`${writingPath}/?$`));
+    // Byline close must not leave a duplicate Writing entry — next Back leaves.
+    await page.goBack();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page).not.toHaveURL(new RegExp(`${writingPath}/?$`));
+  });
+
   test('shows the dock again after the reader closes', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await setE2eGraphWriting(page, 'shelf');

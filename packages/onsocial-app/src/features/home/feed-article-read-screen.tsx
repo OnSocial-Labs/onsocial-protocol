@@ -64,6 +64,14 @@ export function FeedArticleReadScreen({
 }) {
   const authorName = displayName(post.accountId, authorProfile?.displayName);
   const hasSocial = Boolean(commerce || engagement);
+  // Feed without a bridge must keep footer={null}. Shelf passes no footer so
+  // ArticleReadOverlay paints the default writing footer.
+  const footer = hasSocial ? (
+    <div className="scarce-post-medium-chrome">
+      {commerce}
+      {engagement}
+    </div>
+  ) : onReturnToShelf ? undefined : null;
 
   return (
     <ArticleReadOverlay
@@ -93,16 +101,7 @@ export function FeedArticleReadScreen({
           initialRoot={threadRoot}
         />
       }
-      {...(hasSocial
-        ? {
-            footer: (
-              <div className="scarce-post-medium-chrome">
-                {commerce}
-                {engagement}
-              </div>
-            ),
-          }
-        : {})}
+      {...(footer !== undefined ? { footer } : {})}
     />
   );
 }

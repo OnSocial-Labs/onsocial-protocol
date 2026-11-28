@@ -149,6 +149,8 @@ function PortfolioWritingShelf({
     },
     [articles, coverHints, openFeedRead]
   );
+  const openShelfArticleRef = useRef(openShelfArticle);
+  openShelfArticleRef.current = openShelfArticle;
 
   useEffect(() => {
     setMoreArticles([]);
@@ -199,9 +201,9 @@ function PortfolioWritingShelf({
       }
     }
     if (!match) return;
-    const id = window.setTimeout(() => openShelfArticle(match!), 0);
+    const id = window.setTimeout(() => openShelfArticleRef.current(match!), 0);
     return () => window.clearTimeout(id);
-  }, [openShelfArticle, panel.articles]);
+  }, [panel.articles]);
   /* Overlay: mood wash lives on the glass sheet — keep the screen clear. */
   const moodId = embedded ? null : mood.id;
   const moodStyle = embedded

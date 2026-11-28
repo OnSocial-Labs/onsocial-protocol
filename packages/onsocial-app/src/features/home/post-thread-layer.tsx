@@ -2012,7 +2012,8 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     return () => setOpenFeedReadKey(null);
   }, [feedReadKey]);
   const readerDockLive =
-    (topPlace?.kind === 'post' || topPlace?.kind === 'quotes') &&
+    ((topPlace?.kind === 'post' || topPlace?.kind === 'quotes') ||
+      (topPlace?.kind === 'read' && Boolean(topPlace.feed))) &&
     topOpen &&
     !onProfileHop;
   useClaimPlaceLayerDockBack(
