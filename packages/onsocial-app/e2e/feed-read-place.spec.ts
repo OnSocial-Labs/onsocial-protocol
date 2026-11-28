@@ -500,14 +500,12 @@ test.describe('drop-backed feed read', () => {
     await essayRequested;
     await page.getByRole('button', { name: 'Back from article' }).click();
     await expect(reader).toHaveCount(0);
+    await expect(page).toHaveURL(/\/home\/?$/);
     releaseEssay();
     await essayDelivered;
-    await page.evaluate(
-      () =>
-        new Promise<void>((resolve) => {
-          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-        })
-    );
+    // Playwright expects retry; avoid page.evaluate after close (nav can destroy
+    // the prior execution context mid-flush).
+    await expect(page).toHaveURL(/\/home\/?$/);
     await expect(page.getByText('The late paragraph.')).toHaveCount(0);
     await expect(page.getByRole('dialog')).toHaveCount(0);
   });

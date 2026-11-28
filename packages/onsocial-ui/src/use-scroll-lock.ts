@@ -16,10 +16,12 @@ let findScrollContainer: ScrollLockContainerFinder = () => {
   const bodies = document.querySelectorAll<HTMLElement>('.os-app-screen-body');
   for (let i = 0; i < bodies.length; i += 1) {
     const body = bodies[i];
-    // Overlay pages own their scroller — lock the screen behind them, never the slide / glass.
+    // Overlay pages own their scroller — lock the screen behind them, never the
+    // slide / glass. A covered feed column is the underlay to lock (attribute
+    // lives on this body), so do not skip `[data-feed-session="covered"]`.
     if (
       body.closest(
-        '.os-slide-over, [data-os-slide-over="true"], .glass-sheet-root, .os-launcher-root, [data-feed-session="covered"]'
+        '.os-slide-over, [data-os-slide-over="true"], .glass-sheet-root, .os-launcher-root'
       )
     ) {
       continue;
