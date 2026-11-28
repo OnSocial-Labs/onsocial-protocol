@@ -63,4 +63,28 @@ describe('isProtocolCreateKindChainAvailable', () => {
       })
     ).toBe(true);
   });
+
+  it('requires social-spend owner for configure routing', () => {
+    expect(
+      isProtocolCreateKindChainAvailable('contract_config', {
+        ...EMPTY_PROTOCOL_PROPOSE_CHAIN_CONTEXT,
+        socialSpendTreasuryContext: {
+          canFundSeasonPool: true,
+          canSetSeasonConfig: false,
+          fundableSeasonIds: [],
+        },
+      })
+    ).toBe(false);
+
+    expect(
+      isProtocolCreateKindChainAvailable('contract_config', {
+        ...EMPTY_PROTOCOL_PROPOSE_CHAIN_CONTEXT,
+        socialSpendTreasuryContext: {
+          canFundSeasonPool: false,
+          canSetSeasonConfig: true,
+          fundableSeasonIds: [],
+        },
+      })
+    ).toBe(true);
+  });
 });

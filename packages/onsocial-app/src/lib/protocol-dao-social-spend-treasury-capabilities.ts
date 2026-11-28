@@ -3,7 +3,10 @@ const ACCOUNT_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/;
 export interface ProtocolDaoSocialSpendTreasuryCapabilities {
   /** Fund rally via SOCIAL `ft_transfer_call` from the DAO wallet. */
   canFundSeasonPool: boolean;
-  /** `set_season_config` is owner-only on social-spend. */
+  /**
+   * Social-spend owner — `set_season_config` (Start rally) and
+   * `set_action_config` (Configure routing).
+   */
   canSetSeasonConfig: boolean;
 }
 
