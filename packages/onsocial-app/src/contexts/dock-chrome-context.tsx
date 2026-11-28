@@ -249,12 +249,14 @@ export function useRegisterDockBack(entry: DockBackRegistration | null) {
 }
 
 const DROP_SHEET_DOCK_ID = 'drop-sheet-dock';
+const PLACE_LAYER_DOCK_ID = 'place-layer-dock';
 
 /**
- * While a drop sheet is open, keep its Back above any page that re-registers
+ * Keep this Back above any page that re-registers
  * (desktop Market remounts its screen after the sheet and used to steal Back).
  */
-export function useClaimDropSheetDockBack(
+function useClaimNamedDockBack(
+  id: string,
   active: boolean,
   entry: DockBackRegistration | null
 ) {
@@ -274,11 +276,11 @@ export function useClaimDropSheetDockBack(
     const current = entryRef.current;
     if (!active || !current) {
       wasActiveRef.current = false;
-      popDockBack(DROP_SHEET_DOCK_ID);
+      popDockBack(id);
       return;
     }
     claimDockBack({
-      id: DROP_SHEET_DOCK_ID,
+      id,
       entry: {
         fallbackHref: current.fallbackHref,
         ariaLabel: current.ariaLabel ?? 'Back',
@@ -298,8 +300,24 @@ export function useClaimDropSheetDockBack(
   // Unmount only — claim-effect cleanup must not pop while still active.
   useLayoutEffect(() => {
     if (!popDockBack) return;
-    return () => popDockBack(DROP_SHEET_DOCK_ID);
-  }, [popDockBack]);
+    return () => popDockBack(id);
+  }, [id, popDockBack]);
+}
+
+/** While a drop sheet is open, its Back stays above the page's. */
+export function useClaimDropSheetDockBack(
+  active: boolean,
+  entry: DockBackRegistration | null
+) {
+  useClaimNamedDockBack(DROP_SHEET_DOCK_ID, active, entry);
+}
+
+/** While a post or quotes sheet is open, dock Back closes that screen. */
+export function useClaimPlaceLayerDockBack(
+  active: boolean,
+  entry: DockBackRegistration | null
+) {
+  useClaimNamedDockBack(PLACE_LAYER_DOCK_ID, active, entry);
 }
 
 /**

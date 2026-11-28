@@ -37,7 +37,7 @@ Portfolio and wallet mood live in `app-portfolio-face.mdc`. These shells only:
 
 When a drawer (or any nested overlay) sits on top of a sheet or another overlay, Back closes the **topmost** surface first. The sheet or page underneath stays until that top surface is gone. Drawers take navigation priority over the sheet they cover; the same rule applies to any future stacked overlay (drawer over sheet, sheet over sheet, modal over drawer). Do not wire dock Back, header Back, or browser Back so the underlay dismisses while a drawer above it is still open.
 
-Drop sheet history: first open over a real underlay page **pushes** (browser Back and dock Back both dismiss). First open from home **replaces** so root open/close does not stack. Native history only — App Router push would remount and kill the feed underlay.
+Place stack history: each opened post, quotes, or drop screen **pushes** one native history entry, including the first open from home. Browser Back, dock Back, and header Back each close only the top screen. Native history only — App Router push would remount and kill the feed underlay.
 
 ## Motion
 

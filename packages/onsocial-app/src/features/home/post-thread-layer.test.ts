@@ -12,7 +12,6 @@ import { isPortfolioFaceHref } from './post-thread-layer';
 import {
   appendTrailEntry,
   replyOpenedOverMediaFace,
-  collapseTrailToTop,
   isReaderLayerKind,
   isSameReaderTarget,
   revealTrailReader,
@@ -108,14 +107,6 @@ describe('thread trail stack', () => {
     expect(
       walkBackOneStep([postEntry('a.testnet', '1'), dropEntry('c1')])
     ).toBeNull();
-  });
-
-  it('drops the trail behind the open sheet on browser back', () => {
-    const post = postEntry('alice.testnet', '1');
-    const reply = postEntry('bob.testnet', '9');
-
-    expect(collapseTrailToTop([post, reply])).toEqual([reply]);
-    expect(collapseTrailToTop([post])).toEqual([post]);
   });
 
   it('a drop takes over the host instead of stacking over readers', () => {
@@ -276,7 +267,10 @@ describe('article place layer discipline', () => {
 
 describe('seeded thread open chunks', () => {
   it('does not put a full-page skeleton in dynamic loading', () => {
-    const source = readFileSync(join(layerSrc, 'post-thread-layer.tsx'), 'utf8');
+    const source = readFileSync(
+      join(layerSrc, 'post-thread-layer.tsx'),
+      'utf8'
+    );
     expect(source).not.toContain('loading: () => <PostThreadPageSkeleton');
     expect(source).not.toContain('loading: () => <PostQuotesPageSkeleton');
     expect(source).toContain('<Suspense fallback={null}>');

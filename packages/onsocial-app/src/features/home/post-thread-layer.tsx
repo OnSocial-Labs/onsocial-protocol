@@ -27,7 +27,10 @@ import {
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsRouteSettle } from '@/components/app/os-route-settle';
-import { useClaimDropSheetDockBack } from '@/contexts/dock-chrome-context';
+import {
+  useClaimDropSheetDockBack,
+  useClaimPlaceLayerDockBack,
+} from '@/contexts/dock-chrome-context';
 import { PostQuotesTrackHostProvider } from '@/features/home/post-quotes-track-host';
 import { PostQuotesPageSkeleton } from '@/features/home/post-quotes-skeleton';
 import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
@@ -105,8 +108,25 @@ import {
   warmThreadOpen,
 } from '@/lib/thread-first-page';
 import {
+  alignPlaceHistory,
+  applyPlaceTrailHistory,
+  schedulePlaceHistoryGo,
+  beginHistoryBack,
+  getPlaceHistoryGuard,
+  historyHasPlaceLayer,
+  inFlightPopRepair,
+  nativeHistoryPushState,
+  nativeHistoryReplaceState,
+  pushPlaceLayer,
+  readPlaceLayerDepth,
+  repairClosingLayerHistory,
+  replacePlaceLayer,
+  withPlaceLayerHistoryState,
+  withoutClosingLayer,
+  withoutPlaceLayerHistoryState,
+} from '@/lib/place-history';
+import {
   appendTrailEntry,
-  collapseTrailToTop,
   replyOpenedOverMediaFace,
   isReaderLayerKind,
   isSameReaderTarget,
@@ -115,13 +135,6 @@ import {
   retabTopQuotes,
   walkBackOneStep,
 } from './post-thread-stack';
-import {
-  beginHistoryBack,
-  dropLayerOpenHistoryOp,
-  inFlightPopRepair,
-  repairClosingLayerHistory,
-  withoutClosingLayer,
-} from './post-thread-history';
 
 /*
  * Seeded feed opens already paint the root — never put a full-page skeleton
@@ -166,38 +179,6 @@ const PostQuotesPanel = dynamic(
   { ssr: false }
 );
 
-const POST_LAYER_STATE_KEY = 'onsocialPostLayer';
-const POST_LAYER_DEPTH_KEY = 'onsocialPostLayerDepth';
-const POST_LAYER_GUARD_KEY = '__onsocialPostLayerPopGuard';
-
-type PostLayerPopGuard = {
-  depth: number;
-  onPop: () => void;
-};
-
-/** Capture listener before Next's bubble popstate (registered at import). */
-function getPostLayerPopGuard(): PostLayerPopGuard {
-  const w = window as Window & {
-    [POST_LAYER_GUARD_KEY]?: PostLayerPopGuard;
-  };
-  let guard = w[POST_LAYER_GUARD_KEY];
-  if (!guard) {
-    guard = { depth: 0, onPop: () => {} };
-    w[POST_LAYER_GUARD_KEY] = guard;
-    window.addEventListener(
-      'popstate',
-      (event) => {
-        if (guard!.depth <= 0) return;
-        event.stopImmediatePropagation();
-        event.stopPropagation();
-        guard!.onPop();
-      },
-      true
-    );
-  }
-  return guard;
-}
-
 /** Parked sheets must stay invisible even if a later rule fights the class. */
 function ensurePostThreadParkedStyle(): void {
   if (typeof document === 'undefined') return;
@@ -207,25 +188,6 @@ function ensurePostThreadParkedStyle(): void {
   style.textContent =
     '.glass-sheet-root.post-thread-sheet-parked{visibility:hidden!important;pointer-events:none!important}';
   document.head.appendChild(style);
-}
-
-function nativeHistoryPushState(state: object, url: string): void {
-  History.prototype.pushState.call(window.history, state, '', url);
-}
-
-function nativeHistoryReplaceState(state: object, url: string): void {
-  History.prototype.replaceState.call(window.history, state, '', url);
-}
-
-function withoutPostLayerHistoryState(): object {
-  const prev = typeof window === 'undefined' ? null : window.history.state;
-  const base =
-    prev && typeof prev === 'object' && !Array.isArray(prev)
-      ? { ...(prev as Record<string, unknown>) }
-      : {};
-  delete base[POST_LAYER_STATE_KEY];
-  delete base[POST_LAYER_DEPTH_KEY];
-  return base;
 }
 
 type PostThreadLayerTarget = {
@@ -381,6 +343,34 @@ function nextStackedLayerZ(stack: PlaceLayerTarget[]): number {
   return nextPostLayerZIndex(top?.zIndex ?? null, isOsMediaFaceOpen());
 }
 
+function commitFirstPlaceLayer(canonical: string): void {
+  if (typeof window === 'undefined') return;
+  const currentUrl = `${window.location.pathname}${window.location.search}`;
+  if (currentUrl === canonical) {
+    if (historyHasPlaceLayer()) {
+      getPlaceHistoryGuard().depth = readPlaceLayerDepth();
+    }
+    return;
+  }
+  pushPlaceLayer(canonical);
+}
+
+function commitTrailPlaceLayer(
+  prev: readonly { id: string }[],
+  next: readonly PlaceLayerTarget[],
+  canonical: string
+): void {
+  if (typeof window === 'undefined') return;
+  const parent = next[0];
+  applyPlaceTrailHistory({
+    prevLength: prev.length,
+    nextLength: next.length,
+    parentChanged: parent != null && parent.id !== prev[0]?.id,
+    parentHref: parent ? placeLayerHref(parent) : canonical,
+    topHref: canonical,
+  });
+}
+
 function placeLayerHref(layer: PlaceLayerTarget): string {
   if (layer.kind === 'drop') return collectionPath(layer.collectionId);
   if (layer.kind === 'quotes') {
@@ -433,32 +423,6 @@ function seedEmbeddedThread(
     hasMoreReplies: false,
     engagement: rootEngagement ? { [postKey(root)]: rootEngagement } : {},
     scarceEmbeds: scarceEmbedsForOpenRoot(root),
-  };
-}
-
-function historyHasPostLayer(): boolean {
-  if (typeof window === 'undefined') return false;
-  const state = window.history.state;
-  return Boolean(
-    state &&
-      typeof state === 'object' &&
-      (state as { [POST_LAYER_STATE_KEY]?: unknown })[POST_LAYER_STATE_KEY]
-  );
-}
-
-function withPostLayerHistoryState(): object {
-  const prev = typeof window === 'undefined' ? null : window.history.state;
-  const base =
-    prev && typeof prev === 'object' && !Array.isArray(prev)
-      ? { ...(prev as Record<string, unknown>) }
-      : {};
-  return {
-    ...base,
-    // Next popstate hard-reloads when __NA is missing. Overlay entries copy
-    // the underlay tree and never own a real App Router page.
-    __NA: true,
-    [POST_LAYER_STATE_KEY]: true,
-    [POST_LAYER_DEPTH_KEY]: 1,
   };
 }
 
@@ -919,6 +883,9 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     setStack([]);
     setClosingId(null);
     setUnderlayPath(null);
+    if (typeof window !== 'undefined') {
+      getPlaceHistoryGuard().depth = 0;
+    }
   }
 
   const mediaFaceCovered =
@@ -964,9 +931,17 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       underlayScrollRef.current = null;
       if (saved) restoreUnderlayScroll(saved);
       if (typeof window === 'undefined') return;
-      getPostLayerPopGuard().depth = 0;
-      if (historyHasPostLayer()) {
-        nativeHistoryReplaceState(withoutPostLayerHistoryState(), underlay);
+      const guard = getPlaceHistoryGuard();
+      const depth = guard.depth;
+      guard.depth = 0;
+      if (depth > 1) {
+        schedulePlaceHistoryGo(-depth, () => {
+          guard.depth = 0;
+        });
+        return;
+      }
+      if (historyHasPlaceLayer()) {
+        nativeHistoryReplaceState(withoutPlaceLayerHistoryState(), underlay);
       }
     });
   }, []);
@@ -995,9 +970,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       Boolean(top?.openedAboveMediaFace) ||
       (top?.kind === 'drop' && isOsMediaFaceOpen());
     const rendered =
-      live && top
-        ? resolveGlassSheetZIndex(top.zIndex, aboveFace)
-        : null;
+      live && top ? resolveGlassSheetZIndex(top.zIndex, aboveFace) : null;
     let dock = postLayerOverlayZ(rendered).dock;
     if (live && top?.kind === 'drop' && rendered != null) {
       dock = Math.max(dock ?? SHEET_Z.launcher, rendered + 1);
@@ -1012,68 +985,69 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     };
   }, [closingId, onProfileHop, stack]);
 
-  const syncOverlayUrl = useCallback((href: string) => {
-    if (typeof window === 'undefined') return;
-    const currentUrl = `${window.location.pathname}${window.location.search}`;
-    if (currentUrl === href) return;
-    nativeHistoryReplaceState(withPostLayerHistoryState(), href);
-  }, []);
-
   const closePostThread = useCallback(() => {
     const current = stackRef.current;
     // The film comes back with this step, including the last sheet.
     setMediaFacesYielded(false);
-    // The sheet stays up until the last step.
-    const walked = walkBackOneStep(current);
-    if (walked) {
-      const prev = walked[walked.length - 1];
-      stackRef.current = walked;
-      setStack(walked);
-      if (prev) syncOverlayUrl(placeLayerHref(prev));
+    const top = current[current.length - 1];
+    const guard = typeof window === 'undefined' ? null : getPlaceHistoryGuard();
+    // One history entry per screen. Back pops it; popstate walks one layer.
+    if (current.length > 1 && top && isReaderLayerKind(top.kind)) {
+      if (guard && guard.depth > 1 && historyHasPlaceLayer()) {
+        window.history.back();
+        return;
+      }
+      const walked = walkBackOneStep(current);
+      if (walked) {
+        const prev = walked[walked.length - 1];
+        stackRef.current = walked;
+        setStack(walked);
+        if (prev && guard) replacePlaceLayer(placeLayerHref(prev));
+      }
       return;
     }
     if (!beginCloseTop()) return;
-    if (typeof window === 'undefined') return;
-    const closing = current[current.length - 1];
+    if (!guard) return;
     const underlay = underlayPathRef.current ?? '/home';
-    // Drop from home replaced the root — replace back (no stacked entry).
-    // Drop over a real page pushed — history.back restores that page.
-    if (
-      closing?.kind === 'drop' &&
-      dropLayerOpenHistoryOp(underlay) === 'replace'
-    ) {
-      getPostLayerPopGuard().depth = 0;
-      nativeHistoryReplaceState(withoutPostLayerHistoryState(), underlay);
-      return;
-    }
     const back = beginHistoryBack({
-      depth: getPostLayerPopGuard().depth,
-      historyHasLayer: historyHasPostLayer(),
+      depth: guard.depth,
+      historyHasLayer: historyHasPlaceLayer(),
     });
     if (back.back) {
       closePopPendingRef.current = back.armPending;
       window.history.back();
       return;
     }
-    nativeHistoryReplaceState(withoutPostLayerHistoryState(), underlay);
-  }, [beginCloseTop, syncOverlayUrl]);
+    nativeHistoryReplaceState(withoutPlaceLayerHistoryState(), underlay);
+    guard.depth = 0;
+  }, [beginCloseTop]);
 
-  const publishClosingHistory = useCallback((canonical: string) => {
-    if (typeof window === 'undefined') return;
-    overlayCanonicalRef.current = canonical;
-    const guard = getPostLayerPopGuard();
-    guard.depth = 1;
-    const action = repairClosingLayerHistory({
-      canonical,
-      currentUrl: `${window.location.pathname}${window.location.search}`,
-      historyHasLayer: historyHasPostLayer(),
-    });
-    if (action.op === 'push') {
-      nativeHistoryPushState(withPostLayerHistoryState(), action.href);
-    } else if (action.op === 'replace') {
-      nativeHistoryReplaceState(withPostLayerHistoryState(), action.href);
-    }
-  }, []);
+  const publishClosingHistory = useCallback(
+    (canonical: string, depth: number) => {
+      if (typeof window === 'undefined') return;
+      overlayCanonicalRef.current = canonical;
+      const guard = getPlaceHistoryGuard();
+      const nextDepth = Math.max(depth, 1);
+      guard.depth = nextDepth;
+      const action = repairClosingLayerHistory({
+        canonical,
+        currentUrl: `${window.location.pathname}${window.location.search}`,
+        historyHasLayer: historyHasPlaceLayer(),
+      });
+      if (action.op === 'push') {
+        nativeHistoryPushState(
+          withPlaceLayerHistoryState(nextDepth),
+          action.href
+        );
+      } else if (action.op === 'replace') {
+        nativeHistoryReplaceState(
+          withPlaceLayerHistoryState(nextDepth),
+          action.href
+        );
+      }
+    },
+    []
+  );
 
   const openPostThread = useCallback(
     ({
@@ -1126,175 +1100,157 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       // Await the panel chunk so a cold hard-refresh tap never mounts a blank sheet.
       void ensurePostPanelChunk(parsed.groupId ? 'guild' : 'personal').then(
         () => {
-      const personalPage = parseInAppPostLayerHref(pathname);
-      const guildPage = personalPage ? null : parseGuildPostLayerHref(pathname);
-      const currentPage = personalPage
-        ? {
-            accountId: personalPage.accountId,
-            postId: personalPage.postId,
-            groupId: null as string | null,
+          const personalPage = parseInAppPostLayerHref(pathname);
+          const guildPage = personalPage
+            ? null
+            : parseGuildPostLayerHref(pathname);
+          const currentPage = personalPage
+            ? {
+                accountId: personalPage.accountId,
+                postId: personalPage.postId,
+                groupId: null as string | null,
+              }
+            : guildPage;
+          if (
+            currentPage &&
+            (currentPage.groupId ?? null) === parsed.groupId &&
+            accountIdsEqual(currentPage.accountId, parsed.accountId) &&
+            currentPage.postId === parsed.postId &&
+            stackRef.current.length === 0
+          ) {
+            return true;
           }
-        : guildPage;
-      if (
-        currentPage &&
-        (currentPage.groupId ?? null) === parsed.groupId &&
-        accountIdsEqual(currentPage.accountId, parsed.accountId) &&
-        currentPage.postId === parsed.postId &&
-        stackRef.current.length === 0
-      ) {
-        return true;
-      }
 
-      const revealed = revealTrailReader(stackRef.current, {
-        kind: 'post',
-        ...parsed,
-      });
-      if (revealed?.at === 'top') {
-        if (topOpenMediaFaceZ() != null) {
-          // Already this post. Step the film aside. Its pause starts the launcher.
-          setMediaFacesYielded(true);
-        } else {
-          requestCloseMediaFaces();
-        }
-        return true;
-      }
-      if (revealed?.at === 'back') {
-        closingIdRef.current = null;
-        setClosingId(null);
-        stackRef.current = revealed.stack;
-        setStack(revealed.stack);
-        requestCloseMediaFaces();
-        if (typeof window === 'undefined') return true;
-        getPostLayerPopGuard().depth = 1;
-        const currentUrl = `${window.location.pathname}${window.location.search}`;
-        if (currentUrl !== canonical) {
-          nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
-        }
-        return true;
-      }
+          const revealed = revealTrailReader(stackRef.current, {
+            kind: 'post',
+            ...parsed,
+          });
+          if (revealed?.at === 'top') {
+            if (topOpenMediaFaceZ() != null) {
+              // Already this post. Step the film aside. Its pause starts the launcher.
+              setMediaFacesYielded(true);
+            } else {
+              requestCloseMediaFaces();
+            }
+            return true;
+          }
+          if (revealed?.at === 'back') {
+            closingIdRef.current = null;
+            setClosingId(null);
+            stackRef.current = revealed.stack;
+            setStack(revealed.stack);
+            requestCloseMediaFaces();
+            if (typeof window === 'undefined') return true;
+            alignPlaceHistory(revealed.stack.length, canonical);
+            return true;
+          }
 
-      // An ancestor is not a new step. One sheet, the same as the feed.
-      if (returnToPost && stackRef.current.length > 0) {
-        const only: PostThreadLayerTarget = {
-          id: `post-layer-${++seqRef.current}`,
-          kind: 'post',
-          accountId: parsed.accountId,
-          postId: parsed.postId,
-          groupId: parsed.groupId,
-          context,
-          root,
-          rootEngagement,
-          seedReplies,
-          zIndex: nextPostLayerZIndex(null, false),
-          openedAboveMediaFace: false,
-        };
-        closingIdRef.current = null;
-        setClosingId(null);
-        stackRef.current = [only];
-        setStack([only]);
-        requestCloseMediaFaces();
-        if (typeof window === 'undefined') return true;
-        getPostLayerPopGuard().depth = 1;
-        const currentUrl = `${window.location.pathname}${window.location.search}`;
-        if (currentUrl !== canonical) {
-          nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
-        }
-        return true;
-      }
+          // An ancestor is not a new step. One sheet, the same as the feed.
+          if (returnToPost && stackRef.current.length > 0) {
+            const only: PostThreadLayerTarget = {
+              id: `post-layer-${++seqRef.current}`,
+              kind: 'post',
+              accountId: parsed.accountId,
+              postId: parsed.postId,
+              groupId: parsed.groupId,
+              context,
+              root,
+              rootEngagement,
+              seedReplies,
+              zIndex: nextPostLayerZIndex(null, false),
+              openedAboveMediaFace: false,
+            };
+            closingIdRef.current = null;
+            setClosingId(null);
+            stackRef.current = [only];
+            setStack([only]);
+            requestCloseMediaFaces();
+            if (typeof window === 'undefined') return true;
+            alignPlaceHistory(1, canonical);
+            return true;
+          }
 
-      // One sheet. Replies you open are a trail behind it, at the same
-      // height, so action drawers stay above the icons.
-      // A layer still playing its close is not a parent. Leaving it in the
-      // stack and clearing `closingId` mounts it again under the new post.
-      const liveStack = withoutClosingLayer(
-        stackRef.current,
-        closingIdRef.current
-      );
-      const droppedClosing = liveStack !== stackRef.current;
+          // One sheet. Replies you open are a trail behind it, at the same
+          // height, so action drawers stay above the icons.
+          // A layer still playing its close is not a parent. Leaving it in the
+          // stack and clearing `closingId` mounts it again under the new post.
+          const liveStack = withoutClosingLayer(
+            stackRef.current,
+            closingIdRef.current
+          );
+          const droppedClosing = liveStack !== stackRef.current;
 
-      if (liveStack.length > 0) {
-        const placed = replyOpenedOverMediaFace({
-          trailZ: liveStack[0]?.zIndex ?? SHEET_Z.overlayHost,
-          mediaFaceZ: topOpenMediaFaceZ(),
-          lift: GLASS_SHEET_MEDIA_FACE_LIFT,
-        });
-        const next: PostThreadLayerTarget = {
-          id: `post-layer-${++seqRef.current}`,
-          kind: 'post',
-          accountId: parsed.accountId,
-          postId: parsed.postId,
-          groupId: parsed.groupId,
-          context,
-          root,
-          rootEngagement,
-          seedReplies,
-          zIndex: placed.zIndex,
-          openedAboveMediaFace: placed.openedAboveMediaFace,
-        };
-        const trail = appendTrailEntry(liveStack, next);
-        closingIdRef.current = null;
-        setClosingId(null);
-        stackRef.current = trail;
-        setStack(trail);
-        // The film stays up under this reply. Back returns to it.
-        if (typeof window === 'undefined') return true;
-        if (droppedClosing) {
-          publishClosingHistory(canonical);
+          if (liveStack.length > 0) {
+            const placed = replyOpenedOverMediaFace({
+              trailZ: liveStack[0]?.zIndex ?? SHEET_Z.overlayHost,
+              mediaFaceZ: topOpenMediaFaceZ(),
+              lift: GLASS_SHEET_MEDIA_FACE_LIFT,
+            });
+            const next: PostThreadLayerTarget = {
+              id: `post-layer-${++seqRef.current}`,
+              kind: 'post',
+              accountId: parsed.accountId,
+              postId: parsed.postId,
+              groupId: parsed.groupId,
+              context,
+              root,
+              rootEngagement,
+              seedReplies,
+              zIndex: placed.zIndex,
+              openedAboveMediaFace: placed.openedAboveMediaFace,
+            };
+            const trail = appendTrailEntry(liveStack, next);
+            closingIdRef.current = null;
+            setClosingId(null);
+            stackRef.current = trail;
+            setStack(trail);
+            // The film stays up under this reply. Back returns to it.
+            if (typeof window === 'undefined') return true;
+            if (droppedClosing) {
+              publishClosingHistory(canonical, trail.length);
+              return true;
+            }
+            commitTrailPlaceLayer(liveStack, trail, canonical);
+            return true;
+          }
+
+          const next: PostThreadLayerTarget = {
+            id: `post-layer-${++seqRef.current}`,
+            kind: 'post',
+            accountId: parsed.accountId,
+            postId: parsed.postId,
+            groupId: parsed.groupId,
+            context,
+            root,
+            rootEngagement,
+            seedReplies,
+            zIndex: nextStackedLayerZ(liveStack),
+            openedAboveMediaFace: isOsMediaFaceOpen(),
+          };
+          if (underlayPathRef.current == null) {
+            underlayPathRef.current = pathname;
+            setUnderlayPath(pathname);
+            if (typeof window !== 'undefined') {
+              underlayScrollRef.current = captureUnderlayScroll();
+            }
+          }
+          closingIdRef.current = null;
+          setClosingId(null);
+          if (droppedClosing) {
+            const opened = [next];
+            stackRef.current = opened;
+            setStack(opened);
+          } else {
+            setStack((prev) => [...prev, next]);
+          }
+
+          if (typeof window === 'undefined') return true;
+          if (droppedClosing) {
+            publishClosingHistory(canonical, 1);
+            return true;
+          }
+          commitFirstPlaceLayer(canonical);
           return true;
-        }
-        getPostLayerPopGuard().depth = 1;
-        const currentUrl = `${window.location.pathname}${window.location.search}`;
-        if (currentUrl !== canonical) {
-          nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
-        }
-        return true;
-      }
-
-      const next: PostThreadLayerTarget = {
-        id: `post-layer-${++seqRef.current}`,
-        kind: 'post',
-        accountId: parsed.accountId,
-        postId: parsed.postId,
-        groupId: parsed.groupId,
-        context,
-        root,
-        rootEngagement,
-        seedReplies,
-        zIndex: nextStackedLayerZ(liveStack),
-        openedAboveMediaFace: isOsMediaFaceOpen(),
-      };
-      if (underlayPathRef.current == null) {
-        underlayPathRef.current = pathname;
-        setUnderlayPath(pathname);
-        if (typeof window !== 'undefined') {
-          underlayScrollRef.current = captureUnderlayScroll();
-        }
-      }
-      const isFirst = !droppedClosing && stackRef.current.length === 0;
-      closingIdRef.current = null;
-      setClosingId(null);
-      if (droppedClosing) {
-        const opened = [next];
-        stackRef.current = opened;
-        setStack(opened);
-      } else {
-        setStack((prev) => [...prev, next]);
-      }
-
-      if (typeof window === 'undefined') return true;
-      getPostLayerPopGuard().depth = 1;
-      const currentUrl = `${window.location.pathname}${window.location.search}`;
-      if (droppedClosing) {
-        publishClosingHistory(canonical);
-        return true;
-      }
-      if (currentUrl === canonical) return true;
-      if (isFirst) {
-        nativeHistoryPushState(withPostLayerHistoryState(), canonical);
-      } else {
-        nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
-      }
-      return true;
         }
       );
       return true;
@@ -1350,75 +1306,65 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
           stackRef.current = trail;
           setStack(trail);
           if (typeof window !== 'undefined') {
-            const currentUrl = `${window.location.pathname}${window.location.search}`;
-            if (currentUrl !== canonical) {
-              nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
-            }
+            replacePlaceLayer(canonical);
           }
         }
         return true;
       }
 
       void warmQuotesOpen().then(() => {
-      const next: QuotesLayerTarget = {
-        id: `quotes-layer-${++seqRef.current}`,
-        kind: 'quotes',
-        accountId: parsed.accountId,
-        postId: parsed.postId,
-        groupId: parsed.groupId,
-        tab,
-        initial: seedQuotesFromSession({
+        const next: QuotesLayerTarget = {
+          id: `quotes-layer-${++seqRef.current}`,
+          kind: 'quotes',
           accountId: parsed.accountId,
           postId: parsed.postId,
           groupId: parsed.groupId,
-          root,
-          rootEngagement,
-        }),
-        zIndex: liveStack[0]?.zIndex ?? nextStackedLayerZ(liveStack),
-        openedAboveMediaFace: isOsMediaFaceOpen(),
-      };
+          tab,
+          initial: seedQuotesFromSession({
+            accountId: parsed.accountId,
+            postId: parsed.postId,
+            groupId: parsed.groupId,
+            root,
+            rootEngagement,
+          }),
+          zIndex: liveStack[0]?.zIndex ?? nextStackedLayerZ(liveStack),
+          openedAboveMediaFace: isOsMediaFaceOpen(),
+        };
 
-      if (liveStack.length > 0) {
-        const trail = appendTrailEntry(liveStack, next);
-        closingIdRef.current = null;
-        setClosingId(null);
-        stackRef.current = trail;
-        setStack(trail);
-        if (typeof window === 'undefined') return true;
-        if (droppedClosing) {
-          publishClosingHistory(canonical);
+        if (liveStack.length > 0) {
+          const trail = appendTrailEntry(liveStack, next);
+          closingIdRef.current = null;
+          setClosingId(null);
+          stackRef.current = trail;
+          setStack(trail);
+          if (typeof window === 'undefined') return true;
+          if (droppedClosing) {
+            publishClosingHistory(canonical, trail.length);
+            return true;
+          }
+          commitTrailPlaceLayer(liveStack, trail, canonical);
           return true;
         }
-        getPostLayerPopGuard().depth = 1;
-        const currentUrl = `${window.location.pathname}${window.location.search}`;
-        if (currentUrl !== canonical) {
-          nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
-        }
-        return true;
-      }
 
-      if (underlayPathRef.current == null) {
-        underlayPathRef.current = pathname;
-        setUnderlayPath(pathname);
-        if (typeof window !== 'undefined') {
-          underlayScrollRef.current = captureUnderlayScroll();
+        if (underlayPathRef.current == null) {
+          underlayPathRef.current = pathname;
+          setUnderlayPath(pathname);
+          if (typeof window !== 'undefined') {
+            underlayScrollRef.current = captureUnderlayScroll();
+          }
         }
-      }
-      closingIdRef.current = null;
-      setClosingId(null);
-      stackRef.current = [next];
-      setStack([next]);
+        closingIdRef.current = null;
+        setClosingId(null);
+        stackRef.current = [next];
+        setStack([next]);
 
-      if (typeof window === 'undefined') return true;
-      if (droppedClosing) {
-        publishClosingHistory(canonical);
+        if (typeof window === 'undefined') return true;
+        if (droppedClosing) {
+          publishClosingHistory(canonical, 1);
+          return true;
+        }
+        commitFirstPlaceLayer(canonical);
         return true;
-      }
-      getPostLayerPopGuard().depth = 1;
-      const currentUrl = `${window.location.pathname}${window.location.search}`;
-      if (currentUrl === canonical) return true;
-      nativeHistoryPushState(withPostLayerHistoryState(), canonical);
-      return true;
       });
       return true;
     },
@@ -1491,14 +1437,10 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         setStack(replacement);
         if (typeof window === 'undefined') return true;
         if (droppedClosing) {
-          publishClosingHistory(canonical);
+          publishClosingHistory(canonical, 1);
           return true;
         }
-        getPostLayerPopGuard().depth = 1;
-        const currentUrl = `${window.location.pathname}${window.location.search}`;
-        if (currentUrl !== canonical) {
-          nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
-        }
+        alignPlaceHistory(1, canonical);
         return true;
       }
 
@@ -1510,7 +1452,6 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
           underlayScrollRef.current = captureUnderlayScroll();
         }
       }
-      const isFirst = !droppedClosing && stackRef.current.length === 0;
       closingIdRef.current = null;
       setClosingId(null);
       if (droppedClosing) {
@@ -1522,30 +1463,10 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
 
       if (typeof window === 'undefined') return true;
       if (droppedClosing) {
-        publishClosingHistory(canonical);
+        publishClosingHistory(canonical, 1);
         return true;
       }
-      // First open: push over a real underlay page so browser Back dismisses;
-      // replace on home so root open/close does not stack. Later swaps replace.
-      const syncCanonical = () => {
-        getPostLayerPopGuard().depth = 1;
-        const currentUrl = `${window.location.pathname}${window.location.search}`;
-        if (currentUrl === canonical) return;
-        const underlay = underlayPathRef.current ?? pathname;
-        const op = isFirst
-          ? dropLayerOpenHistoryOp(underlay)
-          : 'replace';
-        if (op === 'push') {
-          nativeHistoryPushState(withPostLayerHistoryState(), canonical);
-        } else {
-          nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
-        }
-      };
-      if (isFirst) {
-        queueMicrotask(syncCanonical);
-      } else {
-        syncCanonical();
-      }
+      commitFirstPlaceLayer(canonical);
       return true;
     },
     [pathname, publishClosingHistory]
@@ -1571,8 +1492,10 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const guard = getPostLayerPopGuard();
-    guard.depth = stack.length > 0 && !profileHop ? 1 : 0;
+    const guard = getPlaceHistoryGuard();
+    guard.closeTop = () => {
+      closePostThread();
+    };
     guard.onPop = () => {
       const pendingClosePop = closePopPendingRef.current;
       closePopPendingRef.current = false;
@@ -1582,27 +1505,37 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         pendingClosePop,
         closingId: closingIdRef.current,
         stackLength: stackRef.current.length,
-        historyHasLayer: historyHasPostLayer(),
+        historyHasLayer: historyHasPlaceLayer(),
         canonical: overlayCanonicalRef.current,
       });
       if (repair.swallow) {
         if (repair.pushHref) {
-          nativeHistoryPushState(withPostLayerHistoryState(), repair.pushHref);
+          const depth = Math.max(stackRef.current.length, 1);
+          nativeHistoryPushState(
+            withPlaceLayerHistoryState(depth),
+            repair.pushHref
+          );
+          guard.depth = depth;
+        } else {
+          guard.depth = readPlaceLayerDepth();
         }
-        guard.depth = 1;
         return;
       }
       const top = stackRef.current[stackRef.current.length - 1];
+      guard.depth = readPlaceLayerDepth();
       if (!top) return;
-      // This history entry is the reader. Leaving it drops the reply trail.
-      if (stackRef.current.length > 1) {
-        const collapsed = collapseTrailToTop(stackRef.current);
-        stackRef.current = collapsed;
-        setStack(collapsed);
+      // One Back, one screen. The parked parent stays.
+      if (stackRef.current.length > 1 && isReaderLayerKind(top.kind)) {
+        const walked = walkBackOneStep(stackRef.current);
+        if (walked) {
+          stackRef.current = walked;
+          setStack(walked);
+          return;
+        }
       }
       beginCloseTop();
     };
-  }, [beginCloseTop, profileHop, stack.length]);
+  }, [beginCloseTop, closePostThread]);
 
   const handleSheetClosed = useCallback((id: string) => {
     if (closingIdRef.current !== id) return;
@@ -1618,9 +1551,6 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       underlayScrollRef.current = null;
       if (saved) restoreUnderlayScroll(saved);
     }
-    if (typeof window !== 'undefined') {
-      getPostLayerPopGuard().depth = next.length > 0 ? 1 : 0;
-    }
   }, []);
 
   const openProfileFromLayer = useCallback(
@@ -1631,11 +1561,18 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       setProfileHop(path);
       // Keep the post mounted. Drop only its history flag so the portfolio
       // sits on the feed entry; Back lands here and the post is shown again.
-      const guard = getPostLayerPopGuard();
+      const guard = getPlaceHistoryGuard();
+      const depth = guard.depth;
       guard.depth = 0;
-      if (typeof window !== 'undefined' && historyHasPostLayer()) {
+      if (typeof window !== 'undefined' && depth > 1) {
+        schedulePlaceHistoryGo(-depth, () => {
+          if (path !== pathname) router.push(href);
+        });
+        return;
+      }
+      if (typeof window !== 'undefined' && historyHasPlaceLayer()) {
         nativeHistoryReplaceState(
-          withoutPostLayerHistoryState(),
+          withoutPlaceLayerHistoryState(),
           underlay ?? path
         );
       }
@@ -1646,11 +1583,17 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
 
   useLayoutEffect(() => {
     if (profileHop || stack.length === 0 || pathname !== underlayPath) return;
-    if (typeof window === 'undefined' || historyHasPostLayer()) return;
-    const top = stack[stack.length - 1];
-    if (!top || !isReaderLayerKind(top.kind)) return;
-    nativeHistoryPushState(withPostLayerHistoryState(), placeLayerHref(top));
-    getPostLayerPopGuard().depth = 1;
+    if (typeof window === 'undefined' || historyHasPlaceLayer()) return;
+    const guard = getPlaceHistoryGuard();
+    let depth = 0;
+    for (const entry of stack) {
+      depth += 1;
+      nativeHistoryPushState(
+        withPlaceLayerHistoryState(depth),
+        placeLayerHref(entry)
+      );
+    }
+    guard.depth = depth;
   }, [pathname, profileHop, stack, underlayPath]);
 
   const value = useMemo(
@@ -1673,6 +1616,18 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   useClaimDropSheetDockBack(
     dropDockLive,
     dropDockLive
+      ? {
+          fallbackHref: underlayPath ?? '/home',
+          ariaLabel: 'Back',
+          onBack: closePostThread,
+        }
+      : null
+  );
+  const readerDockLive =
+    topPlace != null && topPlace.kind !== 'drop' && topOpen && !onProfileHop;
+  useClaimPlaceLayerDockBack(
+    readerDockLive,
+    readerDockLive
       ? {
           fallbackHref: underlayPath ?? '/home',
           ariaLabel: 'Back',
