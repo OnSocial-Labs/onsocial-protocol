@@ -1,0 +1,18 @@
+{
+  "proposal": {
+    "description": "Treasury LP add SOCIAL-wNEAR pool 6783: add_liquidity.",
+    "kind": {
+      "FunctionCall": {
+        "receiver_id": "v2.ref-finance.near",
+        "actions": [
+          {
+            "method_name": "add_liquidity",
+            "args": "eyJwb29sX2lkIjo2NzgzLCJhbW91bnRzIjpbIjgyNDY5MjU2NTk4MzU1NDMwMzU0NCIsIjEwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAiXSwibWluX2Ftb3VudHMiOlsiODIwNTY5MTAzMTUzNjM2NTMyMDI2IiwiOTk1MDAwMDAwMDAwMDAwMDAwMDAwMDAwIl19",
+            "deposit": "1",
+            "gas": 200000000000000
+          }
+        ]
+      }
+    }
+  }
+}
