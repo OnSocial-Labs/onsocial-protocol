@@ -1,0 +1,77 @@
+diff --git a/sputnikdao2/Cargo.toml b/sputnikdao2/Cargo.toml
+index f4ff52f..cc80264 100644
+--- a/sputnikdao2/Cargo.toml
++++ b/sputnikdao2/Cargo.toml
+@@ -1,6 +1,6 @@
+ [package]
+ name = "sputnikdao2"
+-version = "2.3.1"
++version = "2.3.1-onsocial.1"
+ authors = ["Sputnik Devs <near-daos@protonmail.com>"]
+ edition = "2024"
+ publish = false
+diff --git a/sputnikdao2/src/proposals.rs b/sputnikdao2/src/proposals.rs
+index bced941..950ba3a 100644
+--- a/sputnikdao2/src/proposals.rs
++++ b/sputnikdao2/src/proposals.rs
+@@ -10,7 +10,7 @@ use crate::types::{
+     Action, Config, GAS_FOR_FT_TRANSFER, OLD_BASE_TOKEN, ONE_YOCTO_NEAR, OldAccountId,
+     convert_old_to_new_token,
+ };
+-use crate::upgrade::{upgrade_remote, upgrade_using_factory};
++use crate::upgrade::{upgrade_remote, upgrade_self};
+ use crate::*;
+ 
+ /// Status of a proposal.
+@@ -392,7 +392,9 @@ impl Contract {
+                 promise.into()
+             }
+             ProposalKind::UpgradeSelf { hash } => {
+-                upgrade_using_factory(hash);
++                // Deploy from this DAO's blob store (matches UpgradeSelf docs).
++                // Factory parent path breaks for non-factory DAOs (e.g. *.onsocial.near).
++                upgrade_self(hash);
+                 PromiseOrValue::Value(())
+             }
+             ProposalKind::UpgradeRemote {
+diff --git a/sputnikdao2/src/upgrade.rs b/sputnikdao2/src/upgrade.rs
+index f07cdad..2d71e98 100644
+--- a/sputnikdao2/src/upgrade.rs
++++ b/sputnikdao2/src/upgrade.rs
+@@ -159,6 +159,7 @@ pub fn update() {
+     env::promise_return(promise_id);
+ }
+ 
++#[allow(dead_code)] // retained; UpgradeSelf uses upgrade_self
+ pub(crate) fn upgrade_using_factory(code_hash: &Base58CryptoHash) {
+     let factory_account_id = get_default_factory_id();
+     // Create a promise toward the factory.
+@@ -177,6 +178,28 @@ pub(crate) fn upgrade_using_factory(code_hash: &Base58CryptoHash) {
+     env::promise_return(promise_id);
+ }
+ 
++/// Upgrade this DAO from code previously stored via `store_blob`.
++///
++/// Does not call the parent/factory. Used by OnSocial protocol DAOs
++/// (`*.onsocial.near` / `*.onsocial.testnet`) that are not factory children.
++pub(crate) fn upgrade_self(code_hash: &Base58CryptoHash) {
++    let hash: CryptoHash = (*code_hash).into();
++    let code = env::storage_read(&hash).expect("ERR_NO_HASH");
++    let current_id = env::current_account_id();
++    let promise_id = env::promise_batch_create(&current_id);
++    // Deploy from the DAO's own blob store, then migrate in the same batch.
++    env::promise_batch_action_deploy_contract(promise_id, &code);
++    env::promise_batch_action_function_call_weight(
++        promise_id,
++        "migrate",
++        &[],
++        NO_DEPOSIT,
++        Gas::from_gas(0),
++        GasWeight::default(),
++    );
++    env::promise_return(promise_id);
++}
++
+ pub(crate) fn upgrade_remote(receiver_id: &AccountId, method_name: &str, hash: &CryptoHash) {
+     let input = env::storage_read(hash).expect("ERR_NO_HASH");
+     let promise_id = env::promise_batch_create(receiver_id);

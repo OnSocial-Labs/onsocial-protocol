@@ -1,0 +1,8 @@
+{
+  "config": {
+    "name": "OnSocial Self-Upgrade Scratch Governance",
+    "purpose": "Disposable DAO for proving UpgradeSelf from blob store",
+    "metadata": ""
+  },
+  "policy": ["onsocial.testnet"]
+}
