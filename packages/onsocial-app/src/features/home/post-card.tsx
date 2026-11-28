@@ -4,6 +4,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -54,6 +55,12 @@ import {
 } from '@/hooks/use-post-author-profiles';
 import { guildPath } from '@/features/guilds/guilds-data';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
+import {
+  clearFeedReadBridge,
+  publishFeedReadBridge,
+  useOpenFeedReadKey,
+} from '@/features/home/feed-read-bridge';
+import type { FeedReadBook } from '@/features/home/feed-read-face';
 import {
   isUnmodifiedPrimaryClick,
   usePostThreadLayer,
@@ -366,7 +373,8 @@ function PostCardImpl({
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
-  const { openPostThread } = usePostThreadLayer();
+  const { openPostThread, openFeedRead } = usePostThreadLayer();
+  const openFeedReadKey = useOpenFeedReadKey();
   const ownerZ = usePostLayerOwnerZ();
   const actionZ = postLayerOverlayZ(ownerZ).sheet;
   const resolvedMenuZ =
@@ -746,12 +754,17 @@ function PostCardImpl({
 
   const text = parsePostText(post.value);
   const article = parseArticleSnapshot(post.value);
+  const openFeedPostReaderRef = useRef<
+    (next?: {
+      essay?: PostRow | null;
+      book?: boolean;
+      coverSvg?: string | null;
+    }) => void
+  >(() => {});
   useEffect(() => {
     if (!article) return;
     if (consumeEssayReopen(post.accountId, post.postId)) {
-      setFeedReadEssay(null);
-      setFeedBookRead(false);
-      setArticleOpen(true);
+      openFeedPostReaderRef.current();
     }
   }, [article, post.accountId, post.postId]);
   const articleHref = article
@@ -919,6 +932,28 @@ function PostCardImpl({
    * - Book / Issue → those pages, this post's footer
    * The drop page keeps its own reader.
    */
+  const feedReadBook = (coverSvg: string | null): FeedReadBook => ({
+    title: dropListenTitle,
+    cover: scarceCoverUrl,
+    coverSvg,
+    collectionId: scarceEmbed?.collectionId?.trim() || '',
+    creatorId: scarceEmbed?.creatorId ?? post.accountId,
+    sourcePostPath:
+      collectionSourcePostPath ?? dropPaint?.sourcePostPath ?? null,
+    readables: dropReadables,
+    bookPdf: dropBookPdf,
+    writingFormat: dropWritingFormat,
+  });
+  const openFeedReadShell = () => {
+    const opened = openFeedRead({
+      post,
+      body: post,
+      holding: true,
+      documentTitle: dropListenTitle,
+      book: null,
+    });
+    if (!opened) setArticleOpen(true);
+  };
   const openFeedPostReader = (next?: {
     essay?: PostRow | null;
     book?: boolean;
@@ -929,8 +964,16 @@ function PostCardImpl({
     setFeedReadEssay(next?.essay ?? null);
     setFeedBookRead(Boolean(next?.book));
     setFeedBookCoverSvg(next?.coverSvg ?? null);
-    setArticleOpen(true);
+    const opened = openFeedRead({
+      post,
+      body: next?.essay ?? post,
+      holding: false,
+      documentTitle: next?.book ? dropListenTitle : null,
+      book: next?.book ? feedReadBook(next.coverSvg ?? null) : null,
+    });
+    if (!opened) setArticleOpen(true);
   };
+  openFeedPostReaderRef.current = openFeedPostReader;
   const applyDropReadRef = useRef<
     (
       writingFormat: typeof collectionWritingFormat,
@@ -962,7 +1005,7 @@ function PostCardImpl({
     setFeedReadPending(true);
     setFeedBookRead(false);
     setFeedReadEssay(null);
-    setArticleOpen(true);
+    openFeedReadShell();
     void (async () => {
       try {
         const essay = await fetchPersonalPost({
@@ -1032,7 +1075,7 @@ function PostCardImpl({
     setFeedReadEssay(null);
     setFeedBookRead(false);
     setFeedReadPending(true);
-    setArticleOpen(true);
+    openFeedReadShell();
 
     if (!collectionId) {
       finishDropReadRef.current(null, coverSvg, ticket);
@@ -1375,6 +1418,56 @@ function PostCardImpl({
       openBidScarce,
     ]
   );
+  const feedReadKey = postKey(post);
+  const feedReadCommerce = useMemo(
+    () =>
+      scarceCtaLive ? (
+        <PostScarceCta {...scarceCtaActions} />
+      ) : scarceCtaSeat ? (
+        <PostScarceCtaPending />
+      ) : null,
+    [scarceCtaActions, scarceCtaLive, scarceCtaSeat]
+  );
+  useLayoutEffect(() => {
+    if (openFeedReadKey !== feedReadKey) return;
+    publishFeedReadBridge({
+      key: feedReadKey,
+      authorProfile,
+      engagement,
+      countsReady,
+      reactionPending,
+      savePending,
+      sharePending,
+      shareHref,
+      shareTitle: name,
+      onQuote,
+      onRepost,
+      onUndoRepost,
+      onToggleReaction,
+      onToggleSave,
+      onAmplify: openAmplify,
+      commerce: feedReadCommerce,
+    });
+  }, [
+    authorProfile,
+    countsReady,
+    engagement,
+    feedReadCommerce,
+    feedReadKey,
+    name,
+    onQuote,
+    onRepost,
+    onToggleReaction,
+    onToggleSave,
+    onUndoRepost,
+    openAmplify,
+    openFeedReadKey,
+    reactionPending,
+    savePending,
+    shareHref,
+    sharePending,
+  ]);
+  useLayoutEffect(() => () => clearFeedReadBridge(feedReadKey), [feedReadKey]);
 
   const menuPostProps = useMemo<PostCardMenuPostProps>(
     () => ({
