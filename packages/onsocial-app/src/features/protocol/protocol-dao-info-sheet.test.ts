@@ -3,7 +3,9 @@ import {
   formatDaoInfoRoleList,
   formatDaoVotePolicySummary,
   resolveDaoCouncilNote,
+  shouldShowDaoInfoStake,
 } from '@/features/protocol/protocol-dao-info-sheet';
+import type { ProtocolGovernanceEligibility } from '@/features/protocol/protocol-eligibility';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
 
 const basePolicy = {
@@ -40,5 +42,19 @@ describe('protocol-dao-info-sheet copy', () => {
     expect(
       formatDaoInfoRoleList(['guardians', 'delegated_proposers'])
     ).toBe('Guardian · Proposers');
+  });
+
+  it('shows Stake only when the DAO has a SOCIAL Member stake path', () => {
+    expect(shouldShowDaoInfoStake(null)).toBe(false);
+    expect(
+      shouldShowDaoInfoStake({
+        hasStakeProposePath: false,
+      } as ProtocolGovernanceEligibility)
+    ).toBe(false);
+    expect(
+      shouldShowDaoInfoStake({
+        hasStakeProposePath: true,
+      } as ProtocolGovernanceEligibility)
+    ).toBe(true);
   });
 });
