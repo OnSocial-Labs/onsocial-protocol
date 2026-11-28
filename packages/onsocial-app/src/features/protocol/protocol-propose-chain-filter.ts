@@ -73,6 +73,16 @@ export function resolveAvailableProtocolCreateKinds(
     }
   }
 
+  // Configure = social-spend `set_action_config` only (not Rewards/Boost/…).
+  if (kinds.includes('contract_config')) {
+    if (
+      chain.socialSpendTreasuryLoading ||
+      !chain.socialSpendTreasuryContext?.canSetSeasonConfig
+    ) {
+      kinds = kinds.filter((kind) => kind !== 'contract_config');
+    }
+  }
+
   if (kinds.includes('withdraw_boost_infra')) {
     if (
       chain.boostInfraLoading ||

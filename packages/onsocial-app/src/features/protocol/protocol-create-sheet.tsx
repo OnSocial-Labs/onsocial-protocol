@@ -15,8 +15,6 @@ import {
 } from '@/features/protocol/protocol-dao-context-client';
 import {
   PROTOCOL_CONTRACT_CONFIG_OPS,
-  PROTOCOL_MANAGED_CONTRACTS,
-  getProtocolUpgradableContracts,
   type ProtocolContractConfigOpId,
 } from '@/features/protocol/protocol-contracts';
 import {
@@ -135,7 +133,6 @@ export function ProtocolCreateSheet({
   const newOwnerFieldId = `${formId}-new-owner`;
   const descriptionFieldId = `${formId}-description`;
   const face = useMatchingDaoFaceEligibility(daoAccountId);
-  const staticUpgradable = useMemo(() => getProtocolUpgradableContracts(), []);
   const defaultSeasonConfigDraft = useMemo(
     () => createDefaultProtocolSeasonConfigDraft(),
     []
@@ -154,9 +151,7 @@ export function ProtocolCreateSheet({
   const [seasonDurationDays, setSeasonDurationDays] = useState(
     defaultSeasonConfigDraft.durationDays
   );
-  const [contractId, setContractId] = useState(
-    PROTOCOL_MANAGED_CONTRACTS[0]?.contractId ?? ''
-  );
+  const [contractId, setContractId] = useState('');
   const [newOwnerId, setNewOwnerId] = useState('');
   const [codeHash, setCodeHash] = useState('');
   const [authorityId, setAuthorityId] = useState(TREASURY_DAO_ACCOUNT);
@@ -230,7 +225,7 @@ export function ProtocolCreateSheet({
       setSeasonId('');
       setSeasonLabel(defaultSeasonConfigDraft.label);
       setSeasonDurationDays(defaultSeasonConfigDraft.durationDays);
-      setContractId(PROTOCOL_MANAGED_CONTRACTS[0]?.contractId ?? '');
+      setContractId('');
       setNewOwnerId('');
       setCodeHash('');
       setAuthorityId(TREASURY_DAO_ACCOUNT);
@@ -257,12 +252,7 @@ export function ProtocolCreateSheet({
     }
 
     setKind(initialKind);
-    if (initialKind === 'contract_upgrade') {
-      setContractId(staticUpgradable[0]?.contractId ?? '');
-    }
-    if (initialKind === 'transfer_ownership') {
-      setContractId(PROTOCOL_MANAGED_CONTRACTS[0]?.contractId ?? '');
-    }
+    setContractId('');
     if (initialKind === 'season_config') {
       setSeasonId(defaultSeasonConfigDraft.seasonId);
       setSeasonLabel(defaultSeasonConfigDraft.label);
@@ -300,7 +290,6 @@ export function ProtocolCreateSheet({
     accountId,
     defaultSeasonConfigDraft,
     initialKind,
-    staticUpgradable,
     face,
   ]);
 
@@ -390,7 +379,9 @@ export function ProtocolCreateSheet({
     if (
       !open ||
       !daoAccountId ||
-      (kind !== 'fund_season_pool' && kind !== 'season_config')
+      (kind !== 'fund_season_pool' &&
+        kind !== 'season_config' &&
+        kind !== 'contract_config')
     ) {
       return;
     }
@@ -474,13 +465,9 @@ export function ProtocolCreateSheet({
         if (cancelled) return;
         setManagedContracts(contracts);
         const options =
-          contracts.length > 0
-            ? kind === 'contract_upgrade'
-              ? contracts.filter((contract) => contract.upgradable)
-              : contracts
-            : kind === 'contract_upgrade'
-              ? staticUpgradable
-              : PROTOCOL_MANAGED_CONTRACTS;
+          kind === 'contract_upgrade'
+            ? contracts.filter((contract) => contract.upgradable)
+            : contracts;
         setContractId((current) =>
           options.some((contract) => contract.contractId === current)
             ? current
@@ -488,7 +475,9 @@ export function ProtocolCreateSheet({
         );
       })
       .catch(() => {
-        if (!cancelled) setManagedContracts([]);
+        if (cancelled) return;
+        setManagedContracts([]);
+        setContractId('');
       })
       .finally(() => {
         if (!cancelled) setManagedContractsLoading(false);
@@ -497,14 +486,12 @@ export function ProtocolCreateSheet({
     return () => {
       cancelled = true;
     };
-  }, [open, daoAccountId, kind, staticUpgradable]);
+  }, [open, daoAccountId, kind]);
 
-  const managedContractOptions =
-    managedContracts.length > 0 ? managedContracts : PROTOCOL_MANAGED_CONTRACTS;
-  const upgradableContractOptions =
-    managedContracts.length > 0
-      ? managedContracts.filter((contract) => contract.upgradable)
-      : staticUpgradable;
+  const managedContractOptions = managedContracts;
+  const upgradableContractOptions = managedContracts.filter(
+    (contract) => contract.upgradable
+  );
   const selectedTransferAsset = useMemo(
     () => resolveProtocolTransferAsset(transferAssets, transferTokenId),
     [transferAssets, transferTokenId]
@@ -514,12 +501,16 @@ export function ProtocolCreateSheet({
   const socialSpendNeedsFetch =
     open &&
     Boolean(daoAccountId) &&
-    (kind === 'fund_season_pool' || kind === 'season_config');
+    (kind === 'fund_season_pool' ||
+      kind === 'season_config' ||
+      kind === 'contract_config');
   const transferPending = transferNeedsFetch && !transferAssetsSettled;
   const socialSpendPending = socialSpendNeedsFetch && !socialSpendSettled;
   const liveContextLoading =
     (kind === 'transfer' && transferPending) ||
-    ((kind === 'fund_season_pool' || kind === 'season_config') &&
+    ((kind === 'fund_season_pool' ||
+      kind === 'season_config' ||
+      kind === 'contract_config') &&
       socialSpendPending) ||
     ((kind === 'withdraw_boost_infra' ||
       kind === 'set_boost_infra_authority') &&
@@ -540,10 +531,25 @@ export function ProtocolCreateSheet({
             socialSpendContext != null &&
             !socialSpendContext.canSetSeasonConfig
           ? 'This DAO does not own social-spend, so it cannot start a rally season.'
-          : null;
+          : kind === 'contract_config' &&
+              socialSpendSettled &&
+              socialSpendContext != null &&
+              !socialSpendContext.canSetSeasonConfig
+            ? 'This DAO does not own social-spend, so it cannot configure action routing.'
+            : kind === 'transfer_ownership' &&
+                !managedContractsLoading &&
+                managedContracts.length === 0
+              ? 'This DAO owns none of the managed protocol contracts.'
+              : kind === 'contract_upgrade' &&
+                  !managedContractsLoading &&
+                  upgradableContractOptions.length === 0
+                ? 'This DAO owns no hash-upgradable protocol contracts.'
+                : null;
   const composeFieldsOwnLiveLoading =
     (kind === 'transfer' && transferPending) ||
-    ((kind === 'fund_season_pool' || kind === 'season_config') &&
+    ((kind === 'fund_season_pool' ||
+      kind === 'season_config' ||
+      kind === 'contract_config') &&
       socialSpendPending) ||
     ((kind === 'withdraw_boost_infra' ||
       kind === 'set_boost_infra_authority') &&
@@ -995,11 +1001,7 @@ export function ProtocolCreateSheet({
                     onChange={setContractId}
                     disabled={pending || managedContractsLoading}
                     persistSelected
-                    copy={
-                      managedContracts.length > 0
-                        ? 'Contracts currently owned by this DAO'
-                        : 'Live ownership list unavailable; showing protocol defaults'
-                    }
+                    copy="Contracts currently owned by this DAO"
                     zIndex={PROTOCOL_NESTED_CHOICE_Z}
                   />
                 </div>
