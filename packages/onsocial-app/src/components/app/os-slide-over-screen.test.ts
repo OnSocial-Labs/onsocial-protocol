@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createElement, useEffect, useState } from 'react';
-import { cleanup, fireEvent, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 
@@ -49,6 +49,7 @@ describe('OsSlideOverScreen close', () => {
 
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -89,5 +90,95 @@ describe('OsSlideOverScreen close', () => {
     );
     expect(calls.close).toBe(1);
     expect(document.querySelector('.os-slide-over')).toBeNull();
+  });
+
+  it('unmounts on the reduced-motion timer and otherwise waits 280ms', () => {
+    vi.useFakeTimers();
+    const reduced = { matches: false };
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('reduce') ? reduced.matches : false,
+      media: query,
+      addEventListener() {},
+      removeEventListener() {},
+      addListener() {},
+      removeListener() {},
+      dispatchEvent() {
+        return false;
+      },
+    }));
+
+    function Host() {
+      const [open, setOpen] = useState(true);
+      return createElement(
+        'div',
+        null,
+        createElement(
+          'button',
+          { type: 'button', onClick: () => setOpen(false) },
+          'Dismiss'
+        ),
+        createElement(Parent, { open, nonce: 0 })
+      );
+    }
+
+    reduced.matches = true;
+    const reducedView = render(createElement(Host));
+    fireEvent.click(reducedView.getByRole('button', { name: 'Dismiss' }));
+    expect(document.querySelector('.os-slide-over.is-closing')).toBeTruthy();
+    act(() => {
+      vi.advanceTimersByTime(0);
+    });
+    expect(calls.closed).toBe(1);
+    expect(document.querySelector('.os-slide-over')).toBeNull();
+    cleanup();
+    calls.closed = 0;
+    calls.close = 0;
+
+    reduced.matches = false;
+    const motionView = render(createElement(Host));
+    fireEvent.click(motionView.getByRole('button', { name: 'Dismiss' }));
+    act(() => {
+      vi.advanceTimersByTime(279);
+    });
+    expect(calls.closed).toBe(0);
+    expect(document.querySelector('.os-slide-over.is-closing')).toBeTruthy();
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(calls.closed).toBe(1);
+    expect(document.querySelector('.os-slide-over')).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it('waits 280ms when matchMedia is missing', () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('matchMedia', undefined);
+
+    function Host() {
+      const [open, setOpen] = useState(true);
+      return createElement(
+        'div',
+        null,
+        createElement(
+          'button',
+          { type: 'button', onClick: () => setOpen(false) },
+          'Dismiss'
+        ),
+        createElement(Parent, { open, nonce: 0 })
+      );
+    }
+
+    const view = render(createElement(Host));
+    fireEvent.click(view.getByRole('button', { name: 'Dismiss' }));
+    act(() => {
+      vi.advanceTimersByTime(279);
+    });
+    expect(calls.closed).toBe(0);
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(calls.closed).toBe(1);
+    expect(document.querySelector('.os-slide-over')).toBeNull();
+    vi.useRealTimers();
   });
 });

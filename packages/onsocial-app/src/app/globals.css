@@ -32866,12 +32866,6 @@ a.os-surface-row,
     pointer-events: none;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .os-slide-over {
-      transition: none;
-    }
-  }
-
   .os-slide-over.is-yielded,
   .os-slide-over.is-covered {
     pointer-events: none;

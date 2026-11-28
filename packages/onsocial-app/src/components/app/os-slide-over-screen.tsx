@@ -48,10 +48,15 @@ const SLIDE_MS = 280;
 
 function slideExitMs(): number {
   if (
-    typeof window !== 'undefined' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    typeof window === 'undefined' ||
+    typeof window.matchMedia !== 'function'
   ) {
-    return 0;
+    return SLIDE_MS;
+  }
+  try {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return 0;
+  } catch {
+    return SLIDE_MS;
   }
   return SLIDE_MS;
 }

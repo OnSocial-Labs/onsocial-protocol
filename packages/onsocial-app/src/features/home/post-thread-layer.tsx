@@ -120,6 +120,7 @@ import {
   inFlightPopRepair,
   forgetPlaceRead,
   nativeHistoryReplaceState,
+  retargetAfterReadLeave,
   popPlaceLayerEntry,
   pushPlaceLayer,
   pushPlaceLayerAt,
@@ -339,7 +340,14 @@ type PostThreadLayerValue = {
     postId: string;
   }) => boolean;
   /** Feed Read on top. `open` is false while the exit slide runs. */
-  feedRead: { accountId: string; postId: string; open: boolean } | null;
+  feedRead: {
+    id: string;
+    accountId: string;
+    postId: string;
+    open: boolean;
+  } | null;
+  /** The mounted card that paints this feed Read. */
+  claimFeedRead: (id: string) => () => void;
   /** Header / Esc finished the feed Read exit. */
   finishFeedRead: () => void;
   /** Quote / repost leaves the feed Read and starts its exit. */
@@ -356,6 +364,7 @@ const NOOP_LAYER: PostThreadLayerValue = {
   openRead: () => false,
   openPlace: () => false,
   feedRead: null,
+  claimFeedRead: () => () => {},
   finishFeedRead: () => {},
   dismissFeedRead: () => {},
   closePostThread: () => {},
@@ -413,7 +422,24 @@ function commitFirstPlaceLayer(canonical: string): void {
   pushPlaceLayer(canonical);
 }
 
-function readBootPlace(): {
+/** Header or Esc on a read stacked over a drop. The following pop is not a new Back. */
+export function readCloseOwnsPop(input: {
+  stackLength: number;
+  topKind: string | null;
+  exitFromPop: boolean;
+  depth: number;
+  historyHasLayer: boolean;
+}): boolean {
+  return (
+    input.stackLength > 1 &&
+    input.topKind === 'read' &&
+    !input.exitFromPop &&
+    input.depth > 1 &&
+    input.historyHasLayer
+  );
+}
+
+export function readBootPlace(): {
   stack: PlaceLayerTarget[];
   underlay: string | null;
 } {
@@ -1044,6 +1070,10 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   const closePopPendingRef = useRef(false);
   /** This Read close started from popstate. Do not pop history again. */
   const exitFromPopRef = useRef(false);
+  /** Header / Esc already popped this read. The landing pop must not close the drop. */
+  const ownedReadPopRef = useRef(false);
+  /** Card id that paints the feed Read. Unset once the feed has settled means the card is gone. */
+  const feedReadClaimRef = useRef<string | null>(null);
   /** Canonical of the layer that replaced a close, query included. */
   const overlayCanonicalRef = useRef<string | null>(null);
   useLayoutEffect(() => {
@@ -1077,12 +1107,24 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     !onProfileHop
   ) {
     if (sawProfileHop) setSawProfileHop(false);
+    const leftFeedRead = stack.some(
+      (entry) => entry.kind === 'read' && entry.feedPost
+    );
+    const underlay = underlayPath;
     setProfileHop(null);
     setStack([]);
     setClosingId(null);
     setUnderlayPath(null);
+    // The stack is already gone. The history pop still belongs to that read.
+    // eslint-disable-next-line react-hooks/refs -- same render-time drop as the stack itself
+    exitFromPopRef.current = false;
     if (typeof window !== 'undefined') {
       getPlaceHistoryGuard().depth = 0;
+      if (leftFeedRead) {
+        const nextHref = `${window.location.pathname}${window.location.search}`;
+        forgetPlaceRead();
+        queueMicrotask(() => retargetAfterReadLeave(underlay ?? '/home', nextHref));
+      }
     }
   }
   const mediaFaceCovered =
@@ -1192,12 +1234,27 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     // One history entry per screen. Back pops it; popstate walks one layer.
     if (current.length > 1 && top && isReaderLayerKind(top.kind)) {
       if (top.kind === 'read' && exitFromPopRef.current) return true;
-      if (guard && guard.depth > 1 && historyHasPlaceLayer()) {
-        // Own the pop so it does not start a second exit.
-        if (top.kind === 'read' && closingIdRef.current !== top.id) {
+      if (
+        guard &&
+        readCloseOwnsPop({
+          stackLength: current.length,
+          topKind: top.kind,
+          exitFromPop: exitFromPopRef.current,
+          depth: guard.depth,
+          historyHasLayer: historyHasPlaceLayer(),
+        })
+      ) {
+        // The slide-over finishes this close in the same turn, then the
+        // pop lands on the drop. That pop is already accounted for.
+        ownedReadPopRef.current = true;
+        if (closingIdRef.current !== top.id) {
           closingIdRef.current = top.id;
           setClosingId(top.id);
         }
+        window.history.back();
+        return true;
+      }
+      if (guard && guard.depth > 1 && historyHasPlaceLayer()) {
         window.history.back();
         return true;
       }
@@ -1882,6 +1939,12 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       return closePostThread();
     };
     guard.onPop = () => {
+      if (ownedReadPopRef.current) {
+        ownedReadPopRef.current = false;
+        const landed = stackRef.current[stackRef.current.length - 1];
+        guard.depth = landed ? readPlaceLayerDepth() : 0;
+        return;
+      }
       const pendingClosePop = closePopPendingRef.current;
       closePopPendingRef.current = false;
       // Back already started closing a layer, then a new one replaced it
@@ -1930,12 +1993,68 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     };
   }, [beginCloseTop, closePostThread]);
 
+  useEffect(() => {
+    const top = stack[stack.length - 1];
+    if (!top || top.kind !== 'read' || !top.feedPost) return;
+    const id = top.id;
+    let stopped = false;
+    let listedAt = 0;
+    let timer = 0;
+    const stop = () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+    const prune = () => {
+      if (stopped) return;
+      // A mounted card claims this read. Keep watching: the card can
+      // unmount once the settled feed no longer includes that post.
+      if (feedReadClaimRef.current === id) {
+        listedAt = 0;
+        return;
+      }
+      const home = document.querySelector('.home-feed');
+      const settled =
+        Boolean(home?.querySelector('.home-feed-list, .home-feed-state')) &&
+        !document.querySelector('.os-route-skeleton');
+      if (!settled) {
+        listedAt = 0;
+        return;
+      }
+      if (!listedAt) listedAt = Date.now();
+      // The card claims in the same commit the list paints. A quiet gap
+      // means that card is not in the settled list.
+      if (Date.now() - listedAt < 100) return;
+      const live = stackRef.current[stackRef.current.length - 1];
+      if (!live || live.id !== id || live.kind !== 'read' || !live.feedPost) {
+        stop();
+        return;
+      }
+      stop();
+      forgetPlaceRead();
+      if (readPlaceReadStamp() || historyHasPlaceLayer()) popPlaceLayerEntry();
+      exitFromPopRef.current = false;
+      ownedReadPopRef.current = false;
+      const next = stackRef.current.filter((layer) => layer.id !== id);
+      stackRef.current = next;
+      setStack(next);
+      if (next.length === 0) {
+        underlayPathRef.current = null;
+        setUnderlayPath(null);
+        getPlaceHistoryGuard().depth = 0;
+      }
+    };
+    timer = window.setInterval(prune, 50);
+    prune();
+    return () => stop();
+  }, [stack]);
+
   const handleSheetClosed = useCallback((id: string) => {
     if (closingIdRef.current !== id) return;
     const closing = stackRef.current.find((layer) => layer.id === id);
     if (closing?.kind === 'read') forgetPlaceRead();
     closingIdRef.current = null;
     exitFromPopRef.current = false;
+    if (feedReadClaimRef.current === id) feedReadClaimRef.current = null;
     setClosingId(null);
     const next = stackRef.current.filter((layer) => layer.id !== id);
     stackRef.current = next;
@@ -2014,11 +2133,18 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     const top = stack[stack.length - 1];
     if (top?.kind !== 'read' || !top.feedPost) return null;
     return {
+      id: top.id,
       accountId: top.feedPost.accountId,
       postId: top.feedPost.postId,
       open: top.id !== closingId,
     };
   }, [closingId, stack]);
+  const claimFeedRead = useCallback((id: string) => {
+    feedReadClaimRef.current = id;
+    return () => {
+      if (feedReadClaimRef.current === id) feedReadClaimRef.current = null;
+    };
+  }, []);
   const value = useMemo(
     () => ({
       openPostThread,
@@ -2027,6 +2153,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       openRead,
       openPlace,
       feedRead,
+      claimFeedRead,
       finishFeedRead,
       dismissFeedRead,
       closePostThread,
@@ -2034,6 +2161,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     [
       closePostThread,
       dismissFeedRead,
+      claimFeedRead,
       feedRead,
       finishFeedRead,
       openDrop,

@@ -4,6 +4,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -372,6 +373,7 @@ function PostCardImpl({
     feedRead,
     finishFeedRead,
     dismissFeedRead,
+    claimFeedRead,
   } = usePostThreadLayer();
   const articleOpen = Boolean(
     feedRead &&
@@ -379,6 +381,10 @@ function PostCardImpl({
       accountIdsEqual(feedRead.accountId, post.accountId) &&
       feedRead.postId === post.postId
   );
+  useLayoutEffect(() => {
+    if (!articleOpen || !feedRead?.id) return;
+    return claimFeedRead(feedRead.id);
+  }, [articleOpen, claimFeedRead, feedRead?.id]);
   const ownerZ = usePostLayerOwnerZ();
   const actionZ = postLayerOverlayZ(ownerZ).sheet;
   const resolvedMenuZ =

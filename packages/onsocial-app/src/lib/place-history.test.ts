@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   beginHistoryBack,
   inFlightPopRepair,
@@ -519,5 +519,149 @@ describe('native place push bypasses patched history', () => {
     });
     vi.unstubAllGlobals();
     vi.resetModules();
+  });
+});
+
+describe('read history recall and pop', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  it('does not treat the 50-entry history cap as the same read', async () => {
+    vi.resetModules();
+    const store = new Map<string, string>();
+    vi.stubGlobal('sessionStorage', {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        store.set(key, value);
+      },
+      removeItem: (key: string) => {
+        store.delete(key);
+      },
+    });
+    vi.stubGlobal('window', {
+      location: { pathname: '/home', search: '' },
+      history: { length: 50, state: null },
+      addEventListener: vi.fn(),
+    });
+    const { recallPlaceRead, rememberPlaceRead } = await import(
+      '@/lib/place-history'
+    );
+    rememberPlaceRead('/home', { accountId: 'alice.near', postId: 'night' });
+    expect(recallPlaceRead()).toBeNull();
+    expect(store.size).toBe(0);
+  });
+
+  it('recalls a read when the history length still matches', async () => {
+    vi.resetModules();
+    const store = new Map<string, string>();
+    vi.stubGlobal('sessionStorage', {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        store.set(key, value);
+      },
+      removeItem: (key: string) => {
+        store.delete(key);
+      },
+    });
+    vi.stubGlobal('window', {
+      location: { pathname: '/home', search: '' },
+      history: { length: 4, state: null },
+      addEventListener: vi.fn(),
+    });
+    const { recallPlaceRead, rememberPlaceRead } = await import(
+      '@/lib/place-history'
+    );
+    rememberPlaceRead('/home', { accountId: 'alice.near', postId: 'night' });
+    expect(recallPlaceRead()).toEqual({
+      href: '/home',
+      stamp: { accountId: 'alice.near', postId: 'night' },
+    });
+  });
+
+  it('pops a left read and pushes the page already on screen without the stamp', async () => {
+    vi.resetModules();
+    const back = vi.fn();
+    const pushState = vi.fn();
+    const replaceState = vi.fn();
+    const location = { pathname: '/@alice.near', search: '' };
+    vi.stubGlobal('History', {
+      prototype: { pushState, replaceState },
+    });
+    vi.stubGlobal('window', {
+      location,
+      history: {
+        state: {
+          __NA: true,
+          onsocialPostLayer: true,
+          onsocialPostLayerDepth: 1,
+          onsocialReadLayer: { accountId: 'alice.near', postId: 'night' },
+        },
+        back,
+        pushState: vi.fn(),
+        replaceState: vi.fn(),
+        go: vi.fn(),
+        length: 3,
+      },
+      addEventListener: vi.fn(),
+      setTimeout: () => 1,
+      clearTimeout: vi.fn(),
+    });
+    const { getPlaceHistoryGuard, retargetAfterReadLeave } = await import(
+      '@/lib/place-history'
+    );
+    const guard = getPlaceHistoryGuard();
+    guard.depth = 1;
+    retargetAfterReadLeave('/home', '/@alice.near');
+    expect(back).toHaveBeenCalledTimes(1);
+    expect(guard.suppressPops).toBe(1);
+    location.pathname = '/home';
+    guard.afterJump?.();
+    const replaced = replaceState.mock.calls[0]?.[0] as {
+      onsocialReadLayer?: unknown;
+      onsocialPostLayer?: unknown;
+    };
+    expect(replaced.onsocialReadLayer).toBeUndefined();
+    expect(replaced.onsocialPostLayer).toBeUndefined();
+    expect(replaceState.mock.calls[0]?.[2]).toBe('/home');
+    const pushed = pushState.mock.calls[0]?.[0] as {
+      onsocialReadLayer?: unknown;
+    };
+    expect(pushed.onsocialReadLayer).toBeUndefined();
+    expect(pushState.mock.calls[0]?.[2]).toBe('/@alice.near');
+    expect(guard.depth).toBe(0);
+  });
+
+  it('pops the read entry and holds the next push', async () => {
+    vi.resetModules();
+    const back = vi.fn();
+    vi.stubGlobal('History', {
+      prototype: { pushState: vi.fn(), replaceState: vi.fn() },
+    });
+    vi.stubGlobal('window', {
+      location: { pathname: '/home', search: '' },
+      history: {
+        state: {
+          __NA: true,
+          onsocialPostLayer: true,
+          onsocialPostLayerDepth: 1,
+        },
+        back,
+        pushState: vi.fn(),
+        replaceState: vi.fn(),
+        go: vi.fn(),
+        length: 2,
+      },
+      addEventListener: vi.fn(),
+      setTimeout: () => 1,
+      clearTimeout: vi.fn(),
+    });
+    const { getPlaceHistoryGuard, popPlaceLayerEntry } = await import(
+      '@/lib/place-history'
+    );
+    popPlaceLayerEntry();
+    expect(back).toHaveBeenCalledTimes(1);
+    expect(getPlaceHistoryGuard().suppressPops).toBe(1);
   });
 });

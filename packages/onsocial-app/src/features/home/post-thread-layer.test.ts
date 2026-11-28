@@ -1,14 +1,18 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseInAppDropLayerHref } from '@/lib/app-routes';
 import {
   parseInAppPostLayerHref,
   parseInAppPostQuotesHref,
   type PostQuotesTab,
 } from '@/lib/post-routes';
-import { isPortfolioFaceHref } from './post-thread-layer';
+import {
+  isPortfolioFaceHref,
+  readBootPlace,
+  readCloseOwnsPop,
+} from './post-thread-layer';
 import {
   appendTrailEntry,
   replyOpenedOverMediaFace,
@@ -297,6 +301,70 @@ describe('article place layer discipline', () => {
       false
     );
     expect(isPortfolioFaceHref('/home')).toBe(false);
+  });
+});
+
+describe('read boot and owned close', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  it('owns the pop when header or Esc closes a read over a drop', () => {
+    expect(
+      readCloseOwnsPop({
+        stackLength: 2,
+        topKind: 'read',
+        exitFromPop: false,
+        depth: 2,
+        historyHasLayer: true,
+      })
+    ).toBe(true);
+    expect(
+      readCloseOwnsPop({
+        stackLength: 2,
+        topKind: 'read',
+        exitFromPop: true,
+        depth: 2,
+        historyHasLayer: true,
+      })
+    ).toBe(false);
+    expect(
+      readCloseOwnsPop({
+        stackLength: 1,
+        topKind: 'read',
+        exitFromPop: false,
+        depth: 1,
+        historyHasLayer: true,
+      })
+    ).toBe(false);
+  });
+
+  it('restores a feed read from the history stamp', () => {
+    vi.stubGlobal('window', {
+      location: { pathname: '/home', search: '' },
+      history: {
+        state: {
+          __NA: true,
+          onsocialPostLayer: true,
+          onsocialPostLayerDepth: 1,
+          onsocialReadLayer: { accountId: 'alice.near', postId: 'night' },
+        },
+        back: vi.fn(),
+        pushState: vi.fn(),
+        replaceState: vi.fn(),
+        length: 2,
+      },
+      addEventListener: vi.fn(),
+    });
+    const boot = readBootPlace();
+    expect(boot.underlay).toBe('/home');
+    expect(boot.stack).toHaveLength(1);
+    expect(boot.stack[0]).toMatchObject({
+      kind: 'read',
+      feedPost: { accountId: 'alice.near', postId: 'night' },
+      readables: [],
+    });
   });
 });
 

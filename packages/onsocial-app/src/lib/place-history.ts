@@ -30,6 +30,8 @@ export function placeReadStamp(
 }
 
 const PLACE_READ_SESSION_KEY = 'onsocial-place-read';
+/** Chrome stops growing `history.length` here, so equal lengths are not the same entry. */
+export const PLACE_READ_HISTORY_LENGTH_CAP = 50;
 
 /** Reload keeps this when the router replaces history.state. */
 export function rememberPlaceRead(href: string, read: PlaceReadStamp): void {
@@ -66,12 +68,14 @@ export function recallPlaceRead(): {
       sessionStorage.removeItem(PLACE_READ_SESSION_KEY);
       return null;
     }
-    if (
-      typeof parsed.length === 'number' &&
-      parsed.length !== window.history.length
-    ) {
-      sessionStorage.removeItem(PLACE_READ_SESSION_KEY);
-      return null;
+    if (typeof parsed.length === 'number') {
+      const capped =
+        parsed.length >= PLACE_READ_HISTORY_LENGTH_CAP ||
+        window.history.length >= PLACE_READ_HISTORY_LENGTH_CAP;
+      if (capped || parsed.length !== window.history.length) {
+        sessionStorage.removeItem(PLACE_READ_SESSION_KEY);
+        return null;
+      }
     }
     return { href, stamp };
   } catch {
@@ -227,6 +231,7 @@ export function withoutPlaceLayerHistoryState(): object {
       : {};
   delete base[PLACE_LAYER_STATE_KEY];
   delete base[PLACE_LAYER_DEPTH_KEY];
+  delete base[PLACE_READ_KEY];
   return base;
 }
 
@@ -250,6 +255,31 @@ function deferPlaceWrite(run: () => void): boolean {
   if (guard.suppressPops <= 0) return false;
   guard.writesAfterJump.push(run);
   return true;
+}
+
+/**
+ * The Read entry is now behind a real navigation. Pop back onto it, drop
+ * the stamp, and push the page that is already on screen.
+ */
+export function retargetAfterReadLeave(underlay: string, nextHref: string): void {
+  const guard = getPlaceHistoryGuard();
+  if (guard.suppressPops > 0) {
+    guard.writesAfterJump.push(() => retargetAfterReadLeave(underlay, nextHref));
+    return;
+  }
+  forgetPlaceRead();
+  if (!historyHasPlaceLayer() && guard.depth <= 0) return;
+  guard.suppressPops = 1;
+  guard.afterJump = () => {
+    const here = `${window.location.pathname}${window.location.search}`;
+    if (here === nextHref) return;
+    nativeHistoryReplaceState(withoutPlaceLayerHistoryState(), underlay);
+    guard.depth = 0;
+    forgetPlaceRead();
+    nativeHistoryPushState(withoutPlaceLayerHistoryState(), nextHref);
+  };
+  armPlaceJumpTimer(guard);
+  window.history.back();
 }
 
 /**
