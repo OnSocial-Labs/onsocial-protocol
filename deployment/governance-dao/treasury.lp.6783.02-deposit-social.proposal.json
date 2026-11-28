@@ -7,7 +7,7 @@
         "actions": [
           {
             "method_name": "ft_transfer_call",
-            "args": "eyJyZWNlaXZlcl9pZCI6InYyLnJlZi1maW5hbmNlLm5lYXIiLCJhbW91bnQiOiIyMDAwMDAwMDAwMDAwMDAwMDAwMDAwIiwibXNnIjoiIn0=",
+            "args": "eyJyZWNlaXZlcl9pZCI6InYyLnJlZi1maW5hbmNlLm5lYXIiLCJhbW91bnQiOiI4MjQ2OTI1NjU5ODM1NTQzMDM1NDQiLCJtc2ciOiIifQ==",
             "deposit": "1",
             "gas": 200000000000000
           }

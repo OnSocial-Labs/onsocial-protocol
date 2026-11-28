@@ -59,6 +59,10 @@ Tiny add **0.002 SOCIAL + ~2.425 wNEAR** on pool `6783` via treasury proposals:
 
 LP shares `:6783` rose by `208849508158172672368023` (to `14706316736426320232600567`). Ref internal deposits returned to dust.
 
+### +1 NEAR leg (same day)
+
+**1 Ⓝ + ~0.000825 SOCIAL** — proposals `10`–`12` approved; shares delta `+86118318393683339714992`.
+
 **Lessons locked into the builder/check:**
 - Always `check` first — `0.05 SOCIAL` failed affordability (pool is SOCIAL-scarce; NEAR leg is large).
 - Multi-action proposal gas must stay **≤ ~280 TGas** (act_proposal receipt cap is 300). An earlier attempt with 100+250 TGas (`proposal 6`) OOG’d; VoteReject on proposal `6` (`DEhaTJ4LQDLfKhLYyBYfTkKynxCwxHjRjTmD8DN9M6qX`) — rejected.
