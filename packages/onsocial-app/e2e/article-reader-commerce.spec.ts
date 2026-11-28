@@ -73,6 +73,9 @@ test.describe('article reader commerce', () => {
 
     await page.goBack();
     await expect(drop).toHaveCount(0);
+    await expect(page).toHaveURL(
+      new RegExp(`/@${accountPattern(ACCOUNT)}/writing/night/?$`)
+    );
   });
 
   test('author byline inside Read returns to the reader', async ({ page }) => {
@@ -83,6 +86,18 @@ test.describe('article reader commerce', () => {
     await expect(byline).toBeVisible();
     await byline.click();
     await expect(page).toHaveURL(new RegExp(`/@${accountPattern(ACCOUNT)}/?$`));
+    await expect(reader).not.toBeVisible();
+    const profileDock = settledNode(page, '.portfolio-summon-dock');
+    await expect
+      .poll(async () =>
+        profileDock.evaluate((el) => {
+          const dock = getComputedStyle(el);
+          const pill = el.querySelector('.portfolio-summon');
+          const events = pill ? getComputedStyle(pill).pointerEvents : 'none';
+          return `${dock.opacity}|${events}`;
+        })
+      )
+      .toBe('1|auto');
 
     await page.goBack();
     await expect(reader).toBeVisible();
@@ -102,7 +117,10 @@ async function openNightRead(page: Page) {
   const drop = page.locator('[data-drop-layer-sheet]');
   await expect(drop).toBeVisible({ timeout: 15_000 });
   await expect(drop.locator('.collection-title')).toHaveText('Night drive');
-  await expect(page.locator('.portfolio-summon-dock')).toBeVisible();
+  const dock = settledNode(page, '.portfolio-summon-dock');
+  await expect
+    .poll(async () => dock.evaluate((el) => getComputedStyle(el).opacity))
+    .toBe('1');
 
   await drop.getByRole('button', { name: 'Read', exact: true }).click();
   const reader = page.locator('[data-os-slide-over="true"].feed-article-slide');

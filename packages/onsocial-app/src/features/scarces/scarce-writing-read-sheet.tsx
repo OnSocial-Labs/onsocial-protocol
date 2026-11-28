@@ -691,7 +691,7 @@ export function WritingReadSheet({
         ) : null
       }
       zIndex={faceZ}
-      keepDock={writePinned || threadOpen || dropSheetOpen}
+      keepDock={parked || writePinned || threadOpen || dropSheetOpen}
       scrollRootRef={scrollRootRef}
       className={`${ARTICLE_READ_CLASS}${quiet ? ' is-chrome-quiet' : ''}${
         showWakeFooter ? ' is-wake-footer' : ''
