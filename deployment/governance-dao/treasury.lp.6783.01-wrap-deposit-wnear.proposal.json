@@ -1,0 +1,24 @@
+{
+  "proposal": {
+    "description": "Treasury LP add SOCIAL-wNEAR pool 6783: wrap NEAR and deposit wNEAR to Ref.",
+    "kind": {
+      "FunctionCall": {
+        "receiver_id": "wrap.near",
+        "actions": [
+          {
+            "method_name": "near_deposit",
+            "args": "e30=",
+            "deposit": "2425146148388929720770313",
+            "gas": 30000000000000
+          },
+          {
+            "method_name": "ft_transfer_call",
+            "args": "eyJyZWNlaXZlcl9pZCI6InYyLnJlZi1maW5hbmNlLm5lYXIiLCJhbW91bnQiOiIyNDI1MTQ2MTQ4Mzg4OTI5NzIwNzcwMzEzIiwibXNnIjoiIn0=",
+            "deposit": "1",
+            "gas": 200000000000000
+          }
+        ]
+      }
+    }
+  }
+}

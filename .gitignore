@@ -142,6 +142,7 @@ examples/
 # Keep DAO self-upgrade runbook / status (ops; wasm stays ignored)
 !deployment/governance-dao/SELF_UPGRADE_RUNBOOK.md
 !deployment/governance-dao/SELF_UPGRADE_STATUS.md
+!deployment/governance-dao/TREASURY_LP_RUNBOOK.md
 
 # Keep shipped briefs and the social glossary (the rest of *.md stays ignored)
 !docs/briefs/*.md
