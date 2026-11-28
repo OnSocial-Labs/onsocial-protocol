@@ -31,7 +31,10 @@ import {
 import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
 import { useWriteDockPinned } from '@/contexts/compose-launcher-context';
 import { useOsDropSheetOpen } from '@/hooks/use-os-drop-sheet-open';
-import { isWritingShelfHref } from '@/components/portfolio/account-place-link';
+import {
+  isWritingArticleHref,
+  isWritingShelfIndexHref,
+} from '@/components/portfolio/account-place-link';
 import { PostCardMenu } from '@/features/home/post-card-menu';
 import { parseInAppDropLayerHref } from '@/lib/app-routes';
 import { usePostLayerOwnerZ } from '@/features/home/post-layer-owner-z';
@@ -347,14 +350,20 @@ export function ArticleReadOverlay({
   const writingLeftRef = useRef(false);
   const leaveFromReader = useCallback(
     (href: string) => {
+      // Shelf already under this reader — byline Writing just closes.
+      if (parentReturnToShelf && isWritingShelfIndexHref(href)) {
+        parentReturnToShelf();
+        return;
+      }
       onPlaceLeave?.(href);
     },
-    [onPlaceLeave]
+    [onPlaceLeave, parentReturnToShelf]
   );
   const onPointerDownCapture = (event: PointerEvent<HTMLDivElement>) => {
     if (!onPlaceLeave || !unmodifiedPrimary(event)) return;
     const href = readerLeaveHref(event.target);
-    if (!href || !isWritingShelfHref(href)) return;
+    // Essay / More-by permalinks flip in place — do not treat as leave.
+    if (!href || !isWritingShelfIndexHref(href)) return;
     event.preventDefault();
     event.stopPropagation();
     writingLeftRef.current = true;
@@ -364,7 +373,8 @@ export function ArticleReadOverlay({
     if (!onPlaceLeave || !unmodifiedPrimary(event)) return;
     const href = readerLeaveHref(event.target);
     if (!href) return;
-    if (isWritingShelfHref(href) && writingLeftRef.current) {
+    if (isWritingArticleHref(href)) return;
+    if (isWritingShelfIndexHref(href) && writingLeftRef.current) {
       event.preventDefault();
       event.stopPropagation();
       writingLeftRef.current = false;

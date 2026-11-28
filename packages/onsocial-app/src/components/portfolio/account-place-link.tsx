@@ -64,6 +64,18 @@ export function isWritingShelfHref(href: string): boolean {
   return /\/writing(?:\/|$)/.test(path);
 }
 
+/** Writing shelf index only — `/…/writing`, not an essay permalink. */
+export function isWritingShelfIndexHref(href: string): boolean {
+  const path = (href.split('#')[0] ?? href).split('?')[0] ?? '';
+  return /\/writing\/?$/.test(path);
+}
+
+/** One essay under Writing — `/…/writing/{postId}`. */
+export function isWritingArticleHref(href: string): boolean {
+  const path = (href.split('#')[0] ?? href).split('?')[0] ?? '';
+  return /\/writing\/[^/]+\/?$/.test(path);
+}
+
 function shelfHopFace(
   hop: string,
   hint?: AccountPlaceLinkProps['shelfFace']

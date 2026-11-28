@@ -20,6 +20,11 @@ describe('feed read place', () => {
     ).toBe('/collection/night-essay');
   });
 
+  it('claims dock Back for a feed or Writing-shelf Read', () => {
+    const layer = readFileSync(join(here, 'post-thread-layer.tsx'), 'utf8');
+    expect(layer).toContain("topPlace?.kind === 'read' && Boolean(topPlace.feed)");
+  });
+
   it('covers the home column from place depth and paints the feed reader on the stack', () => {
     const home = readFileSync(join(here, 'home-feed.tsx'), 'utf8');
     const layer = readFileSync(join(here, 'post-thread-layer.tsx'), 'utf8');

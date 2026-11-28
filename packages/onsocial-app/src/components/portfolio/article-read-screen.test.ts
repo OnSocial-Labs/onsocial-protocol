@@ -33,9 +33,19 @@ describe('article reader core', () => {
     expect(feed).toContain('scarce-post-medium-chrome');
   });
 
+  it('lets More-by essay links flip in place when place leave is armed', () => {
+    expect(screen).toContain('isWritingArticleHref(href)');
+    expect(screen).toContain('isWritingShelfIndexHref(href)');
+    expect(screen).toContain(
+      'if (parentReturnToShelf && isWritingShelfIndexHref(href))'
+    );
+    expect(screen).not.toContain('if (!href || !isWritingShelfHref(href)) return');
+  });
+
   it('keeps feed post controls on the feed overlay footer', () => {
     expect(feed).toContain('engagement');
     expect(feed).toContain('commerce');
+    expect(feed).toContain('onReturnToShelf ? undefined : null');
   });
 
   it('exports ArticleReadFooter for the drop writing overlay', () => {
@@ -44,11 +54,15 @@ describe('article reader core', () => {
 });
 
 describe('writing list to article', () => {
-  it('opens the overlay over the list instead of jumping to a solid page', () => {
-    expect(list).toContain('ArticleReadOverlay');
-    expect(list).toContain('onOpenArticle');
-    expect(list).toContain('onReturnToShelf');
+  it('opens the place-stack reader over the list instead of a solid page', () => {
+    expect(list).toContain('openFeedRead');
+    expect(list).toContain('openShelfArticle');
+    expect(list).toContain('shelf:');
+    expect(list).toContain('feedSession={columnSession}');
+    expect(list).toContain('openShelfArticleRef');
+    expect(list).toContain('}, [panel.articles]);');
     expect(list).toContain('consumeEssayReopen');
+    expect(list).not.toContain('ArticleReadOverlay');
     expect(list).not.toContain('leaveGlass');
   });
 

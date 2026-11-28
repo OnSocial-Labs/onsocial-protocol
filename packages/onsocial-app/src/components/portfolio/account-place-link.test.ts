@@ -2,7 +2,12 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { feedPanelHopHref, isWritingShelfHref } from './account-place-link';
+import {
+  feedPanelHopHref,
+  isWritingArticleHref,
+  isWritingShelfHref,
+  isWritingShelfIndexHref,
+} from './account-place-link';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(here, 'account-place-link.tsx'), 'utf8');
@@ -47,6 +52,11 @@ describe('Writing place navigation', () => {
     expect(isWritingShelfHref('/@alice.testnet/writing')).toBe(true);
     expect(isWritingShelfHref('/@alice.testnet/writing/42')).toBe(true);
     expect(isWritingShelfHref('/@alice.testnet')).toBe(false);
+    expect(isWritingShelfIndexHref('/@alice.testnet/writing')).toBe(true);
+    expect(isWritingShelfIndexHref('/@alice.testnet/writing/')).toBe(true);
+    expect(isWritingShelfIndexHref('/@alice.testnet/writing/42')).toBe(false);
+    expect(isWritingArticleHref('/@alice.testnet/writing/42')).toBe(true);
+    expect(isWritingArticleHref('/@alice.testnet/writing')).toBe(false);
   });
 
   it('hard-assigns every Writing shelf / article href', () => {

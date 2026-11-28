@@ -1,6 +1,7 @@
 import type { PostRow } from '@onsocial/sdk';
 import type { CollectionView } from '@/features/scarces/collections-data';
 import { collectionPath } from '@/lib/app-routes';
+import type { WritingArticleCoverHint } from '@/lib/hydrate-writing-article-covers';
 
 /** Book body for a feed Read. The stack owns the screen, so the card cannot pass a React node. */
 export type FeedReadBook = {
@@ -15,6 +16,13 @@ export type FeedReadBook = {
   writingFormat: CollectionView['writingFormat'];
 };
 
+/** Writing-shelf extras for More by / covers. Feed opens omit this. */
+export type FeedReadShelf = {
+  coverHint: WritingArticleCoverHint | null;
+  articles: readonly PostRow[];
+  coverHints: Record<string, WritingArticleCoverHint>;
+};
+
 /** Snapshot the feed reader paints. `holding` is the shell before the essay resolves. */
 export type FeedReadFace = {
   post: PostRow;
@@ -23,6 +31,8 @@ export type FeedReadFace = {
   holding: boolean;
   documentTitle: string | null;
   book: FeedReadBook | null;
+  /** Present when opened from the Writing shelf. */
+  shelf?: FeedReadShelf | null;
 };
 
 /** Resume a drop-backed shell only while that card's reader is still open. */
