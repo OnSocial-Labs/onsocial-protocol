@@ -157,9 +157,8 @@ export function isPortalSwapEnabled(network: PortalNearNetwork): boolean {
 
 /**
  * What a visitor can actually do on the selected network.
- * Mainnet inventory matches Resources/mainnet-golive.md: token, rewards,
- * and treasury are live. Social, boost, spend, vesting, and governance are not.
- * Swap stays mainnet-only because the Rhea pool is mainnet-only.
+ * Mainnet inventory: token, rewards, treasury, and governance DAOs are live.
+ * Social, boost, spend, and vesting are not. Swap stays mainnet-only (Rhea).
  */
 export type PortalCapability =
   | 'core'
@@ -177,6 +176,7 @@ const MAINNET_LIVE_CAPABILITIES = new Set<PortalCapability>([
   'token',
   'rewards',
   'treasury',
+  'governance',
   'swap',
 ]);
 
