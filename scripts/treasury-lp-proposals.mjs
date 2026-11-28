@@ -24,13 +24,16 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {
+  NEAR_SPEND_BUFFER_YOCTO,
   RHEA_REF_CONTRACT,
+  SOCIAL_DECIMALS,
   SOCIAL_TOKEN_ID,
   TREASURY_LP_POOLS,
   USDC_TOKEN_ID,
   WNEAR_TOKEN_ID,
   buildTreasuryAddLiquidityProposals,
   matchPairAmount,
+  spendableNearYocto,
 } from './lib/treasury-lp-proposals.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -46,10 +49,10 @@ function fail(message) {
 function usage(code = 0) {
   const out = code === 0 ? console.log : console.error;
   out(`Usage:
-  node scripts/treasury-lp-proposals.mjs check --pool 6783|6771 --social <human> --dao treasury.onsocial.near
+  node scripts/treasury-lp-proposals.mjs check --pool 6783|6771 --pair 1 --dao treasury.onsocial.near --signer onsocial.near
   node scripts/treasury-lp-proposals.mjs emit --pool 6783|6771 --social <human>
   node scripts/treasury-lp-proposals.mjs emit --pool 6783 --social-yocto <n> --pair-yocto <n>
-  node scripts/treasury-lp-proposals.mjs add --dao <dao> --signer <account> --pool 6783 --social <human>
+  node scripts/treasury-lp-proposals.mjs add --dao <dao> --signer <account> --pool 6783 --pair 1
 
 Options:
   --out-dir <dir>     default: deployment/governance-dao
@@ -58,6 +61,7 @@ Options:
   --fetch-pool        size pair side from live mainnet reserves
   --pair <human>      pair human amount (NEAR for 6783, USDC for 6771)
   --pair-yocto <n>
+  --signer <account>  council proposer (required for check bond cover)
   --step <1|2|3|all>  add only one proposal step (default all)
 `);
   process.exit(code);
@@ -194,7 +198,7 @@ function check(label, ok, detail) {
   return ok;
 }
 
-/** Human decimal → yocto string. SOCIAL/wNEAR=24, USDC=6. */
+/** Human decimal → smallest-unit string (SOCIAL=18, wNEAR=24, USDC=6). */
 function humanToYocto(human, decimals) {
   const raw = String(human).trim();
   if (!/^\d+(\.\d+)?$/.test(raw)) {
@@ -209,6 +213,15 @@ function humanToYocto(human, decimals) {
   return yocto === '' ? '0' : yocto;
 }
 
+function yoctoToHuman(yocto, decimals) {
+  const raw = String(yocto).replace(/^0+(?=\d)/, '') || '0';
+  if (decimals === 0) return raw;
+  const padded = raw.padStart(decimals + 1, '0');
+  const whole = padded.slice(0, -decimals);
+  const frac = padded.slice(-decimals).replace(/0+$/, '');
+  return frac ? `${whole}.${frac}` : whole;
+}
+
 async function fetchPoolReserves(poolId) {
   return viewCall(RHEA_REF_CONTRACT, 'get_pool', { pool_id: poolId });
 }
@@ -217,11 +230,12 @@ async function resolveAmounts(options) {
   const pool = TREASURY_LP_POOLS[options.pool];
   if (!pool) fail(`Unsupported --pool ${options.pool}`);
 
-  const pairDecimals = pool.pair === 'usdc' ? 6 : 24;
+  const pairDecimals = pool.pairDecimals;
   let socialYocto = options.socialYocto;
-  if (!socialYocto) {
-    if (!options.social) fail('Provide --social or --social-yocto');
-    socialYocto = humanToYocto(options.social, 24);
+  if (socialYocto) {
+    // keep
+  } else if (options.social) {
+    socialYocto = humanToYocto(options.social, SOCIAL_DECIMALS);
   }
 
   let pairYocto = options.pairYocto;
@@ -229,27 +243,45 @@ async function resolveAmounts(options) {
     pairYocto = humanToYocto(options.pair, pairDecimals);
   }
 
-  if (!pairYocto) {
-    if (!options.fetchPool && !options.pair && !options.pairYocto) {
-      // Default: size pair from live reserves.
+  // Size the missing side from live reserves (amounts already in token decimals).
+  if (!socialYocto || !pairYocto) {
+    if (!options.fetchPool && (!options.pair || !options.social)) {
       options.fetchPool = true;
     }
-    if (options.fetchPool) {
-      const reserves = await fetchPoolReserves(options.pool);
-      const [poolSocial, poolPair] = reserves.amounts;
+    if (!options.fetchPool) {
+      fail(
+        'Provide both sides (--social/--pair or yocto) or --fetch-pool to size the missing side'
+      );
+    }
+    const reserves = await fetchPoolReserves(options.pool);
+    const [poolSocial, poolPair] = reserves.amounts;
+    if (socialYocto && !pairYocto) {
       pairYocto = matchPairAmount({
         socialAmountYocto: socialYocto,
         poolSocialYocto: poolSocial,
         poolPairYocto: poolPair,
       });
       console.log(
-        `Sized pair from pool ${options.pool} reserves: pair_yocto=${pairYocto}`
+        `Sized pair from pool ${options.pool}: ${yoctoToHuman(pairYocto, pairDecimals)} (${pairYocto})`
+      );
+    } else if (pairYocto && !socialYocto) {
+      // Invert matchPairAmount: social = pair * poolSocial / poolPair
+      socialYocto = matchPairAmount({
+        socialAmountYocto: pairYocto,
+        poolSocialYocto: poolPair,
+        poolPairYocto: poolSocial,
+      });
+      console.log(
+        `Sized SOCIAL from pool ${options.pool}: ${yoctoToHuman(socialYocto, SOCIAL_DECIMALS)} SOCIAL (${socialYocto})`
       );
     } else {
-      fail('Provide --pair / --pair-yocto or --fetch-pool');
+      fail('Provide --social/--social-yocto or --pair/--pair-yocto');
     }
   }
 
+  console.log(
+    `Amounts: ${yoctoToHuman(socialYocto, SOCIAL_DECIMALS)} SOCIAL + ${yoctoToHuman(pairYocto, pairDecimals)} ${pool.pair}`
+  );
   return { socialYocto, pairYocto, pool };
 }
 
@@ -284,7 +316,7 @@ async function runCheck(options, built) {
 
   console.log(`\nChecking treasury LP preconditions on mainnet (${MAINNET_RPC})`);
   console.log(
-    `dao=${dao} pool=${built.poolId} social=${built.socialAmountYocto} pair=${built.pairAmountYocto}`
+    `dao=${dao} pool=${built.poolId} social=${yoctoToHuman(built.socialAmountYocto, SOCIAL_DECIMALS)} SOCIAL (${built.socialAmountYocto}) pair=${yoctoToHuman(built.pairAmountYocto, pool.pairDecimals)} ${pool.pair} (${built.pairAmountYocto})`
   );
 
   const account = await rpcQuery({
@@ -292,16 +324,33 @@ async function runCheck(options, built) {
     finality: 'final',
     account_id: dao,
   });
-  const nativeNear = BigInt(account.amount);
+  const daoFreeNear = spendableNearYocto(account);
   requireOk(
     'treasury account exists',
     Boolean(account.code_hash),
-    `native_near=${nativeNear}`
+    `amount=${account.amount} free=${daoFreeNear} storage_usage=${account.storage_usage}`
   );
 
   const policy = await viewCall(dao, 'get_policy', {});
   const bond = BigInt(policy.proposal_bond || '0');
   requireOk('proposal_bond readable', bond > 0n, bond.toString());
+
+  if (!options.signer) {
+    fail('check requires --signer <council> to verify proposal-bond cover');
+  }
+  const signerAccount = await rpcQuery({
+    request_type: 'view_account',
+    finality: 'final',
+    account_id: options.signer,
+  });
+  const signerFreeNear = spendableNearYocto(signerAccount);
+  // Three add_proposal bonds (one per step); votes attach 0 deposit.
+  const bondNeed = bond * 3n + NEAR_SPEND_BUFFER_YOCTO;
+  requireOk(
+    'proposer free NEAR covers 3× proposal bonds',
+    signerFreeNear >= bondNeed,
+    `${options.signer} free=${signerFreeNear} need=${bondNeed}`
+  );
 
   const socialBal = BigInt(
     await viewCall(SOCIAL_TOKEN_ID, 'ft_balance_of', { account_id: dao })
@@ -313,13 +362,12 @@ async function runCheck(options, built) {
   );
 
   if (pool.pair === 'wnear' && options.wrapNear) {
-    // near_deposit + 3× proposal bonds + gas headroom
-    const need =
-      BigInt(built.pairAmountYocto) + bond * 3n + 250_000_000_000_000_000_000_000n;
+    // near_deposit spends free NEAR only — storage stake is not spendable.
+    const wrapNeed = BigInt(built.pairAmountYocto) + NEAR_SPEND_BUFFER_YOCTO;
     requireOk(
-      'native NEAR covers wrap + bonds',
-      nativeNear >= need,
-      `${nativeNear} >= ${need}`
+      'treasury free NEAR covers near_deposit',
+      daoFreeNear >= wrapNeed,
+      `free=${daoFreeNear} need=${wrapNeed} (pair+${NEAR_SPEND_BUFFER_YOCTO} buffer)`
     );
   } else if (pool.pair === 'usdc') {
     const usdcBal = BigInt(
