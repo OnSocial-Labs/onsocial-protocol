@@ -385,11 +385,15 @@ function heldCollectionRow() {
 async function stubHeldDrop(page: Page) {
   let releaseCatalog = () => {};
   let releaseEssay = () => {};
+  let essayFulfilled = () => {};
   const catalogGate = new Promise<void>((resolve) => {
     releaseCatalog = resolve;
   });
   const essayGate = new Promise<void>((resolve) => {
     releaseEssay = resolve;
+  });
+  const essayDelivered = new Promise<void>((resolve) => {
+    essayFulfilled = resolve;
   });
   const drop = dropAnnounceRow();
   await page.route('**/api/onapi/data/get-one**', async (route) => {
@@ -434,6 +438,7 @@ async function stubHeldDrop(page: Page) {
           data: { postsCurrent: [sourceEssayRow()] },
         }),
       });
+      essayFulfilled();
       return;
     }
     if (query.includes('postsFeed') || query.includes('postsCurrent')) {
@@ -454,6 +459,7 @@ async function stubHeldDrop(page: Page) {
   return {
     releaseCatalog,
     releaseEssay,
+    essayDelivered,
   };
 }
 
@@ -485,7 +491,7 @@ test.describe('drop-backed feed read', () => {
   });
 
   test('a late essay does not reopen a closed reader', async ({ page }) => {
-    const { reader, releaseCatalog, releaseEssay } =
+    const { reader, releaseCatalog, releaseEssay, essayDelivered } =
       await openHeldDropRead(page);
     const essayRequested = page.waitForRequest((request) =>
       (request.postData() ?? '').includes('PersonalPost')
@@ -494,11 +500,8 @@ test.describe('drop-backed feed read', () => {
     await essayRequested;
     await page.getByRole('button', { name: 'Back from article' }).click();
     await expect(reader).toHaveCount(0);
-    const essayArrived = page.waitForResponse((response) =>
-      (response.request().postData() ?? '').includes('PersonalPost')
-    );
     releaseEssay();
-    await essayArrived;
+    await essayDelivered;
     await page.evaluate(
       () =>
         new Promise<void>((resolve) => {

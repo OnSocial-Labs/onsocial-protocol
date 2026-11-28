@@ -70,10 +70,6 @@ export function usePostCollectionEmbed(
   const force = Boolean(opts.force);
   const key = postScarceKey(post.accountId, post.postId);
   const rootRef = useRef<HTMLElement | null>(null);
-  const activeKeyRef = useRef(key);
-  useEffect(() => {
-    activeKeyRef.current = key;
-  }, [key]);
   const [inView, setInView] = useState(false);
   const [playables, setPlayables] = useState<ScarcePlayableMedia[]>([]);
   const [readables, setReadables] = useState<ScarceReadableMedia[]>([]);
@@ -97,13 +93,18 @@ export function usePostCollectionEmbed(
     () => getScarceEmbedSeed(key)
   );
 
+  // Commerce paint used to stop this fetch. Keep it open until the writing
+  // record lands too — a cancelled reply must not paint an open Read.
+  const writingMetaSettled = writingMetaKey === key;
+  const writingMetaFailed = errorKey === key;
   const shouldFetch =
     enabled &&
     (force || inView) &&
     (force ||
       Boolean(override) ||
       seed == null ||
-      (seed.status !== 'none' && !scarceEmbedCommercePaintReady(seed)));
+      (seed.status !== 'none' && !scarceEmbedCommercePaintReady(seed)) ||
+      (!writingMetaSettled && !writingMetaFailed));
 
   useEffect(() => {
     if (!enabled) return;
@@ -136,7 +137,6 @@ export function usePostCollectionEmbed(
     const tokenId = parsed.tokenId;
     const paint = parseDropPaintSnapshot(post.value);
 
-    const stillThisPost = () => activeKeyRef.current === key;
     void (async () => {
       try {
         const rows = await client.query.scarces.collectionsCurrentByIds([
@@ -193,16 +193,16 @@ export function usePostCollectionEmbed(
             events: [],
           };
 
-          if (!cancelled && view?.playables?.length) {
+          if (!cancelled) {
             // Listen opens from mediumKind before writing hydrate — paint
             // playables from the catalog row first so the face is not empty.
-            setPlayables(view.playables);
-            setDropTitle(view.title?.trim() || paint?.title || null);
-          }
-          const hydrated = view ? await hydrateWritingManifest(view) : null;
-          // A feed repaint can cancel this effect once the ask is painted.
-          // The open reader still needs the writing record from this row.
-          if (stillThisPost()) {
+            if (view?.playables?.length) {
+              setPlayables(view.playables);
+              setDropTitle(view.title?.trim() || paint?.title || null);
+            }
+            const hydrated = view ? await hydrateWritingManifest(view) : null;
+            if (cancelled) return;
+            // Same as Drops `item.view` — Drop open peeks this for an instant face.
             rememberCollectionView(hydrated ?? view);
             setPlayables(hydrated?.playables ?? view?.playables ?? []);
             setReadables(hydrated?.readables ?? view?.readables ?? []);
@@ -224,7 +224,7 @@ export function usePostCollectionEmbed(
                 null
             );
           }
-        } else if (stillThisPost()) {
+        } else if (!cancelled) {
           setPlayables([]);
           setReadables([]);
           setWritingFormat(null);
@@ -274,12 +274,12 @@ export function usePostCollectionEmbed(
           }
         }
 
-        if (cancelled || !stillThisPost()) return;
+        if (cancelled) return;
         reconcileScarceEmbedFromApi(key, resolved);
         rememberScarceEmbedFetch(key, resolved);
         setErrorKey((current) => (current === key ? null : current));
       } catch {
-        if (cancelled || !stillThisPost()) return;
+        if (cancelled) return;
         setErrorKey(key);
       }
     })();
