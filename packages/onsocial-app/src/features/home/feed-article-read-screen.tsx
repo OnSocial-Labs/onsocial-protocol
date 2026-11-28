@@ -5,11 +5,13 @@ import type { PostRow } from '@onsocial/sdk';
 import { ArticleReadOverlay } from '@/components/portfolio/article-read-screen';
 import { FeedFaceThreadPane } from '@/features/home/feed-media-thread-sheet';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
+import type { WritingArticleCoverHint } from '@/lib/hydrate-writing-article-covers';
 import { displayName } from '@/lib/profile-display';
 
 /**
  * Feed article — same overlay reader as Writing list.
  * Footer is the feed post row (reply / quote / amplify / like / save / share).
+ * Writing shelf opens omit engagement so the default article footer paints.
  */
 export function FeedArticleReadScreen({
   open,
@@ -17,12 +19,16 @@ export function FeedArticleReadScreen({
   onPlaceLeave,
   onOpenChange,
   onClosed,
+  onReturnToShelf,
   post,
   authorProfile,
   engagement = null,
   commerce = null,
   renderBody,
   documentTitle,
+  coverHint = null,
+  articles,
+  coverHints,
   threadOpen = false,
   onDismissThread,
   threadAuthor = null,
@@ -37,6 +43,8 @@ export function FeedArticleReadScreen({
   onOpenChange: (open: boolean) => void;
   /** After the exit slide — parents drop the tree (overlay-idle). */
   onClosed?: () => void;
+  /** Writing shelf: dismiss onto the list under this reader. */
+  onReturnToShelf?: () => void;
   post: PostRow;
   authorProfile?: PostAuthorProfile;
   engagement?: ReactNode;
@@ -44,6 +52,9 @@ export function FeedArticleReadScreen({
   /** Book pages inside this post's reader. Footer stays the post controls. */
   renderBody?: (chrome: { onChromeTap: () => void }) => ReactNode;
   documentTitle?: string;
+  coverHint?: WritingArticleCoverHint | null;
+  articles?: readonly PostRow[];
+  coverHints?: Record<string, WritingArticleCoverHint>;
   /** Reply opens the same thread drawer as a photo. */
   threadOpen?: boolean;
   onDismissThread?: () => void;
@@ -61,11 +72,15 @@ export function FeedArticleReadScreen({
       onPlaceLeave={onPlaceLeave}
       onOpenChange={onOpenChange}
       onClosed={onClosed}
+      onReturnToShelf={onReturnToShelf}
       accountId={post.accountId}
       titleLabel={authorName}
       avatarUrl={authorProfile?.avatarUrl}
       post={post}
       documentTitle={documentTitle}
+      coverHint={coverHint}
+      articles={articles}
+      coverHints={coverHints}
       renderBody={renderBody}
       threadOpen={threadOpen}
       onDismissThread={onDismissThread}
@@ -78,14 +93,16 @@ export function FeedArticleReadScreen({
           initialRoot={threadRoot}
         />
       }
-      footer={
-        hasSocial ? (
-          <div className="scarce-post-medium-chrome">
-            {commerce}
-            {engagement}
-          </div>
-        ) : null
-      }
+      {...(hasSocial
+        ? {
+            footer: (
+              <div className="scarce-post-medium-chrome">
+                {commerce}
+                {engagement}
+              </div>
+            ),
+          }
+        : {})}
     />
   );
 }

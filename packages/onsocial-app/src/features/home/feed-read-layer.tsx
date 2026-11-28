@@ -51,6 +51,7 @@ export function FeedReadLayerScreen({
       ? bridge?.authorProfile
       : undefined);
   const book = face.book;
+  const shelf = face.shelf;
   const engagement: PostEngagementRowBaseProps | null = bridge
     ? {
         post: face.post,
@@ -78,9 +79,13 @@ export function FeedReadLayerScreen({
           if (!next) onClose();
         }}
         onClosed={onClosed}
+        onReturnToShelf={shelf ? onClose : undefined}
         post={face.body}
         authorProfile={authorProfile}
         documentTitle={face.documentTitle ?? undefined}
+        coverHint={shelf?.coverHint ?? null}
+        articles={shelf?.articles}
+        coverHints={shelf?.coverHints}
         threadOpen={threadOpen}
         onDismissThread={() => setThreadOpen(false)}
         threadAuthor={face.post.accountId}

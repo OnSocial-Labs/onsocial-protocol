@@ -14,7 +14,7 @@ import { OverlayPanelChrome } from '@/components/overlay/overlay-panel-chrome';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
-import { ArticleReadOverlay } from '@/components/portfolio/article-read-screen';
+import { feedColumnSession } from '@/components/providers/feed-column-session';
 import { PortfolioPersonalComposer } from '@/components/portfolio/portfolio-personal-composer';
 import {
   WritingIdentityToolbar,
@@ -25,10 +25,15 @@ import {
   type PortfolioWritingPanelProps,
 } from '@/components/portfolio/portfolio-writing-list';
 import { useOverlayDismiss } from '@/contexts/overlay-dismiss-context';
+import {
+  usePlaceDepth,
+  usePostThreadLayer,
+} from '@/features/home/post-thread-layer';
 import { useSearchDraft } from '@/hooks/use-search-draft';
 import { useWritingShelfDockBack } from '@/hooks/use-writing-shelf-dock-back';
 import {
   articleMatchesQuery,
+  parseArticleSnapshot,
   resolveWritingListQuery,
   resolveWritingShelfCount,
   shouldShowWritingSearch,
@@ -121,8 +126,29 @@ function PortfolioWritingShelf({
 
   const { query, search, listQuery, showSearch, scrollRootRef } =
     useWritingShelfState(articles.length);
+  const { openFeedRead } = usePostThreadLayer();
+  const placeDepth = usePlaceDepth();
+  const columnSession = feedColumnSession(placeDepth);
 
-  const [openPost, setOpenPost] = useState<PostRow | null>(null);
+  const openShelfArticle = useCallback(
+    (post: PostRow) => {
+      const title =
+        parseArticleSnapshot(post.value)?.title?.trim() || null;
+      openFeedRead({
+        post,
+        body: post,
+        holding: false,
+        documentTitle: title,
+        book: null,
+        shelf: {
+          coverHint: coverHints[postKey(post)] ?? null,
+          articles,
+          coverHints,
+        },
+      });
+    },
+    [articles, coverHints, openFeedRead]
+  );
 
   useEffect(() => {
     setMoreArticles([]);
@@ -173,9 +199,9 @@ function PortfolioWritingShelf({
       }
     }
     if (!match) return;
-    const id = window.setTimeout(() => setOpenPost(match), 0);
+    const id = window.setTimeout(() => openShelfArticle(match!), 0);
     return () => window.clearTimeout(id);
-  }, [panel.articles]);
+  }, [openShelfArticle, panel.articles]);
   /* Overlay: mood wash lives on the glass sheet — keep the screen clear. */
   const moodId = embedded ? null : mood.id;
   const moodStyle = embedded
@@ -233,89 +259,71 @@ function PortfolioWritingShelf({
   });
 
   return (
-    <>
-      <OsAppScreen
-        title="Writing"
-        compactChrome
-        glassChrome
-        scrollTuck="search"
-        leading={null}
-        dockBack
-        onDockBack={onDockBack}
-        backFallbackHref={portfolioPath(panel.accountId)}
-        moodId={moodId}
-        moodStyle={moodStyle}
-        scrollRootRef={scrollRootRef}
-        embedded={embedded}
-        heading={
-          <WritingSearchHeading
-            query={query}
-            onQueryChange={search.setDraft}
-            onFocus={search.onFocus}
-            onBlur={search.onBlur}
-          />
-        }
-        toolbar={
-          <WritingIdentityToolbar
-            accountId={panel.accountId}
-            titleLabel={panel.titleLabel}
-            avatarUrl={panel.avatarUrl}
-            articleCount={shelfCount}
-          />
-        }
-      >
-        <PortfolioPersonalComposer
-          pageAccountId={panel.accountId}
-          dockPen="article"
+    <OsAppScreen
+      title="Writing"
+      compactChrome
+      glassChrome
+      scrollTuck="search"
+      leading={null}
+      dockBack
+      onDockBack={onDockBack}
+      backFallbackHref={portfolioPath(panel.accountId)}
+      moodId={moodId}
+      moodStyle={moodStyle}
+      scrollRootRef={scrollRootRef}
+      feedSession={columnSession}
+      embedded={embedded}
+      heading={
+        <WritingSearchHeading
+          query={query}
+          onQueryChange={search.setDraft}
+          onFocus={search.onFocus}
+          onBlur={search.onBlur}
         />
-        <OsPageBodyAppear>
-          <PortfolioWritingList
-            {...panel}
-            articles={articles}
-            coverHints={coverHints}
-            query={listQuery}
-            showSearch={showSearch}
-            onOpenArticle={setOpenPost}
-          />
-        </OsPageBodyAppear>
-        {loadingMore ? (
-          <div className="list-append-pending">
-            <PulsingDots size="sm" label="Loading more" />
-          </div>
-        ) : null}
-        {moreFailed ? (
-          <OsChromeListAlert
-            message="Couldn’t load more."
-            retryLabel="Retry"
-            onRetry={loadMoreArticles}
-          />
-        ) : null}
-        {hasMore ? (
-          <div
-            ref={loadMoreRef}
-            className="standing-panel-sentinel"
-            aria-hidden
-          />
-        ) : null}
-      </OsAppScreen>
-      {openPost ? (
-        <ArticleReadOverlay
-          open
-          onOpenChange={(next) => {
-            if (!next) setOpenPost(null);
-          }}
-          onReturnToShelf={() => setOpenPost(null)}
+      }
+      toolbar={
+        <WritingIdentityToolbar
           accountId={panel.accountId}
           titleLabel={panel.titleLabel}
           avatarUrl={panel.avatarUrl}
-          post={openPost}
-          coverHint={coverHints[postKey(openPost)] ?? null}
+          articleCount={shelfCount}
+        />
+      }
+    >
+      <PortfolioPersonalComposer
+        pageAccountId={panel.accountId}
+        dockPen="article"
+      />
+      <OsPageBodyAppear>
+        <PortfolioWritingList
+          {...panel}
           articles={articles}
           coverHints={coverHints}
-          onOpenArticle={setOpenPost}
+          query={listQuery}
+          showSearch={showSearch}
+          onOpenArticle={openShelfArticle}
+        />
+      </OsPageBodyAppear>
+      {loadingMore ? (
+        <div className="list-append-pending">
+          <PulsingDots size="sm" label="Loading more" />
+        </div>
+      ) : null}
+      {moreFailed ? (
+        <OsChromeListAlert
+          message="Couldn’t load more."
+          retryLabel="Retry"
+          onRetry={loadMoreArticles}
         />
       ) : null}
-    </>
+      {hasMore ? (
+        <div
+          ref={loadMoreRef}
+          className="standing-panel-sentinel"
+          aria-hidden
+        />
+      ) : null}
+    </OsAppScreen>
   );
 }
 

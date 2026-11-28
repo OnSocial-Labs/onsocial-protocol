@@ -12,8 +12,9 @@ const ACCOUNT = e2ePortfolioAccountId();
 const writingPath = `/@${ACCOUNT}/writing`;
 
 /**
- * Same reader the feed uses. More by stays in that frame, and back
- * walks to the article that was opened, then to the list behind it.
+ * Writing shelf Read is a place screen (same stack as feed Read).
+ * More by stays in that frame; Back walks the in-reader trail, then
+ * closes onto the covered list behind it.
  */
 test.describe('article reader back', () => {
   test('keeps the reader size and steps back to the list', async ({ page }) => {
@@ -26,6 +27,9 @@ test.describe('article reader back', () => {
     await page.getByRole('link', { name: 'Night drive' }).click();
     const night = page.getByRole('dialog', { name: 'Night drive' });
     await expect(night).toBeVisible();
+    await expect(
+      page.locator('main.os-app-screen-body[data-feed-session="covered"]')
+    ).toHaveCount(1);
     const opened = await night.boundingBox();
     expect(opened).not.toBeNull();
 
@@ -82,6 +86,29 @@ test.describe('article reader back', () => {
     );
     await expect(page.getByRole('link', { name: 'Night drive' })).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`${writingPath}/?$`));
+  });
+
+  test('browser back closes the reader onto the writing list', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await setE2eGraphWriting(page, 'shelf');
+    await gotoApp(page, writingPath);
+    await waitForPortfolioClientReady(page);
+    await dismissNextDevOverlay(page);
+
+    await page.getByRole('link', { name: 'Night drive' }).click();
+    const night = page.getByRole('dialog', { name: 'Night drive' });
+    await expect(night).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`${writingPath}/?$`));
+
+    await page.goBack();
+    await expect(night).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Night drive' })).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`${writingPath}/?$`));
+    await expect(
+      page.locator('main.os-app-screen-body[data-feed-session="covered"]')
+    ).toHaveCount(0);
   });
 
   test('shows the dock again after the reader closes', async ({ page }) => {
