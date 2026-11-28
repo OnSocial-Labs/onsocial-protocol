@@ -20,6 +20,7 @@ Read the rule and the component that already own the surface. Ship that pattern.
 - **Performance.** No needless rerenders, memory leaks, or main-thread work that can freeze the UI. Weigh that cost before building.
 - **Deprecated and unused.** In the code you touch, replace deprecated APIs and outdated patterns, and remove unused dependencies this change leaves behind.
 - **State what's unverified.** The PR description lists remaining risks and unchecked assumptions.
+- **Reach across the app.** In the PR description, list other screens or components that should use this change or are missing it, and any bugs you saw nearby in the code you read. List them; don't fix them in this PR.
 - **Tests move with the behavior.** When a change alters user-visible behavior, update or add the matching Playwright spec and unit tests in the same PR. Never delete or weaken a test to make CI pass. Playwright is not run locally; CI owns that run. See [cloud-quality-gates.mdc](cloud-quality-gates.mdc) and [pre-push-checks.mdc](pre-push-checks.mdc).
 
 ## Do not
