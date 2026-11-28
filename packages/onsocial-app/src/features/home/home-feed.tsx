@@ -27,6 +27,7 @@ import type { PostEngagement } from '@/hooks/use-post-engagement';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { feedColumnSession } from '@/components/providers/feed-column-session';
 import { OsPageBodyAppear } from '@/components/app/os-page-body-appear';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { HomeFeedChipBar } from '@/features/home/home-feed-chip-bar';
@@ -118,6 +119,7 @@ import {
   PostRowSkeleton,
   postKey,
 } from '@/features/home/post-card';
+import { usePlaceDepth } from '@/features/home/post-thread-layer';
 import { usePersonalComposer } from '@/features/home/use-personal-composer';
 import {
   subscribePersonalPostConfirmed,
@@ -262,6 +264,8 @@ export function HomePagePanel({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { accountId, isConnected, isLoading: walletLoading } = useAppWallet();
+  const placeDepth = usePlaceDepth();
+  const columnSession = feedColumnSession(placeDepth);
   // Memory only — a storage read here would render the list where SSR
   // rendered the shell, a hydration mismatch. Storage joins post-hydration.
   const restoredSessionRef = useRef(
@@ -1930,6 +1934,7 @@ export function HomePagePanel({
         compactChrome
         glassChrome
         scrollRootRef={scrollRootRef}
+        feedSession={columnSession}
         leading={null}
         toolbar={
           <OsAppChromeToolbarRail

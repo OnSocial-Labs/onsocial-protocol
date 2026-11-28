@@ -63,11 +63,17 @@ function paintToEmbed(
  */
 export function usePostCollectionEmbed(
   post: PostRow,
-  opts: { enabled?: boolean; force?: boolean } = {}
+  opts: {
+    enabled?: boolean;
+    force?: boolean;
+    /** Keep fetching until writing meta lands — only for an open drop Read. */
+    holdForWriting?: boolean;
+  } = {}
 ) {
   const parsed = parsePostCollectionEmbed(post.value);
   const enabled = opts.enabled !== false && Boolean(parsed);
   const force = Boolean(opts.force);
+  const holdForWriting = Boolean(opts.holdForWriting);
   const key = postScarceKey(post.accountId, post.postId);
   const rootRef = useRef<HTMLElement | null>(null);
   const [inView, setInView] = useState(false);
@@ -93,13 +99,16 @@ export function usePostCollectionEmbed(
     () => getScarceEmbedSeed(key)
   );
 
+  const writingMetaSettled = writingMetaKey === key;
+  const writingMetaFailed = errorKey === key;
   const shouldFetch =
     enabled &&
-    (force || inView) &&
+    (force || inView || (holdForWriting && !writingMetaSettled)) &&
     (force ||
       Boolean(override) ||
       seed == null ||
-      (seed.status !== 'none' && !scarceEmbedCommercePaintReady(seed)));
+      (seed.status !== 'none' && !scarceEmbedCommercePaintReady(seed)) ||
+      (holdForWriting && !writingMetaSettled && !writingMetaFailed));
 
   useEffect(() => {
     if (!enabled) return;
@@ -138,6 +147,7 @@ export function usePostCollectionEmbed(
           collectionId,
         ]);
         const row = rows[0] ?? null;
+        const view = row ? collectionCurrentRowToView(row) : null;
         let resolved: PostScarceEmbed = paintToEmbed(
           collectionId,
           tokenId,
@@ -145,7 +155,6 @@ export function usePostCollectionEmbed(
         );
 
         if (row) {
-          const view = collectionCurrentRowToView(row);
           const remaining =
             typeof row.remaining === 'number' && Number.isFinite(row.remaining)
               ? Math.max(0, Math.floor(row.remaining))
@@ -188,49 +197,15 @@ export function usePostCollectionEmbed(
             events: [],
           };
 
-          if (!cancelled) {
+          if (!cancelled && view?.playables?.length) {
             // Listen opens from mediumKind before writing hydrate — paint
             // playables from the catalog row first so the face is not empty.
-            if (view?.playables?.length) {
-              setPlayables(view.playables);
-              setDropTitle(
-                view.title?.trim() || paint?.title || null
-              );
-            }
-            const hydrated = view ? await hydrateWritingManifest(view) : null;
-            if (cancelled) return;
-            // Same as Drops `item.view` — Drop open peeks this for an instant face.
-            rememberCollectionView(hydrated ?? view);
-            setPlayables(hydrated?.playables ?? view?.playables ?? []);
-            setReadables(hydrated?.readables ?? view?.readables ?? []);
-            setWritingFormat(
-              hydrated?.writingFormat ?? view?.writingFormat ?? null
-            );
-            setSourcePostPath(
-              hydrated?.sourcePostPath?.trim() ||
-                view?.sourcePostPath?.trim() ||
-                paint?.sourcePostPath ||
-                null
-            );
-            setWritingMetaKey(key);
-            setBookPdf(hydrated?.bookPdf ?? view?.bookPdf ?? null);
-            setDropTitle(
-              hydrated?.title?.trim() ||
-                view?.title?.trim() ||
-                paint?.title ||
-                null
-            );
+            setPlayables(view.playables);
+            setDropTitle(view.title?.trim() || paint?.title || null);
           }
-        } else if (!cancelled) {
-          setPlayables([]);
-          setReadables([]);
-          setWritingFormat(null);
-          setSourcePostPath(paint?.sourcePostPath ?? null);
-          setWritingMetaKey(key);
-          setBookPdf(null);
-          setDropTitle(paint?.title ?? null);
         }
 
+        // Finish edition status before writing meta flips shouldFetch off.
         if (tokenId) {
           try {
             const listed = await client.query.scarces.activeListings({
@@ -272,6 +247,41 @@ export function usePostCollectionEmbed(
         }
 
         if (cancelled) return;
+
+        if (row) {
+          const hydrated = view ? await hydrateWritingManifest(view) : null;
+          if (cancelled) return;
+          // Same as Drops `item.view` — Drop open peeks this for an instant face.
+          rememberCollectionView(hydrated ?? view);
+          setPlayables(hydrated?.playables ?? view?.playables ?? []);
+          setReadables(hydrated?.readables ?? view?.readables ?? []);
+          setWritingFormat(
+            hydrated?.writingFormat ?? view?.writingFormat ?? null
+          );
+          setSourcePostPath(
+            hydrated?.sourcePostPath?.trim() ||
+              view?.sourcePostPath?.trim() ||
+              paint?.sourcePostPath ||
+              null
+          );
+          setBookPdf(hydrated?.bookPdf ?? view?.bookPdf ?? null);
+          setDropTitle(
+            hydrated?.title?.trim() ||
+              view?.title?.trim() ||
+              paint?.title ||
+              null
+          );
+          setWritingMetaKey(key);
+        } else {
+          setPlayables([]);
+          setReadables([]);
+          setWritingFormat(null);
+          setSourcePostPath(paint?.sourcePostPath ?? null);
+          setBookPdf(null);
+          setDropTitle(paint?.title ?? null);
+          setWritingMetaKey(key);
+        }
+
         reconcileScarceEmbedFromApi(key, resolved);
         rememberScarceEmbedFetch(key, resolved);
         setErrorKey((current) => (current === key ? null : current));

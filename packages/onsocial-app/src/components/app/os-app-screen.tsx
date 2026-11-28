@@ -100,6 +100,11 @@ export interface OsAppScreenProps {
   /** Scroll container for nested infinite lists (`.os-app-screen-body`). */
   scrollRootRef?: RefObject<HTMLElement | null>;
   /**
+   * Home covers the feed column on this scroll root while a place screen
+   * is open. Probes walk up from the scroller, so the attribute lives here.
+   */
+  feedSession?: 'covered' | null;
+  /**
    * Nested panes that scroll outside `.os-app-screen-body` (e.g. Messages
    * inbox / thread). OR'd with body scrollTop for glass frost elevation.
    */
@@ -152,6 +157,7 @@ export function OsAppScreen({
   launcher = true,
   dock = null,
   scrollRootRef,
+  feedSession,
   glassScrollElevated = false,
   glassChromeAlwaysElevated = false,
   moodId,
@@ -313,6 +319,7 @@ export function OsAppScreen({
         <main
           ref={setBodyRef}
           className="os-app-screen-body os-stable-scroll"
+          data-feed-session={feedSession ?? undefined}
           data-native-scroll={nativeScroll ? '' : undefined}
           // Lenis may add `lenis` before nested hydration finishes.
           suppressHydrationWarning

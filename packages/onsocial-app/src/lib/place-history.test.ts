@@ -3,6 +3,7 @@ import {
   beginHistoryBack,
   inFlightPopRepair,
   placeHistoryOpForTrail,
+  reloadedPlaceEntryRepair,
   repairClosingLayerHistory,
   withoutClosingLayer,
 } from '@/lib/place-history';
@@ -510,5 +511,52 @@ describe('native place push bypasses patched history', () => {
     expect(state.onsocialPostLayerDepth).toBe(1);
     vi.unstubAllGlobals();
     vi.resetModules();
+  });
+});
+
+describe('reloaded place entry', () => {
+  it('steps over a feed Read left on /home', () => {
+    expect(
+      reloadedPlaceEntryRepair({
+        hasLayer: true,
+        overlayPath: false,
+        liveDepth: 0,
+        storedDepth: 1,
+        historyLength: 3,
+      })
+    ).toBe('back');
+  });
+
+  it('strips the flag when there is nowhere to go', () => {
+    expect(
+      reloadedPlaceEntryRepair({
+        hasLayer: true,
+        overlayPath: false,
+        liveDepth: 0,
+        storedDepth: 1,
+        historyLength: 1,
+      })
+    ).toBe('strip');
+  });
+
+  it('keeps a live stack and a real post or drop URL', () => {
+    expect(
+      reloadedPlaceEntryRepair({
+        hasLayer: true,
+        overlayPath: false,
+        liveDepth: 1,
+        storedDepth: 1,
+        historyLength: 3,
+      })
+    ).toBe('keep');
+    expect(
+      reloadedPlaceEntryRepair({
+        hasLayer: true,
+        overlayPath: true,
+        liveDepth: 0,
+        storedDepth: 1,
+        historyLength: 3,
+      })
+    ).toBe('keep');
   });
 });

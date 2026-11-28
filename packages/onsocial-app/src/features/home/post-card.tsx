@@ -4,6 +4,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -54,6 +55,17 @@ import {
 } from '@/hooks/use-post-author-profiles';
 import { guildPath } from '@/features/guilds/guilds-data';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
+import {
+  clearFeedReadBridge,
+  publishFeedReadBridge,
+  readOpenFeedReadKey,
+  useOpenFeedReadKey,
+} from '@/features/home/feed-read-bridge';
+import {
+  feedReadLateResultApplies,
+  feedReadResumeDue,
+  type FeedReadBook,
+} from '@/features/home/feed-read-face';
 import {
   isUnmodifiedPrimaryClick,
   usePostThreadLayer,
@@ -366,7 +378,8 @@ function PostCardImpl({
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
-  const { openPostThread } = usePostThreadLayer();
+  const { openPostThread, openFeedRead } = usePostThreadLayer();
+  const openFeedReadKey = useOpenFeedReadKey();
   const ownerZ = usePostLayerOwnerZ();
   const actionZ = postLayerOverlayZ(ownerZ).sheet;
   const resolvedMenuZ =
@@ -473,6 +486,7 @@ function PostCardImpl({
     feedReadEssay ? [feedReadEssay.accountId] : []
   );
   const dropReadTicket = useRef(0);
+  const stackReadOwnedRef = useRef(false);
   /** Collection card already asked for writing. The open reader waits for that. */
   const dropReadAwaitingMeta = useRef(false);
   /** Article cover still when it isn’t already in post media. */
@@ -514,6 +528,8 @@ function PostCardImpl({
     retry: retryCollectionEmbed,
   } = usePostCollectionEmbed(post, {
     force: isSelf || menuForceEmbed,
+    // A drop Read opened before writing meta lands — keep this card's fetch.
+    holdForWriting: feedReadPending,
   });
   // Token resale announce — mutually exclusive with collection + fromPost.
   const {
@@ -746,12 +762,17 @@ function PostCardImpl({
 
   const text = parsePostText(post.value);
   const article = parseArticleSnapshot(post.value);
+  const openFeedPostReaderRef = useRef<
+    (next?: {
+      essay?: PostRow | null;
+      book?: boolean;
+      coverSvg?: string | null;
+    }) => void
+  >(() => {});
   useEffect(() => {
     if (!article) return;
     if (consumeEssayReopen(post.accountId, post.postId)) {
-      setFeedReadEssay(null);
-      setFeedBookRead(false);
-      setArticleOpen(true);
+      openFeedPostReaderRef.current();
     }
   }, [article, post.accountId, post.postId]);
   const articleHref = article
@@ -919,6 +940,29 @@ function PostCardImpl({
    * - Book / Issue → those pages, this post's footer
    * The drop page keeps its own reader.
    */
+  const feedReadBook = (coverSvg: string | null): FeedReadBook => ({
+    title: dropListenTitle,
+    cover: scarceCoverUrl,
+    coverSvg,
+    collectionId: scarceEmbed?.collectionId?.trim() || '',
+    creatorId: scarceEmbed?.creatorId ?? post.accountId,
+    sourcePostPath:
+      collectionSourcePostPath ?? dropPaint?.sourcePostPath ?? null,
+    readables: dropReadables,
+    bookPdf: dropBookPdf,
+    writingFormat: dropWritingFormat,
+  });
+  const openFeedReadShell = () => {
+    const opened = openFeedRead({
+      post,
+      body: post,
+      holding: true,
+      documentTitle: dropListenTitle,
+      book: null,
+    });
+    if (opened) stackReadOwnedRef.current = true;
+    if (!opened) setArticleOpen(true);
+  };
   const openFeedPostReader = (next?: {
     essay?: PostRow | null;
     book?: boolean;
@@ -929,8 +973,17 @@ function PostCardImpl({
     setFeedReadEssay(next?.essay ?? null);
     setFeedBookRead(Boolean(next?.book));
     setFeedBookCoverSvg(next?.coverSvg ?? null);
-    setArticleOpen(true);
+    const opened = openFeedRead({
+      post,
+      body: next?.essay ?? post,
+      holding: false,
+      documentTitle: next?.book ? dropListenTitle : null,
+      book: next?.book ? feedReadBook(next.coverSvg ?? null) : null,
+    });
+    if (opened) stackReadOwnedRef.current = true;
+    if (!opened) setArticleOpen(true);
   };
+  openFeedPostReaderRef.current = openFeedPostReader;
   const applyDropReadRef = useRef<
     (
       writingFormat: typeof collectionWritingFormat,
@@ -945,7 +998,17 @@ function PostCardImpl({
     coverSvg,
     ticket
   ) => {
-    if (ticket !== dropReadTicket.current) return;
+    if (
+      !feedReadLateResultApplies({
+        ticket,
+        currentTicket: dropReadTicket.current,
+        stackOwned: stackReadOwnedRef.current,
+        openKey: readOpenFeedReadKey(),
+        postKey: postKey(post),
+      })
+    ) {
+      return;
+    }
     const target = resolveDropReadTarget({
       articleOnPost: Boolean(article),
       writingFormat,
@@ -962,14 +1025,24 @@ function PostCardImpl({
     setFeedReadPending(true);
     setFeedBookRead(false);
     setFeedReadEssay(null);
-    setArticleOpen(true);
+    openFeedReadShell();
     void (async () => {
       try {
         const essay = await fetchPersonalPost({
           author: target.author,
           postId: target.postId,
         });
-        if (ticket !== dropReadTicket.current) return;
+        if (
+          !feedReadLateResultApplies({
+            ticket,
+            currentTicket: dropReadTicket.current,
+            stackOwned: stackReadOwnedRef.current,
+            openKey: readOpenFeedReadKey(),
+            postKey: postKey(post),
+          })
+        ) {
+          return;
+        }
         if (essay && isArticlePost(essay)) {
           openFeedPostReader({ essay, coverSvg });
           return;
@@ -977,7 +1050,17 @@ function PostCardImpl({
       } catch {
         /* book pages below */
       }
-      if (ticket !== dropReadTicket.current) return;
+      if (
+        !feedReadLateResultApplies({
+          ticket,
+          currentTicket: dropReadTicket.current,
+          stackOwned: stackReadOwnedRef.current,
+          openKey: readOpenFeedReadKey(),
+          postKey: postKey(post),
+        })
+      ) {
+        return;
+      }
       openFeedPostReader({ book: true, coverSvg });
     })();
   };
@@ -989,7 +1072,17 @@ function PostCardImpl({
     ) => void
   >(() => {});
   finishDropReadRef.current = (ahead, coverSvg, ticket) => {
-    if (ticket !== dropReadTicket.current) return;
+    if (
+      !feedReadLateResultApplies({
+        ticket,
+        currentTicket: dropReadTicket.current,
+        stackOwned: stackReadOwnedRef.current,
+        openKey: readOpenFeedReadKey(),
+        postKey: postKey(post),
+      })
+    ) {
+      return;
+    }
     if (ahead?.essay) {
       setDropReadPack(null);
       openFeedPostReader({ essay: ahead.essay, coverSvg });
@@ -1032,7 +1125,7 @@ function PostCardImpl({
     setFeedReadEssay(null);
     setFeedBookRead(false);
     setFeedReadPending(true);
-    setArticleOpen(true);
+    openFeedReadShell();
 
     if (!collectionId) {
       finishDropReadRef.current(null, coverSvg, ticket);
@@ -1063,8 +1156,21 @@ function PostCardImpl({
         finishDropReadRef.current(null, coverSvg, ticket);
       });
   };
+  const feedReadLive = openFeedReadKey === postKey(post);
   useEffect(() => {
-    if (!articleOpen || !dropReadAwaitingMeta.current) return;
+    if (!feedReadPending || feedReadLive) return;
+    setFeedReadPending(false);
+  }, [feedReadLive, feedReadPending]);
+  useEffect(() => {
+    if (
+      !feedReadResumeDue({
+        articleOpen,
+        feedReadLive,
+        awaitingMeta: dropReadAwaitingMeta.current,
+      })
+    ) {
+      return;
+    }
     if (!collectionWritingSettled && collectionEmbedStatus !== 'error') return;
     const ticket = dropReadTicket.current;
     const coverSvg = feedBookCoverSvg;
@@ -1092,6 +1198,7 @@ function PostCardImpl({
       });
   }, [
     articleOpen,
+    feedReadLive,
     collectionEmbedStatus,
     collectionSourcePostPath,
     collectionWritingFormat,
@@ -1375,6 +1482,56 @@ function PostCardImpl({
       openBidScarce,
     ]
   );
+  const feedReadKey = postKey(post);
+  const feedReadCommerce = useMemo(
+    () =>
+      scarceCtaLive ? (
+        <PostScarceCta {...scarceCtaActions} />
+      ) : scarceCtaSeat ? (
+        <PostScarceCtaPending />
+      ) : null,
+    [scarceCtaActions, scarceCtaLive, scarceCtaSeat]
+  );
+  useLayoutEffect(() => {
+    if (openFeedReadKey !== feedReadKey) return;
+    publishFeedReadBridge({
+      key: feedReadKey,
+      authorProfile,
+      engagement,
+      countsReady,
+      reactionPending,
+      savePending,
+      sharePending,
+      shareHref,
+      shareTitle: name,
+      onQuote,
+      onRepost,
+      onUndoRepost,
+      onToggleReaction,
+      onToggleSave,
+      onAmplify: openAmplify,
+      commerce: feedReadCommerce,
+    });
+  }, [
+    authorProfile,
+    countsReady,
+    engagement,
+    feedReadCommerce,
+    feedReadKey,
+    name,
+    onQuote,
+    onRepost,
+    onToggleReaction,
+    onToggleSave,
+    onUndoRepost,
+    openAmplify,
+    openFeedReadKey,
+    reactionPending,
+    savePending,
+    shareHref,
+    sharePending,
+  ]);
+  useLayoutEffect(() => () => clearFeedReadBridge(feedReadKey), [feedReadKey]);
 
   const menuPostProps = useMemo<PostCardMenuPostProps>(
     () => ({
