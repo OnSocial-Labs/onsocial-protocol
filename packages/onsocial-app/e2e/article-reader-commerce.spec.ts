@@ -4,6 +4,7 @@ import {
   dismissNextDevOverlay,
   e2ePortfolioAccountId,
   gotoApp,
+  settledNode,
 } from './helpers';
 
 const ACCOUNT = e2ePortfolioAccountId();
@@ -64,12 +65,24 @@ test.describe('article reader commerce', () => {
     );
     await expect(reader).toBeVisible({ timeout: 15_000 });
     await expect(drop).toHaveCount(1);
-    await expect(page.locator('.portfolio-summon-dock')).toBeHidden();
+    await expect(reader).not.toHaveAttribute('data-keep-dock', 'true');
+    const dock = settledNode(page, '.portfolio-summon-dock');
+    await expect
+      .poll(async () =>
+        dock.evaluate((el) => {
+          const style = getComputedStyle(el);
+          return style.opacity === '0' && style.pointerEvents === 'none';
+        })
+      )
+      .toBe(true);
 
     await reader.getByRole('button', { name: 'Back from article' }).click();
     await expect(reader).toHaveCount(0);
     await expect(drop).toBeVisible();
     await expect(drop.locator('.collection-title')).toHaveText('Night drive');
     await expect(page).toHaveURL(/\/collection\/night-essay\/?$/);
+    await expect
+      .poll(async () => dock.evaluate((el) => getComputedStyle(el).opacity))
+      .toBe('1');
   });
 });
