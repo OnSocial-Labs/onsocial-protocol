@@ -112,18 +112,18 @@ import {
   applyPlaceTrailHistory,
   schedulePlaceHistoryGo,
   beginHistoryBack,
+  clearPlaceLayer,
   getPlaceHistoryGuard,
   historyHasPlaceLayer,
   inFlightPopRepair,
-  nativeHistoryPushState,
-  nativeHistoryReplaceState,
   pushPlaceLayer,
+  pushPlaceLayerAt,
   readPlaceLayerDepth,
   repairClosingLayerHistory,
   replacePlaceLayer,
-  withPlaceLayerHistoryState,
+  replacePlaceLayerAt,
+  setPlaceLayerDepth,
   withoutClosingLayer,
-  withoutPlaceLayerHistoryState,
 } from '@/lib/place-history';
 import {
   appendTrailEntry,
@@ -933,7 +933,6 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       if (typeof window === 'undefined') return;
       const guard = getPlaceHistoryGuard();
       const depth = guard.depth;
-      guard.depth = 0;
       if (depth > 1) {
         schedulePlaceHistoryGo(-depth, () => {
           guard.depth = 0;
@@ -941,7 +940,9 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         return;
       }
       if (historyHasPlaceLayer()) {
-        nativeHistoryReplaceState(withoutPlaceLayerHistoryState(), underlay);
+        clearPlaceLayer(underlay);
+      } else {
+        guard.depth = 0;
       }
     });
   }, []);
@@ -1017,8 +1018,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       window.history.back();
       return true;
     }
-    nativeHistoryReplaceState(withoutPlaceLayerHistoryState(), underlay);
-    guard.depth = 0;
+    clearPlaceLayer(underlay);
     return true;
   }, [beginCloseTop]);
 
@@ -1026,24 +1026,18 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     (canonical: string, depth: number) => {
       if (typeof window === 'undefined') return;
       overlayCanonicalRef.current = canonical;
-      const guard = getPlaceHistoryGuard();
       const nextDepth = Math.max(depth, 1);
-      guard.depth = nextDepth;
       const action = repairClosingLayerHistory({
         canonical,
         currentUrl: `${window.location.pathname}${window.location.search}`,
         historyHasLayer: historyHasPlaceLayer(),
       });
       if (action.op === 'push') {
-        nativeHistoryPushState(
-          withPlaceLayerHistoryState(nextDepth),
-          action.href
-        );
+        pushPlaceLayerAt(action.href, nextDepth);
       } else if (action.op === 'replace') {
-        nativeHistoryReplaceState(
-          withPlaceLayerHistoryState(nextDepth),
-          action.href
-        );
+        replacePlaceLayerAt(action.href, nextDepth);
+      } else {
+        setPlaceLayerDepth(nextDepth);
       }
     },
     []
@@ -1494,11 +1488,9 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     if (typeof window === 'undefined') return;
     const guard = getPlaceHistoryGuard();
     guard.closeTop = () => {
-      let openCount = 0;
-      for (const entry of stackRef.current) {
-        if (entry.id !== closingIdRef.current) openCount += 1;
-      }
-      if (openCount === 0) return false;
+      // The sheet is already animating closed. Another Back must not leave the page.
+      if (closingIdRef.current) return true;
+      if (stackRef.current.length === 0) return false;
       return closePostThread();
     };
     guard.onPop = () => {
@@ -1516,11 +1508,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       if (repair.swallow) {
         if (repair.pushHref) {
           const depth = Math.max(stackRef.current.length, 1);
-          nativeHistoryPushState(
-            withPlaceLayerHistoryState(depth),
-            repair.pushHref
-          );
-          guard.depth = depth;
+          pushPlaceLayerAt(repair.pushHref, depth);
         } else {
           guard.depth = readPlaceLayerDepth();
         }
@@ -1572,18 +1560,17 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       // sits on the feed entry; Back lands here and the post is shown again.
       const guard = getPlaceHistoryGuard();
       const depth = guard.depth;
-      guard.depth = 0;
       if (typeof window !== 'undefined' && depth > 1) {
         schedulePlaceHistoryGo(-depth, () => {
+          guard.depth = 0;
           if (path !== pathname) router.push(href);
         });
         return;
       }
       if (typeof window !== 'undefined' && historyHasPlaceLayer()) {
-        nativeHistoryReplaceState(
-          withoutPlaceLayerHistoryState(),
-          underlay ?? path
-        );
+        clearPlaceLayer(underlay ?? path);
+      } else {
+        guard.depth = 0;
       }
       if (path !== pathname) router.push(href);
     },
@@ -1593,16 +1580,11 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     if (profileHop || stack.length === 0 || pathname !== underlayPath) return;
     if (typeof window === 'undefined' || historyHasPlaceLayer()) return;
-    const guard = getPlaceHistoryGuard();
     let depth = 0;
     for (const entry of stack) {
       depth += 1;
-      nativeHistoryPushState(
-        withPlaceLayerHistoryState(depth),
-        placeLayerHref(entry)
-      );
+      pushPlaceLayerAt(placeLayerHref(entry), depth);
     }
-    guard.depth = depth;
   }, [pathname, profileHop, stack, underlayPath]);
 
   const value = useMemo(

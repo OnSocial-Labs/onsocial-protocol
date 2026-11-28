@@ -9,6 +9,9 @@ const PLACE_LAYER_STATE_KEY = 'onsocialPostLayer';
 const PLACE_LAYER_DEPTH_KEY = 'onsocialPostLayerDepth';
 const PLACE_LAYER_GUARD_KEY = '__onsocialPostLayerPopGuard';
 
+/** A `history.go` that never pops must not leave Back and opens stuck. */
+export const PLACE_HISTORY_JUMP_TIMEOUT_MS = 1000;
+
 export type OverlayHistoryOp = 'push' | 'replace' | 'none';
 
 export type PlaceHistoryGuard = {
@@ -32,6 +35,8 @@ export type PlaceHistoryGuard = {
   afterJump: (() => void) | null;
   /** push/replace that arrived while a jump was in flight. */
   writesAfterJump: Array<() => void>;
+  /** Clears a jump whose popstate never arrives. */
+  jumpTimer: ReturnType<typeof setTimeout> | null;
 };
 
 type GuardWindow = Window & {
@@ -52,6 +57,7 @@ export function getPlaceHistoryGuard(): PlaceHistoryGuard {
       wantedDelta: 0,
       afterJump: null,
       writesAfterJump: [],
+      jumpTimer: null,
     };
     w[PLACE_LAYER_GUARD_KEY] = guard;
     window.addEventListener(
@@ -61,7 +67,10 @@ export function getPlaceHistoryGuard(): PlaceHistoryGuard {
           event.stopImmediatePropagation();
           event.stopPropagation();
           guard!.suppressPops -= 1;
-          if (guard!.suppressPops === 0) settlePlaceHistoryPop(guard!);
+          if (guard!.suppressPops === 0) {
+            clearPlaceJumpTimer(guard!);
+            settlePlaceHistoryPop(guard!);
+          }
           return;
         }
         if (guard!.depth <= 0) return;
@@ -178,11 +187,75 @@ export function replacePlaceLayer(href: string): void {
   }
 }
 
+/** Push an overlay entry at an exact depth. Waits out an in-flight jump. */
+export function pushPlaceLayerAt(href: string, depth: number): void {
+  if (deferPlaceWrite(() => pushPlaceLayerAt(href, depth))) return;
+  const guard = getPlaceHistoryGuard();
+  nativeHistoryPushState(withPlaceLayerHistoryState(depth), href);
+  guard.depth = depth;
+}
+
+/** Relabel the current overlay entry at an exact depth. Waits out an in-flight jump. */
+export function replacePlaceLayerAt(href: string, depth: number): void {
+  if (deferPlaceWrite(() => replacePlaceLayerAt(href, depth))) return;
+  const guard = getPlaceHistoryGuard();
+  nativeHistoryReplaceState(withPlaceLayerHistoryState(depth), href);
+  guard.depth = depth;
+}
+
+/** Remember overlay depth. Waits out an in-flight jump so a later go uses the landing depth. */
+export function setPlaceLayerDepth(depth: number): void {
+  if (deferPlaceWrite(() => setPlaceLayerDepth(depth))) return;
+  getPlaceHistoryGuard().depth = depth;
+}
+
+/** Drop the overlay flag and return history to the underlay. Waits out an in-flight jump. */
+export function clearPlaceLayer(href: string): void {
+  if (deferPlaceWrite(() => clearPlaceLayer(href))) return;
+  const guard = getPlaceHistoryGuard();
+  nativeHistoryReplaceState(withoutPlaceLayerHistoryState(), href);
+  guard.depth = 0;
+}
+
+function clearPlaceJumpTimer(guard: PlaceHistoryGuard): void {
+  if (guard.jumpTimer == null) return;
+  clearTimeout(guard.jumpTimer);
+  guard.jumpTimer = null;
+}
+
+function armPlaceJumpTimer(guard: PlaceHistoryGuard): void {
+  clearPlaceJumpTimer(guard);
+  guard.jumpTimer = setTimeout(() => {
+    guard.jumpTimer = null;
+    if (guard.suppressPops <= 0) return;
+    guard.suppressPops = 0;
+    guard.issuedDelta = 0;
+    guard.consumedDelta = 0;
+    finishPlaceHistoryJump(guard);
+  }, PLACE_HISTORY_JUMP_TIMEOUT_MS);
+}
+
+/**
+ * Steps we can actually pop. Overlay depth is the stack we pushed.
+ * `history.length` stops a reload or deep link from going past the session.
+ * Null means this environment did not say, so the caller's delta stands.
+ */
+function overlayBackCeiling(depth: number): number | null {
+  const length = window.history.length;
+  const fromSession =
+    typeof length === 'number' && length >= 1 ? Math.max(length - 1, 0) : null;
+  const fromDepth = depth > 0 ? depth : null;
+  if (fromSession == null) return fromDepth;
+  if (fromDepth == null) return fromSession;
+  return Math.min(fromSession, fromDepth);
+}
+
 /**
  * Finish a jump, then run push/replace that waited for the landing entry.
  * If `apply` starts another jump, those writes wait for that one too.
  */
 function finishPlaceHistoryJump(guard: PlaceHistoryGuard): void {
+  clearPlaceJumpTimer(guard);
   const apply = guard.afterJump;
   const queued = guard.writesAfterJump.splice(0);
   guard.afterJump = null;
@@ -209,6 +282,7 @@ function settlePlaceHistoryPop(guard: PlaceHistoryGuard): void {
   if (continueJump) {
     guard.issuedDelta = rest;
     guard.suppressPops = 1;
+    armPlaceJumpTimer(guard);
     window.history.go(rest);
     return;
   }
@@ -223,17 +297,21 @@ function settlePlaceHistoryPop(guard: PlaceHistoryGuard): void {
  */
 export function schedulePlaceHistoryGo(delta: number, apply: () => void): void {
   const guard = getPlaceHistoryGuard();
+  const ceiling = overlayBackCeiling(guard.depth);
+  const capped =
+    delta < 0 && ceiling != null ? Math.max(delta, -ceiling) : delta;
   guard.afterJump = apply;
-  guard.wantedDelta = delta;
+  guard.wantedDelta = capped;
   if (guard.suppressPops > 0) return;
-  if (delta === 0) {
+  if (capped === 0) {
     finishPlaceHistoryJump(guard);
     return;
   }
   guard.consumedDelta = 0;
-  guard.issuedDelta = delta;
+  guard.issuedDelta = capped;
   guard.suppressPops = 1;
-  window.history.go(delta);
+  armPlaceJumpTimer(guard);
+  window.history.go(capped);
 }
 
 /**
@@ -244,12 +322,13 @@ export function alignPlaceHistory(nextDepth: number, href: string): void {
   const guard = getPlaceHistoryGuard();
   if (nextDepth <= 0) {
     const extra = guard.depth;
-    guard.depth = 0;
     if (extra > 0) {
       schedulePlaceHistoryGo(-extra, () => {
         guard.depth = 0;
       });
+      return;
     }
+    guard.depth = 0;
     return;
   }
   if (guard.depth <= 0) {

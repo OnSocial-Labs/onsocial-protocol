@@ -265,7 +265,7 @@ async function expectMintLocksVisibleScroller(page: Page): Promise<void> {
 }
 
 /**
- * Home opens replace history, so browser Forward has nothing to restore.
+ * Home opens push a history entry, and Back pops it.
  * Re-tap proves the sheet opens again over the same feed scroll.
  */
 async function expectReopenFromFeed(page: Page): Promise<void> {

@@ -357,6 +357,103 @@ describe('in-flight history rewrite', () => {
     vi.unstubAllGlobals();
     vi.resetModules();
   });
+
+  it('does not go past a one-entry session', async () => {
+    vi.resetModules();
+    const go = vi.fn();
+    vi.stubGlobal('History', {
+      prototype: { pushState: vi.fn(), replaceState: vi.fn() },
+    });
+    vi.stubGlobal('window', {
+      location: { pathname: '/collection/night-drive', search: '' },
+      history: {
+        length: 1,
+        state: {
+          __NA: true,
+          onsocialPostLayer: true,
+          onsocialPostLayerDepth: 3,
+        },
+        go,
+        back: vi.fn(),
+        pushState: vi.fn(),
+        replaceState: vi.fn(),
+      },
+      addEventListener: vi.fn(),
+    });
+
+    const { alignPlaceHistory, getPlaceHistoryGuard } = await import(
+      '@/lib/place-history'
+    );
+    const guard = getPlaceHistoryGuard();
+    guard.depth = 3;
+    alignPlaceHistory(0, '/home');
+
+    expect(go).not.toHaveBeenCalled();
+    expect(guard.suppressPops).toBe(0);
+    expect(guard.depth).toBe(0);
+
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  it('releases a jump that never pops and then runs the queued write', async () => {
+    vi.useFakeTimers();
+    vi.resetModules();
+    const go = vi.fn();
+    const protoPush = vi.fn();
+    const listeners: EventListener[] = [];
+    vi.stubGlobal('History', {
+      prototype: { pushState: protoPush, replaceState: vi.fn() },
+    });
+    vi.stubGlobal('window', {
+      location: { pathname: '/@b.near/posts/2', search: '' },
+      history: {
+        state: {
+          __NA: true,
+          onsocialPostLayer: true,
+          onsocialPostLayerDepth: 2,
+        },
+        go,
+        back: vi.fn(),
+        pushState: vi.fn(),
+        replaceState: vi.fn(),
+      },
+      addEventListener: (type: string, listener: EventListener) => {
+        if (type === 'popstate') listeners.push(listener);
+      },
+    });
+
+    try {
+      const {
+        PLACE_HISTORY_JUMP_TIMEOUT_MS,
+        alignPlaceHistory,
+        getPlaceHistoryGuard,
+        pushPlaceLayerAt,
+      } = await import('@/lib/place-history');
+      const guard = getPlaceHistoryGuard();
+      guard.depth = 2;
+      alignPlaceHistory(1, '/post-a');
+      pushPlaceLayerAt('/post-new', 2);
+
+      expect(go).toHaveBeenCalledTimes(1);
+      expect(protoPush).not.toHaveBeenCalled();
+      expect(guard.suppressPops).toBe(1);
+
+      vi.advanceTimersByTime(PLACE_HISTORY_JUMP_TIMEOUT_MS);
+
+      expect(guard.suppressPops).toBe(0);
+      expect(protoPush).toHaveBeenCalledTimes(1);
+      expect(protoPush.mock.calls[0]?.[2]).toBe('/post-new');
+      const onPop = vi.fn();
+      guard.onPop = onPop;
+      listeners[0]?.(new Event('popstate'));
+      expect(onPop).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+      vi.resetModules();
+    }
+  });
 });
 
 describe('in-app place back', () => {
