@@ -179,10 +179,10 @@ test.describe('feed read on the place stack', () => {
     await expect(page).toHaveURL(/\/discover\/?$/);
   });
 
-  test('profile hop parks the reader and forward yields it again', async ({
+  test('profile hop parks the reader and the next back leaves /home', async ({
     page,
   }) => {
-    const reader = await openFeedRead(page);
+    const reader = await openFeedRead(page, true);
     await reader.getByRole('link', { name: "View Alice's profile" }).click();
     await expect(page).toHaveURL(/\/@alice\.near/);
     await expect(reader).toBeHidden();
@@ -192,6 +192,14 @@ test.describe('feed read on the place stack', () => {
     await page.goForward();
     await expect(page).toHaveURL(/\/@alice\.near/);
     await expect(reader).toBeHidden();
+    await page.goBack();
+    await expect(reader).toBeVisible();
+    await page.getByRole('button', { name: 'Back from article' }).click();
+    await expect(reader).toHaveCount(0);
+    await expect(page).toHaveURL(/\/home\/?$/);
+    await expect(page.locator('.home-feed-list')).toBeVisible();
+    await page.goBack();
+    await expect(page).toHaveURL(/\/discover\/?$/);
   });
 
   test('writing loads the shelf and one back returns to the feed', async ({
@@ -204,13 +212,14 @@ test.describe('feed read on the place stack', () => {
     await page.goBack();
     await expect(page).toHaveURL(/\/home\/?$/);
     await expect(page.locator('.home-feed-list')).toBeVisible();
-    await expect(page).not.toHaveURL(/\/discover/);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/discover\/?$/);
   });
 
-  test('open post parks the reader and back returns to it', async ({
+  test('open post parks the reader and the next back leaves /home', async ({
     page,
   }) => {
-    const reader = await openFeedRead(page);
+    const reader = await openFeedRead(page, true);
     await reader.getByRole('button', { name: 'More' }).click();
     await page.getByRole('button', { name: 'Open post' }).click();
     await expect(page).toHaveURL(/\/posts\/night-piece/);
@@ -218,6 +227,12 @@ test.describe('feed read on the place stack', () => {
     await page.goBack();
     await expect(page).toHaveURL(/\/home\/?$/);
     await expect(reader).toBeVisible();
+    await page.getByRole('button', { name: 'Back from article' }).click();
+    await expect(reader).toHaveCount(0);
+    await expect(page).toHaveURL(/\/home\/?$/);
+    await expect(page.locator('.home-feed-list')).toBeVisible();
+    await page.goBack();
+    await expect(page).toHaveURL(/\/discover\/?$/);
   });
 });
 
@@ -414,10 +429,26 @@ test.describe('drop-backed feed read', () => {
   test('a late essay does not reopen a closed reader', async ({ page }) => {
     const { reader, releaseCatalog, releaseEssay } =
       await openHeldDropRead(page);
+    const essayRequested = page.waitForRequest((request) => {
+      const post = request.postData() ?? '';
+      return post.includes('PersonalPost') || post.includes('source-essay');
+    });
+    releaseCatalog();
+    await essayRequested;
     await page.getByRole('button', { name: 'Back from article' }).click();
     await expect(reader).toHaveCount(0);
-    releaseCatalog();
+    const essayArrived = page.waitForResponse((response) => {
+      const post = response.request().postData() ?? '';
+      return post.includes('PersonalPost') || post.includes('source-essay');
+    });
     releaseEssay();
+    await essayArrived;
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        })
+    );
     await expect(page.getByText('The late paragraph.')).toHaveCount(0);
     await expect(page.getByRole('dialog')).toHaveCount(0);
   });

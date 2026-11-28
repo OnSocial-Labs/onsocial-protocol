@@ -461,6 +461,12 @@ function placeLayerHref(layer: PlaceLayerTarget): string {
   return personalPostPath(layer.accountId, layer.postId);
 }
 
+function layerOwnsPath(entry: PlaceLayerTarget, path: string): boolean {
+  if (entry.kind === 'read' && entry.feed) return false;
+  const href = placeLayerHref(entry).split(/[?#]/)[0] ?? '';
+  return href === path;
+}
+
 function seedGuildThread(
   root: PostRow,
   rootEngagement?: PostEngagement | null,
@@ -975,6 +981,8 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   /** Portfolio face opened from the post. The post stays mounted underneath. */
   const [profileHop, setProfileHop] = useState<string | null>(null);
   const [sawProfileHop, setSawProfileHop] = useState(false);
+  /** Path a hop can Forward back to. Cleared once the stack is gone or a new layer opens. */
+  const forwardHopRef = useRef<string | null>(null);
   const underlayPathRef = useRef<string | null>(null);
   const underlayScrollRef = useRef<{ el: HTMLElement; top: number } | null>(
     null
@@ -994,9 +1002,20 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
 
   // Next left the page we opened over — drop the overlay without an effect.
   // A profile opened from this post is the next screen, not a reason to drop it.
+  // Forward to that same path parks again. A new layer does not.
+  const forwardPath = forwardHopRef.current;
+  const restoringForward =
+    profileHop == null &&
+    forwardPath != null &&
+    (pathname === forwardPath || pathname.startsWith(`${forwardPath}?`)) &&
+    !stack.some(
+      (entry) => entry.id !== closingId && layerOwnsPath(entry, pathname)
+    );
+  if (restoringForward && forwardPath) setProfileHop(forwardPath);
+  const activeHop = profileHop ?? (restoringForward ? forwardPath : null);
   const onProfileHop =
-    profileHop != null &&
-    (pathname === profileHop || pathname.startsWith(`${profileHop}?`));
+    activeHop != null &&
+    (pathname === activeHop || pathname.startsWith(`${activeHop}?`));
   if (onProfileHop && !sawProfileHop) {
     setSawProfileHop(true);
   }
@@ -1006,7 +1025,9 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     underlayPath != null &&
     pathname === underlayPath
   ) {
+    forwardHopRef.current = profileHop;
     setSawProfileHop(false);
+    setProfileHop(null);
   }
   if (
     stack.length > 0 &&
@@ -1016,6 +1037,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     !onProfileHop
   ) {
     if (sawProfileHop) setSawProfileHop(false);
+    forwardHopRef.current = null;
     setProfileHop(null);
     setStack([]);
     setClosingId(null);
@@ -1197,6 +1219,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       seedReplies?: PostRow[] | null;
       returnToPost?: boolean;
     }) => {
+      forwardHopRef.current = null;
       const personal = parseInAppPostLayerHref(href);
       const guild = personal ? null : parseGuildPostLayerHref(href);
       const parsed = personal
@@ -1400,6 +1423,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       root?: PostRow | null;
       rootEngagement?: PostEngagement | null;
     }) => {
+      forwardHopRef.current = null;
       const personal = parseInAppPostQuotesHref(href);
       const guild = personal ? null : parseGuildPostQuotesHref(href);
       const parsed = personal
@@ -1515,6 +1539,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       editionToken?: string | null;
       accountId?: string | null;
     }) => {
+      forwardHopRef.current = null;
       const collectionId = view.collectionId.trim();
       if (!collectionId) return false;
       const canonical = collectionPath(collectionId);
@@ -1593,6 +1618,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
 
   const openFeedRead = useCallback(
     (face: FeedReadFace) => {
+      forwardHopRef.current = null;
       const historyHref =
         typeof window === 'undefined'
           ? pathname
@@ -1688,6 +1714,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       initial?: CollectionView | null;
       initialCreator?: CollectionCreatorFace | null;
     }) => {
+      forwardHopRef.current = null;
       const parsed = parseInAppDropLayerHref(href);
       if (!parsed) return false;
       const canonical = canonicalizeDropLayerHref(href);
@@ -1864,6 +1891,9 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     stackRef.current = next;
     setStack(next);
     if (next.length === 0) {
+      forwardHopRef.current = null;
+      setProfileHop(null);
+      setSawProfileHop(false);
       underlayPathRef.current = null;
       setUnderlayPath(null);
       const saved = underlayScrollRef.current;
@@ -1903,27 +1933,37 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   const leaveFeedRead = useCallback(
     (href: string) => {
       const path = href.split(/[?#]/)[0] ?? href;
-      if (!isWritingShelfHref(path)) {
-        openProfileFromLayer(href);
-        return;
+      const writing = isWritingShelfHref(path);
+      // Step off the Read entry, then open the next page on that underlay.
+      // Relabeling the Read's own /home entry leaves a Back that does nothing.
+      if (!writing) {
+        ensurePostThreadParkedStyle();
+        forwardHopRef.current = null;
+        setProfileHop(path);
       }
-      // Writing full-loads. Step off the Read entry first so Back
-      // lands on the feed, not a dead copy of /home.
+      const go = () => {
+        if (writing) {
+          window.location.assign(href);
+          return;
+        }
+        if (path !== pathname) router.push(href);
+      };
       const guard = getPlaceHistoryGuard();
       if (
         typeof window !== 'undefined' &&
         guard.depth > 0 &&
         historyHasPlaceLayer()
       ) {
-        schedulePlaceHistoryGo(-guard.depth, () => {
-          guard.depth = 0;
-          window.location.assign(href);
+        const steps = writing ? guard.depth : 1;
+        schedulePlaceHistoryGo(-steps, () => {
+          guard.depth = Math.max(guard.depth - steps, 0);
+          go();
         });
         return;
       }
-      window.location.assign(href);
+      go();
     },
-    [openProfileFromLayer]
+    [pathname, router]
   );
 
   const steppedOrphanRef = useRef(false);
@@ -1937,6 +1977,10 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     if (stack.length === 0 || pathname !== underlayPath) return;
     if (typeof window === 'undefined' || historyHasPlaceLayer()) return;
+    const top = stack[stack.length - 1];
+    // The feed Read already stepped off its entry. Pushing it again
+    // discards Forward.
+    if (top?.kind === 'read' && top.feed) return;
     let depth = 0;
     for (const entry of stack) {
       depth += 1;
