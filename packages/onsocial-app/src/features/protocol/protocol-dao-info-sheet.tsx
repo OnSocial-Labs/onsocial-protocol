@@ -74,6 +74,13 @@ export function formatDaoInfoRoleList(
   return labels.length > 0 ? labels.join(' · ') : null;
 }
 
+/** Match Manage: Stake SOCIAL only when this DAO has a SOCIAL Member stake path. */
+export function shouldShowDaoInfoStake(
+  eligibility: ProtocolGovernanceEligibility | null
+): boolean {
+  return Boolean(eligibility?.hasStakeProposePath);
+}
+
 /**
  * DAO policy snapshot — same hug family as Members / Treasury.
  */
@@ -196,6 +203,7 @@ export function ProtocolDaoInfoSheet({
     !infoLoading &&
     daoPolicy != null &&
     (loadState === 'ready' || loadState === 'error');
+  const showStake = shouldShowDaoInfoStake(eligibility);
 
   if (!daoAccountId) return null;
 
@@ -212,16 +220,18 @@ export function ProtocolDaoInfoSheet({
         >
           Settings
         </OsSheetAction>
-        <OsSheetAction
-          type="button"
-          variant="ghost"
-          onClick={() => {
-            onClose();
-            onOpenStake();
-          }}
-        >
-          Stake
-        </OsSheetAction>
+        {showStake ? (
+          <OsSheetAction
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              onClose();
+              onOpenStake();
+            }}
+          >
+            Stake
+          </OsSheetAction>
+        ) : null}
         {explorerHref ? (
           <OsSheetAction
             type="button"
