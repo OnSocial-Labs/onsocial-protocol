@@ -217,7 +217,7 @@ test.describe('feed read on the place stack', () => {
   }) => {
     const reader = await openFeedRead(page, true);
     await reader.getByRole('button', { name: 'More' }).click();
-    await page.getByRole('button', { name: 'Open post' }).click();
+    await page.getByRole('menuitem', { name: 'Open post' }).click();
     await expect(page).toHaveURL(/\/posts\/night-piece/);
     await expect(reader).toBeHidden();
     await page.goBack();
@@ -241,7 +241,7 @@ test.describe('feed read on the place stack', () => {
     const globalTab = page.getByRole('tab', { name: 'Global' });
     if ((await globalTab.count()) > 0) await globalTab.click();
     const postLink = page
-      .locator('.home-feed-list a[href*="/posts/night-piece"]')
+      .locator('.home-feed-list .post-identity-time')
       .first();
     await expect(postLink).toBeVisible({ timeout: 20_000 });
     await postLink.click();
@@ -392,6 +392,20 @@ async function stubHeldDrop(page: Page) {
     releaseEssay = resolve;
   });
   const drop = dropAnnounceRow();
+  await page.route('**/api/onapi/data/get-one**', async (route) => {
+    const url = new URL(route.request().url());
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        requested_key: url.searchParams.get('key') ?? '',
+        full_key: '',
+        value: null,
+        deleted: false,
+        corrupted: false,
+      }),
+    });
+  });
   await page.route('**/api/onapi/graph/query', async (route) => {
     const body = JSON.parse(route.request().postData() ?? '{}') as GraphBody & {
       variables?: { postId?: string };
@@ -473,18 +487,16 @@ test.describe('drop-backed feed read', () => {
   test('a late essay does not reopen a closed reader', async ({ page }) => {
     const { reader, releaseCatalog, releaseEssay } =
       await openHeldDropRead(page);
-    const essayRequested = page.waitForRequest((request) => {
-      const post = request.postData() ?? '';
-      return post.includes('PersonalPost') || post.includes('source-essay');
-    });
+    const essayRequested = page.waitForRequest((request) =>
+      (request.postData() ?? '').includes('PersonalPost')
+    );
     releaseCatalog();
     await essayRequested;
     await page.getByRole('button', { name: 'Back from article' }).click();
     await expect(reader).toHaveCount(0);
-    const essayArrived = page.waitForResponse((response) => {
-      const post = response.request().postData() ?? '';
-      return post.includes('PersonalPost') || post.includes('source-essay');
-    });
+    const essayArrived = page.waitForResponse((response) =>
+      (response.request().postData() ?? '').includes('PersonalPost')
+    );
     releaseEssay();
     await essayArrived;
     await page.evaluate(
