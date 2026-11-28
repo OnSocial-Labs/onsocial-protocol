@@ -1,5 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
-import { dismissNextDevOverlay, gotoApp } from './helpers';
+import { setE2eGraphWriting } from './helpers/e2e-graph';
+import {
+  dismissNextDevOverlay,
+  e2ePortfolioAccountId,
+  gotoApp,
+} from './helpers';
 
 /**
  * Feed Read is a place-stack screen. One history entry, URL stays /home.
@@ -113,6 +118,7 @@ test('back leaves a Read screen that was reloaded', async ({ page }) => {
 
   const reloaded = page.getByRole('dialog', { name: 'Night piece' });
   await expect(reloaded).toBeVisible({ timeout: 20_000 });
+  await expect(reloaded).toContainText('A short piece from the feed.');
   await page.goBack();
   await expect(reloaded).toHaveCount(0);
   await expect(reader).toHaveCount(0);
@@ -122,6 +128,39 @@ test('back leaves a Read screen that was reloaded', async ({ page }) => {
       .locator('.home-feed-list')
       .getByRole('button', { name: 'Read article' })
   ).toBeVisible();
+});
+
+test('reload on a drop Read still shows the essay', async ({ page }) => {
+  const account = e2ePortfolioAccountId();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await setE2eGraphWriting(page, 'reader');
+  await gotoApp(page, `/@${account}/writing/night`);
+  await dismissNextDevOverlay(page);
+
+  await page.getByRole('link', { name: 'Drop', exact: true }).click();
+  const drop = page.locator('[data-drop-layer-sheet]');
+  await expect(drop).toBeVisible({ timeout: 15_000 });
+  await drop.getByRole('button', { name: 'Read', exact: true }).click();
+  const reader = page.locator(
+    '[data-os-slide-over="true"].feed-article-slide'
+  );
+  await expect(reader).toBeVisible({ timeout: 15_000 });
+  const body = reader.locator(
+    '.collection-writing-body, .scarce-feed-medium-empty'
+  );
+  await expect(body).toBeVisible({ timeout: 15_000 });
+  const essay = (await body.innerText()).replace(/\s+/g, ' ').trim();
+  expect(essay.length).toBeGreaterThan(0);
+
+  await page.reload();
+  await dismissNextDevOverlay(page);
+  const reloaded = page.locator(
+    '[data-os-slide-over="true"].feed-article-slide'
+  );
+  await expect(reloaded).toBeVisible({ timeout: 20_000 });
+  await expect(
+    reloaded.locator('.collection-writing-body, .scarce-feed-medium-empty')
+  ).toContainText(essay);
 });
 
 test('escape and browser back run the read exit slide', async ({ page }) => {
