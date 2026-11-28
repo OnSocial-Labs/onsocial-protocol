@@ -56,6 +56,16 @@ Confirm `mft_balance_of` for `:6783` on the treasury rises after proposal 3 exec
 
 Proposals `7`–`12` ran under the 24-decimal SOCIAL bug (oversized SOCIAL). Shares rose; leave LP as-is.
 
+### +1 NEAR after decimals fix (same day)
+
+Sized with `--pair 1` (SOCIAL from live reserves ≈ **824.69 SOCIAL** at post-bug pool ratio). Proposals `13`–`15` approved:
+
+| Step | Proposal id | Vote tx |
+|---|---|---|
+| wrap + deposit wNEAR | `13` | `AwzqSd7eN7E3yQSZPFa16VyZxF7UstWyWXSTUbWwEHZ` |
+| deposit SOCIAL | `14` | `AwEUhG6pAHTuXhEV4N7U8BPiy1m6NbLYpuEZ595JUiSj` |
+| `add_liquidity` | `15` | `4X7dC8BkGCPdbYftR8MpD43EzjFFrLPje2pqW5jh1xHn` |
+
 **Other lessons:**
 - Multi-action proposal gas must stay **≤ ~280 TGas** (act_proposal receipt cap is 300). Proposal `6` OOG’d; VoteReject (`DEhaTJ4LQDLfKhLYyBYfTkKynxCwxHjRjTmD8DN9M6qX`).
 
