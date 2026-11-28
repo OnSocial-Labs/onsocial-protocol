@@ -2,13 +2,23 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   RHEA_REF_CONTRACT,
+  SOCIAL_DECIMALS,
   SOCIAL_TOKEN_ID,
+  WNEAR_DECIMALS,
   WNEAR_TOKEN_ID,
   applySlippageMin,
   buildTreasuryAddLiquidityProposals,
   encodeArgs,
   matchPairAmount,
 } from './treasury-lp-proposals.mjs';
+
+test('SOCIAL is 18 decimals, wNEAR is 24', () => {
+  assert.equal(SOCIAL_DECIMALS, 18);
+  assert.equal(WNEAR_DECIMALS, 24);
+  // 0.002 SOCIAL at 18 decimals — treating as 24 would be 2000 SOCIAL.
+  assert.equal(2n * 10n ** 15n, 2_000_000_000_000_000n);
+  assert.equal(2n * 10n ** 21n, 2_000_000_000_000_000_000_000n);
+});
 
 test('matchPairAmount follows pool ratio', () => {
   // 2 SOCIAL : 3 wNEAR reserves → 1 SOCIAL needs 1.5 wNEAR
@@ -29,8 +39,9 @@ test('applySlippageMin keeps 99.5% at 50 bps', () => {
 test('buildTreasuryAddLiquidityProposals emits 3 steps for 6783', () => {
   const built = buildTreasuryAddLiquidityProposals({
     poolId: 6783,
-    socialAmountYocto: '50000000000000000000000', // 0.05 SOCIAL
-    pairAmountYocto: '60000000000000000000000', // 0.06 wNEAR
+    // 0.05 SOCIAL (18 decimals) + 0.06 wNEAR (24 decimals)
+    socialAmountYocto: '50000000000000000',
+    pairAmountYocto: '60000000000000000000000',
     slippageBps: 50,
   });
 
@@ -43,7 +54,7 @@ test('buildTreasuryAddLiquidityProposals emits 3 steps for 6783', () => {
   assert.equal(wrap.kind.FunctionCall.actions[0].method_name, 'near_deposit');
   assert.equal(
     wrap.kind.FunctionCall.actions[0].deposit,
-    '60000000000000000000000'
+    '60000000000000000000000' // 0.06 wNEAR
   );
   assert.equal(
     wrap.kind.FunctionCall.actions[1].method_name,
@@ -66,11 +77,11 @@ test('buildTreasuryAddLiquidityProposals emits 3 steps for 6783', () => {
   );
   assert.equal(addArgs.pool_id, 6783);
   assert.deepEqual(addArgs.amounts, [
-    '50000000000000000000000',
+    '50000000000000000',
     '60000000000000000000000',
   ]);
   assert.deepEqual(addArgs.min_amounts, [
-    applySlippageMin('50000000000000000000000', 50),
+    applySlippageMin('50000000000000000', 50),
     applySlippageMin('60000000000000000000000', 50),
   ]);
 

@@ -15,18 +15,25 @@ export const WNEAR_TOKEN_ID = 'wrap.near';
 export const USDC_TOKEN_ID =
   '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1';
 
+/** token.onsocial.near NEP-141 — not NEAR’s 24. */
+export const SOCIAL_DECIMALS = 18;
+export const WNEAR_DECIMALS = 24;
+export const USDC_DECIMALS = 6;
+
 export const TREASURY_LP_POOLS = {
   6783: {
     poolId: 6783,
     label: 'SOCIAL-wNEAR',
     tokenIds: [SOCIAL_TOKEN_ID, WNEAR_TOKEN_ID],
     pair: 'wnear',
+    pairDecimals: WNEAR_DECIMALS,
   },
   6771: {
     poolId: 6771,
     label: 'SOCIAL-USDC',
     tokenIds: [SOCIAL_TOKEN_ID, USDC_TOKEN_ID],
     pair: 'usdc',
+    pairDecimals: USDC_DECIMALS,
   },
 };
 
