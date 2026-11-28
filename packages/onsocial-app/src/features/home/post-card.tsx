@@ -1343,7 +1343,8 @@ function PostCardImpl({
     dropPaint?.title?.trim() ||
     null;
   // Same as Drops list: pass the painted author face when they are the creator.
-  const scarceDropCreatorId = scarceEmbed?.creatorId?.trim() || post.accountId;
+  const scarceDropCreatorId =
+    scarceEmbed?.creatorId?.trim() || post.accountId;
   const scarceDropCreator =
     authorProfile &&
     accountIdsEqual(scarceDropCreatorId, post.accountId) &&

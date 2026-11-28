@@ -319,20 +319,16 @@ export function OsSlideOverScreen({
   }, [layerOpen]);
 
   useEffect(() => {
-    if (!layerOpen || parked || yielded || !overlay.top) return;
+    if (!layerOpen || parked || yielded) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       if (event.defaultPrevented) return;
-      const root = slideRootRef.current;
-      if (!root || !root.isConnected) return;
       event.preventDefault();
-      event.stopPropagation();
       requestClose();
     };
-    // Capture so a sheet under this Read cannot close it without the exit.
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [layerOpen, overlay.top, parked, requestClose, yielded]);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [layerOpen, parked, requestClose, yielded]);
 
   useOsScreenChromeHeightSync({ enabled: renderOpen, headerRef });
 
