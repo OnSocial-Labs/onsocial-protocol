@@ -56,6 +56,7 @@ import {
   useDockAction,
   useDockBack,
   useDockRevealEpoch,
+  useDockScrollRoot,
   useImmersiveChromeQuiet,
 } from '@/contexts/dock-chrome-context';
 import { OsWriteDock } from '@/components/os/os-write-dock';
@@ -275,14 +276,17 @@ export function SummonLauncher({
   const writeMorph = useWriteDockMorph();
   const write = compose?.type === 'write' ? compose.entry : null;
   const immersiveChromeQuiet = useImmersiveChromeQuiet();
+  const dockScrollRoot = useDockScrollRoot();
   const writing = Boolean(write) || writePinned;
   // Sheet/page Back reveals via dockRevealEpoch (register / soft-drop claim).
-  // Do not pin — fold on scroll like every other page.
+  // Do not pin — fold on scroll like every other page. The top screen's
+  // scroller is the only one that tucks; a new top shows the dock again.
   const autoHide = useDockAutoHide(
     open || writing,
-    null,
+    dockScrollRoot,
     0,
-    dockRevealEpoch
+    dockRevealEpoch,
+    'subtree'
   );
   const dockHidden = !open && (immersiveChromeQuiet || (autoHide && !writing));
   const showDockBack = resolveDockBackVisible({
@@ -512,11 +516,7 @@ export function SummonLauncher({
         // Capture is optional — window listeners own the gesture.
       }
     },
-    [
-      clearLauncherDragListeners,
-      handleDragPointerEnd,
-      handleDragPointerMove,
-    ]
+    [clearLauncherDragListeners, handleDragPointerEnd, handleDragPointerMove]
   );
 
   const handleDragPointerDown = useCallback(

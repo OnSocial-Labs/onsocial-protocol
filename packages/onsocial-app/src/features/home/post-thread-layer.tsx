@@ -28,6 +28,7 @@ import {
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsRouteSettle } from '@/components/app/os-route-settle';
 import {
+  DockScrollHoldProvider,
   useClaimDropSheetDockBack,
   useClaimPlaceLayerDockBack,
 } from '@/contexts/dock-chrome-context';
@@ -643,100 +644,106 @@ function PostThreadSheet({
         lockScroll={!parked}
         header={null}
       >
-        <div
-          ref={bodyRef}
-          className="post-thread-sheet-fill"
-          onClickCapture={openProfileFromPost}
-        >
-          <OsAppScreen
-            title={title}
-            glassChrome
-            compactChrome
-            embedded
-            nestedScrollChrome={quotes}
-            className={quotes ? 'post-quotes-screen-chrome' : undefined}
-            toolbar={
-              quotes ? (
-                <div
-                  className="post-quotes-track-slot"
-                  ref={setQuotesTrackHost}
-                />
-              ) : undefined
-            }
-            heading={
-              <span id={titleId} className="os-app-screen-title">
-                {title}
-              </span>
-            }
-            leading={
-              <OsIconAction ariaLabel="Back" onClick={onClose}>
-                <ChevronLeftIcon
-                  className="glass-sheet-close-icon"
-                  aria-hidden
-                />
-              </OsIconAction>
-            }
+        <DockScrollHoldProvider held={parked}>
+          <div
+            ref={bodyRef}
+            className="post-thread-sheet-fill"
+            onClickCapture={openProfileFromPost}
           >
-            <OsRouteSettle
-              ready={threadPainted}
-              skeleton={
-                quotes ? <PostQuotesPageSkeleton /> : <PostThreadPageSkeleton />
+            <OsAppScreen
+              title={title}
+              glassChrome
+              compactChrome
+              embedded
+              nestedScrollChrome={quotes}
+              className={quotes ? 'post-quotes-screen-chrome' : undefined}
+              toolbar={
+                quotes ? (
+                  <div
+                    className="post-quotes-track-slot"
+                    ref={setQuotesTrackHost}
+                  />
+                ) : undefined
+              }
+              heading={
+                <span id={titleId} className="os-app-screen-title">
+                  {title}
+                </span>
+              }
+              leading={
+                <OsIconAction ariaLabel="Back" onClick={onClose}>
+                  <ChevronLeftIcon
+                    className="glass-sheet-close-icon"
+                    aria-hidden
+                  />
+                </OsIconAction>
               }
             >
-              <PostQuotesTrackHostProvider
-                value={quotes ? quotesTrackHost : null}
-              >
-                <Suspense fallback={null}>
-                  {layer.kind === 'quotes' ? (
-                    <PostQuotesPanel
-                      key={`${layer.groupId ?? ''}:${layer.accountId}:${layer.postId}:${layer.tab}`}
-                      author={layer.accountId}
-                      postId={layer.postId}
-                      initial={layer.initial}
-                      embedded
-                      initialTab={layer.tab}
-                      onThreadPainted={noteThreadPainted}
-                    />
-                  ) : layer.groupId ? (
-                    <LiveGuildPostPanel
-                      key={`${layer.groupId}:${layer.accountId}:${layer.postId}`}
-                      groupId={layer.groupId}
-                      author={layer.accountId}
-                      postId={layer.postId}
-                      initial={
-                        layer.root
-                          ? seedGuildThread(
-                              layer.root,
-                              layer.rootEngagement,
-                              layer.seedReplies
-                            )
-                          : null
-                      }
-                      embedded
-                      replyDockEnabled={open && !parked}
-                      parked={parked}
-                      showGuildLine={guildCard?.showGuildLine ?? true}
-                      showChannel={guildCard?.showChannel ?? true}
-                      sheetContext={layer.context}
-                      onThreadPainted={noteThreadPainted}
-                    />
+              <OsRouteSettle
+                ready={threadPainted}
+                skeleton={
+                  quotes ? (
+                    <PostQuotesPageSkeleton />
                   ) : (
-                    <LivePersonalPostPanel
-                      key={`${layer.accountId}:${layer.postId}`}
-                      author={layer.accountId}
-                      postId={layer.postId}
-                      initial={initial}
-                      embedded
-                      replyDockEnabled={open && !parked}
-                      parked={parked}
-                      onThreadPainted={noteThreadPainted}
-                    />
-                  )}
-                </Suspense>
-              </PostQuotesTrackHostProvider>
-            </OsRouteSettle>
-          </OsAppScreen>
-        </div>
+                    <PostThreadPageSkeleton />
+                  )
+                }
+              >
+                <PostQuotesTrackHostProvider
+                  value={quotes ? quotesTrackHost : null}
+                >
+                  <Suspense fallback={null}>
+                    {layer.kind === 'quotes' ? (
+                      <PostQuotesPanel
+                        key={`${layer.groupId ?? ''}:${layer.accountId}:${layer.postId}:${layer.tab}`}
+                        author={layer.accountId}
+                        postId={layer.postId}
+                        initial={layer.initial}
+                        embedded
+                        initialTab={layer.tab}
+                        onThreadPainted={noteThreadPainted}
+                      />
+                    ) : layer.groupId ? (
+                      <LiveGuildPostPanel
+                        key={`${layer.groupId}:${layer.accountId}:${layer.postId}`}
+                        groupId={layer.groupId}
+                        author={layer.accountId}
+                        postId={layer.postId}
+                        initial={
+                          layer.root
+                            ? seedGuildThread(
+                                layer.root,
+                                layer.rootEngagement,
+                                layer.seedReplies
+                              )
+                            : null
+                        }
+                        embedded
+                        replyDockEnabled={open && !parked}
+                        parked={parked}
+                        showGuildLine={guildCard?.showGuildLine ?? true}
+                        showChannel={guildCard?.showChannel ?? true}
+                        sheetContext={layer.context}
+                        onThreadPainted={noteThreadPainted}
+                      />
+                    ) : (
+                      <LivePersonalPostPanel
+                        key={`${layer.accountId}:${layer.postId}`}
+                        author={layer.accountId}
+                        postId={layer.postId}
+                        initial={initial}
+                        embedded
+                        replyDockEnabled={open && !parked}
+                        parked={parked}
+                        onThreadPainted={noteThreadPainted}
+                      />
+                    )}
+                  </Suspense>
+                </PostQuotesTrackHostProvider>
+              </OsRouteSettle>
+            </OsAppScreen>
+          </div>
+        </DockScrollHoldProvider>
       </OsPageSheet>
     </PostLayerOwnerZProvider>
   );
@@ -803,25 +810,27 @@ function DropLayerSheet({
         rootClassName={parked ? 'post-thread-sheet-parked' : undefined}
         header={null}
       >
-        <div
-          className="drop-sheet-fill"
-          data-drop-layer-sheet=""
-          onClickCapture={leaveFromDrop}
-        >
-          <span id={titleId} className="sr-only">
-            Drop
-          </span>
-          <CollectionPagePanel
-            key={layer.collectionId}
-            collectionId={layer.collectionId}
-            initial={layer.initial}
-            initialCreator={layer.initialCreator}
-            initialEditionToken={layer.initialEditionToken}
-            embedded
-            suspendDock={parked || !open}
-            onClose={onClose}
-          />
-        </div>
+        <DockScrollHoldProvider held={parked}>
+          <div
+            className="drop-sheet-fill"
+            data-drop-layer-sheet=""
+            onClickCapture={leaveFromDrop}
+          >
+            <span id={titleId} className="sr-only">
+              Drop
+            </span>
+            <CollectionPagePanel
+              key={layer.collectionId}
+              collectionId={layer.collectionId}
+              initial={layer.initial}
+              initialCreator={layer.initialCreator}
+              initialEditionToken={layer.initialEditionToken}
+              embedded
+              suspendDock={parked || !open}
+              onClose={onClose}
+            />
+          </div>
+        </DockScrollHoldProvider>
       </OsPageSheet>
     </PostLayerOwnerZProvider>
   );

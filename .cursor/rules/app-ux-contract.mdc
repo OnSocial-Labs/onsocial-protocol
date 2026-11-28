@@ -39,6 +39,8 @@ When a drawer (or any nested overlay) sits on top of a sheet or another overlay,
 
 Place stack history: each opened post, quotes, or drop screen **pushes** one native history entry, including the first open from home. Browser Back, dock Back, and header Back each close only the top screen. Native history only — App Router push would remount and kill the feed underlay.
 
+Summon dock auto-hide follows the top screen's scroller. A covered screen's scroll does not tuck it. Opening or closing the top screen shows the dock again.
+
 ## Motion
 
 - Content appear / route settle: `var(--os-motion-appear)` (280ms) + `var(--os-motion-ease-standard)`.
