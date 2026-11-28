@@ -25,6 +25,31 @@ export type FeedReadFace = {
   book: FeedReadBook | null;
 };
 
+/** Resume a drop-backed shell only while that card's reader is still open. */
+export function feedReadResumeDue(input: {
+  articleOpen: boolean;
+  feedReadLive: boolean;
+  awaitingMeta: boolean;
+}): boolean {
+  return (input.articleOpen || input.feedReadLive) && input.awaitingMeta;
+}
+
+/**
+ * A fetch that resolves after Back must not open the reader again.
+ * The local fallback (no stack) still applies its own ticket.
+ */
+export function feedReadLateResultApplies(input: {
+  ticket: number;
+  currentTicket: number;
+  stackOwned: boolean;
+  openKey: string | null;
+  postKey: string;
+}): boolean {
+  if (input.ticket !== input.currentTicket) return false;
+  if (!input.stackOwned) return true;
+  return input.openKey === input.postKey;
+}
+
 /** A feed Read stays on the page that opened it. A drop Read uses the collection. */
 export function readPlaceHref(input: {
   historyHref: string | null;

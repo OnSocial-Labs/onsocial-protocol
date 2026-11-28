@@ -76,9 +76,16 @@ async function stubGraph(page: Page) {
   });
 }
 
-async function openFeedRead(page: Page) {
+function homeColumn(page: Page) {
+  return page.locator('main.os-app-screen-body').filter({
+    has: page.locator('.home-feed'),
+  });
+}
+
+async function openFeedRead(page: Page, fromDiscover = false) {
   await page.setViewportSize({ width: 390, height: 844 });
   await stubGraph(page);
+  if (fromDiscover) await gotoApp(page, '/discover');
   await gotoApp(page, '/home');
   await dismissNextDevOverlay(page);
   const globalTab = page.getByRole('tab', { name: 'Global' });
@@ -98,8 +105,12 @@ test.describe('feed read on the place stack', () => {
     page,
   }) => {
     const reader = await openFeedRead(page);
-    const column = page.locator('.home-feed');
+    const column = homeColumn(page);
     await expect(column).toHaveAttribute('data-feed-session', 'covered');
+    await expect(page.locator('.home-feed')).not.toHaveAttribute(
+      'data-feed-session',
+      'covered'
+    );
     await expect(page).toHaveURL(/\/home\/?$/);
     const parkedInColumn = await reader.evaluate((el) =>
       Boolean(el.closest('.home-feed'))
@@ -127,9 +138,287 @@ test.describe('feed read on the place stack', () => {
     await page.keyboard.press('Escape');
     await expect(reader).toHaveCount(0);
     await expect(page).toHaveURL(/\/home\/?$/);
-    await expect(page.locator('.home-feed')).not.toHaveAttribute(
+    await expect(homeColumn(page)).not.toHaveAttribute(
       'data-feed-session',
       'covered'
     );
+  });
+
+  test('a second back leaves /home', async ({ page }) => {
+    const reader = await openFeedRead(page, true);
+    await page.goBack();
+    await expect(reader).toHaveCount(0);
+    await expect(page).toHaveURL(/\/home\/?$/);
+    await expect(page.locator('.home-feed-list')).toBeVisible();
+    await page.goBack();
+    await expect(page).toHaveURL(/\/discover\/?$/);
+  });
+
+  test('reload with a read open steps over the extra /home entry', async ({
+    page,
+  }) => {
+    await openFeedRead(page, true);
+    await page.reload();
+    await dismissNextDevOverlay(page);
+    await expect(page.getByRole('dialog', { name: 'Night piece' })).toHaveCount(
+      0
+    );
+    await expect(page).toHaveURL(/\/home\/?$/);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            window.history.state != null &&
+            typeof window.history.state === 'object' &&
+            (window.history.state as { onsocialPostLayer?: boolean })
+              .onsocialPostLayer === true
+        )
+      )
+      .toBe(false);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/discover\/?$/);
+  });
+
+  test('profile hop parks the reader and forward yields it again', async ({
+    page,
+  }) => {
+    const reader = await openFeedRead(page);
+    await reader.getByRole('link', { name: "View Alice's profile" }).click();
+    await expect(page).toHaveURL(/\/@alice\.near/);
+    await expect(reader).toBeHidden();
+    await page.goBack();
+    await expect(page).toHaveURL(/\/home\/?$/);
+    await expect(reader).toBeVisible();
+    await page.goForward();
+    await expect(page).toHaveURL(/\/@alice\.near/);
+    await expect(reader).toBeHidden();
+  });
+
+  test('writing loads the shelf and one back returns to the feed', async ({
+    page,
+  }) => {
+    const reader = await openFeedRead(page, true);
+    await reader.getByRole('link', { name: 'Writing' }).click();
+    await expect(page).toHaveURL(/\/writing/);
+    await expect(reader).toHaveCount(0);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/home\/?$/);
+    await expect(page.locator('.home-feed-list')).toBeVisible();
+    await expect(page).not.toHaveURL(/\/discover/);
+  });
+
+  test('open post parks the reader and back returns to it', async ({
+    page,
+  }) => {
+    const reader = await openFeedRead(page);
+    await reader.getByRole('button', { name: 'More' }).click();
+    await page.getByRole('button', { name: 'Open post' }).click();
+    await expect(page).toHaveURL(/\/posts\/night-piece/);
+    await expect(reader).toBeHidden();
+    await page.goBack();
+    await expect(page).toHaveURL(/\/home\/?$/);
+    await expect(reader).toBeVisible();
+  });
+});
+
+function dropAnnounceRow() {
+  return {
+    accountId: 'alice.near',
+    postId: 'held-drop',
+    value: JSON.stringify({
+      v: 1,
+      text: 'A drop announce.',
+      embeds: [
+        {
+          kind: 'collection',
+          chain: 'near',
+          contract: 'scarces.near',
+          collectionId: 'held-essay',
+        },
+      ],
+      x: {
+        onsocial: {
+          drop: {
+            collectionId: 'held-essay',
+            title: 'Held essay',
+            mediumKind: 'writing',
+            priceNear: '1',
+          },
+        },
+      },
+    }),
+    blockHeight: 200,
+    blockTimestamp: 1_700_000_000,
+    receiptId: 'receipt-held-drop',
+    parentPath: '',
+    parentAuthor: '',
+    parentType: '',
+    refPath: '',
+    refAuthor: '',
+    refType: '',
+    channel: '',
+    kind: '',
+    audiences: '',
+    groupId: '',
+    isGroupContent: false,
+    authorName: 'Alice',
+    authorAvatar: null,
+    groupName: null,
+    amplifyHeat: 1,
+  };
+}
+
+function sourceEssayRow() {
+  return {
+    ...dropAnnounceRow(),
+    postId: 'source-essay',
+    value: JSON.stringify({
+      v: 1,
+      contentType: 'md',
+      kind: 'longform',
+      text: 'The late paragraph.',
+      x: { onsocial: { article: { title: 'Late light' } } },
+    }),
+  };
+}
+
+function heldCollectionRow() {
+  const extra = JSON.stringify({
+    kind: 'writing',
+    writingFormat: 'essay',
+    sourcePost: { path: 'alice.near/post/source-essay' },
+  });
+  return {
+    collectionId: 'held-essay',
+    creatorId: 'alice.near',
+    appId: null,
+    price: '1000000000000000000000000',
+    allowlistPrice: null,
+    totalSupply: 10,
+    mintedCount: 2,
+    remaining: 8,
+    startTime: null,
+    endTime: null,
+    createdAt: 1_700_000_000_000_000_000,
+    mintMode: null,
+    maxPerWallet: null,
+    paused: false,
+    cancelled: false,
+    banned: false,
+    transferable: true,
+    renewable: false,
+    maxRedeems: null,
+    randomAssignment: false,
+    appCommissionBps: null,
+    title: 'Held essay',
+    media: null,
+    description: null,
+    kind: 'writing',
+    mediumKind: 'writing',
+    sourcePostPath: 'alice.near/post/source-essay',
+    metadataTemplate: JSON.stringify({ title: 'Held essay', extra }),
+    metadata: null,
+    extraJson: extra,
+    royaltyJson: null,
+  };
+}
+
+async function stubHeldDrop(page: Page) {
+  let releaseCatalog = () => {};
+  let releaseEssay = () => {};
+  const catalogGate = new Promise<void>((resolve) => {
+    releaseCatalog = resolve;
+  });
+  const essayGate = new Promise<void>((resolve) => {
+    releaseEssay = resolve;
+  });
+  const drop = dropAnnounceRow();
+  await page.route('**/api/onapi/graph/query', async (route) => {
+    const body = JSON.parse(route.request().postData() ?? '{}') as GraphBody & {
+      variables?: { postId?: string };
+    };
+    const query = body.query ?? '';
+    if (query.includes('ScarcesCollectionsCurrentByIds')) {
+      await catalogGate;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: { scarcesCollectionsCurrent: [heldCollectionRow()] },
+        }),
+      });
+      return;
+    }
+    if (
+      query.includes('PersonalPost') ||
+      body.variables?.postId === 'source-essay'
+    ) {
+      await essayGate;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: { postsCurrent: [sourceEssayRow()] },
+        }),
+      });
+      return;
+    }
+    if (query.includes('postsFeed') || query.includes('postsCurrent')) {
+      const field = query.includes('postsFeed') ? 'postsFeed' : 'postsCurrent';
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { [field]: [drop] } }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: {} }),
+    });
+  });
+  return {
+    releaseCatalog,
+    releaseEssay,
+  };
+}
+
+async function openHeldDropRead(page: Page) {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const gates = await stubHeldDrop(page);
+  await gotoApp(page, '/home');
+  await dismissNextDevOverlay(page);
+  const globalTab = page.getByRole('tab', { name: 'Global' });
+  if ((await globalTab.count()) > 0) await globalTab.click();
+  const read = page.locator('.post-card-scarce-read');
+  await expect(read).toBeVisible({ timeout: 20_000 });
+  await read.click();
+  const reader = page.getByRole('dialog', { name: 'Held essay' });
+  await expect(reader).toBeVisible();
+  await expect(page.getByText('The late paragraph.')).toHaveCount(0);
+  return { reader, ...gates };
+}
+
+test.describe('drop-backed feed read', () => {
+  test('a held catalog still fills the open reader', async ({ page }) => {
+    const { releaseCatalog, releaseEssay } = await openHeldDropRead(page);
+    releaseCatalog();
+    releaseEssay();
+    await expect(page.getByText('The late paragraph.')).toBeVisible();
+    await expect(
+      page.getByRole('dialog', { name: 'Late light' })
+    ).toBeVisible();
+  });
+
+  test('a late essay does not reopen a closed reader', async ({ page }) => {
+    const { reader, releaseCatalog, releaseEssay } =
+      await openHeldDropRead(page);
+    await page.getByRole('button', { name: 'Back from article' }).click();
+    await expect(reader).toHaveCount(0);
+    releaseCatalog();
+    releaseEssay();
+    await expect(page.getByText('The late paragraph.')).toHaveCount(0);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 });

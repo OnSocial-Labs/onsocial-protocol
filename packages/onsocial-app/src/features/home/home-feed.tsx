@@ -1934,6 +1934,7 @@ export function HomePagePanel({
         compactChrome
         glassChrome
         scrollRootRef={scrollRootRef}
+        feedSession={columnSession}
         leading={null}
         toolbar={
           <OsAppChromeToolbarRail
@@ -1966,10 +1967,7 @@ export function HomePagePanel({
           </OsAppChromeToolbarRail>
         }
       >
-        <OsAppChromePage
-          className="home-feed"
-          {...(columnSession ? { 'data-feed-session': columnSession } : {})}
-        >
+        <OsAppChromePage className="home-feed">
           {loadError ? (
             errorPresentation === 'overlay' ? (
               <OsChromeListAlert message={loadError} onRetry={retryLoad} />

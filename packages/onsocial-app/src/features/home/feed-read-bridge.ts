@@ -45,6 +45,10 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
+export function readOpenFeedReadKey(): string | null {
+  return state.openKey;
+}
+
 export function setOpenFeedReadKey(key: string | null) {
   if (state.openKey === key) return;
   state = { ...state, openKey: key };

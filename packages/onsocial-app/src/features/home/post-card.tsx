@@ -58,9 +58,14 @@ import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import {
   clearFeedReadBridge,
   publishFeedReadBridge,
+  readOpenFeedReadKey,
   useOpenFeedReadKey,
 } from '@/features/home/feed-read-bridge';
-import type { FeedReadBook } from '@/features/home/feed-read-face';
+import {
+  feedReadLateResultApplies,
+  feedReadResumeDue,
+  type FeedReadBook,
+} from '@/features/home/feed-read-face';
 import {
   isUnmodifiedPrimaryClick,
   usePostThreadLayer,
@@ -481,6 +486,7 @@ function PostCardImpl({
     feedReadEssay ? [feedReadEssay.accountId] : []
   );
   const dropReadTicket = useRef(0);
+  const stackReadOwnedRef = useRef(false);
   /** Collection card already asked for writing. The open reader waits for that. */
   const dropReadAwaitingMeta = useRef(false);
   /** Article cover still when it isn’t already in post media. */
@@ -952,6 +958,7 @@ function PostCardImpl({
       documentTitle: dropListenTitle,
       book: null,
     });
+    if (opened) stackReadOwnedRef.current = true;
     if (!opened) setArticleOpen(true);
   };
   const openFeedPostReader = (next?: {
@@ -971,6 +978,7 @@ function PostCardImpl({
       documentTitle: next?.book ? dropListenTitle : null,
       book: next?.book ? feedReadBook(next.coverSvg ?? null) : null,
     });
+    if (opened) stackReadOwnedRef.current = true;
     if (!opened) setArticleOpen(true);
   };
   openFeedPostReaderRef.current = openFeedPostReader;
@@ -988,7 +996,17 @@ function PostCardImpl({
     coverSvg,
     ticket
   ) => {
-    if (ticket !== dropReadTicket.current) return;
+    if (
+      !feedReadLateResultApplies({
+        ticket,
+        currentTicket: dropReadTicket.current,
+        stackOwned: stackReadOwnedRef.current,
+        openKey: readOpenFeedReadKey(),
+        postKey: postKey(post),
+      })
+    ) {
+      return;
+    }
     const target = resolveDropReadTarget({
       articleOnPost: Boolean(article),
       writingFormat,
@@ -1012,7 +1030,17 @@ function PostCardImpl({
           author: target.author,
           postId: target.postId,
         });
-        if (ticket !== dropReadTicket.current) return;
+        if (
+          !feedReadLateResultApplies({
+            ticket,
+            currentTicket: dropReadTicket.current,
+            stackOwned: stackReadOwnedRef.current,
+            openKey: readOpenFeedReadKey(),
+            postKey: postKey(post),
+          })
+        ) {
+          return;
+        }
         if (essay && isArticlePost(essay)) {
           openFeedPostReader({ essay, coverSvg });
           return;
@@ -1020,7 +1048,17 @@ function PostCardImpl({
       } catch {
         /* book pages below */
       }
-      if (ticket !== dropReadTicket.current) return;
+      if (
+        !feedReadLateResultApplies({
+          ticket,
+          currentTicket: dropReadTicket.current,
+          stackOwned: stackReadOwnedRef.current,
+          openKey: readOpenFeedReadKey(),
+          postKey: postKey(post),
+        })
+      ) {
+        return;
+      }
       openFeedPostReader({ book: true, coverSvg });
     })();
   };
@@ -1032,7 +1070,17 @@ function PostCardImpl({
     ) => void
   >(() => {});
   finishDropReadRef.current = (ahead, coverSvg, ticket) => {
-    if (ticket !== dropReadTicket.current) return;
+    if (
+      !feedReadLateResultApplies({
+        ticket,
+        currentTicket: dropReadTicket.current,
+        stackOwned: stackReadOwnedRef.current,
+        openKey: readOpenFeedReadKey(),
+        postKey: postKey(post),
+      })
+    ) {
+      return;
+    }
     if (ahead?.essay) {
       setDropReadPack(null);
       openFeedPostReader({ essay: ahead.essay, coverSvg });
@@ -1106,8 +1154,17 @@ function PostCardImpl({
         finishDropReadRef.current(null, coverSvg, ticket);
       });
   };
+  const feedReadLive = openFeedReadKey === postKey(post);
   useEffect(() => {
-    if (!articleOpen || !dropReadAwaitingMeta.current) return;
+    if (
+      !feedReadResumeDue({
+        articleOpen,
+        feedReadLive,
+        awaitingMeta: dropReadAwaitingMeta.current,
+      })
+    ) {
+      return;
+    }
     if (!collectionWritingSettled && collectionEmbedStatus !== 'error') return;
     const ticket = dropReadTicket.current;
     const coverSvg = feedBookCoverSvg;
@@ -1135,6 +1192,7 @@ function PostCardImpl({
       });
   }, [
     articleOpen,
+    feedReadLive,
     collectionEmbedStatus,
     collectionSourcePostPath,
     collectionWritingFormat,

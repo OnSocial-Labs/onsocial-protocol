@@ -24,16 +24,21 @@ export function FeedReadLayerScreen({
   face,
   zIndex,
   openedAboveMediaFace,
+  parked,
   open,
   onClose,
   onClosed,
+  onLeave,
 }: {
   face: FeedReadFace;
   zIndex: number;
   openedAboveMediaFace: boolean;
+  /** Profile or post is the screen. Keep this reader mounted underneath. */
+  parked: boolean;
   open: boolean;
   onClose: () => void;
   onClosed: () => void;
+  onLeave: (href: string) => void;
 }) {
   const bridge = useFeedReadBridge(postKey(face.post));
   const profiles = usePostAuthorProfiles([face.body.accountId]);
@@ -67,6 +72,8 @@ export function FeedReadLayerScreen({
     <PostLayerOwnerZProvider value={renderedZ}>
       <FeedArticleReadScreen
         open={open}
+        parked={parked}
+        onPlaceLeave={onLeave}
         onOpenChange={(next) => {
           if (!next) onClose();
         }}

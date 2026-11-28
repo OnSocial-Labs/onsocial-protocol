@@ -64,6 +64,11 @@ export type PostCardMenuProps = PostCardMenuPostProps & {
   openPostHref?: string;
   onOpenPost?: () => void;
   /**
+   * Feed Read owns the navigation. The item is a button so the link
+   * cannot race a history Back.
+   */
+  onOpenPostHref?: (href: string) => void;
+  /**
    * The face already shows Stand and the name. The menu keeps the actions
    * that are not already on the page.
    */
@@ -77,6 +82,7 @@ export const PostCardMenu = memo(function PostCardMenu({
   href,
   openPostHref,
   onOpenPost,
+  onOpenPostHref,
   besideStand = false,
   onDownload,
   accountId,
@@ -293,10 +299,11 @@ export const PostCardMenu = memo(function PostCardMenu({
       items.push({
         id: 'open-post',
         label: 'Open post',
-        href: openPostHref,
+        ...(onOpenPostHref ? {} : { href: openPostHref }),
         leading: <NoteTextIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
-          onOpenPost?.();
+          if (onOpenPostHref) onOpenPostHref(openPostHref);
+          else onOpenPost?.();
           requestClose();
         },
       });
@@ -460,6 +467,7 @@ export const PostCardMenu = memo(function PostCardMenu({
     profileHref,
     besideStand,
     openPostHref,
+    onOpenPostHref,
     onDownload,
     downloading,
   ]);

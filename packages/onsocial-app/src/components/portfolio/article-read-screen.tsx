@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type MouseEvent,
+  type PointerEvent,
   type ReactNode,
   type RefObject,
 } from 'react';
@@ -30,7 +31,9 @@ import {
 import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
 import { useWriteDockPinned } from '@/contexts/compose-launcher-context';
 import { useOsDropSheetOpen } from '@/hooks/use-os-drop-sheet-open';
+import { isWritingShelfHref } from '@/components/portfolio/account-place-link';
 import { PostCardMenu } from '@/features/home/post-card-menu';
+import { parseInAppDropLayerHref } from '@/lib/app-routes';
 import { usePostLayerOwnerZ } from '@/features/home/post-layer-owner-z';
 import { postThreadPath } from '@/lib/post-routes';
 import { postLayerOverlayZ } from '@/lib/sheet-z';
@@ -64,17 +67,20 @@ function ArticleReaderMenu({
   avatarUrl,
   zIndex,
   onOpenPost,
+  onPlaceLeave,
 }: {
   post: PostRow;
   authorName: string;
   avatarUrl?: string | null;
   zIndex: number;
   onOpenPost?: () => void;
+  onPlaceLeave?: (href: string) => void;
 }) {
+  const postHref = postThreadPath(post);
   return (
     <PostCardMenu
-      href={postThreadPath(post)}
-      openPostHref={postThreadPath(post)}
+      href={postHref}
+      openPostHref={postHref}
       accountId={post.accountId}
       authorProfile={{
         accountId: post.accountId,
@@ -82,10 +88,41 @@ function ArticleReaderMenu({
         avatarUrl: avatarUrl ?? null,
       }}
       besideStand
-      onOpenPost={onOpenPost}
+      onOpenPost={onPlaceLeave ? undefined : onOpenPost}
+      onOpenPostHref={onPlaceLeave ? () => onPlaceLeave(postHref) : undefined}
       zIndex={zIndex}
     />
   );
+}
+
+function unmodifiedPrimary(event: {
+  metaKey: boolean;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+  button: number;
+}): boolean {
+  return (
+    !event.metaKey &&
+    !event.ctrlKey &&
+    !event.shiftKey &&
+    !event.altKey &&
+    event.button === 0
+  );
+}
+
+/** In-app link inside the reader. Drop links keep their own opener. */
+function readerLeaveHref(target: EventTarget | null): string | null {
+  if (!(target instanceof Element)) return null;
+  const anchor = target.closest('a');
+  if (!(anchor instanceof HTMLAnchorElement)) return null;
+  if (anchor.target === '_blank') return null;
+  const href = anchor.getAttribute('href');
+  if (!href || href.startsWith('#') || /^https?:/i.test(href)) return null;
+  const path = href.split(/[?#]/)[0] ?? href;
+  if (!path.startsWith('/')) return null;
+  if (parseInAppDropLayerHref(path)) return null;
+  return href;
 }
 
 /**
@@ -255,6 +292,8 @@ export function ArticleReadFooter({
 /** Overlay reader — feed and Writing list. Circle-back dismisses. */
 export function ArticleReadOverlay({
   open,
+  parked = false,
+  onPlaceLeave,
   onOpenChange,
   onClosed,
   commerce,
@@ -270,6 +309,10 @@ export function ArticleReadOverlay({
 }: PortfolioWritingArticlePanelProps &
   ArticleReadFooterProps & {
     open: boolean;
+    /** Parked under a profile or post opened from this reader. */
+    parked?: boolean;
+    /** Author, Writing, and Open post. Writing full-loads; the rest park. */
+    onPlaceLeave?: (href: string) => void;
     onOpenChange: (open: boolean) => void;
     /** After the exit slide — parents drop the tree (overlay-idle). */
     onClosed?: () => void;
@@ -301,6 +344,36 @@ export function ArticleReadOverlay({
     'Article';
   const writePinned = useWriteDockPinned();
   const dropSheetOpen = useOsDropSheetOpen();
+  const writingLeftRef = useRef(false);
+  const leaveFromReader = useCallback(
+    (href: string) => {
+      onPlaceLeave?.(href);
+    },
+    [onPlaceLeave]
+  );
+  const onPointerDownCapture = (event: PointerEvent<HTMLDivElement>) => {
+    if (!onPlaceLeave || !unmodifiedPrimary(event)) return;
+    const href = readerLeaveHref(event.target);
+    if (!href || !isWritingShelfHref(href)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    writingLeftRef.current = true;
+    leaveFromReader(href);
+  };
+  const onClickCapture = (event: MouseEvent<HTMLDivElement>) => {
+    if (!onPlaceLeave || !unmodifiedPrimary(event)) return;
+    const href = readerLeaveHref(event.target);
+    if (!href) return;
+    if (isWritingShelfHref(href) && writingLeftRef.current) {
+      event.preventDefault();
+      event.stopPropagation();
+      writingLeftRef.current = false;
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    leaveFromReader(href);
+  };
   const { chromeQuiet, progress, wakeFooter, onChromeTap } =
     useArticleReadChrome(scrollRootRef, open, writePinned);
   const quiet = chromeQuiet && !writePinned;
@@ -352,10 +425,12 @@ export function ArticleReadOverlay({
           }
           zIndex={overlayZ.sheet}
           onOpenPost={() => onOpenChange(false)}
+          onPlaceLeave={onPlaceLeave}
         />
       }
       zIndex={faceZ}
-      keepDock={writePinned || threadOpen || dropSheetOpen}
+      yielded={parked}
+      keepDock={parked || writePinned || threadOpen || dropSheetOpen}
       scrollRootRef={scrollRootRef}
       className={`${ARTICLE_READ_CLASS}${quiet ? ' is-chrome-quiet' : ''}${
         showWakeFooter ? ' is-wake-footer' : ''
@@ -371,26 +446,34 @@ export function ArticleReadOverlay({
         return !backArticle();
       }}
     >
-      {renderBody ? (
-        <>
-          <ArticleReadProgress progress={progress} />
-          <div className="feed-article-read">{renderBody({ onChromeTap })}</div>
-        </>
-      ) : (
-        <ArticleReadBody
-          {...panel}
-          post={current}
-          onReturnToShelf={onReturnToShelf}
-          coverHint={hintForArticle(
-            current,
-            panel.post,
-            panel.coverHint,
-            panel.coverHints
-          )}
-          onOpenArticle={openArticle}
-          progress={progress}
-        />
-      )}
+      <div
+        style={onPlaceLeave ? { display: 'contents' } : undefined}
+        onPointerDownCapture={onPlaceLeave ? onPointerDownCapture : undefined}
+        onClickCapture={onPlaceLeave ? onClickCapture : undefined}
+      >
+        {renderBody ? (
+          <>
+            <ArticleReadProgress progress={progress} />
+            <div className="feed-article-read">
+              {renderBody({ onChromeTap })}
+            </div>
+          </>
+        ) : (
+          <ArticleReadBody
+            {...panel}
+            post={current}
+            onReturnToShelf={onReturnToShelf}
+            coverHint={hintForArticle(
+              current,
+              panel.post,
+              panel.coverHint,
+              panel.coverHints
+            )}
+            onOpenArticle={openArticle}
+            progress={progress}
+          />
+        )}
+      </div>
     </OsSlideOverScreen>
   );
 }

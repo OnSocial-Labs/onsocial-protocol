@@ -32,6 +32,7 @@ import {
   useClaimDropSheetDockBack,
   useClaimPlaceLayerDockBack,
 } from '@/contexts/dock-chrome-context';
+import { isWritingShelfHref } from '@/components/portfolio/account-place-link';
 import { setOpenFeedReadKey } from '@/features/home/feed-read-bridge';
 import {
   readPlaceHref,
@@ -131,6 +132,7 @@ import {
   replacePlaceLayer,
   replacePlaceLayerAt,
   setPlaceLayerDepth,
+  stepOverReloadedPlaceEntry,
   withoutClosingLayer,
 } from '@/lib/place-history';
 import {
@@ -1005,7 +1007,6 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     pathname === underlayPath
   ) {
     setSawProfileHop(false);
-    setProfileHop(null);
   }
   if (
     stack.length > 0 &&
@@ -1086,6 +1087,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   const beginCloseTop = useCallback(() => {
     const top = stackRef.current[stackRef.current.length - 1];
     if (!top || closingIdRef.current) return false;
+    if (top.kind === 'read' && top.feed) setOpenFeedReadKey(null);
     closingIdRef.current = top.id;
     setClosingId(top.id);
     return true;
@@ -1611,6 +1613,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         setClosingId(null);
         stackRef.current = updated;
         setStack(updated);
+        setOpenFeedReadKey(postKey(face.post));
         return true;
       }
 
@@ -1641,6 +1644,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         setClosingId(null);
         stackRef.current = trail;
         setStack(trail);
+        setOpenFeedReadKey(postKey(face.post));
         if (typeof window === 'undefined') return true;
         if (droppedClosing) {
           publishClosingHistory(historyHref, trail.length);
@@ -1661,6 +1665,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       setClosingId(null);
       stackRef.current = [next];
       setStack([next]);
+      setOpenFeedReadKey(postKey(face.post));
       if (typeof window === 'undefined') return true;
       if (droppedClosing) {
         publishClosingHistory(historyHref, 1);
@@ -1838,6 +1843,12 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         if (walked) {
           stackRef.current = walked;
           setStack(walked);
+          const nextTop = walked[walked.length - 1];
+          setOpenFeedReadKey(
+            nextTop?.kind === 'read' && nextTop.feed
+              ? postKey(nextTop.feed.post)
+              : null
+          );
           return;
         }
       }
@@ -1889,15 +1900,49 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     [pathname, router]
   );
 
+  const leaveFeedRead = useCallback(
+    (href: string) => {
+      const path = href.split(/[?#]/)[0] ?? href;
+      if (!isWritingShelfHref(path)) {
+        openProfileFromLayer(href);
+        return;
+      }
+      // Writing full-loads. Step off the Read entry first so Back
+      // lands on the feed, not a dead copy of /home.
+      const guard = getPlaceHistoryGuard();
+      if (
+        typeof window !== 'undefined' &&
+        guard.depth > 0 &&
+        historyHasPlaceLayer()
+      ) {
+        schedulePlaceHistoryGo(-guard.depth, () => {
+          guard.depth = 0;
+          window.location.assign(href);
+        });
+        return;
+      }
+      window.location.assign(href);
+    },
+    [openProfileFromLayer]
+  );
+
+  const steppedOrphanRef = useRef(false);
   useLayoutEffect(() => {
-    if (profileHop || stack.length === 0 || pathname !== underlayPath) return;
+    if (steppedOrphanRef.current || stack.length > 0) return;
+    if (typeof window === 'undefined') return;
+    const repair = stepOverReloadedPlaceEntry(isOverlayPlacePathname(pathname));
+    if (repair !== 'keep') steppedOrphanRef.current = true;
+  }, [pathname, stack.length]);
+
+  useLayoutEffect(() => {
+    if (stack.length === 0 || pathname !== underlayPath) return;
     if (typeof window === 'undefined' || historyHasPlaceLayer()) return;
     let depth = 0;
     for (const entry of stack) {
       depth += 1;
       pushPlaceLayerAt(placeLayerHref(entry), depth);
     }
-  }, [pathname, profileHop, stack, underlayPath]);
+  }, [pathname, stack, underlayPath]);
 
   const value = useMemo(
     () => ({
@@ -1989,9 +2034,11 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
                 face={entry.feed}
                 zIndex={entry.zIndex}
                 openedAboveMediaFace={entry.openedAboveMediaFace}
+                parked={onProfileHop}
                 open={entry.id !== closingId}
                 onClose={closePostThread}
                 onClosed={() => handleSheetClosed(entry.id)}
+                onLeave={leaveFeedRead}
               />
             );
           }

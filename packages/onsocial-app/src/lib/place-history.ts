@@ -425,6 +425,65 @@ export function repairClosingLayerHistory(input: {
 }
 
 /**
+ * A reload keeps the overlay flag on a copy of the page (`/home` over `/home`).
+ * The stack is gone, so the first Back looks like it did nothing.
+ * A live stack (`liveDepth > 0`) and a real post or drop URL stay put.
+ */
+export function reloadedPlaceEntryRepair(input: {
+  hasLayer: boolean;
+  overlayPath: boolean;
+  liveDepth: number;
+  storedDepth: number;
+  historyLength: number | null;
+}): 'back' | 'strip' | 'keep' {
+  if (!input.hasLayer || input.overlayPath || input.liveDepth > 0)
+    return 'keep';
+  const fromSession =
+    input.historyLength != null && input.historyLength >= 1
+      ? Math.max(input.historyLength - 1, 0)
+      : null;
+  const fromDepth = input.storedDepth > 0 ? input.storedDepth : 1;
+  const ceiling =
+    fromSession == null ? fromDepth : Math.min(fromSession, fromDepth);
+  if (ceiling < 1) return 'strip';
+  return 'back';
+}
+
+/**
+ * Boot repair for a reloaded feed Read. One step through the jump guard,
+ * or strip the flag when there is nowhere to go. Not a user Back.
+ */
+export function stepOverReloadedPlaceEntry(
+  overlayPath: boolean
+): 'back' | 'strip' | 'keep' {
+  if (typeof window === 'undefined') return 'keep';
+  const guard = getPlaceHistoryGuard();
+  const repair = reloadedPlaceEntryRepair({
+    hasLayer: historyHasPlaceLayer(),
+    overlayPath,
+    liveDepth: guard.depth,
+    storedDepth: readPlaceLayerDepth(),
+    historyLength:
+      typeof window.history.length === 'number' ? window.history.length : null,
+  });
+  if (repair === 'strip') {
+    nativeHistoryReplaceState(
+      withoutPlaceLayerHistoryState(),
+      `${window.location.pathname}${window.location.search}`
+    );
+    guard.depth = 0;
+    return repair;
+  }
+  if (repair === 'back') {
+    guard.depth = readPlaceLayerDepth();
+    schedulePlaceHistoryGo(-1, () => {
+      guard.depth = 0;
+    });
+  }
+  return repair;
+}
+
+/**
  * A close's `history.back()` whose popstate has not landed yet.
  * Swallow it when the closing layer was already replaced, and push the
  * canonical again if that pop ate the entry. The href is the canonical,

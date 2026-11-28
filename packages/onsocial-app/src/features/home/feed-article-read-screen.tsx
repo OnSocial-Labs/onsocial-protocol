@@ -13,6 +13,8 @@ import { displayName } from '@/lib/profile-display';
  */
 export function FeedArticleReadScreen({
   open,
+  parked = false,
+  onPlaceLeave,
   onOpenChange,
   onClosed,
   post,
@@ -28,6 +30,10 @@ export function FeedArticleReadScreen({
   threadRoot = null,
 }: {
   open: boolean;
+  /** Parked under a profile or post. Stay mounted and keep the dock. */
+  parked?: boolean;
+  /** Author, Writing, and Open post leave through the place stack. */
+  onPlaceLeave?: (href: string) => void;
   onOpenChange: (open: boolean) => void;
   /** After the exit slide — parents drop the tree (overlay-idle). */
   onClosed?: () => void;
@@ -51,6 +57,8 @@ export function FeedArticleReadScreen({
   return (
     <ArticleReadOverlay
       open={open}
+      parked={parked}
+      onPlaceLeave={onPlaceLeave}
       onOpenChange={onOpenChange}
       onClosed={onClosed}
       accountId={post.accountId}
