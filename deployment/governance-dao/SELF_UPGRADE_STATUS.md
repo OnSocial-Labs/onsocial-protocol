@@ -22,6 +22,12 @@ That is the full protocol DAO set. Factory community DAOs are out of scope. Scra
 | UpgradeSelf proposal | id `2`, add `8XSQLimGSBVqZge71xC1wbAJv4ymre5EYWRfB5qh2BbW` |
 | UpgradeSelf vote | `HLUY2VA7m9KQUzabRdUE7mKoTf4ZbT7VhsdCo1XDnYFz` → `2.3.1-onsocial.2` |
 
+## Build / tests
+
+- Patch includes `Cargo.lock` version sync so `cargo near … --locked` works.
+- Workspaces tests: `bash scripts/test_sputnik_dao_self_upgrade.sh` (CI: `dao-self-upgrade-ci.yml`).
+- Live on-chain `.2` is a **fast** build (`dao_wasm_sha256=4feab122…`). Locked docker rebuild is `bf6f951e…` and does **not** match — do not treat equality as a gate. Next intentional bump can ship the locked artifact.
+
 ## Left (deferred)
 
 - Key deletion on every account
