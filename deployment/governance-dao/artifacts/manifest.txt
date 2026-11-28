@@ -1,6 +1,10 @@
 repo=https://github.com/near-daos/sputnik-dao-contract
-ref=main
+ref=2b0f34a3860460f285307ec2ccf36345acbe05a2
 commit=2b0f34a3860460f285307ec2ccf36345acbe05a2
 dao_wasm=sputnikdao2.wasm
-staking_wasm=sputnik_staking.wasm
-factory_wasm=sputnikdao_factory2.wasm
+dao_version=2.3.1-onsocial.1
+dao_wasm_sha256=fa00c7f6d2609d0c2ac16778d6369124e379183ee116f9d6083e67887cda6d41
+self_upgrade_patch=1
+self_upgrade_patch_file=patches/upgrade-self-blob.patch
+self_upgrade_patch_sha256=eb43bc9e17b3d2eed13e5dc91f56df2a210e0a6a4026ce7bacb9bfb591dbd439
+fast_build=1

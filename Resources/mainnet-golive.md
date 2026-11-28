@@ -31,11 +31,12 @@ Relayer default allowlist on mainnet is **`rewards.onsocial.near` only**. That i
 |---|---|---|
 | `token.onsocial.near` | SOCIAL NEP-141 `ft-1.0.0` | Owner `onsocial.near`. Supply **1,000,000,000**. No access keys. |
 | `rewards.onsocial.near` | Rewards `0.1.0` | Owner `onsocial.near`. Relayer is the only authorized caller. App `onsocial_telegram` is active. |
-| `treasury.onsocial.near` | Sputnik DAO **v2.3.1** | Council is only `onsocial.near`. Name: “OnSocial Treasury”. |
+| `treasury.onsocial.near` | Sputnik DAO **`2.3.1-onsocial.2`** | Council is only `onsocial.near`. Name: “OnSocial Treasury”. Self-upgrade patch live; `UpgradeSelf` from blob store proven. FullAccess key still present until NEAR reviewer + key deletion. |
+| `governance.onsocial.near` | Sputnik DAO **`2.3.1-onsocial.2`** | Guardians: `onsocial.near`. Self-upgrade patch live; `UpgradeSelf` from blob store proven. FullAccess key still present until NEAR reviewer + key deletion. |
 
 Rewards volume is real but tiny: 1.3 SOCIAL credited, 1 claimed, 0.1 per Telegram action, 1/day cap, 10,000 app budget. Contract `max_daily` is 1 SOCIAL. Pool holds **400,000,999** SOCIAL.
 
-Treasury: everyone can `AddProposal`, 1 NEAR bond, 7-day period. One approved smoke test returned 1 SOCIAL to root. `get_staking_contract` is empty.
+Treasury: 1 NEAR bond, 7-day period. `get_staking_contract` is empty. Self-upgrade runbook: [`deployment/governance-dao/SELF_UPGRADE_RUNBOOK.md`](../deployment/governance-dao/SELF_UPGRADE_RUNBOOK.md).
 
 ### SOCIAL location (2026-09-05)
 
@@ -64,7 +65,6 @@ These IDs **do not exist** on mainnet:
 - `boost.onsocial.near`
 - `social-spend.onsocial.near`
 - `founder-vesting.onsocial.near`
-- `governance.onsocial.near`
 - `staking-governance.onsocial.near`
 - `staking-treasury.onsocial.near`
 - `fees.onsocial.near` (intents fee recipient; not in the SDK contract map)
@@ -81,7 +81,7 @@ Do this on the three live contracts before deploying anything else.
 
 1. **Treasury policy.** Remove or narrow `Everyone:AddProposal` before the DAO is public. 1 NEAR is cheap grief. Testnet template: [`deployment/governance-dao/treasury.remove-everyone-role.testnet.proposal.json`](../deployment/governance-dao/treasury.remove-everyone-role.testnet.proposal.json). Mainnet copy is not filed yet — write one when tightening, do not improvise from memory.
 2. **Ownership.** `token` and `rewards` stay owned by `onsocial.near` until a written proposal moves them to treasury or governance. Do not transfer as a side effect of the next deploy.
-3. **Keys.** Inventory FullAccess on `onsocial.near`, the 113 relayer keys, and the single FullAccess key on `rewards` and `treasury` (upgrade path). Token has zero keys — keep it that way.
+3. **Keys.** Inventory FullAccess on `onsocial.near`, the 113 relayer keys, `rewards`, and both DAOs (`treasury` / `governance` — FA still held after self-upgrade proof). Token has zero keys — keep it that way. Delete DAO FA keys only after NEAR reviewer sign-off and a proven `UpgradeSelf` on that account.
 4. **Allowlist.** Relayer stays `rewards.onsocial.near` only. Do not allowlist a name that has no wasm.
 5. **Circulation.** The ~250k SOCIAL already outside the vaults is out. Do not assume a clean mint.
 
@@ -91,7 +91,7 @@ Do this on the three live contracts before deploying anything else.
 - Point public Graph / Hasura / the indexer at mainnet as if the protocol is up.
 - Deploy `core` “just to reserve” without relayer allowlist, indexer start block, and an env freeze.
 - Retrack views or `reload_metadata` on the **public** Hasura engine.
-- Stand up `governance` until token-weight and staking policy are decided. Root-only treasury council is enough for custody.
+- Delete DAO FullAccess keys before NEAR reviewer sign-off. Both `treasury` and `governance` are on `2.3.1-onsocial.2` with proven `UpgradeSelf`; see self-upgrade runbook.
 - Blue/green Postgres or a second indexer. Not needed yet.
 - Treat UI shipping on `main` as mainnet social going live.
 

@@ -1,0 +1,10 @@
+{
+  "proposal": {
+    "description": "UpgradeSelf: deploy code from DAO blob store (hash PLACEHOLDER_BASE58_HASH). Prove self-upgrade; do not delete FullAccess keys until this succeeds.",
+    "kind": {
+      "UpgradeSelf": {
+        "hash": "PLACEHOLDER_BASE58_HASH"
+      }
+    }
+  }
+}
