@@ -61,7 +61,7 @@ LP shares `:6783` rose by `208849508158172672368023` (to `1470631673642632023260
 
 **Lessons locked into the builder/check:**
 - Always `check` first — `0.05 SOCIAL` failed affordability (pool is SOCIAL-scarce; NEAR leg is large).
-- Multi-action proposal gas must stay **≤ ~280 TGas** (act_proposal receipt cap is 300). An earlier attempt with 100+250 TGas (`proposal 6`) OOG’d; leave it to expire or VoteReject to reclaim the bond.
+- Multi-action proposal gas must stay **≤ ~280 TGas** (act_proposal receipt cap is 300). An earlier attempt with 100+250 TGas (`proposal 6`) OOG’d; VoteReject on proposal `6` (`DEhaTJ4LQDLfKhLYyBYfTkKynxCwxHjRjTmD8DN9M6qX`) — rejected.
 
 ## Portal / app later
 

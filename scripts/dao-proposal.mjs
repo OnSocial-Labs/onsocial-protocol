@@ -20,6 +20,7 @@ function usage(exitCode = 0) {
       'Usage:',
       '  node scripts/dao-proposal.mjs add --dao <dao-account> --signer <account> --file <proposal.json>',
       '  node scripts/dao-proposal.mjs vote-approve --dao <dao-account> --signer <account> --file <proposal.json> --id <proposal-id>',
+      '  node scripts/dao-proposal.mjs vote-reject --dao <dao-account> --signer <account> --file <proposal.json> --id <proposal-id>',
       '',
       'Optional environment variables:',
       '  NETWORK=testnet|mainnet',
@@ -143,10 +144,10 @@ async function addProposal(account, daoId, proposal, bond) {
   });
 }
 
-async function voteApprove(account, daoId, proposalId, proposal) {
+async function voteProposal(account, daoId, proposalId, proposal, action) {
   const args = {
     id: Number(proposalId),
-    action: 'VoteApprove',
+    action,
     proposal: proposal.proposal.kind,
   };
 
@@ -178,10 +179,13 @@ async function main() {
   if (!options.file) {
     fail('Missing required --file');
   }
-  if (options.command === 'vote-approve' && !options.id) {
-    fail('Missing required --id for vote-approve');
+  if (
+    (options.command === 'vote-approve' || options.command === 'vote-reject') &&
+    !options.id
+  ) {
+    fail(`Missing required --id for ${options.command}`);
   }
-  if (!['add', 'vote-approve'].includes(options.command)) {
+  if (!['add', 'vote-approve', 'vote-reject'].includes(options.command)) {
     fail(`Unsupported command: ${options.command}`);
   }
 
@@ -190,9 +194,17 @@ async function main() {
   const bond =
     options.command === 'add' ? await getProposalBond(provider, options.dao) : 0n;
 
+  const voteAction =
+    options.command === 'vote-reject' ? 'VoteReject' : 'VoteApprove';
   const result = options.command === 'add'
     ? await addProposal(account, options.dao, proposal, bond)
-    : await voteApprove(account, options.dao, options.id, proposal);
+    : await voteProposal(
+        account,
+        options.dao,
+        options.id,
+        proposal,
+        voteAction
+      );
 
   console.log(JSON.stringify({
     final_execution_status: result.final_execution_status,
