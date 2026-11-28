@@ -179,7 +179,7 @@ test.describe('feed read on the place stack', () => {
     await expect(page).toHaveURL(/\/discover\/?$/);
   });
 
-  test('profile hop parks the reader and the next back leaves /home', async ({
+  test('profile hop parks the reader and browser back closes it', async ({
     page,
   }) => {
     const reader = await openFeedRead(page, true);
@@ -189,12 +189,8 @@ test.describe('feed read on the place stack', () => {
     await page.goBack();
     await expect(page).toHaveURL(/\/home\/?$/);
     await expect(reader).toBeVisible();
-    await page.goForward();
-    await expect(page).toHaveURL(/\/@alice\.near/);
-    await expect(reader).toBeHidden();
+    await expect.poll(() => placeLayerFlag(page)).toBe(true);
     await page.goBack();
-    await expect(reader).toBeVisible();
-    await page.getByRole('button', { name: 'Back from article' }).click();
     await expect(reader).toHaveCount(0);
     await expect(page).toHaveURL(/\/home\/?$/);
     await expect(page.locator('.home-feed-list')).toBeVisible();
@@ -216,7 +212,7 @@ test.describe('feed read on the place stack', () => {
     await expect(page).toHaveURL(/\/discover\/?$/);
   });
 
-  test('open post parks the reader and the next back leaves /home', async ({
+  test('open post parks the reader and browser back closes it', async ({
     page,
   }) => {
     const reader = await openFeedRead(page, true);
@@ -227,14 +223,62 @@ test.describe('feed read on the place stack', () => {
     await page.goBack();
     await expect(page).toHaveURL(/\/home\/?$/);
     await expect(reader).toBeVisible();
-    await page.getByRole('button', { name: 'Back from article' }).click();
+    await expect.poll(() => placeLayerFlag(page)).toBe(true);
+    await page.goBack();
     await expect(reader).toHaveCount(0);
     await expect(page).toHaveURL(/\/home\/?$/);
     await expect(page.locator('.home-feed-list')).toBeVisible();
     await page.goBack();
     await expect(page).toHaveURL(/\/discover\/?$/);
   });
+
+  test('a read over a post steps off every screen', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await stubGraph(page);
+    await gotoApp(page, '/discover');
+    await gotoApp(page, '/home');
+    await dismissNextDevOverlay(page);
+    const globalTab = page.getByRole('tab', { name: 'Global' });
+    if ((await globalTab.count()) > 0) await globalTab.click();
+    const postLink = page
+      .locator('.home-feed-list a[href*="/posts/night-piece"]')
+      .first();
+    await expect(postLink).toBeVisible({ timeout: 20_000 });
+    await postLink.click();
+    const thread = page.locator('.post-thread-sheet-panel');
+    await expect(thread).toBeVisible();
+    await expect(page).toHaveURL(/\/posts\/night-piece/);
+    await thread.getByRole('button', { name: 'Read article' }).click();
+    const reader = page.getByRole('dialog', { name: 'Night piece' });
+    await expect(reader).toBeVisible();
+    await reader.getByRole('link', { name: "View Alice's profile" }).click();
+    await expect(page).toHaveURL(/\/@alice\.near/);
+    await expect(reader).toBeHidden();
+    await page.goBack();
+    await expect(reader).toBeVisible();
+    await expect.poll(() => placeLayerFlag(page)).toBe(true);
+    await expect(page).toHaveURL(/\/posts\/night-piece/);
+    await page.goBack();
+    await expect(reader).toHaveCount(0);
+    await expect(thread).toBeVisible();
+    await expect(page).toHaveURL(/\/posts\/night-piece/);
+    await page.goBack();
+    await expect(thread).toHaveCount(0);
+    await expect(page).toHaveURL(/\/home\/?$/);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/discover\/?$/);
+  });
 });
+
+async function placeLayerFlag(page: Page): Promise<boolean> {
+  return page.evaluate(
+    () =>
+      window.history.state != null &&
+      typeof window.history.state === 'object' &&
+      (window.history.state as { onsocialPostLayer?: boolean })
+        .onsocialPostLayer === true
+  );
+}
 
 function dropAnnounceRow() {
   return {
