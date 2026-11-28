@@ -528,6 +528,8 @@ function PostCardImpl({
     retry: retryCollectionEmbed,
   } = usePostCollectionEmbed(post, {
     force: isSelf || menuForceEmbed,
+    // A drop Read opened before writing meta lands — keep this card's fetch.
+    holdForWriting: feedReadPending,
   });
   // Token resale announce — mutually exclusive with collection + fromPost.
   const {
