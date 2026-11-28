@@ -37,6 +37,7 @@ import { PostQuotesPageSkeleton } from '@/features/home/post-quotes-skeleton';
 import { PostThreadPageSkeleton } from '@/features/home/post-skeleton';
 import type { CollectionCreatorFace } from '@/features/scarces/collection-creator-face';
 import { DropLayerPanelPending } from '@/features/scarces/drop-layer-panel-pending';
+import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
 import { editionTokenForCollection } from '@/features/scarces/collection-page-view';
 import type { CollectionView } from '@/features/scarces/collections-data';
 import { scarceEmbedsForOpenRoot } from '@/features/scarces/scarce-embed-ledger';
@@ -128,6 +129,7 @@ import {
 } from '@/lib/place-history';
 import {
   appendTrailEntry,
+  dropTapRevealsOpenDrop,
   replyOpenedOverMediaFace,
   isReaderLayerKind,
   isSameReaderTarget,
@@ -233,6 +235,25 @@ function editionTokenFromDropHref(
   return token || null;
 }
 
+type ReadLayerTarget = {
+  id: string;
+  kind: 'read';
+  collectionId: string;
+  title: string;
+  cover: string | null;
+  tokenId: string | null;
+  accountId: string | null;
+  creatorId: string | null;
+  readables: CollectionView['readables'];
+  bookPdf: CollectionView['bookPdf'];
+  writingFormat: CollectionView['writingFormat'];
+  textAlign: NonNullable<CollectionView['textAlign']> | null;
+  publishedAt: number | null;
+  sourcePostPath: string | null;
+  zIndex: number;
+  openedAboveMediaFace: boolean;
+};
+
 type DropLayerTarget = {
   id: string;
   kind: 'drop';
@@ -264,7 +285,8 @@ type QuotesLayerTarget = {
 type PlaceLayerTarget =
   | PostThreadLayerTarget
   | DropLayerTarget
-  | QuotesLayerTarget;
+  | QuotesLayerTarget
+  | ReadLayerTarget;
 
 type ReaderLayerTarget = PostThreadLayerTarget | QuotesLayerTarget;
 
@@ -292,6 +314,13 @@ type PostThreadLayerValue = {
     initial?: CollectionView | null;
     initialCreator?: CollectionCreatorFace | null;
   }) => boolean;
+  /** Read from a drop. Slide-over stays; one history step sits on the drop. */
+  openRead: (input: {
+    view: CollectionView;
+    cover?: string | null;
+    editionToken?: string | null;
+    accountId?: string | null;
+  }) => boolean;
   closePostThread: () => void;
 };
 
@@ -301,6 +330,7 @@ const NOOP_LAYER: PostThreadLayerValue = {
   openPostThread: () => false,
   openPostQuotes: () => false,
   openDrop: () => false,
+  openRead: () => false,
   closePostThread: () => {},
 };
 
@@ -373,7 +403,9 @@ function commitTrailPlaceLayer(
 }
 
 function placeLayerHref(layer: PlaceLayerTarget): string {
-  if (layer.kind === 'drop') return collectionPath(layer.collectionId);
+  if (layer.kind === 'drop' || layer.kind === 'read') {
+    return collectionPath(layer.collectionId);
+  }
   if (layer.kind === 'quotes') {
     return withPostQuotesTab(
       postQuotesPath({
@@ -832,6 +864,44 @@ function DropLayerSheet({
           </div>
         </DockScrollHoldProvider>
       </OsPageSheet>
+    </PostLayerOwnerZProvider>
+  );
+}
+
+function ReadLayerScreen({
+  layer,
+  open,
+  onClose,
+  onClosed,
+}: {
+  layer: ReadLayerTarget;
+  open: boolean;
+  onClose: () => void;
+  onClosed: () => void;
+}) {
+  const renderedZ = resolveGlassSheetZIndex(
+    layer.zIndex,
+    layer.openedAboveMediaFace
+  );
+  return (
+    <PostLayerOwnerZProvider value={renderedZ}>
+      <WritingReadSheet
+        open={open}
+        onClose={onClose}
+        onClosed={onClosed}
+        title={layer.title}
+        cover={layer.cover}
+        collectionId={layer.collectionId}
+        tokenId={layer.tokenId}
+        accountId={layer.accountId}
+        creatorId={layer.creatorId}
+        readables={layer.readables}
+        bookPdf={layer.bookPdf}
+        writingFormat={layer.writingFormat}
+        textAlign={layer.textAlign}
+        publishedAt={layer.publishedAt}
+        sourcePostPath={layer.sourcePostPath}
+      />
     </PostLayerOwnerZProvider>
   );
 }
@@ -1374,6 +1444,92 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     [pathname, publishClosingHistory]
   );
 
+  const openRead = useCallback(
+    ({
+      view,
+      cover = null,
+      editionToken = null,
+      accountId = null,
+    }: {
+      view: CollectionView;
+      cover?: string | null;
+      editionToken?: string | null;
+      accountId?: string | null;
+    }) => {
+      const collectionId = view.collectionId.trim();
+      if (!collectionId) return false;
+      const canonical = collectionPath(collectionId);
+      const liveStack = withoutClosingLayer(
+        stackRef.current,
+        closingIdRef.current
+      );
+      const droppedClosing = liveStack !== stackRef.current;
+      const top = liveStack[liveStack.length - 1];
+      if (
+        top?.kind === 'read' &&
+        collectionIdsEqual(top.collectionId, collectionId)
+      ) {
+        return true;
+      }
+
+      const next: ReadLayerTarget = {
+        id: `read-layer-${++seqRef.current}`,
+        kind: 'read',
+        collectionId,
+        title: view.title,
+        cover,
+        tokenId: editionToken?.trim() || null,
+        accountId: accountId?.trim() || null,
+        creatorId: view.creatorId.trim() || null,
+        readables: view.readables,
+        bookPdf: view.bookPdf,
+        writingFormat: view.writingFormat,
+        textAlign: view.textAlign ?? null,
+        publishedAt: view.createdAtMs > 0 ? view.createdAtMs : null,
+        sourcePostPath: view.sourcePostPath?.trim() || null,
+        zIndex: nextStackedLayerZ(liveStack),
+        openedAboveMediaFace: isOsMediaFaceOpen(),
+      };
+
+      if (liveStack.length > 0) {
+        const trail = appendTrailEntry(liveStack, next);
+        closingIdRef.current = null;
+        setClosingId(null);
+        stackRef.current = trail;
+        setStack(trail);
+        if (typeof window === 'undefined') return true;
+        if (droppedClosing) {
+          publishClosingHistory(canonical, trail.length);
+          return true;
+        }
+        commitTrailPlaceLayer(liveStack, trail, canonical);
+        return true;
+      }
+
+      if (underlayPathRef.current == null) {
+        underlayPathRef.current = pathname;
+        setUnderlayPath(pathname);
+        if (typeof window !== 'undefined') {
+          underlayScrollRef.current = captureUnderlayScroll();
+        }
+      }
+      closingIdRef.current = null;
+      setClosingId(null);
+      stackRef.current = [next];
+      setStack([next]);
+      if (typeof window === 'undefined') return true;
+      if (droppedClosing) {
+        publishClosingHistory(canonical, 1);
+        return true;
+      }
+      // The collection route is already this URL. Still push, so Back closes
+      // the reader instead of leaving the drop.
+      pushPlaceLayer(canonical);
+      return true;
+    },
+    [pathname, publishClosingHistory]
+  );
+
   const openDrop = useCallback(
     ({
       href,
@@ -1404,6 +1560,10 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       );
       const droppedClosing = liveStack !== stackRef.current;
       const top = liveStack[liveStack.length - 1];
+      if (dropTapRevealsOpenDrop(liveStack, parsed.collectionId)) {
+        closePostThread();
+        return true;
+      }
       if (
         top?.kind === 'drop' &&
         collectionIdsEqual(top.collectionId, parsed.collectionId)
@@ -1472,7 +1632,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       commitFirstPlaceLayer(canonical);
       return true;
     },
-    [pathname, publishClosingHistory]
+    [closePostThread, pathname, publishClosingHistory]
   );
 
   // E2E: open a cold drop sheet without a list seed (was InstantHost).
@@ -1601,9 +1761,10 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       openPostThread,
       openPostQuotes,
       openDrop,
+      openRead,
       closePostThread,
     }),
-    [closePostThread, openDrop, openPostQuotes, openPostThread]
+    [closePostThread, openDrop, openPostQuotes, openPostThread, openRead]
   );
 
   const topPlace = stack[stack.length - 1] ?? null;
@@ -1624,7 +1785,9 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       : null
   );
   const readerDockLive =
-    topPlace != null && topPlace.kind !== 'drop' && topOpen && !onProfileHop;
+    (topPlace?.kind === 'post' || topPlace?.kind === 'quotes') &&
+    topOpen &&
+    !onProfileHop;
   useClaimPlaceLayerDockBack(
     readerDockLive,
     readerDockLive
@@ -1639,21 +1802,35 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   return (
     <PostThreadLayerContext.Provider value={value}>
       {children}
-      {topPlace?.kind === 'drop' ? (
-        <DropLayerSheet
-          key="drop-reader"
-          layer={topPlace}
-          parked={onProfileHop}
-          open={topOpen}
-          onClose={closePostThread}
-          onClosed={() => handleSheetClosed(topPlace.id)}
-          onLeave={openProfileFromLayer}
-          zIndex={topPlace.zIndex}
-          moodId={viewerMood.moodId ?? undefined}
-          moodStyle={viewerMood.style}
-        />
-      ) : null}
       {stack.map((entry) => {
+        if (entry.kind === 'drop') {
+          const isTop = entry.id === topPlace?.id;
+          return (
+            <DropLayerSheet
+              key={entry.id}
+              layer={entry}
+              parked={onProfileHop || !isTop}
+              open={entry.id !== closingId}
+              onClose={closePostThread}
+              onClosed={() => handleSheetClosed(entry.id)}
+              onLeave={openProfileFromLayer}
+              zIndex={entry.zIndex}
+              moodId={viewerMood.moodId ?? undefined}
+              moodStyle={viewerMood.style}
+            />
+          );
+        }
+        if (entry.kind === 'read') {
+          return (
+            <ReadLayerScreen
+              key={entry.id}
+              layer={entry}
+              open={entry.id !== closingId}
+              onClose={closePostThread}
+              onClosed={() => handleSheetClosed(entry.id)}
+            />
+          );
+        }
         if (entry.kind !== 'post' && entry.kind !== 'quotes') return null;
         // Trail entries below the top stay mounted (parked), so header back
         // unparks the previous panel with its scroll, sort, and fold state

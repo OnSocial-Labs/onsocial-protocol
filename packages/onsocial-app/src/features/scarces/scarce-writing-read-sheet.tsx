@@ -345,7 +345,7 @@ export function WritingReadDocument({
             immersive
             gestures={false}
             onChromeTap={onChromeTap}
-            workTitle={null}
+            workTitle={workTitle || null}
           />
         ) : hydrateSettled ? (
           <p className="scarce-feed-medium-empty">
@@ -563,13 +563,7 @@ export function WritingReadSheet({
     return () => {
       cancelled = true;
     };
-  }, [
-    open,
-    footer,
-    collectionId,
-    shelfSourcePostPath,
-    writingFormat,
-  ]);
+  }, [open, footer, collectionId, shelfSourcePostPath, writingFormat]);
 
   useEffect(() => {
     if (!open) return;

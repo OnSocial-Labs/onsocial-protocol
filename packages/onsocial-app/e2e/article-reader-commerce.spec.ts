@@ -21,7 +21,9 @@ test.describe('article reader commerce', () => {
       'href',
       '/collection/night-essay'
     );
-    await expect(page.getByRole('link', { name: 'Night roads' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Night roads' })).toHaveCount(
+      0
+    );
     await expect(page.getByRole('link', { name: 'Hub' })).toHaveAttribute(
       'href',
       '/apps/alice-press'
@@ -40,9 +42,34 @@ test.describe('article reader commerce', () => {
     await expect(page).toHaveURL(/\/collection\/night-essay\/?$/);
     await expect(page.getByRole('dialog', { name: 'Mint' })).toHaveCount(0);
     await expect(page.locator('.collection-title')).toHaveText('Night drive');
-    await expect(page.getByRole('link', { name: 'Night roads' })).toHaveAttribute(
-      'href',
-      `/series/${ACCOUNT}/night-roads`
+    await expect(
+      page.getByRole('link', { name: 'Night roads' })
+    ).toHaveAttribute('href', `/series/${ACCOUNT}/night-roads`);
+  });
+
+  test('Read opened from the drop stays on that drop', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await setE2eGraphWriting(page, 'reader');
+    await gotoApp(page, `/@${ACCOUNT}/writing/night`);
+    await dismissNextDevOverlay(page);
+
+    await page.getByRole('link', { name: 'Drop', exact: true }).click();
+    const drop = page.locator('[data-drop-layer-sheet]');
+    await expect(drop).toBeVisible({ timeout: 15_000 });
+    await expect(drop.locator('.collection-title')).toHaveText('Night drive');
+
+    await drop.getByRole('button', { name: 'Read', exact: true }).click();
+    const reader = page.locator(
+      '[data-os-slide-over="true"].feed-article-slide'
     );
+    await expect(reader).toBeVisible({ timeout: 15_000 });
+    await expect(drop).toHaveCount(1);
+    await expect(page.locator('.portfolio-summon-dock')).toBeHidden();
+
+    await reader.getByRole('button', { name: 'Back from article' }).click();
+    await expect(reader).toHaveCount(0);
+    await expect(drop).toBeVisible();
+    await expect(drop.locator('.collection-title')).toHaveText('Night drive');
+    await expect(page).toHaveURL(/\/collection\/night-essay\/?$/);
   });
 });

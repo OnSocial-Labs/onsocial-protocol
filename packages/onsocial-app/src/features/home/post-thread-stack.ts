@@ -3,10 +3,11 @@ import type { PostQuotesTab } from '@/lib/post-routes';
 
 /**
  * Every layer kind the thread host can stack: post readers, quotes screens,
- * drops. A guest Writing permalink opens as a plain post layer; a portfolio
- * face never layers (it parks the sheet and navigates the underlay).
+ * drops, and a Read opened from a drop. A guest Writing permalink opens as a
+ * plain post layer; a portfolio face never layers (it parks the sheet and
+ * navigates the underlay).
  */
-export const PLACE_LAYER_KINDS = ['post', 'quotes', 'drop'] as const;
+export const PLACE_LAYER_KINDS = ['post', 'quotes', 'drop', 'read'] as const;
 export type PlaceLayerKind = (typeof PLACE_LAYER_KINDS)[number];
 
 export interface PostStackEntry {
@@ -35,10 +36,19 @@ export interface DropStackEntry {
   zIndex: number;
 }
 
+/** Read opened from a drop. Same collection URL; the slide-over is the screen. */
+export interface ReadStackEntry {
+  id: string;
+  kind: 'read';
+  collectionId: string;
+  zIndex: number;
+}
+
 export type PlaceStackEntry =
   | PostStackEntry
   | QuotesStackEntry
-  | DropStackEntry;
+  | DropStackEntry
+  | ReadStackEntry;
 
 export interface ReaderStackTarget {
   kind: 'post' | 'quotes';
@@ -50,8 +60,8 @@ export interface ReaderStackTarget {
 /** Reader layers step back one at a time; drops close the whole host. */
 export function isReaderLayerKind(
   kind: PlaceLayerKind
-): kind is 'post' | 'quotes' {
-  return kind === 'post' || kind === 'quotes';
+): kind is 'post' | 'quotes' | 'read' {
+  return kind === 'post' || kind === 'quotes' || kind === 'read';
 }
 
 /**
@@ -78,7 +88,7 @@ export function isSameReaderTarget(
   entry: PlaceStackEntry,
   target: ReaderStackTarget
 ): boolean {
-  if (entry.kind === 'drop') return false;
+  if (entry.kind === 'drop' || entry.kind === 'read') return false;
   if (entry.kind !== target.kind) return false;
   return (
     (entry.groupId ?? null) === target.groupId &&
@@ -134,6 +144,35 @@ export function walkBackOneStep<S extends { kind: PlaceLayerKind }[]>(
 /** A drop takes over the whole host — any reader trail unmounts. */
 export function replaceStackWith<T>(next: T): T[] {
   return [next];
+}
+
+function sameCollectionId(left: string, right: string): boolean {
+  try {
+    return decodeURIComponent(left).trim() === decodeURIComponent(right).trim();
+  } catch {
+    return left.trim() === right.trim();
+  }
+}
+
+/**
+ * Drop tapped while Read already covers that drop.
+ * Close the reader and show the drop again. A second drop sheet would
+ * replace the one still mounted underneath.
+ */
+export function dropTapRevealsOpenDrop(
+  stack: readonly { kind: PlaceLayerKind; collectionId?: string }[],
+  collectionId: string
+): boolean {
+  const top = stack[stack.length - 1];
+  if (!top || top.kind !== 'read' || !top.collectionId) return false;
+  if (!sameCollectionId(top.collectionId, collectionId)) return false;
+  if (stack.length === 1) return true;
+  const parent = stack[stack.length - 2];
+  return (
+    parent?.kind === 'drop' &&
+    typeof parent.collectionId === 'string' &&
+    sameCollectionId(parent.collectionId, collectionId)
+  );
 }
 
 /** Re-opening the same quotes screen retabs in place — no stack growth. */
