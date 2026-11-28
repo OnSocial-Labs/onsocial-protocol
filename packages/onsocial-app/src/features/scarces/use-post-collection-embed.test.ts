@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { act, renderHook, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createElement, useEffect } from 'react';
+import { act, render, renderHook, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
 import {
   clearScarceEmbedLedger,
@@ -166,46 +167,89 @@ describe('usePostCollectionEmbed', () => {
     hydrateWritingManifest.mockImplementation(async (view: unknown) => view);
   });
 
-  it('does not refetch a seeded commerce-ready card', async () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    delete document.body.dataset.writingSettled;
+    delete document.body.dataset.sourcePostPath;
+  });
+
+  it('skips a seeded in-view card unless a Read holds for writing', async () => {
     seedScarceEmbedsFromSsr({ [KEY]: seedEmbed() });
     collectionsCurrentByIds.mockResolvedValue([catalogRow()]);
 
-    renderHook(() => usePostCollectionEmbed(dropPost(), { force: false }));
+    class ImmediateIntersectionObserver {
+      constructor(
+        private readonly callback: IntersectionObserverCallback
+      ) {}
+      observe(target: Element) {
+        this.callback(
+          [
+            {
+              isIntersecting: true,
+              target,
+              intersectionRatio: 1,
+              time: 0,
+              boundingClientRect: target.getBoundingClientRect(),
+              intersectionRect: target.getBoundingClientRect(),
+              rootBounds: null,
+            } as IntersectionObserverEntry,
+          ],
+          this as unknown as IntersectionObserver
+        );
+      }
+      unobserve() {}
+      disconnect() {}
+      takeRecords(): IntersectionObserverEntry[] {
+        return [];
+      }
+      root = null;
+      rootMargin = '';
+      thresholds = [];
+    }
+    vi.stubGlobal('IntersectionObserver', ImmediateIntersectionObserver);
 
+    function Mount({ holdForWriting }: { holdForWriting: boolean }) {
+      const { rootRef, writingMetaSettled, sourcePostPath } =
+        usePostCollectionEmbed(dropPost(), { holdForWriting });
+      useEffect(() => {
+        document.body.dataset.writingSettled = writingMetaSettled
+          ? '1'
+          : '0';
+        document.body.dataset.sourcePostPath = sourcePostPath ?? '';
+      }, [sourcePostPath, writingMetaSettled]);
+      return createElement('article', { ref: rootRef });
+    }
+
+    const first = render(createElement(Mount, { holdForWriting: false }));
     await act(async () => {
       await Promise.resolve();
+      await Promise.resolve();
     });
-
     expect(collectionsCurrentByIds).not.toHaveBeenCalled();
     expect(getScarceEmbedSeed(KEY)?.priceNear).toBe('1');
-  });
+    first.unmount();
 
-  it('keeps fetching while a drop Read holds for writing meta', async () => {
-    seedScarceEmbedsFromSsr({ [KEY]: seedEmbed() });
     let release: (rows: unknown[]) => void = () => {};
     collectionsCurrentByIds.mockReturnValue(
       new Promise((resolve) => {
         release = resolve;
       })
     );
-
-    const { result } = renderHook(() =>
-      usePostCollectionEmbed(dropPost(), { holdForWriting: true })
-    );
-
+    render(createElement(Mount, { holdForWriting: true }));
     await waitFor(() => {
       expect(collectionsCurrentByIds).toHaveBeenCalledWith(['held-essay']);
     });
-    expect(result.current.writingMetaSettled).toBe(false);
+    expect(document.body.dataset.writingSettled).toBe('0');
 
     await act(async () => {
       release([catalogRow()]);
     });
-
     await waitFor(() => {
-      expect(result.current.writingMetaSettled).toBe(true);
+      expect(document.body.dataset.writingSettled).toBe('1');
     });
-    expect(result.current.sourcePostPath).toBe('alice.near/post/source-essay');
+    expect(document.body.dataset.sourcePostPath).toBe(
+      'alice.near/post/source-essay'
+    );
   });
 
   it('ignores a slower reply after a newer run starts', async () => {

@@ -1158,6 +1158,10 @@ function PostCardImpl({
   };
   const feedReadLive = openFeedReadKey === postKey(post);
   useEffect(() => {
+    if (!feedReadPending || feedReadLive) return;
+    setFeedReadPending(false);
+  }, [feedReadLive, feedReadPending]);
+  useEffect(() => {
     if (
       !feedReadResumeDue({
         articleOpen,
