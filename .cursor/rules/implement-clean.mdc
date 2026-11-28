@@ -18,7 +18,7 @@ Read the rule and the component that already own the surface. Ship that pattern.
 - **Locked decisions.** When the user changes a product rule, update that rule in the same change.
 - **Root cause first.** Reproduce the failure or trace it in code before changing anything. No speculative fixes. If the cause cannot be confirmed, add instrumentation instead of guessing.
 - **Performance.** No needless rerenders, memory leaks, or main-thread work that can freeze the UI. Weigh that cost before building.
-- **Deprecated and unused.** In the code you touch, replace deprecated APIs and outdated patterns, and remove unused dependencies this change leaves behind.
+- **Deprecated and unused.** In the code you touch, replace deprecated APIs and outdated patterns, remove dead code already there (unused imports, variables, exports and unreachable branches), and remove unused dependencies this change leaves behind. Stay inside the files this change already edits.
 - **State what's unverified.** The PR description lists remaining risks and unchecked assumptions.
 - **Reach across the app.** In the PR description, list other screens or components that should use this change or are missing it, and any bugs you saw nearby in the code you read. List them; don't fix them in this PR.
 - **Tests move with the behavior.** When a change alters user-visible behavior, update or add the matching Playwright spec and unit tests in the same PR. Never delete or weaken a test to make CI pass. Playwright is not run locally; CI owns that run. See [cloud-quality-gates.mdc](cloud-quality-gates.mdc) and [pre-push-checks.mdc](pre-push-checks.mdc).
