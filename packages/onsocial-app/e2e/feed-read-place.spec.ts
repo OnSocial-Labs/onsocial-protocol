@@ -504,19 +504,13 @@ test.describe('drop-backed feed read', () => {
     );
     releaseEssay();
     await essayResponse;
-    await expect(page).toHaveURL(/\/home\/?$/);
-    await expect(page.getByText('The late paragraph.')).toHaveCount(0);
-    await expect(page.getByRole('dialog')).toHaveCount(0);
-    // Hold closed across a short settle so a late reopen would fail the poll.
-    await expect
-      .poll(
-        async () => ({
-          dialogs: await page.getByRole('dialog').count(),
-          late: await page.getByText('The late paragraph.').count(),
-          onHome: /\/home\/?$/.test(new URL(page.url()).pathname),
-        }),
-        { timeout: 800, intervals: [100, 200, 250] }
-      )
-      .toEqual({ dialogs: 0, late: 0, onHome: true });
+    // Sample closed across ~700ms — each tick must stay closed (poll would
+    // pass on the first match and miss a late reopen).
+    for (let i = 0; i < 4; i += 1) {
+      await expect(page).toHaveURL(/\/home\/?$/);
+      await expect(page.getByText('The late paragraph.')).toHaveCount(0);
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+      if (i < 3) await page.waitForTimeout(175);
+    }
   });
 });
