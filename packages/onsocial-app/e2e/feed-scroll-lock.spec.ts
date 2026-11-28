@@ -302,6 +302,28 @@ async function inlineHidden(page: Page): Promise<string[]> {
 }
 
 test.describe('phone feed scroll lock @webkit', () => {
+  test('browser back on a two-post trail returns to the first post', async ({
+    page,
+  }) => {
+    const feed = await openFeed(page);
+    await tapOpenPost(feed.locator('article').filter({ hasText: ALPHA.text }));
+    const sheet = page.locator('.post-thread-sheet-panel').last();
+    await expect(sheet).toContainText(ALPHA.text, { timeout: 15_000 });
+    const nested = sheet.locator('.post-thread-item', { hasText: NESTED.text });
+    await nested.scrollIntoViewIfNeeded();
+    await tapOpenPost(nested);
+    await expect(page.locator('.post-thread-sheet-panel')).toHaveCount(2, {
+      timeout: 15_000,
+    });
+    await expect(page).toHaveURL(/nested-reply/);
+
+    await page.goBack();
+    const sheets = page.locator('.post-thread-sheet-panel');
+    await expect(sheets).toHaveCount(1, { timeout: 5_000 });
+    await expect(sheets).toContainText(ALPHA.text);
+    await expect(page).toHaveURL(/alpha-post/);
+  });
+
   test('browser back from stacked posts leaves the feed scrolling', async ({
     page,
   }) => {
@@ -319,6 +341,12 @@ test.describe('phone feed scroll lock @webkit', () => {
     });
     // The phone lock is on while the sheets are up. Closing them must take it off.
     expect(await inlineHidden(page)).toContain('html');
+
+    await page.goBack();
+    const sheets = page.locator('.post-thread-sheet-panel');
+    await expect(sheets).toHaveCount(1, { timeout: 5_000 });
+    await expect(sheets).toContainText(ALPHA.text);
+    await expect(page).toHaveURL(/alpha-post/);
 
     await page.goBack();
     await expect(page.locator('.post-thread-sheet-panel')).toHaveCount(0, {
@@ -343,7 +371,10 @@ test.describe('phone feed scroll lock @webkit', () => {
       { timeout: 15_000 }
     );
 
-    await page.getByRole('button', { name: 'Back' }).tap();
+    await page
+      .locator('.post-thread-sheet-panel')
+      .getByRole('button', { name: 'Back' })
+      .tap();
     await tapOpenPost(feed.locator('article').filter({ hasText: BETA.text }));
 
     const sheets = page.locator('.post-thread-sheet-panel');
@@ -371,7 +402,10 @@ test.describe('phone feed scroll lock @webkit', () => {
     const quotes = sheet.locator('.thread-view-quotes');
     await expect(quotes).toBeAttached();
 
-    await page.getByRole('button', { name: 'Back' }).tap();
+    await page
+      .locator('.post-thread-sheet-panel')
+      .getByRole('button', { name: 'Back' })
+      .tap();
     await quotes.dispatchEvent('click');
 
     await expect(

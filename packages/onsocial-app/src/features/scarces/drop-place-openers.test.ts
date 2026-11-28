@@ -241,10 +241,9 @@ describe('Drop place openers', () => {
     // posts already did; excluding `kind === 'drop'` left Mint under the sheet.
     expect(layer).not.toContain("top.kind !== 'drop'");
     expect(layer).toContain('--os-thread-dock-z');
-    expect(layer).toContain('dropLayerOpenHistoryOp');
-    expect(layer).toContain("op === 'push'");
-    expect(layer).toContain('nativeHistoryPushState');
-    expect(layer).toContain('nativeHistoryReplaceState');
+    expect(layer).toContain('alignPlaceHistory');
+    expect(layer).toContain('commitFirstPlaceLayer');
+    expect(layer).not.toContain('dropLayerOpenHistoryOp');
     // DropLayerSheet is a sibling of `children` under PostThreadLayer — the
     // now-playing host must wrap that layer or soft-open audio dies on close.
     const providers = src('components/providers/app-providers.tsx');
@@ -275,12 +274,12 @@ describe('Drop place openers', () => {
       /drop-sheet-panel\s*\)\s*\.portfolio-os-layer\s*>\s*\.portfolio-summon-dock/
     );
     // Writing / article Read faces keep dock while soft drop is up.
-    expect(
-      src('features/scarces/scarce-writing-read-sheet.tsx')
-    ).toContain('writePinned || threadOpen || dropSheetOpen');
-    expect(
-      src('components/portfolio/article-read-screen.tsx')
-    ).toContain('writePinned || threadOpen || dropSheetOpen');
+    expect(src('features/scarces/scarce-writing-read-sheet.tsx')).toContain(
+      'writePinned || threadOpen || dropSheetOpen'
+    );
+    expect(src('components/portfolio/article-read-screen.tsx')).toContain(
+      'writePinned || threadOpen || dropSheetOpen'
+    );
     // Medium / photo faces: quiet off while soft Drop owns the pill.
     expect(src('features/scarces/scarce-feed-medium-sheet.tsx')).toContain(
       '!threadOpen && !dropSheetOpen'
@@ -289,9 +288,7 @@ describe('Drop place openers', () => {
       '!threadOpen && !dropSheetOpen'
     );
     expect(layer).toContain("top?.kind === 'drop' && isOsMediaFaceOpen()");
-    expect(layer).toContain(
-      'Math.max(dock ?? SHEET_Z.launcher, rendered + 1)'
-    );
+    expect(layer).toContain('Math.max(dock ?? SHEET_Z.launcher, rendered + 1)');
     expect(layer).toContain('setOsDropSheetOpen');
     // Covered media faces must not clear dock via aboveDock (overlay stack).
     expect(src('../../onsocial-ui/src/overlay-stack.ts')).toContain(
@@ -306,7 +303,7 @@ describe('Drop place openers', () => {
     // Pop only in a dedicated unmount effect — not claim-effect cleanup
     // (that looped setState: pop → claim → pop).
     expect(src('contexts/compose-launcher-context.tsx')).toContain(
-      "return () => popCompose(DROP_SHEET_COMPOSE_ID)"
+      'return () => popCompose(DROP_SHEET_COMPOSE_ID)'
     );
     expect(src('contexts/compose-launcher-context.tsx')).toContain(
       'if (!current.some((row) => row.id === id)) return current'

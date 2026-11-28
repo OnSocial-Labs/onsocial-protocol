@@ -13,6 +13,7 @@ import {
 } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { APP_HOME_PATH } from '@/lib/app-routes';
+import { closePlaceLayerIfOpen } from '@/lib/place-history';
 import {
   EMPTY_OS_FACE_LEAVE_STATE,
   peekOsFaceLeaveHref,
@@ -204,6 +205,7 @@ export function useOsInAppPop(): () => boolean {
   const beginPop = useContext(OsFaceLeaveContext)?.beginPop;
 
   return useCallback(() => {
+    if (closePlaceLayerIfOpen()) return true;
     if (!beginPop?.()) return false;
     router.back();
     return true;

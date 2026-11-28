@@ -10,6 +10,7 @@ import {
   COLLECTION_E2E_VIEWER,
   collectionPageRoot,
   collectionPageSkeleton,
+  seedE2eWallet,
 } from './helpers/collection-page';
 import { setE2eGraphDrop } from './helpers/e2e-graph';
 import { e2eDropCollectionRow } from '../src/lib/e2e-graph-stubs';
@@ -264,7 +265,7 @@ async function expectMintLocksVisibleScroller(page: Page): Promise<void> {
 }
 
 /**
- * Home opens replace history, so browser Forward has nothing to restore.
+ * Home opens push a history entry, and Back pops it.
  * Re-tap proves the sheet opens again over the same feed scroll.
  */
 async function expectReopenFromFeed(page: Page): Promise<void> {
@@ -457,6 +458,10 @@ async function expectHardRefreshFinal(page: Page): Promise<void> {
     },
   ]);
   await setE2eGraphDrop(page, 'default');
+  // The hint cookie paints Open Collectibles only while the wallet is
+  // restoring. A throttled run settles signed-out before this assertion.
+  // Seed the same viewer so the link is the settled page, not that window.
+  await seedE2eWallet(page, COLLECTION_E2E_VIEWER);
   try {
     await gotoApp(page, '/collection/night-drive');
   } catch (error) {

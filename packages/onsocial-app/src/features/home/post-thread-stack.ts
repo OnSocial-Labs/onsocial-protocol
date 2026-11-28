@@ -120,10 +120,7 @@ export function appendTrailEntry<S extends unknown[], E>(
   return [parent, next];
 }
 
-/**
- * Header back walks one step: a reply, then quotes, then the post. Returns
- * null when one entry remains — the sheet itself should close.
- */
+/** Header back walks one step: a reply, then quotes, then the post. Browser Back uses the same step. Returns null when one entry remains — the sheet itself should close. */
 export function walkBackOneStep<S extends { kind: PlaceLayerKind }[]>(
   stack: S
 ): S | null {
@@ -132,12 +129,6 @@ export function walkBackOneStep<S extends { kind: PlaceLayerKind }[]>(
     return stack.slice(0, -1) as S;
   }
   return null;
-}
-
-/** Browser back on the reader entry drops the trail behind the top sheet. */
-export function collapseTrailToTop<T>(stack: T[]): T[] {
-  const top = stack[stack.length - 1];
-  return top ? [top] : stack;
 }
 
 /** A drop takes over the whole host — any reader trail unmounts. */
