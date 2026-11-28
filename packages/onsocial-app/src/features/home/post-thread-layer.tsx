@@ -413,6 +413,61 @@ function commitFirstPlaceLayer(canonical: string): void {
   pushPlaceLayer(canonical);
 }
 
+function readBootPlace(): {
+  stack: PlaceLayerTarget[];
+  underlay: string | null;
+} {
+  if (typeof window === 'undefined') return { stack: [], underlay: null };
+  let stamp = readPlaceReadStamp();
+  if (!stamp) {
+    const recalled = recallPlaceRead();
+    if (!recalled) return { stack: [], underlay: null };
+    stamp = recalled.stamp;
+    nativeHistoryReplaceState(
+      withPlaceLayerHistoryState(Math.max(readPlaceLayerDepth(), 1), stamp),
+      recalled.href
+    );
+  }
+  const href = `${window.location.pathname}${window.location.search}`;
+  const base = {
+    id: 'read-layer-boot',
+    kind: 'read' as const,
+    title: '',
+    cover: null,
+    tokenId: null,
+    creatorId: null,
+    readables: [] as ReadLayerTarget['readables'],
+    bookPdf: null,
+    writingFormat: null,
+    textAlign: null,
+    publishedAt: null,
+    sourcePostPath: null,
+    zIndex: nextStackedLayerZ([]),
+    openedAboveMediaFace: false,
+  };
+  const restored: ReadLayerTarget | null =
+    stamp.accountId && stamp.postId
+      ? {
+          ...base,
+          collectionId: '',
+          accountId: stamp.accountId,
+          feedPost: { accountId: stamp.accountId, postId: stamp.postId },
+          historyHref: href,
+        }
+      : stamp.collectionId
+        ? {
+            ...base,
+            collectionId: stamp.collectionId,
+            accountId: null,
+            feedPost: null,
+            historyHref: null,
+          }
+        : null;
+  if (!restored) return { stack: [], underlay: null };
+  getPlaceHistoryGuard().depth = readPlaceLayerDepth();
+  return { stack: [restored], underlay: window.location.pathname };
+}
+
 function commitTrailPlaceLayer(
   prev: readonly { id: string }[],
   next: readonly PlaceLayerTarget[],
@@ -974,12 +1029,21 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   );
   const seqRef = useRef(0);
   const stackRef = useRef(stack);
+  useLayoutEffect(() => {
+    const boot = readBootPlace();
+    if (boot.stack.length === 0) return;
+    stackRef.current = boot.stack;
+    underlayPathRef.current = boot.underlay;
+    /* eslint-disable react-hooks/set-state-in-effect -- the reloaded Read entry lives in history, not React */
+    setStack(boot.stack);
+    setUnderlayPath(boot.underlay);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
   const closingIdRef = useRef<string | null>(closingId);
   /** `history.back()` from a close whose popstate has not landed yet. */
   const closePopPendingRef = useRef(false);
   /** This Read close started from popstate. Do not pop history again. */
   const exitFromPopRef = useRef(false);
-  const restoredReadRef = useRef(false);
   /** Canonical of the layer that replaced a close, query included. */
   const overlayCanonicalRef = useRef<string | null>(null);
   useLayoutEffect(() => {
@@ -1021,7 +1085,6 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       getPlaceHistoryGuard().depth = 0;
     }
   }
-
   const mediaFaceCovered =
     stack.some((entry) => entry.id !== closingId) && isOsMediaFaceOpen();
 
@@ -1938,65 +2001,6 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   }, [beginCloseTop, releaseFeedReadHistory]);
 
   useLayoutEffect(() => {
-    if (restoredReadRef.current) return;
-    restoredReadRef.current = true;
-    if (typeof window === 'undefined' || stackRef.current.length > 0) return;
-    let stamp = readPlaceReadStamp();
-    if (!stamp) {
-      const recalled = recallPlaceRead();
-      if (!recalled) return;
-      stamp = recalled.stamp;
-      nativeHistoryReplaceState(
-        withPlaceLayerHistoryState(Math.max(readPlaceLayerDepth(), 1), stamp),
-        recalled.href
-      );
-    }
-    const href = `${window.location.pathname}${window.location.search}`;
-    const base = {
-      id: `read-layer-${++seqRef.current}`,
-      kind: 'read' as const,
-      title: '',
-      cover: null,
-      tokenId: null,
-      creatorId: null,
-      readables: [],
-      bookPdf: null,
-      writingFormat: null,
-      textAlign: null,
-      publishedAt: null,
-      sourcePostPath: null,
-      zIndex: nextStackedLayerZ([]),
-      openedAboveMediaFace: false,
-    };
-    const next: ReadLayerTarget | null =
-      stamp.accountId && stamp.postId
-        ? {
-            ...base,
-            collectionId: '',
-            accountId: stamp.accountId,
-            feedPost: { accountId: stamp.accountId, postId: stamp.postId },
-            historyHref: href,
-          }
-        : stamp.collectionId
-          ? {
-              ...base,
-              collectionId: stamp.collectionId,
-              accountId: null,
-              feedPost: null,
-              historyHref: null,
-            }
-          : null;
-    if (!next) return;
-    getPlaceHistoryGuard().depth = readPlaceLayerDepth();
-    if (underlayPathRef.current == null) {
-      underlayPathRef.current = pathname;
-      setUnderlayPath(pathname);
-    }
-    stackRef.current = [next];
-    setStack([next]);
-  }, [pathname]);
-
-  useLayoutEffect(() => {
     if (profileHop || stack.length === 0 || pathname !== underlayPath) return;
     if (typeof window === 'undefined' || historyHasPlaceLayer()) return;
     let depth = 0;
@@ -2006,15 +2010,15 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     }
   }, [pathname, profileHop, stack, underlayPath]);
 
-  const topForFeed = stack[stack.length - 1] ?? null;
-  const feedRead =
-    topForFeed?.kind === 'read' && topForFeed.feedPost
-      ? {
-          accountId: topForFeed.feedPost.accountId,
-          postId: topForFeed.feedPost.postId,
-          open: topForFeed.id !== closingId,
-        }
-      : null;
+  const feedRead = useMemo(() => {
+    const top = stack[stack.length - 1];
+    if (top?.kind !== 'read' || !top.feedPost) return null;
+    return {
+      accountId: top.feedPost.accountId,
+      postId: top.feedPost.postId,
+      open: top.id !== closingId,
+    };
+  }, [closingId, stack]);
   const value = useMemo(
     () => ({
       openPostThread,
