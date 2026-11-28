@@ -258,7 +258,8 @@ const PLACE_LAYER_DOCK_ID = 'place-layer-dock';
 function useClaimNamedDockBack(
   id: string,
   active: boolean,
-  entry: DockBackRegistration | null
+  entry: DockBackRegistration | null,
+  claimWhileActive = true
 ) {
   const context = useContext(DockChromeContext);
   const claimDockBack = context?.claimDockBack;
@@ -279,6 +280,11 @@ function useClaimNamedDockBack(
       popDockBack(id);
       return;
     }
+    const becomingActive = !wasActiveRef.current;
+    // A place screen claims once, when it opens. Re-claiming every render
+    // outranks an overlay that registered afterwards. A drop keeps claiming
+    // so a page that remounts under the sheet (desktop Market) cannot steal Back.
+    if (!claimWhileActive && !becomingActive) return;
     claimDockBack({
       id,
       entry: {
@@ -291,7 +297,7 @@ function useClaimNamedDockBack(
     });
     // Reply drawer already had Back — false→true on dockBack never fires.
     // Soft drop from nested replies still needs one reveal of a tucked pill.
-    if (!wasActiveRef.current) {
+    if (becomingActive) {
       wasActiveRef.current = true;
       requestDockReveal?.();
     }
@@ -317,7 +323,7 @@ export function useClaimPlaceLayerDockBack(
   active: boolean,
   entry: DockBackRegistration | null
 ) {
-  useClaimNamedDockBack(PLACE_LAYER_DOCK_ID, active, entry);
+  useClaimNamedDockBack(PLACE_LAYER_DOCK_ID, active, entry, false);
 }
 
 /**

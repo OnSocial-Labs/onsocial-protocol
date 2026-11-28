@@ -191,6 +191,194 @@ describe('in-flight history rewrite', () => {
     vi.unstubAllGlobals();
     vi.resetModules();
   });
+
+  it('issues the rest of a longer jump after the shorter one lands', async () => {
+    vi.resetModules();
+    const go = vi.fn();
+    const protoPush = vi.fn();
+    const protoReplace = vi.fn();
+    const listeners: EventListener[] = [];
+    vi.stubGlobal('History', {
+      prototype: { pushState: protoPush, replaceState: protoReplace },
+    });
+    vi.stubGlobal('window', {
+      location: { pathname: '/@b.near/posts/2', search: '' },
+      history: {
+        state: {
+          __NA: true,
+          onsocialPostLayer: true,
+          onsocialPostLayerDepth: 2,
+        },
+        go,
+        back: vi.fn(),
+        pushState: vi.fn(),
+        replaceState: vi.fn(),
+      },
+      addEventListener: (type: string, listener: EventListener) => {
+        if (type === 'popstate') listeners.push(listener);
+      },
+    });
+
+    const { alignPlaceHistory, getPlaceHistoryGuard, slidePlaceHistory } =
+      await import('@/lib/place-history');
+    const guard = getPlaceHistoryGuard();
+    guard.depth = 2;
+    slidePlaceHistory('/post-a', '/post-c');
+    alignPlaceHistory(0, '/home');
+
+    expect(go.mock.calls).toEqual([[-1]]);
+    expect(protoPush).not.toHaveBeenCalled();
+    expect(protoReplace).not.toHaveBeenCalled();
+
+    listeners[0]?.(new Event('popstate'));
+    expect(go.mock.calls).toEqual([[-1], [-1]]);
+    expect(protoPush).not.toHaveBeenCalled();
+    expect(protoReplace).not.toHaveBeenCalled();
+
+    listeners[0]?.(new Event('popstate'));
+    expect(go).toHaveBeenCalledTimes(2);
+    expect(guard.depth).toBe(0);
+    expect(guard.suppressPops).toBe(0);
+    expect(protoPush).not.toHaveBeenCalled();
+    expect(protoReplace).not.toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  it('queues a push until the longer jump lands', async () => {
+    vi.resetModules();
+    const go = vi.fn();
+    const protoPush = vi.fn();
+    const protoReplace = vi.fn();
+    const listeners: EventListener[] = [];
+    vi.stubGlobal('History', {
+      prototype: { pushState: protoPush, replaceState: protoReplace },
+    });
+    vi.stubGlobal('window', {
+      location: { pathname: '/@b.near/posts/2', search: '' },
+      history: {
+        state: {
+          __NA: true,
+          onsocialPostLayer: true,
+          onsocialPostLayerDepth: 2,
+        },
+        go,
+        back: vi.fn(),
+        pushState: vi.fn(),
+        replaceState: vi.fn(),
+      },
+      addEventListener: (type: string, listener: EventListener) => {
+        if (type === 'popstate') listeners.push(listener);
+      },
+    });
+
+    const {
+      alignPlaceHistory,
+      getPlaceHistoryGuard,
+      pushPlaceLayer,
+      slidePlaceHistory,
+    } = await import('@/lib/place-history');
+    const guard = getPlaceHistoryGuard();
+    guard.depth = 2;
+    slidePlaceHistory('/post-a', '/post-c');
+    pushPlaceLayer('/post-new');
+    alignPlaceHistory(0, '/home');
+
+    expect(protoPush).not.toHaveBeenCalled();
+    listeners[0]?.(new Event('popstate'));
+    expect(protoPush).not.toHaveBeenCalled();
+    expect(go.mock.calls).toEqual([[-1], [-1]]);
+
+    listeners[0]?.(new Event('popstate'));
+    expect(protoPush).toHaveBeenCalledTimes(1);
+    expect(protoPush.mock.calls[0]?.[2]).toBe('/post-new');
+    expect(
+      (protoPush.mock.calls[0]?.[0] as { onsocialPostLayerDepth?: number })
+        .onsocialPostLayerDepth
+    ).toBe(1);
+    expect(guard.depth).toBe(1);
+    expect(guard.suppressPops).toBe(0);
+
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  it('queues a replace until the in-flight jump lands', async () => {
+    vi.resetModules();
+    const order: string[] = [];
+    const protoPush = vi.fn(() => {
+      order.push('push');
+    });
+    const protoReplace = vi.fn(
+      (
+        state: { onsocialPostLayerDepth?: number },
+        _title: string,
+        url: string
+      ) => {
+        order.push(`replace:${url}:${state.onsocialPostLayerDepth}`);
+      }
+    );
+    const listeners: EventListener[] = [];
+    vi.stubGlobal('History', {
+      prototype: { pushState: protoPush, replaceState: protoReplace },
+    });
+    vi.stubGlobal('window', {
+      location: { pathname: '/@b.near/posts/2', search: '' },
+      history: {
+        state: {
+          __NA: true,
+          onsocialPostLayer: true,
+          onsocialPostLayerDepth: 2,
+        },
+        go: vi.fn(),
+        back: vi.fn(),
+        pushState: vi.fn(),
+        replaceState: vi.fn(),
+      },
+      addEventListener: (type: string, listener: EventListener) => {
+        if (type === 'popstate') listeners.push(listener);
+      },
+    });
+
+    const { alignPlaceHistory, getPlaceHistoryGuard, replacePlaceLayer } =
+      await import('@/lib/place-history');
+    const guard = getPlaceHistoryGuard();
+    guard.depth = 2;
+    alignPlaceHistory(1, '/post-a');
+    replacePlaceLayer('/post-b');
+    expect(order).toEqual([]);
+
+    listeners[0]?.(new Event('popstate'));
+    expect(order).toEqual(['replace:/post-a:1', 'replace:/post-b:1']);
+    expect(protoPush).not.toHaveBeenCalled();
+    expect(guard.depth).toBe(1);
+
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+});
+
+describe('in-app place back', () => {
+  it('follows closeTop instead of history depth', async () => {
+    vi.resetModules();
+    vi.stubGlobal('window', {
+      history: { state: null },
+      addEventListener: vi.fn(),
+    });
+    const { closePlaceLayerIfOpen, getPlaceHistoryGuard } = await import(
+      '@/lib/place-history'
+    );
+    const guard = getPlaceHistoryGuard();
+    guard.depth = 3;
+    guard.closeTop = () => false;
+    expect(closePlaceLayerIfOpen()).toBe(false);
+    guard.depth = 0;
+    guard.closeTop = () => true;
+    expect(closePlaceLayerIfOpen()).toBe(true);
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
 });
 
 describe('native place push bypasses patched history', () => {

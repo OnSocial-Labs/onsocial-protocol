@@ -995,19 +995,18 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     if (current.length > 1 && top && isReaderLayerKind(top.kind)) {
       if (guard && guard.depth > 1 && historyHasPlaceLayer()) {
         window.history.back();
-        return;
+        return true;
       }
       const walked = walkBackOneStep(current);
-      if (walked) {
-        const prev = walked[walked.length - 1];
-        stackRef.current = walked;
-        setStack(walked);
-        if (prev && guard) replacePlaceLayer(placeLayerHref(prev));
-      }
-      return;
+      if (!walked) return false;
+      const prev = walked[walked.length - 1];
+      stackRef.current = walked;
+      setStack(walked);
+      if (prev && guard) replacePlaceLayer(placeLayerHref(prev));
+      return true;
     }
-    if (!beginCloseTop()) return;
-    if (!guard) return;
+    if (!beginCloseTop()) return false;
+    if (!guard) return true;
     const underlay = underlayPathRef.current ?? '/home';
     const back = beginHistoryBack({
       depth: guard.depth,
@@ -1016,10 +1015,11 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     if (back.back) {
       closePopPendingRef.current = back.armPending;
       window.history.back();
-      return;
+      return true;
     }
     nativeHistoryReplaceState(withoutPlaceLayerHistoryState(), underlay);
     guard.depth = 0;
+    return true;
   }, [beginCloseTop]);
 
   const publishClosingHistory = useCallback(
@@ -1494,7 +1494,12 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     if (typeof window === 'undefined') return;
     const guard = getPlaceHistoryGuard();
     guard.closeTop = () => {
-      closePostThread();
+      let openCount = 0;
+      for (const entry of stackRef.current) {
+        if (entry.id !== closingIdRef.current) openCount += 1;
+      }
+      if (openCount === 0) return false;
+      return closePostThread();
     };
     guard.onPop = () => {
       const pendingClosePop = closePopPendingRef.current;
@@ -1522,8 +1527,11 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         return;
       }
       const top = stackRef.current[stackRef.current.length - 1];
+      if (!top) {
+        guard.depth = 0;
+        return;
+      }
       guard.depth = readPlaceLayerDepth();
-      if (!top) return;
       // One Back, one screen. The parked parent stays.
       if (stackRef.current.length > 1 && isReaderLayerKind(top.kind)) {
         const walked = walkBackOneStep(stackRef.current);
@@ -1550,6 +1558,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       const saved = underlayScrollRef.current;
       underlayScrollRef.current = null;
       if (saved) restoreUnderlayScroll(saved);
+      if (typeof window !== 'undefined') getPlaceHistoryGuard().depth = 0;
     }
   }, []);
 

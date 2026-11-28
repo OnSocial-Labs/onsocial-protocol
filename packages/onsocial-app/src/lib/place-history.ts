@@ -15,11 +15,23 @@ export type PlaceHistoryGuard = {
   /** Overlay entries above the underlay. 0 means this popstate is not ours. */
   depth: number;
   onPop: () => void;
-  /** Dock / in-app Back while a place screen is open. */
-  closeTop: () => void;
+  /**
+   * Dock / in-app Back. False when no screen is open or this call closed nothing,
+   * so the caller can still leave the page.
+   */
+  closeTop: () => boolean;
   /** Next popstate rewrites history. It is not a user Back. */
   suppressPops: number;
-  afterSuppress: (() => void) | null;
+  /** `history.go` already sent for this jump and not yet popped. */
+  issuedDelta: number;
+  /** How far this jump has already moved. Callers still see the start depth. */
+  consumedDelta: number;
+  /** Latest requested move from the depth where this jump started. */
+  wantedDelta: number;
+  /** Runs once `wantedDelta` has landed. A newer rewrite replaces it. */
+  afterJump: (() => void) | null;
+  /** push/replace that arrived while a jump was in flight. */
+  writesAfterJump: Array<() => void>;
 };
 
 type GuardWindow = Window & {
@@ -33,9 +45,13 @@ export function getPlaceHistoryGuard(): PlaceHistoryGuard {
     guard = {
       depth: 0,
       onPop: () => {},
-      closeTop: () => {},
+      closeTop: () => false,
       suppressPops: 0,
-      afterSuppress: null,
+      issuedDelta: 0,
+      consumedDelta: 0,
+      wantedDelta: 0,
+      afterJump: null,
+      writesAfterJump: [],
     };
     w[PLACE_LAYER_GUARD_KEY] = guard;
     window.addEventListener(
@@ -45,11 +61,7 @@ export function getPlaceHistoryGuard(): PlaceHistoryGuard {
           event.stopImmediatePropagation();
           event.stopPropagation();
           guard!.suppressPops -= 1;
-          if (guard!.suppressPops === 0) {
-            const done = guard!.afterSuppress;
-            guard!.afterSuppress = null;
-            done?.();
-          }
+          if (guard!.suppressPops === 0) settlePlaceHistoryPop(guard!);
           return;
         }
         if (guard!.depth <= 0) return;
@@ -63,13 +75,10 @@ export function getPlaceHistoryGuard(): PlaceHistoryGuard {
   return guard;
 }
 
-/** In-app Back closes the place screen when one is open. Otherwise the caller decides. */
+/** In-app Back closes one open place screen. False when nothing was open or closed. */
 export function closePlaceLayerIfOpen(): boolean {
   if (typeof window === 'undefined') return false;
-  const guard = getPlaceHistoryGuard();
-  if (guard.depth <= 0) return false;
-  guard.closeTop();
-  return true;
+  return getPlaceHistoryGuard().closeTop();
 }
 
 export function nativeHistoryPushState(state: object, url: string): void {
@@ -141,7 +150,15 @@ export function placeHistoryOpForTrail(input: {
   return 'replace';
 }
 
+function deferPlaceWrite(run: () => void): boolean {
+  const guard = getPlaceHistoryGuard();
+  if (guard.suppressPops <= 0) return false;
+  guard.writesAfterJump.push(run);
+  return true;
+}
+
 export function pushPlaceLayer(href: string): void {
+  if (deferPlaceWrite(() => pushPlaceLayer(href))) return;
   const guard = getPlaceHistoryGuard();
   const next = guard.depth + 1;
   nativeHistoryPushState(withPlaceLayerHistoryState(next), href);
@@ -149,6 +166,7 @@ export function pushPlaceLayer(href: string): void {
 }
 
 export function replacePlaceLayer(href: string): void {
+  if (deferPlaceWrite(() => replacePlaceLayer(href))) return;
   const guard = getPlaceHistoryGuard();
   if (guard.depth <= 0) {
     pushPlaceLayer(href);
@@ -161,17 +179,59 @@ export function replacePlaceLayer(href: string): void {
 }
 
 /**
- * One in-flight `history.go`. A second rewrite before that pop lands
- * replaces the apply step and does not move again — two goes from the
- * same entry would walk past the underlay and leave the next Back swallowed.
+ * Finish a jump, then run push/replace that waited for the landing entry.
+ * If `apply` starts another jump, those writes wait for that one too.
  */
-export function schedulePlaceHistoryGo(
-  delta: number,
-  apply: () => void
-): void {
+function finishPlaceHistoryJump(guard: PlaceHistoryGuard): void {
+  const apply = guard.afterJump;
+  const queued = guard.writesAfterJump.splice(0);
+  guard.afterJump = null;
+  guard.wantedDelta = 0;
+  guard.consumedDelta = 0;
+  guard.issuedDelta = 0;
+  apply?.();
+  if (guard.suppressPops > 0) {
+    guard.writesAfterJump.push(...queued);
+    return;
+  }
+  for (const run of queued) run();
+}
+
+/** One pop of an in-flight `history.go`. Issue whatever distance is still owed. */
+function settlePlaceHistoryPop(guard: PlaceHistoryGuard): void {
+  guard.consumedDelta += guard.issuedDelta;
+  guard.issuedDelta = 0;
+  const rest = guard.wantedDelta - guard.consumedDelta;
+  const continueJump =
+    rest !== 0 &&
+    Math.sign(rest) === Math.sign(guard.wantedDelta) &&
+    Math.abs(guard.consumedDelta) < Math.abs(guard.wantedDelta);
+  if (continueJump) {
+    guard.issuedDelta = rest;
+    guard.suppressPops = 1;
+    window.history.go(rest);
+    return;
+  }
+  finishPlaceHistoryJump(guard);
+}
+
+/**
+ * One in-flight `history.go`. A later rewrite replaces the apply step.
+ * A longer jump in the same direction is issued when this pop lands —
+ * a second `go` from the same entry would walk past the underlay.
+ * push/replace wait until the full jump has landed so they label that entry.
+ */
+export function schedulePlaceHistoryGo(delta: number, apply: () => void): void {
   const guard = getPlaceHistoryGuard();
-  guard.afterSuppress = apply;
+  guard.afterJump = apply;
+  guard.wantedDelta = delta;
   if (guard.suppressPops > 0) return;
+  if (delta === 0) {
+    finishPlaceHistoryJump(guard);
+    return;
+  }
+  guard.consumedDelta = 0;
+  guard.issuedDelta = delta;
   guard.suppressPops = 1;
   window.history.go(delta);
 }
